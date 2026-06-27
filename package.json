@@ -1,0 +1,13 @@
+{
+  "name": "ladino-video-studio",
+  "version": "1.0.0",
+  "description": "Ladino: a free browser-based video editor concept with auto subtitles, effects, transitions, and InShot-style tools.",
+  "main": "src/main.js",
+  "scripts": {
+    "test": "node --check src/main.js",
+    "start": "python3 -m http.server 4173"
+  },
+  "keywords": ["video-editor", "subtitles", "effects", "ladino"],
+  "author": "",
+  "license": "MIT"
+}
