@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لادینو | تدوین ویدیو رایگان</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero__content">
+          <p class="eyebrow">استودیوی ویدیویی لادینو</p>
+          <h1 id="hero-title">لادینو؛ تدوین ویدیو با زیرنویس خودکار، افکت‌های خفن و ابزارهای کامل رایگان</h1>
+          <p class="hero__lead">یک نمونه وب‌اپ رایگان و فارسی برای ساخت ویدیوهای شبکه‌های اجتماعی با قابلیت‌های محبوب اینشات، قالب‌های زیرنویس، جلوه‌های سینمایی و خروجی سریع.</p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="#studio">شروع تدوین</a>
+            <a class="button button--ghost" href="#features">دیدن قابلیت‌ها</a>
+          </div>
+        </div>
+        <div class="phone-preview" aria-label="پیش‌نمایش ویرایشگر لادینو">
+          <div class="phone-preview__bar"></div>
+          <div class="video-card">
+            <span class="badge">زیرنویس خودکار</span>
+            <div class="play-orb">▶</div>
+            <p class="caption-line">زیرنویس خفن با هایلایت کلمات</p>
+          </div>
+          <div class="timeline">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="features" aria-labelledby="features-title">
+        <p class="eyebrow">همه‌چیز رایگان</p>
+        <h2 id="features-title">قابلیت‌های اصلی لادینو</h2>
+        <div class="feature-grid" id="featureGrid"></div>
+      </section>
+
+      <section id="studio" class="studio" aria-labelledby="studio-title">
+        <div>
+          <p class="eyebrow">نسخه نمایشی ابزار</p>
+          <h2 id="studio-title">سازنده زیرنویس و افکت</h2>
+          <p>متن سناریو را وارد کن تا لادینو آن را به چند زیرنویس زمان‌بندی‌شده تبدیل کند و یک استایل خفن به آن بدهد.</p>
+        </div>
+        <div class="editor-panel">
+          <label for="scriptInput">متن ویدیو</label>
+          <textarea id="scriptInput" rows="5">سلام! این ویدیو با لادینو ساخته شده؛ زیرنویس خودکار، افکت‌های جذاب و ابزارهای تدوین رایگان دارد.</textarea>
+          <div class="controls">
+            <label>استایل زیرنویس
+              <select id="captionStyle">
+                <option value="neon">نئون گیمینگ</option>
+                <option value="cinema">سینمایی طلایی</option>
+                <option value="minimal">مینیمال سفید</option>
+              </select>
+            </label>
+            <button class="button button--primary" id="generateBtn">ساخت زیرنویس</button>
+          </div>
+          <div class="caption-preview" id="captionPreview" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+    <script src="src/main.js"></script>
+  </body>
+</html>
