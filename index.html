@@ -3,49 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>لادینو | تدوین ویدیو رایگان</title>
+    <title>لادینو | تدوینگر ویدیوی رایگان</title>
     <link rel="stylesheet" href="src/styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero__content">
-          <p class="eyebrow">Ladino Video Studio</p>
-          <h1 id="hero-title">لادینو؛ تدوین ویدیو با زیرنویس خودکار، افکت‌های خفن و ابزارهای کامل رایگان</h1>
-          <p class="hero__lead">یک نمونه وب‌اپ رایگان و فارسی برای ساخت ویدیوهای شبکه‌های اجتماعی با قابلیت‌های محبوب اینشات، قالب‌های زیرنویس، جلوه‌های سینمایی و خروجی سریع.</p>
+          <p class="eyebrow">Ladino Free Video Editor</p>
+          <h1 id="hero-title">لادینو؛ بازسازی رایگان تجربه اینشات برای ساخت ویدیوهای خفن</h1>
+          <p class="hero__lead">همه ابزارهای ضروری تدوین، زیرنویس خودکار، افکت، ترنزیشن، استیکر، موسیقی و خروجی شبکه‌های اجتماعی در یک نمونه وب‌اپ فارسی و بدون پلن پولی.</p>
           <div class="hero__actions">
-            <a class="button button--primary" href="#studio">شروع تدوین</a>
-            <a class="button button--ghost" href="#features">دیدن قابلیت‌ها</a>
+            <a class="button button--primary" href="#studio">شروع تدوین رایگان</a>
+            <a class="button button--ghost" href="#free-tools">همه ابزارهای رایگان</a>
           </div>
+          <ul class="hero__stats" aria-label="مزیت‌های رایگان لادینو">
+            <li><strong>۰ تومان</strong><span>پرداخت درون‌برنامه‌ای</span></li>
+            <li><strong>بدون واترمارک</strong><span>برای خروجی نمایشی</span></li>
+            <li><strong>+۳۰ ابزار</strong><span>در دسترس همه</span></li>
+          </ul>
         </div>
         <div class="phone-preview" aria-label="پیش‌نمایش ویرایشگر لادینو">
           <div class="phone-preview__bar"></div>
           <div class="video-card">
-            <span class="badge">Auto Caption</span>
+            <span class="badge">FREE EXPORT</span>
+            <span class="floating-tool floating-tool--cut">✂ برش</span>
+            <span class="floating-tool floating-tool--fx">⚡ FX</span>
             <div class="play-orb">▶</div>
-            <p class="caption-line">زیرنویس خفن با هایلایت کلمات</p>
+            <p class="caption-line">لادینو همه قابلیت‌ها را رایگان می‌کند</p>
           </div>
-          <div class="timeline">
-            <span></span><span></span><span></span><span></span>
+          <div class="timeline" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
       </section>
 
-      <section id="features" class="features" aria-labelledby="features-title">
+      <section id="free-tools" class="features" aria-labelledby="features-title">
         <p class="eyebrow">همه‌چیز رایگان</p>
         <h2 id="features-title">قابلیت‌های اصلی لادینو</h2>
         <div class="feature-grid" id="featureGrid"></div>
       </section>
 
+      <section class="toolbox" aria-labelledby="toolbox-title">
+        <div>
+          <p class="eyebrow">ابزارهای شبیه اینشات</p>
+          <h2 id="toolbox-title">هر چیزی که برای تدوین موبایلی لازم داری</h2>
+          <p>پنل ابزار لادینو از اول برای تجربه سریع، فارسی و رایگان ساخته شده؛ هر ابزار با برچسب رایگان نمایش داده می‌شود.</p>
+        </div>
+        <div class="tool-pills" id="toolPills"></div>
+      </section>
+
       <section id="studio" class="studio" aria-labelledby="studio-title">
         <div>
           <p class="eyebrow">نسخه نمایشی ابزار</p>
-          <h2 id="studio-title">سازنده زیرنویس و افکت</h2>
-          <p>متن سناریو را وارد کن تا لادینو آن را به چند زیرنویس زمان‌بندی‌شده تبدیل کند و یک استایل خفن به آن بدهد.</p>
+          <h2 id="studio-title">سازنده زیرنویس و افکت رایگان</h2>
+          <p>متن سناریو را وارد کن تا لادینو آن را به زیرنویس زمان‌بندی‌شده تبدیل کند. بعد استایل، نسبت تصویر و افکت رایگان را انتخاب کن.</p>
         </div>
         <div class="editor-panel">
           <label for="scriptInput">متن ویدیو</label>
-          <textarea id="scriptInput" rows="5">سلام! این ویدیو با لادینو ساخته شده؛ زیرنویس خودکار، افکت‌های جذاب و ابزارهای تدوین رایگان دارد.</textarea>
+          <textarea id="scriptInput" rows="5">سلام! این ویدیو با لادینو ساخته شده؛ همه ابزارهای تدوین، زیرنویس خودکار، افکت و خروجی بدون واترمارک رایگان هستند.</textarea>
           <div class="controls">
             <label>استایل زیرنویس
               <select id="captionStyle">
@@ -54,8 +70,23 @@
                 <option value="minimal">مینیمال سفید</option>
               </select>
             </label>
-            <button class="button button--primary" id="generateBtn">ساخت زیرنویس</button>
+            <label>نسبت تصویر
+              <select id="aspectRatio">
+                <option value="9:16">ریلز / شورتز ۹:۱۶</option>
+                <option value="1:1">پست مربعی ۱:۱</option>
+                <option value="16:9">یوتیوب ۱۶:۹</option>
+              </select>
+            </label>
+            <label>افکت رایگان
+              <select id="effectStyle">
+                <option value="glow">درخشش</option>
+                <option value="glitch">گلیچ</option>
+                <option value="warm">سینمایی گرم</option>
+              </select>
+            </label>
+            <button class="button button--primary" id="generateBtn">ساخت خروجی رایگان</button>
           </div>
+          <div class="export-summary" id="exportSummary"></div>
           <div class="caption-preview" id="captionPreview" aria-live="polite"></div>
         </div>
       </section>

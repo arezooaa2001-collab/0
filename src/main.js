@@ -1,41 +1,47 @@
 const features = [
   {
     title: 'زیرنویس خودکار فارسی',
-    text: 'تبدیل گفتار یا متن سناریو به کپشن‌های کوتاه، خوانا و آماده انتشار.',
+    text: 'تبدیل متن سناریو به کپشن‌های زمان‌بندی‌شده، کوتاه، خوانا و آماده انتشار بدون پرداخت.',
     icon: '字幕',
   },
   {
-    title: 'زیرنویس‌های خفن',
-    text: 'استایل نئون، سینمایی، تایپ‌writer، هایلایت کلمات و انیمیشن ضرب‌آهنگ.',
+    title: 'استایل‌های حرفه‌ای رایگان',
+    text: 'نئون، سینمایی، مینیمال، هایلایت کلمات و ظاهر مناسب ریلز و شورتز بدون قفل پریمیوم.',
     icon: '✨',
   },
   {
-    title: 'افکت و جلوه حرفه‌ای',
-    text: 'گلیچ، لرزش، بلوم، فریزفریم، اسلوموشن، ترنزیشن و فیلترهای رنگی.',
+    title: 'افکت و جلوه کامل',
+    text: 'گلیچ، درخشش، لرزش، بلوم، فریزفریم، اسلوموشن، ترنزیشن و فیلترهای رنگی رایگان.',
     icon: '⚡',
   },
   {
-    title: 'ابزارهای شبیه اینشات',
+    title: 'ابزارهای تدوین موبایلی',
     text: 'برش، کراپ، سرعت، موسیقی، استیکر، متن، بک‌گراند، نسبت تصویر و خروجی شبکه اجتماعی.',
     icon: '🎬',
   },
   {
-    title: 'قالب‌های آماده',
-    text: 'قالب ریلز، شورتز، ولاگ، آموزشی، تبلیغاتی و کپشن‌های ترند.',
+    title: 'قالب‌های آماده محتوا',
+    text: 'قالب ریلز، شورتز، ولاگ، آموزشی، تبلیغاتی و کپشن‌های ترند برای شروع سریع‌تر.',
     icon: '🧩',
   },
   {
-    title: 'رایگان و سریع',
-    text: 'هسته محصول بدون پرداخت طراحی شده و برای اجرا در مرورگر سبک است.',
+    title: 'بدون واترمارک نمایشی',
+    text: 'در لادینو هیچ ابزار اصلی پشت پرداخت نیست و خروجی نمونه با پیام رایگان آماده می‌شود.',
     icon: '🆓',
   },
 ];
 
+const tools = ['برش', 'تقسیم کلیپ', 'کراپ', 'چرخش', 'سرعت', 'موسیقی', 'ضبط صدا', 'متن', 'استیکر', 'فیلتر', 'ترنزیشن', 'حذف پس‌زمینه', 'نسبت تصویر', 'خروجی HD'];
+
 const featureGrid = document.querySelector('#featureGrid');
+const toolPills = document.querySelector('#toolPills');
 const scriptInput = document.querySelector('#scriptInput');
 const captionStyle = document.querySelector('#captionStyle');
+const aspectRatio = document.querySelector('#aspectRatio');
+const effectStyle = document.querySelector('#effectStyle');
 const generateBtn = document.querySelector('#generateBtn');
 const captionPreview = document.querySelector('#captionPreview');
+const exportSummary = document.querySelector('#exportSummary');
 
 function renderFeatures() {
   featureGrid.innerHTML = features
@@ -45,9 +51,16 @@ function renderFeatures() {
           <span class="feature-card__icon">${feature.icon}</span>
           <h3>${feature.title}</h3>
           <p>${feature.text}</p>
+          <span class="free-tag">رایگان</span>
         </article>
       `,
     )
+    .join('');
+}
+
+function renderTools() {
+  toolPills.innerHTML = tools
+    .map((tool) => `<span class="tool-pill">${tool}<small>Free</small></span>`)
     .join('');
 }
 
@@ -65,7 +78,14 @@ function splitIntoCaptions(text) {
 
 function renderCaptions() {
   const captions = splitIntoCaptions(scriptInput.value);
-  captionPreview.className = `caption-preview caption-preview--${captionStyle.value}`;
+  captionPreview.className = `caption-preview caption-preview--${captionStyle.value} caption-preview--${effectStyle.value}`;
+  exportSummary.innerHTML = `
+    <strong>پکیج خروجی لادینو:</strong>
+    <span>${aspectRatio.value}</span>
+    <span>${captionStyle.options[captionStyle.selectedIndex].text}</span>
+    <span>${effectStyle.options[effectStyle.selectedIndex].text}</span>
+    <span>رایگان و بدون واترمارک</span>
+  `;
   captionPreview.innerHTML = captions.length
     ? captions
         .map(
@@ -77,10 +97,13 @@ function renderCaptions() {
           `,
         )
         .join('')
-    : '<p>برای ساخت زیرنویس، متن ویدیو را وارد کن.</p>';
+    : '<p>برای ساخت زیرنویس رایگان، متن ویدیو را وارد کن.</p>';
 }
 
 renderFeatures();
+renderTools();
 renderCaptions();
 generateBtn.addEventListener('click', renderCaptions);
 captionStyle.addEventListener('change', renderCaptions);
+aspectRatio.addEventListener('change', renderCaptions);
+effectStyle.addEventListener('change', renderCaptions);
