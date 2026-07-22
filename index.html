@@ -3,91 +3,156 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>لادینو | تدوینگر ویدیوی رایگان</title>
+    <title>لادینو | استودیوی پیشرفته تدوین ویدیو</title>
     <link rel="stylesheet" href="src/styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero__content">
-          <p class="eyebrow">Ladino Free Video Editor</p>
-          <h1 id="hero-title">لادینو؛ بازسازی رایگان تجربه اینشات برای ساخت ویدیوهای خفن</h1>
-          <p class="hero__lead">همه ابزارهای ضروری تدوین، زیرنویس خودکار، افکت، ترنزیشن، استیکر، موسیقی و خروجی شبکه‌های اجتماعی در یک نمونه وب‌اپ فارسی و بدون پلن پولی.</p>
+          <p class="eyebrow">Ladino Advanced Video Studio</p>
+          <h1 id="hero-title">یک استودیوی تدوین ویدیوی حرفه‌ای، فارسی و آماده تولید محتوا</h1>
+          <p class="hero__lead">لادینو حالا یک داشبورد کامل تدوین دارد: تایم‌لاین چندلایه، میکسر صدا، کالرگریدینگ، زیرنویس هوشمند، افکت‌های سینمایی، شبیه‌ساز خروجی و چک‌لیست انتشار.</p>
           <div class="hero__actions">
-            <a class="button button--primary" href="#studio">شروع تدوین رایگان</a>
-            <a class="button button--ghost" href="#free-tools">همه ابزارهای رایگان</a>
+            <a class="button button--primary" href="#studio">ورود به استودیو</a>
+            <a class="button button--ghost" href="#ai-suite">ابزارهای هوشمند</a>
           </div>
-          <ul class="hero__stats" aria-label="مزیت‌های رایگان لادینو">
-            <li><strong>۰ تومان</strong><span>پرداخت درون‌برنامه‌ای</span></li>
-            <li><strong>بدون واترمارک</strong><span>برای خروجی نمایشی</span></li>
-            <li><strong>+۳۰ ابزار</strong><span>در دسترس همه</span></li>
+          <ul class="hero__stats" aria-label="امکانات حرفه‌ای لادینو">
+            <li><strong>۸ ترک</strong><span>ویدیو، صدا، متن و افکت</span></li>
+            <li><strong>4K / HDR</strong><span>پروفایل خروجی نمایشی</span></li>
+            <li><strong>+۶۰ ابزار</strong><span>برای تدوین شبکه اجتماعی</span></li>
           </ul>
         </div>
         <div class="phone-preview" aria-label="پیش‌نمایش ویرایشگر لادینو">
           <div class="phone-preview__bar"></div>
-          <div class="video-card">
-            <span class="badge">FREE EXPORT</span>
-            <span class="floating-tool floating-tool--cut">✂ برش</span>
-            <span class="floating-tool floating-tool--fx">⚡ FX</span>
+          <div class="video-card" id="heroPreview">
+            <span class="badge">LIVE PREVIEW</span>
+            <span class="floating-tool floating-tool--cut">✂ Ripple Cut</span>
+            <span class="floating-tool floating-tool--fx">⚡ LUT + FX</span>
             <div class="play-orb">▶</div>
-            <p class="caption-line">لادینو همه قابلیت‌ها را رایگان می‌کند</p>
+            <p class="caption-line">لادینو؛ تدوین حرفه‌ای بدون پیچیدگی</p>
           </div>
-          <div class="timeline" aria-hidden="true">
+          <div class="timeline mini-timeline" aria-hidden="true">
             <span></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
       </section>
 
-      <section id="free-tools" class="features" aria-labelledby="features-title">
-        <p class="eyebrow">همه‌چیز رایگان</p>
-        <h2 id="features-title">قابلیت‌های اصلی لادینو</h2>
+      <section id="ai-suite" class="features" aria-labelledby="features-title">
+        <p class="eyebrow">AI + Pro Tools</p>
+        <h2 id="features-title">قابلیت‌های اصلی استودیو</h2>
         <div class="feature-grid" id="featureGrid"></div>
       </section>
 
       <section class="toolbox" aria-labelledby="toolbox-title">
         <div>
-          <p class="eyebrow">ابزارهای شبیه اینشات</p>
-          <h2 id="toolbox-title">هر چیزی که برای تدوین موبایلی لازم داری</h2>
-          <p>پنل ابزار لادینو از اول برای تجربه سریع، فارسی و رایگان ساخته شده؛ هر ابزار با برچسب رایگان نمایش داده می‌شود.</p>
+          <p class="eyebrow">جعبه ابزار پیشرفته</p>
+          <h2 id="toolbox-title">از اصلاح رنگ تا مسترینگ صدا</h2>
+          <p>همه ابزارها به شکل ماژول‌های قابل انتخاب نمایش داده می‌شوند و با تغییر هر گزینه، پیش‌نمایش، تایم‌لاین و خلاصه خروجی به‌روز می‌شود.</p>
         </div>
         <div class="tool-pills" id="toolPills"></div>
       </section>
 
-      <section id="studio" class="studio" aria-labelledby="studio-title">
-        <div>
-          <p class="eyebrow">نسخه نمایشی ابزار</p>
-          <h2 id="studio-title">سازنده زیرنویس و افکت رایگان</h2>
-          <p>متن سناریو را وارد کن تا لادینو آن را به زیرنویس زمان‌بندی‌شده تبدیل کند. بعد استایل، نسبت تصویر و افکت رایگان را انتخاب کن.</p>
+      <section id="studio" class="studio studio--wide" aria-labelledby="studio-title">
+        <div class="studio__intro">
+          <p class="eyebrow">Advanced Edit Console</p>
+          <h2 id="studio-title">کنسول تدوین چندلایه</h2>
+          <p>سناریو، سبک تدوین، LUT، افکت، نسبت تصویر و هدف انتشار را انتخاب کن تا لادینو یک پروژه کامل شامل زیرنویس، ترک‌ها، رنگ، صدا و خروجی پیشنهادی بسازد.</p>
         </div>
-        <div class="editor-panel">
-          <label for="scriptInput">متن ویدیو</label>
-          <textarea id="scriptInput" rows="5">سلام! این ویدیو با لادینو ساخته شده؛ همه ابزارهای تدوین، زیرنویس خودکار، افکت و خروجی بدون واترمارک رایگان هستند.</textarea>
-          <div class="controls">
-            <label>استایل زیرنویس
-              <select id="captionStyle">
-                <option value="neon">نئون گیمینگ</option>
-                <option value="cinema">سینمایی طلایی</option>
-                <option value="minimal">مینیمال سفید</option>
-              </select>
-            </label>
-            <label>نسبت تصویر
-              <select id="aspectRatio">
-                <option value="9:16">ریلز / شورتز ۹:۱۶</option>
-                <option value="1:1">پست مربعی ۱:۱</option>
-                <option value="16:9">یوتیوب ۱۶:۹</option>
-              </select>
-            </label>
-            <label>افکت رایگان
-              <select id="effectStyle">
-                <option value="glow">درخشش</option>
-                <option value="glitch">گلیچ</option>
-                <option value="warm">سینمایی گرم</option>
-              </select>
-            </label>
-            <button class="button button--primary" id="generateBtn">ساخت خروجی رایگان</button>
+
+        <div class="editor-workspace">
+          <aside class="asset-bin" aria-label="کتابخانه پروژه">
+            <h3>کتابخانه پروژه</h3>
+            <div id="assetList" class="asset-list"></div>
+          </aside>
+
+          <section class="preview-stage" aria-label="پیش‌نمایش ویدیو">
+            <div class="monitor" id="monitor">
+              <span class="monitor__safe">SAFE AREA</span>
+              <div class="monitor__subject"></div>
+              <div class="monitor__wave"></div>
+              <p class="monitor__caption" id="monitorCaption">متن ویدیو را وارد کن و خروجی حرفه‌ای بساز</p>
+            </div>
+            <div class="transport">
+              <button class="icon-button" id="playBtn" aria-label="پخش یا توقف">▶</button>
+              <span id="timecode">00:00:00</span>
+              <div class="meter"><span id="audioMeter"></span></div>
+              <strong id="renderQuality">4K HDR</strong>
+            </div>
+          </section>
+
+          <section class="editor-panel">
+            <label for="scriptInput">متن ویدیو / سناریو</label>
+            <textarea id="scriptInput" rows="6">سلام! این پروژه با لادینو ساخته شده؛ یک استودیوی تدوین پیشرفته با تایم‌لاین چندلایه، اصلاح رنگ، میکس صدا، زیرنویس هوشمند و خروجی آماده انتشار.</textarea>
+            <div class="controls controls--grid">
+              <label>استایل زیرنویس
+                <select id="captionStyle">
+                  <option value="neon">نئون گیمینگ</option>
+                  <option value="cinema">سینمایی طلایی</option>
+                  <option value="minimal">مینیمال سفید</option>
+                  <option value="karaoke">هایلایت کلمه‌ای</option>
+                </select>
+              </label>
+              <label>نسبت تصویر
+                <select id="aspectRatio">
+                  <option value="9:16">ریلز / شورتز ۹:۱۶</option>
+                  <option value="1:1">پست مربعی ۱:۱</option>
+                  <option value="16:9">یوتیوب ۱۶:۹</option>
+                  <option value="21:9">سینمایی ۲۱:۹</option>
+                </select>
+              </label>
+              <label>افکت تصویر
+                <select id="effectStyle">
+                  <option value="glow">درخشش</option>
+                  <option value="glitch">گلیچ</option>
+                  <option value="warm">سینمایی گرم</option>
+                  <option value="noir">نوآر پرکنتراست</option>
+                </select>
+              </label>
+              <label>LUT رنگ
+                <select id="colorGrade">
+                  <option value="teal">Teal & Orange</option>
+                  <option value="film">Film Matte</option>
+                  <option value="vivid">Vivid Social</option>
+                  <option value="mono">Monochrome</option>
+                </select>
+              </label>
+              <label>مستر صدا
+                <select id="audioPreset">
+                  <option value="podcast">Podcast Clean</option>
+                  <option value="cinematic">Cinematic Boom</option>
+                  <option value="music">Music Ducking</option>
+                  <option value="silent">Silent Captions</option>
+                </select>
+              </label>
+              <label>خروجی هدف
+                <select id="exportPreset">
+                  <option value="reels">Instagram Reels</option>
+                  <option value="shorts">YouTube Shorts</option>
+                  <option value="youtube">YouTube 4K</option>
+                  <option value="course">Course Lesson</option>
+                </select>
+              </label>
+            </div>
+            <button class="button button--primary button--full" id="generateBtn">ساخت پروژه حرفه‌ای</button>
+          </section>
+        </div>
+
+        <section class="timeline-board" aria-label="تایم‌لاین پروژه">
+          <div class="timeline-board__header">
+            <h3>تایم‌لاین چندلایه</h3>
+            <span id="durationBadge">00:00</span>
           </div>
-          <div class="export-summary" id="exportSummary"></div>
-          <div class="caption-preview" id="captionPreview" aria-live="polite"></div>
+          <div id="trackList" class="track-list"></div>
+        </section>
+
+        <div class="output-grid">
+          <section class="export-summary" id="exportSummary" aria-label="خلاصه خروجی"></section>
+          <section class="caption-preview" id="captionPreview" aria-live="polite"></section>
+          <section class="publish-checklist" aria-label="چک‌لیست انتشار">
+            <h3>چک‌لیست انتشار</h3>
+            <ul id="publishChecklist"></ul>
+          </section>
         </div>
       </section>
     </main>
