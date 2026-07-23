@@ -1,86 +1,83 @@
-const features = [
-  {
-    title: 'زیرنویس خودکار فارسی',
-    text: 'تبدیل گفتار یا متن سناریو به کپشن‌های کوتاه، خوانا و آماده انتشار.',
-    icon: '字幕',
-  },
-  {
-    title: 'زیرنویس‌های خفن',
-    text: 'استایل نئون، سینمایی، تایپ‌writer، هایلایت کلمات و انیمیشن ضرب‌آهنگ.',
-    icon: '✨',
-  },
-  {
-    title: 'افکت و جلوه حرفه‌ای',
-    text: 'گلیچ، لرزش، بلوم، فریزفریم، اسلوموشن، ترنزیشن و فیلترهای رنگی.',
-    icon: '⚡',
-  },
-  {
-    title: 'ابزارهای شبیه اینشات',
-    text: 'برش، کراپ، سرعت، موسیقی، استیکر، متن، بک‌گراند، نسبت تصویر و خروجی شبکه اجتماعی.',
-    icon: '🎬',
-  },
-  {
-    title: 'قالب‌های آماده',
-    text: 'قالب ریلز، شورتز، ولاگ، آموزشی، تبلیغاتی و کپشن‌های ترند.',
-    icon: '🧩',
-  },
-  {
-    title: 'رایگان و سریع',
-    text: 'هسته محصول بدون پرداخت طراحی شده و برای اجرا در مرورگر سبک است.',
-    icon: '🆓',
-  },
-];
+const toolCopy = {
+  cut: ['برش رایگان', 'قسمت‌های اضافه را حذف کن و کلیپ را برای ریلز یا شورتز آماده کن.'],
+  crop: ['کراپ و کادر رایگان', 'کادر و نسبت تصویر را بدون پرداخت تغییر بده.'],
+  speed: ['کنترل سرعت رایگان', 'اسلوموشن، فست‌موشن و تنظیم ریتم کلیپ بدون قفل پریمیوم.'],
+  music: ['موسیقی رایگان', 'موزیک، صدای ضبط‌شده و افکت صوتی را به پروژه اضافه کن.'],
+  caption: ['زیرنویس خودکار رایگان', 'متن فارسی را به زیرنویس روی ویدیو و ترک تایم‌لاین تبدیل کن.'],
+  sticker: ['استیکر رایگان', 'استیکر، ایموجی و برچسب‌های ترند را روی ویدیو بگذار.'],
+  filter: ['فیلتر و افکت رایگان', 'رنگ، نور، گلیچ و حالت سینمایی را بدون پرداخت امتحان کن.'],
+  transition: ['ترنزیشن رایگان', 'بین کلیپ‌ها حرکت نرم، زوم، محو شدن و اسلاید اضافه کن.'],
+};
 
-const featureGrid = document.querySelector('#featureGrid');
-const scriptInput = document.querySelector('#scriptInput');
-const captionStyle = document.querySelector('#captionStyle');
-const generateBtn = document.querySelector('#generateBtn');
-const captionPreview = document.querySelector('#captionPreview');
+const freeFeatures = ['بدون واترمارک', 'بدون خرید درون‌برنامه‌ای', 'همه ابزارها باز', 'خروجی HD رایگان'];
 
-function renderFeatures() {
-  featureGrid.innerHTML = features
-    .map(
-      (feature) => `
-        <article class="feature-card">
-          <span class="feature-card__icon">${feature.icon}</span>
-          <h3>${feature.title}</h3>
-          <p>${feature.text}</p>
-        </article>
-      `,
-    )
-    .join('');
+const toolButtons = document.querySelectorAll('.tool-button');
+const toolTitle = document.querySelector('#toolTitle');
+const toolDescription = document.querySelector('#toolDescription');
+const freeList = document.querySelector('#freeList');
+const captionInput = document.querySelector('#captionInput');
+const liveCaption = document.querySelector('#liveCaption');
+const captionTrack = document.querySelector('#captionTrack');
+const ratioSelect = document.querySelector('#ratioSelect');
+const styleSelect = document.querySelector('#styleSelect');
+const filterSelect = document.querySelector('#filterSelect');
+const videoPreview = document.querySelector('#videoPreview');
+const videoInput = document.querySelector('#videoInput');
+const videoPlayer = document.querySelector('#videoPlayer');
+const emptyState = document.querySelector('#emptyState');
+const fileName = document.querySelector('#fileName');
+const timelineStatus = document.querySelector('#timelineStatus');
+const exportBtn = document.querySelector('#exportBtn');
+
+function setActiveTool(tool) {
+  const [title, description] = toolCopy[tool];
+  toolTitle.textContent = title;
+  toolDescription.textContent = description;
+  toolButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.tool === tool));
+  timelineStatus.textContent = `${title} فعال شد؛ این قابلیت رایگان است`;
 }
 
-function splitIntoCaptions(text) {
-  return text
-    .split(/[؛.!؟\n]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((line, index) => ({
-      start: `00:${String(index * 3).padStart(2, '0')}`,
-      end: `00:${String(index * 3 + 3).padStart(2, '0')}`,
-      line,
-    }));
+function renderFreeFeatures() {
+  freeList.innerHTML = freeFeatures.map((feature) => `<span>${feature}</span>`).join('');
 }
 
-function renderCaptions() {
-  const captions = splitIntoCaptions(scriptInput.value);
-  captionPreview.className = `caption-preview caption-preview--${captionStyle.value}`;
-  captionPreview.innerHTML = captions.length
-    ? captions
-        .map(
-          (caption) => `
-            <div class="caption-chip">
-              <time>${caption.start} → ${caption.end}</time>
-              <strong>${caption.line}</strong>
-            </div>
-          `,
-        )
-        .join('')
-    : '<p>برای ساخت زیرنویس، متن ویدیو را وارد کن.</p>';
+function refreshPreviewClasses() {
+  videoPreview.className = `video-preview ${ratioSelect.value} ${styleSelect.value} ${filterSelect.value}`;
 }
 
-renderFeatures();
-renderCaptions();
-generateBtn.addEventListener('click', renderCaptions);
-captionStyle.addEventListener('change', renderCaptions);
+function updateCaption() {
+  const caption = captionInput.value.trim() || 'متن زیرنویس لادینو';
+  liveCaption.textContent = caption;
+  captionTrack.textContent = caption.length > 26 ? `${caption.slice(0, 26)}…` : caption;
+}
+
+function loadVideo(event) {
+  const [file] = event.target.files;
+  if (!file) return;
+
+  videoPlayer.src = URL.createObjectURL(file);
+  videoPlayer.hidden = false;
+  emptyState.hidden = true;
+  fileName.textContent = file.name;
+  timelineStatus.textContent = 'ویدیو وارد شد؛ تمام ابزارهای تدوین رایگان هستند';
+}
+
+function showExportReady() {
+  timelineStatus.textContent = 'خروجی رایگان و بدون واترمارک آماده شد';
+  exportBtn.textContent = 'آماده خروجی ✓';
+}
+
+toolButtons.forEach((button) => {
+  button.addEventListener('click', () => setActiveTool(button.dataset.tool));
+});
+
+captionInput.addEventListener('input', updateCaption);
+ratioSelect.addEventListener('change', refreshPreviewClasses);
+styleSelect.addEventListener('change', refreshPreviewClasses);
+filterSelect.addEventListener('change', refreshPreviewClasses);
+videoInput.addEventListener('change', loadVideo);
+exportBtn.addEventListener('click', showExportReady);
+
+renderFreeFeatures();
+refreshPreviewClasses();
+updateCaption();

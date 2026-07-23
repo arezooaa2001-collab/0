@@ -3,60 +3,98 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>لادینو | تدوین ویدیو رایگان</title>
+    <title>لادینو | برنامه تدوین رایگان</title>
     <link rel="stylesheet" href="src/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero__content">
-          <p class="eyebrow">Ladino Video Studio</p>
-          <h1 id="hero-title">لادینو؛ تدوین ویدیو با زیرنویس خودکار، افکت‌های خفن و ابزارهای کامل رایگان</h1>
-          <p class="hero__lead">یک نمونه وب‌اپ رایگان و فارسی برای ساخت ویدیوهای شبکه‌های اجتماعی با قابلیت‌های محبوب اینشات، قالب‌های زیرنویس، جلوه‌های سینمایی و خروجی سریع.</p>
-          <div class="hero__actions">
-            <a class="button button--primary" href="#studio">شروع تدوین</a>
-            <a class="button button--ghost" href="#features">دیدن قابلیت‌ها</a>
-          </div>
-        </div>
-        <div class="phone-preview" aria-label="پیش‌نمایش ویرایشگر لادینو">
-          <div class="phone-preview__bar"></div>
-          <div class="video-card">
-            <span class="badge">Auto Caption</span>
-            <div class="play-orb">▶</div>
-            <p class="caption-line">زیرنویس خفن با هایلایت کلمات</p>
-          </div>
-          <div class="timeline">
-            <span></span><span></span><span></span><span></span>
-          </div>
-        </div>
-      </section>
-
-      <section id="features" class="features" aria-labelledby="features-title">
-        <p class="eyebrow">همه‌چیز رایگان</p>
-        <h2 id="features-title">قابلیت‌های اصلی لادینو</h2>
-        <div class="feature-grid" id="featureGrid"></div>
-      </section>
-
-      <section id="studio" class="studio" aria-labelledby="studio-title">
+    <main class="app" aria-label="برنامه تدوین ویدیو لادینو">
+      <header class="topbar">
         <div>
-          <p class="eyebrow">نسخه نمایشی ابزار</p>
-          <h2 id="studio-title">سازنده زیرنویس و افکت</h2>
-          <p>متن سناریو را وارد کن تا لادینو آن را به چند زیرنویس زمان‌بندی‌شده تبدیل کند و یک استایل خفن به آن بدهد.</p>
+          <strong class="brand">لادینو</strong>
+          <span class="status-pill">همه قابلیت‌ها رایگان</span>
         </div>
-        <div class="editor-panel">
-          <label for="scriptInput">متن ویدیو</label>
-          <textarea id="scriptInput" rows="5">سلام! این ویدیو با لادینو ساخته شده؛ زیرنویس خودکار، افکت‌های جذاب و ابزارهای تدوین رایگان دارد.</textarea>
-          <div class="controls">
-            <label>استایل زیرنویس
-              <select id="captionStyle">
-                <option value="neon">نئون گیمینگ</option>
-                <option value="cinema">سینمایی طلایی</option>
-                <option value="minimal">مینیمال سفید</option>
+        <button class="icon-button" id="exportBtn">خروجی بدون واترمارک</button>
+      </header>
+
+      <section class="workspace">
+        <aside class="tool-panel" aria-label="ابزارهای تدوین">
+          <button class="tool-button is-active" data-tool="cut">✂<span>برش</span></button>
+          <button class="tool-button" data-tool="crop">▣<span>کراپ</span></button>
+          <button class="tool-button" data-tool="speed">⏩<span>سرعت</span></button>
+          <button class="tool-button" data-tool="music">♫<span>موسیقی</span></button>
+          <button class="tool-button" data-tool="caption">字幕<span>زیرنویس</span></button>
+          <button class="tool-button" data-tool="sticker">★<span>استیکر</span></button>
+          <button class="tool-button" data-tool="filter">◎<span>فیلتر</span></button>
+          <button class="tool-button" data-tool="transition">⇄<span>ترنزیشن</span></button>
+        </aside>
+
+        <section class="preview-stage" aria-label="پیش‌نمایش ویدیو">
+          <div class="phone-frame">
+            <div class="video-preview" id="videoPreview">
+              <video id="videoPlayer" controls playsinline hidden></video>
+              <div class="empty-state" id="emptyState">
+                <span>＋</span>
+                <strong>ویدیو را وارد کن</strong>
+                <small>MP4، MOV یا فایل نمایشی</small>
+              </div>
+              <p class="live-caption" id="liveCaption">لادینو؛ تدوین رایگان بدون قفل پریمیوم</p>
+              <span class="free-watermark">FREE</span>
+            </div>
+          </div>
+          <label class="upload-card" for="videoInput">
+            <input id="videoInput" type="file" accept="video/*" />
+            <span>انتخاب ویدیو</span>
+            <small id="fileName">هنوز فایلی انتخاب نشده</small>
+          </label>
+        </section>
+
+        <aside class="inspector" aria-label="تنظیمات ابزار انتخاب‌شده">
+          <p class="eyebrow">پنل ابزار</p>
+          <h1 id="toolTitle">برش رایگان</h1>
+          <p id="toolDescription">قسمت‌های اضافه را حذف کن و کلیپ را برای ریلز یا شورتز آماده کن.</p>
+
+          <div class="control-card">
+            <label for="captionInput">متن زیرنویس</label>
+            <textarea id="captionInput" rows="4">لادینو؛ تدوین رایگان بدون قفل پریمیوم</textarea>
+          </div>
+
+          <div class="control-grid">
+            <label>نسبت تصویر
+              <select id="ratioSelect">
+                <option value="ratio-916">۹:۱۶ استوری</option>
+                <option value="ratio-11">۱:۱ پست</option>
+                <option value="ratio-169">۱۶:۹ یوتیوب</option>
               </select>
             </label>
-            <button class="button button--primary" id="generateBtn">ساخت زیرنویس</button>
+            <label>استایل
+              <select id="styleSelect">
+                <option value="style-neon">نئون</option>
+                <option value="style-cinema">سینمایی</option>
+                <option value="style-clean">تمیز</option>
+              </select>
+            </label>
+            <label>فیلتر
+              <select id="filterSelect">
+                <option value="filter-pop">Pop</option>
+                <option value="filter-warm">Warm</option>
+                <option value="filter-bw">B&W</option>
+              </select>
+            </label>
           </div>
-          <div class="caption-preview" id="captionPreview" aria-live="polite"></div>
+
+          <div class="free-list" id="freeList"></div>
+        </aside>
+      </section>
+
+      <section class="timeline" aria-label="تایم‌لاین تدوین">
+        <div class="timeline-head">
+          <strong>Timeline</strong>
+          <span id="timelineStatus">پروژه رایگان آماده است</span>
+        </div>
+        <div class="tracks">
+          <div class="track"><b>ویدیو</b><span class="clip clip--video">کلیپ اصلی</span><span class="clip clip--cut">برش</span></div>
+          <div class="track"><b>صدا</b><span class="clip clip--audio">موسیقی رایگان</span></div>
+          <div class="track"><b>متن</b><span class="clip clip--text" id="captionTrack">زیرنویس خودکار</span></div>
         </div>
       </section>
     </main>
