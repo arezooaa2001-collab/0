@@ -134,6 +134,13 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 #chat-send{background:var(--amber);color:var(--amber-ink);border:0;border-radius:999px;padding:0 16px;font:800 14px var(--body);cursor:pointer}
 #chat-mic{width:42px;flex:none;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:50%;color:var(--paper);cursor:pointer;display:grid;place-items:center}
 #chat-mic.on{background:var(--red)}
+/* garage menu */
+#garage-menu{position:fixed;inset:0;z-index:24;display:grid;place-items:center;background:rgba(5,7,11,.5);padding:16px}
+.gm-card{width:min(400px,100%);background:#121824;border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.gm-card h2{margin:0;font:400 28px var(--display);color:var(--amber)}
+.gm-card p{margin:0;font:600 14px/1.6 var(--body);color:var(--dim)}
+.gm-btn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--paper);border-radius:14px;padding:12px;font:700 15px var(--body);cursor:pointer;text-align:center}
+.gm-btn.primary{background:var(--amber);color:var(--amber-ink);border:0}
 /* settings */
 #settings{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(5,7,11,.6);padding:16px}
 #settings form{width:min(440px,100%);background:#121824;border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -157,8 +164,10 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   <button id="btn-time" class="chip" type="button" title="تغییر زمان روز (T)"><span id="clock">۱۶:۳۰</span></button>
   <button id="btn-sound" class="chip" type="button">صدا: روشن</button>
   <button id="btn-weather" class="chip" type="button">هوا: خودکار</button>
+  <button id="btn-garage" class="chip" type="button" style="color:var(--amber)">تعمیرگاه</button>
   <button id="btn-settings" class="chip" type="button">تنظیمات</button>
   <span id="wp" class="chip" hidden style="color:var(--amber)"></span>
+  <span id="saved" class="chip" hidden style="color:var(--teal);transition:opacity .4s">ذخیره شد</span>
 </div>
 <div id="speedo" class="hud" hidden><span id="gear">D</span><span id="spd">۰</span><span id="spdunit">کیلومتر بر ساعت</span><div id="health-wrap"><div id="health"></div></div></div>
 <div id="prompt" class="hud" hidden></div>
@@ -183,6 +192,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 <div id="drive-x" hidden>
   <button id="b-hand" class="dbtn sbtn" type="button">ترمز دستی</button>
   <button id="b-horn" class="dbtn sbtn" type="button">بوق</button>
+  <button id="b-eject" class="dbtn sbtn" type="button" hidden style="width:96px">بنداز پایین</button>
   <button id="b-exit" class="dbtn sbtn" type="button">پیاده شو</button>
 </div>
 <div id="chat" hidden>
@@ -199,15 +209,31 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   <form id="set-form">
     <h2>تنظیمات</h2>
     <label>کیفیت گرافیک
-      <select id="set-quality"><option value="high">خیلی بالا (کامپیوتر و گوشی قوی)</option><option value="medium">متوسط</option><option value="low">سبک (گوشی ضعیف)</option></select>
+      <select id="set-quality"><option value="auto">خودکار — همیشه روان (پیشنهادی)</option><option value="high">خیلی بالا (کامپیوتر و گوشی قوی)</option><option value="medium">متوسط</option><option value="low">سبک</option><option value="potato">خیلی سبک (گوشی قدیمی)</option></select>
     </label>
     <label class="row"><input id="set-voice" type="checkbox"> آدم‌ها جواب‌ها را بلند بخوانند (اگر صدای فارسی در دستگاه باشد)</label>
     <label>کلید API کلود (اختیاری)
       <input id="set-key" type="password" placeholder="sk-ant-…" autocomplete="off">
     </label>
     <p>بدون کلید، آدم‌های شهر با موتور گفتگوی فارسیِ داخل بازی جواب می‌دهند و بازی آفلاین کار می‌کند. اگر کلید API کلود بگذاری، جواب‌ها کاملاً آزاد و طبیعی از هوش مصنوعی Claude می‌آید (به اینترنت نیاز دارد و هزینهٔ استفاده از حساب خودت کم می‌شود). کلید فقط در همین مرورگر ذخیره می‌شود. تغییر تعداد چمن‌ها بعد از بارگذاری دوباره اعمال می‌شود.</p>
+    <label>ذخیرهٔ بازی
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button id="set-export" class="chip" type="button">دانلود فایل پشتیبان</button><button id="set-import" class="chip" type="button">بارگذاری فایل پشتیبان</button><button id="set-wipe" class="chip" type="button">پاک کردن و شروع از اول</button></span>
+      <input id="set-file" type="file" accept=".json,application/json" hidden>
+    </label>
+    <p id="set-msg">بازی هر ۱۵ ثانیه و بعد از هر کار مهم خودکار ذخیره می‌شود. برای بردن بازی به گوشی یا کامپیوتر دیگر، فایل پشتیبان را دانلود کن و آن‌جا بارگذاری کن.</p>
     <button id="set-close" type="button">ذخیره و بستن</button>
   </form>
+</div>
+<div id="garage-menu" hidden>
+  <div class="gm-card">
+    <h2>تعمیرگاه مرکزی شهر</h2>
+    <p id="gm-status"></p>
+    <button id="gm-tow" type="button" class="gm-btn primary">زنگ بزن یدک‌کش بیاد دنبال ماشینم</button>
+    <button id="gm-go" type="button" class="gm-btn">برو به تعمیرگاه (با ماشین یا پیاده)</button>
+    <button id="gm-route" type="button" class="gm-btn">مسیر تعمیرگاه را روی نقشه نشان بده</button>
+    <p id="gm-msg" style="color:var(--amber)"></p>
+    <button id="gm-close" type="button" class="gm-btn">بستن</button>
+  </div>
 </div>
 <div id="fade"></div>
 
@@ -230,7 +256,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
         <li>کشیدن موس: دوربین · <kbd>T</kbd> زمان روز</li>
       </ul></div>
     </div>
-    <button id="play" type="button" disabled>ورود به شهر</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button id="play" type="button" disabled>ورود به شهر</button><button id="newgame" type="button" class="chip" hidden style="padding:12px 18px">بازی جدید</button></div>
     <div id="load">در حال ساختن خیابان‌ها…</div>
   </div>
 </div>

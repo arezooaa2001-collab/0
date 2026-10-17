@@ -656,6 +656,49 @@ function buildApartment(cx, cz, qx, qz) {
   for (const sx of [-w / 2 + 0.6, shopX + shopW / 2 + 0.7]) { fBox(F, 'trim', sx, CURB + 0.3, d / 2 + 0.9, 0.9, 0.6, 0.9, 0x6f685f, { col: true }); const [x, z] = fw(F, sx, d / 2 + 0.9); BT.add('foliage', pick(GEO.ico), x, CURB + 0.95, z, 0, pick(FOLIAGE), 0, 0, 0.5, 0.45, 0.5); }
 }
 
+/* the city garage: two open bays with car lifts, tools and mechanics */
+const garage = { bays: [], job: null, mechs: [] };
+function buildGarage(cx, cz) {
+  const F = mkFrame(cx, cz, Math.PI / 2); // local +z faces the street (world +x)
+  garage.F = F; garage.cx = cx; garage.cz = cz;
+  const wallC = 0xe4dccb, H = 6.2, z0 = 2.5, z1 = 17.5;
+  fBox(F, 'sidewalk', 0, CURB + 0.006, 13.5, 51, 0.012, 24, 0x8d8a85, { ts: 4 });
+  for (let k = 0; k < 9; k++) { const g = new THREE.CircleGeometry(rr(0.3, 0.9), 16); g.rotateX(-Math.PI / 2); const [x, z] = fw(F, rr(-11, 11), rr(4, 22)); BT.add('paint', g, x, CURB + 0.02, z, 0, 0x2a2826); }
+  fBox(F, 'plaster', 0, CURB + H / 2, z0, 24.6, H, 0.3, wallC, { ts: 3, col: true, minY: 0, maxY: 7 });
+  for (const sx of [-1, 1]) fBox(F, 'plaster', sx * 12.15, CURB + H / 2, (z0 + z1) / 2, 0.3, H, z1 - z0, wallC, { ts: 3, col: true, minY: 0, maxY: 7 });
+  for (const [x, w] of [[-10.525, 3.55], [0, 5.5], [10.525, 3.55]]) fBox(F, 'plaster', x, CURB + H / 2, z1, w, H, 0.3, wallC, { ts: 3, col: true, minY: 0, maxY: 7 });
+  for (const bx of [-5.75, 5.75]) {
+    fBox(F, 'plaster', bx, CURB + 4.6 + (H - 4.6) / 2, z1, 6.1, H - 4.6, 0.3, wallC, { ts: 3 });
+    for (const sx of [-3.05, 3.05]) for (let k = 0; k < 6; k++) fBox(F, 'paint', bx + sx, CURB + 0.38 + k * 0.76, z1 + 0.16, 0.12, 0.38, 0.02, k % 2 ? 0x111111 : 0xf2c12e);
+  }
+  fBox(F, 'trim', 0, CURB + 0.6, z0 + 0.16, 24.3, 1.2, 0.04, 0x5a6a7a);
+  fBox(F, 'roof', 0, CURB + H + 0.15, (z0 + z1) / 2, 25.2, 0.3, 15.6, 0x4b5258, { ts: 3 });
+  makeSign(F, 0, CURB + 5.35, z1 + 0.2, 'تعمیرگاه مرکزی شهر', 7.5, '#c2561a', '#fff6e6');
+  // two bays with lifts
+  for (const bx of [-5.75, 5.75]) {
+    for (const sx of [-1.8, 1.8]) { fBox(F, 'metal', bx + sx, CURB + 1.7, 10, 0.34, 3.4, 0.34, 0x1f4f9a); const [x, z] = fw(F, bx + sx, 10); CL.circle(x, z, 0.22, 0, 3.6); }
+    fBox(F, 'metal', bx, CURB + 3.5, 10, 4, 0.2, 0.3, 0x1f4f9a);
+    const arms = new THREE.Group(); const am = new THREE.MeshStandardMaterial({ color: 0x2a5aa8, roughness: 0.5, metalness: 0.4 });
+    for (const sx of [-1, 1]) for (const sz of [-1.1, 1.1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.14), am); m.position.set(sx * 1.05, 0, sz); m.rotation.y = sx * sz * 0.25; m.castShadow = true; arms.add(m); }
+    const [ax, az] = fw(F, bx, 10); arms.position.set(ax, CURB + 0.2, az); arms.rotation.y = F.a; scene.add(arms);
+    const [hx, hz] = fw(F, bx, 10); garage.bays.push({ x: hx, z: hz, arms, lift: 0, car: null, h: F.a + Math.PI, lx: bx });
+    fBox(F, 'lampOn', bx, CURB + H - 0.3, 10, 0.3, 0.06, 4.5, 0xffffff);
+  }
+  // workshop details along the walls
+  const cab = (lx, lz, col) => { fBox(F, 'metal', lx, CURB + 0.55, lz, 1.2, 1.1, 0.55, col, { col: true }); for (let k = 0; k < 5; k++) fBox(F, 'metal', lx, CURB + 0.2 + k * 0.2, lz + 0.28, 1.1, 0.02, 0.01, 0x222222); };
+  cab(-10, 3.2, 0xb3161b); cab(-8.6, 3.2, 0xb3161b); cab(9.6, 3.2, 0x1f4f9a);
+  fBox(F, 'wood', 0, CURB + 0.9, 3.3, 3.2, 0.08, 0.9, 0x6b4a2a, { col: true, minY: 0, maxY: CURB + 0.95 }); for (const sx of [-1.5, 1.5]) fBox(F, 'metal', sx, CURB + 0.45, 3.3, 0.08, 0.9, 0.8, 0x2a2d31);
+  fBox(F, 'metal', 0.9, CURB + 1.05, 3.4, 0.25, 0.22, 0.2, 0x3a3d42);
+  fBox(F, 'wood', 0, CURB + 2.0, 2.68, 3.4, 1.4, 0.04, 0xc9b28a);
+  for (let k = 0; k < 14; k++) fBox(F, 'metal', -1.5 + k * 0.23, CURB + rr(1.6, 2.4), 2.72, 0.05, rr(0.2, 0.45), 0.03, pick([0x9aa0a6, 0xb3161b, 0x2a2d31, 0xd9a03a]));
+  for (const [lx, lz] of [[11, 5], [11, 7.5], [-11, 15.5]]) { for (let k = 0; k < 4; k++) fGeo(F, 'metal', new THREE.TorusGeometry(0.3, 0.12, 8, 16), lx, CURB + 0.12 + k * 0.24, lz, 0x151515, 0, Math.PI / 2); const [x, z] = fw(F, lx, lz); CL.circle(x, z, 0.45, 0, CURB + 1); }
+  for (const [lx, lz, c] of [[-11.2, 9, 0x1f4f9a], [-11.2, 10, 0xb3161b], [-10.4, 9.5, 0x2f6b3a], [11.2, 13, 0x1f4f9a]]) { const [x, z] = fw(F, lx, lz); BT.add('metal', GEO.cyl16, x, CURB + 0.45, z, 0, c, 0, 0, 0.3, 0.9, 0.3); CL.circle(x, z, 0.32, 0, CURB + 0.9); }
+  { const [x, z] = fw(F, 9.5, 15.8); BT.add('metal', GEO.cyl16, x, CURB + 0.55, z, 0, 0xc2561a, Math.PI / 2, 0, 0.35, 1.3, 0.35); CL.circle(x, z, 0.7, 0, CURB + 1.0); }
+  world.foot.push([cx + z0 - 0.2, cz - 12.3, cx + z1 + 0.2, cz + 12.3, '#c2561a']);
+  garage.mechSpots = [fw(F, -1.2, 4.4), fw(F, 1.2, 4.4)];
+  garage.depot = { x: fw(F, 18.5, 12)[0], z: fw(F, 18.5, 12)[1], h: F.a };
+  garage.road = { x: roadX(1) - LANE, z: 0 };
+}
 function buildPark(cx, cz) {
   BT.add('sidewalk', quadUp(cx - LOT, cz - 1.7, cx + LOT, cz + 1.7, CURB + 0.008, 4));
   BT.add('sidewalk', quadUp(cx - 1.7, cz - LOT, cx + 1.7, cz + LOT, CURB + 0.009, 4));
@@ -778,14 +821,15 @@ function buildCity() {
   // lots
   for (let bi = 0; bi < N; bi++) for (let bj = 0; bj < N; bj++) {
     const cx = blockC(bi), cz = blockC(bj);
-    const type = (bi === 2 && bj === 2) ? 'park' : (bi >= 1 && bi <= 3 && bj >= 1 && bj <= 3) ? 'commercial' : 'residential';
-    if (type !== 'commercial') { BT.add('grass', quadUp(cx - LOT, cz - LOT, cx + LOT, cz + LOT, CURB + 0.004, 7)); (world.grassAreas || (world.grassAreas = [])).push([cx, cz, type]); }
+    const type = (bi === 0 && bj === 2) ? 'garage' : (bi === 2 && bj === 2) ? 'park' : (bi >= 1 && bi <= 3 && bj >= 1 && bj <= 3) ? 'commercial' : 'residential';
+    if (type === 'garage') buildGarage(cx, cz);
+    if (type !== 'commercial' && type !== 'garage') { BT.add('grass', quadUp(cx - LOT, cz - LOT, cx + LOT, cz + LOT, CURB + 0.004, 7)); (world.grassAreas || (world.grassAreas = [])).push([cx, cz, type]); }
     if (type === 'park') buildPark(cx, cz);
     else if (type === 'residential') {
       for (const qx of [-1, 1]) for (const qz of [-1, 1]) buildHouse(cx, cz, qx, qz);
       BT.add('hedge', boxGeo(0.9, 1.3, 2 * LOT - 1, 2), cx, CURB + 0.65, cz, 0, 0x8fbc6c); CL.box(cx - 0.45, cx + 0.45, cz - LOT, cz + LOT, 0, CURB + 1.3);
       BT.add('hedge', boxGeo(2 * LOT - 1, 1.3, 0.9, 2), cx, CURB + 0.65, cz, 0, 0x8fbc6c); CL.box(cx - LOT, cx + LOT, cz - 0.45, cz + 0.45, 0, CURB + 1.3);
-    } else {
+    } else if (type === 'commercial') {
       for (const qx of [-1, 1]) for (const qz of [-1, 1]) buildApartment(cx, cz, qx, qz);
       tree(cx + 2, cz - 2, 1.2); bench(cx - 2.5, cz + 2.5, Math.PI / 4); bin(cx + 3, cz + 3);
     }
@@ -794,14 +838,15 @@ function buildCity() {
       const [ox, oz] = DIRS[s];           // outward normal toward road
       const tx = -oz, tz = ox;            // tangent
       const edge = B / 2 - RH;            // curb distance from block centre
-      for (const t of [-20, 0, 20]) { const x = cx + ox * (edge - 0.6) + tx * t, z = cz + oz * (edge - 0.6) + tz * t; streetLamp(x, z, ox, oz); }
-      for (const t of [-10, 10]) {
+      const drive = type === 'garage' && s === 1; // keep the garage driveway clear
+      for (const t of drive ? [-20, 20] : [-20, 0, 20]) { const x = cx + ox * (edge - 0.6) + tx * t, z = cz + oz * (edge - 0.6) + tz * t; streetLamp(x, z, ox, oz); }
+      for (const t of drive ? [] : [-10, 10]) {
         const x = cx + ox * (edge - 0.65) + tx * t, z = cz + oz * (edge - 0.65) + tz * t;
         if (world.gates.some(g => Math.hypot(g[0] - x, g[1] - z) < 6)) continue;
         BT.add('trim', boxGeo(1.4, 0.02, 1.4), x, CURB + 0.006, z, 0, 0x3a2e24); tree(x, z, rr(0.85, 1.1));
       }
       if (type === 'commercial') { for (const t of [-15, 15]) { const x = cx + ox * (edge - 1.0) + tx * t, z = cz + oz * (edge - 1.0) + tz * t; bench(x, z, Math.atan2(-ox, -oz)); } const bx = cx + ox * (edge - 0.7) + tx * 5, bz = cz + oz * (edge - 0.7) + tz * 5; bin(bx, bz); }
-      if (R() < 0.5) hydrant(cx + ox * (edge - 0.5) + tx * -4, cz + oz * (edge - 0.5) + tz * -4);
+      if (R() < 0.5 && !drive) hydrant(cx + ox * (edge - 0.5) + tx * -4, cz + oz * (edge - 0.5) + tz * -4);
       if (type === 'commercial' && s === (bi + bj) % 4) busStop(cx + ox * (LOT + 0.9) + tx * 6, cz + oz * (LOT + 0.9) + tz * 6, Math.atan2(ox, oz));
       if (type === 'commercial' && R() < 0.55) motorbike(cx + ox * (edge - 1.3) + tx * -7.5, cz + oz * (edge - 1.3) + tz * -7.5, Math.atan2(tx, tz) + rr(-0.3, 0.3));
     }
@@ -851,7 +896,7 @@ function buildCity() {
 /* instanced grass tufts with wind, one mesh per block for culling */
 let grassMat = null;
 function buildGrass() {
-  const per = { high: 2600, medium: 900, low: 0 }[settings.quality] ?? 900; if (!per) return;
+  const per = LOW ? 900 : 2600;
   const blade = [], col = [];
   for (let b = 0; b < 5; b++) {
     const a = b / 5 * Math.PI + Math.random() * 0.4, h = 0.24 + Math.random() * 0.22, w = 0.035, lean = (Math.random() - 0.5) * 0.25, ox = (Math.random() - 0.5) * 0.12, oz = (Math.random() - 0.5) * 0.12;
@@ -883,7 +928,7 @@ function buildGrass() {
       const s_ = 0.6 + Math.random() * 0.5; e.set(0, Math.random() * 6.28, 0); q.setFromEuler(e); m4.compose(v.set(x, CURB, z), q, sc.set(s_, s_ * (0.8 + Math.random() * 0.5), s_));
       mesh.setMatrixAt(k, m4); cc.setHSL(0.22 + Math.random() * 0.07, 0.5 + Math.random() * 0.2, 0.42 + Math.random() * 0.2); mesh.setColorAt(k, cc); k++;
     }
-    mesh.count = k; mesh.receiveShadow = true; mesh.castShadow = false; mesh.computeBoundingSphere(); scene.add(mesh);
+    mesh.count = k; mesh.receiveShadow = true; mesh.castShadow = false; mesh.computeBoundingSphere(); scene.add(mesh); (world.grassMeshes || (world.grassMeshes = [])).push(mesh);
   }
 }
 /* glow sprites for lamps & lamp light pools */
@@ -989,7 +1034,12 @@ const skyMat = new THREE.ShaderMaterial({
 const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), skyMat); sky.frustumCulled = false; scene.add(sky);
 const envScene = new THREE.Scene(); const envSky = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat); envScene.add(envSky);
 const pmrem = new THREE.PMREMGenerator(renderer);
-let envRT = null, envTod = -99, envCloud = 0;
+let envTod = -99, envKey = -1, bakingEnv = false; const envCache = [];
+function bakeEnvironments() {
+  const t0 = tod, c0 = weather.cloud; bakingEnv = true;
+  [[2, 0.22], [2, 0.95], [18.4, 0.22], [18.4, 0.95], [12, 0.22], [12, 0.95]].forEach(([t, c], k) => { tod = t; weather.cloud = c; updateTimeOfDay(); envCache[k] = pmrem.fromScene(envScene, 0, 0.1, 1000); });
+  tod = t0; weather.cloud = c0; bakingEnv = false; envKey = -1;
+}
 let stars;
 {
   const n = 1600, p = new Float32Array(n * 3);
@@ -1047,9 +1097,10 @@ function updateTimeOfDay() {
   if (mountains) for (const m of mountains.userData.mats) m.color.copy(_c2).lerp(_c1, 0.25).lerp(C(0x56677a), 0.45).multiplyScalar(m.userData.shade * (0.5 + 0.55 * dayF) + 0.25);
   M.winView.color.setRGB(0.75, 0.88, 1).multiplyScalar(0.12 + 0.95 * dayF).lerp(_c2, 0.25);
   if (CarMats.head) CarMats.head.emissiveIntensity = 0.3 + night * 2.2;
-  if (Math.abs(tod - envTod) > 0.35 || envTod < 0 || Math.abs(weather.cloud - (envCloud ?? 0)) > 0.12) {
-    envTod = tod; envCloud = weather.cloud; const rt = pmrem.fromScene(envScene, 0, 0.1, 1000);
-    if (envRT) envRT.dispose(); envRT = rt; scene.environment = rt.texture; interiorScene.environment = rt.texture;
+  if (!bakingEnv) {
+    // reflections come from a few pre-baked skies, so the frame never stalls rebuilding them
+    const band = dayF < 0.25 ? 0 : golden > 0.35 ? 1 : 2, key = band * 2 + (weather.cloud > 0.6 ? 1 : 0);
+    if (key !== envKey && envCache[key]) { envKey = key; scene.environment = envCache[key].texture; interiorScene.environment = envCache[key].texture; }
   }
   const hh = Math.floor(tod), mm = Math.floor((tod - hh) * 60);
   $('clock').textContent = fa(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'));
@@ -1174,6 +1225,69 @@ function carEffects(c, dt) {
   const ex = c.x + (-t.wid / 2 + 0.35) * co + (t.rear - 0.05) * s, ez = c.z - (-t.wid / 2 + 0.35) * s + (t.rear - 0.05) * co;
   if ((c.hasDriver || c.player) && c.smokeAcc > 0.22 && c.health > 0) { c.smokeAcc = 0; FX.emit(ex, c.y + 0.3, ez, -Math.sin(c.h) * 0.6, 0.25, -Math.cos(c.h) * 0.6, 1.2, 0.12, 0.7, 0xb8b8b8, Math.abs(c.inThrottle) > 0.5 ? 0.22 : 0.1, -0.35); }
   if (c.health < 45 && Math.random() < (c.health < 15 ? 0.7 : 0.3)) { const hz = t.front - 0.8; FX.emit(c.x + hz * s, c.y + t.beltY, c.z + hz * co, (Math.random() - 0.5) * 0.4, 0.9, (Math.random() - 0.5) * 0.4, 2.2, 0.4, 2.6, c.health < 15 ? 0x2a2a2a : 0x8a8a8a, 0.35, -0.5); }
+}
+/* soft contact shadows under every car and person (grounds them even with shadows off) */
+let blobSh = null;
+function buildBlobs() {
+  const c = mkCanvas(64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(0,0,0,0.85)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c), geo = new THREE.PlaneGeometry(1, 1); geo.rotateX(-Math.PI / 2);
+  blobSh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 160);
+  blobSh.frustumCulled = false; blobSh.renderOrder = 1; scene.add(blobSh);
+}
+const _blm = new THREE.Matrix4(), _blq = new THREE.Quaternion(), _blp = new V3(), _bls = new V3(), _bly = new V3(0, 1, 0);
+function updateBlobs() {
+  if (!blobSh) return; let k = 0; const cp = camera.position, max = 160;
+  blobSh.material.opacity = qLevel === 0 ? 0.62 : 0.42;
+  for (const c of cars) { if (k >= max || !c.group.visible || c.carriedBy) continue; if (Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) > 120) continue; _blq.setFromAxisAngle(_bly, c.h); _blm.compose(_blp.set(c.x, c.y + 0.03, c.z), _blq, _bls.set(c.T.wid * 1.25, 1, c.T.len * 1.1)); blobSh.setMatrixAt(k++, _blm); }
+  for (const n of npcs) { if (k >= max || !n.H.visible || n.inCar) continue; if (Math.abs(n.pos.x - cp.x) + Math.abs(n.pos.z - cp.z) > 60) continue; const s = 0.85 * (n.look.h || 1) * (1 - n.anim.knock * 0) + n.anim.knock * 0.9; _blm.compose(_blp.set(n.pos.x, n.pos.y + 0.02, n.pos.z), _blq.identity(), _bls.set(s, 1, s + n.anim.knock * 1.2)); blobSh.setMatrixAt(k++, _blm); }
+  if (player.where === 'out' && !player.inCar) { _blm.compose(_blp.set(player.pos.x, groundH(player.pos.x, player.pos.z) + 0.02, player.pos.z), _blq.identity(), _bls.set(0.85, 1, 0.85)); blobSh.setMatrixAt(k++, _blm); }
+  blobSh.count = k; blobSh.instanceMatrix.needsUpdate = true;
+}
+/* pigeons around the fountain: they peck, hop, and burst into flight when you get close */
+let pigeons = null;
+function buildPigeons() {
+  const f = world.fountains[0]; if (!f) return;
+  const body = new THREE.SphereGeometry(0.11, 10, 8); body.scale(0.85, 0.8, 1.4);
+  const geo = mergeGeos([[body, 0, 0.13, 0], [new THREE.SphereGeometry(0.055, 8, 6), 0, 0.24, 0.13], [new THREE.BoxGeometry(0.1, 0.02, 0.14), 0, 0.15, -0.17], [new THREE.ConeGeometry(0.015, 0.04, 6), 0, 0.23, 0.19, Math.PI / 2]]);
+  const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.8 }), 16);
+  const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.08, 0.28, 0.01, -0.03, 0, 0, -0.1], 3)); wg.computeVertexNormals();
+  const w = new THREE.InstancedMesh(wg, new THREE.MeshStandardMaterial({ color: 0x6f7480, side: THREE.DoubleSide, roughness: 0.9 }), 32);
+  m.castShadow = true; m.frustumCulled = w.frustumCulled = false; scene.add(m, w);
+  const list = []; for (let i = 0; i < 16; i++) { const a = Math.random() * 6.28, r = 4.5 + Math.random() * 3; list.push({ x: f.x + Math.cos(a) * r, z: f.z + Math.sin(a) * r, y: CURB, h: Math.random() * 6.28, mode: 'walk', t: Math.random() * 3, vx: 0, vy: 0, vz: 0, ph: Math.random() * 6 }); }
+  pigeons = { m, w, list, f };
+}
+function updatePigeons(dt) {
+  if (!pigeons || player.where !== 'out') return; const { m, w, list, f } = pigeons, cp = camera.position;
+  if (Math.abs(f.x - cp.x) + Math.abs(f.z - cp.z) > 120) return;
+  const threat = player.state === 'foot' ? player.pos : null;
+  list.forEach((p, i) => {
+    p.t -= dt; p.ph += dt;
+    if (p.mode === 'walk') {
+      const pd = threat ? Math.hypot(threat.x - p.x, threat.z - p.z) : 99;
+      if (p.scare && p.t < 0.06 || pd < 1.8 || pd < 3.4 && Math.hypot(player.vel.x, player.vel.z) > 0.5 || cars.some(c => Math.abs(c.vf) > 3 && Math.hypot(c.x - p.x, c.z - p.z) < 6)) {
+        p.scare = false; p.mode = 'fly'; p.t = 3 + Math.random() * 3; p.cruise = 2.5 + Math.random() * 3; p.land = null; const a = Math.atan2(p.x - (threat ? threat.x : f.x), p.z - (threat ? threat.z : f.z)) + (Math.random() - 0.5); p.vx = Math.sin(a) * 4; p.vz = Math.cos(a) * 4; p.vy = 3.5 + Math.random(); p.h = a;
+        for (const o of list) if (o.mode === 'walk' && o !== p && Math.hypot(o.x - p.x, o.z - p.z) < 3.5) o.t = Math.min(o.t, 0.05 + Math.random() * 0.4), o.scare = true;
+        if (i % 4 === 0) Audio.burst(0.05 * Audio.vol(p.x, p.z), 900, 0.35, 'lowpass', 1);
+      } else if (p.t < 0) { p.t = 0.6 + Math.random() * 2.5; p.h += (Math.random() - 0.5) * 2; p.hop = 0.35; }
+      if (p.hop > 0) { p.hop -= dt; p.x += Math.sin(p.h) * 0.6 * dt; p.z += Math.cos(p.h) * 0.6 * dt; }
+      const r = Math.hypot(p.x - f.x, p.z - f.z); if (r < 3.8 || r > 8.5) p.h = Math.atan2(f.x - p.x, f.z - p.z) + (r < 3.8 ? Math.PI : 0);
+      p.y = CURB;
+    } else {
+      // climb to a low cruise, swing round the plaza, then glide down to a fresh spot
+      if (p.t > 1.6) { p.vy = damp(p.vy, (p.cruise - p.y) * 1.6, 3, dt); const a = Math.atan2(p.x - f.x, p.z - f.z) + 0.9, tx = f.x + Math.sin(a) * 9, tz = f.z + Math.cos(a) * 9; p.vx = damp(p.vx, (tx - p.x) * 0.9, 1.5, dt); p.vz = damp(p.vz, (tz - p.z) * 0.9, 1.5, dt); }
+      else { if (!p.land) { const a = Math.random() * 6.28, r = 4.5 + Math.random() * 3; p.land = [f.x + Math.cos(a) * r, f.z + Math.sin(a) * r]; } p.vx = damp(p.vx, (p.land[0] - p.x) * 1.2, 3, dt); p.vz = damp(p.vz, (p.land[1] - p.z) * 1.2, 3, dt); p.vy = damp(p.vy, Math.max(-3, (CURB - p.y) * 1.8), 4, dt); }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; if (Math.hypot(p.vx, p.vz) > 0.3) p.h = Math.atan2(p.vx, p.vz);
+      if (p.t < 0 && p.y <= CURB + 0.08) { p.y = CURB; p.mode = 'walk'; p.t = 1 + Math.random(); p.land = null; }
+      else if (p.t < -4) { p.y = CURB; p.mode = 'walk'; p.land = null; }
+      p.y = Math.max(p.y, CURB);
+    }
+    const peck = p.mode === 'walk' && !(p.hop > 0) ? Math.max(0, Math.sin(p.ph * 5)) * 0.5 : 0;
+    _be.set(peck, p.h, 0, 'YXZ'); _bq.setFromEuler(_be); _bm.compose(_bp.set(p.x, p.y, p.z), _bq, _bs.set(1, 1, 1)); m.setMatrixAt(i, _bm);
+    const fl = p.mode === 'fly' ? Math.sin(p.ph * 26) * 0.9 : 0, sc = p.mode === 'fly' ? 1 : 0;
+    for (const sd of [1, -1]) { _be.set(0, p.h, sd * fl, 'YXZ'); _bq.setFromEuler(_be); _bm.compose(_bp.set(p.x, p.y + 0.15, p.z), _bq, _bs.set(sd * sc, sc, sc)); w.setMatrixAt(i * 2 + (sd > 0 ? 0 : 1), _bm); }
+  });
+  m.instanceMatrix.needsUpdate = w.instanceMatrix.needsUpdate = true;
 }
 /* birds circling over the city during the day */
 let birds = null;
@@ -1430,6 +1544,24 @@ function poseHuman(p, dt, t) {
       Q.hipY = 0.5; Q.thLx = -1.5; Q.thRx = -1.5; Q.knL = 1.45; Q.knR = 1.45; Q.anL = 0.05; Q.anR = 0.05; Q.thLz = 0.06; Q.thRz = -0.06;
       Q.spX = -0.06 + Math.sin(t * 1.5 + sd) * 0.015; Q.shLx = -0.4; Q.shRx = -0.4; Q.elL = -0.7; Q.elR = -0.7; Q.shLz = 0.12; Q.shRz = -0.12;
       if (a.idleKind === 'phone') { Q.shRx = -0.75; Q.elR = -1.9; Q.shLx = -0.7; Q.elL = -1.7; Q.hdX = 0.45; }
+    } else if (sp_ === 'lie') {
+      Q.rigX = -Math.PI / 2; Q.rigY = 0.12; Q.thLx = 0; Q.thRx = 0; Q.knL = 0.06; Q.knR = 0.12; Q.anL = -0.3; Q.anR = -0.3; Q.thLz = 0.05; Q.thRz = -0.05;
+      Q.shLx = -0.35; Q.shRx = -0.35; Q.shLz = 0.12; Q.shRz = -0.12; Q.elL = -1.25; Q.elR = -1.25; Q.spX = 0; Q.hdX = -0.12 + Math.sin(t * 1.2) * 0.01; Q.hipY = 0.95; Q.hdY = 0;
+    } else if (sp_ === 'read') {
+      Q.shLx = -0.95; Q.shRx = -0.95; Q.elL = -1.25; Q.elR = -1.25; Q.shLz = 0.28; Q.shRz = -0.28; Q.hdX = 0.45 + Math.sin(t * 0.8) * 0.04;
+    } else if (sp_ === 'drink') {
+      Q.shRx = -1.15; Q.shRz = -0.35; Q.elR = -2.15; Q.hdX = -0.32; Q.shLx = 0.05;
+    } else if (sp_ === 'phone') {
+      Q.shRx = -0.85; Q.shRz = -0.4; Q.elR = -2.25; Q.hdZ = 0.16; Q.hdX = 0.08;
+    } else if (sp_ === 'repair') {
+      const w = t * 6 + sd;
+      Q.hipY = 0.56; Q.thLx = -1.45; Q.thRx = -0.7; Q.knL = 2.0; Q.knR = 1.45; Q.anL = 0.4; Q.anR = 0.1; Q.spX = 0.5; Q.hdX = 0.25;
+      Q.shLx = -1.05 + Math.sin(w) * 0.25; Q.shRx = -1.25 + Math.sin(w * 1.3 + 1) * 0.35; Q.elL = -0.6; Q.elR = -0.8 + Math.sin(w * 2) * 0.3; Q.shLz = 0.2; Q.shRz = -0.2;
+    } else if (sp_ === 'repairUp') {
+      const w = t * 5 + sd;
+      Q.shLx = -2.5 + Math.sin(w) * 0.15; Q.shRx = -2.3 + Math.sin(w * 1.4 + 1) * 0.3; Q.elL = -0.45; Q.elR = -0.6 + Math.sin(w * 2.2) * 0.35; Q.hdX = -0.4; Q.spX = -0.08; Q.shLz = 0.25; Q.shRz = -0.25;
+    } else if (sp_ === 'passenger') {
+      Q.hipY = 0.18; Q.thLx = -1.35; Q.thRx = -1.35; Q.knL = 1.1; Q.knR = 1.1; Q.anL = 0.2; Q.anR = 0.2; Q.spX = -0.2; Q.shLx = -0.35; Q.shRx = -0.35; Q.elL = -0.95; Q.elR = -0.95; Q.hdY = Math.sin(t * 0.3) * 0.4;
     } else if (sp_ === 'sitGround') {
       Q.hipY = 0.14; Q.thLx = -1.45; Q.thRx = -1.45; Q.knL = 0.3; Q.knR = 0.5; Q.thLz = 0.12; Q.thRz = -0.12; Q.spX = -0.28; Q.shLx = 0.55; Q.shRx = 0.55; Q.elL = -0.1; Q.elR = -0.1; Q.shLz = 0.3; Q.shRz = -0.3;
     } else if (sp_ === 'drive') {
@@ -1498,6 +1630,9 @@ const CAR_TYPES = {
     body: [[-2.32, 0.42], [2.28, 0.42], [2.38, 0.68], [2.3, 1.05], [1.1, 1.17], [-2.28, 1.2], [-2.38, 0.78]],
     cabin: [[-2.26, 1.15], [1.08, 1.14], [0.38, 1.76], [-2.05, 1.78], [-2.26, 1.52]] },
 };
+CAR_TYPES.tow = { len: 7.3, wid: 2.3, wb: 4.3, wr: 0.48, mass: 6500, engine: 6.5, vmax: 30, roofY: 2.62, beltY: 1.62, cab: [1.5, 2.95], headY: 1.05, tailY: 1.0, front: 3.7, rear: -3.66,
+  body: [[-3.6, 0.62], [3.55, 0.62], [3.68, 0.9], [3.62, 1.55], [1.45, 1.62], [1.45, 1.2], [-3.6, 1.2]],
+  cabin: [[1.45, 1.6], [3.3, 1.6], [2.95, 2.55], [1.48, 2.6]] };
 const CAR_COLS = [0xe9ebee, 0x15171b, 0xa9adb3, 0xb3161b, 0x1e4fa3, 0x1f4d3a, 0xc9b48a, 0x1b2a4a, 0xd9661f, 0x2a8c8c, 0x6b6f75, 0x7a1f3d];
 const CarMats = {};
 const carGeoCache = {};
@@ -1608,35 +1743,41 @@ class Car {
     this.driverP = p || null;
     if (p) { p.inCar = this; if (!p.pool) outdoorPool.attach(p); p.anim.special = 'drive'; p.anim.sw = 1; p.H.visible = true; }
   }
-  seatPose(p) {
-    const t = this.T, s = Math.sin(this.h), c = Math.cos(this.h), lx = t.wid / 2 - 0.5, lz = (t.cab[0] + t.cab[1]) / 2 - 0.08;
-    const by = this.y + this.body.position.y + t.roofY - 0.1 - 0.965 * (p.look.h || 1);
+  seatPose(p, passenger) {
+    const t = this.T, s = Math.sin(this.h), c = Math.cos(this.h), lx = (passenger ? -1 : 1) * (t.wid / 2 - 0.5), lz = (t.cab[0] + t.cab[1]) / 2 - 0.08;
+    const by = this.group.position.y + this.body.position.y + t.roofY - 0.1 - 0.965 * (p.look.h || 1);
     p.H.root.position.set(this.x + lx * c + lz * s, by, this.z - lx * s + lz * c);
     p.H.root.rotation.set(this.pitch, this.h, this.roll, 'YXZ');
     p.steer = this.steer * 2;
   }
   topAt(lf) { const t = this.T; return (lf >= t.cab[0] - 0.15 && lf <= t.cab[1] + 0.1) ? t.roofY + 0.06 : t.beltY - (lf > 0 ? 0.12 : 0); }
   damage(px, pz, py, nx, nz, s) {
-    if (s < 3) return;
+    if (s < 3 || this.locked) return;
     this.health = Math.max(0, this.health - s * 1.6);
-    if (this.dents > 40) return; this.dents++;
-    if (!this.paintMesh.userData.own) { this.paintMesh.geometry = this.paintMesh.geometry.clone(); this.paintMesh.userData.own = true; }
-    const g = this.paintMesh.geometry, pos = g.attributes.position;
     const c = Math.cos(this.h), sn = Math.sin(this.h);
     const dx = px - this.x, dz = pz - this.z, lx = dx * c - dz * sn, lz = dx * sn + dz * c; // world -> local
-    const lnx = nx * c - nz * sn, lnz = nx * sn + nz * c;
+    this.dent(lx, lz, (py ?? this.y + 0.7) - this.y, nx * c - nz * sn, nx * sn + nz * c, s);
+  }
+  dent(lx, lz, ly, lnx, lnz, s) {
+    if (this.dents > 40) return; this.dents++; (this.dentLog || (this.dentLog = [])).push([+lx.toFixed(2), +lz.toFixed(2), +ly.toFixed(2), +lnx.toFixed(2), +lnz.toFixed(2), +s.toFixed(1)]);
+    if (!this.paintMesh.userData.own) { this.paintMesh.geometry = this.paintMesh.geometry.clone(); this.paintMesh.userData.own = true; }
+    const g = this.paintMesh.geometry, pos = g.attributes.position;
     const amt = Math.min(0.16, s * 0.012), R2 = 0.85;
     for (let i = 0; i < pos.count; i++) {
-      const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i), d = Math.hypot(vx - lx, (vy - (py ?? 0.7)) * 0.8, vz - lz);
+      const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i), d = Math.hypot(vx - lx, (vy - ly) * 0.8, vz - lz);
       if (d > R2) continue; const f = (1 - d / R2) ** 2 * amt * (0.7 + 0.6 * Math.sin(vx * 37 + vz * 23));
       pos.setXYZ(i, vx + lnx * f, vy - f * 0.25, vz + lnz * f);
     }
     pos.needsUpdate = true; g.computeVertexNormals();
   }
+  repairAll() {
+    this.health = 100; this.dents = 0; this.dentLog = [];
+    if (this.paintMesh.userData.own) { this.paintMesh.geometry.dispose(); this.paintMesh.geometry = this.G.paint; this.paintMesh.userData.own = false; }
+  }
   integrate(dt) {
     const t = this.T; const fx = Math.sin(this.h), fz = Math.cos(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz, vl = this.vx * rx + this.vz * rz;
-    const power = this.health <= 0 ? 0 : this.health < 25 ? 0.55 : 1;
+    const power = this.valet ? 0.45 : this.health <= 0 ? 0 : this.health < 25 ? 0.55 : 1; // a dead car is rolled into the bay by hand
     const thr = this.inThrottle; let acc = 0, braking = false;
     if (thr > 0.02) { if (vf < -0.5) { acc = 13 * thr; braking = true; } else acc = power * t.engine * thr * Math.max(0, 1 - Math.max(0, vf) / t.vmax) * (vf < 10 ? 1.2 : 1); }
     else if (thr < -0.02) { if (vf > 0.5) { acc = 13 * thr; braking = true; } else acc = vf > -9 ? power * t.engine * 0.55 * thr : 0; }
@@ -1664,8 +1805,8 @@ class Car {
   sync(dt) {
     const t = this.T;
     const gy = Math.max(groundH(this.x + Math.sin(this.h) * t.wb / 2, this.z + Math.cos(this.h) * t.wb / 2), groundH(this.x - Math.sin(this.h) * t.wb / 2, this.z - Math.cos(this.h) * t.wb / 2));
-    this.y = dt ? damp(this.y, gy, 14, dt) : gy;
-    this.group.position.set(this.x, this.y, this.z); this.group.rotation.y = this.h;
+    if (!this.carriedBy && !this.glide) { this.y = dt ? damp(this.y, gy, 14, dt) : gy; this.carryPitch = 0; }
+    this.group.position.set(this.x, this.y + (this.lift || 0), this.z); this.group.rotation.set(this.carryPitch || 0, this.h, 0, 'YXZ');
     this.wheelRot += this.vf * dt / t.wr;
     const lat = this.vf * this.av;
     this.roll = damp(this.roll, clamp(lat * 0.012, -0.075, 0.075), 6, dt || 1);
@@ -1691,8 +1832,10 @@ class Car {
     this.bR.emissiveIntensity = (mode === 'R' || mode === 'H') && ph ? 3.5 : 0;
     if (this.player && mode && ph !== this._ph) { this._ph = ph; if (ph) Audio.tick(); }
     if (this.driverP) this.seatPose(this.driverP);
+    if (this.passengerP) this.seatPose(this.passengerP, true);
+    if (this.isTow) towVisuals(this, dt || 0);
   }
-  corners() { const t = this.T, fx = Math.sin(this.h), fz = Math.cos(this.h); return { fx, fz, rx: -fz, rz: fx, hl: t.len / 2, hw: t.wid / 2 }; }
+  corners() { const t = this.T, o = this._co || (this._co = {}); o.fx = Math.sin(this.h); o.fz = Math.cos(this.h); o.rx = -o.fz; o.rz = o.fx; o.hl = t.len / 2; o.hw = t.wid / 2; return o; }
 }
 
 /* ============================================================
@@ -1706,8 +1849,10 @@ function projT(a, b, x, z) { const abx = b.x - a.x, abz = b.z - a.z, L2 = abx * 
 const segLen = (a, b) => Math.hypot(b.x - a.x, b.z - a.z);
 class CarAI {
   constructor(car, i, j, d) { this.car = car; this.cruise = 9 + Math.random() * 4; this.stuck = 0; this.rev = 0; this.blockT = 0; this.waitT = 0; this.ignore = 0; this.reset(i, j, d); }
+  setDest(x, z) { this.dest = roadTarget(x, z); this.resetFromPos(); }
+  clearDest() { this.dest = null; this.resetFromPos(); }
   reset(i, j, d) {
-    this.i = i; this.j = j; this.d = d; this.k = 0;
+    this.i = i; this.j = j; this.d = d; this.k = 0; this.finalSet = false; this.arrived = false;
     const A = approachPt(i, j, d);
     this.path = [{ x: this.car.x, z: this.car.z }, { x: A.x, z: A.z, stop: { i, j, axis: DIRS[d][0] !== 0 ? 1 : 0 } }];
     this.plan(); this.plan();
@@ -1722,10 +1867,15 @@ class CarAI {
     this.reset(clamp(i, 0, N), clamp(j, 0, N), d);
   }
   plan() {
+    if (this.finalSet) return;
     const { i, j, d } = this; const opts = [];
     for (const [nd, w] of [[d, 0.5], [(d + 1) % 4, 0.25], [(d + 3) % 4, 0.25]]) if (inGrid(i + DIRS[nd][0], j + DIRS[nd][1])) opts.push([nd, w]);
-    let nd = (d + 2) % 4;
-    if (opts.length) { let tot = opts.reduce((s, o) => s + o[1], 0), r = Math.random() * tot; for (const o of opts) { r -= o[1]; if (r <= 0) { nd = o[0]; break; } } if (r > 0) nd = opts[opts.length - 1][0]; }
+    let nd = (d + 2) % 4, final = false;
+    if (this.dest) {
+      const G = this.dest;
+      if (i === G.A.i && j === G.A.j) { nd = G.d; final = true; }
+      else { const b = bfsDir(i, j, d, G.A); if (b != null) nd = b; else if (opts.length) nd = opts[0][0]; }
+    } else if (opts.length) { let tot = opts.reduce((s, o) => s + o[1], 0), r = Math.random() * tot; for (const o of opts) { r -= o[1]; if (r <= 0) { nd = o[0]; break; } } if (r > 0) nd = opts[opts.length - 1][0]; }
     const last = this.path[this.path.length - 1]; last.turn = nd !== d; last.turnDir = nd === (d + 3) % 4 ? 'R' : nd === (d + 1) % 4 ? 'L' : null;
     const E = exitPt(i, j, nd);
     if (nd !== d) {
@@ -1734,6 +1884,7 @@ class CarAI {
       for (let t = 0.2; t < 0.99; t += 0.2) { const u = 1 - t; this.path.push({ x: u * u * last.x + 2 * u * t * P1.x + t * t * E.x, z: u * u * last.z + 2 * u * t * P1.z + t * t * E.z, curve: true }); }
     }
     this.path.push({ x: E.x, z: E.z, curve: nd !== d });
+    if (final) { this.path.push({ x: this.dest.S.x, z: this.dest.S.z, final: true }); this.finalSet = true; return; }
     const ni = i + DIRS[nd][0], nj = j + DIRS[nd][1]; const A = approachPt(ni, nj, nd);
     this.path.push({ x: A.x, z: A.z, stop: { i: ni, j: nj, axis: DIRS[nd][0] !== 0 ? 1 : 0 } });
     this.i = ni; this.j = nj; this.d = nd;
@@ -1764,6 +1915,11 @@ class CarAI {
       const st = lightState(found.stop.i, found.stop.j, found.stop.axis);
       if (st === 2 || (st === 1 && dist > 8)) { const v = Math.max(0, dist - 1.2) * 0.75; if (v < target) { target = v; byLight = true; } }
     }
+    if (this.finalSet) {
+      const L = p[p.length - 1], df = Math.hypot(L.x - c.x, L.z - c.z);
+      target = Math.min(target, Math.max(0, df - 0.6) * 0.55 + (df > 4 ? 1.5 : 0));
+      if (df < 2.2) { this.arrived = true; target = 0; }
+    }
     let blocked = false;
     if (this.ignore > 0) this.ignore -= dt;
     else for (const o of obstacles) {
@@ -1783,6 +1939,27 @@ class CarAI {
     c.inHand = target < 0.25 && c.vf < 0.6; if (c.inHand) c.inThrottle = 0;
     if (c.inThrottle > 0.4 && Math.abs(c.vf) < 0.3) { this.stuck += dt; if (this.stuck > 2.5) { this.rev = 1.4; this.stuck = 0; } } else this.stuck = Math.max(0, this.stuck - dt);
   }
+}
+
+/* routing helpers for vehicles sent to a place (tow truck) */
+function bfsDir(i, j, d, goal) {
+  for (const allowBack of [false, true]) {
+    const seen = new Set([i + ',' + j]), q = [];
+    for (let nd = 0; nd < 4; nd++) { if (!allowBack && nd === (d + 2) % 4) continue; const ni = i + DIRS[nd][0], nj = j + DIRS[nd][1]; if (!inGrid(ni, nj)) continue; if (ni === goal.i && nj === goal.j) return nd; q.push([ni, nj, nd]); seen.add(ni + ',' + nj); }
+    while (q.length) { const [ci, cj, f] = q.shift(); for (let nd = 0; nd < 4; nd++) { const ni = ci + DIRS[nd][0], nj = cj + DIRS[nd][1], k = ni + ',' + nj; if (!inGrid(ni, nj) || seen.has(k)) continue; if (ni === goal.i && nj === goal.j) return f; seen.add(k); q.push([ni, nj, f]); } }
+  }
+  return null;
+}
+function roadTarget(x, z, ahead = 7.5) {
+  const a = nearestRoad(x), b = nearestRoad(z);
+  if (a.d <= b.d) {
+    const i = a.k, X = roadX(i), j0 = clamp(Math.floor((z + HALF) / B), 0, N - 1), plus = x < X, d = plus ? 0 : 2;
+    const lo = roadX(j0) + RH + 7, hi = roadX(j0 + 1) - RH - 7;
+    return { A: { i, j: plus ? j0 : j0 + 1 }, d, S: { x: X + laneOff(d).x, z: clamp(z + (plus ? ahead : -ahead), lo, hi) } };
+  }
+  const j = b.k, Z = roadX(j), i0 = clamp(Math.floor((x + HALF) / B), 0, N - 1), plus = z > Z, d = plus ? 1 : 3;
+  const lo = roadX(i0) + RH + 7, hi = roadX(i0 + 1) - RH - 7;
+  return { A: { i: plus ? i0 : i0 + 1, j }, d, S: { x: clamp(x + (plus ? ahead : -ahead), lo, hi), z: Z + laneOff(d).z } };
 }
 
 /* ============================================================
@@ -1895,7 +2072,7 @@ function stepCharacter(p, col, dt, outdoor) {
   // cars as solid obstacles
   let standCar = null, carTop = -1;
   if (outdoor) for (const car of cars) {
-    const dx = car.x - p.pos.x, dz = car.z - p.pos.z; if (dx * dx + dz * dz > 16) continue;
+    const dx = car.x - p.pos.x, dz = car.z - p.pos.z; if (dx * dx + dz * dz > 16 || car.lift > 0.5 || car.carriedBy || car === p.inCar) continue;
     const res = carCircle(car, p.pos.x, p.pos.z, r);
     if (!res) continue;
     const top = car.y + car.topAt(res.lf);
@@ -2033,7 +2210,7 @@ function finishMode(n) { // what to do after a conversation or a special action
   if (a === 'follow') { n.mode = 'follow'; n.timer = 120; }
   else if (a === 'goSit' && n.bench) { n.mode = 'goSit'; n.timer = 25; }
   else if (a === 'leave') { n.mode = 'flee'; n.timer = 2.5; const ax = n.pos.x - player.pos.x, az = n.pos.z - player.pos.z, l = Math.hypot(ax, az) || 1; n.fx = ax / l; n.fz = az / l; n.fleeSpd = 1.7; }
-  else { n.mode = n.ring ? 'idle' : (n.spots ? 'wander' : 'stand'); n.timer = 2 + Math.random() * 2; }
+  else { n.mode = n.mech ? 'mech' : n.ring ? 'idle' : (n.spots ? 'wander' : 'stand'); n.timer = 2 + Math.random() * 2; }
 }
 let hornEvent = null;
 function updateNPC(n, dt, outdoor, col) {
@@ -2126,7 +2303,7 @@ function updateNPC(n, dt, outdoor, col) {
       break;
     }
     case 'inside': n.H.visible = false; n.vel.set(0, 0, 0); if (n.timer < 0) { n.door.npcOpen = 1.6; n.H.visible = true; n.facing = Math.atan2(n.door.nx, n.door.nz); n.mode = 'goto'; } return;
-    case 'flee': desired = n.fleeSpd || 5.0; dx = n.fx; dz = n.fz; if (n.timer < 0) { n.fleeSpd = 0; n.mode = 'goto'; } break;
+    case 'flee': desired = n.fleeSpd || 5.0; dx = n.fx; dz = n.fz; if (n.timer < 0) { n.fleeSpd = 0; n.mode = n.mech ? 'mech' : 'goto'; } break;
     case 'goto': {
       n.ring = nearestRing(n.pos.x, n.pos.z); const s = ringParam(n.ring, n.pos.x, n.pos.z), tg = ringPoint(n.ring, s, n.off);
       dx = tg.x - n.pos.x; dz = tg.z - n.pos.z; desired = 1.6; if (Math.hypot(dx, dz) < 1.2) { n.mode = 'walk'; n.s = s; n.timer = 5; }
@@ -2147,11 +2324,22 @@ function updateNPC(n, dt, outdoor, col) {
       dx = n.tgt[0] - n.pos.x; dz = n.tgt[1] - n.pos.z; const d = Math.hypot(dx, dz); desired = d > 0.4 ? 1.0 : 0; break;
     }
     case 'stand': break;
+    case 'valet': return;
+    case 'mech': {
+      const job = garage.job; let tx, tz, face = null;
+      if (job && job.phase !== 'done') { [tx, tz] = job.spots[n.mechIdx]; face = job.bay; } else [tx, tz] = garage.mechSpots[n.mechIdx];
+      dx = tx - n.pos.x; dz = tz - n.pos.z; const d = Math.hypot(dx, dz); desired = d > 0.35 ? 1.7 : 0;
+      if (!desired) {
+        if (face) faceTo(face.x, face.z, 4); else faceTo(garage.cx, n.pos.z, 2);
+        n.anim.special = job && job.phase === 'work' ? (job.car.lift > 0.6 ? 'repairUp' : 'repair') : null;
+      } else n.anim.special = null;
+      break;
+    }
   }
   n.anim.knock = damp(n.anim.knock, n.mode === 'down' ? 1 : 0, n.mode === 'down' ? 7 : 2.2, dt);
   n.anim.getup = damp(n.anim.getup, n.mode === 'getup' ? 1 : 0, 6, dt);
   // danger from cars, and reaction to the horn
-  if (outdoor && n.mode !== 'down' && n.mode !== 'getup' && n.mode !== 'talk') {
+  if (outdoor && n.mode !== 'down' && n.mode !== 'getup' && n.mode !== 'talk' && n.mode !== 'mech') {
     for (const c of cars) {
       const sp = Math.abs(c.vf); if (sp < 4) continue; const ox = n.pos.x - c.x, oz = n.pos.z - c.z; if (ox * ox + oz * oz > 220) continue;
       const fx = Math.sin(c.h), fz = Math.cos(c.h), lf = (ox * fx + oz * fz) * Math.sign(c.vf), lr = ox * -fz + oz * fx;
@@ -2180,8 +2368,17 @@ function updateNPC(n, dt, outdoor, col) {
    Interiors
    ============================================================ */
 const interior = { col: null, door: null, npcs: [], W: 12, D: 10 };
+/* the same resident lives in each house every visit (and after reloading) */
+function residentFor(key, job) {
+  let rs = store.residents[key];
+  if (!rs) { const look = randomLook(); const persona = makePersona(look, look.female); if (job) { persona.job = job; persona.jobLine = 'خوش اومدید به مغازهٔ ما.'; } rs = store.residents[key] = { look, persona }; }
+  const p = makePerson(rs.look, false); p.persona = rs.persona; p.npc = true; return p;
+}
 function buildInterior(door) {
-  for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = []; interior.fan = interior.clock = interior.tv = null;
+  for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = []; interior.fan = interior.clock = interior.tv = null; interior.items = [];
+  const key = world.doors.indexOf(door); interior.key = key;
+  const hs = store.homes[key] || (store.homes[key] = { lights: true, tv: true, stove: false, sink: false });
+  interior.hs = hs;
   for (let i = interiorScene.children.length - 1; i >= 0; i--) { const o = interiorScene.children[i]; if (o.userData.keep) continue; interiorScene.remove(o); if (o.userData.disposable) o.geometry.dispose(); }
   const prevR = R, prevBT = BT, prevCL = CL; R = makeRng(door.seed); BT = new Batch(0); CL = new Colliders();
   const shop = door.kind === 'shop';
@@ -2237,7 +2434,11 @@ function buildInterior(door) {
     for (const sx of [-1.25, 1.25]) { fBox(F, 'wood', sx, 0.25, -0.85, 0.5, 0.5, 0.45, woodC, { col: true }); fBox(F, 'lampOn', sx, 0.68, -0.85, 0.22, 0.3, 0.22, 0xfff0d8); }
     picture(mkFrame(-3.6, -D / 2, 0), 0, 1.9, 1.2, 0.7);
     // wardrobe
-    F = mkFrame(-W / 2 + 0.32, -1.2, Math.PI / 2); fBox(F, 'wood', 0, 1.05, 0, 1.6, 2.1, 0.6, woodC, { col: true }); fBox(F, 'metal', -0.06, 1.05, 0.31, 0.02, 0.3, 0.03, 0xd0d0d0); fBox(F, 'metal', 0.06, 1.05, 0.31, 0.02, 0.3, 0.03, 0xd0d0d0);
+    F = mkFrame(-W / 2 + 0.32, -1.2, Math.PI / 2); fBox(F, 'wood', 0, 1.05, -0.02, 1.6, 2.1, 0.56, woodC, { col: true }); fBox(F, 'fabric', 0, 1.05, 0.0, 1.5, 2.0, 0.5, 0x2a2420);
+    for (let k = 0; k < 5; k++) fBox(F, 'fabric', -0.55 + k * 0.27, 1.25, 0.02, 0.22, 0.9, 0.06, pick([0x3a5a8a, 0x8a3a3a, 0xd8d0c0, 0x2a2a2a, 0x5a7a4a]));
+    { const g = new THREE.Group(), [x, z] = fw(F, 0, 0.27); g.position.set(x, 0, z); g.rotation.y = F.a; interiorScene.add(g); const dm = new THREE.MeshStandardMaterial({ color: woodC, roughness: 0.6 }), hm = new THREE.MeshStandardMaterial({ color: 0xd0d0d0, metalness: 0.8, roughness: 0.3 });
+      const doors = [-1, 1].map(sd => { const pv = new THREE.Group(); pv.position.set(sd * 0.8, 0, 0); g.add(pv); const m = new THREE.Mesh(new THREE.BoxGeometry(0.79, 2.06, 0.03), dm); m.position.set(-sd * 0.395, 1.05, 0); m.castShadow = true; pv.add(m); const h = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.03), hm); h.position.set(-sd * 0.72, 1.05, 0.03); pv.add(h); pv.userData.sd = sd; return pv; });
+      interior.wardrobe = { doors, open: 0, target: 0 }; }
     // kitchen
     const kc = pick([0xf2efe8, 0x2f4a5a, 0x6a7a5a, 0xd8c8a8, 0x3a3a3a]);
     BT.add('wood', boxGeo(3.8, 0.88, 0.62), 2.7, 0.44, -D / 2 + 0.31, 0, kc); CL.box(0.8, 4.6, -D / 2, -D / 2 + 0.62, 0, 0.92);
@@ -2246,8 +2447,20 @@ function buildInterior(door) {
     BT.add('metal', boxGeo(0.62, 0.02, 0.55), 3.6, 0.925, -D / 2 + 0.33, 0, 0x111111);
     for (const [ax, az] of [[-0.14, -0.12], [0.14, -0.12], [-0.14, 0.12], [0.14, 0.12]]) BT.add('metal', GEO.cyl, 3.6 + ax, 0.94, -D / 2 + 0.33 + az, 0, 0x333333, 0, 0, 0.08, 0.01, 0.08);
     BT.add('wood', boxGeo(1.8, 0.7, 0.35), 3.7, 1.95, -D / 2 + 0.18, 0, kc);
-    BT.add('metal', boxGeo(0.9, 1.9, 0.72), 5.4, 0.95, -D / 2 + 0.37, 0, pick([0xe8e8e8, 0xb8bcc0])); CL.box(4.95, 5.85, -D / 2, -D / 2 + 0.74, 0, 1.9);
-    BT.add('metal', boxGeo(0.03, 0.5, 0.04), 5.0, 1.2, -D / 2 + 0.75, 0, 0x888888);
+    const fcol = pick([0xe8e8e8, 0xb8bcc0]);
+    BT.add('metal', boxGeo(0.9, 1.9, 0.68), 5.4, 0.95, -D / 2 + 0.35, 0, fcol); CL.box(4.95, 5.85, -D / 2, -D / 2 + 0.74, 0, 1.9);
+    for (let lv = 0; lv < 3; lv++) for (let b = 0; b < 4; b++) BT.add('fabric', GEO.cyl, 5.1 + b * 0.18, 0.45 + lv * 0.45, -D / 2 + 0.55, 0, pick([0xd94a3a, 0x3aa0d9, 0xf2c14e, 0xffffff, 0x4ab04a]), 0, 0, 0.04, 0.24, 0.04);
+    { const pv = new THREE.Group(); pv.position.set(4.96, 0, -D / 2 + 0.72); interiorScene.add(pv);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.88, 0.06), new THREE.MeshStandardMaterial({ color: fcol, roughness: 0.25, metalness: 0.6 })); m.position.set(0.45, 0.95, 0); m.castShadow = true; pv.add(m);
+      const h = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.04), new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8 })); h.position.set(0.84, 1.15, 0.05); pv.add(h);
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.7), new THREE.MeshBasicMaterial({ color: 0xf2f8ff, transparent: true, opacity: 0.35, toneMapped: false })); glow.position.set(5.4, 0.95, -D / 2 + 0.66); glow.visible = false; interiorScene.add(glow);
+      interior.fridge = { pv, glow, open: 0, target: 0 }; }
+    // tap, sink water and stove burners
+    BT.add('metal', GEO.cyl, 1.6, 1.08, -D / 2 + 0.1, 0, 0xd0d4d8, 0, 0, 0.02, 0.32, 0.02); BT.add('metal', boxGeo(0.03, 0.03, 0.2), 1.6, 1.23, -D / 2 + 0.2, 0, 0xd0d4d8);
+    { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0.65, roughness: 0.05 })); w.position.set(1.6, 1.07, -D / 2 + 0.29); w.visible = hs.sink; interiorScene.add(w); interior.water = w; }
+    { const bm = new THREE.MeshBasicMaterial({ color: 0xff5a1a, toneMapped: false }), g = new THREE.Group(); for (const [ax, az] of [[-0.14, -0.12], [0.14, -0.12], [-0.14, 0.12], [0.14, 0.12]]) { const c = new THREE.Mesh(new THREE.CircleGeometry(0.075, 18), bm); c.rotation.x = -Math.PI / 2; c.position.set(3.6 + ax, 0.947, -D / 2 + 0.33 + az); g.add(c); } g.visible = hs.stove; interiorScene.add(g); interior.burners = g; }
+    BT.add('metal', GEO.cyl, 3.46, 1.02, -D / 2 + 0.45, 0, 0x8a8f96, 0, 0, 0.13, 0.15, 0.13);
+    BT.add('trim', boxGeo(0.09, 0.13, 0.02), 1.1, 1.3, D / 2 - 0.02, 0, 0xf8f8f8);
     winAt(1.6, -D / 2 + 0.02, 0);
     // dining
     BT.add('wood', boxGeo(1.6, 0.05, 0.9), 3.0, 0.75, -0.6, 0, woodC); for (const [ax, az] of [[-0.72, -0.38], [0.72, -0.38], [-0.72, 0.38], [0.72, 0.38]]) BT.add('wood', boxGeo(0.06, 0.73, 0.06), 3.0 + ax, 0.37, -0.6 + az, 0, woodC);
@@ -2275,9 +2488,23 @@ function buildInterior(door) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.025, 8, 28), new THREE.MeshStandardMaterial({ color: 0x3a2a1a })); rim.position.copy(ck.position); interiorScene.add(rim);
       interior.clock = { g: c.getContext('2d'), tex, last: -1 }; }
     lights.push([-3, H - 0.4, 1.5, 0xffe0b8, 26], [3, H - 0.4, -1.5, 0xffe0b8, 26]);
-    const res = makePerson(randomLook(), false); res.npc = true; res.mode = 'wander'; res.spots = [[0, 3], [1.2, 1.2], [-0.2, -1.5], [1.6, -2.8], [-1.8, -2.4], [0.5, 0.3]];
+    const res = residentFor(key); res.mode = 'wander'; res.spots = [[0, 3], [1.2, 1.2], [-0.2, -1.5], [1.6, -2.8], [-1.8, -2.4], [0.5, 0.3]];
     res.pos.set(1.2, 0, 1.2); interiorPool.attach(res); interior.npcs.push(res);
-    say(res, mpick(['سلام! خوش اومدی', 'به به! بفرما داخل', 'سلام همسایه!', 'چای می‌خوری؟']), 3);
+    const pp = res.persona; pp.met++;
+    say(res, pp.mem.carTaken ? 'تو؟! تو خونهٔ من چیکار می‌کنی؟' : pp.met > 1 ? `${pp.mem.playerName ? pp.mem.playerName + '! ' : ''}باز هم اومدی؟ خوش اومدی!` : mpick([`سلام! من ${pp.name}م، خوش اومدی`, 'به به! بفرما داخل', 'سلام همسایه!', 'چای می‌خوری؟']), 3);
+    // things in the house you can use
+    const it = (id, x, z, r, label, use) => interior.items.push({ id, x, z, r, label, use });
+    const bz = -D / 2 + 1.15;
+    it('bed', -3.6, bz + 1.0, 1.3, () => 'دراز کشیدن روی تخت', () => startUse('lie', -3.6, 0.62, bz + 0.88, 0, -3.6, bz + 1.6));
+    it('sofa', -1.75, 1.8, 1.4, () => 'نشستن روی مبل', () => startUse('sit', -1.6, 0, 1.8, -Math.PI / 2, -2.4, 1.8));
+    [[2.6, -1.25, 0], [3.4, -1.25, 0], [2.6, 0.05, Math.PI], [3.4, 0.05, Math.PI]].forEach(([cx, cz, r], i) => it('chair' + i, cx, cz + (r ? 0.45 : -0.45), 0.8, () => 'نشستن پشت میز', () => startUse('sit', cx, 0.0, cz - Math.cos(r) * 0.02, r, cx, cz + (r ? 0.75 : -0.75))));
+    it('tv', -W / 2 + 1.2, 1.8, 1.2, () => interior.hs.tv ? 'خاموش کردن تلویزیون' : 'روشن کردن تلویزیون', () => { interior.hs.tv = !interior.hs.tv; Audio.tick(); });
+    it('fridge', 5.3, -D / 2 + 1.3, 1.0, () => 'یه نوشیدنی خنک از یخچال بردار', () => { interior.fridge.target = 1; startUse('drink', player.pos.x, 0, player.pos.z, player.facing, null, null, 2.6); Audio.door(); setTimeout(() => { if (interior.fridge) interior.fridge.target = 0; }, 2400); });
+    it('stove', 3.6, -D / 2 + 1.25, 0.9, () => interior.hs.stove ? 'خاموش کردن اجاق گاز' : 'روشن کردن اجاق گاز', () => { interior.hs.stove = !interior.hs.stove; interior.burners.visible = interior.hs.stove; Audio.tick(); if (interior.hs.stove) say(player, 'یه چای بذارم...', 2); });
+    it('sink', 1.6, -D / 2 + 1.25, 0.9, () => interior.hs.sink ? 'بستن شیر آب' : 'باز کردن شیر آب', () => { interior.hs.sink = !interior.hs.sink; interior.water.visible = interior.hs.sink; Audio.tick(); });
+    it('light', 1.1, D / 2 - 0.6, 0.8, () => interior.hs.lights ? 'خاموش کردن چراغ‌ها' : 'روشن کردن چراغ‌ها', () => { interior.hs.lights = !interior.hs.lights; Audio.tick(); });
+    it('wardrobe', -W / 2 + 1.25, -1.2, 1.1, () => interior.wardrobe.target ? 'بستن در کمد' : 'باز کردن در کمد', () => { interior.wardrobe.target = interior.wardrobe.target ? 0 : 1; Audio.door(); });
+    it('book', W / 2 - 1.0, 2.8, 1.0, () => 'یه کتاب از کتابخونه بردار و بخون', () => { startUse('read', player.pos.x, 0, player.pos.z, Math.PI / 2 * 1 + Math.PI, null, null); say(player, mpick(['«الا یا ایها الساقی، ادر کأساً و ناولها»', '«بیا تا گل برافشانیم و می در ساغر اندازیم»', '«توانا بود هر که دانا بود»', '«بنی‌آدم اعضای یکدیگرند»']), 4); });
   } else {
     // shop
     const tag = pick([0x1f5f8b, 0xc2561a, 0x1f7a4d, 0x8b2a3a]);
@@ -2298,13 +2525,14 @@ function buildInterior(door) {
     winAt(-3.5, D / 2 - 0.02, Math.PI); winAt(3.0, D / 2 - 0.02, Math.PI);
     plant(-W / 2 + 0.5, D / 2 - 0.5, 1.2);
     lights.push([-3, H - 0.4, -1, 0xf2f6ff, 30], [3, H - 0.4, -1, 0xf2f6ff, 30], [0, H - 0.4, 3, 0xf2f6ff, 18]);
-    const ck = makePerson(randomLook(), false); ck.npc = true; ck.mode = 'stand'; ck.pos.set(4.9, 0, 4.25); ck.facing = Math.PI; interiorPool.attach(ck); interior.npcs.push(ck);
+    const ck = residentFor(key, 'فروشنده'); ck.mode = 'stand'; ck.pos.set(4.9, 0, 4.25); ck.facing = Math.PI; interiorPool.attach(ck); interior.npcs.push(ck);
     say(ck, mpick(['خوش آمدید!', 'بفرمایید، چی لازم دارید؟', 'سلام! امروز تخفیف داریم']), 3);
   }
   BT.build(interiorScene);
   const hl = new THREE.HemisphereLight(0xfff4e6, 0x6b5a48, 0.9); interiorScene.add(hl);
-  for (const [x, y, z, c, i] of lights) { const pl = new THREE.PointLight(c, i, 14, 2); pl.position.set(x, y, z); interiorScene.add(pl); }
-  const dl = new THREE.DirectionalLight(0xfff0dd, 1.3); dl.position.set(2.5, 9, 3); dl.castShadow = true; dl.shadow.mapSize.set(1024, 1024);
+  interior.lights = []; interior.hemi = hl;
+  for (const [x, y, z, c, i] of lights) { const pl = new THREE.PointLight(c, i, 14, 2); pl.position.set(x, y, z); pl.userData.base = i; interiorScene.add(pl); interior.lights.push(pl); }
+  const dl = new THREE.DirectionalLight(0xfff0dd, 1.3); dl.position.set(2.5, 9, 3); dl.castShadow = qLevel > 0; dl.shadow.mapSize.set(1024, 1024);
   const sc = dl.shadow.camera; sc.left = -W / 2 - 1; sc.right = W / 2 + 1; sc.top = D / 2 + 1; sc.bottom = -D / 2 - 1; sc.near = 1; sc.far = 20; dl.shadow.bias = -0.0006; dl.shadow.normalBias = 0.02;
   interiorScene.add(dl, dl.target);
   interior.col = CL; interior.W = W; interior.D = D; interior.door = door;
@@ -2313,14 +2541,24 @@ function buildInterior(door) {
 
 const TV_NEWS = ['اخبار شهر آزاد: فوارهٔ پارک مرکزی امشب نورپردازی می‌شود', 'هواشناسی: احتمال بارش باران در ساعات آینده', 'ترافیک سنگین در خیابان حافظ گزارش شد', 'افتتاح کافهٔ جدید در خیابان سعدی', 'مسابقهٔ فوتبال محله فردا عصر برگزار می‌شود'];
 function updateInterior(dt) {
-  if (interior.fan) interior.fan.rotation.y += dt * 5;
+  const hs = interior.hs || {};
+  if (interior.fan) interior.fan.rotation.y += dt * 5 * (hs.lights === false ? 0.2 : 1);
+  const lit = hs.lights !== false;
+  for (const l of interior.lights || []) l.intensity = damp(l.intensity, lit ? l.userData.base : 0, 10, dt);
+  if (interior.hemi) interior.hemi.intensity = damp(interior.hemi.intensity, lit ? 0.9 : 0.12 + 0.35 * dayF, 10, dt);
+  M.lampOn.emissiveIntensity = lit ? 2.2 : 0;
+  const fr = interior.fridge; if (fr) { fr.open = damp(fr.open, fr.target, 6, dt); fr.pv.rotation.y = -fr.open * 1.7; fr.glow.visible = fr.open > 0.1; }
+  const wd = interior.wardrobe; if (wd) { wd.open = damp(wd.open, wd.target, 5, dt); for (const d of wd.doors) d.rotation.y = d.userData.sd * wd.open * 1.7; }
+  if (hs.sink && Math.random() < dt * 8) Audio.burst(0.025, 2500, 0.15, 'bandpass', 0.7);
+  if (hs.stove && Math.random() < dt * 3) Audio.burst(0.015, 4000, 0.2, 'highpass', 1);
   const ck = interior.clock;
   if (ck) { const m = Math.floor(tod * 60); if (m !== ck.last) { ck.last = m; const g = ck.g; g.fillStyle = '#f6f1e6'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#222'; g.font = '14px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle';
     for (let k = 1; k <= 12; k++) { const a = k / 12 * Math.PI * 2; g.fillText(fa(k), 64 + Math.sin(a) * 50, 64 - Math.cos(a) * 50); }
     const hand = (a, l, w) => { g.lineWidth = w; g.strokeStyle = '#222'; g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + Math.sin(a) * l, 64 - Math.cos(a) * l); g.stroke(); };
     hand((tod % 12) / 12 * Math.PI * 2, 30, 5); hand((tod % 1) * Math.PI * 2, 44, 3); ck.tex.needsUpdate = true; } }
   const tv = interior.tv;
-  if (tv) { tv.t += dt; if (tv.t > 0.08) { tv.t = 0; const g = tv.g, T_ = simTime; const gr = g.createLinearGradient(0, 0, 256, 144); gr.addColorStop(0, `hsl(${(T_ * 20) % 360},55%,35%)`); gr.addColorStop(1, `hsl(${(T_ * 20 + 120) % 360},55%,22%)`); g.fillStyle = gr; g.fillRect(0, 0, 256, 144);
+  if (tv && hs.tv === false) { if (!tv.off) { tv.off = true; tv.g.fillStyle = '#050505'; tv.g.fillRect(0, 0, 256, 144); tv.tex.needsUpdate = true; } }
+  else if (tv) { tv.off = false; tv.t += dt; if (tv.t > 0.08) { tv.t = 0; const g = tv.g, T_ = simTime; const gr = g.createLinearGradient(0, 0, 256, 144); gr.addColorStop(0, `hsl(${(T_ * 20) % 360},55%,35%)`); gr.addColorStop(1, `hsl(${(T_ * 20 + 120) % 360},55%,22%)`); g.fillStyle = gr; g.fillRect(0, 0, 256, 144);
     for (let k = 0; k < 5; k++) { g.fillStyle = `hsla(${k * 70},80%,65%,0.8)`; g.beginPath(); g.arc(128 + Math.sin(T_ * (0.7 + k * 0.3) + k) * 90, 60 + Math.cos(T_ * (0.9 + k * 0.2)) * 30, 12 + k * 3, 0, 7); g.fill(); }
     g.fillStyle = '#b3161b'; g.fillRect(0, 112, 256, 32); g.fillStyle = '#fff'; g.font = '18px Vazirmatn, Tahoma'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.textAlign = 'left';
     const msg = TV_NEWS[Math.floor(T_ / 9) % TV_NEWS.length]; g.fillText(msg, ((T_ * 60) % 700) - 400, 128); tv.tex.needsUpdate = true; } }
@@ -2358,6 +2596,8 @@ const Audio = {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9, t + 0.15); g.gain.exponentialRampToValueAtTime(0.001, t + 3.5); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + 3.6);
   },
   tick() { this.burst(0.05, 3500, 0.025, 'bandpass', 6); },
+  clank(x, z) { const v = this.vol(x, z); this.burst(0.18 * v, 2600 + Math.random() * 1500, 0.09, 'bandpass', 9); this.burst(0.08 * v, 5200, 0.05, 'bandpass', 12); },
+  drill(x, z) { if (!this.ctx) return; const v = this.vol(x, z) * 0.05; if (v < 0.003) return; const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(320, t); o.frequency.linearRampToValueAtTime(480, t + 0.3); o.frequency.setValueAtTime(470, t + 0.9); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.05); g.gain.setValueAtTime(v, t + 0.9); g.gain.linearRampToValueAtTime(0, t + 1.1); const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 1.15); },
   start() { if (!this.ctx) return; const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(30, t); o.frequency.linearRampToValueAtTime(70, t + 0.5); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.12, t + 0.1); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600; o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.75); },
   chirp(x, z) {
     if (!this.ctx) return; const v = this.vol(x, z) * 0.03; if (v < 0.002) return; const c = this.ctx, t = c.currentTime;
@@ -2406,6 +2646,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') { input.jumpQ = true; e.preventDefault(); }
   if (!e.repeat && (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter')) input.actQ = true;
   if (!e.repeat && e.code === 'KeyT') cycleTime();
+  if (!e.repeat && e.code === 'KeyG') input.ejectQ = true;
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -2431,10 +2672,11 @@ function showTouchUI() { if (touchUI) return; touchUI = true; syncTouchUI(true);
 let lastUiMode = '';
 function syncTouchUI(force) {
   if (!touchUI) return;
-  const mode = chat.open ? 'chat' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : 'foot';
+  const mode = chat.open ? 'chat' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? 'pass' : 'foot';
   if (mode === lastUiMode && !force) return; lastUiMode = mode;
   $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
-  for (const id of ['drive-l', 'drive-r', 'drive-x']) $(id).hidden = mode !== 'car';
+  for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car';
+  $('drive-x').hidden = mode !== 'car' && mode !== 'pass'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
   if (mode !== 'car') { input.cGas = input.cBrake = input.cLeft = input.cRight = false; input.hornBtn = input.handBtn = false; for (const b of document.querySelectorAll('.dbtn')) b.classList.remove('down'); }
 }
 cv.addEventListener('pointerdown', e => {
@@ -2476,6 +2718,13 @@ holdBtn('b-jump', () => { input.jumpQ = true; });
 holdBtn('b-run', () => { input.runToggle = !input.runToggle; $('b-run').classList.toggle('on', input.runToggle); });
 holdBtn('b-act', () => { input.actQ = true; });
 holdBtn('b-exit', () => { input.actQ = true; });
+holdBtn('b-eject', () => { input.ejectQ = true; });
+$('btn-garage').addEventListener('click', () => { $('garage-menu').hidden = false; $('gm-status').textContent = garageStatus(); $('gm-msg').textContent = ''; });
+$('gm-close').addEventListener('click', () => { $('garage-menu').hidden = true; });
+$('gm-route').addEventListener('click', () => { $('gm-msg').textContent = goGarage('route'); });
+$('gm-go').addEventListener('click', () => { const m = goGarage('go'); if (m) $('gm-msg').textContent = m; else $('garage-menu').hidden = true; });
+$('gm-tow').addEventListener('click', () => { $('gm-msg').textContent = callTow(); });
+for (const ev of ['pointerdown', 'touchstart']) $('garage-menu').addEventListener(ev, e => e.stopPropagation(), { passive: true });
 holdBtn('b-horn', () => { input.hornBtn = true; }, () => { input.hornBtn = false; });
 holdBtn('b-hand', () => { input.handBtn = true; }, () => { input.handBtn = false; });
 holdBtn('c-gas', () => { input.cGas = true; }, () => { input.cGas = false; });
@@ -2510,6 +2759,21 @@ $('set-close').addEventListener('click', () => {
   saveSettings(); applyQuality(); $('settings').hidden = true;
 });
 $('set-form').addEventListener('submit', e => { e.preventDefault(); $('set-close').click(); });
+$('newgame').addEventListener('click', () => {
+  const b = $('newgame'); if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'مطمئنی؟ دوباره بزن تا همه چیز از اول شروع شود'; return; }
+  try { localStorage.removeItem(SAVE_KEY); } catch (_) { } location.reload();
+});
+$('set-export').addEventListener('click', () => downloadSave());
+$('set-import').addEventListener('click', () => $('set-file').click());
+$('set-file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+  r.onload = () => { try { const o = JSON.parse(r.result); if (!o || o.v !== 1) throw 0; localStorage.setItem(SAVE_KEY, JSON.stringify(o)); location.reload(); } catch (_) { $('set-msg').textContent = 'این فایل ذخیرهٔ شهر آزاد نیست.'; } };
+  r.readAsText(f);
+});
+$('set-wipe').addEventListener('click', () => {
+  const b = $('set-wipe'); if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'مطمئنی؟ دوباره بزن'; return; }
+  try { localStorage.removeItem(SAVE_KEY); } catch (_) { } started = false; location.reload();
+});
 
 /* ============================================================
    Player, cars, camera
@@ -2540,7 +2804,11 @@ function spawnPeople() {
   const n = LOW ? 16 : 30;
   for (let k = 0; k < n; k++) {
     const bi = Math.floor(Math.random() * N), bj = Math.floor(Math.random() * N), rg = { x: blockC(bi), z: blockC(bj) };
-    const p = ringPoint(rg, Math.random() * RING * 8, 0); spawnNPC(p.x, p.z);
+    const p = ringPoint(rg, Math.random() * RING * 8, 0);
+    if (Math.random() < 0.16) { // children
+      const look = Object.assign(randomLook(), { h: 0.6 + Math.random() * 0.13, kid: true, coat: null, beard: false, glasses: false, umbrella: false, build: 0.9 });
+      const n = spawnNPC(p.x, p.z, look); const pp = n.persona; pp.age = 8 + Math.floor(Math.random() * 5); pp.job = 'دانش‌آموز'; pp.jobLine = `کلاس ${fa(pp.age - 6)}م هستم! امروز مدرسه زود تعطیل شد.`; pp.married = false; pp.kids = 0; n.spd *= 1.2; n.radius = 0.24;
+    } else spawnNPC(p.x, p.z);
   }
 }
 function setupPlayer() {
@@ -2564,15 +2832,15 @@ function nearestDoor() {
 }
 function nearestNPC(list, maxD) { let best = null, bd = maxD; for (const n of list) { if (n.mode === 'down') continue; const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z); if (d < bd) { bd = d; best = n; } } return best; }
 
+function placeInside(door) {
+  buildInterior(door);
+  player.where = 'in'; interiorPool.attach(player);
+  player.pos.set(0, 0, interior.D / 2 - 2.3); player.vel.set(0, 0, 0); player.facing = Math.PI; player.standCar = null;
+  cam.yaw = Math.PI; cam.pitch = 0.42; cam.cur = 2.0; cam.target.set(0, 1.45, interior.D / 2 - 2.3);
+}
 function enterBuilding(door) {
   if (fading) return;
-  fadeTo(() => {
-    buildInterior(door);
-    player.where = 'in'; interiorPool.attach(player);
-    player.pos.set(0, 0, interior.D / 2 - 2.3); player.vel.set(0, 0, 0); player.facing = Math.PI; player.standCar = null;
-    cam.yaw = Math.PI; cam.pitch = 0.42; cam.cur = 2.0; cam.target.set(0, 1.45, interior.D / 2 - 2.3);
-    banner(door.name, door.sub || '');
-  });
+  fadeTo(() => { placeInside(door); banner(door.name, door.sub || ''); saveGame(); });
   Audio.door();
 }
 function exitBuilding() {
@@ -2584,6 +2852,7 @@ function exitBuilding() {
     cam.yaw = Math.atan2(d.nx, d.nz); cam.pitch = 0.3; cam.cur = 2.5; cam.target.set(player.pos.x, player.pos.y + 1.45, player.pos.z);
     d.open = 1;
     for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = [];
+    saveGame();
   });
   Audio.door();
 }
@@ -2609,7 +2878,7 @@ function ejectDriver(car, flee) {
 function doorPoint(car, out = 0.55) { const t = car.T, sx = Math.sin(car.h), cx = Math.cos(car.h), lz = (t.cab[0] + t.cab[1]) / 2; return [car.x + cx * (t.wid / 2 + out) + sx * lz, car.z - sx * (t.wid / 2 + out) + cx * lz]; }
 function enterCar(car) {
   if (car.health <= 0) { setPrompt('این ماشین خراب شده و روشن نمی‌شود.', '', 2); return; }
-  player.state = 'entering'; player.car = car; player.enterT = 0; car.doorT = 1; car.inHand = true; Audio.door();
+  player.state = 'entering'; player.car = car; player.lastCar = car; player.enterT = 0; car.doorT = 1; car.inHand = true; Audio.door();
   if (car.ai) {
     car.ai = null; car.inThrottle = 0; car.hazardT = 0; car.blink = null;
     const n = ejectDriver(car, true);
@@ -2644,9 +2913,10 @@ function addCarLights(car) {
 
 /* ---------- conversation with people ---------- */
 const chat = { open: false, npc: null, busy: false };
-const settings = { quality: LOW ? 'medium' : 'high', voice: false, aiKey: '', weather: 'auto' };
+const settings = { quality: 'auto', voice: false, aiKey: '', weather: 'auto' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('shahr-settings') || '{}')); } catch (_) { }
 function saveSettings() { try { localStorage.setItem('shahr-settings', JSON.stringify(settings)); } catch (_) { } }
+const store = { residents: {}, homes: {}, stats: { repairs: 0, tows: 0, sleeps: 0 } };
 const events = [];
 function logEvent(t) { events.push(t); if (events.length > 10) events.shift(); }
 function streetAt(x, z) {
@@ -2676,6 +2946,7 @@ function places() {
     for (const [k, syn] of SYN) if (d.name.includes(k)) keys.push(...syn.split(' '));
     out.push({ name: d.name, keys, x: d.x, z: d.z, dist: Math.hypot(d.x - player.pos.x, d.z - player.pos.z) });
   }
+  out.push({ name: 'تعمیرگاه مرکزی شهر', keys: ['تعمیرگاه', 'مکانیک', 'تعمیر', 'یدک', 'جرثقیل', 'صافکاری'], x: roadX(1) - RH - 2, z: 0, dist: Math.hypot(roadX(1) - RH - 2 - player.pos.x, player.pos.z) });
   for (const f of world.fountains) out.push({ name: 'پارک مرکزی', keys: ['پارک', 'فواره', 'حوض', 'باغ'], x: f.x, z: f.z, dist: Math.hypot(f.x - player.pos.x, f.z - player.pos.z) });
   STREET_V.forEach((n, i) => out.push({ name: n, keys: [norm(n), norm(n.replace('خیابان ', ''))], x: roadX(i), z: clamp(player.pos.z, -HALF, HALF), dist: Math.abs(roadX(i) - player.pos.x) }));
   STREET_H.forEach((n, i) => out.push({ name: n, keys: [norm(n), norm(n.replace('خیابان ', ''))], x: clamp(player.pos.x, -HALF, HALF), z: roadX(i), dist: Math.abs(roadX(i) - player.pos.z) }));
@@ -2740,6 +3011,71 @@ async function sendChat(text) {
   if (res.guide) setWaypoint(res.guide);
   if (res.end) setTimeout(() => { if (chat.npc === n) closeChat(); }, 1600);
 }
+/* ---------- save system: everything you do is kept on this device ---------- */
+const SAVE_KEY = 'shahr-azad-save-v1';
+let lastSave = 0, restored = false;
+const serPersona = p => ({ ...p, mem: { ...p.mem, used: [...(p.mem.used || [])] }, hist: (p.hist || []).slice(-10) });
+const deserPersona = o => { o.mem = o.mem || {}; o.mem.used = new Set(o.mem.used || []); o.mem.facts = o.mem.facts || {}; o.hist = o.hist || []; return o; };
+function snapshot() {
+  const P = player, list = cars.filter(c => !c.isTow);
+  const r2 = v => Math.round(v * 100) / 100;
+  return {
+    v: 1, time: Date.now(), tod, weather: settings.weather, events, waypoint,
+    stats: store.stats, homes: store.homes,
+    residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
+    player: { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
+    cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), dents: c.dentLog || [], ai: !!c.ai,
+      driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
+    npcs: npcs.filter(n => !n.mech).map(n => ({ look: n.look, persona: serPersona(n.persona), x: r2(n.pos.x), z: r2(n.pos.z) }))
+  };
+}
+function saveGame() {
+  if (!started || !player) return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot())); lastSave = simTime; const el = $('saved'); el.hidden = false; el.style.opacity = '1'; clearTimeout(saveGame.t); saveGame.t = setTimeout(() => { el.style.opacity = '0'; }, 1400); } catch (e) { }
+}
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 1 ? s : null; } catch (_) { return null; } }
+function restoreFromSave(sv) {
+  tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
+  events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
+  for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
+  const made = [];
+  for (const c of sv.cars || []) {
+    const car = new Car(c.type, c.color, c.x, c.z, c.h, c.ai ? { ai: { i: 0, j: 0, d: 0 }, taxi: c.taxi } : { taxi: c.taxi });
+    if (c.ai) { car.ai.resetFromPos(); if (c.driver) { const d = makePerson(c.driver.look, false); d.persona = deserPersona(c.driver.persona); car.setDriver(d); car.owner = d; } }
+    for (const d of c.dents || []) car.dent(...d);
+    car.health = c.health ?? 100; cars.push(car); made.push(car);
+  }
+  for (const n of sv.npcs || []) { const p = spawnNPC(n.x, n.z, n.look); p.persona = deserPersona(n.persona); }
+  if (sv.waypoint) waypoint = sv.waypoint;
+  const P = player, sp = sv.player || {};
+  P.pos.set(sp.x ?? P.pos.x, sp.y ?? P.pos.y, sp.z ?? P.pos.z); P.facing = sp.facing ?? P.facing;
+  if (sp.lastCar >= 0) P.lastCar = made[sp.lastCar];
+  if (sp.where === 'in' && world.doors[sp.door]) placeInside(world.doors[sp.door]);
+  else if (sp.car >= 0 && made[sp.car]) { const car = made[sp.car]; car.setDriver(P); car.hasDriver = true; car.player = true; car.inHand = false; P.state = 'car'; P.car = car; addCarLights(car); }
+  cam.yaw = P.state === 'car' ? P.car.h : P.facing; restored = true;
+}
+function downloadSave() {
+  try { saveGame(); const blob = new Blob([localStorage.getItem(SAVE_KEY) || JSON.stringify(snapshot())], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'shahr-azad-save.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); } catch (_) { }
+}
+addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+addEventListener('pagehide', () => saveGame());
+
+/* using furniture: lie on the bed, sit, read, drink */
+function startUse(kind, x, y, z, facing, exitX, exitZ, dur) {
+  const P = player; if (chat.open) closeChat();
+  P.state = 'use'; P.use = { kind, exitX: exitX ?? P.pos.x, exitZ: exitZ ?? P.pos.z, t: 0, dur: dur || 0 };
+  P.pos.set(x, y, z); P.vel.set(0, 0, 0); if (facing != null) P.facing = facing;
+  P.anim.special = kind; P.anim.sw = 0;
+  if (kind === 'lie') say(P, mpick(['آخیش... چه تخت نرمی!', 'یه کم استراحت...', 'چقدر خسته بودم!']), 2);
+  if (kind === 'drink') setTimeout(() => say(P, mpick(['آخیش، خنک شدم!', 'به به، دوغ تازه!', 'چه آب‌میوهٔ خوبی!']), 2), 1300);
+}
+function endUse() {
+  const P = player, u = P.use; if (!u) return;
+  P.state = 'foot'; P.anim.special = null; P.pos.set(u.exitX, 0, u.exitZ); P.vel.set(0, 0, 0); P.use = null; P.onGround = true;
+}
+function sleep() {
+  fadeTo(() => { const nightTime = tod >= 20 || tod < 6; tod = nightTime ? 7 : (tod + 2) % 24; envTod = -99; store.stats.sleeps++; banner(nightTime ? 'صبح بخیر!' : 'یه چرت حسابی زدی', nightTime ? 'ساعت ۷ صبح است و حسابی سرحالی' : 'دو ساعت گذشت'); saveGame(); });
+}
 /* waypoint marker that a person can set for you */
 let waypoint = null, wpMesh = null;
 function setWaypoint(pl) {
@@ -2802,6 +3138,9 @@ function updatePlayer(dt) {
         if (n && (!car || Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) < 1.8)) {
           actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`;
           if (input.actQ) { input.actQ = false; openChat(n); }
+        } else if (car && car.isTow && car.driverP && !car.player) {
+          promptTxt = `${key}کنار رانندهٔ یدک‌کش سوار شو`; actLabel = 'سوار شو';
+          if (input.actQ) { input.actQ = false; boardTow(); }
         } else if (car) {
           promptTxt = car.ai ? `${key}راننده را پیاده کن و پشت فرمان بنشین` : car.health <= 0 ? 'این ماشین خراب شده است' : `${key}سوار ماشین شو`; actLabel = 'سوار شو';
           if (input.actQ) { input.actQ = false; enterCar(car); }
@@ -2816,11 +3155,28 @@ function updatePlayer(dt) {
       } else {
         P.pushT = 0;
         const n = nearestNPC(interior.npcs, 2.8);
-        if (n) { actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`; if (input.actQ) { input.actQ = false; openChat(n); } }
+        let item = null, bd = 9;
+        for (const it of interior.items || []) { const d = Math.hypot(it.x - P.pos.x, it.z - P.pos.z); if (d < it.r && d < bd) { bd = d; item = it; } }
+        const nd = n ? Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) : 99;
+        if (item && bd < nd) { actLabel = 'استفاده'; promptTxt = `${key}${item.label()}`; if (input.actQ) { input.actQ = false; item.use(); } }
+        else if (n) { actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`; if (input.actQ) { input.actQ = false; openChat(n); } }
       }
     }
     input.actQ = false;
     setPrompt(promptTxt, actLabel);
+  } else if (P.state === 'passenger') {
+    const t = P.car; P.pos.set(t.x, t.y + 0.6, t.z);
+    setPrompt(`${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو · ${touchUI ? '«بنداز پایین»' : '<b>G</b>'} راننده رو بنداز پایین و خودت برون!`, 'پیاده شو');
+    if (input.ejectQ) { input.ejectQ = false; throwDriver(); }
+    else if (input.actQ) { input.actQ = false; if (Math.abs(t.vf) < 2) leaveTow(); else setPrompt('صبر کن یدک‌کش وایسه', 'پیاده شو', 1.2); }
+  } else if (P.state === 'use') {
+    const u = P.use; u.t += dt; P.vel.set(0, 0, 0);
+    const moving = Math.hypot(input.mx, input.my) > 0.5 && u.t > 0.6;
+    if (u.kind === 'lie') { setPrompt(`${touchUI ? '«بلند شو»' : '<b>E</b>'} بلند شو · ${touchUI ? '«بخواب»' : '<b>Space</b>'} بخواب ${tod >= 20 || tod < 6 ? 'تا صبح' : 'یه کم'}`, 'بلند شو'); if (input.jumpQ) { input.jumpQ = false; sleep(); } }
+    else if (!u.dur) setPrompt(`${touchUI ? '«بلند شو»' : '<b>E</b>'} ${u.kind === 'read' ? 'کتاب رو بذار سر جاش' : 'بلند شو'}`, 'بلند شو');
+    else setPrompt('', '');
+    input.jumpQ = false;
+    if (input.actQ || moving || (u.dur && u.t > u.dur)) { input.actQ = false; endUse(); }
   } else if (P.state === 'entering') {
     const car = P.car; P.enterT += dt; const [tx, tz] = doorPoint(car, 0.55);
     if (P.enterT < 0.55) { P.vel.set((tx - P.pos.x) * 5, 0, (tz - P.pos.z) * 5); P.pos.x = damp(P.pos.x, tx, 9, dt); P.pos.z = damp(P.pos.z, tz, 9, dt); P.pos.y = groundH(P.pos.x, P.pos.z); P.facing += angDiff(P.facing, car.h - Math.PI / 2) * Math.min(1, 10 * dt); }
@@ -2857,8 +3213,8 @@ function updateCamera(dt) {
   const P = player;
   const outdoor = P.where === 'out';
   let tx, ty, tz, desired;
-  if (P.state === 'car') {
-    const c = P.car; tx = c.x; ty = c.y + 1.55; tz = c.z;
+  if (P.state === 'car' || P.state === 'passenger') {
+    const c = P.car; tx = c.x; ty = c.y + (c.isTow ? 2.4 : 1.55); tz = c.z;
     desired = (6.4 + c.T.len * 0.35) * cam.zoom;
     if (simTime - cam.lastLook > 1.3 && Math.abs(c.vf) > 1) { const back = c.vf >= -0.5 ? c.h : c.h + Math.PI; cam.yaw += angDiff(cam.yaw, back) * Math.min(1, dt * (1.2 + Math.abs(c.vf) * 0.12)); cam.pitch = damp(cam.pitch, 0.22, 1.5, dt); }
     cam.target.set(tx, damp(cam.target.y, ty, 8, dt), tz);
@@ -2872,7 +3228,8 @@ function updateCamera(dt) {
     cam.target.x = damp(cam.target.x, mx, 5, dt); cam.target.z = damp(cam.target.z, mz, 5, dt); cam.target.y = damp(cam.target.y, n.pos.y + 1.55 * (n.look.h || 1), 5, dt);
     desired = 2.6;
   } else {
-    tx = P.pos.x; ty = P.pos.y + 1.45 - P.anim.knock * 1.0; tz = P.pos.z;
+    if (P.state === 'use' && P.use.kind === 'lie') cam.pitch = damp(cam.pitch, 0.85, 2, dt);
+    tx = P.pos.x; ty = P.pos.y + (P.state === 'use' && P.use.kind === 'lie' ? 0.45 : P.state === 'use' && P.use.kind === 'sit' ? 1.05 : 1.45) - P.anim.knock * 1.0; tz = P.pos.z;
     if (P.state === 'entering' || P.state === 'exiting') { tx = P.car.x; tz = P.car.z; ty = P.car.y + 1.4; }
     desired = (outdoor ? 4.6 : 3.1) * cam.zoom;
     cam.target.x = damp(cam.target.x, tx, 18, dt); cam.target.z = damp(cam.target.z, tz, 18, dt); cam.target.y = damp(cam.target.y, ty, 9, dt);
@@ -2889,8 +3246,222 @@ function updateCamera(dt) {
   const off = chat.open && innerWidth > innerHeight * 1.25 ? innerWidth * 0.2 : 0;
   cam.voff = damp(cam.voff || 0, off, 5, dt);
   if (cam.voff > 1) camera.setViewOffset(innerWidth, innerHeight, cam.voff, 0, innerWidth, innerHeight); else if (camera.view && camera.view.enabled) camera.clearViewOffset();
-  const fovT = 60 + (P.state === 'car' ? clamp(Math.abs(P.car.vf) * 0.32, 0, 14) : 0);
+  const fovT = 60 + ((P.state === 'car' || P.state === 'passenger') ? clamp(Math.abs(P.car.vf) * 0.32, 0, 14) : 0);
   cam.fov = damp(cam.fov, fovT, 3, dt); if (Math.abs(camera.fov - cam.fov) > 0.05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
+}
+
+/* ============================================================
+   Garage, repairs and the tow truck
+   ============================================================ */
+let tow = null, towJob = null;
+const MECH_LOOK = () => Object.assign(randomLook(), { shirt: '#2b4c7e', pants: '#2b4c7e', shoes: '#1a1a1a', style: Math.random() < 0.6 ? 'short' : 'curly', cap: Math.random() < 0.6 ? '#c2561a' : null, coat: null, sleeves: true, umbrella: false, female: false, beard: Math.random() < 0.4, h: 0.98 + Math.random() * 0.06 });
+function staffFor(key, job, line) {
+  let rs = store.residents[key];
+  if (!rs) { const look = MECH_LOOK(); const persona = makePersona(look, false); persona.job = job; persona.jobLine = line; rs = store.residents[key] = { look, persona }; }
+  const p = makePerson(rs.look, false); p.persona = rs.persona; p.npc = true; return p;
+}
+let towSignTex = null;
+function addTowParts(car) {
+  const t = car.T, body = car.body;
+  const bed = car.bed = new THREE.Group(); bed.position.set(0, 1.2, 1.3); body.add(bed);
+  const steel = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.55, metalness: 0.6 });
+  const mk = (geo, mat, x, y, z, parent = bed) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+  mk(new THREE.BoxGeometry(2.3, 0.18, 4.95), steel, 0, 0.09, -2.47);
+  for (const sx of [-1.11, 1.11]) mk(new THREE.BoxGeometry(0.08, 0.22, 4.95), car.paint, sx, 0.27, -2.47);
+  mk(new THREE.BoxGeometry(2.2, 0.05, 0.7), steel, 0, 0.02, -5.1).rotation.x = 0.12;
+  mk(new THREE.BoxGeometry(0.9, 0.5, 0.45), new THREE.MeshStandardMaterial({ color: 0xf2c12e, roughness: 0.5 }), 0, 0.43, -0.3);
+  mk(new THREE.BoxGeometry(1.5, 0.1, 0.28), CarMats.black, 0, t.roofY + 0.12, (t.cab[0] + t.cab[1]) / 2, body);
+  car.beacon = new THREE.MeshStandardMaterial({ color: 0x8a5a10, emissive: 0xffa21a, emissiveIntensity: 0 });
+  car.beacons = [-0.5, 0.5].map(x => mk(new THREE.BoxGeometry(0.42, 0.15, 0.24), car.beacon, x, t.roofY + 0.24, (t.cab[0] + t.cab[1]) / 2, body));
+  if (!towSignTex) { const c = mkCanvas(512, 150), g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.font = '70px Lalezar, Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.fillText('یدک‌کش شهر آزاد', 256, 58); g.font = '40px Vazirmatn, Tahoma'; g.fillText('امداد خودرو ۲۴ ساعته', 256, 120); towSignTex = new THREE.CanvasTexture(c); towSignTex.colorSpace = THREE.SRGBColorSpace; }
+  const sm = new THREE.MeshBasicMaterial({ map: towSignTex, transparent: true, toneMapped: false });
+  for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.37), sm); m.position.set(sx * (t.wid / 2 + 0.11), 1.3, 2.3); m.rotation.y = sx * Math.PI / 2; body.add(m); }
+  car.bedTilt = 0; car.bedSlide = 0;
+}
+function towVisuals(car, dt) {
+  if (!car.bed) return;
+  car.bed.rotation.x = -car.bedTilt * 0.17; car.bed.position.z = 1.3 - car.bedSlide * 1.4;
+  const on = car.beaconOn, ph = (simTime * 3) % 1;
+  car.beacon.emissiveIntensity = on ? (ph < 0.5 ? 4 : 0.6) : 0;
+  car.beacons[0].visible = !on || ph < 0.5 || true;
+}
+function spawnTow() {
+  const old = tow;
+  tow = new Car('tow', 0xe2661c, roadX(1) - LANE, -14, 0, { ai: { i: 1, j: 3, d: 0 } });
+  tow.isTow = true; addTowParts(tow); cars.push(tow);
+  const d = staffFor('towDriver', 'رانندهٔ یدک‌کش', 'شب و روز ماشین خراب‌ها رو می‌برم تعمیرگاه.');
+  tow.setDriver(d); tow.owner = d;
+  if (old) old.isTow = false;
+  return tow;
+}
+function spawnGarageStaff() {
+  for (let k = 0; k < 2; k++) {
+    const m = staffFor('mech' + k, 'مکانیک', k ? 'برق ماشین کار منه.' : 'سی ساله موتور تعمیر می‌کنم!');
+    const [x, z] = garage.mechSpots[k]; m.mech = true; m.mechIdx = k; m.mode = 'mech'; m.pos.set(x, CURB, z); m.anim.idleKind = 'crossed';
+    outdoorPool.attach(m); npcs.push(m); garage.mechs.push(m);
+  }
+  spawnTow();
+}
+const freeBay = () => garage.bays.find(b => !b.car) || garage.bays[0];
+const inBay = (c, b) => Math.abs(c.x - b.x) < 4.6 && Math.abs(c.z - b.z) < 2.3;
+function bedAnchor(t, out) { t.group.updateMatrixWorld(true); out.set(0, 0.18, -2.6); return t.bed.localToWorld(out); }
+const _anc = new V3();
+function startRepair(car, bay) {
+  garage.job = { car, bay, phase: 'gather', t: 0, startHp: car.health, sx: car.x, sz: car.z, sh: car.h };
+  bay.car = car; car.locked = true; car.vx = car.vz = 0; car.av = 0; car.inHand = true;
+  const h = bay.h, lx = Math.cos(h), lz = -Math.sin(h);
+  garage.job.spots = [[bay.x + lx * 1.7 - Math.sin(h) * 0.9, bay.z + lz * 1.7 - Math.cos(h) * 0.9], [bay.x - lx * 1.7 + Math.sin(h) * 0.9, bay.z - lz * 1.7 + Math.cos(h) * 0.9]];
+  if (Math.hypot(player.pos.x - bay.x, player.pos.z - bay.z) < 40) banner('تعمیر شروع شد', player.state === 'car' && player.car === car ? 'می‌تونی پیاده شی و تماشا کنی' : 'مکانیک‌ها رفتن سراغ ماشین');
+  say(garage.mechs[0], mpick(['بذار ببینم چی شده...', 'اوه، حسابی ضربه خورده!', 'زود درستش می‌کنیم.']), 3);
+}
+function updateRepair(dt) {
+  for (const b of garage.bays) { b.lift = b.car && b.car.lift ? b.car.lift : damp(b.lift, 0, 4, dt); b.arms.position.y = CURB + 0.2 + b.lift; }
+  // the player drives into a bay and stops
+  if (!garage.job && player.state === 'car' && !player.car.isTow) {
+    const c = player.car, b = garage.bays.find(b => inBay(c, b));
+    if (b && Math.abs(c.vf) < 0.4) { garage.wait = (garage.wait || 0) + dt; if (garage.wait > 1) { garage.wait = -99; if (c.health < 99 || c.dents) startRepair(c, b); else banner('ماشینت سالمه!', 'نیازی به تعمیر نیست'); } }
+    else if (!b) garage.wait = 0;
+  }
+  const j = garage.job; if (!j) return;
+  j.t += dt; const c = j.car;
+  if (j.phase === 'gather') {
+    const u = smooth(0, 2.5, j.t); c.x = lerp(j.sx, j.bay.x, u); c.z = lerp(j.sz, j.bay.z, u); c.h = j.sh + angDiff(j.sh, j.bay.h) * u;
+    if (j.t > 2.6) { j.phase = 'raise'; j.t = 0; Audio.burst(0.12, 300, 1.6, 'lowpass', 1); }
+  } else if (j.phase === 'raise') { c.lift = smooth(0, 2.5, j.t) * 1.25; if (j.t > 2.6) { j.phase = 'work'; j.t = 0; } }
+  else if (j.phase === 'work') {
+    const dur = 9; c.health = lerp(j.startHp, 100, Math.min(1, j.t / dur));
+    if (Math.random() < dt * 7) { const s = Math.sin(c.h), co = Math.cos(c.h), lz = (Math.random() - 0.5) * c.T.len * 0.8, lx = (Math.random() - 0.5) * c.T.wid * 0.6; const x = c.x + lx * co + lz * s, z = c.z - lx * s + lz * co, y = c.y + c.lift + 0.25; for (let k = 0; k < 6; k++) FX.emit(x, y, z, (Math.random() - 0.5) * 4, -Math.random() * 2, (Math.random() - 0.5) * 4, 0.45, 0.05, 0.02, 0xffb34a, 1, 9); }
+    if (Math.random() < dt * 2.5) Audio.clank(c.x, c.z); if (Math.random() < dt * 0.4) Audio.drill(c.x, c.z);
+    if (j.t > dur) { c.repairAll(); j.phase = 'lower'; j.t = 0; }
+  } else if (j.phase === 'lower') { c.lift = (1 - smooth(0, 2.5, j.t)) * 1.25; if (j.t > 2.6) { c.lift = 0; j.phase = 'done'; } }
+  else if (j.phase === 'done') {
+    c.locked = false; c.inHand = true; j.bay.car = null; garage.job = null; store.stats.repairs++;
+    say(garage.mechs[1], mpick(['تموم شد! مثل روز اول شد.', 'بفرما، صفر کیلومتر شد!', 'دیگه مواظب باش، باشه؟']), 3);
+    if (Math.hypot(player.pos.x - c.x, player.pos.z - c.z) < 60) banner('ماشینت مثل روز اول شد!', 'سوار شو و با احتیاط برون');
+    logEvent('تعمیرگاه مرکزی یه ماشین داغون رو مثل روز اول کرد.'); saveGame();
+  }
+}
+/* mechanic drives a delivered car from the kerb into the bay */
+function startValet(car, bay) {
+  const m = garage.mechs[0]; m.mode = 'valet'; m.vel.set(0, 0, 0);
+  car.setDriver(m); car.hasDriver = true; car.locked = false; car.inHand = false; bay.car = car;
+  car.valet = { bay, pts: [{ x: car.x - 3, z: bay.z }, { x: bay.x, z: bay.z }], k: 0 };
+}
+function updateValet(car, dt) {
+  const v = car.valet, p = v.pts[v.k], dx = p.x - car.x, dz = p.z - car.z, d = Math.hypot(dx, dz);
+  if (d < 1.2 && v.k < v.pts.length - 1) v.k++;
+  const fx = Math.sin(car.h), fz = Math.cos(car.h), lr = dx * -fz + dz * fx, lf = dx * fx + dz * fz;
+  const maxSt = 0.62 / (1 + Math.abs(car.vf) * 0.045);
+  car.inSteer = clamp(Math.atan2(2 * car.T.wb * lr, Math.max(d * d, 1)) / maxSt, -1, 1) * (lf < 0 ? -1 : 1);
+  const last = v.k === v.pts.length - 1, tsp = last ? Math.min(2.6, d * 0.7) : 2.6;
+  car.inThrottle = clamp((tsp - car.vf) * 0.7, -1, 1); car.inHand = false;
+  if (last && d < 0.7) {
+    car.valet = null; car.inThrottle = 0; car.inHand = true; car.vx = car.vz = 0;
+    const m = car.driverP; car.driverP = null; car.hasDriver = false;
+    if (m) { m.inCar = null; m.anim.special = null; m.anim.sw = 0; const s = Math.sin(car.h), c = Math.cos(car.h); m.pos.set(car.x + c * 1.6, CURB, car.z - s * 1.6); m.mode = 'mech'; }
+    startRepair(car, v.bay);
+  }
+}
+/* tow truck jobs: drive to a car, winch it onto the bed, take it to the garage */
+function callTow() {
+  const target = player.state === 'car' ? player.car : player.lastCar;
+  if (!target || target.isTow) return 'ماشینی نداری که یدک‌کش ببره.';
+  if (towJob) return 'یدک‌کش تو راهه، یه کم صبر کن.';
+  if (garage.job && garage.job.car === target) return 'ماشینت همین الان تو تعمیرگاهه.';
+  if (tow && tow.player) return 'خودت پشت فرمان یدک‌کشی!';
+  if (!tow || !tow.driverP) spawnTow();
+  if (player.state === 'foot') { player.anim.special = 'phone'; setTimeout(() => { if (player.anim.special === 'phone') player.anim.special = null; }, 3200); }
+  say(player, 'الو؟ تعمیرگاه؟ ماشینم خراب شده، یه یدک‌کش بفرستید لطفاً.', 3);
+  setTimeout(() => {
+    towJob = { phase: 'toCar', car: target, t: 0, re: 0 };
+    if (!tow.ai) tow.ai = new CarAI(tow, 1, 3, 0), tow.ai.resetFromPos();
+    tow.ai.setDest(target.x, target.z); towJob.dest = { x: target.x, z: target.z };
+    banner('یدک‌کش راه افتاد', `حدود ${fa(Math.round(Math.hypot(tow.x - target.x, tow.z - target.z)))} متر تا ماشینت فاصله دارد`);
+    logEvent('یدک‌کش تعمیرگاه رفت دنبال یه ماشین خراب.');
+  }, 2200);
+  return 'زنگ زدی. یدک‌کش داره میاد!';
+}
+function updateTow(dt) {
+  if (!tow) return;
+  if (tow.carrying) { const c = tow.carrying; bedAnchor(tow, _anc); c.x = _anc.x; c.z = _anc.z; c.y = _anc.y; c.h = tow.h; c.carryPitch = tow.bed.rotation.x; c.vx = c.vz = c.vf = 0; c.sync(dt); }
+  tow.beaconOn = !!towJob || !!tow.carrying;
+  const J = towJob; if (!J) {
+    // the player drives the tow (with a car on it) to the garage
+    if (tow.player && tow.carrying && Math.hypot(tow.x - garage.road.x, tow.z - garage.road.z) < 32 && Math.abs(tow.vf) < 0.4) towJob = { phase: 'unload', car: tow.carrying, t: 0, bay: freeBay(), self: true };
+    return;
+  }
+  const c = J.car; J.t += dt;
+  if (!tow.driverP && J.phase !== 'unload') { towJob = null; return; }
+  if (J.phase === 'toCar') {
+    J.re += dt; if (J.re > 4) { J.re = 0; if (Math.hypot(c.x - J.dest.x, c.z - J.dest.z) > 20) { tow.ai.setDest(c.x, c.z); J.dest = { x: c.x, z: c.z }; } }
+    if (tow.ai && tow.ai.arrived) {
+      if (player.state === 'car' && player.car === c) { exitCar(); say(tow.driverP, 'لطفاً پیاده شو تا بارش کنیم.', 3); }
+      J.phase = 'load'; J.t = 0; J.s = { x: c.x, z: c.z, y: c.y, h: c.h }; c.locked = true; c.inHand = true; c.glide = true;
+      say(tow.driverP, mpick(['اومدم! الان بارش می‌کنیم.', 'سلام! این ماشین خرابه؟ بذار ببرمش.']), 3);
+    }
+  } else if (J.phase === 'load' || J.phase === 'unload') {
+    const tilt = J.t < 1.2 ? J.t / 1.2 : J.t < 5 ? 1 : Math.max(0, 1 - (J.t - 5) / 1.2);
+    tow.bedTilt = tilt; tow.bedSlide = tilt; tow.inHand = true; tow.locked = true;
+    if (J.phase === 'unload' && !J.s) { J.s = { x: c.x, z: c.z, y: c.y, h: c.h }; tow.carrying = null; c.carriedBy = null; c.glide = true; J.e = { x: roadX(1) - RH - 0.6, z: J.bay.z }; }
+    const u = smooth(1.3, 4.8, J.t);
+    if (J.t > 1.2 && J.t < 5 && Math.floor(J.t * 4) !== Math.floor((J.t - dt) * 4)) Audio.burst(0.04, 700, 0.15, 'bandpass', 3);
+    if (J.phase === 'load') { bedAnchor(tow, _anc); c.x = lerp(J.s.x, _anc.x, u); c.z = lerp(J.s.z, _anc.z, u); c.y = lerp(J.s.y, _anc.y, u) + Math.sin(u * Math.PI) * 0.25; c.h = J.s.h + angDiff(J.s.h, tow.h) * u; c.carryPitch = tow.bed.rotation.x * u; }
+    else { const ey = groundH(J.e.x, J.e.z); c.x = lerp(J.s.x, J.e.x, u); c.z = lerp(J.s.z, J.e.z, u); c.y = lerp(J.s.y, ey, u) + Math.sin(u * Math.PI) * 0.3; c.h = J.s.h + angDiff(J.s.h, J.bay.h) * u; c.carryPitch = tow.bed.rotation.x * (1 - u); }
+    c.vx = c.vz = c.vf = 0;
+    if (J.t > 6.3) {
+      tow.locked = false; tow.bedTilt = tow.bedSlide = 0;
+      if (J.phase === 'load') {
+        c.glide = false; c.carriedBy = tow; tow.carrying = c; J.phase = 'toGarage'; J.bay = freeBay(); J.bay.car = c;
+        tow.ai.setDest(garage.road.x, J.bay.z + 3.6 + 1.6 - 7.5); store.stats.tows++;
+        say(tow.driverP, 'بار زدیم! می‌ریم تعمیرگاه.', 3);
+      } else {
+        c.glide = false; c.locked = false; c.y = groundH(c.x, c.z); c.carryPitch = 0;
+        if (!J.self) { tow.ai.clearDest(); }
+        towJob = null; startValet(c, J.bay);
+        if (Math.hypot(player.pos.x - c.x, player.pos.z - c.z) < 60) banner('ماشینت رسید تعمیرگاه', 'مکانیک داره می‌بردش داخل');
+      }
+    }
+  } else if (J.phase === 'toGarage') { if (tow.ai && tow.ai.arrived) { J.phase = 'unload'; J.t = 0; J.s = null; } }
+}
+function boardTow() {
+  const P = player; P.state = 'passenger'; P.car = tow; P.inCar = tow; tow.passengerP = P; P.anim.special = 'passenger'; P.anim.sw = 0; P.vel.set(0, 0, 0); Audio.door();
+  if (!towJob) { if (!tow.ai) { tow.ai = new CarAI(tow, 1, 3, 0); tow.ai.resetFromPos(); } tow.ai.setDest(garage.road.x, garage.road.z); say(tow.driverP, 'سلام! بشین، می‌برمت تعمیرگاه.', 3); }
+  else say(tow.driverP, 'کمربندت رو ببند، داریم می‌ریم!', 3);
+}
+function leaveTow() {
+  const P = player, t = tow.T, s = Math.sin(tow.h), c = Math.cos(tow.h), lz = (t.cab[0] + t.cab[1]) / 2;
+  tow.passengerP = null; P.inCar = null; P.state = 'foot'; P.car = null; P.anim.special = null;
+  P.pos.set(tow.x - c * (t.wid / 2 + 0.7) + s * lz, 0, tow.z + s * (t.wid / 2 + 0.7) + c * lz); P.pos.y = groundH(P.pos.x, P.pos.z); P.facing = tow.h - Math.PI / 2; Audio.door();
+  if (tow.ai && !towJob) tow.ai.clearDest();
+}
+function throwDriver() {
+  const d = tow.driverP; if (!d) return;
+  const n = ejectDriver(tow, false);
+  if (n) { n.mode = 'down'; n.knockT = 0; n.onGround = false; const s = Math.sin(tow.h), c = Math.cos(tow.h); n.vel.set(c * 3.5, 3.2, -s * 3.5); n.persona.rel -= 4; n.persona.mood = 0.1; n.persona.mem.carTaken = true; say(n, mpick(['هوی!! چرا هلم دادی؟!', 'آی کمرم! یدک‌کشمو کجا می‌بری؟!', 'دزد! یدک‌کش تعمیرگاهو بردن!']), 3.5); }
+  logEvent('یکی رانندهٔ یدک‌کش رو از ماشین انداخت پایین!');
+  tow.passengerP = null; tow.ai = null; towJob = null; tow.blink = null;
+  const P = player; P.state = 'car'; P.inCar = null; tow.setDriver(P); tow.player = true; tow.hasDriver = true; tow.inHand = false; P.car = tow; addCarLights(tow); Audio.door();
+  banner('حالا یدک‌کش دست خودته!', tow.carrying ? 'ماشین روی یدک‌کش رو جلوی تعمیرگاه نگه دار تا تحویل بدی' : 'با احتیاط برون');
+}
+function goGarage(mode) {
+  const b = garage.bays[0], pt = { name: 'تعمیرگاه مرکزی شهر', x: roadX(1) - RH - 2, z: 0 };
+  if (mode === 'route') { setWaypoint(pt); return 'مسیر تعمیرگاه روی نقشه علامت خورد.'; }
+  if (player.where === 'in') return 'اول از ساختمان بیرون برو.';
+  if (player.state === 'passenger') return 'الان مسافر یدک‌کشی!';
+  if (player.state !== 'foot' && player.state !== 'car') return '';
+  fadeTo(() => {
+    if (player.state === 'car') { const c = player.car; c.x = roadX(1) - RH - 3.5; c.z = b.z; c.h = -Math.PI / 2; c.vx = c.vz = c.av = c.vf = 0; c.y = groundH(c.x, c.z); cam.yaw = c.h; }
+    else { player.pos.set(roadX(1) - RH - 2.5, CURB, 1.5); player.vel.set(0, 0, 0); player.facing = -Math.PI / 2; cam.yaw = -Math.PI / 2; }
+    banner('تعمیرگاه مرکزی شهر', player.state === 'car' ? 'ماشین رو ببر داخل یکی از جایگاه‌ها و نگه دار' : 'مکانیک‌ها داخل منتظرند');
+  });
+  return '';
+}
+function garageStatus() {
+  const j = garage.job;
+  if (j) return { gather: 'مکانیک‌ها دارند ماشین را آماده می‌کنند', raise: 'ماشین روی جک می‌رود بالا', work: `در حال تعمیر: ${fa(Math.round(j.car.health))}٪`, lower: 'ماشین دارد پایین می‌آید', done: 'تمام شد' }[j.phase];
+  if (towJob) return towJob.phase === 'toCar' ? `یدک‌کش در راه است (${fa(Math.round(Math.hypot(tow.x - towJob.car.x, tow.z - towJob.car.z)))} متر)` : towJob.phase === 'toGarage' ? 'یدک‌کش ماشینت را به تعمیرگاه می‌برد' : 'در حال بار زدن ماشین';
+  const c = player.state === 'car' ? player.car : player.lastCar;
+  return c ? `سلامت ماشینت: ${fa(Math.round(c.health))}٪` : 'هنوز ماشینی نداری';
 }
 
 /* ============================================================
@@ -2906,6 +3477,7 @@ function buildMapBase() {
   for (let bi = 0; bi < N; bi++) for (let bj = 0; bj < N; bj++) { const cx = blockC(bi), cz = blockC(bj); g.fillStyle = '#6f8a55'; g.fillRect(X(cx - LOT), X(cz - LOT), 2 * LOT * s, 2 * LOT * s); }
   for (const p of world.parks) { g.fillStyle = '#4f8a3e'; g.fillRect(X(p[0]), X(p[1]), (p[2] - p[0]) * s, (p[3] - p[1]) * s); }
   for (const f of world.foot) { g.fillStyle = f[4]; g.fillRect(X(f[0]), X(f[1]), (f[2] - f[0]) * s, (f[3] - f[1]) * s); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5; g.strokeRect(X(f[0]), X(f[1]), (f[2] - f[0]) * s, (f[3] - f[1]) * s); }
+  { const x = X(roadX(1) - RH - 18), z = X(0); g.fillStyle = '#c2561a'; g.beginPath(); g.arc(x, z, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 18px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ت', x, z + 1); }
   for (const f of world.fountains) { g.fillStyle = '#5aa6d6'; g.beginPath(); g.arc(X(f.x), X(f.z), 3.4 * s, 0, 7); g.fill(); }
   mapBase = c;
 }
@@ -2919,6 +3491,8 @@ function drawMap() {
   const X = v => (v + MAPW / 2) * s;
   for (const c of cars) { if (c.player) continue; g.save(); g.translate(X(c.x), X(c.z)); g.rotate(-c.h); g.fillStyle = c.taxi ? '#ffd23a' : c.ai ? '#e8e8e8' : '#9fb4c8'; g.fillRect(-c.T.wid * s / 2, -c.T.len * s / 2, c.T.wid * s, c.T.len * s); g.restore(); }
   g.fillStyle = '#ffcf7a'; for (const n of npcs) { if (n.mode === 'inside') continue; g.beginPath(); g.arc(X(n.pos.x), X(n.pos.z), 2.2, 0, 7); g.fill(); }
+  if (tow) { g.save(); g.translate(X(tow.x), X(tow.z)); g.rotate(-tow.h); g.fillStyle = tow.beaconOn && (simTime * 3) % 1 < 0.5 ? '#ffd23a' : '#e2661c'; g.fillRect(-6, -10, 12, 20); g.restore(); }
+  if (towJob && towJob.car) { g.strokeStyle = '#e2661c'; g.lineWidth = 3; g.beginPath(); g.arc(X(towJob.car.x), X(towJob.car.z), 9, 0, 7); g.stroke(); }
   if (waypoint) { g.strokeStyle = '#ffb340'; g.lineWidth = 4; g.setLineDash([10, 7]); g.beginPath(); g.moveTo(X(px), X(pz)); g.lineTo(X(waypoint.x), X(waypoint.z)); g.stroke(); g.setLineDash([]); g.fillStyle = '#ffb340'; g.strokeStyle = '#1b1208'; g.lineWidth = 3; g.beginPath(); g.arc(X(waypoint.x), X(waypoint.z), 10, 0, 7); g.fill(); g.stroke(); }
   g.restore();
   const head = player.state === 'car' ? player.car.h : player.facing;
@@ -2932,26 +3506,43 @@ function drawMap() {
 const _obs = [];
 let frameAcc = 0, frameN = 0, perfT = 0, mapTick = 0;
 let composer = null, renderPass = null, bloomPass = null;
+/* quality ladder: the game steps down automatically whenever frames get slow */
+const LEVELS = ['potato', 'low', 'medium', 'high'];
+let qLevel = 3, shadowEvery = 1, poseDist = 85, frameNo = 0, qCooldown = 0, fastWins = 0;
 function setupComposer() {
   if (composer) { composer.dispose?.(); composer = null; }
-  if (settings.quality === 'low') return;
+  if (qLevel < 2) return;
   const size = renderer.getDrawingBufferSize(new V2());
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: renderer.capabilities.isWebGL2 ? 4 : 0 });
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: renderer.capabilities.isWebGL2 ? (qLevel === 3 ? 4 : 2) : 0 });
   composer = new EffectComposer(renderer, rt);
   renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
   bloomPass = new UnrealBloomPass(new V2(innerWidth, innerHeight), 0.3, 0.45, 1.0); composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
   composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight);
 }
-function applyQuality() {
-  const q = settings.quality;
-  pixelRatio = Math.min(window.devicePixelRatio || 1, q === 'high' ? (LOW ? 1.6 : 2) : q === 'medium' ? 1.25 : 1);
+function applyQuality(level) {
+  if (level == null) level = settings.quality === 'auto' ? (LOW ? 2 : 3) : Math.max(0, LEVELS.indexOf(settings.quality));
+  qLevel = level; const dpr = window.devicePixelRatio || 1;
+  pixelRatio = Math.min(dpr, [0.7, 1, 1.25, LOW ? 1.6 : 2][level]);
   renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight);
-  const sm = q === 'high' ? 2048 : 1024;
+  const sm = level === 3 ? 2048 : 1024;
   if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  renderer.shadowMap.type = q === 'low' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = level >= 2 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+  sun.castShadow = level > 0; shadowEvery = [1, 3, 2, 1][level]; poseDist = [40, 55, 70, 85][level];
+  for (const m of world.grassMeshes || []) m.visible = level >= 2;
+  if (M.leaves) M.leaves.visible = level > 0;
+  camera.far = level === 0 ? 520 : 1400; camera.updateProjectionMatrix();
   setupComposer();
 }
+function autoQuality(avg) {
+  if (settings.quality !== 'auto') return false;
+  qCooldown -= 1;
+  if (avg > 1 / 40 && qLevel > 0 && qCooldown <= 0) { applyQuality(qLevel - 1); qCooldown = 2; fastWins = 0; toast('کیفیت گرافیک برای روان ماندن بازی خودکار کمی پایین آمد'); return true; }
+  if (avg < 1 / 75) { if (++fastWins >= 4 && qLevel < (LOW ? 2 : 3)) { applyQuality(qLevel + 1); fastWins = 0; qCooldown = 3; } } else fastWins = 0;
+  return true;
+}
+function toast(t) { const el = $('saved'); el.textContent = t; el.hidden = false; el.style.opacity = '1'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; el.textContent = 'ذخیره شد'; }, 2600); }
 addEventListener('resize', () => { if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } if (FX.pts) FX.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5; });
 function updateWorld(dt) {
   simTime += dt; windUniform.value = simTime; skyUniforms.uTime.value = simTime;
@@ -2960,28 +3551,38 @@ function updateWorld(dt) {
   // obstacles for AI drivers
   _obs.length = 0;
   for (const c of cars) _obs.push({ x: c.x, z: c.z, r: c.T.len / 2 - 0.6, ref: c });
-  if (player.where === 'out' && player.state !== 'car') _obs.push({ x: player.pos.x, z: player.pos.z, r: 0.5, player: true });
+  if (player.where === 'out' && player.state === 'foot') _obs.push({ x: player.pos.x, z: player.pos.z, r: 0.5, player: true });
   for (const n of npcs) if (onRoad(n.pos.x, n.pos.z)) _obs.push({ x: n.pos.x, z: n.pos.z, r: 0.5 });
   for (const c of cars) {
-    if (c.ai) c.ai.update(dt, _obs);
+    c.aiAcc = (c.aiAcc || 0) + dt;
+    if (c.valet) updateValet(c, dt);
+    else if (c.ai && !c.locked) { const far = Math.abs(c.x - camera.position.x) + Math.abs(c.z - camera.position.z) > 140; if (!far || frameNo % 2 === 0) { c.ai.update(Math.min(c.aiAcc, 0.1), _obs); c.aiAcc = 0; } }
     else if (!c.player) { c.inThrottle = 0; c.inSteer = 0; c.inHand = true; }
     if (c.closeT > 0) { c.closeT -= dt; if (c.closeT <= 0) { c.doorT = 0; Audio.door(); } }
   }
-  const sub = 3, sdt = dt / sub;
-  for (let s = 0; s < sub; s++) {
-    for (const c of cars) { c.integrate(sdt); carStatic(c); }
-    for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) { const a = cars[i], b = cars[j]; const dx = a.x - b.x, dz = a.z - b.z, rs = (a.T.len + b.T.len) / 2; if (dx * dx + dz * dz > rs * rs) continue; const r = satCarCar(a, b); if (r) carCarResolve(a, b, r); }
+  const cp = camera.position;
+  for (const c of cars) c.near = Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) < 110 || c.player;
+  for (let s = 0; s < 3; s++) {
+    for (const c of cars) { if (c.locked || c.carriedBy || c.glide || (s > 0 && !c.near)) continue; c.integrate(c.near ? dt / 3 : dt); carStatic(c); }
+    for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) { const a = cars[i], b = cars[j]; if (s > 0 && !a.near && !b.near) continue; if (a.carriedBy || b.carriedBy || a.glide || b.glide || (a.locked && b.locked)) continue; const dx = a.x - b.x, dz = a.z - b.z, rs = (a.T.len + b.T.len) / 2; if (dx * dx + dz * dz > rs * rs) continue; const r = satCarCar(a, b); if (r) { if (a.locked) { b.x -= r.nx * r.depth; b.z -= r.nz * r.depth; } else if (b.locked) { a.x += r.nx * r.depth; a.z += r.nz * r.depth; } else carCarResolve(a, b, r); } }
   }
   for (const c of cars) {
     if (Math.abs(c.x) > BOUND + 5 || Math.abs(c.z) > BOUND + 5) { c.x = clamp(c.x, -BOUND + 3, BOUND - 3); c.z = clamp(c.z, -BOUND + 3, BOUND - 3); c.vx = c.vz = 0; }
     c.sync(dt); if (player.where === 'out') carEffects(c, dt);
   }
+  updateTow(dt); updateRepair(dt);
   updatePlayer(dt);
-  for (const n of npcs) updateNPC(n, dt, true, world.col);
+  const cp2 = camera.position;
+  for (let i = 0; i < npcs.length; i++) {
+    const n = npcs[i]; n.acc = (n.acc || 0) + dt;
+    const far = Math.abs(n.pos.x - cp2.x) + Math.abs(n.pos.z - cp2.z) > 100 && n.mode !== 'down';
+    if (far && (frameNo + i) % 3) continue;
+    updateNPC(n, Math.min(n.acc, 0.15), true, world.col); n.acc = 0;
+  }
   if (player.where === 'in') { for (const n of interior.npcs) updateNPC(n, dt, false, interior.col); updateInterior(dt); }
-  const people = player.where === 'out' ? (player.state === 'foot' ? [player, ...npcs] : npcs) : [player, ...interior.npcs];
-  separatePeople(people.filter(p => p.mode !== 'sit' && p.mode !== 'inside'));
-  updateSignals(); updateFountain(dt); FX.update(dt); updateBirds(dt);
+  const people = player.state !== 'foot' ? (player.where === 'out' ? npcs : interior.npcs) : player.where === 'out' ? [player, ...npcs] : [player, ...interior.npcs];
+  separatePeople(people.filter(p => p.mode !== 'sit' && p.mode !== 'inside' && p.mode !== 'valet'));
+  updateSignals(); updateFountain(dt); FX.update(dt); updateBirds(dt); updatePigeons(dt);
   // doors swing open for the player and for people walking in or out
   if (player.where === 'out') for (const d of world.doors) {
     if (d.npcOpen > 0) d.npcOpen -= dt;
@@ -2995,10 +3596,11 @@ function updateWorld(dt) {
 function syncVisuals(dt) {
   const camPos = camera.position;
   const showPeople = (p, outdoor) => {
+    if (p.inCar) return;
     const H = p.H; const d = Math.hypot(p.pos.x - camPos.x, p.pos.z - camPos.z);
     if (outdoor) H.visible = d < 170 && p.mode !== 'inside';
     H.root.position.set(p.pos.x, p.pos.y, p.pos.z); H.root.rotation.set(0, p.facing, 0);
-    if (H.visible && d < 85) poseHuman(p, dt, simTime);
+    if (H.visible && d < poseDist) poseHuman(p, dt, simTime);
   };
   for (const c of cars) {
     const cd = Math.hypot(c.x - camPos.x, c.z - camPos.z), lod = cd < 40 ? 0 : cd < 110 ? 1 : 2;
@@ -3011,7 +3613,7 @@ function syncVisuals(dt) {
   const P = player, seated = P.inCar || (P.state === 'exiting' && P.exitT < 0.35);
   if (!seated) { P.H.root.position.copy(P.pos); P.H.root.rotation.set(0, P.facing, 0); }
   P.H.visible = true; poseHuman(P, dt, simTime);
-  outdoorPool.update(); interiorPool.update();
+  outdoorPool.update(); interiorPool.update(); updateBlobs();
   // car glow sprites
   const gp = carGlow.geometry.attributes.position.array, gc = carGlow.geometry.attributes.color.array; let k = 0;
   for (const c of cars) {
@@ -3036,7 +3638,7 @@ function syncVisuals(dt) {
 function updateHUD(dt) {
   promptHold -= dt;
   const P = player;
-  const inCar = P.state === 'car';
+  const inCar = P.state === 'car' || P.state === 'passenger';
   $('speedo').hidden = !inCar;
   if (inCar) { const kmh = Math.round(Math.abs(P.car.vf) * 3.6); $('spd').textContent = fa(kmh); $('gear').textContent = P.car.vf < -0.5 ? 'R' : P.car.inHand ? 'P' : 'D'; $('health').style.width = P.car.health + '%'; $('health').style.background = P.car.health > 50 ? '#5fd3c3' : P.car.health > 20 ? '#ffb340' : '#ff5b4e'; }
   syncTouchUI();
@@ -3046,8 +3648,8 @@ function updateHUD(dt) {
   if ($('street').textContent !== label) $('street').textContent = label;
   const wp = $('wp');
   if (waypoint) { const d = Math.hypot(waypoint.x - P.pos.x, waypoint.z - P.pos.z); wp.hidden = false; wp.textContent = `${waypoint.name} · ${fa(Math.round(d))} متر`; } else wp.hidden = true;
-  if (++mapTick % 2 === 0 && mapBase) drawMap();
-  if (inCar) { const c = P.car; const rpm = (Math.abs(c.vf) % 14) / 14 * 0.6 + Math.abs(c.vf) / c.T.vmax * 0.6 + Math.abs(c.inThrottle) * 0.15; Audio.engine(c.health > 0, rpm, Math.max(0, c.inThrottle)); Audio.tyre((c.slip - 1.5) / 5 + (c.inHand && Math.abs(c.vf) > 3 ? 0.4 : 0)); }
+  if (++mapTick % 3 === 0 && mapBase) drawMap();
+  if (P.state === 'car') { const c = P.car; const rpm = (Math.abs(c.vf) % 14) / 14 * 0.6 + Math.abs(c.vf) / c.T.vmax * 0.6 + Math.abs(c.inThrottle) * 0.15; Audio.engine(c.health > 0, rpm, Math.max(0, c.inThrottle)); Audio.tyre((c.slip - 1.5) / 5 + (c.inHand && Math.abs(c.vf) > 3 ? 0.4 : 0)); }
 }
 function render() {
   const sc = player && player.where === 'in' ? interiorScene : scene;
@@ -3066,8 +3668,10 @@ function frame(now) {
     cam.target.set(cx, 0, cz); syncVisuals(dt); updateTimeOfDay(); FX.update(dt); updateBirds(dt);
     render(); return;
   }
+  frameNo++; if (frameNo % shadowEvery === 0) renderer.shadowMap.needsUpdate = true;
   readKeys(dt);
   updateWorld(dt);
+  if (simTime - lastSave > 15) saveGame();
   updateCamera(dt);
   updateTimeOfDay();
   syncVisuals(dt);
@@ -3076,10 +3680,10 @@ function frame(now) {
   render();
   // adaptive resolution
   frameAcc += dt; frameN++; perfT += dt;
-  if (perfT > 2.5) { const avg = frameAcc / frameN; if (avg > 0.036 && pixelRatio > 0.8) { pixelRatio = Math.max(0.8, pixelRatio - 0.15); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } } frameAcc = 0; frameN = 0; perfT = 0; }
+  if (perfT > 2) { const avg = frameAcc / frameN; if (!autoQuality(avg) && avg > 0.036 && pixelRatio > 0.8) { pixelRatio = Math.max(0.8, pixelRatio - 0.15); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } } frameAcc = 0; frameN = 0; perfT = 0; }
 }
 function updateWorldDemo(dt) {
-  tod = 17.6; _obs.length = 0; for (const c of cars) _obs.push({ x: c.x, z: c.z, r: c.T.len / 2 - 0.6, ref: c });
+  if (!restored) tod = 17.6; _obs.length = 0; for (const c of cars) _obs.push({ x: c.x, z: c.z, r: c.T.len / 2 - 0.6, ref: c });
   for (const c of cars) if (c.ai) c.ai.update(dt, _obs);
   for (let s = 0; s < 2; s++) { for (const c of cars) { c.integrate(dt / 2); carStatic(c); } for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) { const a = cars[i], b = cars[j]; const dx = a.x - b.x, dz = a.z - b.z, rs = (a.T.len + b.T.len) / 2; if (dx * dx + dz * dz > rs * rs) continue; const r = satCarCar(a, b); if (r) carCarResolve(a, b, r); } }
   for (const c of cars) c.sync(dt);
@@ -3096,23 +3700,29 @@ async function boot(data) {
   makeTextures(); makeMaterials(); initGeo(); initHumanGeo(); initCarMats();
   outdoorPool = new HumanPool(scene, LOW ? 40 : 64); interiorPool = new HumanPool(interiorScene, 4);
   buildCity(); buildMapBase();
-  FX.init(); Skids.init(); buildRain(); buildBirds();
-  setupPlayer(); spawnTraffic(); spawnPeople();
+  FX.init(); Skids.init(); buildRain(); buildBirds(); buildBlobs();
+  setupPlayer();
+  const sv = loadSave();
+  if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
+  if (!restored) { spawnTraffic(); spawnPeople(); }
+  spawnGarageStaff(); buildPigeons();
+  if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
   if (data && typeof data.tod === 'number') tod = data.tod;
-  applyWeatherSetting(); applyQuality();
+  applyWeatherSetting(); applyQuality(); bakeEnvironments();
   updateTimeOfDay();
-  $('load').textContent = 'شهر آماده است.';
+  if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 $('play').addEventListener('click', () => {
   Audio.init(); started = true; $('start').classList.add('gone'); setTimeout(() => $('start').hidden = true, 650);
   $('minimap').hidden = false; $('topbar').hidden = false; if (IS_TOUCH) showTouchUI();
   try { if (IS_TOUCH && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (_) { }
-  cam.yaw = Math.PI * 0.82; cam.target.set(player.pos.x, player.pos.y + 1.45, player.pos.z);
-  tod = 17.2; envTod = -99;
-  banner('شهر آزاد', 'به هر کسی نزدیک شو و با او حرف بزن · ماشین قرمز روبه‌رویت است');
+  if (!restored) cam.yaw = Math.PI * 0.82; cam.target.set(player.pos.x, player.pos.y + 1.45, player.pos.z);
+  if (!restored) { tod = 17.2; banner('شهر آزاد', 'به هر کسی نزدیک شو و با او حرف بزن · ماشین قرمز روبه‌رویت است'); }
+  else { cam.target.set(player.pos.x, player.pos.y + 1.45, player.pos.z); banner('خوش برگشتی!', 'بازی از همان جایی که بودی ادامه دارد'); }
+  envTod = -99; setTimeout(saveGame, 1500);
 });
 window.claude?.hot?.snapshot?.(() => ({ tod }));
 $(IS_TOUCH ? 'ctrl-keys' : 'ctrl-touch').hidden = true;
