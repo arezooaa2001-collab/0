@@ -172,6 +172,11 @@ function makeTextures() {
   for (let ty = 0; ty < 4; ty++) for (let tx = 0; tx < 4; tx++) { const v = Math.random() * 10 - 5; g.fillStyle = `rgb(${232 + v},${226 + v},${214 + v})`; g.fillRect(tx * 128 + 2, ty * 128 + 2, 124, 124); }
   speckle(g, 512, 4000, ['#d9d2c4', '#f3efe6'], 1, 3, 0.5);
   T.tile = toTex(c);
+  // polished mall floor: large stone tiles with soft veins
+  c = mkCanvas(512); g = c.getContext('2d'); g.fillStyle = '#d8d2c8'; g.fillRect(0, 0, 512, 512);
+  for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) { const v = Math.random() * 12 - 6; g.fillStyle = `rgb(${236 + v},${232 + v},${224 + v})`; g.fillRect(tx * 256 + 2, ty * 256 + 2, 252, 252);
+    g.strokeStyle = 'rgba(160,150,140,0.18)'; g.lineWidth = 1.5; for (let k = 0; k < 5; k++) { g.beginPath(); let x = tx * 256 + Math.random() * 256, y = ty * 256 + Math.random() * 256; g.moveTo(x, y); for (let j = 0; j < 8; j++) { x += (Math.random() - 0.5) * 60; y += (Math.random() - 0.3) * 40; g.lineTo(x, y); } g.stroke(); } }
+  T.mallTile = toTex(c);
   // door
   c = mkCanvas(128, 256); g = c.getContext('2d'); g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, 128, 256);
   const panel = (x, y, w, h) => { g.fillStyle = '#bdbdbd'; g.fillRect(x, y, w, h); g.fillStyle = '#f4f4f4'; g.fillRect(x + 4, y + 4, w - 8, h - 8); g.fillStyle = '#d0d0d0'; g.fillRect(x + 8, y + 8, w - 16, h - 16); };
@@ -236,6 +241,20 @@ function makeMaterials() {
   M.leaves = stdMat({ map: T.leaf, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.82 });
   M.busSign = stdMat({ map: T.bus, emissive: 0xffffff, emissiveMap: T.bus, emissiveIntensity: 0.1, roughness: 0.4 });
   M.foliage = stdMat({ roughness: 0.85, flatShading: true });
+  // mall interiors glow softly with their own lighting (emissive scaled by the surface colour)
+  const litMat = (o, k) => { const m = stdMat(Object.assign({ emissive: 0xffffff, emissiveIntensity: k }, o)); m.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance *= diffuseColor.rgb;'); }; m.userData.lit = k; mallMats.push(m); return m; };
+  M.mallFloor = litMat({ map: T.mallTile, roughness: 0.18, envMapIntensity: 0.55, color: 0xe4ded4 }, 0.1);
+  M.mallWall = litMat({ map: T.plaster, roughness: 0.85, color: 0xe8e2d8 }, 0.14);
+  M.mallTrim = litMat({ roughness: 0.55 }, 0.13);
+  M.mallCeil = litMat({ roughness: 0.6 }, 0.13);
+  M.mallMetal = litMat({ roughness: 0.3, metalness: 0.8 }, 0.12);
+  M.mallGloss = litMat({ roughness: 0.12, metalness: 0.1 }, 0.14);
+  M.mallWood = litMat({ map: T.wood, roughness: 0.55 }, 0.12);
+  M.mallFabric = litMat({ roughness: 1 }, 0.14);
+  M.neon = litMat({ roughness: 0.3 }, 1.8); M.neon.userData.lit = -1;
+  M.mallLamp = stdMat({ emissive: 0xfff6e8, emissiveIntensity: 2.0, roughness: 0.4 });
+  M.lampOn2 = stdMat({ emissive: 0xf4f8ff, emissiveIntensity: 2.2, roughness: 0.4 });
+  M.clearGlass = stdMat({ transparent: true, opacity: 0.2, roughness: 0.04, metalness: 0.3, depthWrite: false, envMapIntensity: 1.6, side: THREE.DoubleSide });
   M.leaves.onBeforeCompile = M.foliage.onBeforeCompile = sh => {
     sh.uniforms.uTime = windUniform;
     sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -244,7 +263,8 @@ function makeMaterials() {
       transformed.z += cos(uTime * 1.25 + position.z * 0.33 + position.x * 0.1) * 0.045 * hw;`);
   };
 }
-const NO_CAST = new Set(['busSign', 'asphalt', 'sidewalk', 'grass', 'paint', 'glass', 'glassLit', 'winView', 'woodFloor', 'tileFloor']);
+const NO_CAST = new Set(['busSign', 'asphalt', 'sidewalk', 'grass', 'paint', 'glass', 'glassLit', 'winView', 'woodFloor', 'tileFloor', 'clearGlass', 'mallFloor', 'mallLamp', 'neon', 'lampOn2', 'mallTrim', 'mallWood', 'mallFabric', 'mallMetal', 'mallGloss', 'mallWall']);
+const mallMats = [];
 
 /* ============================================================
    Geometry batching (merges static meshes by material + chunk)
@@ -322,7 +342,7 @@ class Colliders {
    Build helpers (local frames rotated in 90° steps)
    ============================================================ */
 let BT, CL;           // current batch and collider set
-const world = { col: new Colliders(), benches: [], doors: [], signMats: [], foot: [], gates: [], glow: [], pools: [], parks: [], parking: [], fountains: [] };
+const world = { col: new Colliders(), benches: [], doors: [], signMats: [], foot: [], gates: [], glow: [], pools: [], parks: [], parking: [], fountains: [], portals: [], uses: [], newPlaces: [] };
 function mkFrame(x, z, a) { return { x, z, a, c: Math.cos(a), s: Math.sin(a) }; }
 function fw(F, lx, lz) { return [F.x + lx * F.c + lz * F.s, F.z - lx * F.s + lz * F.c]; }
 function fBox(F, mat, lx, ly, lz, w, h, d, color, o = {}) {
@@ -503,9 +523,9 @@ function makeDoor(F, lx, fl, lz, color, kind, name, sub) {
   const pivot = new THREE.Group(); pivot.position.set(hx, fl, hz); pivot.rotation.y = F.a; scene.add(pivot);
   const inner = new THREE.Group(); pivot.add(inner);
   const m = new THREE.Mesh(doorGeo, doorMat(color)); m.castShadow = true; m.receiveShadow = true; inner.add(m);
-  fGeo(F, 'trim', planeGeo(1.02, 2.26), lx, fl + 1.13, lz - 0.005, 0x0b0b0c);
   const [x, z] = fw(F, lx, lz);
-  world.doors.push({ x, z, nx: F.s, nz: F.c, y: fl, inner, open: 0, kind, name, sub, seed: (Math.abs(Math.round(x * 131 + z * 977)) + 7) | 0, pivot });
+  { const [px, pz] = fw(F, lx, lz - 0.005); world.portals.push({ x: px, z: pz, y: fl, rx: F.c, rz: -F.s, nx: F.s, nz: F.c, kind: kind === 'shop' ? 1 : kind === 'apt' ? 2 : 0, seed: (Math.abs(Math.round(px * 131 + pz * 977)) % 997) / 997 }); }
+  world.doors.push({ x, z, nx: F.s, nz: F.c, y: fl, inner, open: 0, want: 0, closeT: 0, kind, name, sub, seed: (Math.abs(Math.round(x * 131 + z * 977)) + 7) | 0, pivot });
 }
 function makeSign(F, lx, ly, lz, text, w, bg, fg) {
   const c = mkCanvas(1024, 256), g = c.getContext('2d');
@@ -519,6 +539,81 @@ function makeSign(F, lx, ly, lz, text, w, bg, fg) {
   const [x, z] = fw(F, lx, lz); mesh.position.set(x, ly, z); mesh.rotation.y = F.a; scene.add(mesh);
   fBox(F, 'metal', lx, ly, lz - 0.06, w + 0.2, w / 4 + 0.2, 0.1, 0x22252a);
   world.signMats.push(mat);
+}
+
+/* every doorway shows a believable lit hallway behind it (interior mapping: a ray-box test per pixel),
+   so an opened door looks into a real room instead of a black hole */
+let portalMat = null;
+function buildPortals() {
+  const L = world.portals, n = L.length; if (!n) return;
+  const pos = new Float32Array(n * 18), loc = new Float32Array(n * 12), rgt = new Float32Array(n * 18), inw = new Float32Array(n * 18), inf = new Float32Array(n * 12);
+  L.forEach((d, i) => {
+    const corners = [[-0.51, 0], [0.51, 0], [0.51, 2.26], [-0.51, 0], [0.51, 2.26], [-0.51, 2.26]];
+    corners.forEach(([u, v], k) => {
+      const o = i * 6 + k; pos[o * 3] = d.x + d.rx * u; pos[o * 3 + 1] = d.y + v; pos[o * 3 + 2] = d.z + d.rz * u;
+      loc[o * 2] = u; loc[o * 2 + 1] = v; rgt[o * 3] = d.rx; rgt[o * 3 + 2] = d.rz; inw[o * 3] = -d.nx; inw[o * 3 + 2] = -d.nz; inf[o * 2] = d.seed; inf[o * 2 + 1] = d.kind;
+    });
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aLocal', new THREE.BufferAttribute(loc, 2));
+  g.setAttribute('aRight', new THREE.BufferAttribute(rgt, 3)); g.setAttribute('aIn', new THREE.BufferAttribute(inw, 3)); g.setAttribute('aInfo', new THREE.BufferAttribute(inf, 2));
+  g.computeBoundingSphere();
+  portalMat = new THREE.ShaderMaterial({
+    uniforms: { uCam: { value: new V3() }, uLamp: { value: 1 }, uDay: { value: 1 } },
+    vertexShader: `attribute vec2 aLocal; attribute vec3 aRight; attribute vec3 aIn; attribute vec2 aInfo;
+      varying vec2 vLocal; varying vec3 vWorld; varying vec3 vRight; varying vec3 vIn; varying vec2 vInfo;
+      void main() { vLocal = aLocal; vRight = aRight; vIn = aIn; vInfo = aInfo; vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform vec3 uCam; uniform float uLamp; uniform float uDay;
+      varying vec2 vLocal; varying vec3 vWorld; varying vec3 vRight; varying vec3 vIn; varying vec2 vInfo;
+      float h1(float n) { return fract(sin(n * 127.1 + 3.7) * 43758.5453); }
+      void main() {
+        vec3 V = normalize(vWorld - uCam);
+        vec3 d = vec3(dot(V, vRight), V.y, max(dot(V, vIn), 0.02));
+        vec3 o = vec3(vLocal, 0.0);
+        const float HW = 1.35; const float H = 2.75; const float D = 4.6;
+        float tx = d.x > 0.0 ? (HW - o.x) / max(d.x, 1e-4) : (-HW - o.x) / min(d.x, -1e-4);
+        float ty = d.y > 0.0 ? (H - o.y) / max(d.y, 1e-4) : (-o.y) / min(d.y, -1e-4);
+        float tz = D / d.z;
+        float t = min(tx, min(ty, tz));
+        vec3 p = o + d * t;
+        float s = vInfo.x * 91.0, kind = vInfo.y;
+        vec3 wall = mix(vec3(0.88, 0.82, 0.72), vec3(0.78, 0.85, 0.83), h1(s));
+        if (kind > 1.5) wall = vec3(0.82, 0.8, 0.76);
+        vec3 col = wall;
+        if (t == ty && d.y < 0.0) {
+          if (kind > 0.5) { vec2 g = floor(p.xz * 1.7); col = mix(vec3(0.86, 0.84, 0.8), vec3(0.72, 0.7, 0.66), mod(g.x + g.y, 2.0)); }
+          else {
+            float row = floor(p.x * 5.0), j = h1(row + s);
+            col = mix(vec3(0.45, 0.29, 0.16), vec3(0.6, 0.41, 0.24), j) * (0.82 + 0.18 * step(0.04, fract(p.x * 5.0))) * (0.9 + 0.1 * step(0.02, fract(p.z * 0.6 + j)));
+            if (abs(p.x) < 0.8 && p.z > 0.8 && p.z < 3.5) { vec3 rug = mix(vec3(0.58, 0.14, 0.12), vec3(0.16, 0.22, 0.42), h1(s + 3.0)); float b = step(0.09, min(0.8 - abs(p.x), min(p.z - 0.8, 3.5 - p.z))); col = mix(vec3(0.86, 0.74, 0.48), rug, b); }
+          }
+        } else if (t == ty) {
+          col = vec3(0.94, 0.93, 0.9) * 0.85; float l = length(vec2(p.x, p.z - 2.0)); col += vec3(1.8, 1.5, 1.1) * (1.0 - smoothstep(0.15, 0.2, l)) * uLamp;
+        } else if (t == tx) {
+          if (kind > 0.5 && kind < 1.5 && p.y > 0.2 && p.y < 2.15 && p.z > 0.4 && p.z < 4.4) {
+            float r = floor(p.y * 2.4), slot = floor(p.z * 7.0) + r * 13.0 + sign(p.x) * 7.0;
+            col = fract(p.y * 2.4) < 0.1 ? vec3(0.78) : vec3(h1(slot), h1(slot + 1.3), h1(slot + 2.7)) * 0.75 + 0.12;
+          } else if (p.x > 0.0 && p.y > 1.2 && p.y < 2.0 && abs(p.z - 2.3) < 0.48) {
+            vec2 q = vec2(p.z - 2.3, p.y - 1.6);
+            col = (abs(q.x) > 0.42 || abs(q.y) > 0.34) ? vec3(0.3, 0.2, 0.1) : mix(vec3(0.3, 0.5, 0.72), vec3(0.88, 0.66, 0.35), smoothstep(-0.25, 0.25, q.y + 0.12 * sin(q.x * 9.0 + s)));
+          } else if (p.x < 0.0 && p.z > 1.1 && p.z < 2.0 && p.y < 2.08) col = vec3(0.46, 0.3, 0.18) * (0.9 + 0.1 * step(0.05, abs(p.z - 1.55)));
+          if (p.y < 0.12) col = vec3(0.95);
+        } else {
+          if (abs(p.x) < 0.5 && p.y < 2.1) col = wall * 0.25;
+          if (kind > 0.5 && kind < 1.5 && abs(p.x) > 0.62 && p.y > 0.3 && p.y < 2.05) col = vec3(0.85, 0.93, 1.0) * (0.55 + 0.45 * h1(floor(p.x * 6.0) + floor(p.y * 2.3) * 11.0));
+          if (kind > 1.5 && abs(p.x) < 0.5 && p.y < 2.1) col = vec3(0.6, 0.58, 0.55) * (0.6 + 0.4 * step(0.5, fract(p.y * 5.0)));
+          if (p.y < 0.12 && abs(p.x) > 0.5) col = vec3(0.95);
+        }
+        col = pow(col, vec3(2.2));
+        vec3 L = vec3(0.0, 2.6, 2.0) - p;
+        float li = uLamp * 2.1 / (1.0 + dot(L, L) * 0.3) + 0.2 + uDay * 0.45 * (1.0 - p.z / D);
+        li *= 0.7 + 0.3 * smoothstep(0.0, 0.35, min(min(p.y, H - p.y), HW - abs(p.x)));
+        gl_FragColor = vec4(col * li, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`
+  });
+  const m = new THREE.Mesh(g, portalMat); m.matrixAutoUpdate = false; m.updateMatrix(); scene.add(m);
 }
 
 /* ============================================================
@@ -822,16 +917,20 @@ function buildCity() {
   for (let bi = 0; bi < N; bi++) for (let bj = 0; bj < N; bj++) {
     const cx = blockC(bi), cz = blockC(bj);
     const type = (bi === 0 && bj === 2) ? 'garage' : (bi === 2 && bj === 2) ? 'park' : (bi >= 1 && bi <= 3 && bj >= 1 && bj <= 3) ? 'commercial' : 'residential';
+    const place = NEW_PLACES[bi + ',' + bj]; if (place) world.newPlaces.push([place, cx, cz]);
     if (type === 'garage') buildGarage(cx, cz);
-    if (type !== 'commercial' && type !== 'garage') { BT.add('grass', quadUp(cx - LOT, cz - LOT, cx + LOT, cz + LOT, CURB + 0.004, 7)); (world.grassAreas || (world.grassAreas = [])).push([cx, cz, type]); }
+    if (type !== 'commercial' && type !== 'garage' && !place) { BT.add('grass', quadUp(cx - LOT, cz - LOT, cx + LOT, cz + LOT, CURB + 0.004, 7)); (world.grassAreas || (world.grassAreas = [])).push([cx, cz, type]); }
     if (type === 'park') buildPark(cx, cz);
     else if (type === 'residential') {
+      if (place) dryRun(() => { for (const qx of [-1, 1]) for (const qz of [-1, 1]) buildHouse(cx, cz, qx, qz); });
+      else {
       for (const qx of [-1, 1]) for (const qz of [-1, 1]) buildHouse(cx, cz, qx, qz);
       BT.add('hedge', boxGeo(0.9, 1.3, 2 * LOT - 1, 2), cx, CURB + 0.65, cz, 0, 0x8fbc6c); CL.box(cx - 0.45, cx + 0.45, cz - LOT, cz + LOT, 0, CURB + 1.3);
       BT.add('hedge', boxGeo(2 * LOT - 1, 1.3, 0.9, 2), cx, CURB + 0.65, cz, 0, 0x8fbc6c); CL.box(cx - LOT, cx + LOT, cz - 0.45, cz + 0.45, 0, CURB + 1.3);
+      }
     } else if (type === 'commercial') {
-      for (const qx of [-1, 1]) for (const qz of [-1, 1]) buildApartment(cx, cz, qx, qz);
-      tree(cx + 2, cz - 2, 1.2); bench(cx - 2.5, cz + 2.5, Math.PI / 4); bin(cx + 3, cz + 3);
+      const build = () => { for (const qx of [-1, 1]) for (const qz of [-1, 1]) buildApartment(cx, cz, qx, qz); tree(cx + 2, cz - 2, 1.2); bench(cx - 2.5, cz + 2.5, Math.PI / 4); bin(cx + 3, cz + 3); };
+      if (place) dryRun(build); else build();
     }
     // street furniture on the four sidewalks
     for (let s = 0; s < 4; s++) {
@@ -843,10 +942,10 @@ function buildCity() {
       for (const t of drive ? [] : [-10, 10]) {
         const x = cx + ox * (edge - 0.65) + tx * t, z = cz + oz * (edge - 0.65) + tz * t;
         if (world.gates.some(g => Math.hypot(g[0] - x, g[1] - z) < 6)) continue;
-        BT.add('trim', boxGeo(1.4, 0.02, 1.4), x, CURB + 0.006, z, 0, 0x3a2e24); tree(x, z, rr(0.85, 1.1));
+        maybeDry(x, z, () => { BT.add('trim', boxGeo(1.4, 0.02, 1.4), x, CURB + 0.006, z, 0, 0x3a2e24); tree(x, z, rr(0.85, 1.1)); });
       }
       if (type === 'commercial') { for (const t of [-15, 15]) { const x = cx + ox * (edge - 1.0) + tx * t, z = cz + oz * (edge - 1.0) + tz * t; bench(x, z, Math.atan2(-ox, -oz)); } const bx = cx + ox * (edge - 0.7) + tx * 5, bz = cz + oz * (edge - 0.7) + tz * 5; bin(bx, bz); }
-      if (R() < 0.5 && !drive) hydrant(cx + ox * (edge - 0.5) + tx * -4, cz + oz * (edge - 0.5) + tz * -4);
+      if (R() < 0.5 && !drive) { const hx = cx + ox * (edge - 0.5) + tx * -4, hz = cz + oz * (edge - 0.5) + tz * -4; maybeDry(hx, hz, () => hydrant(hx, hz)); }
       if (type === 'commercial' && s === (bi + bj) % 4) busStop(cx + ox * (LOT + 0.9) + tx * 6, cz + oz * (LOT + 0.9) + tz * 6, Math.atan2(ox, oz));
       if (type === 'commercial' && R() < 0.55) motorbike(cx + ox * (edge - 1.3) + tx * -7.5, cz + oz * (edge - 1.3) + tz * -7.5, Math.atan2(tx, tz) + rr(-0.3, 0.3));
     }
@@ -888,9 +987,27 @@ function buildCity() {
     if (Math.abs(x) < BOUND + 3 && Math.abs(z) < BOUND + 3) continue;
     tree(x, z, rr(1.2, 2.0), R() < 0.65 ? 'pine' : 'round', false, 0); k++;
   }
+  // the new places use their own random stream so the rest of the city stays exactly as it was
+  { const keep = R; R = makeRng(4242);
+    for (const [pl, cx, cz] of world.newPlaces) ({ mall: buildMall, gas: buildGasStation, mosque: buildMosque, school: buildSchool })[pl](cx, cz);
+    R = keep; }
   BT.build(scene);
   buildGrass();
-  buildGlow(); buildPools(); buildMountains(); buildFountainFX();
+  buildGlow(); buildPools(); buildMountains(); buildFountainFX(); buildPortals();
+}
+const NEW_PLACES = { '3,2': 'mall', '4,2': 'gas', '2,4': 'mosque', '2,0': 'school' };
+const CLEAR = [[119, -17.5, 127, -3.2, 152], [119, 3.2, 127, 17.5, 152]]; // petrol station driveways
+function maybeDry(x, z, fn) { if (CLEAR.some(c => x > c[0] && x < c[2] && z > c[1] && z < c[3])) dryRun(fn); else fn(); }
+// run a builder without keeping anything it makes (but its random draws and door slots stay)
+function dryRun(fn) {
+  const bt = BT, cl = CL, lens = {}; for (const k in world) if (Array.isArray(world[k])) lens[k] = world[k].length;
+  const nScene = scene.children.length, nDoors = world.doors.length;
+  BT = new Batch(150); CL = new Colliders();
+  fn();
+  for (const d of world.doors.slice(nDoors)) { d.dead = true; scene.remove(d.pivot); }
+  for (const k in lens) if (k !== 'doors' && k !== 'gates') world[k].length = lens[k]; // gates steer later tree placement, so they stay
+  for (const o of scene.children.slice(nScene)) scene.remove(o);
+  BT.groups.clear(); BT = bt; CL = cl;
 }
 
 /* instanced grass tufts with wind, one mesh per block for culling */
@@ -1089,6 +1206,10 @@ function updateTimeOfDay() {
   M.asphalt.roughness = lerp(0.93, 0.18, wet); M.asphalt.color.setScalar(lerp(1, 0.55, wet)); M.asphalt.envMapIntensity = lerp(1, 1.8, wet);
   M.sidewalk.roughness = lerp(0.86, 0.38, wet); M.sidewalk.color.setScalar(lerp(1, 0.75, wet)); M.roof.roughness = lerp(0.72, 0.3, wet); M.paint.roughness = lerp(0.55, 0.2, wet);
   renderer.toneMappingExposure = 1.0 + night * 0.12;
+  { const cp = camera.position, inM = inMall(cp.x, cp.z, -0.3) && cp.y < mall.yR - 0.3;
+    if (inM) hemi.intensity = Math.max(hemi.intensity, 0.85);
+    for (const m of mallMats) m.emissiveIntensity = m.userData.lit < 0 ? 1.8 : m.userData.lit * (inM ? 1.0 : 0.7) * (1 + night * 0.4);
+    M.lampOn2.emissiveIntensity = 1.2 + night * 1.6; }
   stars.material.opacity = smooth(0.4, 0.95, night) * (1 - cl);
   M.glassLit.emissiveIntensity = night * 0.85;
   M.emissive.emissiveIntensity = night * 2.4 + 0.02;
@@ -1240,7 +1361,7 @@ function updateBlobs() {
   if (!blobSh) return; let k = 0; const cp = camera.position, max = 160;
   blobSh.material.opacity = qLevel === 0 ? 0.62 : 0.42;
   for (const c of cars) { if (k >= max || !c.group.visible || c.carriedBy) continue; if (Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) > 120) continue; _blq.setFromAxisAngle(_bly, c.h); _blm.compose(_blp.set(c.x, c.y + 0.03, c.z), _blq, _bls.set(c.T.wid * 1.25, 1, c.T.len * 1.1)); blobSh.setMatrixAt(k++, _blm); }
-  for (const n of npcs) { if (k >= max || !n.H.visible || n.inCar) continue; if (Math.abs(n.pos.x - cp.x) + Math.abs(n.pos.z - cp.z) > 60) continue; const s = 0.85 * (n.look.h || 1) * (1 - n.anim.knock * 0) + n.anim.knock * 0.9; _blm.compose(_blp.set(n.pos.x, n.pos.y + 0.02, n.pos.z), _blq.identity(), _bls.set(s, 1, s + n.anim.knock * 1.2)); blobSh.setMatrixAt(k++, _blm); }
+  for (const n of npcs.concat(mall.npcs, mall.staff)) { if (k >= max || !n.H.visible || n.inCar) continue; if (Math.abs(n.pos.x - cp.x) + Math.abs(n.pos.z - cp.z) > 60) continue; const s = 0.85 * (n.look.h || 1) * (1 - n.anim.knock * 0) + n.anim.knock * 0.9; _blm.compose(_blp.set(n.pos.x, n.pos.y + 0.02, n.pos.z), _blq.identity(), _bls.set(s, 1, s + n.anim.knock * 1.2)); blobSh.setMatrixAt(k++, _blm); }
   if (player.where === 'out' && !player.inCar) { _blm.compose(_blp.set(player.pos.x, groundH(player.pos.x, player.pos.z) + 0.02, player.pos.z), _blq.identity(), _bls.set(0.85, 1, 0.85)); blobSh.setMatrixAt(k++, _blm); }
   blobSh.count = k; blobSh.instanceMatrix.needsUpdate = true;
 }
@@ -1403,7 +1524,7 @@ class HumanPool {
       const H = p.H;
       if (!H.visible) { if (H.shown) { for (const e of H.slots) this.meshes[e.part].setMatrixAt(e.idx, _zeroM); H.shown = false; } continue; }
       H.root.updateMatrixWorld(true); H.shown = true;
-      for (const e of H.slots) this.meshes[e.part].setMatrixAt(e.idx, (e.umb && !H.umb.visible) ? _zeroM : e.obj.matrixWorld);
+      for (const e of H.slots) this.meshes[e.part].setMatrixAt(e.idx, (e.umb && !H.umb.visible) || (e.head && H.hideHead) || (e.trunk && H.hideTrunk) ? _zeroM : e.obj.matrixWorld);
     }
     let top = -1; for (const p of this.people) top = Math.max(top, p.slot);
     for (const m of Object.values(this.meshes)) { m.count = (top + 1) * m.userData.per; m.instanceMatrix.needsUpdate = true; }
@@ -1460,7 +1581,7 @@ function makeHuman(look, detail) {
     hp.push(h); kn.push(k); an.push(a);
   }
   // child objects of the umbrella group carry the visibility flag used by the pool
-  for (const e of slots) if (umb && (e.obj.parent === umb)) e.umb = true;
+  for (const e of slots) { if (umb && (e.obj.parent === umb)) e.umb = true; if (e.obj.parent === head || e.part === 'neck') e.head = true; if (['upper', 'torso', 'coat', 'drape', 'scarf', 'hairLong'].includes(e.part)) e.trunk = true; }
   root.scale.setScalar(look.h || 1);
   return { root, rig, hips, spine, head, sh, el, hp, kn, an, hd, face, umb, slots, visible: true, shown: false };
 }
@@ -1516,7 +1637,12 @@ function poseHuman(p, dt, t) {
     mixPose(idleW, Q);
   }
   // umbrella in the rain (left hand)
-  const holdUmb = raining && p.look.umbrella && p.npc && !a.special && p.mode !== 'down' && p.mode !== 'sit';
+  const pHeld = p.isPlayer && typeof store !== 'undefined' ? store.held : null;
+  const holdUmb = ((raining && p.look.umbrella && p.npc) || (pHeld === 'umbrella' && (raining || p.umbOpen))) && !a.special && p.mode !== 'down' && p.mode !== 'sit' && !p.inCar;
+  if (pHeld && pHeld !== 'umbrella' && !a.special && !p.inCar) { const Q = clearQ(), m = ITEMS[pHeld].model; if (m === 'balloon') { Q.shRx = -1.6; Q.elR = -0.3; Q.shRz = -0.15; } else if (m === 'phone') { Q.shRx = -0.85; Q.shRz = -0.4; Q.elR = -2.0; Q.hdX = 0.25; } else if (m === 'skate') { Q.shRx = 0.05; Q.elR = -0.2; } else { Q.shRx = -0.42; Q.elR = -1.15; Q.shRz = -0.08; } mixPose(0.9, Q); }
+  if (p.skate) { const Q = clearQ(), push = clamp(1 - sp / 4, 0, 1) * (p.onGround ? 1 : 0), ph = t * 6;
+    Q.hipRy = 0.9; Q.spY = -0.75; Q.hdY = -0.15; Q.thLx = -0.25 - push * Math.max(0, Math.sin(ph)) * 0.6; Q.thRx = 0.2; Q.thLz = 0.18; Q.thRz = -0.18; Q.knL = 0.45 + push * Math.max(0, Math.sin(ph)) * 0.5; Q.knR = 0.45;
+    Q.hipY = 0.88; Q.shLz = 0.75; Q.shRz = -0.75; Q.elL = -0.3; Q.elR = -0.3; Q.shLx = 0.1; Q.shRx = -0.1; Q.spX = 0.12; mixPose(1, Q); }
   if (H.umb) H.umb.visible = holdUmb;
   if (holdUmb) { const Q = clearQ(); Q.shRx = -0.4; Q.shRz = 0.05; Q.elR = -1.17; mixPose(1, Q); }
   // talking gestures
@@ -1564,6 +1690,18 @@ function poseHuman(p, dt, t) {
       Q.hipY = 0.18; Q.thLx = -1.35; Q.thRx = -1.35; Q.knL = 1.1; Q.knR = 1.1; Q.anL = 0.2; Q.anR = 0.2; Q.spX = -0.2; Q.shLx = -0.35; Q.shRx = -0.35; Q.elL = -0.95; Q.elR = -0.95; Q.hdY = Math.sin(t * 0.3) * 0.4;
     } else if (sp_ === 'sitGround') {
       Q.hipY = 0.14; Q.thLx = -1.45; Q.thRx = -1.45; Q.knL = 0.3; Q.knR = 0.5; Q.thLz = 0.12; Q.thRz = -0.12; Q.spX = -0.28; Q.shLx = 0.55; Q.shRx = 0.55; Q.elL = -0.1; Q.elR = -0.1; Q.shLz = 0.3; Q.shRz = -0.3;
+    } else if (sp_ === 'eat') {
+      const b = Math.max(0, Math.sin(t * 5)); Q.shRx = -0.9 - b * 0.3; Q.shRz = -0.3; Q.elR = -1.9 - b * 0.35; Q.hdX = 0.05 - b * 0.08; Q.shLx = -0.3; Q.elL = -0.9;
+    } else if (sp_ === 'kick') {
+      Q.thRx = -1.1; Q.knR = 0.2; Q.spX = -0.15; Q.shLz = 0.5; Q.shRz = -0.5; Q.shLx = 0.4;
+    } else if (sp_ === 'fuel') {
+      Q.shRx = -1.05; Q.shRz = -0.12; Q.elR = -0.35; Q.shLz = 0.15; Q.hdX = 0.18; Q.spX = 0.08;
+    } else if (sp_ === 'arcade') {
+      const w = t * 9 + sd; Q.shLx = -1.05 + Math.sin(w) * 0.08; Q.shRx = -1.0 + Math.sin(w * 1.7) * 0.12; Q.elL = -0.7; Q.elR = -0.75 + Math.sin(w * 2.3) * 0.15; Q.hdX = 0.12; Q.spX = 0.1;
+    } else if (sp_ === 'swing') {
+      const sa = a.swingA || 0;
+      Q.hipY = 0.5; Q.thLx = -1.5 - sa * 0.6; Q.thRx = -1.5 - sa * 0.6; Q.knL = 1.45 + sa * 0.9; Q.knR = 1.45 + sa * 0.9; Q.spX = -0.1 + sa * 0.25;
+      Q.shLx = -2.75; Q.shRx = -2.75; Q.elL = -0.25; Q.elR = -0.25; Q.shLz = 0.05; Q.shRz = -0.05; Q.hdX = -sa * 0.2;
     } else if (sp_ === 'drive') {
       const st = p.steer || 0;
       Q.hipY = 0.18; Q.thLx = -1.35; Q.thRx = -1.35; Q.knL = 1.1; Q.knR = 1.1; Q.anL = 0.2; Q.anR = 0.2; Q.spX = -0.2; Q.hdX = 0.12;
@@ -1707,7 +1845,7 @@ class Car {
     this.inThrottle = 0; this.inSteer = 0; this.inHand = !opts.ai; this.braking = false; this.slip = 0;
     this.wheelRot = 0; this.pitch = 0; this.roll = 0; this.door = 0; this.doorT = 0; this.hasDriver = !!opts.ai;
     this.mass = this.T.mass; this.ai = null; this.player = false; this.bump = 0; this.health = 100; this.dents = 0; this.blink = null; this.blinkT = 0; this.hazardT = 0;
-    this.smokeAcc = 0; this.driverP = null; this.owner = null;
+    this.smokeAcc = 0; this.driverP = null; this.owner = null; this.fuel = opts.ai ? 100 : 35 + Math.random() * 65;
     const t = this.T, G = carGeos(type);
     const paint = LOW ? new THREE.MeshStandardMaterial({ color, roughness: 0.25, metalness: 0.6 }) : new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, metalness: 0.6, clearcoat: 1, clearcoatRoughness: 0.04 });
     this.paint = paint; this.G = G;
@@ -1771,13 +1909,13 @@ class Car {
     pos.needsUpdate = true; g.computeVertexNormals();
   }
   repairAll() {
-    this.health = 100; this.dents = 0; this.dentLog = [];
+    this.health = 100; this.dents = 0; this.dentLog = []; this.fuel = Math.max(this.fuel, 60);
     if (this.paintMesh.userData.own) { this.paintMesh.geometry.dispose(); this.paintMesh.geometry = this.G.paint; this.paintMesh.userData.own = false; }
   }
   integrate(dt) {
     const t = this.T; const fx = Math.sin(this.h), fz = Math.cos(this.h), rx = -fz, rz = fx;
     let vf = this.vx * fx + this.vz * fz, vl = this.vx * rx + this.vz * rz;
-    const power = this.valet ? 0.45 : this.health <= 0 ? 0 : this.health < 25 ? 0.55 : 1; // a dead car is rolled into the bay by hand
+    const power = this.valet ? 0.45 : this.health <= 0 || this.fuel <= 0 ? 0 : this.health < 25 ? 0.55 : 1; // a dead car is rolled into the bay by hand
     const thr = this.inThrottle; let acc = 0, braking = false;
     if (thr > 0.02) { if (vf < -0.5) { acc = 13 * thr; braking = true; } else acc = power * t.engine * thr * Math.max(0, 1 - Math.max(0, vf) / t.vmax) * (vf < 10 ? 1.2 : 1); }
     else if (thr < -0.02) { if (vf > 0.5) { acc = 13 * thr; braking = true; } else acc = vf > -9 ? power * t.engine * 0.55 * thr : 0; }
@@ -2210,7 +2348,7 @@ function finishMode(n) { // what to do after a conversation or a special action
   if (a === 'follow') { n.mode = 'follow'; n.timer = 120; }
   else if (a === 'goSit' && n.bench) { n.mode = 'goSit'; n.timer = 25; }
   else if (a === 'leave') { n.mode = 'flee'; n.timer = 2.5; const ax = n.pos.x - player.pos.x, az = n.pos.z - player.pos.z, l = Math.hypot(ax, az) || 1; n.fx = ax / l; n.fz = az / l; n.fleeSpd = 1.7; }
-  else { n.mode = n.mech ? 'mech' : n.ring ? 'idle' : (n.spots ? 'wander' : 'stand'); n.timer = 2 + Math.random() * 2; }
+  else { n.mode = n.mech ? 'mech' : n.mallStaff ? 'stand' : n.mall ? 'mall' : n.school ? 'wander' : n.ring ? 'idle' : (n.spots ? 'wander' : 'stand'); n.timer = 2 + Math.random() * 2; n.path = null; }
 }
 let hornEvent = null;
 function updateNPC(n, dt, outdoor, col) {
@@ -2304,7 +2442,9 @@ function updateNPC(n, dt, outdoor, col) {
     }
     case 'inside': n.H.visible = false; n.vel.set(0, 0, 0); if (n.timer < 0) { n.door.npcOpen = 1.6; n.H.visible = true; n.facing = Math.atan2(n.door.nx, n.door.nz); n.mode = 'goto'; } return;
     case 'flee': desired = n.fleeSpd || 5.0; dx = n.fx; dz = n.fz; if (n.timer < 0) { n.fleeSpd = 0; n.mode = n.mech ? 'mech' : 'goto'; } break;
+    case 'mall': { const r = updateMallNPCMode(n, dt, faceTo); dx = r[0]; dz = r[1]; desired = r[2]; break; }
     case 'goto': {
+      if (n.mall || n.mallStaff || n.school) { n.mode = n.mallStaff ? 'mall' : n.school ? 'wander' : 'mall'; if (n.mallStaff) n.path = [[n.home[0], n.home[2], 1]]; else n.path = null; break; }
       n.ring = nearestRing(n.pos.x, n.pos.z); const s = ringParam(n.ring, n.pos.x, n.pos.z), tg = ringPoint(n.ring, s, n.off);
       dx = tg.x - n.pos.x; dz = tg.z - n.pos.z; desired = 1.6; if (Math.hypot(dx, dz) < 1.2) { n.mode = 'walk'; n.s = s; n.timer = 5; }
       break;
@@ -2393,7 +2533,11 @@ function buildInterior(door) {
   CL.box(-0.65, 0.65, D / 2 - 0.05, D / 2 + 0.3, -1, 10);
   for (const [x, z, w, d] of [[0, -D / 2 + 0.02, W, 0.04], [-W / 2 + 0.02, 0, 0.04, D], [W / 2 - 0.02, 0, 0.04, D], [-(0.65 + sideW / 2), D / 2 - 0.02, sideW, 0.04], [0.65 + sideW / 2, D / 2 - 0.02, sideW, 0.04]]) BT.add('trim', boxGeo(w, 0.12, d), x, 0.06, z, 0, 0xf8f6f2);
   // exit door (closed, inside face)
-  const ed = new THREE.Mesh(doorGeo, doorMat(door.kind === 'shop' ? 0x9aa3ab : 0x7a5230)); ed.position.set(-0.52, 0, D / 2 - 0.02); ed.receiveShadow = true; interiorScene.add(ed);
+  { const pv = new THREE.Group(); pv.position.set(-0.52, 0, D / 2 - 0.02); interiorScene.add(pv);
+    const ed = new THREE.Mesh(doorGeo, doorMat(door.kind === 'shop' ? 0x9aa3ab : 0x7a5230)); ed.receiveShadow = true; ed.castShadow = true; pv.add(ed);
+    interior.exitDoor = { pv, open: 0, want: 0, closeT: 0 };
+    const view = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.6), M.winView); view.position.set(0, 1.25, D / 2 + 0.35); view.rotation.y = Math.PI; interiorScene.add(view);
+    BT.add('sidewalk', quadUp(-0.7, D / 2 + 0.05, 0.7, D / 2 + 0.36, 0.0, 4), 0, 0, 0, 0, 0xcfc8bc); }
   BT.add('trim', boxGeo(1.42, 2.46, 0.1), 0, 1.2, D / 2 - 0.02, 0, 0xf4f1ea);
   // windows that look outside
   const winAt = (x, z, r) => { const F = mkFrame(x, z, r); fBox(F, 'trim', 0, 1.7, 0.0, 1.5, 1.5, 0.08, 0xf4f1ea); fBox(F, 'winView', 0, 1.7, 0.05, 1.3, 1.3, 0.02, 0xffffff); fBox(F, 'trim', 0, 1.7, 0.07, 0.05, 1.3, 0.02, 0xf4f1ea); fBox(F, 'trim', 0, 0.92, 0.14, 1.7, 0.06, 0.25, 0xece6dc); const cc = shop ? 0xd9d2c6 : pick([0x7a3b3b, 0x3b5a7a, 0xb59a6a, 0x4a6a4a, 0xe8dcc8]); for (const sx of [-0.95, 0.95]) fBox(F, 'fabric', sx, 1.55, 0.14, 0.4, 2.3, 0.06, cc); };
@@ -2526,6 +2670,9 @@ function buildInterior(door) {
     plant(-W / 2 + 0.5, D / 2 - 0.5, 1.2);
     lights.push([-3, H - 0.4, -1, 0xf2f6ff, 30], [3, H - 0.4, -1, 0xf2f6ff, 30], [0, H - 0.4, 3, 0xf2f6ff, 18]);
     const ck = residentFor(key, 'فروشنده'); ck.mode = 'stand'; ck.pos.set(4.9, 0, 4.25); ck.facing = Math.PI; interiorPool.attach(ck); interior.npcs.push(ck);
+    const cat = catalogFor(door.name), sid = 'door:' + key;
+    let ci = 0; for (const sx of [-4.6, -1.6, 1.4]) for (const sd of [-1, 1]) for (const lz of [-2.3, 0.4]) { const id = cat[ci++ % cat.length]; interior.items.push({ id: 'buy', x: sx + sd * 0.85, z: lz, r: 0.75, label: () => `${ITEMS[id].n} — <b>${fmtT(ITEMS[id].p)}</b> · بردار`, use: () => addToCart(id, sid) }); }
+    interior.items.push({ id: 'pay', x: 4.9, z: 2.45, r: 1.1, label: () => { const it = store.cart.filter(c => c.shop === sid); return it.length ? `صندوق — ${fa(it.length)} قلم · <b>${fmtT(it.reduce((s, c) => s + ITEMS[c.id].p, 0))}</b> · پرداخت با کارت` : 'صندوق — اول از قفسه‌ها چیزی بردار'; }, use: () => payAt(sid, ck) });
     say(ck, mpick(['خوش آمدید!', 'بفرمایید، چی لازم دارید؟', 'سلام! امروز تخفیف داریم']), 3);
   }
   BT.build(interiorScene);
@@ -2539,6 +2686,14 @@ function buildInterior(door) {
   R = prevR; BT = prevBT; CL = prevCL;
 }
 
+function catalogFor(name) {
+  const C = [['نانوایی', ['bread', 'cake']], ['سوپرمارکت', ['water', 'juice', 'soda', 'chips', 'choco', 'doogh', 'sandwich']], ['کافه', ['coffee', 'tea', 'cake', 'icecream']], ['چای', ['tea', 'cake', 'water']],
+    ['داروخانه', ['vitamin', 'water']], ['کتاب', ['book', 'novel', 'notebook']], ['گل', ['flowers', 'tulips']], ['میوه', ['apple', 'juice']], ['سبزی', ['apple']], ['شیرینی', ['cake', 'choco']], ['قنادی', ['cake', 'choco']],
+    ['لوازم‌التحریر', ['notebook', 'book']], ['عینک', ['sunglasses']], ['ابزار', ['flashlight', 'umbrella']], ['پوشاک', ['shirtBlue', 'shirtWhite', 'pantsJeans', 'jacket']], ['بستنی', ['icecream', 'juice']], ['آجیل', ['nuts', 'choco']],
+    ['ساعت', ['watch']], ['موبایل', ['phone', 'headphones']], ['کفش', ['shoesWhite', 'shoesBlack']], ['اسباب', ['ball', 'balloon', 'skateboard']], ['عطاری', ['tea', 'vitamin']], ['لبنیات', ['doogh', 'water']], ['جایگاه', ['water', 'soda', 'chips', 'choco', 'sandwich', 'coffee']]];
+  for (const [k, v] of C) if (name.includes(k)) return v;
+  return ['water', 'juice', 'chips', 'choco', 'umbrella'];
+}
 const TV_NEWS = ['اخبار شهر آزاد: فوارهٔ پارک مرکزی امشب نورپردازی می‌شود', 'هواشناسی: احتمال بارش باران در ساعات آینده', 'ترافیک سنگین در خیابان حافظ گزارش شد', 'افتتاح کافهٔ جدید در خیابان سعدی', 'مسابقهٔ فوتبال محله فردا عصر برگزار می‌شود'];
 function updateInterior(dt) {
   const hs = interior.hs || {};
@@ -2548,6 +2703,11 @@ function updateInterior(dt) {
   if (interior.hemi) interior.hemi.intensity = damp(interior.hemi.intensity, lit ? 0.9 : 0.12 + 0.35 * dayF, 10, dt);
   M.lampOn.emissiveIntensity = lit ? 2.2 : 0;
   const fr = interior.fridge; if (fr) { fr.open = damp(fr.open, fr.target, 6, dt); fr.pv.rotation.y = -fr.open * 1.7; fr.glow.visible = fr.open > 0.1; }
+  const ex = interior.exitDoor;
+  if (ex) {
+    if (ex.want) { const far = Math.hypot(player.pos.x, player.pos.z - interior.D / 2) > 2.6; ex.closeT = far ? ex.closeT + dt : 0; if (ex.closeT > 2.5) { ex.want = 0; Audio.door(); } }
+    ex.open = damp(ex.open, ex.want, ex.want ? 3.2 : 2.4, dt); ex.pv.rotation.y = ex.open * 1.4;
+  }
   const wd = interior.wardrobe; if (wd) { wd.open = damp(wd.open, wd.target, 5, dt); for (const d of wd.doors) d.rotation.y = d.userData.sd * wd.open * 1.7; }
   if (hs.sink && Math.random() < dt * 8) Audio.burst(0.025, 2500, 0.15, 'bandpass', 0.7);
   if (hs.stove && Math.random() < dt * 3) Audio.burst(0.015, 4000, 0.2, 'highpass', 1);
@@ -2563,6 +2723,1160 @@ function updateInterior(dt) {
     g.fillStyle = '#b3161b'; g.fillRect(0, 112, 256, 32); g.fillStyle = '#fff'; g.font = '18px Vazirmatn, Tahoma'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.textAlign = 'left';
     const msg = TV_NEWS[Math.floor(T_ / 9) % TV_NEWS.length]; g.fillText(msg, ((T_ * 60) % 700) - 400, 128); tv.tex.needsUpdate = true; } }
 }
+/* ============================================================
+   Things you can buy, carry, wear and use
+   ============================================================ */
+// cat: food / drink (consumed), wear (changes how you look), hold (in your right hand), use (special)
+const ITEMS = {
+  water: { n: 'آب معدنی', p: 15000, cat: 'drink', model: 'bottle', col: '#8fd0ff', e: 8 },
+  juice: { n: 'آب‌میوهٔ پرتقال', p: 45000, cat: 'drink', model: 'box', col: '#ff9a2a', e: 14 },
+  soda: { n: 'نوشابه', p: 35000, cat: 'drink', model: 'can', col: '#d0242a', e: 10 },
+  doogh: { n: 'دوغ', p: 30000, cat: 'drink', model: 'bottle', col: '#f4f4ee', e: 12 },
+  coffee: { n: 'قهوهٔ لاته', p: 120000, cat: 'drink', model: 'cup', col: '#7a5236', e: 18 },
+  tea: { n: 'چای', p: 40000, cat: 'drink', model: 'cup', col: '#b5482a', e: 12 },
+  icecream: { n: 'بستنی قیفی', p: 60000, cat: 'food', model: 'cone', col: '#ffd0dc', e: 14 },
+  chips: { n: 'چیپس', p: 40000, cat: 'food', model: 'bag', col: '#f2c84a', e: 10 },
+  choco: { n: 'شکلات', p: 60000, cat: 'food', model: 'bar', col: '#5a3422', e: 12 },
+  sandwich: { n: 'ساندویچ مرغ', p: 250000, cat: 'food', model: 'sandwich', col: '#e3b46a', e: 35 },
+  pizza: { n: 'پیتزا مخصوص', p: 450000, cat: 'food', model: 'pizza', col: '#e7a23a', e: 45 },
+  kebab: { n: 'چلوکباب', p: 600000, cat: 'food', model: 'plate', col: '#a85a2a', e: 55 },
+  bread: { n: 'نان سنگک تازه', p: 25000, cat: 'food', model: 'bread', col: '#c98a46', e: 18 },
+  cake: { n: 'کیک شکلاتی', p: 90000, cat: 'food', model: 'cake', col: '#6a3a22', e: 20 },
+  apple: { n: 'سیب قرمز', p: 20000, cat: 'food', model: 'fruit', col: '#c8202a', e: 9 },
+  nuts: { n: 'آجیل مخلوط', p: 180000, cat: 'food', model: 'bag', col: '#b88a4a', e: 20 },
+  vitamin: { n: 'قرص جوشان ویتامین C', p: 70000, cat: 'drink', model: 'can', col: '#ff8a1a', e: 25 },
+  shirtBlue: { n: 'پیراهن آبی', p: 1200000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#2b5c9e' },
+  shirtWhite: { n: 'پیراهن سفید', p: 1100000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#f0efe9' },
+  shirtGreen: { n: 'تی‌شرت سبز', p: 650000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#2f7a4a' },
+  shirtRed: { n: 'تی‌شرت قرمز', p: 650000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#b8222a' },
+  shirtBlack: { n: 'هودی مشکی', p: 1600000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#1d1e22' },
+  shirtYellow: { n: 'تی‌شرت زرد', p: 650000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#e8b923' },
+  jacket: { n: 'کاپشن قهوه‌ای', p: 3800000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#5a3a24' },
+  pantsJeans: { n: 'شلوار جین', p: 1500000, cat: 'wear', slot: 'pants', model: 'pants', col: '#2a3f66' },
+  pantsBlack: { n: 'شلوار پارچه‌ای مشکی', p: 1300000, cat: 'wear', slot: 'pants', model: 'pants', col: '#1b1c20' },
+  pantsKhaki: { n: 'شلوار کتان کرم', p: 1300000, cat: 'wear', slot: 'pants', model: 'pants', col: '#b9a47a' },
+  trackRed: { n: 'سویشرت ورزشی قرمز', p: 1700000, cat: 'wear', slot: 'shirt', model: 'shirt', col: '#c42a2a' },
+  trackPants: { n: 'شلوار ورزشی', p: 1100000, cat: 'wear', slot: 'pants', model: 'pants', col: '#23262c' },
+  shoesWhite: { n: 'کتانی سفید', p: 2800000, cat: 'wear', slot: 'shoes', model: 'shoes', col: '#f4f4f4' },
+  shoesBlack: { n: 'کفش چرم مشکی', p: 3500000, cat: 'wear', slot: 'shoes', model: 'shoes', col: '#141414' },
+  shoesRed: { n: 'کتانی قرمز', p: 2600000, cat: 'wear', slot: 'shoes', model: 'shoes', col: '#c8202a' },
+  shoesBlue: { n: 'کتانی آبی', p: 2600000, cat: 'wear', slot: 'shoes', model: 'shoes', col: '#2a5aa8' },
+  capRed: { n: 'کلاه کپ قرمز', p: 450000, cat: 'wear', slot: 'cap', model: 'cap', col: '#b8222a' },
+  capBlack: { n: 'کلاه کپ مشکی', p: 450000, cat: 'wear', slot: 'cap', model: 'cap', col: '#1b1c20' },
+  capWhite: { n: 'کلاه کپ سفید', p: 450000, cat: 'wear', slot: 'cap', model: 'cap', col: '#eeeeea' },
+  sunglasses: { n: 'عینک آفتابی', p: 1800000, cat: 'wear', slot: 'glasses', model: 'glasses', col: '#151515' },
+  watch: { n: 'ساعت مچی', p: 6500000, cat: 'wear', slot: 'watch', model: 'watch', col: '#c9a24a' },
+  backpack: { n: 'کوله‌پشتی', p: 2200000, cat: 'wear', slot: 'bag', model: 'backpack', col: '#2f5a8a' },
+  backpackRed: { n: 'کوله‌پشتی قرمز', p: 2200000, cat: 'wear', slot: 'bag', model: 'backpack', col: '#a8282a' },
+  headphones: { n: 'هدفون بی‌سیم', p: 3500000, cat: 'wear', slot: 'ears', model: 'headphones', col: '#e8e8e8' },
+  phone: { n: 'گوشی موبایل', p: 38000000, cat: 'hold', model: 'phone', col: '#18191c' },
+  umbrella: { n: 'چتر', p: 650000, cat: 'hold', model: 'umbrella', col: '#1d3a6b' },
+  flowers: { n: 'دستهٔ گل رز', p: 900000, cat: 'hold', model: 'flowers', col: '#c8202a' },
+  tulips: { n: 'دستهٔ گل لاله', p: 750000, cat: 'hold', model: 'flowers', col: '#f2c12e' },
+  ball: { n: 'توپ فوتبال', p: 1100000, cat: 'hold', model: 'ball', col: '#f4f4f4' },
+  skateboard: { n: 'اسکیت‌برد', p: 4500000, cat: 'hold', model: 'skate', col: '#d9661f' },
+  balloon: { n: 'بادکنک', p: 80000, cat: 'hold', model: 'balloon', col: '#e8303a' },
+  balloonBlue: { n: 'بادکنک آبی', p: 80000, cat: 'hold', model: 'balloon', col: '#2a6ad8' },
+  book: { n: 'کتاب دیوان حافظ', p: 380000, cat: 'hold', model: 'book', col: '#7a2a2a' },
+  novel: { n: 'رمان «بوف کور»', p: 290000, cat: 'hold', model: 'book', col: '#2a3a5a' },
+  notebook: { n: 'دفترچه یادداشت', p: 120000, cat: 'hold', model: 'book', col: '#3a7a5a' },
+  flashlight: { n: 'چراغ‌قوه', p: 750000, cat: 'hold', model: 'flashlight', col: '#2a2a2a' },
+  perfume: { n: 'ادکلن', p: 4200000, cat: 'hold', model: 'perfume', col: '#d9b0e8' }
+};
+const fmtT = n => Math.round(n).toLocaleString('fa-IR') + ' تومان';
+const EAT_LINES = { food: ['به به! چه خوشمزه‌ست!', 'آخیش، سیر شدم!', 'عالی بود!', 'دستش درد نکنه!'], drink: ['آخیش، چسبید!', 'به به! خنک شدم!', 'چه می‌چسبه!'] };
+// geometry for an item: used for shop shelves (batched) and for the thing in your hand
+let shelfLod = false;
+function itemParts(id) {
+  const it = ITEMS[id], c = it.col, B = (w, h, d) => new THREE.BoxGeometry(w, h, d), Cy = (r1, r2, h, s = 12) => new THREE.CylinderGeometry(r1, r2, h, shelfLod ? Math.min(s, 6) : s), S = (r, w = 10, h = 8) => new THREE.SphereGeometry(r, shelfLod ? 6 : w, shelfLod ? 4 : h);
+  switch (it.model) {
+    case 'bottle': return [[Cy(0.035, 0.035, 0.22), 0, 0.11, 0, c, 'glossy'], [Cy(0.016, 0.03, 0.05), 0, 0.245, 0, c, 'glossy'], [Cy(0.017, 0.017, 0.02), 0, 0.28, 0, '#2a6ad8']];
+    case 'can': return [[Cy(0.033, 0.033, 0.12, 14), 0, 0.06, 0, c, 'glossy'], [Cy(0.03, 0.03, 0.01, 14), 0, 0.125, 0, '#c8c8c8', 'metal']];
+    case 'box': return [[B(0.07, 0.18, 0.05), 0, 0.09, 0, c], [Cy(0.005, 0.005, 0.06, 6), 0.02, 0.2, 0, '#ffffff']];
+    case 'cup': return [[Cy(0.042, 0.033, 0.11, 14), 0, 0.055, 0, '#f4f0e8'], [Cy(0.044, 0.044, 0.015, 14), 0, 0.115, 0, c], [B(0.09, 0.035, 0.002), 0, 0.06, 0.04, c]];
+    case 'cone': return [[new THREE.ConeGeometry(0.038, 0.13, 12), 0, 0.065, 0, '#d9a45a', 'flipY'], [S(0.042), 0, 0.15, 0, c]];
+    case 'bag': return [[B(0.15, 0.21, 0.06), 0, 0.105, 0, c], [B(0.152, 0.03, 0.062), 0, 0.2, 0, '#ffffff']];
+    case 'bar': return [[B(0.15, 0.022, 0.06), 0, 0.011, 0, c], [B(0.1, 0.024, 0.062), 0.02, 0.011, 0, '#c8202a']];
+    case 'sandwich': return [[B(0.18, 0.03, 0.09), 0, 0.015, 0, c], [B(0.17, 0.02, 0.085), 0, 0.04, 0, '#6fae3a'], [B(0.18, 0.03, 0.09), 0, 0.062, 0, c]];
+    case 'pizza': return [[B(0.32, 0.04, 0.32), 0, 0.02, 0, '#e8dcc0'], [Cy(0.14, 0.14, 0.012, 18), 0, 0.046, 0, c]];
+    case 'plate': return [[Cy(0.17, 0.15, 0.02, 18), 0, 0.01, 0, '#f4f4f0'], [S(0.1, 12, 6), 0, 0.03, 0.03, '#f8f4e8', 'flat'], [B(0.18, 0.03, 0.035), 0, 0.04, -0.07, c]];
+    case 'bread': return [[B(0.42, 0.025, 0.2), 0, 0.012, 0, c]];
+    case 'cake': return [[Cy(0.09, 0.09, 0.07, 18), 0, 0.035, 0, c], [Cy(0.092, 0.092, 0.015, 18), 0, 0.075, 0, '#f4d0d8']];
+    case 'fruit': return [[S(0.045), 0, 0.045, 0, c, 'glossy'], [Cy(0.004, 0.004, 0.03, 4), 0, 0.095, 0, '#4a3020']];
+    case 'shirt': return [[B(0.32, 0.06, 0.26), 0, 0.03, 0, c], [B(0.12, 0.062, 0.05), 0, 0.031, 0.1, darkHex(c)]];
+    case 'pants': return [[B(0.3, 0.07, 0.3), 0, 0.035, 0, c]];
+    case 'shoes': return [[B(0.1, 0.08, 0.26), -0.06, 0.04, 0, c], [B(0.1, 0.08, 0.26), 0.06, 0.04, 0, c], [B(0.1, 0.02, 0.26), -0.06, 0.01, 0, '#e8e8e8'], [B(0.1, 0.02, 0.26), 0.06, 0.01, 0, '#e8e8e8']];
+    case 'cap': return [[new THREE.SphereGeometry(0.1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.0, 0, c], [B(0.17, 0.012, 0.1), 0, 0.006, 0.11, c]];
+    case 'glasses': return [[B(0.15, 0.045, 0.012), 0, 0.03, 0, c, 'glossy'], [B(0.006, 0.006, 0.14), -0.074, 0.04, -0.07, c], [B(0.006, 0.006, 0.14), 0.074, 0.04, -0.07, c]];
+    case 'watch': return [[new THREE.TorusGeometry(0.04, 0.008, 6, 16), 0, 0.04, 0, '#2a2a2a'], [Cy(0.022, 0.022, 0.012, 16), 0, 0.04, 0.04, c, 'metal', Math.PI / 2]];
+    case 'backpack': return [[B(0.32, 0.42, 0.16), 0, 0.21, 0, c], [B(0.26, 0.18, 0.06), 0, 0.14, 0.1, darkHex(c)], [B(0.04, 0.4, 0.02), -0.1, 0.22, -0.09, '#1a1a1a'], [B(0.04, 0.4, 0.02), 0.1, 0.22, -0.09, '#1a1a1a']];
+    case 'headphones': return [[new THREE.TorusGeometry(0.11, 0.012, 6, 20, Math.PI), 0, 0.02, 0, c], [Cy(0.045, 0.045, 0.035, 14), -0.11, 0.0, 0, '#202020', '', 0, 0, Math.PI / 2], [Cy(0.045, 0.045, 0.035, 14), 0.11, 0.0, 0, '#202020', '', 0, 0, Math.PI / 2]];
+    case 'phone': return [[B(0.075, 0.15, 0.009), 0, 0.075, 0, c, 'glossy'], [B(0.068, 0.138, 0.002), 0, 0.075, 0.0055, '#3a7ad8', 'screen']];
+    case 'umbrella': return [[Cy(0.045, 0.02, 0.62, 8), 0, 0.38, 0, c], [Cy(0.008, 0.008, 0.86, 6), 0, 0.43, 0, '#333333', 'metal'], [new THREE.TorusGeometry(0.04, 0.009, 6, 10, Math.PI), 0.04, 0.0, 0, '#3a2a1a']];
+    case 'flowers': return [[new THREE.ConeGeometry(0.09, 0.32, 10, 1, true), 0, 0.12, 0, '#f4ece0', 'flipY'], [S(0.04), 0, 0.31, 0, c], [S(0.035), 0.05, 0.29, 0.02, c], [S(0.035), -0.05, 0.29, -0.01, c], [S(0.034), 0.01, 0.3, 0.05, c], [S(0.034), -0.02, 0.29, -0.05, c], [S(0.05, 6, 4), 0, 0.26, 0, '#3f7a2a', 'flat']];
+    case 'ball': return [[new THREE.IcosahedronGeometry(0.11, 1), 0, 0.11, 0, c, 'flat'], [new THREE.IcosahedronGeometry(0.112, 0), 0, 0.11, 0, '#1a1a1a', 'wire']];
+    case 'skate': return [[B(0.21, 0.025, 0.78), 0, 0.08, 0, c], [B(0.2, 0.004, 0.76), 0, 0.094, 0, '#1a1a1a'], ...[[-0.07, 0.27], [0.07, 0.27], [-0.07, -0.27], [0.07, -0.27]].map(([x, z]) => [Cy(0.028, 0.028, 0.03, 10), x, 0.03, z, '#f2e8c8', '', 0, 0, Math.PI / 2])];
+    case 'balloon': return [[S(0.2, 14, 10), 0, 1.0, 0, c, 'glossy'], [Cy(0.003, 0.003, 0.8, 4), 0, 0.42, 0, '#eeeeee']];
+    case 'book': return [[B(0.15, 0.22, 0.04), 0, 0.11, 0, c], [B(0.14, 0.21, 0.036), 0.006, 0.11, 0, '#f4ecd8']];
+    case 'flashlight': return [[Cy(0.022, 0.018, 0.2, 10), 0, 0.1, 0, c, 'metal'], [Cy(0.03, 0.022, 0.05, 10), 0, 0.225, 0, '#3a3a3a', 'metal'], [Cy(0.026, 0.026, 0.004, 10), 0, 0.251, 0, '#fff8d8', 'screen']];
+    case 'perfume': return [[B(0.06, 0.09, 0.035), 0, 0.045, 0, c, 'glossy'], [Cy(0.012, 0.012, 0.03, 8), 0, 0.105, 0, '#c9a24a', 'metal']];
+  }
+  return [[B(0.1, 0.1, 0.1), 0, 0.05, 0, c]];
+}
+function darkHex(c) { return '#' + new THREE.Color(c).multiplyScalar(0.6).getHexString(); }
+// shelf display: merged into the static batch
+function shelfItem(F, lx, ly, lz, id, ry = 0, sc = 1) {
+  shelfLod = true; const parts = itemParts(id); shelfLod = false;
+  for (const [g, x, y, z, col, kind, rx = 0, ry2 = 0, rz = 0] of parts) {
+    if (kind === 'wire') continue;
+    if (LOW && R() < 0.35 && sc < 1.05) return;
+    if (kind === 'flipY') g.rotateX(Math.PI);
+    const mat = kind === 'glossy' ? 'mallGloss' : kind === 'metal' ? 'mallMetal' : kind === 'screen' ? 'neon' : 'mallTrim';
+    const [wx, wz] = fw(F, lx + (x * Math.cos(ry) + z * Math.sin(ry)) * sc, lz + (-x * Math.sin(ry) + z * Math.cos(ry)) * sc);
+    BT.add(mat, g, wx, ly + y * sc, wz, F.a + ry + ry2, new THREE.Color(col).getHex(), rx, rz, sc, sc, sc);
+  }
+}
+// a real mesh you hold or wear (re-used per item id)
+const itemMeshCache = {};
+const ItemMats = {};
+function itemMesh(id) {
+  if (itemMeshCache[id]) return itemMeshCache[id];
+  if (!ItemMats.std) { ItemMats.std = new THREE.MeshStandardMaterial({ roughness: 0.6 }); ItemMats.glossy = new THREE.MeshStandardMaterial({ roughness: 0.15, metalness: 0.1 }); ItemMats.metal = new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.85 }); }
+  const g = new THREE.Group();
+  for (const [geo, x, y, z, col, kind, rx = 0, ry = 0, rz = 0] of itemParts(id)) {
+    if (kind === 'flipY') geo.rotateX(Math.PI);
+    let mat;
+    if (kind === 'screen') mat = new THREE.MeshBasicMaterial({ color: col, toneMapped: false });
+    else if (kind === 'wire') mat = new THREE.MeshStandardMaterial({ color: col, wireframe: true });
+    else { mat = (ItemMats[kind] || ItemMats.std).clone(); mat.color.set(col); if (kind === 'flat') mat.flatShading = true; }
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; g.add(m);
+  }
+  g.matrixAutoUpdate = false; itemMeshCache[id] = g; return g;
+}
+
+/* ---------- wallet, cart, bag and energy ---------- */
+function addInv(id, n = 1) { store.inv[id] = (store.inv[id] || 0) + n; }
+function takeInv(id) { if (!store.inv[id]) return false; if (--store.inv[id] <= 0) { delete store.inv[id]; for (const k in store.worn) if (store.worn[k] === id) delete store.worn[k]; if (store.held === id) store.held = null; } return true; }
+function addToCart(id, shop) {
+  store.cart.push({ id, shop }); Audio.tick();
+  const n = store.cart.filter(c => c.shop === shop).length;
+  toast(`«${ITEMS[id].n}» برداشتی (${fmtT(ITEMS[id].p)}) — ${fa(n)} قلم در سبد؛ برو صندوق حساب کن`); updateWalletHUD();
+}
+function payAt(shop, clerk) {
+  const items = store.cart.filter(c => c.shop === shop);
+  if (!items.length) { if (clerk) say(clerk, mpick(['چیزی انتخاب نکردی که! از قفسه‌ها بردار، بعد بیا اینجا.', 'هر چی خواستی بردار، من اینجام.']), 2.6); return; }
+  const total = items.reduce((s, c) => s + ITEMS[c.id].p, 0);
+  if (store.money < total) { if (clerk) say(clerk, 'ببخشید، موجودی کارتت کافی نیست!', 2.6); Audio.alarm(0.4); return; }
+  store.money -= total; store.cart = store.cart.filter(c => c.shop !== shop);
+  for (const c of items) addInv(c.id);
+  Audio.beepPay(items.length);
+  if (clerk) { say(clerk, mpick(['ممنون از خریدتون! مبارکه!', 'بفرمایید، رسیدتون. باز هم تشریف بیارید!', 'نوش جان! خوش اومدید.', 'کارتتون رو بکشید... تأیید شد. ممنون!']), 3); clerk.anim.talkT = 1.5; }
+  banner('خرید انجام شد', `${fa(items.length)} قلم · ${fmtT(total)} — از «کیف» استفاده کن`);
+  logEvent(`یکی ${items.map(c => ITEMS[c.id].n).join('، ')} خرید.`); store.stats.buys = (store.stats.buys || 0) + 1;
+  updateWalletHUD(); saveGame();
+}
+let alarmCD = 0;
+function shopAlarm(clerk) {
+  if (simTime < alarmCD) return; alarmCD = simTime + 2.5;
+  Audio.alarm(1); cam.shake = 0.15;
+  if (clerk) { say(clerk, mpick(['آقا! لطفاً اول حساب کنید!', 'ببخشید! اجناس رو باید اول حساب کنید.', 'دزدگیر صدا داد! صندوق این طرفه.']), 3); clerk.anim.talkT = 1.4; }
+  setPrompt('دزدگیر فروشگاه صدا داد! اول اجناس را در صندوق حساب کن.', '', 2.4);
+}
+// leaving a street shop through the door with unpaid things sets off the gate alarm
+function cartBlocksExit() {
+  if (interior.door && interior.door.kind === 'shop' && store.cart.some(c => c.shop === 'door:' + interior.key)) { shopAlarm(interior.npcs[0]); player.pos.z -= 0.4; player.vel.set(0, 0, -1); return true; }
+  return false;
+}
+
+/* what you wear changes your actual look */
+const WEAR_SLOTS = { shirt: 'پیراهن', pants: 'شلوار', shoes: 'کفش', cap: 'کلاه', glasses: 'عینک', watch: 'ساعت', bag: 'کوله', ears: 'هدفون' };
+function computeLook() {
+  const L = Object.assign({}, playerLook), w = store.worn;
+  if (w.shirt) { L.shirt = ITEMS[w.shirt].col; L.coat = null; L.sleeves = w.shirt !== 'shirtGreen' && w.shirt !== 'shirtRed' && w.shirt !== 'shirtYellow'; }
+  if (w.pants) L.pants = ITEMS[w.pants].col;
+  if (w.shoes) L.shoes = ITEMS[w.shoes].col;
+  if (w.cap) L.cap = ITEMS[w.cap].col; else if (store.capOff) L.cap = null;
+  if (w.glasses) L.glasses = true;
+  return L;
+}
+function rebuildPlayerLook() {
+  const P = player, pool = P.pool, H0 = P.H; if (!pool) return;
+  pool.detach(P); P.look = computeLook(); P.H = makeHuman(P.look, true); P.H.hideHead = H0.hideHead;
+  P.H.root.position.copy(H0.root.position); P.H.root.rotation.copy(H0.root.rotation); pool.attach(P);
+}
+function wear(id) {
+  const it = ITEMS[id]; if (!it || it.cat !== 'wear' || !store.inv[id]) return;
+  const old = store.worn[it.slot]; store.worn[it.slot] = old === id ? undefined : id; if (!store.worn[it.slot]) delete store.worn[it.slot];
+  if (it.slot === 'ears') Audio.music(!!store.worn.ears);
+  rebuildPlayerLook(); Audio.cloth();
+  say(player, store.worn[it.slot] ? mpick(['چطوره؟ بهم میاد؟', 'این خیلی قشنگه!', 'عالی شد!']) : 'درش آوردم.', 2);
+  saveGame();
+}
+
+/* the thing in your hand and the things on your body follow the bones every frame */
+const attach = { held: null, heldId: null, slots: {} };
+const ATT = { // bone, offset, rotation
+  bag: ['spine', [0, 0.26, -0.2], [0, Math.PI, 0]], ears: ['head', [0, 0.06, -0.005], [0, 0, 0]], watch: ['wrist', [0, 0.05, 0], [Math.PI / 2, 0, 0]]
+};
+const _am = new THREE.Matrix4(), _aq = new THREE.Quaternion(), _ae = new THREE.Euler(), _ap = new V3(), _as = new V3(1, 1, 1);
+function boneOf(H, b) { return b === 'spine' ? H.spine : b === 'head' ? H.head : b === 'wrist' ? H.hd[0] : H.hd[1]; }
+function placeAttach(obj, H, bone, off, rot, sc = 1) {
+  _ae.set(rot[0], rot[1], rot[2]); _aq.setFromEuler(_ae); _am.compose(_ap.set(off[0], off[1], off[2]), _aq, _as.set(sc, sc, sc));
+  obj.matrix.multiplyMatrices(boneOf(H, bone).matrixWorld, _am); obj.matrixWorldNeedsUpdate = true;
+}
+function heldPose(id) { // how each thing sits in the right hand
+  const m = ITEMS[id] ? ITEMS[id].model : '';
+  if (m === 'umbrella') return [[0, -0.04, 0.02], [Math.PI / 2, 0, 0]];
+  if (m === 'balloon') return [[0, -0.05, 0], [0, 0, 0]];
+  if (m === 'skate') return [[0.04, -0.05, 0.02], [0, 0, Math.PI / 2]];
+  if (m === 'ball') return [[0, -0.16, 0.05], [0, 0, 0]];
+  if (m === 'flowers' || m === 'cone' || m === 'flashlight') return [[0, -0.07, 0.03], [Math.PI / 2 - 0.2, 0, 0]];
+  if (m === 'phone') return [[0, -0.08, 0.04], [Math.PI / 2 - 0.5, Math.PI, 0]];
+  if (m === 'book') return [[0, -0.1, 0.06], [0.2, 0, 0]];
+  return [[0, -0.09, 0.04], [Math.PI / 2 - 0.3, 0, 0]];
+}
+let flashLight = null;
+function updateAttachments() {
+  const P = player, H = P.H, sc = P.where === 'in' ? interiorScene : scene;
+  const hideAll = P.state === 'car' || P.state === 'passenger' || P.state === 'entering' || P.state === 'exiting';
+  // held item
+  const hid = store.held && !hideAll && !(P.skate && ITEMS[store.held].model === 'skate') ? store.held : null;
+  if (attach.heldId !== hid) { if (attach.held) attach.held.parent?.remove(attach.held); attach.held = hid ? itemMesh(hid) : null; attach.heldId = hid; }
+  if (attach.held) {
+    if (attach.held.parent !== sc) sc.add(attach.held);
+    const [o, r] = heldPose(hid); placeAttach(attach.held, H, 'hand', o, r);
+    attach.held.visible = !(hid === 'umbrella' && H.umb && H.umb.visible);
+  }
+  // worn accessories
+  for (const slot of ['bag', 'ears', 'watch']) {
+    const id = store.worn[slot] || null; let a = attach.slots[slot];
+    if (!a || a.id !== id) { if (a && a.obj) a.obj.parent?.remove(a.obj); a = attach.slots[slot] = { id, obj: id ? itemMesh(id).clone() : null }; if (a.obj) a.obj.matrixAutoUpdate = false; }
+    if (!a.obj) continue;
+    if (a.obj.parent !== sc) sc.add(a.obj);
+    a.obj.visible = !(slot === 'ears' && H.hideHead) && !(slot === 'bag' && hideAll);
+    const [b, off, rot] = ATT[slot]; placeAttach(a.obj, H, b, off, rot);
+  }
+  // flashlight beam
+  if (hid === 'flashlight' && P.flashOn) {
+    if (!flashLight) { flashLight = new THREE.SpotLight(0xfff4d8, 0, 32, 0.42, 0.45, 1.4); flashLight.target = new THREE.Object3D(); }
+    if (flashLight.parent !== sc) { sc.add(flashLight, flashLight.target); }
+    flashLight.intensity = 60; _ap.setFromMatrixPosition(attach.held.matrix); flashLight.position.copy(_ap);
+    const f = cam.fpOn ? cam.yaw : P.facing, pt = cam.fpOn ? cam.fpPitch : 0.25;
+    flashLight.target.position.set(_ap.x + Math.sin(f) * Math.cos(pt) * 5, _ap.y - Math.sin(pt) * 5, _ap.z + Math.cos(f) * Math.cos(pt) * 5); flashLight.target.updateMatrixWorld();
+  } else if (flashLight) flashLight.intensity = 0;
+}
+
+/* ---------- using things ---------- */
+function consume(id) {
+  const it = ITEMS[id]; if (!takeInv(id)) return;
+  const drink = it.cat === 'drink';
+  if (player.state === 'foot') startUse(drink ? 'drink' : 'eat', player.pos.x, player.pos.y, player.pos.z, player.facing, null, null, 2.6);
+  player.useItem = id; player.useItemT = 2.6;
+  store.energy = Math.min(100, store.energy + (it.e || 10));
+  setTimeout(() => say(player, mpick(EAT_LINES[drink ? 'drink' : 'food']), 2), 1200);
+  Audio.burst(0.05, drink ? 900 : 1600, 0.25, 'bandpass', 2);
+  updateWalletHUD(); saveGame();
+}
+function hold(id) {
+  if (store.held === id) { store.held = null; if (player.skate) stopSkate(); }
+  else { store.held = id; if (player.skate && id !== 'skateboard') stopSkate(); }
+  player.flashOn = false; Audio.cloth(); updateUseBtn(); saveGame();
+}
+function useHeld() {
+  const id = store.held, P = player; if (!id) return;
+  const m = ITEMS[id].model;
+  if (m === 'phone') takePhoto();
+  else if (m === 'book') { if (P.state === 'foot') startUse('read', P.pos.x, P.pos.y, P.pos.z, P.facing, null, null); say(P, mpick(['«الا یا ایها الساقی، ادر کأساً و ناولها...»', 'چه کتاب خوبیه!', 'یه فصل دیگه بخونم...']), 3); }
+  else if (m === 'flashlight') { P.flashOn = !P.flashOn; Audio.tick(); }
+  else if (m === 'ball') { dropBall(); }
+  else if (m === 'balloon') { releaseBalloon(id); }
+  else if (m === 'skate') { if (P.skate) stopSkate(); else startSkate(); }
+  else if (m === 'perfume') { P.perfumeT = simTime + 90; for (let k = 0; k < 18; k++) FX.emit(P.pos.x + Math.sin(P.facing) * 0.3, P.pos.y + 1.3, P.pos.z + Math.cos(P.facing) * 0.3, (Math.random() - 0.5) * 0.6, 0.2 + Math.random() * 0.3, (Math.random() - 0.5) * 0.6, 1.2, 0.05, 0.5, 0xe8d0ff, 0.5, 0.1); Audio.burst(0.06, 4500, 0.4, 'highpass', 1); say(P, 'به به! چه بوی خوبی!', 2); }
+  else if (m === 'umbrella') { P.umbOpen = !P.umbOpen; Audio.cloth(); }
+  else if (m === 'flowers') { const n = nearestNPC(P.where === 'out' ? allPeople() : interior.npcs, 2.8); if (n) giveFlowers(n); else say(P, 'چه بوی خوبی می‌دن! اینو به یکی هدیه می‌دم.', 2.4); }
+  updateUseBtn();
+}
+function useLabel() {
+  const id = store.held; if (!id) return '';
+  const m = ITEMS[id].model, P = player;
+  return { phone: 'عکس بگیر', book: 'بخون', flashlight: P.flashOn ? 'خاموش' : 'روشن', ball: 'شوت', balloon: 'ولش کن', skate: P.skate ? 'پیاده شو' : 'اسکیت', perfume: 'بزن', umbrella: P.umbOpen ? 'ببند' : 'باز کن', flowers: 'هدیه بده' }[m] || '';
+}
+function updateUseBtn() { const l = useLabel(); const b = $('b-use'); if (b) { b.hidden = !l || !touchUI; b.textContent = l || ''; } }
+function giveFlowers(n) {
+  const id = store.held; takeInv(id); store.held = null;
+  const pp = n.persona; pp.rel = (pp.rel || 0) + 3; pp.mood = Math.min(1, (pp.mood || 0.5) + 0.4);
+  if (chat.open && chat.npc === n) npcSpeak(n, mpick(['وای! این برای منه؟ خیلی ممنونم! چقدر قشنگه!', 'چه گل‌های قشنگی! دستت درد نکنه، خیلی خوشحالم کردی!']));
+  else say(n, mpick(['وای! برای منه؟ مرسی!', 'چه قشنگه! ممنونم!', 'خیلی لطف کردی!']), 3);
+  setSpecial(n, 'laugh', 1.6); logEvent(`یکی به ${pp.name} گل هدیه داد!`); updateUseBtn(); saveGame();
+}
+/* phone camera: a real screenshot of the game */
+const photos = [];
+function takePhoto() {
+  render();
+  let url = null; try { url = renderer.domElement.toDataURL('image/jpeg', 0.85); } catch (_) { }
+  const f = $('flash'); f.style.transition = 'none'; f.style.opacity = '0.9'; requestAnimationFrame(() => { f.style.transition = 'opacity .5s'; f.style.opacity = '0'; });
+  Audio.shutter(); if (url) { photos.unshift(url); if (photos.length > 8) photos.pop(); }
+  toast('عکس گرفته شد — از «کیف» می‌تونی ذخیره‌اش کنی');
+}
+/* skateboard */
+let skateMesh = null;
+function startSkate() { const P = player; if (P.state !== 'foot' || P.where !== 'out') { say(P, 'اینجا نمی‌شه اسکیت سواری کرد!', 2); return; } P.skate = true; P.skateV = Math.hypot(P.vel.x, P.vel.z); Audio.cloth(); say(P, 'بزن بریم!', 1.5); }
+function stopSkate() { const P = player; P.skate = false; if (skateMesh) skateMesh.visible = false; }
+function updateSkate(dt) {
+  const P = player; if (!P.skate) { if (skateMesh) skateMesh.visible = false; return; }
+  if (!skateMesh) { skateMesh = itemMesh('skateboard').clone(); skateMesh.matrixAutoUpdate = true; scene.add(skateMesh); }
+  skateMesh.visible = P.where === 'out' && P.state === 'foot';
+  skateMesh.position.set(P.pos.x, P.pos.y - 0.02 + (P.onGround ? 0 : 0.1), P.pos.z); skateMesh.rotation.set(P.onGround ? 0 : -0.3, P.facing, 0);
+  const sp = Math.hypot(P.vel.x, P.vel.z); Audio.roll(P.onGround ? sp : 0);
+}
+/* football: a real rolling, bouncing ball you can kick around */
+const balls = [];
+function dropBall() {
+  const P = player; takeInv('ball'); store.held = null;
+  const f = cam.fpOn ? cam.yaw : P.facing;
+  const b = { x: P.pos.x + Math.sin(f) * 0.6, y: P.pos.y + 0.9, z: P.pos.z + Math.cos(f) * 0.6, vx: Math.sin(f) * 9 + P.vel.x, vy: 3.5, vz: Math.cos(f) * 9 + P.vel.z, mesh: itemMesh('ball').clone(), spin: 0, where: P.where };
+  b.mesh.matrixAutoUpdate = true; b.mesh.children.forEach(c => c.position.y -= 0.11); (P.where === 'in' ? interiorScene : scene).add(b.mesh); balls.push(b);
+  Audio.thud(4, P.pos.x, P.pos.z); setSpecial(P, 'kick', 0.5); updateUseBtn(); saveGame();
+}
+function updateBalls(dt) {
+  for (const b of balls) {
+    const col = b.where === 'in' ? interior.col : world.col; if (b.where !== player.where) { b.mesh.visible = false; continue; } b.mesh.visible = true;
+    b.vy -= GRAV * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
+    col.query(b.x - 0.12, b.x + 0.12, b.z - 0.12, b.z + 0.12, _near);
+    let g = b.where === 'out' ? groundH(b.x, b.z) : 0;
+    for (const c of _near) {
+      if (c.maxY <= b.y + 0.05 - 0.11) { if (c.maxY > g && (c.t === 1 ? Math.hypot(b.x - c.x, b.z - c.z) < c.r : b.x > c.minX && b.x < c.maxX && b.z > c.minZ && b.z < c.maxZ)) g = c.maxY; continue; }
+      if (c.minY > b.y + 0.11) continue;
+      if (c.t === 0) { const qx = clamp(b.x, c.minX, c.maxX), qz = clamp(b.z, c.minZ, c.maxZ), dx = b.x - qx, dz = b.z - qz, d = Math.hypot(dx, dz); if (d < 0.11) { const nx = d > 1e-5 ? dx / d : 0, nz = d > 1e-5 ? dz / d : 1; b.x += nx * (0.11 - d); b.z += nz * (0.11 - d); const vn = b.vx * nx + b.vz * nz; if (vn < 0) { b.vx -= 1.7 * vn * nx; b.vz -= 1.7 * vn * nz; if (-vn > 2) Audio.thud(-vn * 0.5, b.x, b.z); } } }
+      else { const dx = b.x - c.x, dz = b.z - c.z, d = Math.hypot(dx, dz); if (d < c.r + 0.11 && d > 1e-5) { const nx = dx / d, nz = dz / d; b.x = c.x + nx * (c.r + 0.11); b.z = c.z + nz * (c.r + 0.11); const vn = b.vx * nx + b.vz * nz; if (vn < 0) { b.vx -= 1.7 * vn * nx; b.vz -= 1.7 * vn * nz; } } }
+    }
+    if (b.y - 0.11 < g) { b.y = g + 0.11; if (b.vy < -1.5) { b.vy = -b.vy * 0.55; if (b.vy > 1.2) Audio.burst(0.08 * Audio.vol(b.x, b.z), 300, 0.12); } else b.vy = 0; const fr = Math.exp(-1.1 * dt); b.vx *= fr; b.vz *= fr; }
+    // kicked by anyone running into it, pushed by cars
+    for (const p of b.where === 'out' ? [player, ...npcs, ...mall.npcs] : [player, ...interior.npcs]) {
+      if (p.inCar || (p === player && p.state !== 'foot')) continue;
+      const dx = b.x - p.pos.x, dz = b.z - p.pos.z, d = Math.hypot(dx, dz); if (d > 0.42 || Math.abs(b.y - p.pos.y - 0.2) > 0.5 || d < 1e-4) continue;
+      const nx = dx / d, nz = dz / d, sp = Math.max(2.5, Math.hypot(p.vel.x, p.vel.z) * 1.8); b.vx = nx * sp + p.vel.x * 0.4; b.vz = nz * sp + p.vel.z * 0.4; b.vy = Math.max(b.vy, sp * 0.35); b.x = p.pos.x + nx * 0.43; b.z = p.pos.z + nz * 0.43;
+      Audio.thud(sp * 0.6, b.x, b.z); if (p.npc && p.look.kid && Math.random() < 0.5) say(p, mpick(['گل!!', 'پاس بده!', 'شوت!']), 1.4);
+    }
+    if (b.where === 'out') for (const c of cars) { const r = carCircle(c, b.x, b.z, 0.11); if (r && b.y < c.y + 1.5) { b.x -= r.nx * r.depth; b.z -= r.nz * r.depth; b.vx = c.vx * 1.3 - r.nx * 3; b.vz = c.vz * 1.3 - r.nz * 3; b.vy = 2.5; } }
+    const sp = Math.hypot(b.vx, b.vz); b.spin += sp * dt / 0.11;
+    b.mesh.position.set(b.x, b.y, b.z); b.mesh.rotation.set(b.spin, Math.atan2(b.vx, b.vz), 0, 'YXZ');
+    if (Math.abs(b.x) > BOUND + 40 || Math.abs(b.z) > BOUND + 40) { b.x = player.pos.x; b.z = player.pos.z; b.y = player.pos.y + 2; }
+  }
+}
+function nearestBall() { for (const b of balls) if (b.where === player.where && Math.hypot(b.x - player.pos.x, b.z - player.pos.z) < 1.3 && Math.abs(b.y - player.pos.y) < 1) return b; return null; }
+function pickBall(b) { b.mesh.parent?.remove(b.mesh); balls.splice(balls.indexOf(b), 1); addInv('ball'); store.held = 'ball'; Audio.tick(); updateUseBtn(); saveGame(); }
+/* balloon floats away when you let go */
+const floaters = [];
+function releaseBalloon(id) {
+  takeInv(id); store.held = null; const m = itemMesh(id).clone(); m.matrixAutoUpdate = true;
+  _ap.setFromMatrixPosition(attach.held ? attach.held.matrix : player.H.root.matrixWorld); m.position.copy(_ap);
+  (player.where === 'in' ? interiorScene : scene).add(m); floaters.push({ m, t: 0, vx: (Math.random() - 0.5) * 0.6, vz: (Math.random() - 0.5) * 0.6, where: player.where });
+  say(player, 'خداحافظ بادکنک!', 1.6); updateUseBtn(); saveGame();
+}
+function updateFloaters(dt) {
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i]; f.t += dt; f.m.position.x += (f.vx + Math.sin(f.t * 1.3) * 0.3) * dt; f.m.position.z += f.vz * dt; f.m.position.y += (f.where === 'in' ? 0.25 : 1.6) * dt * Math.min(1, f.t); f.m.rotation.z = Math.sin(f.t * 2) * 0.15;
+    if (f.where === 'in') f.m.position.y = Math.min(f.m.position.y, 1.85);
+    if (f.t > 40 || f.where !== player.where) { f.m.parent?.remove(f.m); floaters.splice(i, 1); }
+  }
+}
+/* energy: you get tired, food and sleep bring you back */
+function updateEnergy(dt) {
+  const P = player; let drain = 0.004;
+  if (P.state === 'foot') { const sp = Math.hypot(P.vel.x, P.vel.z); drain = sp > 4 ? (P.skate ? 0.015 : 0.06) : sp > 0.5 ? 0.012 : 0.004; }
+  else if (P.state === 'car') drain = 0.006;
+  else if (P.state === 'use' && (P.use.kind === 'sit' || P.use.kind === 'lie')) drain = -0.05;
+  store.energy = clamp(store.energy - drain * dt, 0, 100);
+  if (store.energy < 12 && !P.tiredSaid) { P.tiredSaid = true; say(P, 'خیلی خسته و گرسنه‌ام... یه چیزی بخورم.', 3); setPrompt('انرژی‌ات کم است: یه چیزی بخور یا بخواب (از مغازه‌ها و پاساژ خرید کن)', '', 3); }
+  if (store.energy > 30) P.tiredSaid = false;
+}
+let walletShown = '';
+function updateWalletHUD() {
+  const t = fmtT(store.money); if (t !== walletShown) { walletShown = t; $('money').textContent = t; }
+  const nc = store.cart.length; $('cart').hidden = !nc; if (nc) $('cart').textContent = `سبد: ${fa(nc)} قلم · ${fmtT(store.cart.reduce((s, c) => s + ITEMS[c.id].p, 0))}`;
+  const e = $('energy-bar'); if (e) { e.style.width = store.energy + '%'; e.style.background = store.energy > 40 ? 'var(--teal)' : store.energy > 15 ? 'var(--amber)' : 'var(--red)'; }
+  const cnt = Object.values(store.inv).reduce((s, n) => s + n, 0); $('btn-bag').textContent = cnt ? `کیف (${fa(cnt)})` : 'کیف';
+}
+/* the bag panel */
+function toggleBag(force) {
+  const el = $('bag'); const open = force ?? el.hidden; el.hidden = !open; if (open) renderBag();
+}
+function renderBag() {
+  $('bag-money').textContent = fmtT(store.money); $('bag-energy').textContent = fa(Math.round(store.energy)) + '٪';
+  const list = $('bag-list'); list.textContent = '';
+  const ids = Object.keys(store.inv);
+  if (!ids.length) { const p = document.createElement('p'); p.className = 'bag-empty'; p.textContent = 'کیفت خالیه. برو پاساژ آزادی یا مغازه‌های شهر و یه چیزی بخر!'; list.appendChild(p); }
+  for (const id of ids) {
+    const it = ITEMS[id], row = document.createElement('div'); row.className = 'bag-row';
+    const sw = document.createElement('span'); sw.className = 'bag-sw'; sw.style.background = it.col; row.appendChild(sw);
+    const nm = document.createElement('div'); nm.className = 'bag-nm'; nm.innerHTML = `<b></b><small></small>`; nm.firstChild.textContent = it.n + (store.inv[id] > 1 ? ` ×${fa(store.inv[id])}` : '');
+    const worn = it.cat === 'wear' && store.worn[it.slot] === id; nm.lastChild.textContent = worn ? 'پوشیده‌ای' : store.held === id ? 'دستته' : fmtT(it.p); row.appendChild(nm);
+    const btn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'gm-btn bag-b'; b.textContent = label; b.addEventListener('click', () => { fn(); renderBag(); updateWalletHUD(); }); row.appendChild(b); };
+    if (it.cat === 'food') btn('بخور', () => { toggleBag(false); consume(id); });
+    else if (it.cat === 'drink') btn('بنوش', () => { toggleBag(false); consume(id); });
+    else if (it.cat === 'wear') btn(worn ? 'دربیار' : 'بپوش', () => wear(id));
+    else btn(store.held === id ? 'بذار تو کیف' : 'دست بگیر', () => hold(id));
+    list.appendChild(row);
+  }
+  const ph = $('bag-photos'); ph.textContent = '';
+  photos.forEach((u, i) => { const a = document.createElement('a'); a.href = u; a.download = `shahr-azad-photo-${i + 1}.jpg`; const im = document.createElement('img'); im.src = u; im.alt = 'عکس'; a.appendChild(im); ph.appendChild(a); });
+  $('bag-photos-h').hidden = !photos.length;
+  $('bag-cap').hidden = !(playerLook.cap && !store.worn.cap); $('bag-cap').textContent = store.capOff ? 'کلاه خودم رو بذار' : 'کلاه خودم رو بردار';
+}
+
+/* ============================================================
+   Azadi shopping mall: two floors around a skylit atrium, escalators,
+   sliding glass doors, fourteen shops, a food court and shoppers
+   ============================================================ */
+const mall = { x0: 58, x1: 100, z0: -22, z1: 22, y0: CURB, FH: 5, shops: [], npcs: [], staff: [], esc: [], doors: [], seats: [], nodes: [[], []], obs: [[], []], lamps: [] };
+mall.yU = mall.y0 + mall.FH; mall.yR = mall.y0 + 2 * mall.FH + 0.2;
+const UNIT = [58.2, 68.6, 79.0, 89.4, 99.8];
+const MALL_SHOPS = [
+  { id: 'hyper', name: 'هایپرمارکت آزادی', color: '#1f6f4a', floor: 0, side: 1, u: [0, 1], type: 'market', clerk: 'صندوقدار' },
+  { id: 'flower', name: 'گل‌فروشی بهارنارنج', color: '#a33b6b', floor: 0, side: 1, u: [2], type: 'flowers', clerk: 'گل‌فروش' },
+  { id: 'cafe', name: 'کافه آسمان', color: '#6b3a1f', floor: 0, side: 1, u: [3], type: 'cafe', clerk: 'باریستا' },
+  { id: 'digi', name: 'دیجیتال پیام', color: '#1f4a6b', floor: 0, side: -1, u: [0], type: 'digital', clerk: 'فروشندهٔ موبایل' },
+  { id: 'shoe', name: 'کفش گام نو', color: '#6b2a2a', floor: 0, side: -1, u: [1], type: 'shoes', clerk: 'فروشندهٔ کفش' },
+  { id: 'cloth', name: 'پوشاک آرمان', color: '#3a3a6b', floor: 0, side: -1, u: [2], type: 'clothes', clerk: 'فروشندهٔ لباس' },
+  { id: 'optic', name: 'عینک و ساعت زمان', color: '#2a2a2a', floor: 0, side: -1, u: [3], type: 'optic', clerk: 'فروشنده' },
+  { id: 'toy', name: 'اسباب‌بازی و ورزشی شادی', color: '#b0451f', floor: 1, side: 1, u: [0], type: 'toys', clerk: 'فروشنده' },
+  { id: 'book', name: 'شهر کتاب پرسه', color: '#4b2a6b', floor: 1, side: 1, u: [1], type: 'books', clerk: 'کتاب‌فروش' },
+  { id: 'food', name: 'فودکورت', color: '#8b2a3a', floor: 1, side: 1, u: [2, 3], type: 'food', clerk: 'آشپز' },
+  { id: 'hat', name: 'کلاه و کیف آوا', color: '#7a5a1f', floor: 1, side: -1, u: [0], type: 'hats', clerk: 'فروشنده' },
+  { id: 'perfume', name: 'عطر رایحه', color: '#6b1f5a', floor: 1, side: -1, u: [1], type: 'perfume', clerk: 'فروشندهٔ عطر' },
+  { id: 'sport', name: 'پوشاک ورزشی قهرمان', color: '#1f5f8b', floor: 1, side: -1, u: [2], type: 'sport', clerk: 'فروشنده' },
+  { id: 'arcade', name: 'گیم‌سنتر ستاره', color: '#5a1f8b', floor: 1, side: -1, u: [3], type: 'arcade', clerk: 'مسئول گیم‌سنتر' }
+];
+function mBox(mat, x0, x1, y0, y1, z0, z1, color, col, o = {}) {
+  BT.add(mat, boxGeo(x1 - x0, y1 - y0, z1 - z0, o.ts || 0), (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, 0, color);
+  if (col) CL.box(x0, x1, z0, z1, o.minY ?? y0, o.maxY ?? y1);
+  if (o.obs !== undefined) mall.obs[o.obs].push([x0, z0, x1, z1]);
+}
+const inMall = (x, z, m = 0) => x > mall.x0 - m && x < mall.x1 + m && z > mall.z0 - m && z < mall.z1 + m;
+const mallFloorAt = y => y > mall.y0 + mall.FH * 0.5 ? 1 : 0;
+function adTexture(lines, bg, fg) {
+  const c = mkCanvas(512, 768), g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 768); gr.addColorStop(0, bg[0]); gr.addColorStop(1, bg[1]); g.fillStyle = gr; g.fillRect(0, 0, 512, 768);
+  g.fillStyle = 'rgba(255,255,255,0.12)'; for (let k = 0; k < 9; k++) { g.beginPath(); g.arc(Math.random() * 512, Math.random() * 768, 40 + Math.random() * 120, 0, 7); g.fill(); }
+  g.fillStyle = fg; g.textAlign = 'center'; g.direction = 'rtl'; g.textBaseline = 'middle';
+  lines.forEach(([t, sz], i) => { g.font = `${sz}px Lalezar, Vazirmatn, Tahoma`; g.fillText(t, 256, 200 + i * (sz + 40), 470); });
+  const tex = toTex(c); tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; return tex;
+}
+function adPanel(x, y, z, a, w, h, tex) {
+  const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.35, roughness: 0.4 });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.y = a; scene.add(m); world.signMats.push(mat); return m;
+}
+function buildMall() {
+  const { x0, x1, z0, z1, y0, yU, yR } = mall, FT = 0.3;
+  mall.cx = (x0 + x1) / 2;
+  // floors and slabs
+  BT.add('mallFloor', quadUp(x0, z0, x1, z1, y0 + 0.012, 3), 0, 0, 0, 0, 0xffffff);
+  const slab = (ax0, ax1, az0, az1) => { mBox('mallCeil', ax0, ax1, yU - FT, yU - 0.01, az0, az1, 0xf2efe9, true, { maxY: yU }); BT.add('mallFloor', quadUp(ax0, az0, ax1, az1, yU, 3), 0, 0, 0, 0, 0xffffff); };
+  slab(x0, x1, 5, z1); slab(x0, x1, z0, -5); slab(x0, 64, -5, 5); slab(92, x1, -5, 5);
+  // void edges: fascia + glass balustrade + steel handrail
+  const rail = (ax0, ax1, az0, az1) => { mBox('clearGlass', ax0, ax1, yU, yU + 1.05, az0, az1, 0xcfe8f0, true, { obs: 1 }); mBox('mallMetal', ax0 - 0.02, ax1 + 0.02, yU + 1.05, yU + 1.11, az0 - 0.03, az1 + 0.03, 0xc8ccd0); mBox('mallTrim', ax0, ax1, yU - 0.6, yU, az0, az1, 0xe8e2d8); };
+  rail(64, 92, 4.95, 5.05); rail(64, 92, -5.05, -4.95); rail(91.95, 92.05, -5, 5); rail(63.95, 64.05, -5, -1.75); rail(63.95, 64.05, 1.75, 5);
+  mall.obs[1].push([64, -5, 92, 5]);
+  // roof with a skylight over the atrium
+  const roof = (ax0, ax1, az0, az1) => mBox('mallCeil', ax0, ax1, yR - 0.35, yR, az0, az1, 0xf4f2ee);
+  roof(x0, x1, 5, z1); roof(x0, x1, z0, -5); roof(x0, 64, -5, 5); roof(92, x1, -5, 5);
+  BT.add('trim', boxGeo(x1 - x0 + 0.6, 0.6, 0.4), (x0 + x1) / 2, yR + 0.3, z1 + 0.1, 0, 0xd8d2c6); BT.add('trim', boxGeo(x1 - x0 + 0.6, 0.6, 0.4), (x0 + x1) / 2, yR + 0.3, z0 - 0.1, 0, 0xd8d2c6);
+  BT.add('trim', boxGeo(0.4, 0.6, z1 - z0), x0 - 0.1, yR + 0.3, 0, 0, 0xd8d2c6); BT.add('trim', boxGeo(0.4, 0.6, z1 - z0), x1 + 0.1, yR + 0.3, 0, 0, 0xd8d2c6);
+  BT.add('clearGlass', boxGeo(28, 0.04, 10), 78, yR - 0.05, 0, 0, 0xd8f0ff);
+  for (let x = 64; x <= 92.01; x += 3.5) mBox('mallMetal', x - 0.06, x + 0.06, yR - 0.2, yR, -5, 5, 0x9aa2aa);
+  for (const z of [-5, -2.5, 0, 2.5, 5]) mBox('mallMetal', 64, 92, yR - 0.16, yR - 0.04, z - 0.05, z + 0.05, 0x9aa2aa);
+  for (let k = 0; k < 4; k++) BT.add('metal', boxGeo(1.4, 0.8, 1.1), rr(x0 + 3, x1 - 3), yR + 0.4, pick([-14, 14, -18, 18]), 0, 0xb7bbbf);
+  // ceiling light panels on both floors
+  for (const fy of [yU - FT - 0.02, yR - 0.37]) for (let x = 60.5; x < 99; x += 4.2) for (const z of [-17, -9.5, 9.5, 17]) { BT.add('mallLamp', boxGeo(1.6, 0.04, 0.5), x, fy, z, 0, 0xffffff); }
+  for (let x = 60; x < 64; x += 2) for (const z of [-3, 0, 3]) BT.add('mallLamp', boxGeo(0.5, 0.04, 0.5), x + 1, yR - 0.37, z, 0, 0xffffff);
+  // columns around the atrium
+  for (const x of [64, 71, 78, 85, 92]) for (const z of [-5.4, 5.4]) { mBox('mallTrim', x - 0.3, x + 0.3, y0, yR - 0.35, z - 0.3, z + 0.3, 0xece8e0, true, { obs: 0 }); mall.obs[1].push([x - 0.3, z - 0.3, x + 0.3, z + 0.3]); }
+  // outer walls (stone outside, lit plaster inside)
+  const outer = (ax0, ax1, az0, az1, ins) => { mBox('plaster', ax0, ax1, 0, yR, az0, az1, 0xd9cdb8, true, { ts: 3 }); BT.add('mallWall', boxGeo(Math.max(0.02, ax1 - ax0 - (ins[0] ? 0.3 : 0)), yR - y0 - 0.4, Math.max(0.02, az1 - az0 - (ins[1] ? 0.3 : 0)), 3), (ax0 + ax1) / 2 + ins[0], y0 + (yR - y0 - 0.4) / 2, (az0 + az1) / 2 + ins[1], 0, 0xf1ece4); };
+  outer(x0, x1, z1 - 0.3, z1, [0, -0.16]); outer(x0, x1, z0, z0 + 0.3, [0, 0.16]);
+  for (const zz of [[13, z1 - 0.3], [z0 + 0.3, -13]]) { mBox('plaster', x0, x0 + 0.3, 0, yR, zz[0], zz[1], 0xd9cdb8, true); mBox('plaster', x1 - 0.3, x1, 0, yR, zz[0], zz[1], 0xd9cdb8, true); }
+  for (const fx of [[x0, 1], [x1, -1]]) { // glass curtain walls with an entrance on each end
+    const X = fx[0] + fx[1] * 0.15, inward = fx[1];
+    for (const seg of [[-13, -2.3], [2.3, 13]]) { BT.add('clearGlass', boxGeo(0.06, yR - 0.4, seg[1] - seg[0]), X, (yR - 0.4) / 2, (seg[0] + seg[1]) / 2, 0, 0xcfe4ee); CL.box(X - 0.15, X + 0.15, seg[0], seg[1], 0, yR); }
+    BT.add('clearGlass', boxGeo(0.06, yR - 3.1 - 0.4, 4.6), X, 3.1 + (yR - 3.5) / 2, 0, 0, 0xcfe4ee); CL.box(X - 0.15, X + 0.15, -2.3, 2.3, y0 + 2.75, yR);
+    for (let z = -13; z <= 13.01; z += 2.6) BT.add('mallMetal', boxGeo(0.12, yR - 0.4, 0.1), X, (yR - 0.4) / 2, z, 0, 0x3a3f46);
+    for (const y of [y0 + 2.8, yU - 0.15, yU + 2.6]) BT.add('mallMetal', boxGeo(0.14, 0.12, 26), X, y, 0, 0, 0x3a3f46);
+    // canopy over the doors
+    const cx = fx[0] - inward * 1.9;
+    BT.add('mallMetal', boxGeo(3.8, 0.28, 8.5), cx, y0 + 3.35, 0, 0, 0x2f343a); BT.add('mallLamp', boxGeo(3.2, 0.03, 7.8), cx, y0 + 3.2, 0, 0, 0xffffff);
+    for (const z of [-3.9, 3.9]) { BT.add('mallMetal', GEO.cyl, fx[0] - inward * 3.6, y0 + 1.7, z, 0, 0x2f343a, 0, 0, 0.1, 3.4, 0.1); CL.circle(fx[0] - inward * 3.6, z, 0.12, 0, 3.4); }
+    // sliding doors
+    const dm = new THREE.MeshStandardMaterial({ color: 0xcfe4ee, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.3, depthWrite: false }), fm = new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.35, metalness: 0.8 });
+    const panels = [-1, 1].map(s => { const g = new THREE.Group(); const gl = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.55, 2.2), dm); gl.position.y = 1.35; g.add(gl); for (const yy of [0.06, 2.64]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 2.24), fm); b.position.y = yy; g.add(b); } for (const zz of [-1.08, 1.08]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 2.66, 0.07), fm); b.position.set(0, 1.35, zz); g.add(b); } g.position.set(X, y0, s * 1.1); scene.add(g); return g; });
+    const col = CL.box(X - 0.15, X + 0.15, -2.3, 2.3, 0, y0 + 2.75);
+    mall.doors.push({ x: X, panels, col, open: 0, inward });
+    BT.add('fabric', boxGeo(2.4, 0.015, 3.6), fx[0] + inward * 1.6, y0 + 0.02, 0, 0, 0x3a3a3a);
+  }
+  // big facade signs and adverts
+  for (const [x, a] of [[x0 - 0.2, -Math.PI / 2], [x1 + 0.2, Math.PI / 2]]) makeSign(mkFrame(x, 0, a), 0, yR - 1.4, 0, 'مرکز خرید آزادی', 15, '#14324f', '#ffd27a');
+  adPanel(x0 - 0.18, yU + 1, 17.5, -Math.PI / 2, 6, 9, adTexture([['حراج بزرگ', 120], ['پاییزه', 120], ['تا ۵۰٪', 150], ['تخفیف', 110]], ['#c2341f', '#7a1410'], '#fff4d8'));
+  adPanel(x0 - 0.18, yU + 1, -17.5, -Math.PI / 2, 6, 9, adTexture([['گوشی‌های', 96], ['جدید رسید!', 96], ['دیجیتال پیام', 110], ['طبقهٔ همکف', 70]], ['#1a3f6b', '#0c1f36'], '#e8f4ff'));
+  adPanel(x1 + 0.18, yU + 1, 17.5, Math.PI / 2, 6, 9, adTexture([['فودکورت', 130], ['طبقهٔ اول', 90], ['پیتزا · کباب', 80], ['بستنی', 90]], ['#e8a23a', '#a85a1a'], '#2a1608'));
+  adPanel(x1 + 0.18, yU + 1, -17.5, Math.PI / 2, 6, 9, adTexture([['گیم‌سنتر', 120], ['ستاره', 120], ['هر روز', 80], ['تا ساعت ۲۳', 80]], ['#5a1f8b', '#1f0a36'], '#ffd8ff'));
+  world.foot.push([x0, z0, x1, z1, '#c9bba6']);
+  // plaza in front: planters, bike rack, flag poles
+  for (const side of [-1, 1]) {
+    for (const z of [-9, 9]) { BT.add('trim', boxGeo(2.2, 0.6, 2.2), x0 - 4.8, y0 + 0.3, z, 0, 0x8a8378); CL.box(x0 - 5.9, x0 - 3.7, z - 1.1, z + 1.1, 0, y0 + 0.6); bush(x0 - 4.8, z, 1.0, y0 + 0.6); }
+    const fx = side < 0 ? x0 - 6.5 : x1 + 6.5;
+    for (const z of [-6, 0, 6]) { BT.add('metal', GEO.cyl, fx, y0 + 4, z + 14 * (side < 0 ? 1 : 0) - 7 * (side < 0 ? 1 : 0), 0, 0xd8d8d8, 0, 0, 0.05, 8, 0.05); }
+  }
+  for (let k = 0; k < 6; k++) { const z = -16 + k * 0.7; BT.add('metal', new THREE.TorusGeometry(0.35, 0.025, 6, 14, Math.PI), x0 - 2.2, y0 + 0.02, z, Math.PI / 2, 0x3a3f46); }
+  // atrium features (ground floor): fountain with seating ring, planters, info kiosk, ATM
+  { const fxx = 84, R0 = 2.4;
+    BT.add('mallTrim', new THREE.CylinderGeometry(R0, R0 + 0.1, 0.5, 32), fxx, y0 + 0.25, 0, 0, 0xd8d0c4); CL.circle(fxx, 0, R0, 0, y0 + 0.5); mall.obs[0].push([fxx - R0, -R0, fxx + R0, R0]);
+    const wm = new THREE.Mesh(new THREE.CircleGeometry(R0 - 0.15, 32), new THREE.MeshStandardMaterial({ color: 0x3a8ab8, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.85 })); wm.rotation.x = -Math.PI / 2; wm.position.set(fxx, y0 + 0.42, 0); scene.add(wm); waterMeshes.push(wm);
+    BT.add('mallTrim', new THREE.CylinderGeometry(0.35, 0.5, 1.4, 16), fxx, y0 + 0.9, 0, 0, 0xe8e2d8); 
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.2; mall.seats.push({ x: fxx + Math.cos(a) * (R0 + 0.1), z: Math.sin(a) * (R0 + 0.1), y: y0 + 0.04, ry: Math.atan2(Math.cos(a), Math.sin(a)), roofed: true, floor: 0, edge: true }); }
+  }
+  for (const [x, z] of [[61, 9], [61, -9], [97, 9], [97, -9]]) { BT.add('mallTrim', new THREE.CylinderGeometry(0.75, 0.6, 0.8, 18), x, y0 + 0.4, z, 0, 0x8a7a6a); CL.circle(x, z, 0.75, 0, y0 + 0.8); mall.obs[0].push([x - 0.8, z - 0.8, x + 0.8, z + 0.8]); for (let k = 0; k < 7; k++) BT.add('foliage', pick(GEO.ico), x + rr(-0.35, 0.35), y0 + 1.2 + k * 0.28, z + rr(-0.35, 0.35), R() * 6, pick(FOLIAGE), 0, 0, 0.55, 0.6, 0.55); BT.add('bark', GEO.cyl, x, y0 + 1.5, z, 0, 0x5a4030, 0, 0, 0.06, 1.6, 0.06); }
+  for (const [x, z, fl] of [[80, 9.5, 1], [80, -9.5, 1], [96, 2.5, 1], [61, 2.5, 1]]) { const y = fl ? yU : y0; BT.add('mallTrim', new THREE.CylinderGeometry(0.45, 0.38, 0.7, 14), x, y + 0.35, z, 0, 0x6a5a4a); CL.circle(x, z, 0.45, y, y + 0.7); mall.obs[fl].push([x - 0.5, z - 0.5, x + 0.5, z + 0.5]); for (let k = 0; k < 5; k++) BT.add('foliage', pick(GEO.ico), x + rr(-0.2, 0.2), y + 0.9 + k * 0.17, z + rr(-0.2, 0.2), R() * 6, pick(FOLIAGE), 0, 0, 0.35, 0.4, 0.35); }
+  // benches along the corridors
+  for (const fl of [0, 1]) for (const [x, z] of [[67, 8.6], [74, -8.6], [88, 8.6], [95, -8.6]]) {
+    const y = fl ? yU : y0, ry = z > 0 ? 0 : Math.PI;
+    BT.add('mallWood', boxGeo(2.0, 0.08, 0.6), x, y + 0.45, z, ry, 0x8a5a32); BT.add('mallMetal', boxGeo(1.9, 0.4, 0.5), x, y + 0.2, z, ry, 0x30343a);
+    CL.box(x - 1.0, x + 1.0, z - 0.3, z + 0.3, y, y + 0.5); mall.obs[fl].push([x - 1, z - 0.3, x + 1, z + 0.3]);
+    for (const dx of [-0.5, 0.5]) mall.seats.push({ x: x + dx, z, y: y + 0.02, ry: z > 0 ? Math.PI : 0, roofed: true, floor: fl });
+  }
+  // info desk + ATM
+  BT.add('mallWood', new THREE.CylinderGeometry(1.1, 1.1, 1.05, 24, 1, false, 0, Math.PI * 1.4), 97.2, y0 + 0.52, -2, 0, 0xe8e2d8); CL.circle(97.2, -2, 1.1, 0, y0 + 1.05); mall.obs[0].push([96, -3.2, 98.4, -0.8]);
+  makeSign(mkFrame(97.2, -0.6, -Math.PI / 2), 0, y0 + 2.6, 0, 'اطلاعات', 2.2, '#1f4a6b', '#ffffff');
+  BT.add('mallMetal', boxGeo(0.8, 1.9, 0.6), 99.4, y0 + 0.95, 4, 0, 0x2a3a4a); BT.add('neon', boxGeo(0.02, 0.35, 0.45), 99.0, y0 + 1.35, 4, 0, 0x6fb6ff); CL.box(99, 99.8, 3.7, 4.3, 0, y0 + 2);
+  world.uses.push({ x: 98.6, y: y0, z: 4, r: 1.1, act: 'کارت', label: () => `عابربانک — موجودی کارتت: <b>${fmtT(store.money)}</b>`, use: () => { Audio.beepPay(1); toast('موجودی کارت: ' + fmtT(store.money)); } });
+  buildEscalators();
+  // shops
+  for (const s of MALL_SHOPS) buildMallShop(s);
+  // directory boards
+  for (const [x, z, fl] of [[60.5, -4.5, 0], [96.5, 4.5, 1]]) { const y = fl ? yU : y0; BT.add('mallMetal', boxGeo(0.12, 2.0, 1.4), x, y + 1.0, z, 0, 0x2a2f36); const t = adTexture([['راهنمای پاساژ', 70], ['همکف: هایپرمارکت، کافه،', 34], ['گل، دیجیتال، کفش، لباس، عینک', 32], ['طبقهٔ اول: فودکورت، کتاب،', 34], ['اسباب‌بازی، کلاه، عطر، گیم‌سنتر', 32]], ['#16324f', '#0b1a2b'], '#ffffff'); adPanel(x + (fl ? -0.07 : 0.07), y + 1.1, z, fl ? -Math.PI / 2 : Math.PI / 2, 1.25, 1.85, t); CL.box(x - 0.1, x + 0.1, z - 0.7, z + 0.7, y, y + 2); }
+  buildMallGraph();
+}
+/* two escalators: up (south lane) and down (north lane) between the atrium floor and the west gallery */
+function buildEscalators() {
+  const { y0, FH } = mall, xb = 73.66, xt = 65.0, run = xb - xt, ang = Math.atan2(FH, run), Ls = Math.hypot(run, FH);
+  for (const [zc, dir] of [[-0.95, 1], [0.95, -1]]) {
+    // ramp colliders (thin steps make a smooth slope you stand on)
+    const n = 34; for (let i = 0; i < n; i++) { const xa = xt + run * i / n, xb2 = xt + run * (i + 1) / n, y = y0 + FH * (1 - (i + 0.5) / n); CL.box(xa, xb2, zc - 0.5, zc + 0.5, y - 0.35, y); }
+    CL.box(xb, xb + 0.9, zc - 0.5, zc + 0.5, y0, y0 + 0.02); CL.box(xt - 1.0, xt, zc - 0.5, zc + 0.5, y0 + FH - 0.2, y0 + FH);
+    // the space under the high end is the truss
+    CL.box(xt, xt + run * 0.62, zc - 0.62, zc + 0.62, 0, y0 + FH * 0.36);
+    for (const s of [-1, 1]) {
+      const z = zc + s * 0.6;
+      CL.box(xt - 0.9, xb + 0.9, z - 0.05, z + 0.05, -1, y0 + FH + 1.0);
+      // balustrade glass, handrail, side skirt
+      BT.add('clearGlass', boxGeo(Ls, 0.85, 0.03), (xt + xb) / 2, y0 + FH / 2 + 0.55, z, 0, 0xd8f0ff, 0, -ang);
+      BT.add('trim', boxGeo(Ls + 0.4, 0.07, 0.09), (xt + xb) / 2, y0 + FH / 2 + 1.0, z, 0, 0x151515, 0, -ang);
+      BT.add('mallMetal', boxGeo(Ls, 0.5, 0.08), (xt + xb) / 2, y0 + FH / 2 - 0.05, z, 0, 0xb8bec4, 0, -ang);
+      for (const [x, y] of [[xb + 0.6, y0 + 0.55], [xt - 0.6, y0 + FH + 0.55]]) { BT.add('clearGlass', boxGeo(1.2, 0.85, 0.03), x, y, z, 0, 0xd8f0ff); BT.add('trim', boxGeo(1.25, 0.07, 0.09), x, y + 0.45, z, 0, 0x151515); }
+    }
+    BT.add('mallMetal', boxGeo(Ls, 0.9, 1.3), (xt + xb) / 2, y0 + FH / 2 - 0.62, zc, 0, 0xa8aeb4, 0, -ang);
+    for (const [x, y] of [[xb + 0.45, y0 + 0.015], [xt - 0.5, y0 + FH + 0.015]]) BT.add('mallMetal', boxGeo(0.9, 0.02, 1.05), x, y, zc, 0, 0x8a9096);
+    // moving steps
+    const steps = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.18, 1.0), new THREE.MeshStandardMaterial({ color: 0x55595e, roughness: 0.5, metalness: 0.7 }), 40);
+    steps.castShadow = false; steps.receiveShadow = true; steps.frustumCulled = false; scene.add(steps);
+    const yel = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.005, 1.0), new THREE.MeshBasicMaterial({ color: 0xe8c020 }), 40); yel.frustumCulled = false; scene.add(yel);
+    mall.esc.push({ zc, dir, xb, xt, run, ang, Ls, steps, yel, t: 0 });
+  }
+  mall.obs[0].push([xt - 1.2, -1.75, xb + 1.0, 1.75]);
+}
+const ESC_SPEED = 0.55;
+function escHeight(e, x) { const { y0, FH } = mall; if (x >= e.xb) return y0; if (x <= e.xt) return y0 + FH; return y0 + FH * (e.xb - x) / e.run; }
+function updateEscalators(dt) {
+  const m4 = _m4, cp = camera.position; if (Math.abs(cp.x - 79) > 150 || Math.abs(cp.z) > 150) return;
+  for (const e of mall.esc) {
+    e.t += dt * ESC_SPEED;
+    const L = 1.0 + e.Ls + 1.0, gap = 0.42, n = Math.min(40, Math.floor(L / gap));
+    for (let k = 0; k < n; k++) {
+      let s = ((k * gap + e.t * e.dir) % L + L) % L; // distance from the bottom
+      let x, y;
+      if (s < 1.0) { x = e.xb + 1.0 - s; y = mall.y0 - 0.08; }
+      else if (s < 1.0 + e.Ls) { const u = (s - 1.0) / e.Ls; x = e.xb - u * e.run; y = mall.y0 + u * mall.FH - 0.08; y = Math.max(mall.y0 - 0.08, y); }
+      else { x = e.xt - (s - 1.0 - e.Ls); y = mall.y0 + mall.FH - 0.08; }
+      m4.makeTranslation(x, y, e.zc); e.steps.setMatrixAt(k, m4); m4.makeTranslation(x - 0.18, y + 0.093, e.zc); e.yel.setMatrixAt(k, m4);
+    }
+    e.steps.count = e.yel.count = n; e.steps.instanceMatrix.needsUpdate = e.yel.instanceMatrix.needsUpdate = true;
+  }
+}
+// standing on an escalator carries you along
+function escalatorCarry(p, dt) {
+  if (!p.onGround || p.pos.x < 63.5 || p.pos.x > 75 || Math.abs(p.pos.z) > 1.6) return null;
+  for (const e of mall.esc) {
+    if (Math.abs(p.pos.z - e.zc) > 0.5) continue;
+    if (p.pos.x < e.xt - 1.0 || p.pos.x > e.xb + 0.95) continue;
+    if (Math.abs(p.pos.y - escHeight(e, p.pos.x)) > 0.45) continue;
+    p.pos.x += -e.dir * ESC_SPEED * dt * (e.dir > 0 ? 1 : 1); p.pos.z += (e.zc - p.pos.z) * Math.min(1, dt * 2);
+    return e;
+  }
+  return null;
+}
+function updateMallDoors(dt) {
+  for (const d of mall.doors) {
+    let near = false;
+    const chk = p => { if (Math.abs(p.pos.x - d.x) < 3.2 && Math.abs(p.pos.z) < 3.6 && p.pos.y < mall.y0 + 2) near = true; };
+    if (player.where === 'out') chk(player); for (const n of mall.npcs) chk(n); for (const n of npcs) if (Math.abs(n.pos.x - d.x) < 4) chk(n);
+    const was = d.open; d.open = damp(d.open, near ? 1 : 0, near ? 5 : 2.5, dt);
+    if (was < 0.05 && d.open >= 0.05 && Math.abs(player.pos.x - d.x) < 30) Audio.slide();
+    d.panels[0].position.z = -1.1 - d.open * 2.15; d.panels[1].position.z = 1.1 + d.open * 2.15;
+    d.col.maxY = d.open > 0.7 ? -5 : mall.y0 + 2.75;
+  }
+}
+/* ---------- the shops ---------- */
+function buildMallShop(S) {
+  const fy = S.floor ? mall.yU : mall.y0, ux0 = UNIT[S.u[0]], ux1 = UNIT[S.u[S.u.length - 1] + 1], w = ux1 - ux0, cxx = (ux0 + ux1) / 2;
+  const zf = S.side * 13, zb = S.side * (mall.z1 - 0.32), d = Math.abs(zb - zf), a = S.side > 0 ? Math.PI : 0;
+  const F = mkFrame(cxx, zf, a); S.F = F; S.w = w; S.d = d; S.fy = fy; S.cx = cxx;
+  S.bounds = [Math.min(ux0, ux1), Math.min(zf, zb), Math.max(ux0, ux1), Math.max(zf, zb)];
+  mall.shops.push(S);
+  const ceil = (S.floor ? mall.yR - 0.35 : mall.yU - 0.3) - fy, open = S.type === 'food';
+  // partitions
+  for (const x of [ux0, ux1]) { mBox('mallWall', x - 0.1, x + 0.1, fy, fy + ceil, Math.min(zf, zb), Math.max(zf, zb), 0xf1ece4, true, { obs: S.floor }); }
+  // storefront: glass with a wide opening, sign band above
+  const sgn = (lx, ly, lz, ww, hh, dd, mat, color, col, o) => fBox(F, mat, lx, fy + ly, lz, ww, hh, dd, color, Object.assign({ col, minY: fy, maxY: fy + ly + hh / 2 }, o || {}));
+  if (!open) {
+    for (const [l0, l1] of [[-w / 2 + 0.1, -1.7], [1.7, w / 2 - 0.1]]) {
+      sgn((l0 + l1) / 2, 1.6, 0, l1 - l0, 3.2, 0.05, 'clearGlass', 0xd8eef6, true);
+      const [ax, az] = fw(F, l0, 0), [bx, bz] = fw(F, l1, 0); mall.obs[S.floor].push([Math.min(ax, bx), Math.min(az, bz) - 0.1, Math.max(ax, bx), Math.max(az, bz) + 0.1]);
+      for (const l of [l0, l1]) sgn(l, 1.6, 0, 0.09, 3.2, 0.09, 'mallMetal', 0x2f343a);
+    }
+    sgn(0, 3.24, 0, w - 0.2, 0.08, 0.1, 'mallMetal', 0x2f343a);
+    // security gates at the entrance
+    for (const l of [-1.45, 1.45]) { sgn(l, 0.75, -0.6, 0.08, 1.5, 0.5, 'mallMetal', 0xd0d4d8, true); sgn(l, 1.42, -0.6, 0.1, 0.1, 0.52, 'neon', 0x6fb6ff); }
+  }
+  sgn(0, 3.28 + (ceil - 3.28) / 2, 0, w, ceil - 3.28, 0.25, 'mallWall', 0xf1ece4);
+  makeSign(F, 0, fy + 3.95, 0.16, S.name, Math.min(w * 0.72, 7.5), S.color, '#fff6e6');
+  // shop floor and ceiling lights
+  const flCol = { market: 0xe8e8e8, cafe: 0xa87850, books: 0xb08860, food: 0xf0e8dc, arcade: 0x3a3a48, flowers: 0xe8e2d4 }[S.type] || 0xf4f0ea;
+  { const [ax, az] = fw(F, -w / 2 + 0.1, -0.05), [bx, bz] = fw(F, w / 2 - 0.1, -d + 0.05); BT.add(S.type === 'cafe' || S.type === 'books' ? 'woodFloor' : 'mallFloor', quadUp(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), fy + 0.018, 2.5), 0, 0, 0, 0, flCol); }
+  for (let lx = -w / 2 + 1.6; lx < w / 2 - 1; lx += 2.6) for (let lz = -1.8; lz > -d + 1; lz -= 2.4) sgn(lx, ceil - 0.03, lz, 1.0, 0.04, 1.0, 'mallLamp', 0xffffff);
+  S.inside = []; S.spots = [];
+  const ctx = { F, w, d, fy, S, sgn, spot: (lx, lz, id, ly = 0.9) => { const [x, z] = fw(F, lx, lz); const sp = { x, y: fy, z, r: 1.15, item: id, shop: S.id, ly }; S.spots.push(sp); world.uses.push({ x, y: fy, z, r: 1.0, act: 'بردار', label: () => `${ITEMS[id].n} — <b>${fmtT(ITEMS[id].p)}</b> · ${touchUI ? '«بردار»' : '<b>E</b>'} بردار`, use: () => addToCart(id, S.id) }); },
+    node: (lx, lz, look) => { const [x, z] = fw(F, lx, lz); S.inside.push([x, z, look]); } };
+  SHOP_BUILD[S.type](ctx);
+  // cashier counter
+  if (S.type !== 'food') {
+    const cxl = w / 2 - 1.6, czl = -2.4;
+    sgn(cxl, 0.52, czl, 1.9, 1.04, 0.7, 'mallWood', 0x6a4a32, true); sgn(cxl, 1.06, czl, 2.0, 0.05, 0.78, 'mallTrim', 0x1a1a1a);
+    shelfItem(F, cxl - 0.5, fy + 1.09, czl, 'phone', 0.3, 1.6);
+    sgn(cxl + 0.55, 1.23, czl, 0.35, 0.3, 0.05, 'neon', 0x3a7ad8);
+    const [kx, kz] = fw(F, cxl, czl - 0.75), [px, pz] = fw(F, cxl, czl + 0.85);
+    const clerk = mallStaff('mall:' + S.id, S.clerk, kx, fy, kz, F.a);
+    S.clerk = clerk;
+    world.uses.push({ x: px, y: fy, z: pz, r: 1.25, act: 'حساب کن', pri: 1, shop: S.id, label: () => { const it = store.cart.filter(c => c.shop === S.id); return it.length ? `صندوق — ${fa(it.length)} قلم · <b>${fmtT(it.reduce((s, c) => s + ITEMS[c.id].p, 0))}</b> · ${touchUI ? '«حساب کن»' : '<b>E</b>'} پرداخت با کارت` : 'صندوق — اول از قفسه‌ها چیزی بردار'; }, use: () => payAt(S.id, clerk) });
+    const [ix, iz] = fw(F, 0, -1.2); S.inside.push([ix, iz, null]);
+  }
+  const [ex, ez] = fw(F, 0, 1.2), [ix, iz] = fw(F, 0, -1.0); S.entry = [ex, ez]; S.entryIn = [ix, iz];
+}
+function mallStaff(key, job, x, y, z, facing) {
+  let rs = store.residents[key];
+  if (!rs) { const look = randomLook(); look.umbrella = false; const persona = makePersona(look, look.female); persona.job = job; persona.jobLine = `من ${job} پاساژ آزادی‌ام. هر چی لازم داری بردار، بعد بیا صندوق.`; rs = store.residents[key] = { look, persona }; }
+  const p = makePerson(rs.look, false); p.persona = rs.persona; p.npc = true; p.mode = 'stand'; p.mallStaff = true; p.pos.set(x, y, z); p.facing = facing; p.home = [x, y, z, facing];
+  outdoorPool.attach(p); mall.staff.push(p); return p;
+}
+const SHOP_BUILD = {
+  market(c) {
+    const { F, w, d, sgn, spot, node } = c, goods = ['water', 'juice', 'soda', 'doogh', 'chips', 'choco', 'bread', 'apple', 'nuts', 'cake', 'sandwich', 'vitamin', 'icecream'];
+    const extra = ['umbrella', 'flashlight'];
+    let gi = 0;
+    for (let lx = -w / 2 + 2.2; lx < w / 2 - 4.5; lx += 3.0) {
+      sgn(lx, 0.8, -4.6, 0.7, 1.6, 4.8, 'mallMetal', 0xe6e8ea, true);
+      for (let lv = 0; lv < 4; lv++) { sgn(lx, 0.15 + lv * 0.45, -4.6, 1.0, 0.03, 4.8, 'mallTrim', 0xcfd3d7); for (const sd of [-1, 1]) for (let lz = -6.7; lz < -2.4; lz += 0.34) shelfItem(F, lx + sd * 0.36, c.fy + 0.17 + lv * 0.45, lz, goods[(Math.floor(lz * 3) + lv * 5 + Math.round(lx) + 40) % goods.length], sd * Math.PI / 2, 0.95); }
+      sgn(lx, 2.0, -2.15, 0.9, 0.3, 0.04, 'neon', 0x2a9a5a);
+      for (const sd of [-1, 1]) for (const lz of [-3.2, -5.6]) spot(lx + sd * 0.95, lz, gi % 9 === 8 ? extra[gi++ % 2] : goods[gi++ % goods.length]);
+      node(lx + 1.5, -4.6, null);
+    }
+    // fridges along the back
+    for (let lx = -w / 2 + 1.2; lx < w / 2 - 1; lx += 1.9) { sgn(lx, 1.05, -d + 0.42, 1.8, 2.1, 0.75, 'mallMetal', 0x30363c, true); sgn(lx, 1.05, -d + 0.81, 1.6, 1.85, 0.02, 'fridge', 0xffffff); for (let lv = 0; lv < 4; lv++) for (let b = 0; b < 6; b++) shelfItem(F, lx - 0.65 + b * 0.26, c.fy + 0.25 + lv * 0.45, -d + 0.55, ['water', 'doogh', 'soda', 'juice'][(b + lv) % 4], 0, 0.9); }
+    for (const [lx, id] of [[-3, 'doogh'], [1, 'soda'], [5, 'water'], [-7, 'juice']]) if (Math.abs(lx) < w / 2 - 1) spot(lx, -d + 1.5, id);
+    // checkout lanes and carts
+    for (const lx of [w / 2 - 4.6]) { sgn(lx, 0.45, -1.6, 0.7, 0.9, 2.2, 'mallMetal', 0x3a3f46, true); }
+    for (let k = 0; k < 5; k++) { const [x, z] = fw(F, -w / 2 + 0.8 + k * 0.28, -1.0); BT.add('mallMetal', boxGeo(0.55, 0.5, 0.85), x, c.fy + 0.65, z, F.a, 0xb8bec4); }
+    node(0, -7.3, null); node(-w / 2 + 3, -7.3, null);
+  },
+  flowers(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    for (let i = 0; i < 9; i++) { const lx = -w / 2 + 1.4 + (i % 3) * 2.6, lz = -2.6 - Math.floor(i / 3) * 1.9, col = ['#c8202a', '#f2c12e', '#e85aa8', '#ffffff', '#ff8a2a', '#8a3ac8'][i % 6];
+      sgn(lx, 0.25, lz, 0.6, 0.5, 0.6, 'mallMetal', 0x5a6068, true);
+      const [x, z] = fw(F, lx, lz); for (let k = 0; k < 9; k++) { BT.add('foliage', GEO.sphere, x + rr(-0.22, 0.22), c.fy + 0.75 + rr(0, 0.3), z + rr(-0.22, 0.22), 0, new THREE.Color(col).getHex(), 0, 0, 0.09, 0.08, 0.09); BT.add('foliage', GEO.cyl, x + rr(-0.15, 0.15), c.fy + 0.6, z + rr(-0.15, 0.15), 0, 0x3f7a2a, 0, 0, 0.01, 0.35, 0.01); }
+      if (i % 2 === 0) spot(lx + 0.9, lz, i % 4 === 0 ? 'flowers' : 'tulips'); }
+    for (let k = 0; k < 4; k++) { const [x, z] = fw(F, -w / 2 + 0.6, -2 - k * 1.6); BT.add('mallTrim', GEO.cyl, x, c.fy + 0.3, z, 0, 0x8a5a3a, 0, 0, 0.3, 0.6, 0.3); for (let j = 0; j < 4; j++) BT.add('foliage', pick(GEO.ico), x, c.fy + 0.8 + j * 0.25, z, R() * 6, pick(FOLIAGE), 0, 0, 0.4, 0.45, 0.4); }
+    node(0, -4.5, null); node(-1, -7, null);
+  },
+  cafe(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    sgn(-1.0, 0.55, -d + 1.2, w - 3.0, 1.1, 0.8, 'mallWood', 0x4a2f1c, true); sgn(-1.0, 1.12, -d + 1.2, w - 2.9, 0.05, 0.86, 'mallTrim', 0xe8e4dc);
+    sgn(-3, 1.35, -d + 1.0, 0.6, 0.45, 0.45, 'mallMetal', 0xc8ccd0); shelfItem(F, -1.5, c.fy + 1.15, -d + 1.1, 'cake', 0, 1.2); shelfItem(F, -0.8, c.fy + 1.15, -d + 1.1, 'coffee', 0, 1.3);
+    { const t = adTexture([['منوی کافه', 80], ['لاته ۱۲۰', 60], ['چای ۴۰', 60], ['کیک ۹۰', 60], ['بستنی ۶۰', 60]], ['#3a2416', '#1e120a'], '#f4e2c8'); const [x, z] = fw(F, -1, -d + 0.05); adPanel(x, c.fy + 2.6, z, F.a + Math.PI, 2.4, 1.6, t); }
+    spot(-2.5, -d + 2.2, 'coffee'); spot(-0.5, -d + 2.2, 'tea'); spot(1.3, -d + 2.2, 'cake'); spot(-4, -d + 2.2, 'icecream');
+    for (const [lx, lz] of [[-3, -2.6], [0, -2.6], [-3, -5.2], [0, -5.2]]) cafeTable(c, lx, lz);
+    node(-1.5, -3.9, null);
+  },
+  digital(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    for (const [lx, lz] of [[-2.5, -3.2], [0.8, -3.2], [-2.5, -5.8]]) { sgn(lx, 0.45, lz, 1.8, 0.9, 0.9, 'mallTrim', 0xf4f4f4, true); for (let k = 0; k < 4; k++) shelfItem(F, lx - 0.6 + k * 0.4, c.fy + 0.92, lz, k % 2 ? 'headphones' : 'phone', -0.6, 1); spot(lx, lz + 0.9, 'phone'); spot(lx + 0.9, lz, 'headphones'); }
+    for (let k = 0; k < 4; k++) { const lx = -w / 2 + 1.2 + k * 1.9; sgn(lx, 2.0, -d + 0.1, 1.7, 1.0, 0.06, 'neon', [0x3a7ad8, 0xd85a3a, 0x3ad87a, 0xd8c83a][k]); sgn(lx, 2.0, -d + 0.07, 1.8, 1.08, 0.04, 'trim', 0x111111); }
+    node(-0.8, -4.6, null);
+  },
+  shoes(c) {
+    const { F, w, d, sgn, spot, node } = c, ids = ['shoesWhite', 'shoesBlack', 'shoesRed', 'shoesBlue'];
+    for (const s of [-1, 1]) { const lx = s * (w / 2 - 0.35); sgn(lx, 1.2, -4.5, 0.4, 2.4, 6.5, 'mallWood', 0xe8e0d0, true); for (let lv = 0; lv < 5; lv++) for (let k = 0; k < 9; k++) shelfItem(F, lx - s * 0.05, c.fy + 0.25 + lv * 0.45, -1.8 - k * 0.7, ids[(k + lv) % 4], s * -Math.PI / 2, 0.85); }
+    ids.forEach((id, i) => spot((i % 2 ? 1 : -1) * (w / 2 - 1.2), -2.5 - Math.floor(i / 2) * 2.6, id));
+    sgn(0, 0.22, -4.4, 2.2, 0.44, 0.55, 'mallFabric', 0x6a2a2a, true); mall.seats.push(Object.assign(sitAt(F, -0.5, -4.4, c.fy, 0), { floor: c.S.floor })); mall.seats.push(Object.assign(sitAt(F, 0.5, -4.4, c.fy, 0), { floor: c.S.floor }));
+    { const [x, z] = fw(F, 0, -d + 0.08); BT.add('mallGloss', boxGeo(1.4, 2.0, 0.04), x, c.fy + 1.2, z, F.a, 0xd8e8f0); }
+    node(0, -6.5, null);
+  },
+  clothes(c) { clothesShop(c, ['shirtBlue', 'shirtWhite', 'shirtGreen', 'shirtRed', 'shirtBlack', 'shirtYellow', 'jacket'], ['pantsJeans', 'pantsBlack', 'pantsKhaki']); },
+  sport(c) { clothesShop(c, ['trackRed', 'shirtBlack', 'shirtYellow', 'shirtGreen'], ['trackPants', 'pantsBlack'], ['ball', 'shoesWhite', 'shoesBlue']); },
+  optic(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    for (const [lx, lz] of [[-2.6, -3], [0.6, -3], [-1, -5.8]]) { sgn(lx, 0.45, lz, 1.6, 0.9, 0.7, 'mallTrim', 0xf4f4f4, true); sgn(lx, 1.05, lz, 1.6, 0.3, 0.7, 'clearGlass', 0xe0f0f8); for (let k = 0; k < 4; k++) shelfItem(F, lx - 0.55 + k * 0.36, c.fy + 0.92, lz, k % 2 ? 'watch' : 'sunglasses', 0, 1); spot(lx, lz + 0.8, lz < -4 ? 'watch' : 'sunglasses'); }
+    for (const s of [-1, 1]) { const lx = s * (w / 2 - 0.12); sgn(lx, 1.4, -4.5, 0.08, 1.8, 2.5, 'mallGloss', 0xd8e8f0); }
+    node(-1, -4.4, null);
+  },
+  toys(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    for (const lx of [-2.6, 0.6]) { sgn(lx, 0.8, -4.6, 0.7, 1.6, 4.4, 'mallMetal', 0xf2d8a8, true); for (let lv = 0; lv < 3; lv++) for (const sd of [-1, 1]) for (let lz = -6.4; lz < -2.6; lz += 0.6) shelfItem(F, lx + sd * 0.32, c.fy + 0.2 + lv * 0.5, lz, 'ball', 0, 0.8); }
+    for (let k = 0; k < 12; k++) { const [x, z] = fw(F, rr(-w / 2 + 1, w / 2 - 1), rr(-d + 1, -1.5)); BT.add('mallGloss', GEO.sphere, x, c.fy + rr(3.2, 3.9), z, 0, pick([0xe8303a, 0x2a6ad8, 0xf2c12e, 0x3ab84a, 0xe85aa8]), 0, 0, 0.2, 0.25, 0.2); }
+    for (let k = 0; k < 4; k++) shelfItem(F, -w / 2 + 0.2, c.fy + 0.6 + k * 0.45, -2.5 - k * 0.8, 'skateboard', Math.PI / 2, 1);
+    spot(-2.6 - 0.95, -3.5, 'ball'); spot(0.6 + 0.95, -3.5, 'balloon'); spot(0.6 + 0.95, -5.5, 'balloonBlue'); spot(-w / 2 + 1.1, -3.8, 'skateboard');
+    node(-1, -6.8, null);
+  },
+  books(c) {
+    const { F, w, d, sgn, spot, node } = c, cols = [0x8a2a2a, 0x2a4a8a, 0x2a6a3a, 0xd8b84a, 0x5a3a6a, 0xe8e0d0, 0x3a3a3a];
+    for (const s of [-1, 1]) { const lx = s * (w / 2 - 0.3); sgn(lx, 1.3, -4.5, 0.4, 2.6, 7.6, 'mallWood', 0x5a3a22, true); for (let lv = 0; lv < 5; lv++) { let lz = -0.9; while (lz > -8.1) { const bw = rr(0.04, 0.08), bh = rr(0.26, 0.38); sgn(lx - s * 0.05, 0.12 + lv * 0.5 + bh / 2, lz - bw / 2, 0.24, bh, bw, 'mallFabric', pick(cols)); lz -= bw + 0.005; } } }
+    sgn(-1, 0.42, -4.6, 2.2, 0.84, 1.2, 'mallWood', 0x6a4a2a, true); for (let k = 0; k < 6; k++) shelfItem(F, -1.8 + k * 0.32, c.fy + 0.85, -4.6, ['book', 'novel', 'notebook'][k % 3], 0.3, 1);
+    spot(-1, -3.6, 'book'); spot(0.6, -4.6, 'novel'); spot(-1, -5.6, 'notebook');
+    for (const lz of [-6.6]) { mall.seats.push(Object.assign(sitAt(F, -2.4, lz, c.fy, Math.PI / 2), { floor: c.S.floor })); sgn(-2.4, 0.22, lz, 0.6, 0.45, 0.6, 'mallFabric', 0x7a2a2a, true); }
+    node(0.6, -6.5, null);
+  },
+  hats(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    sgn(0, 1.5, -d + 0.15, w - 1, 2.6, 0.12, 'mallWood', 0x8a6a4a); for (let k = 0; k < 14; k++) shelfItem(F, -w / 2 + 1 + k * 0.62, c.fy + 1.2 + (k % 2) * 0.7, -d + 0.35, ['capRed', 'capBlack', 'capWhite', 'backpack', 'backpackRed'][k % 5], Math.PI, 1);
+    for (const [lx, lz] of [[-2.2, -3.4], [1.4, -3.4]]) { sgn(lx, 0.5, lz, 1.4, 1.0, 1.4, 'mallTrim', 0xf4f0ea, true); for (let k = 0; k < 3; k++) shelfItem(F, lx - 0.4 + k * 0.4, c.fy + 1.0, lz, ['capRed', 'capBlack', 'capWhite'][k], 0, 1); }
+    spot(-2.2, -2.4, 'capRed'); spot(-1.0, -3.4, 'capBlack'); spot(1.4, -2.4, 'capWhite'); spot(-2, -d + 1.2, 'backpack'); spot(2, -d + 1.2, 'backpackRed');
+    node(-0.4, -5.2, null);
+  },
+  perfume(c) {
+    const { F, w, d, sgn, spot, node } = c;
+    for (const s of [-1, 1]) { const lx = s * (w / 2 - 0.3); sgn(lx, 1.2, -4.5, 0.4, 2.4, 6.5, 'mallGloss', 0xf4f0f8, true); for (let lv = 0; lv < 5; lv++) for (let k = 0; k < 14; k++) shelfItem(F, lx - s * 0.05, c.fy + 0.2 + lv * 0.45, -1.6 - k * 0.45, 'perfume', 0, 0.9); }
+    sgn(-0.8, 0.5, -4.2, 2.2, 1.0, 1.0, 'mallTrim', 0x1a1a1a, true); sgn(-0.8, 1.01, -4.2, 2.2, 0.02, 1.0, 'neon', 0xd8a8e8);
+    spot(-0.8, -3.2, 'perfume'); spot(w / 2 - 1.2, -3.5, 'perfume');
+    node(0.8, -6.2, null);
+  },
+  arcade(c) {
+    const { F, w, d, sgn, node } = c;
+    const games = [['ماشین‌سواری', 0xe8303a], ['فوتبال دستی', 0x3ab84a], ['جنگ ستارگان', 0x2a6ad8], ['بسکتبال', 0xf29a2a], ['جرثقیل عروسک', 0xe85aa8], ['رقص', 0xf2e12e]];
+    games.forEach(([nm, col], i) => {
+      const lx = -w / 2 + 1.0 + (i % 3) * 3.2, lz = i < 3 ? -d + 0.8 : -3.2, ry = i < 3 ? 0 : Math.PI;
+      const F2 = mkFrame(...fw(F, lx, lz), F.a + ry);
+      fBox(F2, 'mallTrim', 0, c.fy + 0.9, 0, 1.0, 1.8, 0.8, 0x1a1a22, { col: true }); fBox(F2, 'neon', 0, c.fy + 1.35, 0.38, 0.75, 0.55, 0.04, col); fBox(F2, 'neon', 0, c.fy + 1.92, 0.1, 1.0, 0.2, 0.6, col); fBox(F2, 'mallMetal', 0, c.fy + 0.95, 0.5, 0.9, 0.08, 0.3, 0x30343a);
+      const [x, z] = fw(F2, 0, 1.0);
+      world.uses.push({ x, y: c.fy, z, r: 0.9, act: 'بازی کن', label: () => `بازی «${nm}» — ${fmtT(50000)} · ${touchUI ? '«بازی کن»' : '<b>E</b>'}`, use: () => playArcade(nm, F2.a + Math.PI, x, c.fy, z) });
+    });
+    for (const s of [-1, 1]) sgn(s * (w / 2 - 0.12), 3.5, -4.5, 0.05, 0.08, 8.2, 'neon', s > 0 ? 0xe85aa8 : 0x2a8ad8);
+    node(0, -5.2, null); node(-2, -2.2, null);
+  },
+  food(c) {
+    const { F, w, d, sgn, node } = c;
+    const counters = [['پیتزا ناپل', '#c2341f', ['pizza', 'soda']], ['کبابی سنتی شاندیز', '#7a4a1f', ['kebab', 'doogh']], ['بستنی و آبمیوه برف', '#2a8a9a', ['icecream', 'juice']]];
+    counters.forEach(([nm, col, menu], i) => {
+      const lx = -w / 2 + 3.4 + i * (w - 6.8) / 2, lz = -d + 1.3;
+      sgn(lx, 0.55, lz, 4.2, 1.1, 1.0, 'mallTrim', new THREE.Color(col).getHex(), true); sgn(lx, 1.12, lz, 4.3, 0.05, 1.1, 'mallTrim', 0xe8e4dc);
+      sgn(lx, 2.5, -d + 0.2, 4.2, 1.6, 0.1, 'mallTrim', 0x1a1a1a); makeSign(mkFrame(...fw(F, lx, -d + 0.27), F.a), 0, c.fy + 3.6, 0, nm, 3.8, col, '#ffffff');
+      const t = adTexture([[nm, 64], ...menu.map(id => [`${ITEMS[id].n} ${fa(Math.round(ITEMS[id].p / 1000))}`, 52])], ['#20242a', '#0e1014'], '#ffe8b8');
+      { const [x, z] = fw(F, lx, -d + 0.27); adPanel(x, c.fy + 2.5, z, F.a + Math.PI, 2.6, 1.5, t); }
+      shelfItem(F, lx - 0.8, c.fy + 1.15, lz, menu[0], 0, 1.2);
+      const [kx, kz] = fw(F, lx, lz - 0.95), [px, pz] = fw(F, lx, lz + 1.0);
+      const cook = mallStaff('mall:food' + i, i === 1 ? 'کباب‌پز' : i === 0 ? 'پیتزاپز' : 'بستنی‌فروش', kx, c.fy, kz, F.a);
+      for (const id of menu) {
+        const [ox, oz] = fw(F, lx + (id === menu[0] ? -0.8 : 0.8), lz + 1.0);
+        world.uses.push({ x: ox, y: c.fy, z: oz, r: 0.95, act: 'سفارش', label: () => `${nm}: ${ITEMS[id].n} — <b>${fmtT(ITEMS[id].p)}</b> · ${touchUI ? '«سفارش»' : '<b>E</b>'} سفارش و پرداخت`, use: () => { addToCart(id, 'food' + i); payAt('food' + i, cook); } });
+      }
+      node(lx, lz + 1.6, null);
+    });
+    for (let i = 0; i < 6; i++) { const lx = -w / 2 + 3 + (i % 3) * ((w - 6) / 2), lz = -3.2 - Math.floor(i / 3) * 2.6; cafeTable(c, lx, lz, 4); }
+    node(0, -2, null); node(-w / 3, -4.5, null); node(w / 3, -4.5, null);
+  }
+};
+function sitAt(F, lx, lz, y, ry) { const [x, z] = fw(F, lx, lz); return { x, z, y, ry: F.a + ry, roofed: true }; }
+function cafeTable(c, lx, lz, n = 2) {
+  const { F, sgn, fy, S } = c;
+  sgn(lx, 0.74, lz, 0.8, 0.04, 0.8, 'mallWood', 0x8a6a4a); sgn(lx, 0.37, lz, 0.08, 0.72, 0.08, 'mallMetal', 0x30343a, true);
+  const pos = n === 4 ? [[0, 0.75, Math.PI], [0, -0.75, 0], [0.75, 0, -Math.PI / 2], [-0.75, 0, Math.PI / 2]] : [[0, 0.75, Math.PI], [0, -0.75, 0]];
+  for (const [ox, oz, ry] of pos) {
+    const F2 = mkFrame(...fw(F, lx + ox, lz + oz), F.a + ry);
+    fBox(F2, 'mallWood', 0, fy + 0.45, 0, 0.42, 0.05, 0.42, 0x6a4a2a); fBox(F2, 'mallWood', 0, fy + 0.72, -0.19, 0.42, 0.5, 0.04, 0x6a4a2a); fBox(F2, 'mallMetal', 0, fy + 0.22, 0, 0.36, 0.44, 0.36, 0x30343a);
+    const s = { x: F2.x, z: F2.z, y: fy, ry: F2.a, roofed: true, floor: S.floor }; mall.seats.push(s);
+  }
+}
+function clothesShop(c, tops, bottoms, extra = []) {
+  const { F, w, d, sgn, spot, node } = c;
+  // hanging racks
+  [-2.4, 1.2].forEach((lx, ri) => {
+    sgn(lx, 1.45, -4.2, 0.04, 0.04, 3.2, 'mallMetal', 0xc8ccd0); for (const lz of [-2.6, -5.8]) sgn(lx, 0.72, lz, 0.05, 1.45, 0.05, 'mallMetal', 0xc8ccd0, true);
+    const set = ri ? bottoms : tops;
+    for (let k = 0; k < 12; k++) { const id = set[k % set.length]; sgn(lx, 1.05, -2.8 - k * 0.24, 0.5, 0.7, 0.05, 'mallFabric', new THREE.Color(ITEMS[id].col).getHex()); }
+    set.forEach((id, i) => spot(lx + (i % 2 ? 0.8 : -0.8), -2.8 - (i >> 1) * 1.3, id));
+  });
+  // mannequins
+  for (const lx of [-w / 2 + 0.8, w / 2 - 0.8]) { const [x, z] = fw(F, lx, -1.0); BT.add('mallTrim', GEO.cyl, x, c.fy + 0.05, z, 0, 0x2a2a2a, 0, 0, 0.25, 0.1, 0.25); BT.add('mallTrim', GEO.cyl, x, c.fy + 0.8, z, 0, 0xe8e4dc, 0, 0, 0.03, 1.5, 0.03); BT.add('mallFabric', boxGeo(0.42, 0.6, 0.22), x, c.fy + 1.35, z, F.a, new THREE.Color(ITEMS[tops[0]].col).getHex()); BT.add('mallTrim', GEO.sphere, x, c.fy + 1.82, z, 0, 0xe8e4dc, 0, 0, 0.12, 0.15, 0.12); CL.circle(x, z, 0.3, c.fy, c.fy + 1.9); }
+  // fitting room + mirror
+  sgn(-w / 2 + 1.0, 1.1, -d + 1.0, 1.6, 2.2, 0.05, 'mallFabric', 0x6a2a3a); sgn(-w / 2 + 1.8, 1.1, -d + 0.55, 0.05, 2.2, 0.9, 'mallWall', 0xf1ece4, true);
+  { const [x, z] = fw(F, w / 2 - 0.12, -6.4); BT.add('mallGloss', boxGeo(0.04, 1.9, 0.9), x, c.fy + 1.1, z, F.a, 0xd8e8f0); }
+  extra.forEach((id, i) => { sgn(w / 2 - 3.2, 0.45, -6.5 + i * 0.9, 0.8, 0.9, 0.8, 'mallTrim', 0xf4f0ea, true); shelfItem(F, w / 2 - 3.2, c.fy + 0.92, -6.5 + i * 0.9, id, 0, 1); spot(w / 2 - 2.2, -6.5 + i * 0.9, id); });
+  node(-0.6, -4.2, null); node(-0.6, -7, null);
+}
+function playArcade(nm, facing, x, y, z) {
+  if (store.money < 50000) { toast('موجودی کارتت کافی نیست'); return; }
+  store.money -= 50000; updateWalletHUD();
+  startUse('arcade', player.pos.x, player.pos.y, player.pos.z, facing, null, null, 6); Audio.arcade();
+  setTimeout(() => { const win = Math.random() < 0.35; if (win) { const prize = mpick(['balloon', 'ball', 'choco', 'balloonBlue']); addInv(prize); banner('بردی!', `جایزه: ${ITEMS[prize].n} — توی کیفته`); } else say(player, mpick(['ای بابا! دوباره!', 'نزدیک بود!', 'امتیازم بد نبود!']), 2.2); saveGame(); }, 6000);
+}
+/* ---------- shoppers walk a small navigation graph on each floor ---------- */
+function segHitsBox(ax, az, bx, bz, b, m) {
+  const x0 = b[0] - m, z0 = b[1] - m, x1 = b[2] + m, z1 = b[3] + m; let t0 = 0, t1 = 1; const dx = bx - ax, dz = bz - az;
+  for (const [p, q] of [[-dx, ax - x0], [dx, x1 - ax], [-dz, az - z0], [dz, z1 - az]]) { if (Math.abs(p) < 1e-9) { if (q < 0) return false; continue; } const r = q / p; if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; } }
+  return true;
+}
+function buildMallGraph() {
+  for (const fl of [0, 1]) {
+    const N_ = mall.nodes[fl];
+    for (const z of [-9, 9]) for (let x = 61; x <= 97; x += 6) N_.push({ x, z });
+    if (fl === 0) { for (const [x, z] of [[60, 0], [77.5, -3.5], [77.5, 3.5], [84, -4.2], [84, 4.2], [91, 0], [95.5, 2.5], [99, 0], [59, 0], [76.2, -0.95], [76.2, 0.95]]) N_.push({ x, z }); }
+    else { for (const [x, z] of [[61, -4], [61, 0], [61, 4], [96, -3], [96, 0], [96, 3], [62.8, -0.95], [62.8, 0.95]]) N_.push({ x, z }); }
+    for (const S of mall.shops) if (S.floor === fl) { N_.push({ x: S.entry[0], z: S.entry[1], shop: S, door: true }); N_.push({ x: S.entryIn[0], z: S.entryIn[1], shop: S, door: true }); for (const [x, z, lk] of S.inside) N_.push({ x, z, shop: S, inside: true, look: lk }); }
+    N_.forEach((n, i) => n.i = i);
+    for (const a of N_) { a.nb = []; for (const b of N_) { if (a === b) continue; const dd = Math.hypot(a.x - b.x, a.z - b.z); if (dd > 15) continue;
+      if (a.shop !== b.shop && (a.inside || b.inside)) continue;
+      if (mall.obs[fl].some(o => segHitsBox(a.x, a.z, b.x, b.z, o, 0.32))) continue; a.nb.push([b, dd]); } }
+  }
+}
+function mallPath(fl, from, to) {
+  const N_ = mall.nodes[fl]; const near = (x, z) => { let best = null, bd = 1e9; for (const n of N_) { const d = Math.hypot(n.x - x, n.z - z); if (d < bd && !mall.obs[fl].some(o => segHitsBox(x, z, n.x, n.z, o, 0.2))) { bd = d; best = n; } } return best || N_[0]; };
+  const a = near(from[0], from[1]), b = typeof to.i === 'number' ? to : near(to[0], to[1]);
+  const dist = new Map([[a, 0]]), prev = new Map(), open = [a];
+  while (open.length) { open.sort((p, q) => dist.get(p) - dist.get(q)); const u = open.shift(); if (u === b) break; for (const [v, w] of u.nb) { const nd = dist.get(u) + w; if (nd < (dist.get(v) ?? 1e9)) { dist.set(v, nd); prev.set(v, u); open.push(v); } } }
+  const out = []; let u = b; while (u) { out.unshift([u.x, u.z]); u = prev.get(u); } return out;
+}
+const ESC_UP = { start: [75.6, -0.95], end: [63.2, -0.95] }, ESC_DOWN = { start: [63.2, 0.95], end: [75.6, 0.95] };
+function mallPlan(n) {
+  const fl = mallFloorAt(n.pos.y), r = Math.random();
+  if (r < 0.2) { // change floor by escalator
+    const e = fl === 0 ? ESC_UP : ESC_DOWN; const p = mallPath(fl, [n.pos.x, n.pos.z], e.start);
+    n.path = [...p, [e.start[0], e.start[1], 1], [e.end[0], e.end[1], 1, 0.5]]; return;
+  }
+  if (r < 0.62) { const shops = mall.shops.filter(s => s.floor === fl); const S = mpick(shops); const ins = mpick(S.inside); const tgt = mall.nodes[fl].find(q => q.shop === S && q.inside && q.x === ins[0] && q.z === ins[1]);
+    const p = mallPath(fl, [n.pos.x, n.pos.z], tgt || ins); if (p.length) { p[p.length - 1] = [...p[p.length - 1], 0, 5 + Math.random() * 9]; } n.path = p; n.shopVisit = S; return; }
+  if (r < 0.78) { const seats = mall.seats.filter(s => s.floor === fl && !s.taken); if (seats.length) { const s = mpick(seats); const p = mallPath(fl, [n.pos.x, n.pos.z], [s.x + Math.sin(s.ry) * 0.7, s.z + Math.cos(s.ry) * 0.7]); p.push([s.x + Math.sin(s.ry) * 0.7, s.z + Math.cos(s.ry) * 0.7, 0, 0, s]); s.taken = n; n.path = p; return; } }
+  const q = mpick(mall.nodes[fl].filter(q => !q.inside)); n.path = mallPath(fl, [n.pos.x, n.pos.z], q); if (n.path.length) n.path[n.path.length - 1] = [q.x, q.z, 0, 2 + Math.random() * 4];
+}
+function spawnMallShoppers() {
+  const n = LOW ? 8 : 16;
+  for (let k = 0; k < n; k++) {
+    const fl = k % 2, N_ = mall.nodes[fl].filter(q => !q.inside), q = mpick(N_);
+    const kid = Math.random() < 0.15, look = randomLook(); look.umbrella = false; if (kid) Object.assign(look, { h: 0.62 + Math.random() * 0.1, kid: true, coat: null, beard: false });
+    const p = makePerson(look, false); p.npc = true; p.mall = true; p.mode = 'mall'; p.spd = 0.9 + Math.random() * 0.4; p.timer = Math.random() * 3; p.radius = kid ? 0.24 : 0.28;
+    if (kid) { p.persona.age = 8 + Math.floor(Math.random() * 5); p.persona.job = 'دانش‌آموز'; }
+    p.pos.set(q.x + rr(-0.5, 0.5), fl ? mall.yU : mall.y0, q.z + rr(-0.5, 0.5)); p.facing = Math.random() * 6.28;
+    if (Math.random() < 0.4) p.carry = mpick(['backpack', 'flowers', 'icecream', 'coffee', 'phone', 'balloon']);
+    outdoorPool.attach(p); mall.npcs.push(p);
+  }
+}
+function updateMallNPCMode(n, dt, faceTo) {
+  // returns [dx, dz, desired]
+  if (!n.path || !n.path.length) { if (n.timer < 0) { n.timer = 0; mallPlan(n); } if (n.lookAt != null) n.facing += angDiff(n.facing, n.lookAt) * Math.min(1, 3 * dt); return [0, 0, 0]; }
+  const tg = n.path[0], dx = tg[0] - n.pos.x, dz = tg[1] - n.pos.z, d = Math.hypot(dx, dz);
+  const onEsc = n.onEsc;
+  n.prog = (n.prog || 0) + dt; if (!n.lastP || Math.hypot(n.pos.x - n.lastP[0], n.pos.z - n.lastP[1]) > 0.5) { n.prog = 0; n.lastP = [n.pos.x, n.pos.z]; }
+  if (n.prog > 5 && !onEsc) { n.prog = 0; n.path = null; n.timer = 1; return [0, 0, 0]; }
+  if (d < (tg[2] ? 0.3 : 0.55)) {
+    n.path.shift();
+    if (tg[4]) { const s = tg[4]; n.bench = s; n.mode = 'sit'; n.timer = 12 + Math.random() * 30; n.anim.special = 'sit'; n.anim.idleKind = Math.random() < 0.5 ? 'phone' : 'breathe'; n.path = null; return [0, 0, 0]; }
+    if (!n.path.length) { n.timer = tg[3] ?? 2; n.lookAt = n.shopVisit && n.shopVisit.F ? n.facing + (Math.random() - 0.5) * 2 : null; n.anim.idleKind = mpick(['look', 'breathe', 'phone', 'crossed']); if (n.shopVisit && Math.random() < 0.3) say(n, mpick(['این قشنگه!', 'قیمتش چنده؟', 'اینو بخرم؟', 'وای چه تخفیفی!']), 2.2); n.shopVisit = null; }
+    return [0, 0, 0];
+  }
+  if (onEsc) return [dx, dz, 0.0001];
+  return [dx, dz, n.spd * (d < 1.2 && n.path.length === 1 ? 0.7 : 1)];
+}
+function updateMall(dt) {
+  const near = Math.abs(camera.position.x - mall.cx) < 140 && Math.abs(camera.position.z) < 140;
+  updateMallDoors(dt); updateEscalators(dt);
+  if (player.where === 'out' && player.state === 'foot') escalatorCarry(player, dt);
+  for (const n of [...mall.npcs, ...mall.staff]) {
+    n.H.visible = near && player.where === 'out';
+    if (!near) continue;
+    n.onEsc = escalatorCarry(n, dt);
+    if (n.mallStaff && n.mode === 'stand') { const [x, y, z, f] = n.home; if (Math.hypot(n.pos.x - x, n.pos.z - z) > 0.4) { n.mode = 'mall'; n.path = [[x, z, 1]]; } else n.facing += angDiff(n.facing, f) * Math.min(1, 3 * dt); }
+    if (n.mallStaff && n.mode === 'mall' && (!n.path || !n.path.length)) { n.mode = 'stand'; }
+    updateNPC(n, dt, true, world.col);
+  }
+  // shop alarm when you walk out with unpaid things
+  if (player.where === 'out') {
+    const P = player, S = shopAt(P.pos.x, P.pos.y, P.pos.z);
+    if (P.inShop && P.inShop !== S && store.cart.some(c => c.shop === P.inShop.id)) {
+      const prev = P.inShop, [ix, iz] = prev.entryIn;
+      if (Math.hypot(P.pos.x - ix, P.pos.z - iz) > 9 || Math.abs(P.pos.y - prev.fy) > 2) { store.cart = store.cart.filter(c => c.shop !== prev.id); toast('اجناسِ حساب‌نشده سر جایشان در قفسه برگشت'); updateWalletHUD(); }
+      else { shopAlarm(prev.clerk); P.pos.x = ix; P.pos.z = iz; P.vel.set(0, P.vel.y, 0); return; }
+    }
+    if (S !== P.inShop && S) banner(S.name, S.floor ? 'طبقهٔ اول پاساژ آزادی' : 'همکف پاساژ آزادی');
+    P.inShop = S;
+  }
+}
+function shopAt(x, y, z) { if (!inMall(x, z)) return null; const fl = mallFloorAt(y); for (const S of mall.shops) { const b = S.bounds; if (S.floor === fl && x > b[0] && x < b[2] && z > b[1] && z < b[3]) return S; } return null; }
+
+/* ============================================================
+   New city places: a petrol station, a mosque with a tiled dome, a primary school with a playground
+   ============================================================ */
+const FUEL_PRICE = 3000, TANK_L = 50;
+const gas = { pumps: [] };
+function buildGasStation(cx, cz) {
+  const y = CURB, x0 = cx - LOT + 1, x1 = cx + LOT - 1;
+  gas.cx = cx; gas.cz = cz;
+  BT.add('asphalt', quadUp(cx - LOT, cz - LOT, cx + 6, cz + LOT, y + 0.012, 9), 0, 0, 0, 0, 0xc8c8c8);
+  BT.add('sidewalk', quadUp(cx + 6, cz - LOT, cx + LOT, cz + LOT, y + 0.01, 4), 0, 0, 0, 0, 0xffffff);
+  for (const z of [-16.5, 16.5]) { BT.add('trim', boxGeo(LOT + 6, 0.25, 0.5), cx - LOT / 2 + 3, y + 0.12, cz + z, 0, 0xb9b2a6); }
+  // canopy on four columns, lit from below
+  const C0 = cx - 18, C1 = cx - 2, Z = 11, H = 5.6;
+  BT.add('trim', boxGeo(C1 - C0 + 2, 0.7, 2 * Z + 2), (C0 + C1) / 2, y + H, cz, 0, 0xf4f4f2);
+  BT.add('trim', boxGeo(C1 - C0 + 2.04, 0.36, 2 * Z + 2.04), (C0 + C1) / 2, y + H + 0.1, cz, 0, 0x1f7a4a);
+  BT.add('trim', boxGeo(C1 - C0 + 2.06, 0.08, 2 * Z + 2.06), (C0 + C1) / 2, y + H - 0.2, cz, 0, 0xe8b923);
+  for (let x = C0 + 1; x < C1; x += 3.2) for (const z of [-7, 0, 7]) BT.add('lampOn2', boxGeo(1.2, 0.03, 1.2), x, y + H - 0.37, cz + z, 0, 0xffffff);
+  for (const x of [C0 + 2, C1 - 2]) for (const z of [-4.5, 4.5]) { BT.add('trim', boxGeo(0.6, H, 0.6), x, y + H / 2, cz + z, 0, 0xe8e8e6); CL.box(x - 0.3, x + 0.3, cz + z - 0.3, cz + z + 0.3, 0, y + H); }
+  makeSign(mkFrame(C0 - 1.05, cz, -Math.PI / 2), 0, y + H + 0.05, 0, 'جایگاه سوخت آزادی', 9, '#1f7a4a', '#ffffff');
+  // pump islands
+  for (const z of [-4.5, 4.5]) {
+    BT.add('trim', boxGeo(C1 - C0 - 2, 0.22, 1.3), (C0 + C1) / 2, y + 0.11, cz + z, 0, 0xd8d2c6); CL.box(C0 + 1, C1 - 1, cz + z - 0.65, cz + z + 0.65, 0, y + 0.22);
+    for (const x of [C0 + 4.5, C1 - 4.5]) {
+      BT.add('metal', boxGeo(1.1, 1.9, 0.6), x, y + 0.22 + 0.95, cz + z, 0, 0xf2f2f2); BT.add('trim', boxGeo(1.14, 0.25, 0.64), x, y + 1.95, cz + z, 0, 0x1f7a4a);
+      for (const s of [-1, 1]) { BT.add('neon', boxGeo(0.6, 0.35, 0.02), x, y + 1.45, cz + z + s * 0.31, 0, 0x3ad87a); BT.add('trim', boxGeo(0.08, 0.3, 0.1), x + 0.4, y + 1.0, cz + z + s * 0.33, 0, 0x1a1a1a); BT.add('metal', new THREE.TorusGeometry(0.22, 0.02, 6, 12, Math.PI), x + 0.4, y + 0.8, cz + z + s * 0.36, Math.PI / 2, 0x1a1a1a, Math.PI / 2); }
+      CL.box(x - 0.55, x + 0.55, cz + z - 0.3, cz + z + 0.3, 0, y + 2.1);
+      for (const s of [-1, 1]) { const px = x, pz = cz + z + s * 1.25; const pump = { x: px, z: pz, face: Math.atan2(0, -s) }; gas.pumps.push(pump);
+        world.uses.push({ x: px, y, z: pz, r: 1.3, act: 'بنزین بزن', label: () => fuelLabel(pump), use: () => startFuel(pump) }); }
+    }
+  }
+  // price pylon
+  BT.add('trim', boxGeo(1.6, 7, 0.5), cx - LOT + 3, y + 3.5, cz - 19, 0, 0x1f7a4a); CL.box(cx - LOT + 2.2, cx - LOT + 3.8, cz - 19.25, cz - 18.75, 0, y + 7);
+  { const t = adTexture([['بنزین معمولی', 70], [`لیتری ${fa((3000).toLocaleString('fa-IR'))}`, 80], ['تومان', 60], ['۲۴ ساعته', 70]], ['#1f7a4a', '#0e3f26'], '#ffffff'); adPanel(cx - LOT + 2.17, y + 4, cz - 19, -Math.PI / 2, 1.4, 2.1, t); }
+  // convenience shop with a real door
+  const S0 = cx + 6, S1 = cx + 20, SZ = 8, SH = 4.2;
+  BT.add('plaster', boxGeo(S1 - S0, SH, 2 * SZ, 3), (S0 + S1) / 2, y + SH / 2, cz, 0, 0xeceae4); CL.box(S0 - 0.2, S1, cz - SZ, cz + SZ, 0, y + SH);
+  BT.add('trim', boxGeo(S1 - S0 + 0.3, 0.5, 2 * SZ + 0.3), (S0 + S1) / 2, y + SH + 0.25, cz, 0, 0x1f7a4a);
+  BT.add('glassLit', planeGeo(2 * SZ - 4, 2.6), S0 - 0.01, y + 1.6, cz - 1, -Math.PI / 2, 0x2d2a26);
+  makeDoor(mkFrame(S0, cz, -Math.PI / 2), 6, y, 0.08, 0x9aa3ab, 'shop', 'فروشگاه جایگاه سوخت', 'خوراکی و نوشیدنی');
+  makeSign(mkFrame(S0, cz, -Math.PI / 2), 0, y + 3.4, 0.12, 'فروشگاه ۲۴ ساعته', 6, '#e8b923', '#1a1a1a');
+  // air & water post, bins
+  BT.add('metal', boxGeo(0.5, 1.4, 0.4), cx - 24, y + 0.7, cz + 13, 0, 0x2a6ad8); CL.box(cx - 24.25, cx - 23.75, cz + 12.8, cz + 13.2, 0, y + 1.4);
+  bin(cx - 1, cz - 12); bin(cx - 1, cz + 12);
+  world.foot.push([S0, cz - SZ, S1, cz + SZ, '#e0dcd2'], [C0 - 1, cz - Z - 1, C1 + 1, cz + Z + 1, '#9aa2a8']);
+}
+function fuelCar(pump) {
+  let best = null, bd = 6.5;
+  for (const c of cars) { if (c.ai || c.isTow) continue; const d = Math.hypot(c.x - pump.x, c.z - pump.z); if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function fuelLabel(pump) {
+  const c = fuelCar(pump), k = touchUI ? '«بنزین بزن»' : '<b>E</b>';
+  if (!c) return 'پمپ بنزین — ماشینت را کنار پمپ پارک کن، بعد پیاده شو و بنزین بزن';
+  const L = Math.round((100 - c.fuel) / 100 * TANK_L);
+  if (L < 1) return 'باک این ماشین پر است';
+  return `سوخت‌گیری: ${fa(L)} لیتر · <b>${fmtT(L * FUEL_PRICE)}</b> · ${k}`;
+}
+function startFuel(pump) {
+  const c = fuelCar(pump); if (!c) { say(player, 'اول باید ماشین رو بیارم کنار پمپ.', 2); return; }
+  const L = Math.round((100 - c.fuel) / 100 * TANK_L); if (L < 1) { say(player, 'باکش پره!', 1.6); return; }
+  if (store.money < L * FUEL_PRICE) { say(player, 'پولم کافی نیست!', 2); return; }
+  const P = player, f = Math.atan2(c.x - P.pos.x, c.z - P.pos.z);
+  startUse('fuel', P.pos.x, P.pos.y, P.pos.z, f, null, null, 1.5 + L * 0.09);
+  P.use.onDone = () => { c.fuel = 100; store.money -= L * FUEL_PRICE; Audio.beepPay(1); banner('باک پر شد', `${fa(L)} لیتر بنزین · ${fmtT(L * FUEL_PRICE)}`); store.stats.fuel = (store.stats.fuel || 0) + L; updateWalletHUD(); saveGame(); };
+  P.use.fuelL = L; say(P, 'یه باک پر لطفاً!', 1.6);
+}
+/* ---------- mosque ---------- */
+function tileTexture(base, line, star) {
+  const c = mkCanvas(512), g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 512, 512);
+  const S = 128;
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+    const cx = x * S + S / 2, cy = y * S + S / 2;
+    g.save(); g.translate(cx, cy);
+    g.fillStyle = star; g.beginPath(); for (let k = 0; k < 16; k++) { const r = k % 2 ? 26 : 52, a = k / 16 * Math.PI * 2; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill();
+    g.strokeStyle = line; g.lineWidth = 5; g.stroke();
+    g.fillStyle = base; g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill(); g.fillStyle = '#f4e8c8'; g.beginPath(); g.arc(0, 0, 7, 0, 7); g.fill();
+    g.restore();
+    g.strokeStyle = line; g.lineWidth = 3; g.beginPath(); g.moveTo(x * S, y * S + S / 2); g.lineTo(x * S + S / 2, y * S); g.lineTo(x * S + S, y * S + S / 2); g.lineTo(x * S + S / 2, y * S + S); g.closePath(); g.stroke();
+  }
+  speckle(g, 512, 3000, ['rgba(255,255,255,0.25)', 'rgba(0,0,0,0.2)'], 1, 2, 0.5);
+  return toTex(c);
+}
+function pointedArch(w, h, depth, thick = 0.5) { // a frame-shaped pointed arch (Persian iwan outline)
+  const s = new THREE.Shape(), hw = w / 2, sp = h - hw * 1.1;
+  s.moveTo(-hw - thick, 0); s.lineTo(-hw - thick, h + thick); s.lineTo(hw + thick, h + thick); s.lineTo(hw + thick, 0); s.lineTo(hw, 0); s.lineTo(hw, sp);
+  s.quadraticCurveTo(hw, h - hw * 0.25, 0, h); s.quadraticCurveTo(-hw, h - hw * 0.25, -hw, sp); s.lineTo(-hw, 0); s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 10 }); g.translate(0, 0, -depth / 2); return g;
+}
+function buildMosque(cx, cz) {
+  const y = CURB, n = cz < 0 ? 1 : -1; // the entrance faces the city centre
+  M.tileBlue = stdMat({ map: tileTexture('#1e5f9a', '#f4e8c8', '#2bb3c0'), roughness: 0.35 });
+  M.tileDome = stdMat({ map: tileTexture('#33b5c6', '#1b3f6b', '#f2d35a'), roughness: 0.3, metalness: 0.05 });
+  M.tileDome.map.repeat.set(6, 3); M.tileDome.map.wrapS = M.tileDome.map.wrapT = THREE.RepeatWrapping;
+  M.brickY = stdMat({ map: T.brick, normalMap: T.brickN, roughness: 0.85, color: 0xffe8c8 });
+  const W = (lx, lz) => [cx + lx, cz + lz * -n]; // local z grows away from the entrance
+  const box = (mat, lx, ly, lz, w, h, d, col, coll) => { const [x, z] = W(lx, lz); BT.add(mat, boxGeo(w, h, d, 3), x, ly, z, 0, col); if (coll) CL.box(x - w / 2, x + w / 2, z - d / 2, z + d / 2, 0, ly + h / 2); };
+  // paving and garden
+  BT.add('sidewalk', quadUp(cx - LOT + 1, cz - LOT + 1, cx + LOT - 1, cz + LOT - 1, y + 0.01, 4), 0, 0, 0, 0, 0xf2e8d8);
+  // outer wall with the entrance portal (pishtaq)
+  const L = LOT - 1.2, WH = 4.6;
+  for (const s of [-1, 1]) { box('brickY', s * L, y + WH / 2, 0, 0.6, WH, 2 * L, 0xffffff, true); box('tileBlue', s * L, y + WH + 0.15, 0, 0.7, 0.3, 2 * L, 0xffffff); }
+  box('brickY', 0, y + WH / 2, L, 2 * L, WH, 0.6, 0xffffff, true); box('tileBlue', 0, y + WH + 0.15, L, 2 * L, 0.3, 0.7, 0xffffff);
+  for (const s of [-1, 1]) { box('brickY', s * (L + 3) / 2 + s * 1.5 / 2, y + WH / 2, -L, L - 3 - 1.5 + 0.6, WH, 0.6, 0xffffff, true); }
+  { const [x, z] = W(0, -L); const g = pointedArch(4.2, 7.6, 2.2, 3.4); BT.add('tileBlue', g, x, y, z, n > 0 ? 0 : Math.PI, 0xffffff);
+    for (const s of [-1, 1]) { CL.box(x + s * 2.1 - (s > 0 ? 0 : 3.4), x + s * 2.1 + (s > 0 ? 3.4 : 0), z - 1.1, z + 1.1, 0, y + 11); BT.add('trim', GEO.cyl, x + s * 5.6, y + 9.2, z, 0, 0x2bb3c0, 0, 0, 0.22, 2.4, 0.22); }
+    BT.add('trim', boxGeo(11, 0.5, 2.4), x, y + 11.25, z, 0, 0xf4e8c8); }
+  makeSign(mkFrame(...W(-9.5, -L - 0.35), n > 0 ? Math.PI : 0), 0, y + 2.9, 0, 'مسجد جامع شهر', 5, '#1e5f9a', '#f4e8c8');
+  // courtyard: pool, cypresses, flower beds, benches
+  { const [x, z] = W(0, -2); BT.add('tileBlue', boxGeo(9, 0.55, 5.2), x, y + 0.27, z, 0, 0xffffff); CL.box(x - 4.5, x + 4.5, z - 2.6, z + 2.6, 0, y + 0.55);
+    const wm = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 4.6), new THREE.MeshStandardMaterial({ color: 0x2a7aa8, roughness: 0.04, metalness: 0.3, transparent: true, opacity: 0.88 })); wm.rotation.x = -Math.PI / 2; wm.position.set(x, y + 0.5, z); scene.add(wm); waterMeshes.push(wm); }
+  for (const s of [-1, 1]) for (const lz of [-12, -7, 3, 8]) { const [x, z] = W(s * 7.5, lz); tree(x, z, 0.9, 'pine'); }
+  for (const s of [-1, 1]) for (const lz of [-9.5, 5.5]) { const [x, z] = W(s * 11.5, lz); bench(x, z, s > 0 ? -Math.PI / 2 : Math.PI / 2); }
+  for (const s of [-1, 1]) { const [x, z] = W(s * 4, -14.5); BT.add('trim', boxGeo(3, 0.35, 1.2), x, y + 0.18, z, 0, 0x8a8378); for (let k = 0; k < 7; k++) BT.add('foliage', GEO.sphere, x + rr(-1.3, 1.3), y + 0.45, z + rr(-0.45, 0.45), 0, pick([0xc8202a, 0xe85aa8, 0xf2c12e, 0xffffff]), 0, 0, 0.14, 0.12, 0.14); }
+  // side arcades (riwaq)
+  for (const s of [-1, 1]) {
+    const lx = s * (L - 3.2);
+    box('brickY', lx + s * 0.4, y + 2.6 + 0.6, 0, 3.4, 0.5, 2 * L - 14, 0xffffff);
+    box('tileBlue', lx - s * 1.3, y + 3.0, 0, 0.4, 1.4, 2 * L - 14, 0xffffff);
+    for (let lz = -L + 7.5; lz <= L - 7.5; lz += 3.2) { const [x, z] = W(lx - s * 1.3, lz); BT.add('brickY', boxGeo(0.6, 2.6, 0.6, 3), x, y + 1.3, z, 0, 0xffffff); CL.box(x - 0.3, x + 0.3, z - 0.3, z + 0.3, 0, y + 2.6); }
+  }
+  // prayer hall, iwan and the great dome
+  const HZ = L - 6.5, HD = 11, HH = 9.5;
+  box('brickY', 0, y + HH / 2, HZ, 2 * L - 2, HH, HD, 0xffffff, true); box('tileBlue', 0, y + HH + 0.2, HZ, 2 * L - 1.8, 0.4, HD + 0.2, 0xffffff);
+  { const [x, z] = W(0, HZ - HD / 2 - 1.0); const g = pointedArch(6.5, 12.5, 2.0, 2.6); BT.add('tileBlue', g, x, y, z, n > 0 ? 0 : Math.PI, 0xffffff);
+    BT.add('brickY', boxGeo(6.5, 13.6, 0.2), x, y + 6.8, z - n * -0.9, 0, 0xb89a72);
+    BT.add('wood', boxGeo(2.6, 3.4, 0.12), x, y + 1.7, ...[z + n * 0.8].slice(0, 0), 0, 0x4a2a14);
+    const [dx, dz] = W(0, HZ - HD / 2 - 0.15); BT.add('wood', boxGeo(2.6, 3.4, 0.12), dx, y + 1.7, dz, 0, 0x4a2a14); BT.add('metal', GEO.cyl, dx + 0.3, y + 1.6, dz, 0, 0xc9a24a, Math.PI / 2, 0, 0.04, 0.2, 0.04);
+    CL.box(x - 6.1, x + 6.1, z - 1.0, z + 1.0, y + 0.0, y + 14); }
+  { const [x, z] = W(0, HZ + 0.5); // drum + onion dome
+    BT.add('brickY', new THREE.CylinderGeometry(7.2, 7.4, 6, 40, 1, true), x, y + HH + 3, z, 0, 0xffffff);
+    BT.add('tileBlue', new THREE.CylinderGeometry(7.45, 7.45, 1.2, 40, 1, true), x, y + HH + 5.4, z, 0, 0xffffff);
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; BT.add('trim', boxGeo(0.6, 2.2, 0.2), x + Math.cos(a) * 7.45, y + HH + 2.6, z + Math.sin(a) * 7.45, -a + Math.PI / 2, 0x1b2a3a); }
+    const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24, r = 7.3 * Math.sin(Math.PI * Math.pow(t, 0.85)) * (1 + 0.12 * Math.sin(Math.PI * t * 1.3)) * (1 - t * 0.15), yy = t * 12.5; pts.push(new V2(Math.max(0.05, r * (t > 0.92 ? (1 - t) / 0.08 * 0.6 : 1)), yy)); }
+    const dg = new THREE.LatheGeometry(pts, 48); BT.add('tileDome', dg, x, y + HH + 6, z, 0, 0xffffff);
+    BT.add('metal', GEO.cyl, x, y + HH + 19.3, z, 0, 0xd9b04a, 0, 0, 0.12, 1.6, 0.12); BT.add('metal', GEO.sphere, x, y + HH + 18.9, z, 0, 0xd9b04a, 0, 0, 0.35, 0.35, 0.35); BT.add('metal', GEO.sphere, x, y + HH + 19.9, z, 0, 0xd9b04a, 0, 0, 0.2, 0.2, 0.2); }
+  // two minarets flanking the iwan
+  for (const s of [-1, 1]) {
+    const [x, z] = W(s * 7.2, HZ - HD / 2 - 0.5), MH = 31;
+    BT.add('brickY', new THREE.CylinderGeometry(0.95, 1.2, MH, 20), x, y + MH / 2, z, 0, 0xffffff); CL.circle(x, z, 1.2, 0, y + MH);
+    for (const hy of [6, 12, 18]) BT.add('tileBlue', new THREE.CylinderGeometry(1.1 - hy * 0.006, 1.12 - hy * 0.006, 1.4, 20, 1, true), x, y + hy, z, 0, 0xffffff);
+    BT.add('trim', new THREE.CylinderGeometry(1.6, 1.0, 0.8, 20), x, y + MH - 3, z, 0, 0xf4e8c8);
+    BT.add('metal', new THREE.CylinderGeometry(1.6, 1.6, 0.8, 20, 1, true), x, y + MH - 2.2, z, 0, 0x2a3a4a);
+    BT.add('tileBlue', new THREE.CylinderGeometry(0.9, 0.9, 2.6, 20), x, y + MH + 0.4, z, 0, 0xffffff);
+    BT.add('tileDome', new THREE.SphereGeometry(0.95, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), x, y + MH + 1.7, z, 0, 0xffffff);
+    BT.add('metal', GEO.cyl, x, y + MH + 3.0, z, 0, 0xd9b04a, 0, 0, 0.06, 0.9, 0.06);
+    world.glow.push([x, y + MH - 2, z, 0.5, 0.95, 0.75, 2.2]);
+  }
+  const [fx0, fz0] = W(-L, -L), [fx1, fz1] = W(L, L); world.foot.push([Math.min(fx0, fx1), Math.min(fz0, fz1), Math.max(fx0, fx1), Math.max(fz0, fz1), '#cdbb9a']);
+  world.landmarks = world.landmarks || []; world.landmarks.push({ name: 'مسجد جامع شهر', keys: ['مسجد', 'نماز', 'گنبد', 'مناره'], x: W(0, -L)[0], z: W(0, -L - 3)[1] });
+}
+/* ---------- primary school with a schoolyard and playground ---------- */
+const swings = [];
+function buildSchool(cx, cz) {
+  const y = CURB, n = cz < 0 ? 1 : -1; // yard opens toward the city centre
+  const W = (lx, lz) => [cx + lx, cz + lz * -n];
+  const L = LOT - 1.2;
+  BT.add('asphalt', quadUp(cx - L, cz - L, cx + L, cz + L, y + 0.012, 9), 0, 0, 0, 0, 0xb8b8b8);
+  // building at the back: two floors, blue window bands
+  const BZ = L - 6, BD = 10, BH = 7.6, BW = 2 * L - 2;
+  { const [x, z] = W(0, BZ); BT.add('plaster', boxGeo(BW, BH, BD, 3), x, y + BH / 2, z, 0, 0xf2e2b8); CL.box(x - BW / 2, x + BW / 2, z - BD / 2, z + BD / 2, 0, y + BH);
+    BT.add('trim', boxGeo(BW + 0.3, 0.4, BD + 0.3), x, y + BH + 0.2, z, 0, 0xc2561a); BT.add('trim', boxGeo(BW + 0.12, 0.2, BD + 0.12), x, y + 3.8, z, 0, 0xffffff);
+    world.foot.push([x - BW / 2, z - BD / 2, x + BW / 2, z + BD / 2, '#e8d8a8']); }
+  const F = mkFrame(...W(0, BZ - BD / 2), n > 0 ? Math.PI : 0);
+  faceWindows(F, BW, 0.01, y + 1.9, 1.5, 1.4, 3.2, (r, u) => Math.abs(u) < 2, { faces: [0], sill: true, frame: 0x2a5aa8, litP: 0.3 });
+  faceWindows(F, BW, 0.01, y + 5.6, 1.5, 1.4, 3.2, null, { faces: [0], sill: true, frame: 0x2a5aa8, litP: 0.3 });
+  fBox(F, 'trim', 0, y + 1.3, 0.1, 2.6, 2.6, 0.2, 0xffffff); fBox(F, 'wood', 0, y + 1.2, 0.2, 2.2, 2.4, 0.08, 0x2a5aa8);
+  fBox(F, 'trim', 0, y + 2.9, 0.9, 3.6, 0.15, 1.8, 0xc2561a);
+  makeSign(F, 0, y + 4.6, 0.12, 'دبستان دانش', 6.5, '#2a5aa8', '#ffffff');
+  // flag pole
+  { const [x, z] = W(-6, BZ - BD / 2 - 3); BT.add('metal', GEO.cyl, x, y + 4.5, z, 0, 0xd8d8d8, 0, 0, 0.05, 9, 0.05); CL.circle(x, z, 0.1, 0, 9);
+    const fc = mkCanvas(96, 64), fg = fc.getContext('2d'); fg.fillStyle = '#239f40'; fg.fillRect(0, 0, 96, 21); fg.fillStyle = '#fff'; fg.fillRect(0, 21, 96, 22); fg.fillStyle = '#da0000'; fg.fillRect(0, 43, 96, 21);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.2, 8, 1), new THREE.MeshStandardMaterial({ map: toTex(fc), side: THREE.DoubleSide, roughness: 0.8 })); flag.position.set(x + 0.9, y + 8.3, z); scene.add(flag); world.flags = world.flags || []; world.flags.push(flag); }
+  // fence with a gate toward the street
+  const fcol = 0x2a5aa8;
+  for (const s of [-1, 1]) { const [ax, az] = W(s * L, -L), [bx, bz] = W(s * L, BZ - BD / 2); fenceLine(ax, az, bx, bz, null, fcol, true); }
+  { const [ax, az] = W(-L, -L), [bx, bz] = W(L, -L); fenceLine(ax, az, bx, bz, cx, fcol, true); }
+  // basketball court and football goals
+  const court = (lx0, lz0, lx1, lz1) => { const [ax, az] = W(lx0, lz0), [bx, bz] = W(lx1, lz1), X0 = Math.min(ax, bx), X1 = Math.max(ax, bx), Z0 = Math.min(az, bz), Z1 = Math.max(az, bz);
+    for (const [x, z, l, w, r] of [[(X0 + X1) / 2, Z0, X1 - X0, 0.1, Math.PI / 2], [(X0 + X1) / 2, Z1, X1 - X0, 0.1, Math.PI / 2], [X0, (Z0 + Z1) / 2, Z1 - Z0, 0.1, 0], [X1, (Z0 + Z1) / 2, Z1 - Z0, 0.1, 0], [(X0 + X1) / 2, (Z0 + Z1) / 2, X1 - X0, 0.1, Math.PI / 2]]) mark(x, z, l, w, r, 0xf2f2ee); };
+  court(4, -L + 3, L - 2, BZ - BD / 2 - 4);
+  for (const lz of [-L + 3.5, BZ - BD / 2 - 4.5]) { const [x, z] = W((4 + L - 2) / 2, lz), s = lz < 0 ? 1 : -1;
+    BT.add('metal', GEO.cyl, x, y + 1.6, z - n * s * 0.4 * 0, 0, 0x30343a, 0, 0, 0.07, 3.2, 0.07); CL.circle(x, z, 0.1, 0, 3.2);
+    BT.add('trim', boxGeo(1.8, 1.1, 0.06), x, y + 3.3, z + n * -s * -0.3, 0, 0xf4f4f4); BT.add('metal', new THREE.TorusGeometry(0.23, 0.02, 6, 18), x, y + 3.0, z + n * s * 0.6, 0, 0xe85a1a, Math.PI / 2); }
+  for (const lz of [-L + 2, BZ - BD / 2 - 3]) { const [x, z] = W(-14, lz); for (const sx of [-1.5, 1.5]) { BT.add('metal', GEO.cyl, x + sx, y + 1, z, 0, 0xf4f4f4, 0, 0, 0.05, 2, 0.05); CL.circle(x + sx, z, 0.07, 0, 2); } BT.add('metal', GEO.cyl, x, y + 2, z, 0, 0xf4f4f4, 0, Math.PI / 2, 0.05, 3, 0.05); }
+  // playground: swings, slide, seesaw, sandbox
+  const PX = -14, PZ = 2;
+  { const [x, z] = W(PX, PZ); BT.add('sidewalk', quadUp(x - 6, z - 5, x + 6, z + 5, y + 0.02, 3), 0, 0, 0, 0, 0xd8a868); }
+  { // swing frame with two real swings
+    const [x, z] = W(PX - 2.5, PZ + 2.5), top = y + 2.6;
+    for (const sx of [-1.8, 1.8]) for (const sz of [-0.8, 0.8]) BT.add('metal', GEO.cyl, x + sx, y + 1.3, z + sz * 0.5, 0, 0xe8303a, sz * 0.32, 0, 0.05, 2.7, 0.05);
+    BT.add('metal', GEO.cyl, x, top, z, 0, 0xe8303a, 0, Math.PI / 2, 0.06, 3.7, 0.06); for (const sx of [-1.8, 1.8]) CL.circle(x + sx, z, 0.1, 0, top);
+    for (const sx of [-0.85, 0.85]) {
+      const pv = new THREE.Group(); pv.position.set(x + sx, top, z); scene.add(pv);
+      const cm = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.8, roughness: 0.4 });
+      for (const cs of [-0.22, 0.22]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 2.0, 5), cm); ch.position.set(cs, -1.0, 0); pv.add(ch); }
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.24), new THREE.MeshStandardMaterial({ color: 0x2a5aa8, roughness: 0.6 })); seat.position.y = -2.0; seat.castShadow = true; pv.add(seat);
+      const sw = { pv, x: x + sx, z, top, a: 0, v: 0, face: n > 0 ? Math.PI : 0, rider: null }; swings.push(sw);
+      world.uses.push({ x: x + sx, y, z, r: 0.9, act: 'تاب بخور', label: () => sw.rider ? 'یکی روی تابه' : `${touchUI ? '«تاب بخور»' : '<b>E</b>'} روی تاب بشین و تاب بخور`, use: () => { if (!sw.rider) startSwing(sw); } });
+    }
+  }
+  { // slide: ladder up to a platform, chute down
+    const [x, z] = W(PX + 3, PZ - 1), top = y + 1.7;
+    BT.add('metal', boxGeo(1.0, 0.08, 1.0), x, top, z, 0, 0xf2c12e); for (const [sx, sz] of [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]]) BT.add('metal', GEO.cyl, x + sx, y + 1.0, z + sz, 0, 0x2a5aa8, 0, 0, 0.04, 2.0, 0.04);
+    CL.box(x - 0.5, x + 0.5, z - 0.5, z + 0.5, top - 0.3, top);
+    for (let k = 0; k < 6; k++) { const yy = y + (k + 1) * 0.27, zz = z + n * (0.6 + (5 - k) * 0.2); BT.add('metal', boxGeo(0.7, 0.04, 0.12), x, yy, zz, 0, 0xc0c4c8); CL.box(x - 0.35, x + 0.35, zz - 0.1, zz + 0.1, yy - 0.2, yy); }
+    const len = 3.2, ang = Math.atan2(1.6, 2.7), [mx, mz] = [x, z - n * 1.85];
+    BT.add('metal', boxGeo(0.7, 0.05, len), mx, y + 0.95, mz, 0, 0xe8303a, n * -ang); for (const sx of [-0.36, 0.36]) BT.add('metal', boxGeo(0.05, 0.2, len), mx + sx, y + 1.05, mz, 0, 0xe8303a, n * -ang);
+    for (let k = 0; k < 14; k++) { const t = (k + 0.5) / 14, zz = z - n * (0.5 + t * 2.7), yy = top - t * 1.6; CL.box(x - 0.35, x + 0.35, zz - 0.1, zz + 0.1, yy - 0.25, yy); }
+    world.slides = world.slides || []; world.slides.push({ x, z0: z - n * 0.5, z1: z - n * 3.2, dir: -n, y0: top, y1: y });
+  }
+  { const [x, z] = W(PX + 1, PZ + 3.5); BT.add('metal', boxGeo(0.3, 0.4, 0.3), x, y + 0.2, z, 0, 0x2a5aa8); BT.add('wood', boxGeo(0.3, 0.06, 3.2), x, y + 0.45, z, 0, 0xf2c12e, 0.12); CL.box(x - 0.2, x + 0.2, z - 0.2, z + 0.2, 0, y + 0.4); }
+  { const [x, z] = W(PX - 3, PZ - 2.5); BT.add('wood', boxGeo(3, 0.3, 0.15), x, y + 0.15, z - 1.5, 0, 0x8a5a32); BT.add('wood', boxGeo(3, 0.3, 0.15), x, y + 0.15, z + 1.5, 0, 0x8a5a32); BT.add('wood', boxGeo(0.15, 0.3, 3), x - 1.5, y + 0.15, z, 0, 0x8a5a32); BT.add('wood', boxGeo(0.15, 0.3, 3), x + 1.5, y + 0.15, z, 0, 0x8a5a32); BT.add('trim', quadUp(x - 1.45, z - 1.45, x + 1.45, z + 1.45, y + 0.1, 2), 0, 0, 0, 0, 0xe8d0a0); }
+  for (const lx of [-L + 1.5, L - 1.5]) for (const lz of [-6, 4]) { const [x, z] = W(lx, lz); bench(x, z, lx < 0 ? Math.PI / 2 : -Math.PI / 2); }
+  for (const lx of [-L + 2, L - 2]) { const [x, z] = W(lx, -L + 2); tree(x, z, 1.0); }
+  world.landmarks = world.landmarks || []; world.landmarks.push({ name: 'دبستان دانش و زمین بازی', keys: ['مدرسه', 'دبستان', 'تاب', 'سرسره', 'زمین بازی', 'بسکتبال'], x: cx, z: W(0, -L - 3)[1] });
+  world.schoolYard = { cx, cz, spots: [] }; for (let k = 0; k < 10; k++) world.schoolYard.spots.push(W(rr(-L + 3, L - 3), rr(-L + 3, BZ - BD / 2 - 2)));
+}
+function startSwing(sw) {
+  const P = player; sw.rider = P; P.swing = sw; sw.v = Math.max(sw.v, 0.6);
+  startUse('swing', sw.x, sw.top - 2.0 - 0.47, sw.z, sw.face, sw.x + Math.sin(sw.face) * 0.9, sw.z + Math.cos(sw.face) * 0.9);
+  say(P, mpick(['ووووی!', 'یادش بخیر بچگی!', 'بالاتر!']), 2);
+}
+function updateSwings(dt) {
+  for (const sw of swings) {
+    const riding = sw.rider && player.state === 'use' && player.use && player.use.kind === 'swing';
+    if (sw.rider && !riding) { sw.rider = null; player.swing = null; }
+    // pump when riding, otherwise friction lets it settle
+    const gl = 9.8 / 2.0, amp = Math.acos(clamp(1 - (0.5 * sw.v * sw.v + gl * (1 - Math.cos(sw.a))) / gl, -1, 1));
+    const pump = riding && amp < 0.75 ? Math.sign(sw.v || 1) : 0;
+    sw.v += (-gl * Math.sin(sw.a) + pump * 0.9) * dt; sw.v *= Math.exp(-(riding ? 0.12 : 0.6) * dt); sw.a += sw.v * dt;
+    sw.pv.rotation.x = sw.face === 0 ? -sw.a : sw.a;
+    if (riding) { const P = player, r = 2.0; P.pos.set(sw.x + Math.sin(sw.face) * Math.sin(sw.a) * r, sw.top - Math.cos(sw.a) * r - 0.45, sw.z + Math.cos(sw.face) * Math.sin(sw.a) * r); P.anim.swingA = sw.a; }
+  }
+  for (const f of world.flags || []) { const p = f.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i) + 0.9; p.setZ(i, Math.sin(simTime * 4 + x * 3) * 0.08 * x); } p.needsUpdate = true; }
+}
+function slideCarry(p, dt) {
+  for (const s of world.slides || []) {
+    if (Math.abs(p.pos.x - s.x) > 0.4) continue; const lo = Math.min(s.z0, s.z1), hi = Math.max(s.z0, s.z1); if (p.pos.z < lo || p.pos.z > hi) continue;
+    if (p.pos.y < s.y1 + 0.2) continue; p.pos.z += s.dir * 3.2 * dt; p.vel.z = s.dir * 1.5; return true;
+  }
+  return false;
+}
+function spawnSchoolKids() {
+  if (!world.schoolYard) return;
+  for (let k = 0; k < (LOW ? 4 : 7); k++) {
+    const [x, z] = mpick(world.schoolYard.spots), look = Object.assign(randomLook(), { h: 0.6 + Math.random() * 0.13, kid: true, coat: null, beard: false, glasses: false, umbrella: false, build: 0.9 });
+    const p = spawnNPC(x, z, look); const pp = p.persona; pp.age = 7 + Math.floor(Math.random() * 5); pp.job = 'دانش‌آموز'; pp.jobLine = `کلاس ${fa(pp.age - 6)}م دبستان دانش هستم! الان زنگ تفریحه.`; pp.married = false; pp.kids = 0;
+    p.mode = 'wander'; p.spots = world.schoolYard.spots; p.spd = 1.6; p.radius = 0.24; p.school = true;
+  }
+}
+
 /* ============================================================
    Audio (synthesised)
    ============================================================ */
@@ -2596,6 +3910,19 @@ const Audio = {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9, t + 0.15); g.gain.exponentialRampToValueAtTime(0.001, t + 3.5); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + 3.6);
   },
   tick() { this.burst(0.05, 3500, 0.025, 'bandpass', 6); },
+  tone(f, t0, dur, gain, type = 'sine') { if (!this.ctx) return; const c = this.ctx, t = c.currentTime + t0, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0005, t + dur); o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05); },
+  beepPay(n) { for (let k = 0; k < Math.min(n, 6); k++) this.tone(2400, k * 0.18, 0.09, 0.05, 'square'); this.tone(880, n * 0.18 + 0.05, 0.25, 0.06); this.tone(1320, n * 0.18 + 0.2, 0.35, 0.05); },
+  alarm(v) { for (let k = 0; k < 6; k++) this.tone(k % 2 ? 1500 : 1900, k * 0.18, 0.16, 0.07 * v, 'square'); },
+  cloth() { this.burst(0.05, 2400, 0.18, 'bandpass', 0.8); },
+  shutter() { this.burst(0.12, 3000, 0.04, 'bandpass', 3); this.burst(0.08, 1800, 0.06, 'bandpass', 3); },
+  slide() { this.burst(0.05, 600, 0.6, 'lowpass', 1); this.tone(1046, 0, 0.4, 0.015); },
+  arcade() { [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, k) => this.tone(f, k * 0.12, 0.1, 0.04, 'square')); },
+  roll(sp) { if (!this.ctx) return; if (!this.rollG) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.brown; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 300; this.rollG = c.createGain(); this.rollG.gain.value = 0; s.connect(f); f.connect(this.rollG); this.rollG.connect(this.master); s.start(); } this.rollG.gain.setTargetAtTime(clamp(sp / 9, 0, 1) * 0.25, this.ctx.currentTime, 0.1); },
+  music(on) {
+    clearInterval(this.musT); if (!on || !this.ctx) return;
+    const scale = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3], bass = [130.8, 98, 110, 87.3]; let step = 0;
+    this.musT = setInterval(() => { if (!this.on) return; const b = bass[Math.floor(step / 8) % 4]; if (step % 4 === 0) this.tone(b, 0, 0.5, 0.03, 'triangle'); this.tone(scale[(step * 3 + Math.floor(step / 8)) % scale.length] * (step % 8 === 7 ? 2 : 1), 0, 0.22, 0.018, 'sine'); if (step % 2) this.tone(6000, 0, 0.03, 0.004, 'square'); step++; }, 210);
+  },
   clank(x, z) { const v = this.vol(x, z); this.burst(0.18 * v, 2600 + Math.random() * 1500, 0.09, 'bandpass', 9); this.burst(0.08 * v, 5200, 0.05, 'bandpass', 12); },
   drill(x, z) { if (!this.ctx) return; const v = this.vol(x, z) * 0.05; if (v < 0.003) return; const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(320, t); o.frequency.linearRampToValueAtTime(480, t + 0.3); o.frequency.setValueAtTime(470, t + 0.9); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.05); g.gain.setValueAtTime(v, t + 0.9); g.gain.linearRampToValueAtTime(0, t + 1.1); const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 1.15); },
   start() { if (!this.ctx) return; const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(30, t); o.frequency.linearRampToValueAtTime(70, t + 0.5); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.12, t + 0.1); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600; o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.75); },
@@ -2647,6 +3974,10 @@ addEventListener('keydown', e => {
   if (!e.repeat && (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter')) input.actQ = true;
   if (!e.repeat && e.code === 'KeyT') cycleTime();
   if (!e.repeat && e.code === 'KeyG') input.ejectQ = true;
+  if (!e.repeat && e.code === 'KeyV') toggleView();
+  if (!e.repeat && e.code === 'KeyI') toggleBag();
+  if (e.code === 'Escape' && !$('bag').hidden) toggleBag(false);
+  if (!e.repeat && e.code === 'KeyQ') input.useQ = true;
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -2674,7 +4005,7 @@ function syncTouchUI(force) {
   if (!touchUI) return;
   const mode = chat.open ? 'chat' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? 'pass' : 'foot';
   if (mode === lastUiMode && !force) return; lastUiMode = mode;
-  $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
+  $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; updateUseBtn(); if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
   for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car';
   $('drive-x').hidden = mode !== 'car' && mode !== 'pass'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
   if (mode !== 'car') { input.cGas = input.cBrake = input.cLeft = input.cRight = false; input.hornBtn = input.handBtn = false; for (const b of document.querySelectorAll('.dbtn')) b.classList.remove('down'); }
@@ -2696,7 +4027,12 @@ cv.addEventListener('pointermove', e => {
     input.jx = dx / JR; input.jy = -dy / JR; $('joy-knob').style.transform = `translate(${dx}px,${dy}px)`;
   } else if (e.pointerId === lookId) {
     const s = e.pointerType === 'mouse' ? 0.0042 : 0.0062;
-    cam.yaw -= (e.clientX - lookX) * s; cam.pitch = clamp(cam.pitch + (e.clientY - lookY) * s, -0.3, 1.25); cam.lastLook = simTime;
+    if (cam.fpOn) {
+      const inCar = player.state === 'car' || player.state === 'passenger';
+      if (inCar) cam.fpYaw = clamp(cam.fpYaw - (e.clientX - lookX) * s, -2.4, 2.4); else cam.yaw -= (e.clientX - lookX) * s;
+      cam.fpPitch = clamp(cam.fpPitch + (e.clientY - lookY) * s, -1.3, 1.35);
+    } else { cam.yaw -= (e.clientX - lookX) * s; cam.pitch = clamp(cam.pitch + (e.clientY - lookY) * s, -0.3, 1.25); }
+    cam.lastLook = simTime;
     lookX = e.clientX; lookY = e.clientY;
   }
 });
@@ -2719,6 +4055,12 @@ holdBtn('b-run', () => { input.runToggle = !input.runToggle; $('b-run').classLis
 holdBtn('b-act', () => { input.actQ = true; });
 holdBtn('b-exit', () => { input.actQ = true; });
 holdBtn('b-eject', () => { input.ejectQ = true; });
+holdBtn('b-use', () => { input.useQ = true; });
+$('btn-view').addEventListener('click', () => toggleView());
+$('btn-bag').addEventListener('click', () => toggleBag());
+$('bag-close').addEventListener('click', () => toggleBag(false));
+$('bag-cap').addEventListener('click', () => { store.capOff = !store.capOff; rebuildPlayerLook(); renderBag(); saveGame(); });
+for (const ev of ['pointerdown', 'touchstart']) $('bag').addEventListener(ev, e => e.stopPropagation(), { passive: true });
 $('btn-garage').addEventListener('click', () => { $('garage-menu').hidden = false; $('gm-status').textContent = garageStatus(); $('gm-msg').textContent = ''; });
 $('gm-close').addEventListener('click', () => { $('garage-menu').hidden = true; });
 $('gm-route').addEventListener('click', () => { $('gm-msg').textContent = goGarage('route'); });
@@ -2782,7 +4124,7 @@ let simTime = 0, started = false;
 const cars = [];
 const playerLook = { skin: '#e0ac83', hair: '#2a1b12', shirt: '#e07a2e', pants: '#2a3a55', shoes: '#f2f2f2', style: 'short', cap: '#1f2a3a', sleeves: true, h: 1 };
 let player;
-const cam = { yaw: Math.PI, pitch: 0.32, dist: 4.6, cur: 4.6, zoom: 1, target: new V3(), shake: 0, lastLook: -9, fov: 60 };
+const cam = { yaw: Math.PI, pitch: 0.32, dist: 4.6, cur: 4.6, zoom: 1, target: new V3(), shake: 0, lastLook: -9, fov: 60, fp: false, fpYaw: 0, fpPitch: 0.08, fpY: 0, fpOn: false };
 function spawnTraffic() {
   // a guaranteed car next to the spawn point
   const pc = new Car('sedan', 0xb3161b, -1, roadX(2) + PARKOFF, Math.PI / 2); cars.push(pc);
@@ -2825,10 +4167,22 @@ function nearestCar(maxD) {
 function nearestDoor() {
   let best = null, bd = 2.2;
   for (const d of world.doors) {
+    if (d.dead) continue;
     const dx = player.pos.x - d.x, dz = player.pos.z - d.z, dn = dx * d.nx + dz * d.nz, lat = Math.abs(dx * -d.nz + dz * d.nx);
     if (dn < -0.2 || lat > 0.9 || Math.abs(player.pos.y - d.y) > 1.2) continue; const dd = Math.hypot(dx, dz); if (dd < bd) { bd = dd; best = d; }
   }
   return best;
+}
+function allPeople() { return npcs.concat(mall.npcs, mall.staff); }
+function nearestUse() {
+  const P = player; let best = null, bd = 9;
+  for (const u of world.uses) { if (Math.abs(P.pos.y - u.y) > 1.2) continue; const d = Math.hypot(u.x - P.pos.x, u.z - P.pos.z); if (d < u.r && d + (u.pri ? -0.6 : 0) < bd) { bd = d; best = u; } }
+  return best ? { u: best, d: bd, pri: best.pri && bd < best.r } : null;
+}
+function nearestSeat() {
+  const P = player; let best = null, bd = 0.95;
+  for (const s of mall.seats.concat(world.benches)) { if (s.taken || Math.abs(P.pos.y - s.y) > 0.8) continue; const d = Math.hypot(s.x + Math.sin(s.ry) * 0.5 - P.pos.x, s.z + Math.cos(s.ry) * 0.5 - P.pos.z); if (d < bd) { bd = d; best = s; } }
+  return best ? { s: best, d: bd } : null;
 }
 function nearestNPC(list, maxD) { let best = null, bd = maxD; for (const n of list) { if (n.mode === 'down') continue; const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z); if (d < bd) { bd = d; best = n; } } return best; }
 
@@ -2855,6 +4209,32 @@ function exitBuilding() {
     saveGame();
   });
   Audio.door();
+}
+/* walk straight through an open door: the house is swapped in under your feet, camera and pace unchanged */
+function doorRot(d) { return Math.PI - Math.atan2(-d.nx, -d.nz); }
+function rotXZ(x, z, a) { const c = Math.cos(a), s = Math.sin(a); return [x * c + z * s, -x * s + z * c]; }
+function enterThrough(door) {
+  const P = player, a = doorRot(door);
+  const [lx] = rotXZ(P.pos.x - door.x, P.pos.z - door.z, a), [vx, vz] = rotXZ(P.vel.x, P.vel.z, a), [tx, tz] = rotXZ(cam.target.x - door.x, cam.target.z - door.z, a);
+  buildInterior(door);
+  P.where = 'in'; interiorPool.attach(P); P.standCar = null; P.onGround = true;
+  P.pos.set(clamp(lx, -0.35, 0.35), 0, interior.D / 2 - 0.45); P.vel.set(vx, 0, vz); P.facing += a;
+  cam.yaw += a; cam.target.set(clamp(tx, -0.6, 0.6), 1.45, interior.D / 2 + Math.min(tz, 0) - 0.3); cam.cur = Math.min(cam.cur, 2.2);
+  const ed = interior.exitDoor; ed.open = ed.want = 1; ed.closeT = 0; ed.pv.rotation.y = 1.4;
+  door.want = 0; door.open = 0; door.inner.rotation.y = 0;
+  Audio.door(); banner(door.name, door.sub || ''); saveGame();
+}
+function exitThrough() {
+  const P = player, d = interior.door, a = -doorRot(d);
+  if (cartBlocksExit()) return;
+  const [ox, oz] = rotXZ(clamp(P.pos.x, -0.35, 0.35), 0.62, a), [vx, vz] = rotXZ(P.vel.x, P.vel.z, a);
+  P.where = 'out'; outdoorPool.attach(P);
+  const x = d.x + ox, z = d.z + oz;
+  P.pos.set(x, groundH(x, z), z); if (d.kind === 'house') P.pos.y = Math.max(P.pos.y, d.y - 0.01);
+  P.vel.set(vx, 0, vz); P.facing += a; cam.yaw += a; cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z); cam.cur = Math.min(cam.cur, 2.2);
+  d.want = 1; d.open = 1; d.closeT = 0; d.inner.rotation.y = -1.4;
+  for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = [];
+  Audio.door(); saveGame();
 }
 let fading = false;
 function fadeTo(fn) {
@@ -2901,6 +4281,7 @@ function exitCar() {
   if (!spot) { spot = [car.x, car.z]; player.pos.y = car.y + car.T.roofY + 0.1; } else player.pos.y = groundH(spot[0], spot[1]);
   player.pos.x = spot[0]; player.pos.z = spot[1]; player.vel.set(car.vx * 0.5, 0, car.vz * 0.5); player.facing = car.h + Math.PI / 2;
   player.anim.special = null; player.state = 'foot'; player.car = null;
+  if (cam.fpOn) cam.yaw = car.h + cam.fpYaw;
 }
 function addCarLights(car) {
   if (car.lights) { car.lights.forEach(l => l.visible = true); return; }
@@ -2916,7 +4297,7 @@ const chat = { open: false, npc: null, busy: false };
 const settings = { quality: 'auto', voice: false, aiKey: '', weather: 'auto' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('shahr-settings') || '{}')); } catch (_) { }
 function saveSettings() { try { localStorage.setItem('shahr-settings', JSON.stringify(settings)); } catch (_) { } }
-const store = { residents: {}, homes: {}, stats: { repairs: 0, tows: 0, sleeps: 0 } };
+const store = { residents: {}, homes: {}, stats: { repairs: 0, tows: 0, sleeps: 0 }, money: 100000000, inv: {}, worn: {}, held: null, energy: 100, cart: [], capOff: false };
 const events = [];
 function logEvent(t) { events.push(t); if (events.length > 10) events.shift(); }
 function streetAt(x, z) {
@@ -2941,12 +4322,16 @@ function routeText(x, z) {
 function places() {
   const out = [];
   for (const d of world.doors) {
-    if (d.kind !== 'shop') continue;
+    if (d.kind !== 'shop' || d.dead) continue;
     const keys = d.name.split(/\s+/).filter(w => w.length > 2).map(w => norm(w));
     for (const [k, syn] of SYN) if (d.name.includes(k)) keys.push(...syn.split(' '));
     out.push({ name: d.name, keys, x: d.x, z: d.z, dist: Math.hypot(d.x - player.pos.x, d.z - player.pos.z) });
   }
   out.push({ name: 'تعمیرگاه مرکزی شهر', keys: ['تعمیرگاه', 'مکانیک', 'تعمیر', 'یدک', 'جرثقیل', 'صافکاری'], x: roadX(1) - RH - 2, z: 0, dist: Math.hypot(roadX(1) - RH - 2 - player.pos.x, player.pos.z) });
+  out.push({ name: 'پاساژ آزادی (مرکز خرید)', keys: ['پاساژ', 'مرکز خرید', 'مال', 'خرید', 'فروشگاه', 'هایپر', 'فودکورت', 'لباس', 'کفش', 'موبایل', 'گوشی'], x: mall.x0 - 3, z: 0, dist: Math.hypot(mall.x0 - 3 - player.pos.x, player.pos.z) });
+  for (const S of mall.shops) out.push({ name: `${S.name} (پاساژ آزادی، ${S.floor ? 'طبقهٔ اول' : 'همکف'})`, keys: S.name.split(/\s+/).filter(w => w.length > 2).map(w => norm(w)), x: mall.x0 - 3, z: 0, dist: Math.hypot(mall.x0 - 3 - player.pos.x, player.pos.z) + 1 });
+  if (gas.cx) out.push({ name: 'جایگاه سوخت (پمپ بنزین)', keys: ['پمپ', 'بنزین', 'سوخت', 'جایگاه', 'گازوئیل'], x: gas.cx - LOT + 2, z: gas.cz, dist: Math.hypot(gas.cx - LOT - player.pos.x, gas.cz - player.pos.z) });
+  for (const l of world.landmarks || []) out.push({ name: l.name, keys: l.keys, x: l.x, z: l.z, dist: Math.hypot(l.x - player.pos.x, l.z - player.pos.z) });
   for (const f of world.fountains) out.push({ name: 'پارک مرکزی', keys: ['پارک', 'فواره', 'حوض', 'باغ'], x: f.x, z: f.z, dist: Math.hypot(f.x - player.pos.x, f.z - player.pos.z) });
   STREET_V.forEach((n, i) => out.push({ name: n, keys: [norm(n), norm(n.replace('خیابان ', ''))], x: roadX(i), z: clamp(player.pos.z, -HALF, HALF), dist: Math.abs(roadX(i) - player.pos.x) }));
   STREET_H.forEach((n, i) => out.push({ name: n, keys: [norm(n), norm(n.replace('خیابان ', ''))], x: clamp(player.pos.x, -HALF, HALF), z: roadX(i), dist: Math.abs(roadX(i) - player.pos.z) }));
@@ -2970,6 +4355,7 @@ function openChat(n) {
   const p = n.persona; $('chat-name').textContent = `${p.name} ${p.family}`; $('chat-sub').textContent = `${p.job}، ${fa(p.age)} ساله`;
   $('chat-log').innerHTML = ''; $('chat').hidden = false; $('pad').hidden = true; $('joy').hidden = true; $('joy-hint').hidden = true; setPrompt('', '');
   const chips = $('chat-chips'); chips.innerHTML = '';
+  if (store.held && ITEMS[store.held].model === 'flowers') { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-q'; b.style.background = 'rgba(200,32,42,.5)'; b.textContent = 'این گل برای توئه'; b.addEventListener('click', () => { addMsg('me', 'این گل برای توئه!'); giveFlowers(n); b.remove(); }); chips.appendChild(b); }
   for (const q of QUICK) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-q'; b.textContent = q; b.addEventListener('click', () => sendChat(q)); chips.appendChild(b); }
   const open = p.mem.carTaken ? 'باز تویی؟! ماشینمو پس بده!' : p.mem.hitByPlayer ? 'تویی که با ماشین زدی به من! چی می‌خوای؟' : p.met ? `${p.mem.playerName ? p.mem.playerName + '! ' : ''}باز هم سلام!` : mpick(['بله؟ کاری داشتی؟', 'سلام! چیزی می‌خواستی؟', 'جانم؟', 'سلام، بفرمایید.']);
   npcSpeak(n, open);
@@ -3024,9 +4410,10 @@ function snapshot() {
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), dents: c.dentLog || [], ai: !!c.ai,
+    shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
+    cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
-    npcs: npcs.filter(n => !n.mech).map(n => ({ look: n.look, persona: serPersona(n.persona), x: r2(n.pos.x), z: r2(n.pos.z) }))
+    npcs: npcs.filter(n => !n.mech && !n.school).map(n => ({ look: n.look, persona: serPersona(n.persona), x: r2(n.pos.x), z: r2(n.pos.z) }))
   };
 }
 function saveGame() {
@@ -3036,6 +4423,7 @@ function saveGame() {
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 1 ? s : null; } catch (_) { return null; } }
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
+  if (sv.shop) Object.assign(store, sv.shop);
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
   const made = [];
@@ -3043,14 +4431,16 @@ function restoreFromSave(sv) {
     const car = new Car(c.type, c.color, c.x, c.z, c.h, c.ai ? { ai: { i: 0, j: 0, d: 0 }, taxi: c.taxi } : { taxi: c.taxi });
     if (c.ai) { car.ai.resetFromPos(); if (c.driver) { const d = makePerson(c.driver.look, false); d.persona = deserPersona(c.driver.persona); car.setDriver(d); car.owner = d; } }
     for (const d of c.dents || []) car.dent(...d);
-    car.health = c.health ?? 100; cars.push(car); made.push(car);
+    car.health = c.health ?? 100; car.fuel = c.fuel ?? car.fuel; cars.push(car); made.push(car);
+    if (inMall(car.x, car.z, 2) || world.newPlaces.some(([pl, cx, cz]) => pl !== 'gas' && Math.abs(car.x - cx) < LOT && Math.abs(car.z - cz) < LOT)) { const sp = mpick(world.parking); car.x = sp.x; car.z = sp.z; car.h = sp.h; }
   }
   for (const n of sv.npcs || []) { const p = spawnNPC(n.x, n.z, n.look); p.persona = deserPersona(n.persona); }
   if (sv.waypoint) waypoint = sv.waypoint;
   const P = player, sp = sv.player || {};
   P.pos.set(sp.x ?? P.pos.x, sp.y ?? P.pos.y, sp.z ?? P.pos.z); P.facing = sp.facing ?? P.facing;
   if (sp.lastCar >= 0) P.lastCar = made[sp.lastCar];
-  if (sp.where === 'in' && world.doors[sp.door]) placeInside(world.doors[sp.door]);
+  if (sp.where !== 'in') { world.col.query(P.pos.x - 0.3, P.pos.x + 0.3, P.pos.z - 0.3, P.pos.z + 0.3, _near); if (_near.some(c => c.maxY > P.pos.y + STEP && c.minY < P.pos.y + 1.6 && (c.t === 1 || (P.pos.x > c.minX && P.pos.x < c.maxX && P.pos.z > c.minZ && P.pos.z < c.maxZ)))) { P.pos.set(-3, CURB, roadX(2) + RH + 2.2); } }
+  if (sp.where === 'in' && world.doors[sp.door] && !world.doors[sp.door].dead) placeInside(world.doors[sp.door]);
   else if (sp.car >= 0 && made[sp.car]) { const car = made[sp.car]; car.setDriver(P); car.hasDriver = true; car.player = true; car.inHand = false; P.state = 'car'; P.car = car; addCarLights(car); }
   cam.yaw = P.state === 'car' ? P.car.h : P.facing; restored = true;
 }
@@ -3063,7 +4453,7 @@ addEventListener('pagehide', () => saveGame());
 /* using furniture: lie on the bed, sit, read, drink */
 function startUse(kind, x, y, z, facing, exitX, exitZ, dur) {
   const P = player; if (chat.open) closeChat();
-  P.state = 'use'; P.use = { kind, exitX: exitX ?? P.pos.x, exitZ: exitZ ?? P.pos.z, t: 0, dur: dur || 0 };
+  P.state = 'use'; P.use = { kind, exitX: exitX ?? P.pos.x, exitZ: exitZ ?? P.pos.z, exitY: y ?? P.pos.y, t: 0, dur: dur || 0 };
   P.pos.set(x, y, z); P.vel.set(0, 0, 0); if (facing != null) P.facing = facing;
   P.anim.special = kind; P.anim.sw = 0;
   if (kind === 'lie') say(P, mpick(['آخیش... چه تخت نرمی!', 'یه کم استراحت...', 'چقدر خسته بودم!']), 2);
@@ -3071,7 +4461,8 @@ function startUse(kind, x, y, z, facing, exitX, exitZ, dur) {
 }
 function endUse() {
   const P = player, u = P.use; if (!u) return;
-  P.state = 'foot'; P.anim.special = null; P.pos.set(u.exitX, 0, u.exitZ); P.vel.set(0, 0, 0); P.use = null; P.onGround = true;
+  P.state = 'foot'; P.anim.special = null; P.pos.set(u.exitX, u.kind === 'lie' ? 0 : u.exitY, u.exitZ); P.vel.set(0, 0, 0); P.use = null; P.onGround = true;
+  if (u.seat) u.seat.taken = null; if (u.kind === 'swing' && P.swing) { P.swing.rider = null; P.swing = null; }
 }
 function sleep() {
   fadeTo(() => { const nightTime = tod >= 20 || tod < 6; tod = nightTime ? 7 : (tod + 2) % 24; envTod = -99; store.stats.sleeps++; banner(nightTime ? 'صبح بخیر!' : 'یه چرت حسابی زدی', nightTime ? 'ساعت ۷ صبح است و حسابی سرحالی' : 'دو ساعت گذشت'); saveGame(); });
@@ -3109,17 +4500,20 @@ function updatePlayer(dt) {
       stepCharacter(P, col, dt, outdoor); input.jumpQ = false; input.actQ = false; return;
     }
     P.anim.knock = damp(P.anim.knock, 0, 5, dt); P.anim.getup = damp(P.anim.getup, 0, 6, dt);
-    const running = input.run || (touchUI && mag > 0.93);
-    const tsp = mag * (running ? 6.6 : 2.5);
-    const k = P.onGround ? 12 : 2.5;
+    const running = (input.run || (touchUI && mag > 0.93)) && (store.energy > 8 || P.skate);
+    const tsp = mag * (P.skate ? (running ? 10.5 : 7.5) : running ? 6.6 : 2.5);
+    const k = P.skate ? (P.onGround ? (mag > 0.1 ? 1.5 : 0.45) : 0.3) : P.onGround ? 12 : 2.5;
+    if (input.useQ) { input.useQ = false; useHeld(); }
     P.vel.x = damp(P.vel.x, dx * tsp, k, dt); P.vel.z = damp(P.vel.z, dz * tsp, k, dt);
-    if (tsp > 0.1) P.facing += angDiff(P.facing, Math.atan2(dx, dz)) * Math.min(1, 12 * dt);
+    if (cam.fpOn && !chat.open) P.facing += angDiff(P.facing, cam.yaw) * Math.min(1, 18 * dt);
+    else if (tsp > 0.1) P.facing += angDiff(P.facing, Math.atan2(dx, dz)) * Math.min(1, 12 * dt);
     else if (chat.open && chat.npc) P.facing += angDiff(P.facing, Math.atan2(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z)) * Math.min(1, 6 * dt);
     if (input.jumpQ && P.onGround && P.anim.prep <= 0) { P.anim.prep = 0.09; P.jumpAt = simTime + 0.09; }
     input.jumpQ = false;
     if (P.jumpAt && simTime >= P.jumpAt) { P.jumpAt = 0; if (P.onGround) { P.vel.y = 6.6; P.onGround = false; P.standCar = null; Audio.step(true); } }
     stepCharacter(P, col, dt, outdoor);
-    if (P.onGround) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) { Audio.step(running); if (outdoor && weather.wet > 0.4) FX.splash(P.pos.x, P.pos.y, P.pos.z); } } }
+    if (outdoor) slideCarry(P, dt);
+    if (P.onGround && !P.skate) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) { Audio.step(running); if (outdoor && weather.wet > 0.4) FX.splash(P.pos.x, P.pos.y, P.pos.z); } } }
     if (chat.open) { input.actQ = false; if (!chat.npc || Math.hypot(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z) > 5 || chat.npc.mode === 'down') closeChat(); return; }
     // interactions
     let promptTxt = '', actLabel = '';
@@ -3127,15 +4521,26 @@ function updatePlayer(dt) {
     if (outdoor) {
       const door = nearestDoor();
       if (door) {
-        const dn = (P.pos.x - door.x) * door.nx + (P.pos.z - door.z) * door.nz;
-        const pushing = dl > 0 && (dx * -door.nx + dz * -door.nz) > 0.6 && dn < 0.95;
-        P.pushT = pushing ? P.pushT + dt : 0;
-        promptTxt = `<b>${door.name}</b> — به در بچسب یا ${touchUI ? 'دکمهٔ «ورود»' : '<b>E</b>'} را بزن`; actLabel = 'ورود';
-        if (P.pushT > 0.25 || input.actQ) { input.actQ = false; P.pushT = 0; enterBuilding(door); }
+        const ox = P.pos.x - door.x, oz = P.pos.z - door.z, dn = ox * door.nx + oz * door.nz, lat = Math.abs(ox * -door.nz + oz * door.nx);
+        const into = dl > 0 && (dx * -door.nx + dz * -door.nz) > 0.5;
+        if (!door.want) {
+          P.pushT = into && dn < 0.95 ? P.pushT + dt : 0;
+          promptTxt = `<b>${door.name}</b> — ${touchUI ? '«باز کن»' : '<b>E</b>'} در را باز کن`; actLabel = 'باز کن';
+          if (P.pushT > 0.4 || input.actQ) { input.actQ = false; P.pushT = 0; door.want = 1; door.closeT = 0; Audio.door(); }
+        } else {
+          P.pushT = 0;
+          promptTxt = `<b>${door.name}</b> — در باز است، برو داخل` + ` · ${touchUI ? '«ببند»' : '<b>E</b>'} بستن در`; actLabel = 'ببند';
+          if (input.actQ) { input.actQ = false; door.want = 0; Audio.door(); }
+          else if (door.open > 0.55 && into && dn < 0.66 && lat < 0.6) { enterThrough(door); return; }
+        }
       } else {
         P.pushT = 0;
-        const n = nearestNPC(npcs, 2.6), car = nearestCar(1.6);
-        if (n && (!car || Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) < 1.8)) {
+        const n = nearestNPC(allPeople(), 2.6), car = nearestCar(1.6), us = nearestUse(), ball = nearestBall(), seat = !us && !car ? nearestSeat() : null;
+        const nd = n ? Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) : 99;
+        if (us && (us.pri || us.d < nd || nd > 1.2 || us.d < 0.6)) { actLabel = us.u.act; promptTxt = us.u.label(); if (input.actQ) { input.actQ = false; us.u.use(); } }
+        else if (ball && nd > 1.4) { actLabel = 'بردار'; promptTxt = `${key}توپ رو بردار`; if (input.actQ) { input.actQ = false; pickBall(ball); } }
+        else if (seat && seat.d < nd) { actLabel = 'بشین'; promptTxt = `${key}بشین و یه کم استراحت کن`; if (input.actQ) { input.actQ = false; const s = seat.s; startUse('sit', s.x + Math.sin(s.ry) * 0.06, s.y, s.z + Math.cos(s.ry) * 0.06, s.ry, s.x + Math.sin(s.ry) * 0.75, s.z + Math.cos(s.ry) * 0.75); P.use.seat = s; s.taken = P; } }
+        else if (n && (!car || Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) < 1.8)) {
           actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`;
           if (input.actQ) { input.actQ = false; openChat(n); }
         } else if (car && car.isTow && car.driverP && !car.player) {
@@ -3148,10 +4553,18 @@ function updatePlayer(dt) {
       }
     } else {
       const ex = interior.D / 2, dn = ex - P.pos.z, lat = Math.abs(P.pos.x);
+      const ed = interior.exitDoor;
       if (dn < 2.0 && lat < 0.9) {
-        promptTxt = `به در بچسب یا ${touchUI ? '«خروج»' : '<b>E</b>'} را بزن تا بیرون بروی`; actLabel = 'خروج';
-        const pushing = dl > 0 && dz > 0.6 && dn < 0.9; P.pushT = pushing ? P.pushT + dt : 0;
-        if (P.pushT > 0.25 || input.actQ) { input.actQ = false; P.pushT = 0; exitBuilding(); }
+        const out = dl > 0 && dz > 0.5;
+        if (!ed.want) {
+          P.pushT = out && dn < 0.9 ? P.pushT + dt : 0;
+          promptTxt = `${touchUI ? '«باز کن»' : '<b>E</b>'} در را باز کن تا بیرون بروی`; actLabel = 'باز کن';
+          if (P.pushT > 0.4 || input.actQ) { input.actQ = false; P.pushT = 0; ed.want = 1; ed.closeT = 0; Audio.door(); }
+        } else {
+          P.pushT = 0; promptTxt = `در باز است، برو بیرون · ${touchUI ? '«ببند»' : '<b>E</b>'} بستن در`; actLabel = 'ببند';
+          if (input.actQ) { input.actQ = false; ed.want = 0; Audio.door(); }
+          else if (ed.open > 0.55 && out && dn < 0.62 && lat < 0.6) { exitThrough(); return; }
+        }
       } else {
         P.pushT = 0;
         const n = nearestNPC(interior.npcs, 2.8);
@@ -3173,10 +4586,14 @@ function updatePlayer(dt) {
     const u = P.use; u.t += dt; P.vel.set(0, 0, 0);
     const moving = Math.hypot(input.mx, input.my) > 0.5 && u.t > 0.6;
     if (u.kind === 'lie') { setPrompt(`${touchUI ? '«بلند شو»' : '<b>E</b>'} بلند شو · ${touchUI ? '«بخواب»' : '<b>Space</b>'} بخواب ${tod >= 20 || tod < 6 ? 'تا صبح' : 'یه کم'}`, 'بلند شو'); if (input.jumpQ) { input.jumpQ = false; sleep(); } }
+    else if (u.kind === 'fuel') setPrompt(`در حال بنزین زدن… ${fa(Math.min(u.fuelL, Math.round(u.t / u.dur * u.fuelL)))} از ${fa(u.fuelL)} لیتر`, 'بس کن');
+    else if (u.kind === 'swing') setPrompt(`${touchUI ? '«پیاده شو»' : '<b>E</b>'} از تاب پیاده شو`, 'پیاده شو');
+    else if (u.kind === 'arcade') setPrompt('در حال بازی…', '');
     else if (!u.dur) setPrompt(`${touchUI ? '«بلند شو»' : '<b>E</b>'} ${u.kind === 'read' ? 'کتاب رو بذار سر جاش' : 'بلند شو'}`, 'بلند شو');
     else setPrompt('', '');
     input.jumpQ = false;
-    if (input.actQ || moving || (u.dur && u.t > u.dur)) { input.actQ = false; endUse(); }
+    if (u.kind === 'swing' && P.swing) { /* the swing moves you */ }
+    if (input.actQ || (moving && u.kind !== 'swing') || (u.dur && u.t > u.dur)) { input.actQ = false; const done = u.dur && u.t > u.dur; endUse(); if (done && u.onDone) u.onDone(); else if (!done && u.kind === 'fuel') toast('سوخت‌گیری نیمه‌کاره ماند'); }
   } else if (P.state === 'entering') {
     const car = P.car; P.enterT += dt; const [tx, tz] = doorPoint(car, 0.55);
     if (P.enterT < 0.55) { P.vel.set((tx - P.pos.x) * 5, 0, (tz - P.pos.z) * 5); P.pos.x = damp(P.pos.x, tx, 9, dt); P.pos.z = damp(P.pos.z, tz, 9, dt); P.pos.y = groundH(P.pos.x, P.pos.z); P.facing += angDiff(P.facing, car.h - Math.PI / 2) * Math.min(1, 10 * dt); }
@@ -3194,8 +4611,11 @@ function updatePlayer(dt) {
     car.inThrottle = input.my; car.inSteer = input.mx; car.inHand = input.hand;
     P.pos.set(car.x, car.y + 0.6, car.z);
     const kmh = Math.abs(car.vf) * 3.6;
+    if (!car.isTow) { const f0 = car.fuel; car.fuel = Math.max(0, car.fuel - (Math.abs(car.vf) * 0.0045 + Math.max(0, car.inThrottle) * 0.006) * dt);
+      if (f0 > 12 && car.fuel <= 12) { banner('بنزین رو به اتمام است', 'برو جایگاه سوخت (علامت «ب» روی نقشه)'); }
+      if (f0 > 0 && car.fuel <= 0) { banner('بنزین تمام شد!', 'ماشین را تا پمپ هل بده یا یدک‌کش خبر کن'); Audio.engine(false, 0, 0); } }
     if (input.actQ) { input.actQ = false; if (kmh < 12) exitCar(); else setPrompt('برای پیاده شدن اول سرعت را کم کن', 'پیاده شو', 1.2); }
-    else if (promptHold <= 0) setPrompt(car.health <= 0 ? 'ماشین خراب شد! پیاده شو و یه ماشین دیگه پیدا کن.' : car.health < 30 ? 'موتور آسیب دیده و دود می‌کند.' : '', 'پیاده شو');
+    else if (promptHold <= 0) setPrompt(car.health <= 0 ? 'ماشین خراب شد! پیاده شو و یه ماشین دیگه پیدا کن.' : car.fuel <= 0 ? 'بنزین تمام شده! از منوی تعمیرگاه یدک‌کش خبر کن.' : car.health < 30 ? 'موتور آسیب دیده و دود می‌کند.' : car.fuel < 12 ? 'بنزین کم است — جایگاه سوخت «ب» روی نقشه' : '', 'پیاده شو');
     if (input.horn && !P.hornOn) hornEvent = { x: car.x, z: car.z, h: car.h, t: simTime };
     P.hornOn = input.horn; Audio.horn(input.horn);
     car.blink = Math.abs(car.steer) > 0.25 && Math.abs(car.vf) > 1 ? (car.steer > 0 ? 'R' : 'L') : null;
@@ -3209,8 +4629,96 @@ function setPrompt(txt, act, hold) {
   if (act !== lastAct) { lastAct = act; const b = $('b-act'); b.textContent = act || '—'; b.style.opacity = act ? '1' : '0.4'; }
 }
 
+/* first person: eyes in the head (or in the driver's seat); the head itself is hidden */
+function fpWanted() {
+  const P = player;
+  return cam.fp && P.state !== 'entering' && P.state !== 'exiting' && P.mode !== 'down' && !(P.state === 'use' && (P.use.kind === 'lie' || P.use.kind === 'swing'));
+}
+function setView(fp) {
+  cam.fp = fp; settings.view = fp ? 'first' : 'third'; saveSettings();
+  cam.fpPitch = 0.08; cam.fpYaw = 0; if (!fp && player) player.H.hideHead = false;
+  $('btn-view').textContent = fp ? 'دید: اول شخص' : 'دید: سوم شخص'; $('btn-view').classList.toggle('on', fp);
+}
+function toggleView() { setView(!cam.fp); toast(cam.fp ? 'دید اول شخص — با کشیدن انگشت یا موس اطرافت را نگاه کن' : 'دید سوم شخص'); }
+const _eye = new V3(), _look = new V3();
+/* a cockpit for the car you drive in first person: dashboard, live gauges, wheel that turns, seats, mirror */
+let cockpit = null;
+function makeCockpit(car) {
+  const t = car.T, W = t.wid, g = new THREE.Group(), side = 1, dx = side * (W / 2 - 0.5), z1 = t.cab[1];
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1c1d20, roughness: 0.85 }), soft = new THREE.MeshStandardMaterial({ color: 0x2c2a28, roughness: 1 }), chrome = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, metalness: 0.9, roughness: 0.25 });
+  const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); g.add(m); return m; };
+  const by = t.beltY + 0.09;
+  add(new THREE.BoxGeometry(W - 0.12, 0.012, t.cab[1] - t.cab[0] + 1.1), soft, 0, by + 0.012, (t.cab[0] + z1) / 2 + 0.25);
+  add(new THREE.BoxGeometry(W - 0.16, 0.2, 0.55), dark, 0, by + 0.1, z1 + 0.5);
+  add(new THREE.BoxGeometry(W - 0.16, 0.05, 0.42), dark, 0, by + 0.22, z1 + 0.42, -0.12);
+  add(new THREE.BoxGeometry(0.42, 0.1, 0.12), dark, dx, by + 0.24, z1 + 0.2);
+  add(new THREE.BoxGeometry(0.28, 0.24, 0.5), dark, 0, by + 0.0, z1 - 0.05);
+  for (const sx of [-1, 1]) { add(new THREE.BoxGeometry(0.06, 0.16, t.cab[1] - t.cab[0] + 0.7), soft, sx * (W / 2 - 0.1), by + 0.05, (t.cab[0] + z1) / 2 + 0.1); add(new THREE.BoxGeometry(0.5, 0.62, 0.12), soft, sx * (W / 2 - 0.5), by + 0.3, (t.cab[0] + z1) / 2 - 0.5, -0.12); add(new THREE.BoxGeometry(0.28, 0.2, 0.1), soft, sx * (W / 2 - 0.5), by + 0.72, (t.cab[0] + z1) / 2 - 0.55); }
+  for (const sx of [-1, 1]) add(new THREE.BoxGeometry(0.07, 0.06, 0.85), dark, sx * (W / 2 - 0.16), (by + t.roofY) / 2 + 0.02, z1 + 0.1, 0.95);
+  add(new THREE.BoxGeometry(0.26, 0.07, 0.025), dark, 0.05, t.roofY - 0.13, z1 - 0.02); add(new THREE.BoxGeometry(0.23, 0.055, 0.005), chrome, 0.05, t.roofY - 0.13, z1 - 0.034);
+  const c = mkCanvas(256, 96), tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const cl = add(new THREE.PlaneGeometry(0.36, 0.135), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }), dx, by + 0.215, z1 + 0.145, -0.25, Math.PI);
+  const wheel = new THREE.Group(); wheel.position.set(dx, by + 0.1, z1 + 0.02); wheel.rotation.x = -1.15; g.add(wheel);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.022, 8, 28), dark); wheel.add(rim);
+  for (const a of [0, 2.2, -2.2]) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.17, 0.02), dark); sp.position.set(Math.sin(a) * 0.085, Math.cos(a) * 0.085, 0); sp.rotation.z = -a; wheel.add(sp); }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 14), chrome); hub.rotation.x = Math.PI / 2; wheel.add(hub);
+  g.userData = { car, wheel, ctx: c.getContext('2d'), tex, last: '' };
+  return g;
+}
+function updateCockpit() {
+  const P = player, want = cam.fpOn && P.state === 'car' && P.car && !P.car.isTow;
+  if (!want) { if (cockpit) cockpit.visible = false; return; }
+  if (!cockpit || cockpit.userData.car !== P.car) { if (cockpit) cockpit.parent?.remove(cockpit); cockpit = makeCockpit(P.car); P.car.body.add(cockpit); }
+  cockpit.visible = true; const u = cockpit.userData, c = P.car;
+  u.wheel.rotation.z = -c.steer * 2.6;
+  const kmh = Math.round(Math.abs(c.vf) * 3.6), key = kmh + '|' + Math.round(c.fuel) + '|' + (c.vf < -0.5 ? 'R' : c.inHand ? 'P' : 'D');
+  if (key !== u.last) { u.last = key; const g = u.ctx; g.fillStyle = '#05070a'; g.fillRect(0, 0, 256, 96);
+    g.fillStyle = '#9fe8ff'; g.font = 'bold 54px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(fa(kmh), 128, 44);
+    g.font = '15px Vazirmatn, Tahoma'; g.fillStyle = '#7a8a96'; g.fillText('کیلومتر بر ساعت', 128, 82);
+    g.fillStyle = '#ffb340'; g.font = 'bold 26px Vazirmatn, Tahoma'; g.fillText(key.split('|')[2], 30, 44);
+    g.fillStyle = '#333'; g.fillRect(206, 18, 14, 60); g.fillStyle = c.fuel > 20 ? '#ffb340' : '#ff5b4e'; const h = 60 * c.fuel / 100; g.fillRect(206, 78 - h, 14, h);
+    u.tex.needsUpdate = true; }
+}
+function updateCameraFP(dt) {
+  const P = player, inCar = P.state === 'car' || P.state === 'passenger';
+  let yaw, pitch = cam.fpPitch;
+  if (inCar) {
+    const c = P.car, t = c.T, side = P.state === 'passenger' ? -1 : 1;
+    c.group.updateMatrixWorld(true);
+    _eye.set(side * (t.wid / 2 - 0.5), t.roofY - (c.isTow ? 0.42 : 0.26), (t.cab[0] + t.cab[1]) / 2 - 0.22).applyMatrix4(c.body.matrixWorld);
+    if (simTime - cam.lastLook > 1.6) { cam.fpYaw = damp(cam.fpYaw, 0, 2.5, dt); cam.fpPitch = damp(cam.fpPitch, 0.05, 2.5, dt); }
+    yaw = c.h + cam.fpYaw + (c.vf < -1 && simTime - cam.lastLook > 1.6 ? 0 : 0); pitch = cam.fpPitch - c.pitch;
+    cam.fpY = _eye.y;
+  } else {
+    const h = P.look.h || 1, u = P.state === 'use' ? P.use.kind : '';
+    let eh = 1.6 * h; if (u === 'sit' || P.anim.special === 'sit') eh = 1.12 * h; if (P.anim.special === 'repair') eh = 1.05 * h;
+    const spd = Math.hypot(P.vel.x, P.vel.z), bob = P.onGround ? -Math.abs(Math.cos(P.anim.phase)) * Math.min(1, spd / 3) * 0.045 : 0;
+    const ty = P.pos.y + eh + bob - P.anim.land * 0.25 - P.anim.prep * 0.6;
+    cam.fpY = Math.abs(cam.fpY - ty) > 1.2 ? ty : damp(cam.fpY, ty, P.onGround ? 22 : 40, dt);
+    _eye.set(P.pos.x + Math.sin(P.facing) * 0.09, cam.fpY, P.pos.z + Math.cos(P.facing) * 0.09);
+    if (chat.open && chat.npc) {
+      const n = chat.npc, hy = n.pos.y + 1.55 * (n.look.h || 1);
+      cam.yaw += angDiff(cam.yaw, Math.atan2(n.pos.x - _eye.x, n.pos.z - _eye.z)) * Math.min(1, 4 * dt);
+      cam.fpPitch = damp(cam.fpPitch, Math.atan2(_eye.y - hy, Math.hypot(n.pos.x - _eye.x, n.pos.z - _eye.z)), 4, dt);
+    }
+    yaw = cam.yaw; pitch = cam.fpPitch;
+    if (cam.shake > 0) { _eye.x += (Math.random() - 0.5) * cam.shake * 0.15; _eye.y += (Math.random() - 0.5) * cam.shake * 0.15; cam.shake = Math.max(0, cam.shake - dt * 1.6); }
+  }
+  const cp = Math.cos(pitch);
+  _look.set(_eye.x + Math.sin(yaw) * cp, _eye.y - Math.sin(pitch), _eye.z + Math.cos(yaw) * cp);
+  camera.position.copy(_eye); camera.lookAt(_look);
+  cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z);
+  if (camera.view && camera.view.enabled) camera.clearViewOffset();
+  const fovT = (inCar ? 66 + clamp(Math.abs(P.car.vf) * 0.25, 0, 12) : 72);
+  cam.fov = damp(cam.fov, fovT, 3, dt); if (Math.abs(camera.fov - cam.fov) > 0.05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
+}
 function updateCamera(dt) {
   const P = player;
+  const fpNow = fpWanted();
+  if (fpNow && !cam.fpOn) { cam.fpPitch = 0.08; cam.fpYaw = 0; cam.fpY = P.pos.y + 1.6; }
+  if (!fpNow && cam.fpOn && (P.state === 'car' || P.state === 'passenger')) cam.yaw = P.car.h + cam.fpYaw;
+  cam.fpOn = fpNow; P.H.hideHead = fpNow; P.H.hideTrunk = fpNow && (P.state === 'car' || P.state === 'passenger');
+  if (fpNow) { updateCameraFP(dt); return; }
   const outdoor = P.where === 'out';
   let tx, ty, tz, desired;
   if (P.state === 'car' || P.state === 'passenger') {
@@ -3479,6 +4987,7 @@ function buildMapBase() {
   for (const f of world.foot) { g.fillStyle = f[4]; g.fillRect(X(f[0]), X(f[1]), (f[2] - f[0]) * s, (f[3] - f[1]) * s); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5; g.strokeRect(X(f[0]), X(f[1]), (f[2] - f[0]) * s, (f[3] - f[1]) * s); }
   { const x = X(roadX(1) - RH - 18), z = X(0); g.fillStyle = '#c2561a'; g.beginPath(); g.arc(x, z, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 18px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ت', x, z + 1); }
   for (const f of world.fountains) { g.fillStyle = '#5aa6d6'; g.beginPath(); g.arc(X(f.x), X(f.z), 3.4 * s, 0, 7); g.fill(); }
+  for (const [pl, cx, cz] of world.newPlaces) { const [col, ch] = { mall: ['#8a2a6a', 'پ'], gas: ['#1f7a4a', 'ب'], mosque: ['#1e5f9a', 'م'], school: ['#2a5aa8', 'د'] }[pl]; const x = X(cx), z = X(cz); g.fillStyle = col; g.beginPath(); g.arc(x, z, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 18px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, z + 1); }
   mapBase = c;
 }
 function drawMap() {
@@ -3583,13 +5092,18 @@ function updateWorld(dt) {
   const people = player.state !== 'foot' ? (player.where === 'out' ? npcs : interior.npcs) : player.where === 'out' ? [player, ...npcs] : [player, ...interior.npcs];
   separatePeople(people.filter(p => p.mode !== 'sit' && p.mode !== 'inside' && p.mode !== 'valet'));
   updateSignals(); updateFountain(dt); FX.update(dt); updateBirds(dt); updatePigeons(dt);
+  updateMall(dt); updateSwings(dt); updateBalls(dt); updateFloaters(dt); updateEnergy(dt); updateSkate(dt);
+  if (frameNo % 8 === 0) updateWalletHUD();
   // doors swing open for the player and for people walking in or out
   if (player.where === 'out') for (const d of world.doors) {
     if (d.npcOpen > 0) d.npcOpen -= dt;
-    const dx = player.pos.x - d.x, dz = player.pos.z - d.z; if ((Math.abs(dx) > 30 || Math.abs(dz) > 30) && !(d.npcOpen > 0)) { if (d.open > 0.001) { d.open = damp(d.open, 0, 3, dt); d.inner.rotation.y = d.open * 1.25; } continue; }
-    const dn = dx * d.nx + dz * d.nz, lat = Math.abs(dx * -d.nz + dz * d.nx), want = ((player.state === 'foot' && dn > 0 && dn < 2.0 && lat < 1.2) || d.npcOpen > 0) ? 0.75 : 0;
-    d.open = damp(d.open, want, want ? 4 : 2, dt); d.inner.rotation.y = d.open * 1.25;
+    if (d.dead) continue;
+    const dx = player.pos.x - d.x, dz = player.pos.z - d.z; if ((Math.abs(dx) > 30 || Math.abs(dz) > 30) && !(d.npcOpen > 0)) { d.want = 0; if (d.open > 0.001) { d.open = damp(d.open, 0, 3, dt); d.inner.rotation.y = -d.open * 1.4; } continue; }
+    if (d.want) { const far = Math.hypot(dx, dz) > 4.5 || player.state !== 'foot'; d.closeT = far ? d.closeT + dt : 0; if (d.closeT > 3.5) { d.want = 0; if (Math.hypot(dx, dz) < 25) Audio.door(); } }
+    const want = d.want ? 1 : d.npcOpen > 0 ? 0.8 : 0;
+    d.open = damp(d.open, want, want ? 3.2 : 2.2, dt); d.inner.rotation.y = -d.open * 1.4;
   }
+  if (portalMat) { portalMat.uniforms.uCam.value.copy(camera.position); portalMat.uniforms.uLamp.value = 0.55 + night * 0.65; portalMat.uniforms.uDay.value = dayF; }
   for (const w of waterMeshes) w.material.roughness = 0.04 + Math.sin(simTime * 3) * 0.02;
   if (wpMesh && wpMesh.visible) { wpMesh.userData.gem.rotation.y += dt * 2; wpMesh.userData.gem.position.y = 3.2 + Math.sin(simTime * 2.5) * 0.3; }
 }
@@ -3609,11 +5123,12 @@ function syncVisuals(dt) {
     const dp = c.driverP; if (dp && !dp.isPlayer) { dp.H.visible = c.group.visible && player.where === 'out'; if (dp.H.visible && Math.hypot(c.x - camPos.x, c.z - camPos.z) < 70) poseHuman(dp, dt, simTime); }
   }
   for (const n of npcs) showPeople(n, true);
+  for (const n of mall.npcs) if (n.H.visible) showPeople(n, true); for (const n of mall.staff) if (n.H.visible) showPeople(n, true);
   if (player.where === 'in') for (const n of interior.npcs) showPeople(n, false);
   const P = player, seated = P.inCar || (P.state === 'exiting' && P.exitT < 0.35);
   if (!seated) { P.H.root.position.copy(P.pos); P.H.root.rotation.set(0, P.facing, 0); }
   P.H.visible = true; poseHuman(P, dt, simTime);
-  outdoorPool.update(); interiorPool.update(); updateBlobs();
+  outdoorPool.update(); interiorPool.update(); updateBlobs(); updateAttachments(); updateCockpit();
   // car glow sprites
   const gp = carGlow.geometry.attributes.position.array, gc = carGlow.geometry.attributes.color.array; let k = 0;
   for (const c of cars) {
@@ -3640,10 +5155,12 @@ function updateHUD(dt) {
   const P = player;
   const inCar = P.state === 'car' || P.state === 'passenger';
   $('speedo').hidden = !inCar;
-  if (inCar) { const kmh = Math.round(Math.abs(P.car.vf) * 3.6); $('spd').textContent = fa(kmh); $('gear').textContent = P.car.vf < -0.5 ? 'R' : P.car.inHand ? 'P' : 'D'; $('health').style.width = P.car.health + '%'; $('health').style.background = P.car.health > 50 ? '#5fd3c3' : P.car.health > 20 ? '#ffb340' : '#ff5b4e'; }
+  if (inCar) { $('fuel').style.width = (P.car.fuel ?? 100) + '%'; $('fuel').style.background = P.car.fuel > 20 ? 'var(--amber)' : 'var(--red)';
+    const kmh = Math.round(Math.abs(P.car.vf) * 3.6); $('spd').textContent = fa(kmh); $('gear').textContent = P.car.vf < -0.5 ? 'R' : P.car.inHand ? 'P' : 'D'; $('health').style.width = P.car.health + '%'; $('health').style.background = P.car.health > 50 ? '#5fd3c3' : P.car.health > 20 ? '#ffb340' : '#ff5b4e'; }
   syncTouchUI();
   let label;
   if (P.where === 'in') label = interior.door.name;
+  else if (!inCar && inMall(P.pos.x, P.pos.z)) label = P.inShop ? P.inShop.name : 'پاساژ آزادی · ' + (mallFloorAt(P.pos.y) ? 'طبقهٔ اول' : 'همکف');
   else label = streetAt(inCar ? P.car.x : P.pos.x, inCar ? P.car.z : P.pos.z);
   if ($('street').textContent !== label) $('street').textContent = label;
   const wp = $('wp');
@@ -3698,21 +5215,23 @@ async function boot(data) {
   try { await Promise.race([Promise.all([document.fonts.load('40px Lalezar'), document.fonts.load('20px Vazirmatn')]), new Promise(r => setTimeout(r, 2500))]); } catch (_) { }
   await new Promise(r => setTimeout(r, 30));
   makeTextures(); makeMaterials(); initGeo(); initHumanGeo(); initCarMats();
-  outdoorPool = new HumanPool(scene, LOW ? 40 : 64); interiorPool = new HumanPool(interiorScene, 4);
+  outdoorPool = new HumanPool(scene, LOW ? 76 : 110); interiorPool = new HumanPool(interiorScene, 4);
   buildCity(); buildMapBase();
   FX.init(); Skids.init(); buildRain(); buildBirds(); buildBlobs();
   setupPlayer();
   const sv = loadSave();
   if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
   if (!restored) { spawnTraffic(); spawnPeople(); }
-  spawnGarageStaff(); buildPigeons();
+  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids();
+  if (restored) rebuildPlayerLook();
+  setView(settings.view === 'first'); updateWalletHUD();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
   if (data && typeof data.tod === 'number') tod = data.tod;
   applyWeatherSetting(); applyQuality(); bakeEnvironments();
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, world, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 $('play').addEventListener('click', () => {
@@ -3722,7 +5241,7 @@ $('play').addEventListener('click', () => {
   if (!restored) cam.yaw = Math.PI * 0.82; cam.target.set(player.pos.x, player.pos.y + 1.45, player.pos.z);
   if (!restored) { tod = 17.2; banner('شهر آزاد', 'به هر کسی نزدیک شو و با او حرف بزن · ماشین قرمز روبه‌رویت است'); }
   else { cam.target.set(player.pos.x, player.pos.y + 1.45, player.pos.z); banner('خوش برگشتی!', 'بازی از همان جایی که بودی ادامه دارد'); }
-  envTod = -99; setTimeout(saveGame, 1500);
+  envTod = -99; setTimeout(saveGame, 1500); if (store.worn.ears) Audio.music(true);
 });
 window.claude?.hot?.snapshot?.(() => ({ tod }));
 $(IS_TOUCH ? 'ctrl-keys' : 'ctrl-touch').hidden = true;

@@ -141,6 +141,26 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .gm-card p{margin:0;font:600 14px/1.6 var(--body);color:var(--dim)}
 .gm-btn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--paper);border-radius:14px;padding:12px;font:700 15px var(--body);cursor:pointer;text-align:center}
 .gm-btn.primary{background:var(--amber);color:var(--amber-ink);border:0}
+/* wallet, energy, fuel, bag */
+.ebar{display:inline-block;width:46px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);vertical-align:middle;overflow:hidden;margin-inline-start:4px}
+#energy-bar{display:block;height:100%;width:100%;background:var(--teal)}
+#fuel-row{display:flex;align-items:center;gap:6px;margin-top:4px;font:600 10px var(--body);color:var(--dim)}
+#fuel-wrap{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden}
+#fuel{height:100%;width:100%;background:var(--amber)}
+#bag{position:fixed;inset:0;z-index:24;display:grid;place-items:center;background:rgba(5,7,11,.55);padding:16px}
+.bag-card{max-height:min(86vh,640px);overflow-y:auto;width:min(460px,100%)}
+#bag-list{display:flex;flex-direction:column;gap:8px}
+.bag-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.bag-sw{width:26px;height:26px;border-radius:8px;flex:none;border:1px solid rgba(255,255,255,.3)}
+.bag-nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.bag-nm b{font:700 14px var(--body)}
+.bag-nm small{font:600 12px var(--body);color:var(--dim)}
+.bag-b{padding:8px 12px;font-size:13px;flex:none}
+.bag-empty{text-align:center}
+#bag-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+#bag-photos img{width:100%;border-radius:8px;display:block}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:19}
+.chip.on{background:rgba(255,179,64,.85);color:var(--amber-ink)}
 /* settings */
 #settings{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(5,7,11,.6);padding:16px}
 #settings form{width:min(440px,100%);background:#121824;border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -165,11 +185,16 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   <button id="btn-sound" class="chip" type="button">صدا: روشن</button>
   <button id="btn-weather" class="chip" type="button">هوا: خودکار</button>
   <button id="btn-garage" class="chip" type="button" style="color:var(--amber)">تعمیرگاه</button>
+  <button id="btn-view" class="chip" type="button" title="دید اول شخص / سوم شخص (V)">دید: سوم شخص</button>
+  <button id="btn-bag" class="chip" type="button" title="کیف (I)">کیف</button>
+  <span id="money" class="chip" style="color:var(--teal)">—</span>
+  <span id="energy-chip" class="chip" title="انرژی">انرژی <span class="ebar"><span id="energy-bar"></span></span></span>
+  <span id="cart" class="chip" hidden style="color:var(--amber)"></span>
   <button id="btn-settings" class="chip" type="button">تنظیمات</button>
   <span id="wp" class="chip" hidden style="color:var(--amber)"></span>
   <span id="saved" class="chip" hidden style="color:var(--teal);transition:opacity .4s">ذخیره شد</span>
 </div>
-<div id="speedo" class="hud" hidden><span id="gear">D</span><span id="spd">۰</span><span id="spdunit">کیلومتر بر ساعت</span><div id="health-wrap"><div id="health"></div></div></div>
+<div id="speedo" class="hud" hidden><span id="gear">D</span><span id="spd">۰</span><span id="spdunit">کیلومتر بر ساعت</span><div id="health-wrap"><div id="health"></div></div><div id="fuel-row"><span>بنزین</span><div id="fuel-wrap"><div id="fuel"></div></div></div></div>
 <div id="prompt" class="hud" hidden></div>
 <div id="banner" class="hud"><div class="t" id="banner-t"></div><div class="s" id="banner-s"></div></div>
 <div id="bubbles"></div>
@@ -179,6 +204,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 <div id="pad" hidden>
   <button id="b-run" class="tbtn" type="button">دویدن</button>
   <button id="b-jump" class="tbtn" type="button">پرش</button>
+  <button id="b-use" class="tbtn" type="button" hidden style="grid-column:span 2;width:auto;border-radius:18px;padding:0 14px;height:46px">استفاده</button>
   <button id="b-act" class="tbtn big" type="button" style="grid-column:span 2">سوار شو</button>
 </div>
 <div id="drive-l" class="drive" hidden>
@@ -235,6 +261,18 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
     <button id="gm-close" type="button" class="gm-btn">بستن</button>
   </div>
 </div>
+<div id="bag" hidden>
+  <div class="gm-card bag-card">
+    <h2>کیف من</h2>
+    <p>موجودی کارت: <b id="bag-money"></b> · انرژی: <b id="bag-energy"></b></p>
+    <div id="bag-list"></div>
+    <button id="bag-cap" type="button" class="gm-btn" hidden>کلاه خودم رو بردار</button>
+    <p id="bag-photos-h" hidden>عکس‌هایی که با گوشی گرفتی (برای ذخیره بزن):</p>
+    <div id="bag-photos"></div>
+    <button id="bag-close" type="button" class="gm-btn primary">بستن</button>
+  </div>
+</div>
+<div id="flash"></div>
 <div id="fade"></div>
 
 <div id="start">
@@ -248,12 +286,14 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
         <li>کشیدن انگشت سمت راست: چرخاندن دوربین</li>
         <li>دکمه‌ها: پرش، دویدن، سوار شو، حرف بزن</li>
         <li>در ماشین: گاز و ترمز گوشهٔ چپ، چپ و راست گوشهٔ راست</li>
+        <li>بالای صفحه: «دید» برای اول شخص، «کیف» برای خریدهایت</li>
       </ul></div>
       <div class="ctrl" id="ctrl-keys"><h2>کیبورد و موس</h2><ul>
         <li><kbd>W A S D</kbd> حرکت و رانندگی</li>
         <li><kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش / ترمز دستی</li>
         <li><kbd>E</kbd> سوار شدن، ورود، حرف زدن · <kbd>H</kbd> بوق</li>
         <li>کشیدن موس: دوربین · <kbd>T</kbd> زمان روز</li>
+        <li><kbd>V</kbd> دید اول شخص · <kbd>I</kbd> کیف · <kbd>Q</kbd> استفاده از چیزی که دستته</li>
       </ul></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button id="play" type="button" disabled>ورود به شهر</button><button id="newgame" type="button" class="chip" hidden style="padding:12px 18px">بازی جدید</button></div>
