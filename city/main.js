@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { makePersona, replyOffline, replyAI, QUICK, NPC_CHAT, norm } from './dialog.js';
 
 /* ============================================================
@@ -342,7 +343,7 @@ class Colliders {
    Build helpers (local frames rotated in 90° steps)
    ============================================================ */
 let BT, CL;           // current batch and collider set
-const world = { col: new Colliders(), benches: [], doors: [], signMats: [], foot: [], gates: [], glow: [], pools: [], parks: [], parking: [], fountains: [], portals: [], uses: [], newPlaces: [] };
+const world = { col: new Colliders(), benches: [], doors: [], signMats: [], foot: [], gates: [], glow: [], pools: [], parks: [], parking: [], fountains: [], portals: [], uses: [], newPlaces: [], lamps: [], busStops: [] };
 function mkFrame(x, z, a) { return { x, z, a, c: Math.cos(a), s: Math.sin(a) }; }
 function fw(F, lx, lz) { return [F.x + lx * F.c + lz * F.s, F.z - lx * F.s + lz * F.c]; }
 function fBox(F, mat, lx, ly, lz, w, h, d, color, o = {}) {
@@ -423,7 +424,7 @@ function streetLamp(x, z, dx, dz) {
   fBox(F, 'metal', 0, CURB + 6.4, 1.7, 0.36, 0.16, 0.7, 0x2b2f35);
   fBox(F, 'emissive', 0, CURB + 6.31, 1.7, 0.28, 0.04, 0.56, 0xffffff);
   const [hx, hz] = fw(F, 0, 1.7);
-  world.glow.push([hx, CURB + 6.15, hz, 1.0, 0.86, 0.62, 3.2]); world.pools.push([hx, hz, 5.5]);
+  world.glow.push([hx, CURB + 6.15, hz, 1.0, 0.86, 0.62, 3.2]); world.pools.push([hx, hz, 5.5]); world.lamps.push({ x, z });
   CL.circle(x, z, 0.18, 0, 6.6);
 }
 function parkLamp(x, z) {
@@ -438,7 +439,7 @@ function streetSignMat(name) {
   const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return stdMat({ map: t, roughness: 0.45, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.06 });
 }
 function busStop(x, z, a) {
-  const F = mkFrame(x, z, a);
+  const F = mkFrame(x, z, a); world.busStops.push({ x, z, a });
   fBox(F, 'roof', 0, CURB + 2.55, 0.1, 3.4, 0.1, 1.7, 0x2f3a46);
   fBox(F, 'glass', 0, CURB + 1.3, -0.62, 3.2, 1.9, 0.03, 0xa9c0cf, { col: true, minY: 0, maxY: 2.4 });
   for (const sx of [-1.6, 1.6]) { fBox(F, 'glass', sx, CURB + 1.3, -0.1, 0.03, 1.9, 1.05, 0xa9c0cf, { col: true, minY: 0, maxY: 2.4 }); fBox(F, 'metal', sx, CURB + 1.27, -0.62, 0.08, 2.55, 0.08, 0x30343a); fBox(F, 'metal', sx, CURB + 1.27, 0.85, 0.08, 2.55, 0.08, 0x30343a, { col: true, minY: 0, maxY: 2.6 }); }
@@ -989,13 +990,14 @@ function buildCity() {
   }
   // the new places use their own random stream so the rest of the city stays exactly as it was
   { const keep = R; R = makeRng(4242);
-    for (const [pl, cx, cz] of world.newPlaces) ({ mall: buildMall, gas: buildGasStation, mosque: buildMosque, school: buildSchool })[pl](cx, cz);
+    for (const [pl, cx, cz] of world.newPlaces) ({ mall: buildMall, gas: buildGasStation, mosque: buildMosque, school: buildSchool, hospital: buildHospital })[pl](cx, cz);
     R = keep; }
   BT.build(scene);
   buildGrass();
-  buildGlow(); buildPools(); buildMountains(); buildFountainFX(); buildPortals();
+  buildGlow(); buildPools(); buildMountains(); buildFountainFX(); buildPortals(); buildCables();
+  world.parking = world.parking.filter(p => !world.busStops.some(s => Math.hypot(s.x - p.x, s.z - p.z) < 18)); // keep bus bays free
 }
-const NEW_PLACES = { '3,2': 'mall', '4,2': 'gas', '2,4': 'mosque', '2,0': 'school' };
+const NEW_PLACES = { '3,2': 'mall', '4,2': 'gas', '2,4': 'mosque', '2,0': 'school', '4,0': 'hospital' };
 const CLEAR = [[119, -17.5, 127, -3.2, 152], [119, 3.2, 127, 17.5, 152]]; // petrol station driveways
 function maybeDry(x, z, fn) { if (CLEAR.some(c => x > c[0] && x < c[2] && z > c[1] && z < c[3])) dryRun(fn); else fn(); }
 // run a builder without keeping anything it makes (but its random draws and door slots stay)
@@ -1361,7 +1363,7 @@ function updateBlobs() {
   if (!blobSh) return; let k = 0; const cp = camera.position, max = 160;
   blobSh.material.opacity = qLevel === 0 ? 0.62 : 0.42;
   for (const c of cars) { if (k >= max || !c.group.visible || c.carriedBy) continue; if (Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) > 120) continue; _blq.setFromAxisAngle(_bly, c.h); _blm.compose(_blp.set(c.x, c.y + 0.03, c.z), _blq, _bls.set(c.T.wid * 1.25, 1, c.T.len * 1.1)); blobSh.setMatrixAt(k++, _blm); }
-  for (const n of npcs.concat(mall.npcs, mall.staff)) { if (k >= max || !n.H.visible || n.inCar) continue; if (Math.abs(n.pos.x - cp.x) + Math.abs(n.pos.z - cp.z) > 60) continue; const s = 0.85 * (n.look.h || 1) * (1 - n.anim.knock * 0) + n.anim.knock * 0.9; _blm.compose(_blp.set(n.pos.x, n.pos.y + 0.02, n.pos.z), _blq.identity(), _bls.set(s, 1, s + n.anim.knock * 1.2)); blobSh.setMatrixAt(k++, _blm); }
+  for (const n of allPeople()) { if (k >= max || !n.H.visible || n.inCar) continue; if (Math.abs(n.pos.x - cp.x) + Math.abs(n.pos.z - cp.z) > 60) continue; const s = 0.85 * (n.look.h || 1) * (1 - n.anim.knock * 0) + n.anim.knock * 0.9; _blm.compose(_blp.set(n.pos.x, n.pos.y + 0.02, n.pos.z), _blq.identity(), _bls.set(s, 1, s + n.anim.knock * 1.2)); blobSh.setMatrixAt(k++, _blm); }
   if (player.where === 'out' && !player.inCar) { _blm.compose(_blp.set(player.pos.x, groundH(player.pos.x, player.pos.z) + 0.02, player.pos.z), _blq.identity(), _bls.set(0.85, 1, 0.85)); blobSh.setMatrixAt(k++, _blm); }
   blobSh.count = k; blobSh.instanceMatrix.needsUpdate = true;
 }
@@ -1837,6 +1839,7 @@ function carGeos(type) {
   carGeoCache[type] = out; return out;
 }
 const _bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+function fixNormals(g) { const n = g.attributes.normal.array; for (let i = 0; i < n.length; i += 3) { const l = n[i] * n[i] + n[i + 1] * n[i + 1] + n[i + 2] * n[i + 2]; if (!(l > 1e-8)) { n[i] = 0; n[i + 1] = 1; n[i + 2] = 0; } } g.attributes.normal.needsUpdate = true; }
 const _lv = new V3();
 class Car {
   constructor(type, color, x, z, h, opts = {}) {
@@ -1882,15 +1885,15 @@ class Car {
     if (p) { p.inCar = this; if (!p.pool) outdoorPool.attach(p); p.anim.special = 'drive'; p.anim.sw = 1; p.H.visible = true; }
   }
   seatPose(p, passenger) {
-    const t = this.T, s = Math.sin(this.h), c = Math.cos(this.h), lx = (passenger ? -1 : 1) * (t.wid / 2 - 0.5), lz = (t.cab[0] + t.cab[1]) / 2 - 0.08;
-    const by = this.group.position.y + this.body.position.y + t.roofY - 0.1 - 0.965 * (p.look.h || 1);
+    const t = this.T, s = Math.sin(this.h), c = Math.cos(this.h), onBus = passenger && this.service === 'bus', lx = onBus ? -0.75 : (passenger ? -1 : 1) * (t.wid / 2 - 0.5), lz = onBus ? -1.5 : (t.cab[0] + t.cab[1]) / 2 - 0.08;
+    const by = this.group.position.y + this.body.position.y + (onBus ? 0.87 : t.roofY - 0.1 - 0.965 * (p.look.h || 1));
     p.H.root.position.set(this.x + lx * c + lz * s, by, this.z - lx * s + lz * c);
     p.H.root.rotation.set(this.pitch, this.h, this.roll, 'YXZ');
     p.steer = this.steer * 2;
   }
   topAt(lf) { const t = this.T; return (lf >= t.cab[0] - 0.15 && lf <= t.cab[1] + 0.1) ? t.roofY + 0.06 : t.beltY - (lf > 0 ? 0.12 : 0); }
   damage(px, pz, py, nx, nz, s) {
-    if (s < 3 || this.locked) return;
+    if (s < 3 || this.locked || this.service) return;
     this.health = Math.max(0, this.health - s * 1.6);
     const c = Math.cos(this.h), sn = Math.sin(this.h);
     const dx = px - this.x, dz = pz - this.z, lx = dx * c - dz * sn, lz = dx * sn + dz * c; // world -> local
@@ -1906,7 +1909,7 @@ class Car {
       if (d > R2) continue; const f = (1 - d / R2) ** 2 * amt * (0.7 + 0.6 * Math.sin(vx * 37 + vz * 23));
       pos.setXYZ(i, vx + lnx * f, vy - f * 0.25, vz + lnz * f);
     }
-    pos.needsUpdate = true; g.computeVertexNormals();
+    pos.needsUpdate = true; g.computeVertexNormals(); fixNormals(g);
   }
   repairAll() {
     this.health = 100; this.dents = 0; this.dentLog = []; this.fuel = Math.max(this.fuel, 60);
@@ -1972,6 +1975,7 @@ class Car {
     if (this.driverP) this.seatPose(this.driverP);
     if (this.passengerP) this.seatPose(this.passengerP, true);
     if (this.isTow) towVisuals(this, dt || 0);
+    if (this.service) serviceVisuals(this, dt || 0);
   }
   corners() { const t = this.T, o = this._co || (this._co = {}); o.fx = Math.sin(this.h); o.fz = Math.cos(this.h); o.rx = -o.fz; o.rz = o.fx; o.hl = t.len / 2; o.hw = t.wid / 2; return o; }
 }
@@ -2068,7 +2072,7 @@ class CarAI {
         if (v < target) { target = v; blocked = true; if (o.player && gap < 5) this.blockT += dt; }
       }
     }
-    if (blocked && c.vf < 0.5 && !byLight) { this.waitT += dt; if (this.waitT > 7) { this.ignore = 1.6; this.waitT = 0; } } else this.waitT = 0;
+    if (blocked && c.vf < 0.5 && !byLight) { this.waitT += dt; if (this.waitT > (c.sirenOn ? 1.2 : c.service === 'bus' ? 4 : 7)) { this.ignore = 1.6; this.waitT = 0; } } else this.waitT = 0;
     if (this.blockT > 2.2) { this.blockT = -5; Audio.honk(c.x, c.z); }
     if (!blocked) this.blockT = Math.max(0, this.blockT - dt);
     if (this.rev > 0) { this.rev -= dt; c.inThrottle = -0.7; c.aiSteer = -c.aiSteer; c.inHand = false; return; }
@@ -2255,6 +2259,7 @@ function separatePeople(list) {
   }
 }
 function knockDown(p, car, imp) {
+  if (p.npc && imp > 7) injure(p, imp);
   p.mode = 'down'; p.knockT = 0; p.onGround = false; p.standCar = null;
   p.vel.set(car.vx * 0.85, 2.5 + imp * 0.22, car.vz * 0.85);
   p.facing = Math.atan2(-car.vx, -car.vz);
@@ -2457,7 +2462,16 @@ function updateNPC(n, dt, outdoor, col) {
       if (n.onGround && pl.pos.y - n.pos.y > 0.5 && d < 2) { n.vel.y = 6.2; n.onGround = false; }
       break;
     }
-    case 'down': n.knockT += dt; if (n.onGround) { n.vel.x *= Math.exp(-5 * dt); n.vel.z *= Math.exp(-5 * dt); } if (n.knockT > 3.2) { n.mode = 'getup'; n.timer = 1.3; } break;
+    case 'down': n.knockT += dt; if (n.onGround) { n.vel.x *= Math.exp(-5 * dt); n.vel.z *= Math.exp(-5 * dt); }
+      if (n.injured) { n.knockT = Math.min(n.knockT, 3); if (Math.random() < dt * 0.12 && pd < 25) say(n, mpick(['آخ...', 'کمک...', 'پام خیلی درد می‌کنه...', 'آمبولانس...']), 2.4); }
+      if (n.knockT > 3.2) { n.mode = 'getup'; n.timer = 1.3; } break;
+    case 'task': {
+      const T = n.task; if (!T || (T.until && T.until())) { n.task = null; n.anim.special = null; finishMode(n); break; }
+      dx = T.x - n.pos.x; dz = T.z - n.pos.z; const d = Math.hypot(dx, dz);
+      if (d < 0.5) { desired = 0; T.done = true; if (T.look) faceTo(T.look.pos.x, T.look.pos.z, 5); if (T.anim) { n.anim.special = T.anim; n.specialT = 1; } if (T.idle) n.anim.idleKind = T.idle; }
+      else { desired = T.run ? 3.4 : 1.4; T.done = false; if (n.anim.special === 'repair') n.anim.special = null; }
+      break;
+    }
     case 'getup': if (n.timer < 0) { n.mode = 'flee'; n.timer = 1.8; const a = Math.random() * 6.28; n.fx = Math.sin(a); n.fz = Math.cos(a); n.fleeSpd = 4; } break;
     case 'wander': {
       if (!n.tgt || n.timer < 0) { n.tgt = mpick(n.spots); n.timer = 6 + Math.random() * 6; }
@@ -2679,7 +2693,7 @@ function buildInterior(door) {
   const hl = new THREE.HemisphereLight(0xfff4e6, 0x6b5a48, 0.9); interiorScene.add(hl);
   interior.lights = []; interior.hemi = hl;
   for (const [x, y, z, c, i] of lights) { const pl = new THREE.PointLight(c, i, 14, 2); pl.position.set(x, y, z); pl.userData.base = i; interiorScene.add(pl); interior.lights.push(pl); }
-  const dl = new THREE.DirectionalLight(0xfff0dd, 1.3); dl.position.set(2.5, 9, 3); dl.castShadow = qLevel > 0; dl.shadow.mapSize.set(1024, 1024);
+  const dl = new THREE.DirectionalLight(0xfff0dd, 1.3); dl.position.set(2.5, 9, 3); dl.castShadow = true; dl.shadow.mapSize.set(1024, 1024);
   const sc = dl.shadow.camera; sc.left = -W / 2 - 1; sc.right = W / 2 + 1; sc.top = D / 2 + 1; sc.bottom = -D / 2 - 1; sc.near = 1; sc.far = 20; dl.shadow.bias = -0.0006; dl.shadow.normalBias = 0.02;
   interiorScene.add(dl, dl.target);
   interior.col = CL; interior.W = W; interior.D = D; interior.door = door;
@@ -2935,7 +2949,7 @@ function heldPose(id) { // how each thing sits in the right hand
   if (m === 'book') return [[0, -0.1, 0.06], [0.2, 0, 0]];
   return [[0, -0.09, 0.04], [Math.PI / 2 - 0.3, 0, 0]];
 }
-let flashLight = null;
+let flashLight = null, flashIn = null;
 function updateAttachments() {
   const P = player, H = P.H, sc = P.where === 'in' ? interiorScene : scene;
   const hideAll = P.state === 'car' || P.state === 'passenger' || P.state === 'entering' || P.state === 'exiting';
@@ -2957,13 +2971,13 @@ function updateAttachments() {
     const [b, off, rot] = ATT[slot]; placeAttach(a.obj, H, b, off, rot);
   }
   // flashlight beam
-  if (hid === 'flashlight' && P.flashOn) {
-    if (!flashLight) { flashLight = new THREE.SpotLight(0xfff4d8, 0, 32, 0.42, 0.45, 1.4); flashLight.target = new THREE.Object3D(); }
-    if (flashLight.parent !== sc) { sc.add(flashLight, flashLight.target); }
-    flashLight.intensity = 60; _ap.setFromMatrixPosition(attach.held.matrix); flashLight.position.copy(_ap);
+  if (flashLight) { flashLight.intensity = 0; flashIn.intensity = 0; }
+  if (hid === 'flashlight' && P.flashOn && flashLight) {
+    const fl = P.where === 'in' ? flashIn : flashLight;
+    fl.intensity = 60; _ap.setFromMatrixPosition(attach.held.matrix); fl.position.copy(_ap);
     const f = cam.fpOn ? cam.yaw : P.facing, pt = cam.fpOn ? cam.fpPitch : 0.25;
-    flashLight.target.position.set(_ap.x + Math.sin(f) * Math.cos(pt) * 5, _ap.y - Math.sin(pt) * 5, _ap.z + Math.cos(f) * Math.cos(pt) * 5); flashLight.target.updateMatrixWorld();
-  } else if (flashLight) flashLight.intensity = 0;
+    fl.target.position.set(_ap.x + Math.sin(f) * Math.cos(pt) * 5, _ap.y - Math.sin(pt) * 5, _ap.z + Math.cos(f) * Math.cos(pt) * 5); fl.target.updateMatrixWorld();
+  }
 }
 
 /* ---------- using things ---------- */
@@ -3604,7 +3618,8 @@ function updateMall(dt) {
   const near = Math.abs(camera.position.x - mall.cx) < 140 && Math.abs(camera.position.z) < 140;
   updateMallDoors(dt); updateEscalators(dt);
   if (player.where === 'out' && player.state === 'foot') escalatorCarry(player, dt);
-  for (const n of [...mall.npcs, ...mall.staff]) {
+  for (let i = 0, L = mall.npcs.length + mall.staff.length; i < L; i++) {
+    const n = i < mall.npcs.length ? mall.npcs[i] : mall.staff[i - mall.npcs.length];
     n.H.visible = near && player.where === 'out';
     if (!near) continue;
     n.onEsc = escalatorCarry(n, dt);
@@ -3878,6 +3893,246 @@ function spawnSchoolKids() {
 }
 
 /* ============================================================
+   Hospital & ambulance, the city bus line, overhead cables
+   ============================================================ */
+CAR_TYPES.van = { len: 5.3, wid: 2.02, wb: 3.3, wr: 0.36, mass: 2600, engine: 8.2, vmax: 40, roofY: 2.42, beltY: 1.22, cab: [0.8, 1.8], headY: 0.85, tailY: 1.0, front: 2.66, rear: -2.66,
+  body: [[-2.6, 0.4], [2.55, 0.4], [2.66, 0.62], [2.62, 1.1], [2.15, 1.22], [1.12, 1.22], [1.1, 2.42], [-2.55, 2.44], [-2.64, 2.3], [-2.66, 0.6]],
+  cabin: [[1.12, 1.18], [2.14, 1.18], [1.22, 2.3], [1.12, 2.3]] };
+CAR_TYPES.bus = { len: 11.6, wid: 2.5, wb: 6.2, wr: 0.5, mass: 11000, engine: 4.6, vmax: 22, roofY: 3.05, beltY: 1.45, cab: [3.6, 4.9], headY: 0.75, tailY: 0.95, front: 5.82, rear: -5.82,
+  body: [[-5.75, 0.45], [5.7, 0.45], [5.82, 0.7], [5.82, 1.45], [-5.8, 1.45], [-5.82, 0.7]],
+  cabin: [[-5.62, 1.42], [5.76, 1.42], [5.72, 2.98], [-5.62, 2.98]] };
+const hospital = { medics: [], queue: [], job: null };
+let amb = null, bus = null;
+function textTex(lines, w, h, bg, fg) {
+  const c = mkCanvas(w, h), g = c.getContext('2d'); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); }
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl';
+  lines.forEach(([t, sz, y]) => { g.font = `${sz}px Lalezar, Vazirmatn, Tahoma`; g.fillText(t, w / 2, y, w - 20); });
+  const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+}
+function buildHospital(cx, cz) {
+  const y = CURB, n = cz < 0 ? 1 : -1, a = n > 0 ? 0 : Math.PI;
+  const W = (lx, lz) => [cx + lx, cz + lz * n];
+  BT.add('sidewalk', quadUp(cx - LOT, cz - LOT, cx + LOT, cz + LOT, y + 0.01, 4), 0, 0, 0, 0, 0xe4e0d8);
+  // main block: five floors, white panels and blue glass bands
+  const BW = 40, BD = 15, FH_ = 3.5, FL = 5, BH = FH_ * FL, BZ = -LOT + 2 + BD / 2;
+  const F = mkFrame(...W(0, BZ), a);
+  fBox(F, 'plaster', 0, y + BH / 2, 0, BW, BH, BD, 0xf4f4f2, { ts: 3, col: true, minY: 0 });
+  for (let f = 0; f < FL; f++) { fBox(F, 'trim', 0, y + f * FH_ + 0.1, 0, BW + 0.12, 0.2, BD + 0.12, 0xdadfe4); faceWindows(F, BW, BD, y + f * FH_ + 1.9, 1.7, 1.6, 2.6, (r, u) => f === 0 && Math.abs(u) < 5, { sill: false, frame: 0x2a5a8a, litP: 0.55 }); }
+  fBox(F, 'trim', 0, y + BH + 0.3, 0, BW + 0.4, 0.6, BD + 0.4, 0x2a6ab0);
+  makeSign(F, 0, y + BH - 1.6, BD / 2 + 0.12, 'بیمارستان شهر آزاد', 13, '#1f5fa8', '#ffffff');
+  // big cross sign on the corner
+  { const t = textTex([['H', 220, 128]], 256, 256, '#1f5fa8', '#ffffff'); adPanel(...(([x, z]) => [x, y + BH - 3, z])(fw(F, BW / 2 - 3, BD / 2 + 0.13)), F.a, 3.2, 3.2, t); }
+  // glass lobby with a working door (the hospital pharmacy)
+  fBox(F, 'glassLit', 0, y + 1.8, BD / 2 + 0.06, 9, 3.2, 0.06, 0x2d3a46);
+  fBox(F, 'trim', 0, y + 3.8, BD / 2 + 1.8, 12, 0.3, 3.6, 0xf4f4f2); for (const sx of [-5.6, 5.6]) fBox(F, 'trim', sx, y + 1.9, BD / 2 + 3.4, 0.4, 3.8, 0.4, 0xdadfe4, { col: true });
+  makeDoor(F, 0, y, BD / 2 + 0.12, 0x9aa3ab, 'shop', 'داروخانهٔ بیمارستان', 'داروخانه و پذیرش');
+  // emergency bay with its own canopy and red sign
+  const EX = BW / 2 - 5;
+  fBox(F, 'trim', EX, y + 4.2, BD / 2 + 4, 9, 0.35, 8, 0xf4f4f2); fBox(F, 'neon', EX, y + 3.95, BD / 2 + 7.95, 9, 0.12, 0.08, 0xd8303a);
+  for (const sx of [-4.2, 4.2]) fBox(F, 'trim', EX + sx, y + 2.1, BD / 2 + 7.6, 0.4, 4.2, 0.4, 0xdadfe4, { col: true });
+  makeSign(F, EX, y + 4.95, BD / 2 + 8.1, 'اورژانس', 4.5, '#c8202a', '#ffffff');
+  fBox(F, 'wood', EX, y + 1.3, BD / 2 + 0.08, 2.6, 2.6, 0.1, 0xd8dde2);
+  // rooftop helipad
+  { const [x, z] = fw(F, -8, 0); const hg = new THREE.CircleGeometry(5, 32); hg.rotateX(-Math.PI / 2); BT.add('paint', hg, x, y + BH + 0.62, z, 0, 0x3a3d42);
+    const ht = textTex([['H', 230, 128]], 256, 256, null, '#ffffff'); const hm = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: ht, transparent: true, roughness: 0.6 })); hm.rotation.x = -Math.PI / 2; hm.position.set(x, y + BH + 0.64, z); scene.add(hm); }
+  // garden, benches, parking lines
+  for (const lx of [-16, -10, 10, 16]) { const [x, z] = W(lx, LOT - 4); tree(x, z, 0.9); }
+  for (const lx of [-13, 13]) { const [x, z] = W(lx, LOT - 7); bench(x, z, a); }
+  for (let k = 0; k < 8; k++) { const [x, z] = W(-18 + k * 3, BZ + BD / 2 + 9); mark(x, z, 5, 0.12, 0, 0xf2f2ee); }
+  world.foot.push((() => { const [x0, z0] = W(-BW / 2, BZ - BD / 2), [x1, z1] = W(BW / 2, BZ + BD / 2); return [Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1), '#e8eef4']; })());
+  world.landmarks = world.landmarks || []; world.landmarks.push({ name: 'بیمارستان شهر آزاد (اورژانس)', keys: ['بیمارستان', 'اورژانس', 'دکتر', 'آمبولانس', 'درمانگاه', 'داروخانه'], x: cx, z: cz + n * (LOT + 2) });
+  // ambulance waits on the street in front of the emergency bay
+  const [ex] = fw(F, EX, 0), roadZ = cz + n * (B / 2);
+  hospital.park = { x: ex, z: roadZ - n * PARKOFF, h: n > 0 ? -Math.PI / 2 : Math.PI / 2 };
+  hospital.door = W(EX, BZ + BD / 2 + 1.5);
+  world.parking = world.parking.filter(p => Math.hypot(p.x - hospital.park.x, p.z - hospital.park.z) > 9);
+}
+function addSirenParts(car) {
+  const t = car.T, body = car.body;
+  const mk = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); body.add(m); return m; };
+  car.sirR = new THREE.MeshStandardMaterial({ color: 0x5a0a0a, emissive: 0xff1a1a, emissiveIntensity: 0 }); car.sirB = new THREE.MeshStandardMaterial({ color: 0x0a1a5a, emissive: 0x2a5aff, emissiveIntensity: 0 });
+  mk(new THREE.BoxGeometry(1.5, 0.08, 0.3), CarMats.black, 0, t.roofY + 0.08, 1.35);
+  mk(new THREE.BoxGeometry(0.62, 0.14, 0.26), car.sirR, -0.4, t.roofY + 0.19, 1.35); mk(new THREE.BoxGeometry(0.62, 0.14, 0.26), car.sirB, 0.4, t.roofY + 0.19, 1.35);
+  mk(new THREE.BoxGeometry(0.25, 0.12, 0.08), car.sirR, -0.7, t.roofY - 0.1, -2.67); mk(new THREE.BoxGeometry(0.25, 0.12, 0.08), car.sirB, 0.7, t.roofY - 0.1, -2.67);
+  const red = new THREE.MeshStandardMaterial({ color: 0xc8202a, roughness: 0.5 });
+  for (const sx of [-1, 1]) mk(new THREE.BoxGeometry(0.02, 0.22, 5.0), red, sx * (t.wid / 2 + 0.005), 1.0, -0.05);
+  const tex = textTex([['اورژانس ۱۱۵', 64, 64]], 512, 128, null, '#c8202a'); const sm = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  for (const sx of [-1, 1]) { const m = mk(new THREE.PlaneGeometry(2.4, 0.6), sm, sx * (t.wid / 2 + 0.02), 1.65, -0.7); m.rotation.y = sx * Math.PI / 2; }
+  const back = mk(new THREE.PlaneGeometry(1.4, 0.35), sm, 0, 1.75, -2.672); back.rotation.y = Math.PI;
+}
+function busParts(car) {
+  const t = car.T, body = car.body, W = t.wid;
+  const mk = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; body.add(m); return m; };
+  mk(new THREE.BoxGeometry(W - 0.05, 0.14, t.len - 0.15), car.paint, 0, t.roofY, 0);
+  mk(new THREE.BoxGeometry(1.6, 0.3, 2.2), CarMats.black, 0, t.roofY + 0.2, -3.2);
+  for (let z = -5.2; z < 5.3; z += 1.45) for (const sx of [-1, 1]) mk(new THREE.BoxGeometry(0.06, 1.56, 0.12), car.paint, sx * (W / 2 - 0.16), 2.2, z);
+  const sign = textTex([['خط ۱ · پاساژ آزادی ⇄ میدان شهر', 44, 40]], 512, 80, '#120d02', '#ffb340');
+  const sg = mk(new THREE.PlaneGeometry(2.0, 0.3), new THREE.MeshBasicMaterial({ map: sign, toneMapped: false }), 0, 2.78, 5.79);
+  const ad = textTex([['شرکت واحد اتوبوسرانی', 46, 50], ['شهر آزاد', 64, 110]], 512, 160, null, '#ffffff'); const am = new THREE.MeshBasicMaterial({ map: ad, transparent: true });
+  for (const sx of [-1, 1]) { const m = mk(new THREE.PlaneGeometry(3.6, 1.1), am, sx * (W / 2 + 0.01), 0.98, -1.5); m.rotation.y = sx * Math.PI / 2; }
+  // two sliding doors on the kerb side (right = -x)
+  car.busDoors = [3.9, -0.6].map(z => { const g = new THREE.Group(); g.position.set(-W / 2 - 0.01, 0, z); body.add(g); const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.35, 1.1), CarMats.glass); m.position.y = 1.65; g.add(m); const f = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.4, 0.06), CarMats.black); f.position.set(0, 1.65, 0.55); g.add(f); return g; });
+  car.doorPivot.visible = false; car.busOpen = 0;
+  // seats seen through the windows
+  const seat = new THREE.MeshStandardMaterial({ color: 0x2a4a8a, roughness: 0.9 });
+  for (let z = -5; z < 3; z += 0.9) for (const sx of [-0.75, 0.75]) mk(new THREE.BoxGeometry(0.8, 0.55, 0.12), seat, sx, 1.85, z);
+}
+function serviceVisuals(car, dt) {
+  if (car.sirR) { const on = car.sirenOn, ph = (simTime * 2.4) % 1; car.sirR.emissiveIntensity = on ? (ph < 0.5 ? 5 : 0.2) : 0; car.sirB.emissiveIntensity = on ? (ph >= 0.5 ? 5 : 0.2) : 0; }
+  if (car.busDoors) { car.busOpen = damp(car.busOpen, car.doorsOpen ? 1 : 0, 4, dt); for (const g of car.busDoors) g.position.x = -car.T.wid / 2 - 0.01 - car.busOpen * 0.08, g.children[0].position.z = car.busOpen * 0.55; }
+}
+const MEDIC_LOOK = () => Object.assign(randomLook(), { shirt: '#f2f4f6', pants: '#2a6a8a', coat: null, sleeves: true, umbrella: false, beard: Math.random() < 0.3, cap: null });
+function medicFor(k) {
+  let rs = store.residents['medic' + k];
+  if (!rs) { const look = MEDIC_LOOK(); if (look.style === 'scarf') look.scarf = '#2a6a8a'; const persona = makePersona(look, look.female); persona.job = 'امدادگر اورژانس'; persona.jobLine = 'امدادگر اورژانس ۱۱۵ هستم. جون آدم‌ها برامون مهمه.'; rs = store.residents['medic' + k] = { look, persona }; }
+  const p = makePerson(rs.look, false); p.persona = rs.persona; p.npc = true; p.medic = true; p.mode = 'stand'; return p;
+}
+function spawnServices() {
+  if (hospital.park) {
+    const P_ = hospital.park; amb = new Car('van', 0xf4f4f2, P_.x, P_.z, P_.h); amb.service = 'amb'; addSirenParts(amb); cars.push(amb);
+    amb.inHand = true; const d = medicFor('D'); d.medic = false; amb.setDriver(d); amb.hasDriver = true;
+  }
+  // bus line through every bus stop, in a loop around the centre
+  const stops = (world.busStops || []).slice().sort((a, b) => Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x));
+  if (stops.length >= 2) {
+    const s0 = stops[0], rt = roadTarget(s0.x, s0.z, -14);
+    bus = new Car('bus', 0x1f7a4a, rt.S.x, rt.S.z, Math.atan2(DIRS[rt.d][0], DIRS[rt.d][1]), { ai: { i: rt.A.i, j: rt.A.j, d: rt.d } });
+    bus.service = 'bus'; busParts(bus); bus.ai.cruise = 8.5; bus.route = stops; bus.stopIdx = 0; bus.phase = 'drive'; busDest(bus, s0); cars.push(bus);
+    const d = staffFor('busDriver', 'رانندهٔ اتوبوس', 'بیست ساله راننده اتوبوس خط یکم. همهٔ ایستگاه‌ها رو از حفظم!'); bus.setDriver(d); bus.owner = d;
+  }
+}
+/* ---------- accidents ---------- */
+function injure(p, imp) {
+  if (!p.npc || p.injured || p.mallStaff || p.medic || p.mech) return;
+  p.injured = true; p.injT = 0; hospital.queue.push(p);
+  logEvent(`در ${streetAt(p.pos.x, p.pos.z)} یه تصادف شد و ${p.persona.name} زخمی شد.`);
+  // people nearby rush over, some call 115
+  let k = 0;
+  for (const o of allPeople()) {
+    if (o === p || o.mode === 'down' || o.inCar || o.mallStaff || o.mech || o.medic || k >= 4) continue;
+    const d = Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z); if (d > 30 || Math.abs(o.pos.y - p.pos.y) > 2) continue;
+    const ang = Math.random() * 6.28; o.mode = 'task'; o.task = { x: p.pos.x + Math.cos(ang) * 2.6, z: p.pos.z + Math.sin(ang) * 2.6, run: d > 8, look: p, until: () => !p.injured, idle: k % 2 ? 'phone' : 'crossed' }; k++;
+    if (k === 1) setTimeout(() => say(o, mpick(['یکی زنگ بزنه اورژانس!', 'وای! حالت خوبه؟', 'تکون نخور، الان آمبولانس میاد!']), 3), 600);
+    if (k === 2) setTimeout(() => { say(o, 'الو، اورژانس؟ اینجا یه تصادف شده!', 3); }, 1800);
+  }
+}
+function updateAmbulance(dt) {
+  if (!amb) return;
+  serviceSiren();
+  const J = hospital.job;
+  if (!J) {
+    hospital.queue = hospital.queue.filter(p => p.injured && npcs.includes(p));
+    const p = hospital.queue[0]; if (!p) return; p.injT += dt; if (p.injT < 4) return;
+    hospital.job = { p, phase: 'go', t: 0 };
+    amb.ai = new CarAI(amb, 0, 0, 0); amb.ai.cruise = 15; amb.ai.setDest(p.pos.x, p.pos.z); amb.inHand = false; amb.sirenOn = true;
+    if (Math.hypot(player.pos.x - p.pos.x, player.pos.z - p.pos.z) < 60) banner('آمبولانس در راه است', 'اورژانس ۱۱۵ برای کمک به مصدوم آمد');
+    return;
+  }
+  J.t += dt; const p = J.p;
+  if (J.phase === 'go') {
+    if (amb.ai && J.t > 4 && Math.floor(J.t) % 5 === 0 && Math.floor(J.t - dt) % 5 !== 0) { const L = amb.ai.dest; if (L && Math.hypot(L.S.x - p.pos.x, L.S.z - p.pos.z) > 25) amb.ai.setDest(p.pos.x, p.pos.z); }
+    if ((amb.ai && amb.ai.arrived) || (Math.hypot(amb.x - p.pos.x, amb.z - p.pos.z) < 9 && Math.abs(amb.vf) < 1) || J.t > 120) {
+      if (J.t > 120 && !amb.ai.arrived) { const s = Math.sin(amb.h), c = Math.cos(amb.h); amb.x = p.pos.x + c * 4; amb.z = p.pos.z - s * 4; }
+      amb.inHand = true; amb.ai = null; amb.inThrottle = 0; J.phase = 'treat'; J.t = 0; amb.hazardT = 999;
+      const s = Math.sin(amb.h), c = Math.cos(amb.h);
+      J.medics = [0, 1].map(k => { const m = medicFor(k); const rx = amb.x - s * 3.2 + c * (k ? 0.6 : -0.6), rz = amb.z - c * 3.2 - s * (k ? 0.6 : -0.6); m.pos.set(rx, groundH(rx, rz), rz); m.facing = amb.h + Math.PI; outdoorPool.attach(m); npcs.push(m);
+        const side = k ? 1 : -1; m.mode = 'task'; m.task = { x: p.pos.x + side * 0.7, z: p.pos.z + 0.4, run: true, look: p, anim: 'repair' }; return m; });
+      say(J.medics[0], mpick(['اورژانس! راه رو باز کنید لطفاً.', 'آروم باش، ما اینجاییم.', 'نفس عمیق بکش، چیزی نیست.']), 3);
+    }
+  } else if (J.phase === 'treat') {
+    if (J.t > 9 && J.medics.every(m => m.task && m.task.done)) {
+      J.phase = 'load'; J.t = 0; p.injured = false; p.mode = 'getup'; p.timer = 1.4; p.knockT = 0;
+      say(p, mpick(['ممنونم... خیلی ممنون.', 'آخ پام... ممنون که اومدید.', 'خدا خیرتون بده.']), 3);
+    }
+  } else if (J.phase === 'load') {
+    const s = Math.sin(amb.h), c = Math.cos(amb.h), rx = amb.x - s * 3.3, rz = amb.z - c * 3.3;
+    if (J.t > 1.5 && p.mode !== 'task') { p.mode = 'task'; p.task = { x: rx, z: rz }; for (const m of J.medics) { m.task = { x: rx + c * 0.8, z: rz - s * 0.8 }; } }
+    const atDoor = [p, ...J.medics].every(m => Math.hypot(m.pos.x - rx, m.pos.z - rz) < 1.6);
+    if ((J.t > 2 && atDoor) || J.t > 25) {
+      for (const m of [p, ...J.medics]) { outdoorPool.detach(m); const i = npcs.indexOf(m); if (i >= 0) npcs.splice(i, 1); }
+      Audio.door(); J.phase = 'back'; J.t = 0; amb.hazardT = 0; amb.inHand = false;
+      amb.ai = new CarAI(amb, 0, 0, 0); amb.ai.cruise = 12; amb.ai.setDest(hospital.park.x, hospital.park.z); amb.sirenOn = true;
+      hospital.patients = hospital.patients || []; hospital.patients.push({ look: p.look, persona: p.persona, t: 0 });
+      for (const o of npcs) if (o.mode === 'task' && o.task && o.task.look === p) { o.task = null; finishMode(o); }
+    }
+  } else if (J.phase === 'back') {
+    if (J.t > 6) amb.sirenOn = false;
+    if ((amb.ai && amb.ai.arrived && Math.abs(amb.vf) < 0.6) || J.t > 160) {
+      const P_ = hospital.park; amb.ai = null; amb.x = P_.x; amb.z = P_.z; amb.h = P_.h; amb.vx = amb.vz = 0; amb.inHand = true; amb.sirenOn = false; hospital.job = null;
+    }
+  }
+  // treated patients walk out of the hospital a while later
+  for (const h of hospital.patients || []) {
+    h.t += dt; if (h.t < 40 || h.done) continue; h.done = true;
+    const [x, z] = hospital.door; const q = spawnNPC(x, z, h.look); q.persona = h.persona; q.persona.mem.hospital = true; q.mode = 'goto'; say(q, 'خداروشکر مرخص شدم!', 3);
+  }
+}
+let sirenNodes = null;
+function serviceSiren() {
+  if (!Audio.ctx || !amb) return;
+  const v = amb.sirenOn ? Audio.vol(amb.x, amb.z) * 0.06 : 0;
+  if (!sirenNodes && v > 0) { const c = Audio.ctx, o = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), g = c.createGain(); o.type = 'square'; o.frequency.value = 780; lfo.frequency.value = 0.55; lg.gain.value = 230; lfo.connect(lg); lg.connect(o.frequency); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200; o.connect(f); f.connect(g); g.gain.value = 0; g.connect(Audio.master); o.start(); lfo.start(); sirenNodes = { g }; }
+  if (sirenNodes) sirenNodes.g.gain.setTargetAtTime(v, Audio.ctx.currentTime, 0.1);
+}
+/* ---------- the bus line ---------- */
+// the bus pulls into the kerb strip at a stop so traffic can pass it
+function busDest(b, st) { const rt = roadTarget(st.x, st.z), lo = laneOff(rt.d), l = Math.hypot(lo.x, lo.z) || 1; rt.S = { x: rt.S.x + lo.x / l * (PARKOFF - LANE - 0.3), z: rt.S.z + lo.z / l * (PARKOFF - LANE - 0.3) }; b.ai.dest = rt; b.ai.resetFromPos(); }
+function busDoorPos(b) { const s = Math.sin(b.h), c = Math.cos(b.h), lx = -(b.T.wid / 2 + 0.9), lz = 3.9; return [b.x + lx * c + lz * s, b.z - lx * s + lz * c]; }
+const busRiders = [];
+function updateBus(dt) {
+  if (!bus) return;
+  const b = bus;
+  if (b.phase === 'drive') {
+    b.doorsOpen = false;
+    if (b.ai && b.ai.arrived && Math.abs(b.vf) < 0.5) { b.phase = 'stop'; b.t = 0; b.doorsOpen = true; b.inHand = true; Audio.burst(0.12 * Audio.vol(b.x, b.z), 500, 0.6, 'lowpass', 1); b.ai = null;
+      // some riders get off, people waiting get on
+      const [dx, dz] = busDoorPos(b);
+      for (let k = busRiders.length - 1; k >= 0 && Math.random() < 0.6; k--) { const r = busRiders.splice(k, 1)[0]; const q = spawnNPC(dx, dz, r.look); q.persona = r.persona; q.mode = 'goto'; q.facing = b.h - Math.PI / 2; }
+      for (const n of npcs) { if (n.mode !== 'sit' || !n.bench || !n.bench.roofed || Math.hypot(n.pos.x - dx, n.pos.z - dz) > 14 || Math.random() < 0.5) continue; n.anim.special = null; n.bench.taken = null; n.bench = null; n.mode = 'task'; n.task = { x: dx, z: dz, board: true }; }
+    }
+  } else if (b.phase === 'stop') {
+    b.t += dt; b.vx *= 0.9; b.vz *= 0.9;
+    const [dx, dz] = busDoorPos(b);
+    for (let i = npcs.length - 1; i >= 0; i--) { const n = npcs[i]; if (n.mode === 'task' && n.task && n.task.board && Math.hypot(n.pos.x - dx, n.pos.z - dz) < 1.0) { outdoorPool.detach(n); npcs.splice(i, 1); busRiders.push({ look: n.look, persona: n.persona }); } }
+    const waiting = npcs.some(n => n.mode === 'task' && n.task && n.task.board);
+    if (b.t > 9 && !waiting && !(player.state === 'foot' && Math.hypot(player.pos.x - dx, player.pos.z - dz) < 2.5)) {
+      b.doorsOpen = false; if (b.t > 10.2) { b.stopIdx = (b.stopIdx + 1) % b.route.length; const s = b.route[b.stopIdx]; b.ai = new CarAI(b, 0, 0, 0); b.ai.cruise = 8.5; busDest(b, s); b.inHand = false; b.phase = 'drive'; Audio.burst(0.08 * Audio.vol(b.x, b.z), 400, 0.4); }
+    }
+  }
+  if (player.state === 'passenger' && player.car === b) { const s = b.route[b.phase === 'stop' ? b.stopIdx : b.stopIdx]; b.nextName = streetAt(s.x, s.z); }
+}
+function boardBus() {
+  const P = player; if (store.money < 10000) { say(P, 'پول بلیت ندارم!', 2); return; }
+  store.money -= 10000; updateWalletHUD(); Audio.beepPay(1);
+  P.state = 'passenger'; P.car = bus; P.inCar = bus; bus.passengerP = P; P.anim.special = 'passenger'; P.anim.sw = 0; P.vel.set(0, 0, 0);
+  say(bus.driverP, mpick(['بفرمایید، خوش اومدید.', 'سلام! کارت بلیتت رو بزن.', 'برید ته اتوبوس لطفاً.']), 2.5);
+  banner('سوار اتوبوس خط ۱ شدی', 'بلیت: ' + fmtT(10000) + ' — هر ایستگاه که خواستی پیاده شو');
+}
+function leaveBus() {
+  const P = player, b = bus, [dx, dz] = busDoorPos(b);
+  b.passengerP = null; P.inCar = null; P.state = 'foot'; P.car = null; P.anim.special = null;
+  P.pos.set(dx, groundH(dx, dz), dz); P.facing = b.h - Math.PI / 2; P.vel.set(0, 0, 0); Audio.door();
+  say(b.driverP, 'به سلامت!', 1.6);
+}
+/* ---------- overhead power and phone lines between street lamps ---------- */
+function buildCables() {
+  const L = world.lamps || []; if (!L.length) return;
+  const pts = [], used = new Set();
+  for (let i = 0; i < L.length; i++) {
+    const a = L[i]; let best = -1, bd = 26;
+    for (let j = 0; j < L.length; j++) { if (i === j) continue; const b = L[j]; const same = Math.abs(a.x - b.x) < 0.6 || Math.abs(a.z - b.z) < 0.6; if (!same) continue; const d = Math.hypot(a.x - b.x, a.z - b.z); if (d > 6 && d < bd && !used.has(j + ',' + i)) { bd = d; best = j; } }
+    if (best < 0) continue; used.add(i + ',' + best);
+    const b = L[best];
+    for (const [h, sag] of [[CURB + 5.4, 0.55], [CURB + 5.0, 0.7]]) {
+      let px = a.x, py = h, pz = a.z;
+      for (let k = 1; k <= 8; k++) { const t = k / 8, x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t, y = h - sag * 4 * t * (1 - t); pts.push(px, py, pz, x, y, z); px = x; py = y; pz = z; }
+    }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  const m = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x1a1c1f, transparent: true, opacity: 0.75 })); m.frustumCulled = true; g.computeBoundingSphere(); scene.add(m);
+}
+
+/* ============================================================
    Audio (synthesised)
    ============================================================ */
 const Audio = {
@@ -4003,11 +4258,11 @@ function showTouchUI() { if (touchUI) return; touchUI = true; syncTouchUI(true);
 let lastUiMode = '';
 function syncTouchUI(force) {
   if (!touchUI) return;
-  const mode = chat.open ? 'chat' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? 'pass' : 'foot';
+  const mode = chat.open ? 'chat' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? (player.car && player.car.service ? 'bus' : 'pass') : 'foot';
   if (mode === lastUiMode && !force) return; lastUiMode = mode;
   $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; updateUseBtn(); if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
   for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car';
-  $('drive-x').hidden = mode !== 'car' && mode !== 'pass'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
+  $('drive-x').hidden = mode !== 'car' && mode !== 'pass' && mode !== 'bus'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
   if (mode !== 'car') { input.cGas = input.cBrake = input.cLeft = input.cRight = false; input.hornBtn = input.handBtn = false; for (const b of document.querySelectorAll('.dbtn')) b.classList.remove('down'); }
 }
 cv.addEventListener('pointerdown', e => {
@@ -4177,7 +4432,7 @@ function nearestDoor() {
   }
   return best;
 }
-function allPeople() { return npcs.concat(mall.npcs, mall.staff); }
+const _allP = []; function allPeople() { _allP.length = 0; for (const n of npcs) _allP.push(n); for (const n of mall.npcs) _allP.push(n); for (const n of mall.staff) _allP.push(n); return _allP; }
 function nearestUse() {
   const P = player; let best = null, bd = 9;
   for (const u of world.uses) { if (Math.abs(P.pos.y - u.y) > 1.2) continue; const d = Math.hypot(u.x - P.pos.x, u.z - P.pos.z); if (d < u.r && d + (u.pri ? -0.6 : 0) < bd) { bd = d; best = u; } }
@@ -4185,7 +4440,7 @@ function nearestUse() {
 }
 function nearestSeat() {
   const P = player; let best = null, bd = 0.95;
-  for (const s of mall.seats.concat(world.benches)) { if (s.taken || Math.abs(P.pos.y - s.y) > 0.8) continue; const d = Math.hypot(s.x + Math.sin(s.ry) * 0.5 - P.pos.x, s.z + Math.cos(s.ry) * 0.5 - P.pos.z); if (d < bd) { bd = d; best = s; } }
+  for (const s of (world.allSeats || (world.allSeats = mall.seats.concat(world.benches)))) { if (s.taken || Math.abs(P.pos.y - s.y) > 0.8) continue; const d = Math.hypot(s.x + Math.sin(s.ry) * 0.5 - P.pos.x, s.z + Math.cos(s.ry) * 0.5 - P.pos.z); if (d < bd) { bd = d; best = s; } }
   return best ? { s: best, d: bd } : null;
 }
 function nearestNPC(list, maxD) { let best = null, bd = maxD; for (const n of list) { if (n.mode === 'down') continue; const d = Math.hypot(n.pos.x - player.pos.x, n.pos.z - player.pos.z); if (d < bd) { bd = d; best = n; } } return best; }
@@ -4280,19 +4535,25 @@ function exitCar() {
   }
   car.player = false; car.driverP = null; car.hasDriver = false; car.inThrottle = 0; car.inSteer = 0; car.inHand = true; car.blink = null;
   player.inCar = null; Audio.engine(false, 0, 0); Audio.tyre(0); Audio.horn(false);
-  if (car.lights) car.lights.forEach(l => l.visible = false);
   if (spot && spot[2] === 0) { player.state = 'exiting'; player.exitT = 0; player.exitTo = spot; car.doorT = 1; Audio.door(); return; }
   if (!spot) { spot = [car.x, car.z]; player.pos.y = car.y + car.T.roofY + 0.1; } else player.pos.y = groundH(spot[0], spot[1]);
   player.pos.x = spot[0]; player.pos.z = spot[1]; player.vel.set(car.vx * 0.5, 0, car.vz * 0.5); player.facing = car.h + Math.PI / 2;
   player.anim.special = null; player.state = 'foot'; player.car = null;
   if (cam.fpOn) cam.yaw = car.h + cam.fpYaw;
 }
-function addCarLights(car) {
-  if (car.lights) { car.lights.forEach(l => l.visible = true); return; }
-  car.lights = [];
-  for (const sx of [-0.55, 0.55]) {
-    const s = new THREE.SpotLight(0xfff1d6, 0, 70, 0.45, 0.5, 1.5); s.position.set(sx, car.T.headY, car.T.front);
-    const tg = new THREE.Object3D(); tg.position.set(sx * 1.5, 0, car.T.front + 18); car.body.add(s, tg); s.target = tg; car.lights.push(s);
+function addCarLights(car) { }
+const headLights = [];
+function initFixedLights() {
+  for (const sx of [-0.55, 0.55]) { const s = new THREE.SpotLight(0xfff1d6, 0, 70, 0.45, 0.5, 1.5); s.target = new THREE.Object3D(); s.userData.sx = sx; scene.add(s, s.target); headLights.push(s); }
+  flashLight = new THREE.SpotLight(0xfff4d8, 0, 32, 0.42, 0.45, 1.4); flashLight.target = new THREE.Object3D(); scene.add(flashLight, flashLight.target);
+  flashIn = new THREE.SpotLight(0xfff4d8, 0, 20, 0.42, 0.45, 1.4); flashIn.target = new THREE.Object3D(); flashIn.userData.keep = flashIn.target.userData.keep = true; interiorScene.add(flashIn, flashIn.target);
+}
+function updateHeadLights() {
+  const P = player, car = (P.state === 'car' || P.state === 'exiting') && P.car && P.where === 'out' ? P.car : null, on = car && (night > 0.3 || weather.rain > 0.5) && P.state === 'car';
+  for (const s of headLights) {
+    if (!on) { s.intensity = 0; continue; }
+    car.body.updateMatrixWorld(true); s.intensity = 90;
+    s.position.set(s.userData.sx, car.T.headY, car.T.front).applyMatrix4(car.body.matrixWorld); s.target.position.set(s.userData.sx * 1.5, 0, car.T.front + 18).applyMatrix4(car.body.matrixWorld); s.target.updateMatrixWorld();
   }
 }
 
@@ -4335,6 +4596,7 @@ function places() {
   out.push({ name: 'پاساژ آزادی (مرکز خرید)', keys: ['پاساژ', 'مرکز خرید', 'مال', 'خرید', 'فروشگاه', 'هایپر', 'فودکورت', 'لباس', 'کفش', 'موبایل', 'گوشی'], x: mall.x0 - 3, z: 0, dist: Math.hypot(mall.x0 - 3 - player.pos.x, player.pos.z) });
   for (const S of mall.shops) out.push({ name: `${S.name} (پاساژ آزادی، ${S.floor ? 'طبقهٔ اول' : 'همکف'})`, keys: S.name.split(/\s+/).filter(w => w.length > 2).map(w => norm(w)), x: mall.x0 - 3, z: 0, dist: Math.hypot(mall.x0 - 3 - player.pos.x, player.pos.z) + 1 });
   if (gas.cx) out.push({ name: 'جایگاه سوخت (پمپ بنزین)', keys: ['پمپ', 'بنزین', 'سوخت', 'جایگاه', 'گازوئیل'], x: gas.cx - LOT + 2, z: gas.cz, dist: Math.hypot(gas.cx - LOT - player.pos.x, gas.cz - player.pos.z) });
+  { let bs = null, bd = 1e9; for (const s of world.busStops || []) { const d = Math.hypot(s.x - player.pos.x, s.z - player.pos.z); if (d < bd) { bd = d; bs = s; } } if (bs) out.push({ name: 'ایستگاه اتوبوس خط ۱', keys: ['اتوبوس', 'ایستگاه', 'خط'], x: bs.x, z: bs.z, dist: bd }); }
   for (const l of world.landmarks || []) out.push({ name: l.name, keys: l.keys, x: l.x, z: l.z, dist: Math.hypot(l.x - player.pos.x, l.z - player.pos.z) });
   for (const f of world.fountains) out.push({ name: 'پارک مرکزی', keys: ['پارک', 'فواره', 'حوض', 'باغ'], x: f.x, z: f.z, dist: Math.hypot(f.x - player.pos.x, f.z - player.pos.z) });
   STREET_V.forEach((n, i) => out.push({ name: n, keys: [norm(n), norm(n.replace('خیابان ', ''))], x: roadX(i), z: clamp(player.pos.z, -HALF, HALF), dist: Math.abs(roadX(i) - player.pos.x) }));
@@ -4407,7 +4669,7 @@ let lastSave = 0, restored = false;
 const serPersona = p => ({ ...p, mem: { ...p.mem, used: [...(p.mem.used || [])] }, hist: (p.hist || []).slice(-10) });
 const deserPersona = o => { o.mem = o.mem || {}; o.mem.used = new Set(o.mem.used || []); o.mem.facts = o.mem.facts || {}; o.hist = o.hist || []; return o; };
 function snapshot() {
-  const P = player, list = cars.filter(c => !c.isTow);
+  const P = player, list = cars.filter(c => !c.isTow && !c.service);
   const r2 = v => Math.round(v * 100) / 100;
   return {
     v: 1, time: Date.now(), tod, weather: settings.weather, events, waypoint,
@@ -4547,6 +4809,11 @@ function updatePlayer(dt) {
         else if (n && (!car || Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) < 1.8)) {
           actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`;
           if (input.actQ) { input.actQ = false; openChat(n); }
+        } else if (bus && bus.phase === 'stop' && bus.doorsOpen && Math.hypot(busDoorPos(bus)[0] - P.pos.x, busDoorPos(bus)[1] - P.pos.z) < 2.6) {
+          promptTxt = `${key}سوار اتوبوس خط ۱ شو (بلیت ${fmtT(10000)})`; actLabel = 'سوار شو';
+          if (input.actQ) { input.actQ = false; boardBus(); }
+        } else if (car && car.service) {
+          promptTxt = car.service === 'bus' ? 'اتوبوس فقط در ایستگاه، از درِ کنار پیاده‌رو سوار می‌کند' : 'آمبولانس اورژانس — کاری باهاش نداشته باش!';
         } else if (car && car.isTow && car.driverP && !car.player) {
           promptTxt = `${key}کنار رانندهٔ یدک‌کش سوار شو`; actLabel = 'سوار شو';
           if (input.actQ) { input.actQ = false; boardTow(); }
@@ -4581,6 +4848,11 @@ function updatePlayer(dt) {
     }
     input.actQ = false;
     setPrompt(promptTxt, actLabel);
+  } else if (P.state === 'passenger' && P.car.service === 'bus') {
+    const t = P.car; P.pos.set(t.x, t.y + 0.6, t.z);
+    setPrompt(t.phase === 'stop' ? `ایستگاه ${streetAt(t.x, t.z)} — ${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو` : `اتوبوس خط ۱ · ایستگاه بعد: ${t.nextName || ''} · وقتی ایستاد پیاده شو`, 'پیاده شو');
+    if (input.ejectQ) { input.ejectQ = false; say(t.driverP, 'آقا! رانندهٔ اتوبوس رو که نمی‌شه انداخت پایین!', 2.5); }
+    else if (input.actQ) { input.actQ = false; if (t.phase === 'stop') leaveBus(); else setPrompt('صبر کن اتوبوس به ایستگاه برسه', 'پیاده شو', 1.2); }
   } else if (P.state === 'passenger') {
     const t = P.car; P.pos.set(t.x, t.y + 0.6, t.z);
     setPrompt(`${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو · ${touchUI ? '«بنداز پایین»' : '<b>G</b>'} راننده رو بنداز پایین و خودت برون!`, 'پیاده شو');
@@ -4623,7 +4895,7 @@ function updatePlayer(dt) {
     if (input.horn && !P.hornOn) hornEvent = { x: car.x, z: car.z, h: car.h, t: simTime };
     P.hornOn = input.horn; Audio.horn(input.horn);
     car.blink = Math.abs(car.steer) > 0.25 && Math.abs(car.vf) > 1 ? (car.steer > 0 ? 'R' : 'L') : null;
-    if (car.lights) { const on = night > 0.3 || weather.rain > 0.5; car.lights.forEach(l => l.intensity = on ? 90 : 0); }
+
   }
 }
 let promptHold = 0, lastPrompt = '', lastAct = '';
@@ -4689,7 +4961,8 @@ function updateCameraFP(dt) {
   if (inCar) {
     const c = P.car, t = c.T, side = P.state === 'passenger' ? -1 : 1;
     c.group.updateMatrixWorld(true);
-    _eye.set(side * (t.wid / 2 - 0.5), t.roofY - (c.isTow ? 0.42 : 0.26), (t.cab[0] + t.cab[1]) / 2 - 0.22).applyMatrix4(c.body.matrixWorld);
+    if (c.service === 'bus' && side < 0) _eye.set(-0.75, 2.12, -1.4).applyMatrix4(c.body.matrixWorld);
+    else _eye.set(side * (t.wid / 2 - 0.5), t.roofY - (c.isTow ? 0.42 : 0.26), (t.cab[0] + t.cab[1]) / 2 - 0.22).applyMatrix4(c.body.matrixWorld);
     if (simTime - cam.lastLook > 1.6) { cam.fpYaw = damp(cam.fpYaw, 0, 2.5, dt); cam.fpPitch = damp(cam.fpPitch, 0.05, 2.5, dt); }
     yaw = c.h + cam.fpYaw + (c.vf < -1 && simTime - cam.lastLook > 1.6 ? 0 : 0); pitch = cam.fpPitch - c.pitch;
     cam.fpY = _eye.y;
@@ -4991,7 +5264,7 @@ function buildMapBase() {
   for (const f of world.foot) { g.fillStyle = f[4]; g.fillRect(X(f[0]), X(f[1]), (f[2] - f[0]) * s, (f[3] - f[1]) * s); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5; g.strokeRect(X(f[0]), X(f[1]), (f[2] - f[0]) * s, (f[3] - f[1]) * s); }
   { const x = X(roadX(1) - RH - 18), z = X(0); g.fillStyle = '#c2561a'; g.beginPath(); g.arc(x, z, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 18px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ت', x, z + 1); }
   for (const f of world.fountains) { g.fillStyle = '#5aa6d6'; g.beginPath(); g.arc(X(f.x), X(f.z), 3.4 * s, 0, 7); g.fill(); }
-  for (const [pl, cx, cz] of world.newPlaces) { const [col, ch] = { mall: ['#8a2a6a', 'پ'], gas: ['#1f7a4a', 'ب'], mosque: ['#1e5f9a', 'م'], school: ['#2a5aa8', 'د'] }[pl]; const x = X(cx), z = X(cz); g.fillStyle = col; g.beginPath(); g.arc(x, z, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 18px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, z + 1); }
+  for (const [pl, cx, cz] of world.newPlaces) { const [col, ch] = { mall: ['#8a2a6a', 'پ'], gas: ['#1f7a4a', 'ب'], mosque: ['#1e5f9a', 'م'], school: ['#2a5aa8', 'د'], hospital: ['#c8202a', '+'] }[pl]; const x = X(cx), z = X(cz); g.fillStyle = col; g.beginPath(); g.arc(x, z, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 18px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, z + 1); }
   mapBase = c;
 }
 function drawMap() {
@@ -5002,7 +5275,7 @@ function drawMap() {
   g.translate(W / 2, W / 2); g.rotate(rot); g.scale(zoom, zoom); g.translate(-(px + MAPW / 2) * s, -(pz + MAPW / 2) * s);
   g.drawImage(mapBase, 0, 0);
   const X = v => (v + MAPW / 2) * s;
-  for (const c of cars) { if (c.player) continue; g.save(); g.translate(X(c.x), X(c.z)); g.rotate(-c.h); g.fillStyle = c.taxi ? '#ffd23a' : c.ai ? '#e8e8e8' : '#9fb4c8'; g.fillRect(-c.T.wid * s / 2, -c.T.len * s / 2, c.T.wid * s, c.T.len * s); g.restore(); }
+  for (const c of cars) { if (c.player) continue; g.save(); g.translate(X(c.x), X(c.z)); g.rotate(-c.h); g.fillStyle = c.service === 'bus' ? '#3ad87a' : c.service === 'amb' ? (c.sirenOn && (simTime * 3) % 1 < 0.5 ? '#2a6aff' : '#ff4a4a') : c.taxi ? '#ffd23a' : c.ai ? '#e8e8e8' : '#9fb4c8'; g.fillRect(-c.T.wid * s / 2, -c.T.len * s / 2, c.T.wid * s, c.T.len * s); g.restore(); }
   g.fillStyle = '#ffcf7a'; for (const n of npcs) { if (n.mode === 'inside') continue; g.beginPath(); g.arc(X(n.pos.x), X(n.pos.z), 2.2, 0, 7); g.fill(); }
   if (tow) { g.save(); g.translate(X(tow.x), X(tow.z)); g.rotate(-tow.h); g.fillStyle = tow.beaconOn && (simTime * 3) % 1 < 0.5 ? '#ffd23a' : '#e2661c'; g.fillRect(-6, -10, 12, 20); g.restore(); }
   if (towJob && towJob.car) { g.strokeStyle = '#e2661c'; g.lineWidth = 3; g.beginPath(); g.arc(X(towJob.car.x), X(towJob.car.z), 9, 0, 7); g.stroke(); }
@@ -5022,41 +5295,55 @@ let composer = null, renderPass = null, bloomPass = null;
 /* quality ladder: the game steps down automatically whenever frames get slow */
 const LEVELS = ['potato', 'low', 'medium', 'high'];
 let qLevel = 3, shadowEvery = 1, poseDist = 85, frameNo = 0, qCooldown = 0, fastWins = 0;
+let composerAll = null;
+// phones always draw straight to the screen, desktops always through the bloom chain:
+// the path never changes while playing, so no shader is ever rebuilt mid-game
+const USE_COMPOSER = !LOW;
 function setupComposer() {
-  if (composer) { composer.dispose?.(); composer = null; }
-  if (qLevel < 2) return;
-  const size = renderer.getDrawingBufferSize(new V2());
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: renderer.capabilities.isWebGL2 ? (qLevel === 3 ? 4 : 2) : 0 });
-  composer = new EffectComposer(renderer, rt);
-  renderPass = new RenderPass(scene, camera); composer.addPass(renderPass);
-  bloomPass = new UnrealBloomPass(new V2(innerWidth, innerHeight), 0.3, 0.45, 1.0); composer.addPass(bloomPass);
-  composer.addPass(new OutputPass());
-  composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight);
+  if (!USE_COMPOSER) { composer = null; return; }
+  if (!composerAll) {
+    const size = renderer.getDrawingBufferSize(new V2());
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: renderer.capabilities.isWebGL2 ? (LOW ? 2 : 4) : 0 });
+    composerAll = new EffectComposer(renderer, rt);
+    renderPass = new RenderPass(scene, camera); composerAll.addPass(renderPass);
+    composerAll.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); bool bad = !(c.r == c.r) || !(c.g == c.g) || !(c.b == c.b) || c.r > 65000.0 || c.g > 65000.0 || c.b > 65000.0; gl_FragColor = bad ? vec4(0.0, 0.0, 0.0, 1.0) : min(c, vec4(48.0)); }' }));
+    bloomPass = new UnrealBloomPass(new V2(innerWidth, innerHeight), 0.3, 0.45, 1.0); composerAll.addPass(bloomPass);
+    composerAll.addPass(new OutputPass());
+  }
+  composerAll.setPixelRatio(pixelRatio); composerAll.setSize(innerWidth, innerHeight);
+  composer = composerAll; bloomPass.enabled = qLevel >= 2;
 }
 function applyQuality(level) {
   if (level == null) level = settings.quality === 'auto' ? (LOW ? 2 : 3) : Math.max(0, LEVELS.indexOf(settings.quality));
   qLevel = level; const dpr = window.devicePixelRatio || 1;
   pixelRatio = Math.min(dpr, [0.7, 1, 1.25, LOW ? 1.6 : 2][level]);
   renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight);
-  const sm = level === 3 ? 2048 : 1024;
+  const sm = level === 3 ? 2048 : level === 0 ? 512 : 1024;
   if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  renderer.shadowMap.type = level >= 2 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
-  sun.castShadow = level > 0; shadowEvery = [1, 3, 2, 1][level]; poseDist = [40, 55, 70, 85][level];
+  shadowEvery = [4, 3, 2, 1][level]; poseDist = [40, 55, 70, 85][level];
   for (const m of world.grassMeshes || []) m.visible = level >= 2;
   if (M.leaves) M.leaves.visible = level > 0;
   camera.far = level === 0 ? 520 : 1400; camera.updateProjectionMatrix();
   setupComposer();
 }
+// quality changes are queued and applied at the start of the next frame, right before it is drawn,
+// so a resized canvas is never shown empty; going back up needs a long calm period (no ping-pong)
+let pendingQ = null, pendingPR = null, lastDrop = -1e9, drops = 0;
 function autoQuality(avg) {
   if (settings.quality !== 'auto') return false;
   qCooldown -= 1;
-  if (avg > 1 / 40 && qLevel > 0 && qCooldown <= 0) { applyQuality(qLevel - 1); qCooldown = 2; fastWins = 0; toast('کیفیت گرافیک برای روان ماندن بازی خودکار کمی پایین آمد'); return true; }
-  if (avg < 1 / 75) { if (++fastWins >= 4 && qLevel < (LOW ? 2 : 3)) { applyQuality(qLevel + 1); fastWins = 0; qCooldown = 3; } } else fastWins = 0;
+  if (avg > 1 / 40 && qLevel > 0 && qCooldown <= 0) { pendingQ = qLevel - 1; qCooldown = 3; fastWins = 0; lastDrop = simTime; drops++; toast('کیفیت گرافیک برای روان ماندن بازی خودکار کمی پایین آمد'); return true; }
+  if (avg < 1 / 80 && drops < 3 && simTime - lastDrop > 90) { if (++fastWins >= 10 && qLevel < (LOW ? 2 : 3)) { pendingQ = qLevel + 1; fastWins = 0; qCooldown = 5; } } else fastWins = 0;
   return true;
 }
+function applyPending() {
+  if (pendingQ !== null) { applyQuality(pendingQ); pendingQ = null; pendingPR = null; }
+  if (pendingPR !== null) { pixelRatio = pendingPR; pendingPR = null; renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } }
+}
 function toast(t) { const el = $('saved'); el.textContent = t; el.hidden = false; el.style.opacity = '1'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; el.textContent = 'ذخیره شد'; }, 2600); }
-addEventListener('resize', () => { if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } if (FX.pts) FX.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5; });
+addEventListener('resize', () => { if (composerAll && composer) { composerAll.setPixelRatio(pixelRatio); composerAll.setSize(innerWidth, innerHeight); } if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } if (FX.pts) FX.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5; });
 function updateWorld(dt) {
   simTime += dt; windUniform.value = simTime; skyUniforms.uTime.value = simTime;
   tod = (tod + dt * DAY_SPEED) % 24;
@@ -5083,7 +5370,7 @@ function updateWorld(dt) {
     if (Math.abs(c.x) > BOUND + 5 || Math.abs(c.z) > BOUND + 5) { c.x = clamp(c.x, -BOUND + 3, BOUND - 3); c.z = clamp(c.z, -BOUND + 3, BOUND - 3); c.vx = c.vz = 0; }
     c.sync(dt); if (player.where === 'out') carEffects(c, dt);
   }
-  updateTow(dt); updateRepair(dt);
+  updateTow(dt); updateRepair(dt); updateAmbulance(dt); updateBus(dt);
   updatePlayer(dt);
   const cp2 = camera.position;
   for (let i = 0; i < npcs.length; i++) {
@@ -5132,7 +5419,7 @@ function syncVisuals(dt) {
   const P = player, seated = P.inCar || (P.state === 'exiting' && P.exitT < 0.35);
   if (!seated) { P.H.root.position.copy(P.pos); P.H.root.rotation.set(0, P.facing, 0); }
   P.H.visible = true; poseHuman(P, dt, simTime);
-  outdoorPool.update(); interiorPool.update(); updateBlobs(); updateAttachments(); updateCockpit();
+  outdoorPool.update(); interiorPool.update(); updateBlobs(); updateAttachments(); updateCockpit(); updateHeadLights();
   // car glow sprites
   const gp = carGlow.geometry.attributes.position.array, gc = carGlow.geometry.attributes.color.array; let k = 0;
   for (const c of cars) {
@@ -5189,6 +5476,7 @@ function frame(now) {
     cam.target.set(cx, 0, cz); syncVisuals(dt); updateTimeOfDay(); FX.update(dt); updateBirds(dt);
     render(); return;
   }
+  applyPending();
   frameNo++; if (frameNo % shadowEvery === 0) renderer.shadowMap.needsUpdate = true;
   readKeys(dt);
   updateWorld(dt);
@@ -5201,7 +5489,7 @@ function frame(now) {
   render();
   // adaptive resolution
   frameAcc += dt; frameN++; perfT += dt;
-  if (perfT > 2) { const avg = frameAcc / frameN; if (!autoQuality(avg) && avg > 0.036 && pixelRatio > 0.8) { pixelRatio = Math.max(0.8, pixelRatio - 0.15); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } } frameAcc = 0; frameN = 0; perfT = 0; }
+  if (perfT > 2) { const avg = frameAcc / frameN; if (!autoQuality(avg) && avg > 0.036 && pixelRatio > 0.8) pendingPR = Math.max(0.8, pixelRatio - 0.15); frameAcc = 0; frameN = 0; perfT = 0; }
 }
 function updateWorldDemo(dt) {
   if (!restored) tod = 17.6; _obs.length = 0; for (const c of cars) _obs.push({ x: c.x, z: c.z, r: c.T.len / 2 - 0.6, ref: c });
@@ -5226,18 +5514,29 @@ async function boot(data) {
   const sv = loadSave();
   if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
   if (!restored) { spawnTraffic(); spawnPeople(); }
-  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids();
+  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices();
   if (restored) rebuildPlayerLook();
   setView(settings.view === 'first'); updateWalletHUD();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
   if (data && typeof data.tod === 'number') tod = data.tod;
+  initFixedLights();
   applyWeatherSetting(); applyQuality(); bakeEnvironments();
+  try { // warm up every shader now instead of stalling the first time something appears
+    const RT0 = composerAll ? composerAll.renderTarget1 : null; renderer.setRenderTarget(RT0); renderer.compile(scene, camera);
+    if (player.where !== 'in') { const dd = world.doors.find(d => d.kind === 'shop' && !d.dead), dh = world.doors.find(d => d.kind === 'house' && !d.dead);
+      for (const d of [dd, dh]) if (d) { buildInterior(d); renderer.setRenderTarget(RT0); renderer.compile(interiorScene, camera); renderer.setRenderTarget(null);
+        const cp0 = camera.position.clone(), cq0 = camera.quaternion.clone(); camera.position.set(0, 1.6, interior.D / 2 - 0.8); camera.lookAt(0, 1.2, 0); renderer.shadowMap.needsUpdate = true; if (composerAll) { renderPass.scene = interiorScene; composerAll.render(); renderPass.scene = scene; } else renderer.render(interiorScene, camera); camera.position.copy(cp0); camera.quaternion.copy(cq0); for (const n of interior.npcs) if (n.persona && n.persona.met > 0) n.persona.met--; }
+      for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = []; }
+    renderer.setRenderTarget(null); renderer.shadowMap.needsUpdate = true; render();
+  } catch (e) { console.warn(e); }
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, world, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, world, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
+renderer.domElement.addEventListener('webglcontextrestored', () => { renderer.shadowMap.needsUpdate = true; envTod = -99; });
 $('play').addEventListener('click', () => {
   Audio.init(); started = true; $('start').classList.add('gone'); setTimeout(() => $('start').hidden = true, 650);
   $('minimap').hidden = false; $('topbar').hidden = false; if (IS_TOUCH) showTouchUI();
