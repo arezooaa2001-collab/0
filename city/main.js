@@ -4043,6 +4043,10 @@ const endPtr = e => {
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
 cv.addEventListener('wheel', e => { cam.zoom = clamp(cam.zoom * (1 + e.deltaY * 0.001), 0.55, 1.9); e.preventDefault(); }, { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
+// no browser menus on long press anywhere (copy, search, print, save image...), except in text boxes
+{ const editable = t => t && t.closest && t.closest('input,textarea,select,[contenteditable]');
+  for (const ev of ['contextmenu', 'selectstart', 'dragstart']) document.addEventListener(ev, e => { if (!editable(e.target)) e.preventDefault(); }, { capture: true });
+  document.addEventListener('selectionchange', () => { if (editable(document.activeElement)) return; const sel = getSelection(); if (sel && sel.rangeCount && !sel.isCollapsed) sel.removeAllRanges(); }); }
 function holdBtn(id, on, off) {
   const b = $(id);
   b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Audio.init(); try { b.setPointerCapture(e.pointerId); } catch (_) { } b.classList.add('down'); on(); if (navigator.vibrate) try { navigator.vibrate(8); } catch (_) { } });
