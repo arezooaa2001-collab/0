@@ -174,6 +174,39 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 #settings select,#settings input[type=password]{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:10px;color:var(--paper);padding:9px 10px;font:500 14px var(--body);user-select:text;-webkit-user-select:text}
 #settings p{margin:0;font:400 12px/1.7 var(--body);color:var(--dim)}
 #set-close{background:var(--amber);color:var(--amber-ink);border:0;border-radius:999px;padding:11px;font:800 15px var(--body);cursor:pointer}
+/* rainbow building, build mode, flying car */
+.rb-wrap{position:fixed;inset:0;z-index:24;display:grid;place-items:center;background:rgba(5,7,11,.5);padding:16px}
+.rb-card{max-height:min(88vh,660px);overflow-y:auto}
+.rb-card h2{background:linear-gradient(90deg,#ff4d4d,#ffb340,#ffe94d,#4de26b,#4db8ff,#a66bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gm-row{display:flex;gap:8px;flex-wrap:wrap}.gm-row .gm-btn{flex:1 1 30%}
+.gm-in{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:12px;color:var(--paper);padding:10px;font:600 15px var(--body);min-width:0;flex:1;user-select:text;-webkit-user-select:text}
+#rb-hud{position:fixed;z-index:7;top:calc(env(safe-area-inset-top,0px) + 54px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;max-width:calc(100vw - 32px)}
+#rb-status{background:rgba(10,14,22,.78);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:6px 14px;font:800 15px var(--body);text-align:center;white-space:pre-line}
+#rb-hud .gm-row{pointer-events:auto;justify-content:center}
+#rb-hud .chip{background:rgba(10,14,22,.8)}
+#rb-start{background:linear-gradient(90deg,#ff4d4d,#ffb340,#4de26b,#4db8ff,#a66bff)!important;color:#111!important;font-weight:800}
+.rbc-pre{flex:1 1 30%;border:2px solid transparent;border-radius:12px;padding:12px 6px;font:800 13px var(--body);color:#111;cursor:pointer;text-shadow:0 0 4px #fff}
+.rbc-pre.on,.gm-btn.on,.chip-q.on{border-color:#fff;box-shadow:0 0 0 2px var(--amber)}
+#rbc-custom{display:flex;gap:6px;flex-wrap:wrap}#rbc-custom input{width:40px;height:36px;border:0;border-radius:8px;padding:0;background:none}
+#bd-ui{position:fixed;inset:0;z-index:8;pointer-events:none}
+#bd-ui>*{pointer-events:auto}
+#bd-pal{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 8px);width:min(250px,46vw);max-height:calc(100vh - 16px);display:flex;flex-direction:column;gap:6px;background:rgba(12,16,24,.9);border:1px solid var(--line);border-radius:16px;padding:8px}
+#bd-pal.closed>:not(#bd-toggle){display:none}
+#bd-cats{display:flex;gap:4px;flex-wrap:wrap}#bd-cats .chip-q{padding:3px 8px;font-size:12px}
+#bd-list{overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0}
+.bd-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;padding:6px 8px;color:var(--paper);font:700 13px var(--body);cursor:pointer;text-align:start}
+.bd-item .bag-sw{width:20px;height:20px}
+#bd-obj{position:fixed;left:calc(env(safe-area-inset-left,0px) + 8px);top:calc(env(safe-area-inset-top,0px) + 8px);width:min(250px,48vw);max-height:calc(100vh - 16px);overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:rgba(12,16,24,.9);border:1px solid var(--line);border-radius:16px;padding:8px;font:700 12px var(--body)}
+.bd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.bd-grid button,#bd-cam button{background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--paper);border-radius:10px;padding:8px 2px;font:700 12px var(--body);cursor:pointer;touch-action:none}
+#bd-obj label{display:flex;align-items:center;gap:6px;color:var(--dim)}#bd-obj input[type=range]{flex:1;min-width:0}
+#bd-tints{display:flex;gap:4px;flex-wrap:wrap}.bd-tint{width:24px;height:24px;border-radius:7px;border:1px solid rgba(255,255,255,.4);cursor:pointer}
+#bd-cam{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:grid;grid-template-columns:repeat(5,auto);gap:5px;background:rgba(12,16,24,.85);border:1px solid var(--line);border-radius:16px;padding:7px;direction:rtl}
+#bd-cam button{min-width:52px;padding:9px 6px}
+#bd-exit{position:fixed;right:50%;transform:translateX(50%);top:calc(env(safe-area-inset-top,0px) + 8px)}
+#fly-prev{width:100%;aspect-ratio:16/9;max-height:30vh;object-fit:contain;border-radius:12px;background:#000;display:block}
+@media (max-height:520px),(max-width:600px){ #topbar{gap:5px} #topbar .chip{padding:5px 9px;font-size:12px} #bd-pal,#bd-obj{width:min(240px,29vw)} #bd-cam button{min-width:42px;padding:7px 4px;font-size:11px} #bd-obj .bd-grid button{padding:6px 1px;font-size:11px} .rb-card{gap:7px;padding:12px} .rb-card h2{font-size:22px} .rb-card .gm-btn{padding:9px} }
+#fly-ud{position:fixed;z-index:6;left:calc(env(safe-area-inset-left,0px) + 112px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;flex-direction:column;gap:10px}
 @media (max-height:520px){ .card{gap:9px} .card h1{font-size:52px} .lede{font-size:14px;line-height:1.6} .ctrl{padding:8px 12px} .ctrl ul{font-size:12px;gap:1px} }
 @media (max-height:430px){ .lede{display:none} }
 @media (prefers-reduced-motion:reduce){ #start,#fade,#banner,.bubble{transition:none} }
@@ -194,6 +227,9 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   <span id="money" class="chip" style="color:var(--teal)">—</span>
   <span id="energy-chip" class="chip" title="انرژی">انرژی <span class="ebar"><span id="energy-bar"></span></span></span>
   <span id="cart" class="chip" hidden style="color:var(--amber)"></span>
+  <button id="btn-rb" class="chip" type="button" style="background:linear-gradient(90deg,#ff4d4d55,#ffe94d55,#4de26b55,#4db8ff55,#a66bff55)">ساختمان رنگین‌کمان</button>
+  <button id="btn-fly" class="chip" type="button" style="color:#7fd8ff">ماشین پرنده</button>
+  <button id="btn-code" class="chip" type="button" title="کد مخفی">کد</button>
   <button id="btn-settings" class="chip" type="button">تنظیمات</button>
   <span id="wp" class="chip" hidden style="color:var(--amber)"></span>
   <span id="saved" class="chip" hidden style="color:var(--teal);transition:opacity .4s">ذخیره شد</span>
@@ -224,6 +260,111 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   <button id="b-horn" class="dbtn sbtn" type="button">بوق</button>
   <button id="b-eject" class="dbtn sbtn" type="button" hidden style="width:96px">بنداز پایین</button>
   <button id="b-exit" class="dbtn sbtn" type="button">پیاده شو</button>
+</div>
+<div id="fly-ud" hidden>
+  <button id="f-up" class="dbtn" type="button" aria-label="بالا">▲<span>بالا</span></button>
+  <button id="f-down" class="dbtn" type="button" aria-label="پایین">▼<span>پایین</span></button>
+</div>
+<div id="rb-hud" hidden>
+  <div id="rb-status"></div>
+  <div class="gm-row">
+    <button id="rb-start" class="chip" type="button">شروع قایم‌موشک</button>
+    <button id="rb-stop" class="chip" type="button" hidden>تموم کن</button>
+    <button id="rb-build" class="chip" type="button">ساخت‌وساز</button>
+    <button id="rb-colors-btn" class="chip" type="button">رنگ دیوارها</button>
+  </div>
+</div>
+<div id="bd-ui" hidden>
+  <button id="bd-exit" class="chip" type="button" style="background:var(--amber);color:var(--amber-ink)">پایان ساخت‌وساز</button>
+  <div id="bd-pal">
+    <button id="bd-toggle" class="chip" type="button">فهرست وسایل ▾</button>
+    <input id="bd-search" class="gm-in" type="search" placeholder="جستجو: کمد، مبل، ماشین…" autocomplete="off">
+    <div id="bd-cats"></div>
+    <div id="bd-list"></div>
+  </div>
+  <div id="bd-obj" hidden>
+    <b id="bd-name" style="font-size:14px"></b>
+    <div class="bd-grid">
+      <button type="button" data-a="fwd">جلو</button><button type="button" data-a="up">بالا</button><button type="button" data-a="rotL">⟲ چرخش</button>
+      <button type="button" data-a="left">چپ</button><button type="button" data-a="down">پایین</button><button type="button" data-a="right">راست</button>
+      <button type="button" data-a="back">عقب</button><button type="button" data-a="big">بزرگ‌تر</button><button type="button" data-a="rotR">چرخش ⟳</button>
+      <button type="button" data-a="small">کوچک‌تر</button><button type="button" data-a="dup">کپی</button><button type="button" data-a="del" style="color:#ff8080">حذف</button>
+    </div>
+    <label>عرض <input id="bd-sx" type="range" min="-48" max="100" step="1"></label>
+    <label>ارتفاع <input id="bd-sy" type="range" min="-48" max="100" step="1"></label>
+    <label>طول <input id="bd-sz" type="range" min="-48" max="100" step="1"></label>
+    <span>رنگ:</span><div id="bd-tints"></div>
+    <button type="button" data-a="done" class="gm-btn primary" style="padding:8px">تمام</button>
+  </div>
+  <div id="bd-cam">
+    <button type="button" data-c="fwd">جلو</button><button type="button" data-c="left">چپ</button><button type="button" data-c="up">بالا</button><button type="button" data-c="zin">زوم +</button><button id="bd-camreset" type="button">ریست</button>
+    <button type="button" data-c="back">عقب</button><button type="button" data-c="right">راست</button><button type="button" data-c="down">پایین</button><button type="button" data-c="zout">زوم −</button><span></span>
+  </div>
+</div>
+<div id="rb-go" class="rb-wrap" hidden>
+  <div class="gm-card rb-card">
+    <h2>ساختمان رنگین‌کمان</h2>
+    <p>یه ساختمون ۱۱۰۰ متری با دیوارهای رنگین‌کمانی متحرک، جنوب شهر. داخلش قایم‌موشک و ساخت‌وساز داری.</p>
+    <button id="rbg-route" type="button" class="gm-btn">راهنمای رفتن با فلش</button>
+    <button id="rbg-go" type="button" class="gm-btn primary">منو جلوی ساختمون ظاهر کن</button>
+    <button id="rbg-close" type="button" class="gm-btn">بستن</button>
+  </div>
+</div>
+<div id="rb-setup" class="rb-wrap" hidden>
+  <div class="gm-card rb-card">
+    <h2>قایم‌موشک · مرحلهٔ <span id="rbs-level"></span></h2>
+    <p>تو قایم می‌شی و ۲۰ نفر دنبالت می‌گردن. اگه جایی باشی که ببیننت حتماً پیدات می‌کنن؛ اگه داخل یا پشت وسیله‌ای قایم بشی، پیدا شدنت شانسیه. زمان بازی رو انتخاب کن:</p>
+    <div class="gm-row">
+      <button type="button" class="gm-btn primary" data-min="0">بی‌نهایت (تا پیدام کنن)</button>
+    </div>
+    <div class="gm-row">
+      <button type="button" class="gm-btn" data-min="1">۱ دقیقه</button><button type="button" class="gm-btn" data-min="3">۳ دقیقه</button><button type="button" class="gm-btn" data-min="5">۵ دقیقه</button><button type="button" class="gm-btn" data-min="10">۱۰ دقیقه</button>
+    </div>
+    <div class="gm-row"><input id="rbs-custom" class="gm-in" type="text" inputmode="numeric" placeholder="چند دقیقه؟"><button type="button" class="gm-btn" data-min="c" style="flex:none">شروع</button></div>
+    <button id="rbs-close" type="button" class="gm-btn">بستن</button>
+  </div>
+</div>
+<div id="rb-menu" class="rb-wrap" hidden>
+  <div class="gm-card rb-card">
+    <h2 id="rbm-title"></h2>
+    <p id="rbm-sub"></p>
+    <button id="rbm-next" type="button" class="gm-btn primary">رفتن به مرحلهٔ بعد</button>
+    <button id="rbm-again" type="button" class="gm-btn">دوباره همین مرحله</button>
+    <button id="rbm-stay" type="button" class="gm-btn">بمون و بگرد</button>
+    <button id="rbm-exit" type="button" class="gm-btn">خروج از ساختمان قایم‌موشک</button>
+  </div>
+</div>
+<div id="rb-colors" class="rb-wrap" hidden>
+  <div class="gm-card rb-card">
+    <h2>رنگ دیوارها</h2>
+    <p>یکی از رنگ‌بندی‌ها رو بزن یا رنگ‌ها رو خودت بچین:</p>
+    <div id="rbc-presets" class="gm-row"></div>
+    <div id="rbc-custom"></div>
+    <div class="gm-row"><button id="rbc-add" type="button" class="gm-btn">+ رنگ</button><button id="rbc-del" type="button" class="gm-btn">− رنگ</button></div>
+    <p>حرکت رنگ‌ها:</p>
+    <div class="gm-row"><button type="button" class="gm-btn" data-speed="0">ثابت</button><button type="button" class="gm-btn" data-speed="1">آرام</button><button type="button" class="gm-btn" data-speed="2">تند</button><button type="button" class="gm-btn" data-speed="3">موج دیوانه</button></div>
+    <button id="rbc-close" type="button" class="gm-btn primary">بستن</button>
+  </div>
+</div>
+<div id="fly-panel" class="rb-wrap" hidden>
+  <div class="gm-card rb-card" style="width:min(480px,100%)">
+    <h2 style="color:#7fd8ff">ماشین پرنده</h2>
+    <canvas id="fly-prev" width="448" height="252"></canvas>
+    <div class="gm-row" style="align-items:center"><input id="fly-val" class="gm-in" type="text" inputmode="decimal"><select id="fly-unit" class="gm-in" style="flex:none"><option value="kmh">کیلومتر بر ساعت</option><option value="ms">متر بر ثانیه</option><option value="mmin">متر بر دقیقه</option><option value="kmmin">کیلومتر بر دقیقه</option><option value="kms">کیلومتر بر ثانیه</option></select></div>
+    <input id="fly-range" type="range" min="0" max="1000" step="1">
+    <p id="fly-info" style="color:var(--paper)"></p>
+    <div class="gm-row"><button id="fly-spawn" type="button" class="gm-btn primary">ماشین پرنده رو کنارم بیار</button><button id="fly-close" type="button" class="gm-btn" style="flex:0 1 auto">بستن</button></div>
+    <p style="font-size:12px"><span id="fly-env"></span> · <span id="fly-post"></span></p>
+    <p style="font-size:12px">کد <b>۱۸۱۸</b> = رفتن به همین محیط آزمایشی · کد <b>۱۷۱۷</b> = برگشت به شهر</p>
+  </div>
+</div>
+<div id="code-panel" class="rb-wrap" hidden>
+  <form id="code-form" class="gm-card" autocomplete="off">
+    <h2>کد</h2>
+    <input id="code-in" class="gm-in" type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۸۱۸">
+    <button type="submit" class="gm-btn primary">برو</button>
+    <button id="code-close" type="button" class="gm-btn">بستن</button>
+  </form>
 </div>
 <div id="chat" hidden>
   <div class="chat-head"><div><b id="chat-name"></b><small id="chat-sub"></small> <span id="chat-ai"></span></div><button id="chat-close" type="button">بستن</button></div>

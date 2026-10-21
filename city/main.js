@@ -884,7 +884,7 @@ function updateSignals() {
 function mark(x, z, len, wid, ry, color) { const g = new THREE.PlaneGeometry(wid, len); g.rotateX(-Math.PI / 2); BT.add('paint', g, x, 0.03, z, ry, color); }
 function buildCity() {
   BT = new Batch(150); CL = world.col;
-  const gg = new THREE.PlaneGeometry(1800, 1800, 48, 48); gg.rotateX(-Math.PI / 2); gg.translate(0, -0.04, 0);
+  const gg = new THREE.PlaneGeometry(3400, 3400, 80, 80); gg.rotateX(-Math.PI / 2); gg.translate(0, -0.04, 0);
   { const p = gg.attributes.position, uv = gg.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / 7, -p.getZ(i) / 7); }
   BT.add('grass', gg);
   for (let i = 0; i <= N; i++) {
@@ -976,20 +976,22 @@ function buildCity() {
   while (k < (LOW ? 26 : 44)) {
     const x = rr(-BOUND + 4, BOUND - 4), z = rr(-BOUND + 4, BOUND - 4);
     if (Math.abs(x) < OUTER + 3 && Math.abs(z) < OUTER + 3) continue;
-    tree(x, z, rr(1, 1.6), R() < 0.4 ? 'pine' : 'round', true, 0); k++;
+    { const s1 = rr(1, 1.6), kind = R() < 0.4 ? 'pine' : 'round'; maybeDry(x, z, () => tree(x, z, s1, kind, true, 0)); } k++;
   }
   for (const s of [-1, 1]) {
-    BT.add('trim', boxGeo(2 * BOUND + 1.2, 1.4, 0.6, 3), 0, 0.7, s * BOUND, 0, 0x8a8378); CL.box(-BOUND - 1, BOUND + 1, s * BOUND - 0.3, s * BOUND + 0.3, 0, 1.4);
+    if (s < 0) { for (const sx of [-1, 1]) { const a = 8, b = BOUND + 0.6; BT.add('trim', boxGeo(b - a, 1.4, 0.6, 3), sx * (a + b) / 2, 0.7, s * BOUND, 0, 0x8a8378); CL.box(sx > 0 ? a : -b, sx > 0 ? b : -a, s * BOUND - 0.3, s * BOUND + 0.3, 0, 1.4); BT.add('trim', boxGeo(1.2, 3.2, 1.2, 3), sx * a, 1.6, s * BOUND, 0, 0x6a6358); } }
+    else { BT.add('trim', boxGeo(2 * BOUND + 1.2, 1.4, 0.6, 3), 0, 0.7, s * BOUND, 0, 0x8a8378); CL.box(-BOUND - 1, BOUND + 1, s * BOUND - 0.3, s * BOUND + 0.3, 0, 1.4); }
     BT.add('trim', boxGeo(0.6, 1.4, 2 * BOUND + 1.2, 3), s * BOUND, 0.7, 0, 0, 0x8a8378); CL.box(s * BOUND - 0.3, s * BOUND + 0.3, -BOUND - 1, BOUND + 1, 0, 1.4);
   }
   k = 0;
   while (k < (LOW ? 70 : 150)) {
     const x = rr(-BOUND - 45, BOUND + 45), z = rr(-BOUND - 45, BOUND + 45);
     if (Math.abs(x) < BOUND + 3 && Math.abs(z) < BOUND + 3) continue;
-    tree(x, z, rr(1.2, 2.0), R() < 0.65 ? 'pine' : 'round', false, 0); k++;
+    { const s1 = rr(1.2, 2.0), kind = R() < 0.65 ? 'pine' : 'round'; maybeDry(x, z, () => tree(x, z, s1, kind, false, 0)); } k++;
   }
   // the new places use their own random stream so the rest of the city stays exactly as it was
   { const keep = R; R = makeRng(4242);
+    buildRbExterior();
     for (const [pl, cx, cz] of world.newPlaces) ({ mall: buildMall, gas: buildGasStation, mosque: buildMosque, school: buildSchool, hospital: buildHospital })[pl](cx, cz);
     R = keep; }
   BT.build(scene);
@@ -998,7 +1000,7 @@ function buildCity() {
   world.parking = world.parking.filter(p => !world.busStops.some(s => Math.hypot(s.x - p.x, s.z - p.z) < 18)); // keep bus bays free
 }
 const NEW_PLACES = { '3,2': 'mall', '4,2': 'gas', '2,4': 'mosque', '2,0': 'school', '4,0': 'hospital' };
-const CLEAR = [[119, -17.5, 127, -3.2, 152], [119, 3.2, 127, 17.5, 152]]; // petrol station driveways
+const CLEAR = [[119, -17.5, 127, -3.2, 152], [119, 3.2, 127, 17.5, 152], [-14, -(BOUND + 62), 14, -(HALF + RH)], [-44, -(BOUND + 64), 44, -(BOUND + 34)]]; // petrol station driveways, road to the rainbow building
 function maybeDry(x, z, fn) { if (CLEAR.some(c => x > c[0] && x < c[2] && z > c[1] && z < c[3])) dryRun(fn); else fn(); }
 // run a builder without keeping anything it makes (but its random draws and door slots stay)
 function dryRun(fn) {
@@ -1253,7 +1255,7 @@ function updateWeather(dt) {
   weather.state = weather.rain > 0.3 ? 'rain' : weather.cloud > 0.55 ? 'cloudy' : 'clear';
   if (weather.rain > 0.65) { weather.nextBolt -= dt; if (weather.nextBolt < 0) { weather.flash = 1; weather.nextBolt = 7 + Math.random() * 16; Audio.thunder(0.6 + Math.random() * 2.5); } }
   weather.flash = Math.max(0, weather.flash - dt * 2.5);
-  Audio.rain(weather.rain * (player && player.where === 'in' ? 0.3 : 1));
+  Audio.rain(weather.rain * (player && player.where !== 'out' ? (player.where === 'in' ? 0.3 : 0) : 1));
   // rain streaks around the camera
   if (!rainLines) return;
   const show = weather.rain > 0.02 && player && player.where === 'out';
@@ -1704,6 +1706,16 @@ function poseHuman(p, dt, t) {
       const sa = a.swingA || 0;
       Q.hipY = 0.5; Q.thLx = -1.5 - sa * 0.6; Q.thRx = -1.5 - sa * 0.6; Q.knL = 1.45 + sa * 0.9; Q.knR = 1.45 + sa * 0.9; Q.spX = -0.1 + sa * 0.25;
       Q.shLx = -2.75; Q.shRx = -2.75; Q.elL = -0.25; Q.elR = -0.25; Q.shLz = 0.05; Q.shRz = -0.05; Q.hdX = -sa * 0.2;
+    } else if (sp_ === 'count') {
+      Q.shLx = -1.85; Q.shRx = -1.85; Q.elL = -2.25; Q.elR = -2.25; Q.shLz = 0.5; Q.shRz = -0.5; Q.shLy = -0.4; Q.shRy = 0.4; Q.hdX = 0.4; Q.spX = 0.18 + Math.sin(t * 2) * 0.02;
+    } else if (sp_ === 'peek') {
+      Q.spX = 0.55; Q.hdX = -0.35; Q.hdY = Math.sin(t * 2.4) * 0.7; Q.knL = 0.45; Q.knR = 0.45; Q.thLx = -0.3; Q.thRx = -0.3; Q.hipY = 0.86; Q.shLx = -0.7; Q.shRx = -0.5; Q.elL = -0.6; Q.elR = -0.9;
+    } else if (sp_ === 'crouch') {
+      Q.hipY = 0.42; Q.thLx = -1.75; Q.thRx = -1.65; Q.knL = 2.3; Q.knR = 2.2; Q.anL = 0.55; Q.anR = 0.5; Q.spX = 0.45; Q.hdX = -0.15 + Math.sin(t * 0.8) * 0.05; Q.shLx = -0.9; Q.shRx = -0.9; Q.elL = -1.3; Q.elR = -1.3; Q.shLz = 0.2; Q.shRz = -0.2;
+    } else if (sp_ === 'cheer') {
+      const b = Math.abs(Math.sin(t * 7)); Q.shLz = 2.7; Q.shRz = -2.7; Q.elL = -0.3; Q.elR = -0.3; Q.hipY = 0.95 + b * 0.08; Q.hdX = -0.2; Q.knL = 0.3 * (1 - b); Q.knR = 0.3 * (1 - b);
+    } else if (sp_ === 'point') {
+      Q.shRx = -1.55; Q.shRz = -0.1; Q.elR = -0.05; Q.hdX = -0.05; Q.shLz = 0.3; Q.elL = -1.4; Q.shLx = -0.3; Q.spX = 0.05;
     } else if (sp_ === 'drive') {
       const st = p.steer || 0;
       Q.hipY = 0.18; Q.thLx = -1.35; Q.thRx = -1.35; Q.knL = 1.1; Q.knR = 1.1; Q.anL = 0.2; Q.anR = 0.2; Q.spX = -0.2; Q.hdX = 0.12;
@@ -2242,7 +2254,7 @@ function stepCharacter(p, col, dt, outdoor) {
   if (p.pos.y <= g) { if (p.vel.y < -6) p.anim.land = Math.min(1, -p.vel.y / 14); p.pos.y = g; if (p.vel.y < 0) p.vel.y = 0; p.onGround = true; }
   else if (p.onGround && p.pos.y - g < 0.42 && p.vel.y <= 0) { p.pos.y = g; p.vel.y = 0; }
   else { p.onGround = false; p.standCar = null; }
-  if (!outdoor && p.pos.y + p.height > 3.05) { p.pos.y = 3.05 - p.height; if (p.vel.y > 0) p.vel.y = 0; }
+  if (!outdoor && col === interior.col && p.pos.y + p.height > 3.05) { p.pos.y = 3.05 - p.height; if (p.vel.y > 0) p.vel.y = 0; }
 }
 function separatePeople(list) {
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
@@ -2302,7 +2314,7 @@ const _pv = new V3();
 function updateBubbles(dt) {
   for (let i = bubbles.length - 1; i >= 0; i--) {
     const b = bubbles[i]; b.t -= dt;
-    const vis = b.p.pool && b.p.pool.parent === (player.where === 'in' ? interiorScene : scene) && b.p.H.visible;
+    const vis = b.p.pool && b.p.pool.parent === zoneScene(player.where) && b.p.H.visible;
     if (b.t <= 0 || !vis) { b.el.remove(); bubbles.splice(i, 1); continue; }
     _pv.set(b.p.pos.x, b.p.pos.y + 2.05, b.p.pos.z).project(camera);
     if (_pv.z > 1) { b.el.style.opacity = '0'; continue; }
@@ -2360,7 +2372,7 @@ function updateNPC(n, dt, outdoor, col) {
   n.timer -= dt; n.bumpCD -= dt; n.cornerCD -= dt; n.decideT -= dt;
   if (n.specialT !== undefined && n.anim.special && n.anim.special !== 'sit') { n.specialT -= dt; if (n.specialT <= 0) n.anim.special = null; }
   let desired = 0, dx = 0, dz = 0;
-  const pl = player, plHere = pl.where === (outdoor ? 'out' : 'in'), pd = plHere ? Math.hypot(pl.pos.x - n.pos.x, pl.pos.z - n.pos.z) : 99;
+  const pl = player, plHere = pl.where === (outdoor ? 'out' : (n.zone || 'in')), pd = plHere ? Math.hypot(pl.pos.x - n.pos.x, pl.pos.z - n.pos.z) : 99;
   const rainK = outdoor && weather.rain > 0.3 ? 1.3 : 1;
   const faceTo = (x, z, k = 6) => { n.facing += angDiff(n.facing, Math.atan2(x - n.pos.x, z - n.pos.z)) * Math.min(1, k * dt); };
   switch (n.mode) {
@@ -2469,7 +2481,7 @@ function updateNPC(n, dt, outdoor, col) {
       const T = n.task; if (!T || (T.until && T.until())) { n.task = null; n.anim.special = null; finishMode(n); break; }
       dx = T.x - n.pos.x; dz = T.z - n.pos.z; const d = Math.hypot(dx, dz);
       if (d < 0.5) { desired = 0; T.done = true; if (T.look) faceTo(T.look.pos.x, T.look.pos.z, 5); if (T.anim) { n.anim.special = T.anim; n.specialT = 1; } if (T.idle) n.anim.idleKind = T.idle; }
-      else { desired = T.run ? 3.4 : 1.4; T.done = false; if (n.anim.special === 'repair') n.anim.special = null; }
+      else { desired = T.spd || (T.run ? 3.4 : 1.4); T.done = false; if (n.anim.special === 'repair') n.anim.special = null; }
       break;
     }
     case 'getup': if (n.timer < 0) { n.mode = 'flee'; n.timer = 1.8; const a = Math.random() * 6.28; n.fx = Math.sin(a); n.fz = Math.cos(a); n.fleeSpd = 4; } break;
@@ -2951,7 +2963,7 @@ function heldPose(id) { // how each thing sits in the right hand
 }
 let flashLight = null, flashIn = null;
 function updateAttachments() {
-  const P = player, H = P.H, sc = P.where === 'in' ? interiorScene : scene;
+  const P = player, H = P.H, sc = zoneScene(P.where);
   const hideAll = P.state === 'car' || P.state === 'passenger' || P.state === 'entering' || P.state === 'exiting';
   // held item
   const hid = store.held && !hideAll && !(P.skate && ITEMS[store.held].model === 'skate') ? store.held : null;
@@ -3049,12 +3061,12 @@ function dropBall() {
   const P = player; takeInv('ball'); store.held = null;
   const f = cam.fpOn ? cam.yaw : P.facing;
   const b = { x: P.pos.x + Math.sin(f) * 0.6, y: P.pos.y + 0.9, z: P.pos.z + Math.cos(f) * 0.6, vx: Math.sin(f) * 9 + P.vel.x, vy: 3.5, vz: Math.cos(f) * 9 + P.vel.z, mesh: itemMesh('ball').clone(), spin: 0, where: P.where };
-  b.mesh.matrixAutoUpdate = true; b.mesh.children.forEach(c => c.position.y -= 0.11); (P.where === 'in' ? interiorScene : scene).add(b.mesh); balls.push(b);
+  b.mesh.matrixAutoUpdate = true; b.mesh.children.forEach(c => c.position.y -= 0.11); zoneScene(P.where).add(b.mesh); balls.push(b);
   Audio.thud(4, P.pos.x, P.pos.z); setSpecial(P, 'kick', 0.5); updateUseBtn(); saveGame();
 }
 function updateBalls(dt) {
   for (const b of balls) {
-    const col = b.where === 'in' ? interior.col : world.col; if (b.where !== player.where) { b.mesh.visible = false; continue; } b.mesh.visible = true;
+    const col = zoneCol(b.where); if (b.where !== player.where) { b.mesh.visible = false; continue; } b.mesh.visible = true;
     b.vy -= GRAV * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
     col.query(b.x - 0.12, b.x + 0.12, b.z - 0.12, b.z + 0.12, _near);
     let g = b.where === 'out' ? groundH(b.x, b.z) : 0;
@@ -3066,7 +3078,7 @@ function updateBalls(dt) {
     }
     if (b.y - 0.11 < g) { b.y = g + 0.11; if (b.vy < -1.5) { b.vy = -b.vy * 0.55; if (b.vy > 1.2) Audio.burst(0.08 * Audio.vol(b.x, b.z), 300, 0.12); } else b.vy = 0; const fr = Math.exp(-1.1 * dt); b.vx *= fr; b.vz *= fr; }
     // kicked by anyone running into it, pushed by cars
-    for (const p of b.where === 'out' ? [player, ...npcs, ...mall.npcs] : [player, ...interior.npcs]) {
+    for (const p of b.where === 'out' ? [player, ...npcs, ...mall.npcs] : b.where === 'rb' ? [player, ...rb.people] : [player, ...interior.npcs]) {
       if (p.inCar || (p === player && p.state !== 'foot')) continue;
       const dx = b.x - p.pos.x, dz = b.z - p.pos.z, d = Math.hypot(dx, dz); if (d > 0.42 || Math.abs(b.y - p.pos.y - 0.2) > 0.5 || d < 1e-4) continue;
       const nx = dx / d, nz = dz / d, sp = Math.max(2.5, Math.hypot(p.vel.x, p.vel.z) * 1.8); b.vx = nx * sp + p.vel.x * 0.4; b.vz = nz * sp + p.vel.z * 0.4; b.vy = Math.max(b.vy, sp * 0.35); b.x = p.pos.x + nx * 0.43; b.z = p.pos.z + nz * 0.43;
@@ -3085,7 +3097,7 @@ const floaters = [];
 function releaseBalloon(id) {
   takeInv(id); store.held = null; const m = itemMesh(id).clone(); m.matrixAutoUpdate = true;
   _ap.setFromMatrixPosition(attach.held ? attach.held.matrix : player.H.root.matrixWorld); m.position.copy(_ap);
-  (player.where === 'in' ? interiorScene : scene).add(m); floaters.push({ m, t: 0, vx: (Math.random() - 0.5) * 0.6, vz: (Math.random() - 0.5) * 0.6, where: player.where });
+  zoneScene(player.where).add(m); floaters.push({ m, t: 0, vx: (Math.random() - 0.5) * 0.6, vz: (Math.random() - 0.5) * 0.6, where: player.where });
   say(player, 'خداحافظ بادکنک!', 1.6); updateUseBtn(); saveGame();
 }
 function updateFloaters(dt) {
@@ -4133,6 +4145,908 @@ function buildCables() {
 }
 
 /* ============================================================
+   Rainbow building: an 1100 m hall with animated rainbow walls,
+   hundreds of things to hide in, 20 seekers, and a build mode
+   ============================================================ */
+const RB_SIZE = 1100, RB_H = 1100, RB_DOOR_Z = -(BOUND + 60); // the facade toward the city
+const RB_PALETTES = {
+  classic: { n: 'رنگین‌کمان کلاسیک', c: ['#ff2a2a', '#ff8a1a', '#ffe02a', '#3ad83a', '#2a9aff', '#3a3aff', '#a03aff'] },
+  pastel: { n: 'پاستیلی', c: ['#ffb3c6', '#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#a0c4ff', '#bdb2ff'] },
+  neon: { n: 'نئونی', c: ['#ff00a8', '#ff6a00', '#f5ff00', '#00ff6a', '#00e5ff', '#6a00ff'] },
+  sunset: { n: 'غروب', c: ['#ff4e50', '#fc913a', '#f9d62e', '#eae374', '#e2f4c7', '#ff7aa2'] },
+  ocean: { n: 'اقیانوس', c: ['#003f5c', '#2f9fd6', '#5ad8e6', '#a6f0e8', '#2fd6a8', '#1a6ad8'] },
+  fire: { n: 'آتش', c: ['#ff0000', '#ff5a00', '#ff9a00', '#ffce00', '#ff7a2a'] }
+};
+const rb = { built: false, people: [], seekers: [], hiders: [], spots: [], objs: [], placed: [], game: null, build: null };
+const rbUniforms = { uCols: { value: Array.from({ length: 8 }, () => new THREE.Color()) }, uN: { value: 7 }, uTime: { value: 0 }, uSpeed: { value: 0.05 }, uBand: { value: 90 } };
+function rbSettings() { return store.rbSet || (store.rbSet = { pal: 'classic', custom: RB_PALETTES.classic.c.slice(), speed: 1, level: 1, minutes: 0 }); }
+function applyRbPalette() {
+  const s = rbSettings(), cols = s.pal === 'custom' ? s.custom : RB_PALETTES[s.pal].c;
+  cols.forEach((c, i) => rbUniforms.uCols.value[i].set(c)); rbUniforms.uN.value = cols.length;
+  rbUniforms.uSpeed.value = [0, 0.02, 0.05, 0.12][s.speed];
+}
+const RB_VERT = `varying vec3 vW; varying vec3 vN;
+  #include <fog_pars_vertex>
+  void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+  #include <fog_vertex>
+  }`;
+const RB_FRAG = `uniform vec3 uCols[8]; uniform int uN; uniform float uTime; uniform float uSpeed; uniform float uBand;
+  varying vec3 vW; varying vec3 vN;
+  #include <fog_pars_fragment>
+  vec3 pal(float t) { float f = fract(t) * float(uN); int i = int(floor(f)); float k = smoothstep(0.0, 1.0, fract(f)); vec3 a = uCols[0], b = uCols[0];
+    for (int j = 0; j < 8; j++) { if (j == i) a = uCols[j]; if (j == (i + 1 == uN ? 0 : i + 1)) b = uCols[j]; } return mix(a, b, k); }
+  void main() {
+    vec3 n = abs(vN); float u = n.x > 0.5 ? vW.z : vW.x; if (n.y > 0.5) u = vW.x + vW.z * 0.5;
+    float t = (u * 0.6 + vW.y * 0.8) / uBand - uTime * uSpeed;
+    vec3 c = pal(t);
+    vec2 g = abs(fract(vec2(u, vW.y) / 22.0) - 0.5); float seam = smoothstep(0.485, 0.5, max(g.x, g.y));
+    c = mix(c, c * 0.55, seam * 0.6);
+    c *= 0.85 + 0.25 * smoothstep(400.0, 0.0, vW.y);
+    c += 0.06 * sin(vW.y * 0.05 + uTime * 0.7);
+    gl_FragColor = vec4(c, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }`;
+function rbMaterial(side, fog) {
+  const m = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: RB_VERT, fragmentShader: RB_FRAG, side, fog });
+  Object.assign(m.uniforms, rbUniforms); return m;
+}
+/* the outside, seen from the city: a monumental rainbow block south of the wall */
+function buildRbExterior() {
+  const z1 = RB_DOOR_Z, zc = z1 - RB_SIZE / 2;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(RB_SIZE, RB_H, RB_SIZE), rbMaterial(THREE.FrontSide, true));
+  box.position.set(0, RB_H / 2 - 0.05, zc); box.matrixAutoUpdate = false; box.updateMatrix(); scene.add(box);
+  CL.box(-RB_SIZE / 2, RB_SIZE / 2, z1 - RB_SIZE, z1, 0, RB_H);
+  // entrance: a tall dark portal with a canopy and sign
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(8, 6.5), new THREE.MeshStandardMaterial({ color: 0x10121c, emissive: 0x6a4ad8, emissiveIntensity: 0.55, roughness: 0.15, metalness: 0.3 }));
+  door.position.set(0, 3.25, z1 + 0.06); scene.add(door);
+  for (const [x, y, w, h] of [[-4.25, 3.4, 0.5, 6.8], [4.25, 3.4, 0.5, 6.8], [0, 6.75, 9, 0.5]]) BT.add('mallLamp', boxGeo(w, h, 0.3), x, y, z1 + 0.15, 0, 0xffffff);
+  BT.add('metal', boxGeo(18, 0.6, 7), 0, 8.4, z1 + 3.5, 0, 0x2a2d33);
+  BT.add('mallLamp', boxGeo(17, 0.05, 6.4), 0, 8.08, z1 + 3.5, 0, 0xffffff);
+  for (const x of [-8.2, 8.2]) { BT.add('metal', GEO.cyl, x, 4.2, z1 + 6.6, 0, 0x2a2d33, 0, 0, 0.25, 8.4, 0.25); CL.circle(x, z1 + 6.6, 0.3, 0, 8.4); }
+  makeSign(mkFrame(0, z1 + 0.2, 0), 0, 14.5, 0, 'ساختمان رنگین‌کمان', 26, '#14162a', '#ffffff');
+  makeSign(mkFrame(0, z1 + 7.05, 0), 0, 9.3, 0, 'قایم‌موشک · ساخت‌وساز', 9, '#5a1f8b', '#ffe8ff');
+  // the approach road from the city
+  const zA = -(HALF + RH), w = 10;
+  BT.add('asphalt', quadUp(-w / 2, z1 + 2, w / 2, zA, 0.012, 9), 0, 0, 0, 0, 0xffffff);
+  for (let z = zA - 6; z > z1 + 6; z -= 8) mark(0, z, 3.5, 0.15, 0, 0xf2f2ee);
+  for (const s of [-1, 1]) mark(s * (w / 2 - 0.4), (zA + z1) / 2, zA - z1 - 4, 0.12, 0, 0xf2f2ee);
+  for (let z = zA - 12; z > z1 + 10; z -= 18) for (const s of [-1, 1]) streetLamp(s * (w / 2 + 1.2), z, -s, 0);
+  BT.add('sidewalk', quadUp(-40, z1 + 2, 40, z1 + 22, 0.01, 4), 0, 0, 0, 0, 0xdcd6ff);
+  rb.door = { x: 0, z: z1 + 3 };
+  world.landmarks = world.landmarks || []; world.landmarks.push({ name: 'ساختمان رنگین‌کمان (قایم‌موشک)', keys: ['رنگین', 'کمان', 'قایم', 'موشک', 'بازی', 'ساخت'], x: 0, z: z1 + 6 });
+}
+/* ---------- objects you can hide in (procedural, instanced) ---------- */
+function colGeo(parts) {
+  const gs = parts.map(([g, x = 0, y = 0, z = 0, col = '#ffffff', rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1]) => {
+    const n = g.index ? g.toNonIndexed() : g.clone(); n.applyMatrix4(new THREE.Matrix4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz)));
+    if (!n.attributes.normal) n.computeVertexNormals();
+    const c = new THREE.Color(col), cnt = n.attributes.position.count, ca = new Float32Array(cnt * 3); for (let i = 0; i < cnt; i++) { ca[i * 3] = c.r; ca[i * 3 + 1] = c.g; ca[i * 3 + 2] = c.b; } n.setAttribute('color', new THREE.BufferAttribute(ca, 3)); return n; });
+  let tot = 0; for (const g of gs) tot += g.attributes.position.count;
+  const pos = new Float32Array(tot * 3), nor = new Float32Array(tot * 3), col = new Float32Array(tot * 3); let o = 0;
+  for (const g of gs) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; }
+  const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  out.computeBoundingBox(); out.computeBoundingSphere(); return out;
+}
+const Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d), Cyl = (r1, r2, h, s = 16) => new THREE.CylinderGeometry(r1, r2, h, s), Sph = (r, a = 16, b = 12) => new THREE.SphereGeometry(r, a, b);
+// size = footprint [w, h, d]; hide = [lx, lz, pose, conceal, kind]; tint = instance colours
+const RB_TYPES = {
+  wardrobe: { n: 'کمد لباس', cat: 'مبلمان', size: [2.0, 2.3, 0.7], hide: [[0, 0, 'stand', 0.9, 'in']], tint: ['#8a5a32', '#6a4024', '#a87a4a', '#e8e0d0', '#4a3a2a'], w: 6,
+    geo: () => colGeo([[Bx(2, 2.2, 0.66), 0, 1.1, 0], [Bx(0.97, 2.0, 0.03), -0.5, 1.08, 0.34, '#f0ebe4'], [Bx(0.97, 2.0, 0.03), 0.5, 1.08, 0.34, '#f0ebe4'], [Bx(0.03, 0.3, 0.04), -0.06, 1.1, 0.37, '#c8c8c8'], [Bx(0.03, 0.3, 0.04), 0.06, 1.1, 0.37, '#c8c8c8'], [Bx(2.1, 0.1, 0.72), 0, 2.25, 0], [Bx(2.0, 0.08, 0.66), 0, 0.04, 0, '#3a2a1a']]) },
+  crate: { n: 'جعبهٔ چوبی بزرگ', cat: 'انبار', size: [1.8, 1.8, 1.8], hide: [[0, -1.3, 'crouch', 0.55, 'behind'], [0, 1.3, 'crouch', 0.55, 'behind']], tint: ['#c8a46a', '#b08850', '#d8b884'], w: 9,
+    geo: () => { const p = [[Bx(1.76, 1.76, 1.76), 0, 0.88, 0]]; for (const y of [0.1, 0.88, 1.66]) for (const s of [-1, 1]) { p.push([Bx(1.8, 0.14, 0.04), 0, y, s * 0.9, '#8a6a3a']); p.push([Bx(0.04, 0.14, 1.8), s * 0.9, y, 0, '#8a6a3a']); } p.push([Bx(0.06, 1.8, 0.06), 0, 0.9, 0.9, '#8a6a3a', 0, 0, 0.78]); return colGeo(p); } },
+  sofa: { n: 'کاناپه', cat: 'مبلمان', size: [2.4, 0.9, 1.0], hide: [[0, -0.95, 'lie', 0.6, 'behind']], tint: ['#7a2a2a', '#2a4a7a', '#3a5a3a', '#8a7a6a', '#5a3a6a', '#c8b89a'], w: 7,
+    geo: () => colGeo([[Bx(2.3, 0.42, 0.95), 0, 0.25, 0], [Bx(2.3, 0.6, 0.22), 0, 0.68, -0.38], [Bx(0.2, 0.62, 0.95), -1.12, 0.36, 0], [Bx(0.2, 0.62, 0.95), 1.12, 0.36, 0], [Bx(1.0, 0.14, 0.7), -0.52, 0.52, 0.08, '#f0f0f0'], [Bx(1.0, 0.14, 0.7), 0.52, 0.52, 0.08, '#f0f0f0'], [Cyl(0.04, 0.03, 0.08, 6), -1.05, 0.04, 0.4, '#2a2a2a'], [Cyl(0.04, 0.03, 0.08, 6), 1.05, 0.04, 0.4, '#2a2a2a'], [Cyl(0.04, 0.03, 0.08, 6), -1.05, 0.04, -0.4, '#2a2a2a'], [Cyl(0.04, 0.03, 0.08, 6), 1.05, 0.04, -0.4, '#2a2a2a']]) },
+  clothTable: { n: 'میز با رومیزی بلند', cat: 'مبلمان', size: [2.2, 0.8, 1.2], hide: [[0, 0, 'lie', 0.8, 'in']], tint: ['#e8e2d8', '#c8202a', '#2a5aa8', '#f2c12e', '#3a8a5a'], w: 6,
+    geo: () => colGeo([[Bx(2.2, 0.05, 1.2), 0, 0.78, 0], [Bx(2.22, 0.74, 0.02), 0, 0.4, 0.6], [Bx(2.22, 0.74, 0.02), 0, 0.4, -0.6], [Bx(0.02, 0.74, 1.2), 1.1, 0.4, 0], [Bx(0.02, 0.74, 1.2), -1.1, 0.4, 0], [Cyl(0.12, 0.1, 0.25, 12), 0.5, 0.93, 0, '#f4f4f4'], [Sph(0.12, 10, 8), 0.5, 1.1, 0, '#e8303a'], [Cyl(0.05, 0.05, 0.3, 8), -0.5, 0.95, 0.1, '#a8d8f0']]) },
+  curtain: { n: 'پردهٔ نمایش', cat: 'نمایش', size: [3.0, 2.6, 0.5], hide: [[0, -0.55, 'stand', 0.65, 'behind']], tint: ['#8a1a2a', '#1a2a6a', '#2a5a2a', '#5a1a6a', '#c88a1a'], w: 5,
+    geo: () => { const p = [[Cyl(0.03, 0.03, 3.1, 8), 0, 2.55, 0, '#c9a24a', 0, 0, Math.PI / 2], [Cyl(0.035, 0.035, 2.6, 8), -1.5, 1.3, 0, '#c9a24a'], [Cyl(0.035, 0.035, 2.6, 8), 1.5, 1.3, 0, '#c9a24a'], [Bx(0.6, 0.05, 0.4), -1.5, 0.03, 0, '#3a3a3a'], [Bx(0.6, 0.05, 0.4), 1.5, 0.03, 0, '#3a3a3a']]; for (let k = 0; k < 14; k++) p.push([Bx(0.2, 2.45, 0.08), -1.38 + k * 0.212, 1.27, Math.sin(k * 1.3) * 0.06]); return colGeo(p); } },
+  barrels: { n: 'بشکه‌ها', cat: 'انبار', size: [2.0, 1.0, 1.6], hide: [[0, -1.2, 'crouch', 0.5, 'behind']], tint: ['#2a5aa8', '#c8202a', '#3a7a3a', '#e8a81a', '#6a6a6a'], w: 6,
+    geo: () => { const p = []; for (const [x, z, y] of [[-0.5, 0.3, 0], [0.5, 0.3, 0], [0, -0.35, 0]]) { p.push([Cyl(0.42, 0.42, 0.95, 18), x, y + 0.48, z]); for (const yy of [0.2, 0.75]) p.push([Cyl(0.43, 0.43, 0.04, 18), x, y + yy, z, '#3a3a3a']); } return colGeo(p); } },
+  bed: { n: 'تخت خواب', cat: 'مبلمان', size: [1.6, 0.9, 2.1], hide: [[0, 0, 'lie', 0.75, 'in']], tint: ['#6a4a2a', '#e8e0d0', '#3a2a1a'], w: 5,
+    geo: () => colGeo([[Bx(1.6, 0.3, 2.1), 0, 0.3, 0], [Bx(1.5, 0.22, 2.0), 0, 0.56, 0.02, '#f4f4f0'], [Bx(1.54, 0.06, 1.4), 0, 0.68, 0.32, '#3a5a8a'], [Bx(0.6, 0.14, 0.38), -0.38, 0.72, -0.75, '#ffffff'], [Bx(0.6, 0.14, 0.38), 0.38, 0.72, -0.75, '#ffffff'], [Bx(1.7, 1.0, 0.1), 0, 0.6, -1.06], ...[[-0.75, -1], [0.75, -1], [-0.75, 1], [0.75, 1]].map(([x, z]) => [Bx(0.08, 0.15, 0.08), x, 0.075, z])]) },
+  container: { n: 'کانتینر', cat: 'انبار', size: [6.1, 2.6, 2.44], hide: [[0, 0, 'stand', 0.92, 'in']], tint: ['#b8321f', '#1f5f8b', '#2f7a3a', '#c8a020', '#6a6a72'], w: 4,
+    geo: () => { const p = [[Bx(6.06, 2.56, 2.4), 0, 1.28, 0]]; for (let x = -2.9; x <= 2.9; x += 0.3) for (const s of [-1, 1]) p.push([Bx(0.12, 2.3, 0.04), x, 1.28, s * 1.21]); p.push([Bx(0.04, 2.3, 1.1), 3.04, 1.28, -0.58, '#d8d8d8'], [Bx(0.04, 2.3, 1.1), 3.04, 1.28, 0.58, '#d8d8d8']); for (const z of [-0.8, -0.35, 0.35, 0.8]) p.push([Cyl(0.02, 0.02, 2.3, 6), 3.07, 1.28, z, '#555555']); return colGeo(p); } },
+  tent: { n: 'چادر', cat: 'باغ', size: [2.6, 1.9, 2.6], hide: [[0, 0, 'crouch', 0.85, 'in']], tint: ['#e85a1a', '#2a8a4a', '#2a5ad8', '#e8c81a'], w: 5,
+    geo: () => colGeo([[new THREE.ConeGeometry(1.75, 1.9, 4, 1, false), 0, 0.95, 0, '#ffffff', 0, Math.PI / 4], [Bx(0.7, 1.1, 0.02), 0, 0.55, 1.06, '#2a2a2a', -0.48], [Cyl(0.02, 0.02, 0.4, 6), 0, 2.0, 0, '#888888']]) },
+  plant: { n: 'گلدان درختچه', cat: 'باغ', size: [1.2, 2.4, 1.2], hide: [[0, -1.0, 'crouch', 0.4, 'behind']], tint: ['#ffffff'], w: 7,
+    geo: () => { const p = [[Cyl(0.55, 0.42, 0.75, 18), 0, 0.37, 0, '#b8643a'], [Cyl(0.5, 0.5, 0.05, 18), 0, 0.73, 0, '#4a3020'], [Cyl(0.06, 0.08, 0.9, 6), 0, 1.1, 0, '#5a4030']]; for (let k = 0; k < 9; k++) p.push([new THREE.IcosahedronGeometry(0.45, 0), Math.sin(k * 2.4) * 0.4, 1.5 + (k % 3) * 0.3, Math.cos(k * 2.4) * 0.4, ['#3f7a2a', '#4f8a32', '#2f6a22'][k % 3]]); return colGeo(p); } },
+  oldcar: { n: 'ماشین قدیمی', cat: 'انبار', size: [4.5, 1.5, 1.9], hide: [[0, -0.3, 'sit', 0.7, 'in']], tint: ['#8a2a2a', '#2a4a6a', '#c8b88a', '#3a3a3a', '#6a8a6a'], w: 3,
+    geo: () => { const G = carGeos('sedan'); return colGeo([[G.paint], [G.cabin, 0, 0, 0, '#1a2228'], ...[[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([sx, sz]) => [Cyl(0.34, 0.34, 0.24, 16), sx * 0.82, 0.34, sz * 1.35, '#141414', 0, 0, Math.PI / 2])]); } },
+  tube: { n: 'تونل بازی', cat: 'بازی', size: [1.8, 1.8, 4.2], hide: [[0, 0, 'crouch', 0.7, 'in']], tint: ['#e8303a', '#2a6ad8', '#f2c12e', '#3ab84a'], w: 5,
+    geo: () => colGeo([[new THREE.CylinderGeometry(0.88, 0.88, 4.0, 24, 1, true), 0, 0.88, 0, '#ffffff', Math.PI / 2], [new THREE.TorusGeometry(0.88, 0.07, 8, 24), 0, 0.88, 2.0, '#f4f4f4'], [new THREE.TorusGeometry(0.88, 0.07, 8, 24), 0, 0.88, -2.0, '#f4f4f4'], [Bx(1.6, 0.06, 3.9), 0, 0.04, 0, '#c8c8c8']]) },
+  bookshelf: { n: 'کتابخانه', cat: 'مبلمان', size: [2.0, 2.4, 0.45], hide: [[0, -0.65, 'stand', 0.5, 'behind']], tint: ['#5a3a22', '#8a6a4a', '#2a2420'], w: 5,
+    geo: () => { const p = [[Bx(2.0, 2.4, 0.06), 0, 1.2, -0.2], [Bx(0.05, 2.4, 0.42), -0.98, 1.2, 0], [Bx(0.05, 2.4, 0.42), 0.98, 1.2, 0]]; for (let s = 0; s < 5; s++) { p.push([Bx(1.95, 0.04, 0.42), 0, 0.05 + s * 0.55, 0]); if (s < 4) { let x = -0.9; let k = 0; while (x < 0.88) { const bw = 0.05 + ((k * 37) % 5) * 0.012, bh = 0.32 + ((k * 13) % 7) * 0.025; p.push([Bx(bw, bh, 0.3), x + bw / 2, 0.07 + s * 0.55 + bh / 2, 0.02, ['#8a2a2a', '#2a4a8a', '#2a6a3a', '#d8b84a', '#5a3a6a', '#e8e0d0'][k % 6]]); x += bw + 0.01; k++; } } } return colGeo(p); } },
+  boxes: { n: 'کارتن‌های روی هم', cat: 'انبار', size: [1.6, 1.9, 1.3], hide: [[0, -1.05, 'crouch', 0.55, 'behind']], tint: ['#c8a070', '#b89060'], w: 8,
+    geo: () => colGeo([[Bx(0.75, 0.6, 0.6), -0.4, 0.3, 0.3], [Bx(0.75, 0.6, 0.6), 0.4, 0.3, 0.3], [Bx(0.75, 0.6, 0.6), -0.4, 0.3, -0.32], [Bx(0.75, 0.6, 0.6), 0.4, 0.3, -0.32], [Bx(0.8, 0.6, 0.62), -0.1, 0.9, 0], [Bx(0.7, 0.55, 0.55), 0.35, 1.48, 0.1], [Bx(0.5, 0.04, 0.62), -0.1, 1.21, 0, '#e8d8b0'], [Bx(0.76, 0.03, 0.08), -0.4, 0.61, 0.3, '#8a7050']]) },
+  piano: { n: 'پیانو', cat: 'نمایش', size: [1.6, 1.3, 0.75], hide: [[0, -0.8, 'crouch', 0.5, 'behind']], tint: ['#141414', '#3a2214', '#f4f4f4'], w: 3,
+    geo: () => { const p = [[Bx(1.55, 1.25, 0.6), 0, 0.62, -0.05], [Bx(1.5, 0.1, 0.3), 0, 0.75, 0.3], [Bx(1.45, 0.03, 0.18), 0, 0.81, 0.33, '#f8f8f0']]; for (let k = 0; k < 18; k++) p.push([Bx(0.03, 0.02, 0.1), -0.68 + k * 0.08, 0.83, 0.3, '#111111']); p.push([Bx(0.6, 0.45, 0.35), 0, 0.23, 0.7]); return colGeo(p); } },
+  statue: { n: 'مجسمه', cat: 'نمایش', size: [1.4, 3.2, 1.4], hide: [[0, -1.0, 'stand', 0.35, 'behind']], tint: ['#e8e4dc', '#b8a070', '#8a9098'], w: 3,
+    geo: () => colGeo([[Bx(1.3, 1.0, 1.3), 0, 0.5, 0, '#a8a49c'], [Cyl(0.3, 0.45, 1.3, 14), 0, 1.65, 0], [Sph(0.32), 0, 2.55, 0], [new THREE.TorusGeometry(0.45, 0.1, 10, 24), 0, 2.95, 0, '#ffffff', 0.5]]) },
+  playhouse: { n: 'خانهٔ بازی', cat: 'بازی', size: [2.4, 2.7, 2.4], hide: [[0, 0, 'crouch', 0.85, 'in']], tint: ['#f2e8d0', '#ffd8e8', '#d8f0ff'], w: 4,
+    geo: () => colGeo([[Bx(2.3, 1.7, 0.08), 0, 0.85, -1.15], [Bx(0.08, 1.7, 2.3), -1.15, 0.85, 0], [Bx(0.08, 1.7, 2.3), 1.15, 0.85, 0], [Bx(0.75, 1.7, 0.08), -0.78, 0.85, 1.15], [Bx(0.75, 1.7, 0.08), 0.78, 0.85, 1.15], [Bx(0.8, 0.4, 0.08), 0, 1.5, 1.15], [new THREE.ConeGeometry(1.85, 1.0, 4), 0, 2.2, 0, '#c8302a', 0, Math.PI / 4], [Bx(0.5, 0.5, 0.1), -0.7, 1.05, 1.17, '#9fd0f0']]) },
+  hay: { n: 'بستهٔ کاه', cat: 'باغ', size: [1.5, 1.2, 2.4], hide: [[0, -1.25, 'crouch', 0.5, 'behind']], tint: ['#e8c870', '#d8b860'], w: 5,
+    geo: () => { const p = [[Bx(1.45, 1.15, 2.35), 0, 0.58, 0]]; for (const z of [-0.6, 0.6]) p.push([Bx(1.47, 1.17, 0.04), 0, 0.58, z, '#8a6a3a']); return colGeo(p); } },
+  fridge: { n: 'یخچال بزرگ', cat: 'مبلمان', size: [0.9, 1.9, 0.75], hide: [[0, -0.75, 'stand', 0.45, 'behind']], tint: ['#e8e8e8', '#b8bcc0', '#2a2a2a'], w: 3,
+    geo: () => colGeo([[Bx(0.9, 1.88, 0.72), 0, 0.94, 0], [Bx(0.86, 0.02, 0.02), 0, 1.25, 0.37, '#8a8a8a'], [Bx(0.03, 0.5, 0.04), 0.36, 1.5, 0.38, '#c8c8c8'], [Bx(0.03, 0.4, 0.04), 0.36, 0.8, 0.38, '#c8c8c8']]) },
+  ballpit: { n: 'استخر توپ', cat: 'بازی', size: [3.0, 0.9, 3.0], hide: [[0, 0, 'lie', 0.8, 'in']], tint: ['#2a6ad8', '#e8303a'], w: 3,
+    geo: () => { const p = [[Bx(3, 0.9, 0.15), 0, 0.45, 1.42], [Bx(3, 0.9, 0.15), 0, 0.45, -1.42], [Bx(0.15, 0.9, 3), 1.42, 0.45, 0], [Bx(0.15, 0.9, 3), -1.42, 0.45, 0]]; for (let k = 0; k < 90; k++) p.push([Sph(0.1, 6, 4), ((k * 37) % 26) / 10 - 1.3, 0.55 + (k % 3) * 0.08, ((k * 53) % 26) / 10 - 1.3, ['#e8303a', '#2a6ad8', '#f2c12e', '#3ab84a', '#e85aa8'][k % 5]]); return colGeo(p); } },
+  arcade: { n: 'دستگاه بازی', cat: 'بازی', size: [1.0, 1.9, 0.9], hide: [[0, -0.8, 'crouch', 0.45, 'behind']], tint: ['#1a1a2a', '#3a1a4a'], w: 3,
+    geo: () => colGeo([[Bx(1.0, 1.85, 0.85), 0, 0.92, 0], [Bx(0.8, 0.55, 0.02), 0, 1.35, 0.43, '#3ab8ff'], [Bx(0.95, 0.12, 0.35), 0, 0.95, 0.55, '#c8202a'], [Bx(1.0, 0.2, 0.7), 0, 1.92, 0.05, '#ff5ad8']]) },
+  // build-mode only shapes (also usable for hiding when big enough)
+  wall: { n: 'دیوار', cat: 'ساختمانی', size: [4, 3, 0.3], hide: [[0, -0.6, 'stand', 0.55, 'behind']], tint: ['#e8e2d8', '#c8a080', '#8a8a92'], w: 0, geo: () => colGeo([[Bx(4, 3, 0.3), 0, 1.5, 0]]) },
+  pillar: { n: 'ستون', cat: 'ساختمانی', size: [1, 4, 1], hide: [[0, -0.9, 'stand', 0.3, 'behind']], tint: ['#f4f0ea'], w: 0, geo: () => colGeo([[Cyl(0.5, 0.5, 4, 24), 0, 2, 0], [Bx(1.2, 0.2, 1.2), 0, 0.1, 0, '#d8d0c4'], [Bx(1.2, 0.2, 1.2), 0, 3.9, 0, '#d8d0c4']]) },
+  platform: { n: 'سکو', cat: 'ساختمانی', size: [4, 0.5, 4], hide: [], tint: ['#8a9098', '#c8b090'], w: 0, geo: () => colGeo([[Bx(4, 0.5, 4), 0, 0.25, 0]]) },
+  cube: { n: 'مکعب رنگی', cat: 'ساختمانی', size: [2, 2, 2], hide: [[0, -1.4, 'crouch', 0.5, 'behind']], tint: ['#e8303a', '#2a6ad8', '#f2c12e', '#3ab84a', '#ff8a1a', '#a03aff'], w: 0, geo: () => colGeo([[Bx(2, 2, 2), 0, 1, 0]]) },
+  ballBig: { n: 'توپ بزرگ', cat: 'بازی', size: [2, 2, 2], hide: [[0, -1.4, 'crouch', 0.4, 'behind']], tint: ['#e8303a', '#2a6ad8', '#f2c12e'], w: 0, geo: () => colGeo([[Sph(1, 24, 16), 0, 1, 0]]) },
+  tree: { n: 'درخت', cat: 'باغ', size: [3, 5, 3], hide: [[0, -1.0, 'stand', 0.35, 'behind']], tint: ['#ffffff'], w: 0, geo: () => { const p = [[Cyl(0.18, 0.25, 2.4, 8), 0, 1.2, 0, '#5a4030']]; for (let k = 0; k < 10; k++) p.push([new THREE.IcosahedronGeometry(1.0, 0), Math.sin(k * 2.4) * 0.9, 2.8 + (k % 3) * 0.6, Math.cos(k * 2.4) * 0.9, ['#3f7a2a', '#4f8a32', '#2f6a22'][k % 3]]); return colGeo(p); } },
+  chair: { n: 'صندلی', cat: 'مبلمان', size: [0.5, 0.95, 0.5], hide: [], tint: ['#8a5a32', '#2a2a2a', '#c8202a'], w: 0, geo: () => colGeo([[Bx(0.46, 0.05, 0.46), 0, 0.46, 0], [Bx(0.46, 0.5, 0.04), 0, 0.72, -0.21], ...[[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].map(([x, z]) => [Bx(0.04, 0.45, 0.04), x, 0.22, z])]) },
+  lamp: { n: 'چراغ پایه‌دار', cat: 'نمایش', size: [0.6, 2.0, 0.6], hide: [], tint: ['#fff4d8'], w: 0, geo: () => colGeo([[Cyl(0.2, 0.25, 0.05, 16), 0, 0.03, 0, '#2a2a2a'], [Cyl(0.025, 0.025, 1.7, 8), 0, 0.88, 0, '#2a2a2a'], [Cyl(0.18, 0.3, 0.35, 16, 1, true), 0, 1.8, 0]]) },
+  stairs: { n: 'پله', cat: 'ساختمانی', size: [2, 2, 4], hide: [], tint: ['#c8c0b4'], w: 0, geo: () => { const p = []; for (let k = 0; k < 8; k++) p.push([Bx(2, 0.25 * (k + 1), 0.5), 0, 0.125 * (k + 1), 1.75 - k * 0.5]); return colGeo(p); }, steps: true }
+};
+const rbMats = {};
+/* ---------- the hall ---------- */
+const rbScene = new THREE.Scene(); rbScene.background = new THREE.Color(0x0a0812);
+let rbPool = null, rbSun = null, rbHemi = null, rbGrid = null;
+const RB_ARENA = { x: 0, z: 360, r: 140 };
+function buildRainbow() {
+  if (rb.built) return; rb.built = true;
+  applyRbPalette();
+  const inside = new THREE.Mesh(new THREE.BoxGeometry(RB_SIZE, RB_H, RB_SIZE), rbMaterial(THREE.BackSide, false)); inside.position.y = RB_H / 2; inside.userData.keep = true; rbScene.add(inside);
+  // polished floor with large tiles
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(RB_SIZE, RB_SIZE), new THREE.MeshStandardMaterial({ map: T.mallTile.clone(), roughness: 0.22, metalness: 0.05, color: 0xd8d4e4 }));
+  fl.material.map.repeat.set(RB_SIZE / 3, RB_SIZE / 3); fl.material.map.wrapS = fl.material.map.wrapT = THREE.RepeatWrapping; fl.material.map.needsUpdate = true;
+  fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; rbScene.add(fl);
+  // arena carpet + counting pillar in the middle
+  const carpet = new THREE.Mesh(new THREE.CircleGeometry(RB_ARENA.r + 8, 64), new THREE.MeshStandardMaterial({ color: 0x3a3a5a, roughness: 0.95 })); carpet.rotation.x = -Math.PI / 2; carpet.position.set(RB_ARENA.x, 0.02, RB_ARENA.z); carpet.receiveShadow = true; rbScene.add(carpet);
+  const pil = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 9, 32), rbMaterial(THREE.FrontSide, false)); pil.position.set(RB_ARENA.x, 4.5, RB_ARENA.z); pil.castShadow = true; rbScene.add(pil);
+  rbHemi = new THREE.HemisphereLight(0xf4f0ff, 0x6a5a8a, 1.1); rbScene.add(rbHemi);
+  rbSun = new THREE.DirectionalLight(0xffffff, 1.6); rbSun.castShadow = true; rbSun.shadow.mapSize.set(LOW ? 1024 : 2048, LOW ? 1024 : 2048);
+  const sc = rbSun.shadow.camera; sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 260; rbSun.shadow.bias = -0.0005; rbSun.shadow.normalBias = 0.03;
+  rbScene.add(rbSun, rbSun.target);
+  // reflections of the rainbow walls on glossy things
+  { const es = new THREE.Scene(); const cols = rbUniforms.uCols.value; for (let k = 0; k < 8; k++) { const m = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 2), new THREE.MeshBasicMaterial({ color: cols[k % rbUniforms.uN.value] })); const a = k / 8 * Math.PI * 2; m.position.set(Math.cos(a) * 8, 2, Math.sin(a) * 8); es.add(m); } es.add(new THREE.Mesh(new THREE.BoxGeometry(40, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffffff })).translateY(12)); es.background = new THREE.Color(0x3a3050);
+    const pm = new THREE.PMREMGenerator(renderer); rbScene.environment = pm.fromScene(es, 0.04).texture; pm.dispose(); }
+  rbPool = new HumanPool(rbScene, 34);
+  // exit portal on the south wall
+  const ex = new THREE.Mesh(new THREE.PlaneGeometry(26, 16), new THREE.MeshStandardMaterial({ color: 0x0a0c12, emissive: 0x6a8aff, emissiveIntensity: 0.4 })); ex.position.set(0, 8, RB_SIZE / 2 - 0.1); ex.rotation.y = Math.PI; rbScene.add(ex);
+  { const F = mkFrame(0, RB_SIZE / 2 - 0.2, Math.PI), keep = BT; BT = new Batch(0); makeSignTo(rbScene, F, 0, 18, 0, 'خروج به شهر', 14, '#14162a', '#ffffff'); BT.build(rbScene); BT = keep; }
+  rbGenerate();
+  spawnSeekers();
+}
+function makeSignTo(sc, F, lx, ly, lz, text, w, bg, fg) {
+  const c = mkCanvas(1024, 256), g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, 1024, 256); g.fillStyle = fg; g.font = '150px Lalezar, Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.fillText(text, 512, 140, 940);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshBasicMaterial({ map: toTex(c), toneMapped: false })); const [x, z] = fw(F, lx, lz); m.position.set(x, ly, z); m.rotation.y = F.a; sc.add(m);
+}
+/* lay out hundreds of objects in themed neighbourhoods around the pillar */
+function rbGenerate() {
+  for (const o of rb.objs) if (o.inst) o.inst.parent?.remove(o.inst); rb.objs = []; rb.inst = rb.inst || {};
+  for (const k in rb.inst) { rbScene.remove(rb.inst[k]); } rb.inst = {};
+  const s = rbSettings(), rnd = makeRng(9001 + s.level * 7919), N_ = LOW ? 430 : 720, A = RB_ARENA;
+  const zones = [['wardrobe', 'sofa', 'clothTable', 'bed', 'bookshelf', 'fridge', 'piano'], ['crate', 'barrels', 'container', 'boxes', 'oldcar', 'crate'], ['tube', 'playhouse', 'ballpit', 'arcade', 'tent'], ['plant', 'hay', 'tent', 'statue', 'curtain', 'plant']];
+  const placed = [];
+  const free = (x, z, w, d) => { if (Math.hypot(x - A.x, z - A.z) < 9) return false; for (const p of placed) if (Math.abs(p.x - x) < (p.w + w) / 2 + 2.2 && Math.abs(p.z - z) < (p.d + d) / 2 + 2.2) return false; return true; };
+  let tries = 0;
+  while (placed.length < N_ && tries++ < N_ * 30) {
+    const ang = rnd() * Math.PI * 2, r = 10 + Math.sqrt(rnd()) * (A.r - 10), x = A.x + Math.cos(ang) * r, z = A.z + Math.sin(ang) * r;
+    const zone = zones[Math.floor(((ang / (Math.PI * 2)) * 4 + 0.5 * Math.sin(r * 0.05)) % 4 + 4) % 4];
+    const type = rnd() < 0.82 ? zone[Math.floor(rnd() * zone.length)] : pickW(rnd);
+    const T_ = RB_TYPES[type], rot = Math.floor(rnd() * 4), sw = rot % 2 ? T_.size[2] : T_.size[0], sd = rot % 2 ? T_.size[0] : T_.size[2];
+    if (!free(x, z, sw, sd)) continue;
+    placed.push({ type, x, z, w: sw, d: sd, ry: rot * Math.PI / 2, tint: T_.tint[Math.floor(rnd() * T_.tint.length)], sx: 1, sy: 1, sz: 1 });
+  }
+  // a few landmarks out in the empty hall
+  for (let k = 0; k < (LOW ? 30 : 60); k++) { const x = (rnd() - 0.5) * (RB_SIZE - 80), z = (rnd() - 0.5) * (RB_SIZE - 80); if (Math.hypot(x - A.x, z - A.z) < A.r + 30 || Math.abs(x) < 20 && z > 400) continue; const type = ['container', 'statue', 'tree', 'tent', 'hay'][k % 5]; const T_ = RB_TYPES[type]; placed.push({ type, x, z, w: T_.size[0], d: T_.size[2], ry: (k % 4) * Math.PI / 2, tint: T_.tint[k % T_.tint.length], sx: 1.5, sy: 1.5, sz: 1.5 }); }
+  rb.base = placed;
+  rbRebuildInstances();
+}
+function pickW(rnd) { const ks = Object.keys(RB_TYPES).filter(k => RB_TYPES[k].w > 0); let tot = 0; for (const k of ks) tot += RB_TYPES[k].w; let r = rnd() * tot; for (const k of ks) { r -= RB_TYPES[k].w; if (r <= 0) return k; } return ks[0]; }
+function rbMat(type) { return rbMats[type] || (rbMats[type] = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: ['container', 'oldcar', 'fridge', 'arcade', 'piano'].includes(type) ? 0.35 : 0.75, metalness: ['container', 'oldcar', 'fridge'].includes(type) ? 0.35 : 0.02, side: type === 'tube' ? THREE.DoubleSide : THREE.FrontSide })); }
+const _rm = new THREE.Matrix4(), _rq = new THREE.Quaternion(), _rv = new V3(), _rs = new V3(), _ry = new V3(0, 1, 0);
+function rbRebuildInstances() {
+  for (const k in rb.inst) rbScene.remove(rb.inst[k]); rb.inst = {};
+  const all = rb.base, byType = {};
+  for (const o of all) (byType[o.type] || (byType[o.type] = [])).push(o);
+  for (const [type, list] of Object.entries(byType)) {
+    const T_ = RB_TYPES[type]; if (!T_) continue; if (!T_.g) T_.g = T_.geo();
+    const im = new THREE.InstancedMesh(T_.g, rbMat(type), list.length); im.castShadow = true; im.receiveShadow = true;
+    list.forEach((o, i) => { _rq.setFromAxisAngle(_ry, o.ry); im.setMatrixAt(i, _rm.compose(_rv.set(o.x, o.y || 0, o.z), _rq, _rs.set(o.sx || 1, o.sy || 1, o.sz || 1))); im.setColorAt(i, _col.set(o.tint || '#ffffff')); });
+    im.computeBoundingSphere(); rbScene.add(im); rb.inst[type] = im;
+  }
+  rbSyncPlaced(); rbRebuildPhysics();
+}
+/* colliders, hiding places and the walking grid follow every change */
+function rectAABB(o, lx0, lx1, lz0, lz1) {
+  const c = Math.cos(o.ry), s = Math.sin(o.ry); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const [lx, lz] of [[lx0, lz0], [lx1, lz0], [lx0, lz1], [lx1, lz1]]) { const x = o.x + lx * c + lz * s, z = o.z - lx * s + lz * c; x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+  return [x0, x1, z0, z1];
+}
+function rbRebuildPhysics() {
+  const col = new Colliders(), spots = [], all = rb.base.concat(store.rbPlaced || []);
+  const half = RB_SIZE / 2;
+  col.box(-half - 2, half + 2, -half - 2, -half, -1, RB_H); col.box(-half - 2, half + 2, half, half + 2, -1, RB_H); col.box(-half - 2, -half, -half, half, -1, RB_H); col.box(half, half + 2, -half, half, -1, RB_H);
+  col.circle(RB_ARENA.x, RB_ARENA.z, 2.6, 0, 9);
+  const G = rbGrid = { x0: RB_ARENA.x - 170, z0: RB_ARENA.z - 170, cs: 1.5, n: Math.ceil(340 / 1.5) }; G.b = new Uint8Array(G.n * G.n);
+  const block = (x0, x1, z0, z1) => { const i0 = Math.max(0, Math.floor((x0 - 0.35 - G.x0) / G.cs)), i1 = Math.min(G.n - 1, Math.floor((x1 + 0.35 - G.x0) / G.cs)), j0 = Math.max(0, Math.floor((z0 - 0.35 - G.z0) / G.cs)), j1 = Math.min(G.n - 1, Math.floor((z1 + 0.35 - G.z0) / G.cs)); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) G.b[j * G.n + i] = 1; };
+  block(RB_ARENA.x - 2.6, RB_ARENA.x + 2.6, RB_ARENA.z - 2.6, RB_ARENA.z + 2.6);
+  all.forEach((o, oi) => {
+    const T_ = RB_TYPES[o.type]; if (!T_) return; const sx = o.sx || 1, sy = o.sy || 1, sz = o.sz || 1;
+    const w = T_.size[0] * sx, d = T_.size[2] * sz, h = T_.size[1] * sy, y0 = o.y || 0;
+    const rect = (lx0, lx1, lz0, lz1, ya, yb, blk) => { const a = rectAABB(o, lx0, lx1, lz0, lz1); col.box(a[0], a[1], a[2], a[3], ya, yb); if (blk) block(a[0], a[1], a[2], a[3]); };
+    if (T_.steps) { for (let k = 0; k < 8; k++) { const z0 = (1.5 - k * 0.5) * sz, z1 = (2.0 - k * 0.5) * sz; rect(-w / 2, w / 2, z0, z1, y0, y0 + 0.25 * (k + 1) * sy, true); } }
+    else if (o.type === 'ballBig') { col.circle(o.x, o.z, w / 2, y0, y0 + h); block(o.x - w / 2, o.x + w / 2, o.z - w / 2, o.z + w / 2); }
+    else if (o.type === 'tube') { rect(-w / 2, w / 2, -d / 2, d / 2, y0 + h * 0.85, y0 + h, false); rect(-w / 2, -w / 2 + 0.15, -d / 2, d / 2, y0, y0 + h, true); rect(w / 2 - 0.15, w / 2, -d / 2, d / 2, y0, y0 + h, true); }
+    else rect(-w / 2, w / 2, -d / 2, d / 2, y0, y0 + h, true);
+    const c = Math.cos(o.ry), s = Math.sin(o.ry);
+    for (const [lx, lz, pose, conceal, kind] of T_.hide) {
+      const px = o.x + lx * sx * c + lz * sz * s, pz = o.z - lx * sx * s + lz * sz * c;
+      const face = o.ry + (kind === 'behind' ? (lz < 0 ? Math.PI : 0) : 0);
+      spots.push({ x: px, z: pz, y: y0, pose, conceal: Math.min(0.95, conceal * (kind === 'in' ? 1 : Math.min(1.3, Math.sqrt(sx * sy)))), kind, face, obj: oi, name: T_.n, used: null, checked: -99 });
+    }
+  });
+  // behind-spots must not sit inside another object
+  rb.spots = spots.filter(sp => { if (sp.kind === 'in') return true; col.query(sp.x - 0.3, sp.x + 0.3, sp.z - 0.3, sp.z + 0.3, _near); return !_near.some(c => c.maxY > sp.y + 0.5 && (c.t === 1 ? Math.hypot(sp.x - c.x, sp.z - c.z) < c.r + 0.25 : sp.x > c.minX - 0.25 && sp.x < c.maxX + 0.25 && sp.z > c.minZ - 0.25 && sp.z < c.maxZ + 0.25)); });
+  rb.col = col;
+}
+/* A* on the arena grid */
+function rbPath(x0, z0, x1, z1) {
+  const G = rbGrid; if (!G) return [[x1, z1]];
+  const cell = (x, z) => [clamp(Math.floor((x - G.x0) / G.cs), 0, G.n - 1), clamp(Math.floor((z - G.z0) / G.cs), 0, G.n - 1)];
+  const [si, sj] = cell(x0, z0); let [gi, gj] = cell(x1, z1);
+  if (G.b[gj * G.n + gi]) { let best = null, bd = 1e9; for (let di = -3; di <= 3; di++) for (let dj = -3; dj <= 3; dj++) { const i = gi + di, j = gj + dj; if (i < 0 || j < 0 || i >= G.n || j >= G.n || G.b[j * G.n + i]) continue; const d = di * di + dj * dj; if (d < bd) { bd = d; best = [i, j]; } } if (best) [gi, gj] = best; }
+  const n = G.n, start = sj * n + si, goal = gj * n + gi; if (!G.g) { G.g = new Float32Array(n * n); G.came = new Int32Array(n * n); G.closed = new Uint8Array(n * n); } const g = G.g.fill(1e9), came = G.came.fill(-1), closed = G.closed.fill(0);
+  const heap = [], push = (k, f) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } }, pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  const h = k => { const i = k % n, j = (k / n) | 0; const dx = Math.abs(i - gi), dz = Math.abs(j - gj); return Math.max(dx, dz) + 0.41 * Math.min(dx, dz); };
+  g[start] = 0; push(start, h(start)); let it = 0;
+  while (heap.length && it++ < 30000) {
+    const [, k] = pop(); if (closed[k]) continue; closed[k] = 1; if (k === goal) break;
+    const i = k % n, j = (k / n) | 0;
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) { if (!di && !dj) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= n || b >= n) continue; const kk = b * n + a; if (G.b[kk] || closed[kk]) continue; if (di && dj && (G.b[j * n + a] || G.b[b * n + i])) continue; const ng = g[k] + (di && dj ? 1.414 : 1); if (ng < g[kk]) { g[kk] = ng; came[kk] = k; push(kk, ng + h(kk)); } }
+  }
+  if (came[goal] < 0 && goal !== start) return [[x1, z1]];
+  const cells = []; for (let k = goal; k !== start && k >= 0; k = came[k]) cells.push(k); cells.reverse();
+  // keep only turning points
+  const out = []; let pd = null;
+  cells.forEach((k, idx) => { const i = k % n, j = (k / n) | 0, nk = cells[idx + 1]; const d = nk === undefined ? null : [(nk % n) - i, ((nk / n) | 0) - j].join(); if (d !== pd || nk === undefined) out.push([G.x0 + (i + 0.5) * G.cs, G.z0 + (j + 0.5) * G.cs]); pd = d; });
+  out.push([x1, z1]); return out;
+}
+/* ---------- the 20 seekers ---------- */
+const RB_NAMES = [['آرش', 'm'], ['سارا', 'f'], ['مهدی', 'm'], ['نگار', 'f'], ['کیان', 'm'], ['یاسمن', 'f'], ['بردیا', 'm'], ['ترانه', 'f'], ['امید', 'm'], ['پریا', 'f'], ['سینا', 'm'], ['مهسا', 'f'], ['رضا', 'm'], ['نیلوفر', 'f'], ['کامیار', 'm'], ['الناز', 'f'], ['پویا', 'm'], ['هستی', 'f'], ['دانیال', 'm'], ['شیدا', 'f']];
+function spawnSeekers() {
+  RB_NAMES.forEach(([nm, sx], i) => {
+    const key = 'rbSeeker' + i; let rs = store.residents[key];
+    if (!rs) { let look; do { look = randomLook(); } while ((sx === 'f') !== !!look.female); look.umbrella = false; look.h = (look.female ? 0.93 : 0.98) + Math.random() * 0.09; const persona = makePersona(look, look.female); persona.name = nm; persona.job = 'بازیکن قایم‌موشک'; persona.jobLine = 'من تو تیم جوینده‌های ساختمان رنگین‌کمانم. هیچ‌جا از دستم در نمی‌ری!'; rs = store.residents[key] = { look, persona }; }
+    const p = makePerson(rs.look, false); p.persona = rs.persona; p.persona.name = nm; p.npc = true; p.zone = 'rb'; p.seeker = true; p.rbIdx = i;
+    const a = i / 20 * Math.PI * 2; p.pos.set(RB_ARENA.x + Math.cos(a) * 7, 0, RB_ARENA.z + Math.sin(a) * 7); p.facing = a + Math.PI / 2;
+    p.mode = 'wander'; p.spots = Array.from({ length: 8 }, (_, k) => [RB_ARENA.x + Math.cos(k + i) * (6 + k * 1.5), RB_ARENA.z + Math.sin(k * 1.7 + i) * (6 + k)]);
+    rb.people.push(p); rb.seekers.push(p);
+  });
+}
+/* ---------- entering and leaving ---------- */
+function enterRB() {
+  const P = player; if (P.state === 'car') exitCar();
+  if (P.state !== 'foot') return;
+  buildRainbow();
+  if (P.where === 'in') return;
+  P.rbFrom = { x: rb.door.x, z: rb.door.z + 3 };
+  P.where = 'rb'; rbPool.attach(P); P.pos.set(0, 0, RB_SIZE / 2 - 6); P.vel.set(0, 0, 0); P.facing = Math.PI; cam.yaw = Math.PI; cam.target.set(0, 1.45, RB_SIZE / 2 - 6); cam.cur = 3;
+  for (const p of rb.people) rbPool.attach(p);
+  // invited friends come along
+  for (const inv of store.invited || []) { const q = makePerson(inv.look, false); q.persona = deserPersona(inv.persona); q.npc = true; q.zone = 'rb'; q.invited = inv.role; q.mode = 'stand'; q.pos.set((Math.random() - 0.5) * 6, 0, RB_SIZE / 2 - 9); q.facing = Math.PI; rbPool.attach(q); rb.people.push(q); if (inv.role === 'seek') rb.seekers.push(q); }
+  waypoint = null; if (wpMesh) wpMesh.visible = false;
+  banner('ساختمان رنگین‌کمان', 'دکمهٔ «قایم‌موشک» یا «ساخت‌وساز» رو بزن'); showRbHud(true); saveGame();
+}
+function leaveRB() {
+  const P = player; if (P.where !== 'rb') return;
+  if (rb.build) endBuild(); rbEndGame(true);
+  rbPool.detach(P); for (const p of rb.people) rbPool.detach(p);
+  // invited people return to the city
+  rb.people = rb.people.filter(p => !p.invited); rb.seekers = rb.seekers.filter(p => !p.invited);
+  for (const inv of store.invited || []) { const q = spawnNPC(rb.door.x + (Math.random() - 0.5) * 6, rb.door.z + 6, inv.look); q.persona = deserPersona(inv.persona); q.mode = 'goto'; }
+  store.invited = [];
+  P.where = 'out'; outdoorPool.attach(P); P.state = 'foot'; P.H.visible = true; const f = P.rbFrom || { x: 0, z: RB_DOOR_Z + 6 };
+  P.pos.set(f.x, groundH(f.x, f.z), f.z); P.facing = 0; cam.yaw = 0; cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z);
+  showRbHud(false); $('rb-menu').hidden = true; saveGame();
+}
+/* ---------- hide and seek ---------- */
+function rbStartGame(minutes) {
+  const s = rbSettings(); s.minutes = minutes; buildRainbow();
+  if (rb.build) endBuild();
+  const P = player; if (P.state === 'hide') rbUnhide();
+  const L = s.level, cnt = Math.max(10, 26 - L * 2);
+  rb.game = { phase: 'count', t: cnt, count: cnt, left: minutes ? minutes * 60 : Infinity, level: L, findP: Math.min(0.85, 0.32 + L * 0.06), speed: 1 + L * 0.08, found: [], seen: 0 };
+  for (const sp of rb.spots) { sp.used = null; sp.checked = -99; }
+  rb.seekers.forEach((n, i) => { const a = i / rb.seekers.length * Math.PI * 2; n.pos.set(RB_ARENA.x + Math.cos(a) * 3.4, 0, RB_ARENA.z + Math.sin(a) * 3.4); n.vel.set(0, 0, 0); n.facing = Math.atan2(RB_ARENA.x - n.pos.x, RB_ARENA.z - n.pos.z); n.mode = 'stand'; n.task = null; n.anim.special = 'count'; n.specialT = undefined; n.H.visible = true; n.rbPath = null; n.sector = a; n.lastHeard = null; });
+  // invited hiders run off to hide
+  for (const q of rb.people) if (q.invited === 'hide') { const sp = rbPickSpot(q, true); q.hideSpot = sp; sp.used = q; q.rbPath = rbPath(q.pos.x, q.pos.z, sp.x, sp.z); q.mode = 'task'; q.task = null; q.hidden = false; q.H.visible = true; q.anim.special = null; }
+  // you start next to the pillar
+  if (Math.hypot(P.pos.x - RB_ARENA.x, P.pos.z - RB_ARENA.z) > 40) { P.pos.set(RB_ARENA.x, 0, RB_ARENA.z + 8); P.vel.set(0, 0, 0); cam.target.set(P.pos.x, 1.45, P.pos.z); }
+  $('rb-menu').hidden = true; $('rb-setup').hidden = true;
+  say(rb.seekers[0], `یک... دو... سه... تا ${fa(cnt)} می‌شمریم، زود قایم شو!`, 3);
+  banner('قایم‌موشک شروع شد!', `${fa(cnt)} ثانیه وقت داری قایم بشی — به هر وسیله نزدیک شو و «قایم شو» رو بزن`);
+  Audio.arcade();
+}
+function rbPickSpot(n, far) {
+  const cand = rb.spots.filter(sp => !sp.used && Math.hypot(sp.x - RB_ARENA.x, sp.z - RB_ARENA.z) > (far ? 18 : 0) && Math.hypot(sp.x - RB_ARENA.x, sp.z - RB_ARENA.z) < RB_ARENA.r);
+  cand.sort(() => Math.random() - 0.5); return cand.find(sp => Math.hypot(sp.x - n.pos.x, sp.z - n.pos.z) < 70) || cand[0] || rb.spots[0];
+}
+function nearestSpot(maxD) { const P = player; let best = null, bd = maxD; for (const sp of rb.spots) { if (sp.used && sp.used !== P) continue; const d = Math.hypot(sp.x - P.pos.x, sp.z - P.pos.z); if (d < bd && Math.abs(sp.y - P.pos.y) < 1.5) { bd = d; best = sp; } } return best; }
+function rbHide(sp) {
+  const P = player; P.state = 'hide'; P.hideSpot = sp; sp.used = P; P.vel.set(0, 0, 0); P.hideFrom = [P.pos.x, P.pos.z];
+  P.pos.set(sp.x, sp.y, sp.z); P.facing = sp.face + (sp.kind === 'in' ? Math.PI : 0);
+  P.anim.special = sp.pose === 'stand' ? null : sp.pose; P.anim.sw = 0;
+  P.H.visible = sp.kind !== 'in'; cam.fpPitch = 0.05;
+  Audio.cloth(); toast(sp.kind === 'in' ? `داخل «${sp.name}» قایم شدی — بی‌صدا بمون!` : `پشت «${sp.name}» قایم شدی`);
+}
+function rbUnhide() {
+  const P = player, sp = P.hideSpot; if (sp) sp.used = null;
+  P.state = 'foot'; P.anim.special = null; P.H.visible = true; P.hideSpot = null;
+  if (sp && sp.kind === 'in') { const a = sp.face; let ox = sp.x + Math.sin(a) * 1.6, oz = sp.z + Math.cos(a) * 1.6; const T_ = RB_TYPES[(rb.base.concat(store.rbPlaced || []))[sp.obj]?.type]; if (T_) { const r = Math.max(T_.size[0], T_.size[2]) * 0.6 + 0.6; ox = sp.x + Math.sin(a) * r; oz = sp.z + Math.cos(a) * r; } P.pos.set(ox, sp.y, oz); }
+}
+function rbFound(by, who) {
+  const G = rb.game; if (!G || G.phase !== 'seek' && G.phase !== 'count') return;
+  if (who !== player) { // an invited hider is caught
+    who.hidden = false; who.H.visible = true; who.anim.special = null; if (who.hideSpot) who.hideSpot.used = null; G.found.push(who.persona.name);
+    say(by, `${who.persona.name} پیدات کردم!`, 2.6); say(who, 'ای بابا! پیدام کردن!', 2.4); who.mode = 'task'; who.task = { x: RB_ARENA.x + 4, z: RB_ARENA.z + 4 }; banner(`${who.persona.name} پیدا شد`, 'هنوز تو مخفی هستی، تکون نخور!'); return;
+  }
+  G.phase = 'over'; G.result = 'found'; G.by = by;
+  const P = player; if (P.state === 'hide') rbUnhide();
+  by.vel.set(0, 0, 0); by.facing = Math.atan2(P.pos.x - by.pos.x, P.pos.z - by.pos.z); setSpecial(by, 'point', 3);
+  say(by, mpick([`پیدات کردم!! من ${by.persona.name}م!`, 'سُک سُک! پیدات کردم!', 'دیدمت! بیا بیرون!']), 3);
+  for (const n of rb.seekers) if (n !== by) { setSpecial(n, 'cheer', 2.5); n.mode = 'stand'; n.vel.set(0, 0, 0); }
+  Audio.alarm(0.5); cam.shake = 0.2;
+  G.menuT = 1.6;
+}
+function rbShowMenu(kind) {
+  const G = rb.game, m = $('rb-menu'); m.hidden = false;
+  $('rbm-title').textContent = kind === 'found' ? `${G.by.persona.name} پیدات کرد!` : 'بردی! هیچ‌کس پیدات نکرد 🎉';
+  $('rbm-sub').textContent = kind === 'found' ? `مرحلهٔ ${fa(G.level)} · ${G.found.length ? 'دوستانِ پیداشده: ' + G.found.join('، ') : ''}` : `مرحلهٔ ${fa(G.level)} رو بردی! جوینده‌ها توی مرحلهٔ بعد سریع‌تر و زرنگ‌ترن.`;
+  if (kind === 'won') { store.stats.rbWins = (store.stats.rbWins || 0) + 1; }
+  saveGame();
+}
+function rbEndGame(silent) {
+  const G = rb.game; if (!G) return; rb.game = null;
+  for (const n of rb.seekers) { n.anim.special = null; n.mode = 'wander'; n.task = null; n.rbPath = null; }
+  for (const q of rb.people) if (q.invited) { q.hidden = false; q.H.visible = true; q.anim.special = null; q.mode = 'stand'; if (q.hideSpot) q.hideSpot.used = null; }
+  if (player.state === 'hide') rbUnhide();
+  if (!silent) $('rb-menu').hidden = true;
+}
+function rbNextLevel(same) {
+  const s = rbSettings(); if (!same) { s.level++; rbGenerate(); }
+  rbEndGame(); rbStartGame(s.minutes);
+}
+// one seeker's brain: walk the grid to likely hiding places, peek, listen and look
+function rbSeekerThink(n, dt) {
+  const G = rb.game, P = player;
+  if (!n.rbPath || !n.rbPath.length) {
+    if (n.checking > 0) { n.checking -= dt; return; }
+    // pick the next hiding place to check: unvisited, near, roughly in this seeker's sector
+    let best = null, bs = -1e9;
+    for (let k = 0; k < 40; k++) { const sp = rb.spots[(Math.random() * rb.spots.length) | 0]; if (!sp || simTime - sp.checked < 45) continue; const d = Math.hypot(sp.x - n.pos.x, sp.z - n.pos.z); if (d > 90) continue;
+      const ang = Math.atan2(sp.z - RB_ARENA.z, sp.x - RB_ARENA.x), sec = Math.cos(ang - n.sector); const sc = -d * 0.05 + sec * 2 + Math.random() * 3 + (n.lastHeard && Math.hypot(sp.x - n.lastHeard[0], sp.z - n.lastHeard[1]) < 15 ? 6 : 0); if (sc > bs) { bs = sc; best = sp; } }
+    if (!best) best = rb.spots[(Math.random() * rb.spots.length) | 0];
+    n.target = best; n.rbPath = rbPath(n.pos.x, n.pos.z, best.x, best.z); n.run = Math.random() < 0.35;
+    return;
+  }
+  const [tx, tz] = n.rbPath[0], d = Math.hypot(tx - n.pos.x, tz - n.pos.z);
+  if (d < (n.rbPath.length === 1 ? 1.1 : 0.9)) {
+    n.rbPath.shift();
+    if (!n.rbPath.length && n.target) { // arrived: peek in / behind
+      const sp = n.target; sp.checked = simTime; n.checking = 1.4; setSpecial(n, 'peek', 1.4); n.mode = 'stand'; n.vel.set(0, 0, 0); n.facing = Math.atan2(sp.x - n.pos.x, sp.z - n.pos.z);
+      if (sp.used && sp.used.seeker !== true) { const hid = sp.used, chance = G.findP * (1 - sp.conceal * 0.55); if (Math.random() < chance) { rbFound(n, hid); return; } else if (hid === P && Math.random() < 0.5) say(n, mpick(['هوم... اینجا نیست.', 'یه صدایی اومد...', 'نه، اینجا کسی نیست.']), 2); }
+      else if (Math.random() < 0.08) say(n, mpick(['کجا قایم شدی؟', 'پیدات می‌کنم!', 'آماده باش، دارم میام!']), 2);
+    }
+    return;
+  }
+  n.mode = 'task'; n.task = { x: tx, z: tz, spd: (n.run ? 3.6 : 1.7) * G.speed };
+}
+const _sv = new V3();
+function rbCanSee(n, tgt, hidden, conceal) {
+  const dx = tgt.pos.x - n.pos.x, dz = tgt.pos.z - n.pos.z, d = Math.hypot(dx, dz); if (d > (hidden ? 6 : 30)) return false;
+  const fx = Math.sin(n.facing), fz = Math.cos(n.facing); if ((dx * fx + dz * fz) / (d || 1) < (hidden ? 0.55 : 0.3)) return false;
+  const ey = n.pos.y + 1.55 * (n.look.h || 1), ty = tgt.pos.y + (hidden ? 0.6 : 1.2), dy = ty - ey, L = Math.hypot(dx, dy, dz);
+  const hit = rayCast(rb.col, n.pos.x, ey, n.pos.z, dx / L, dy / L, dz / L, L, 0.05); return hit >= L - 0.4;
+}
+function updateRB(dt) {
+  if (!rb.built) return;
+  rbUniforms.uTime.value = simTime;
+  const P = player, G = rb.game;
+  // sun follows the player for crisp local shadows
+  const cx = cam.free ? cam.free.x : P.pos.x, cz = cam.free ? cam.free.z : P.pos.z; rbSun.target.position.set(cx, 0, cz); rbSun.position.set(cx + 60, 160, cz + 90); rbSun.target.updateMatrixWorld();
+  if (G) {
+    G.t -= dt;
+    if (G.phase === 'over' && G.menuT > 0) { G.menuT -= dt; if (G.menuT <= 0) rbShowMenu(G.result); }
+    if (G.phase === 'count') {
+      const sec = Math.ceil(G.t); if (sec !== G.lastSec) { G.lastSec = sec; if (sec <= 10 || sec % 5 === 0) say(rb.seekers[sec % rb.seekers.length], fa(G.count - sec + 1) + '...', 0.9); }
+      if (G.t <= 0) { G.phase = 'seek'; G.t = 0; for (const n of rb.seekers) { n.anim.special = null; n.rbPath = null; n.checking = 0; } say(rb.seekers[0], 'آماده یا نه، دارم میام!!', 3); Audio.honk(RB_ARENA.x, RB_ARENA.z); }
+    } else if (G.phase === 'seek') {
+      if (G.left !== Infinity) { G.left -= dt; if (G.left <= 0) { G.phase = 'over'; G.result = 'won'; for (const n of rb.seekers) { setSpecial(n, 'laugh', 2); n.mode = 'stand'; } rbShowMenu('won'); } }
+      G.seen += dt;
+      const look = G.seen > 0.2; if (look) G.seen = 0;
+      for (const n of rb.seekers) {
+        if (G.phase !== 'seek') break;
+        rbSeekerThink(n, dt);
+        if (!look) continue;
+        // eyes: in the open you are caught for sure; behind cover only by chance; inside, only if they open it
+        const hiding = P.state === 'hide', sp = P.hideSpot;
+        if (!hiding) { if (rbCanSee(n, P, false)) { rbFound(n, P); break; } }
+        else if (sp.kind !== 'in' && rbCanSee(n, P, true) && Math.random() < 0.18 * (1 - sp.conceal) * G.findP * 2) { rbFound(n, P); break; }
+        // hearing: running footsteps draw them over
+        if (!hiding && Math.hypot(P.vel.x, P.vel.z) > 4 && Math.hypot(P.pos.x - n.pos.x, P.pos.z - n.pos.z) < 14) { n.lastHeard = [P.pos.x, P.pos.z]; if (Math.random() < 0.3) { n.rbPath = rbPath(n.pos.x, n.pos.z, P.pos.x, P.pos.z); n.target = null; n.run = true; } }
+        for (const q of rb.people) if (q.invited === 'hide' && q.hidden && q.hideSpot && q.hideSpot.kind !== 'in' && rbCanSee(n, q, true) && Math.random() < 0.05) rbFound(n, q);
+      }
+    }
+    // invited hiders walk to their places, then disappear into them
+    for (const q of rb.people) if (q.invited === 'hide' && !q.hidden && q.rbPath && q.hideSpot && G.phase !== 'over') {
+      if (!q.rbPath.length) { const sp = q.hideSpot; q.hidden = true; q.pos.set(sp.x, sp.y, sp.z); q.facing = sp.face; q.anim.special = sp.pose === 'stand' ? null : sp.pose; q.H.visible = sp.kind !== 'in'; q.mode = 'stand'; q.vel.set(0, 0, 0); q.rbPath = null; continue; }
+      const [tx, tz] = q.rbPath[0]; if (Math.hypot(tx - q.pos.x, tz - q.pos.z) < 0.9) q.rbPath.shift(); else { q.mode = 'task'; q.task = { x: tx, z: tz, spd: 3.4 }; }
+    }
+  }
+  for (const n of rb.people) { if (n.hidden) { n.vel.set(0, 0, 0); continue; } if (G && G.phase === 'count' && n.seeker) { n.vel.set(0, 0, 0); n.facing += angDiff(n.facing, Math.atan2(RB_ARENA.x - n.pos.x, RB_ARENA.z - n.pos.z)) * Math.min(1, 4 * dt); n.anim.special = 'count'; stepCharacter(n, rb.col, dt, false); continue; } updateNPC(n, dt, false, rb.col); }
+  separatePeople(rb.people.filter(p => !p.hidden).concat(P.state === 'foot' ? [P] : []));
+  updateRbHud();
+}
+/* ---------- HUD bits ---------- */
+function placeRbHud() { const tb = $('topbar').getBoundingClientRect(); $('rb-hud').style.top = Math.round(tb.bottom + 8) + 'px'; }
+addEventListener('resize', () => { if (!$('rb-hud').hidden) placeRbHud(); });
+function showRbHud(on) { $('rb-hud').hidden = !on; if (on) requestAnimationFrame(placeRbHud); $('btn-rb').textContent = on ? 'خروج از رنگین‌کمان' : 'ساختمان رنگین‌کمان'; }
+let rbHudKey = '';
+function updateRbHud() {
+  const G = rb.game; let t = '';
+  if (rb.build) t = 'حالت ساخت‌وساز';
+  else if (!G) t = 'قایم‌موشک: آماده';
+  else if (G.phase === 'count') t = `جوینده‌ها دارن می‌شمرن: ${fa(Math.max(0, Math.ceil(G.t)))}`;
+  else if (G.phase === 'seek') t = `${fa(rb.seekers.length)} نفر دنبالت می‌گردن · ${G.left === Infinity ? 'زمان: بی‌نهایت' : 'زمان: ' + fa(Math.floor(G.left / 60)) + ':' + fa(String(Math.floor(G.left % 60)).padStart(2, '0'))}`;
+  else t = G.result === 'won' ? 'بردی!' : 'پیدات کردن!';
+  if (t !== rbHudKey) { rbHudKey = t; $('rb-status').textContent = t; placeRbHud(); }
+  $('rb-start').hidden = !!G || !!rb.build; $('rb-stop').hidden = !G || G.phase === 'over'; $('rb-build').hidden = !!G;
+}
+
+/* ---------- build mode: a free camera that stays where you leave it, and a catalogue of things to place ---------- */
+const placedMeshes = [];
+function placedMat(type, tint) { const k = type + '|' + tint; if (!rbMats[k]) { const m = rbMat(type).clone(); m.color.set(tint || '#ffffff'); rbMats[k] = m; } return rbMats[k]; }
+function rbSyncPlaced() {
+  const L = store.rbPlaced || (store.rbPlaced = []);
+  while (placedMeshes.length > L.length) rbScene.remove(placedMeshes.pop());
+  L.forEach((o, i) => {
+    const T_ = RB_TYPES[o.type]; if (!T_.g) T_.g = T_.geo();
+    let m = placedMeshes[i];
+    if (!m || m.userData.type !== o.type) { if (m) rbScene.remove(m); m = new THREE.Mesh(T_.g, placedMat(o.type, o.tint)); m.castShadow = m.receiveShadow = true; m.userData.type = o.type; rbScene.add(m); placedMeshes[i] = m; }
+    if (m.userData.tint !== o.tint) { m.material = placedMat(o.type, o.tint); m.userData.tint = o.tint; }
+    m.position.set(o.x, o.y || 0, o.z); m.rotation.set(0, o.ry, 0); m.scale.set(o.sx, o.sy, o.sz); m.userData.idx = i;
+  });
+}
+let physT = 0;
+function rbDirty() { rbSyncPlaced(); physT = 0.35; saveSoon(); }
+let saveSoonT = null; function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(saveGame, 1500); }
+function startBuild() {
+  if (player.where !== 'rb') return; if (rb.game) { toast('اول بازی قایم‌موشک رو تموم کن'); return; }
+  const P = player; if (P.state === 'hide') rbUnhide();
+  rb.build = { sel: -1, drag: false };
+  cam.free = Object.assign({}, store.rbCam || { x: P.pos.x, y: 9, z: P.pos.z + 14, yaw: Math.PI, pitch: 0.42 });
+  $('bd-ui').hidden = false; $('bd-obj').hidden = true; for (const id of ['topbar', 'minimap', 'rb-hud']) $(id).hidden = true; renderPalette(); toast('ساخت‌وساز: از فهرست یا جستجو یه وسیله انتخاب کن؛ با کشیدن انگشت دوربین رو بچرخون');
+}
+function endBuild() {
+  if (!rb.build) return; store.rbCam = Object.assign({}, cam.free); rb.build = null; cam.free = null; selBox(null);
+  $('bd-ui').hidden = true; $('topbar').hidden = false; $('minimap').hidden = false; showRbHud(player.where === 'rb'); rbRebuildPhysics(); saveGame();
+}
+function buildCatalog() { return Object.entries(RB_TYPES).map(([id, t]) => ({ id, n: t.n, cat: t.cat, col: t.tint[0] })); }
+let bdCat = 'همه';
+function renderPalette() {
+  const q = norm($('bd-search').value || ''), list = $('bd-list'); list.textContent = '';
+  const cats = ['همه', ...new Set(buildCatalog().map(c => c.cat))], cw = $('bd-cats'); cw.textContent = '';
+  for (const c of cats) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-q' + (c === bdCat ? ' on' : ''); b.textContent = c; b.addEventListener('click', () => { bdCat = c; renderPalette(); }); cw.appendChild(b); }
+  for (const it of buildCatalog()) {
+    if (bdCat !== 'همه' && it.cat !== bdCat) continue; if (q && !norm(it.n).includes(q) && !norm(it.cat).includes(q)) continue;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'bd-item'; b.innerHTML = '<span class="bag-sw"></span><span></span>'; b.firstChild.style.background = it.col; b.lastChild.textContent = it.n;
+    b.addEventListener('click', () => placeNew(it.id)); list.appendChild(b);
+  }
+  if (!list.children.length) { const p = document.createElement('p'); p.className = 'bag-empty'; p.textContent = 'چیزی پیدا نشد'; list.appendChild(p); }
+}
+const _ray = new THREE.Raycaster(), _ndc = new V2(), _plane = new THREE.Plane(new V3(0, 1, 0), 0), _hitP = new V3();
+function floorHit(nx, ny, y = 0) { _ndc.set(nx, ny); _ray.setFromCamera(_ndc, camera); _plane.constant = -y; return _ray.ray.intersectPlane(_plane, _hitP) && _hitP.distanceTo(camera.position) < 600 ? _hitP.clone() : null; }
+function placeNew(type) {
+  const L = store.rbPlaced || (store.rbPlaced = []); if (L.length >= 400) { toast('حداکثر ۴۰۰ وسیله می‌تونی بذاری'); return; }
+  let p = floorHit(0, 0); if (!p) { const f = cam.free; p = new V3(f.x + Math.sin(f.yaw) * 12, 0, f.z + Math.cos(f.yaw) * 12); }
+  const T_ = RB_TYPES[type]; L.push({ type, x: +p.x.toFixed(2), y: 0, z: +p.z.toFixed(2), ry: Math.round((cam.free.yaw + Math.PI) / (Math.PI / 2)) * Math.PI / 2, sx: 1, sy: 1, sz: 1, tint: T_.tint[0] });
+  rbDirty(); select(L.length - 1); Audio.tick();
+}
+let selHelper = null;
+function selBox(m) { if (selHelper) { rbScene.remove(selHelper); selHelper = null; } if (m) { selHelper = new THREE.BoxHelper(m, 0xffd23a); rbScene.add(selHelper); } }
+function select(i) {
+  rb.build.sel = i; const o = (store.rbPlaced || [])[i]; $('bd-obj').hidden = !o; selBox(o ? placedMeshes[i] : null);
+  if (!o) return; $('bd-name').textContent = RB_TYPES[o.type].n;
+  for (const k of ['sx', 'sy', 'sz']) $('bd-' + k).value = Math.round(Math.log(o[k]) / Math.log(30) * 100);
+  const sw = $('bd-tints'); sw.textContent = '';
+  for (const c of [...RB_TYPES[o.type].tint, '#ffffff', '#e8303a', '#2a6ad8', '#3ab84a', '#f2c12e', '#a03aff', '#1a1a1a']) { const b = document.createElement('button'); b.type = 'button'; b.className = 'bd-tint'; b.style.background = c; b.addEventListener('click', () => { o.tint = c; rbDirty(); }); sw.appendChild(b); }
+}
+function selObj() { return rb.build && rb.build.sel >= 0 ? (store.rbPlaced || [])[rb.build.sel] : null; }
+function bdAct(a) {
+  const o = selObj(); if (!o) return; const f = cam.free, fx = Math.sin(f.yaw), fz = Math.cos(f.yaw), step = 0.5;
+  switch (a) {
+    case 'left': o.x += -fz * -step; o.z += fx * -step; break; case 'right': o.x += -fz * step; o.z += fx * step; break;
+    case 'fwd': o.x += fx * step; o.z += fz * step; break; case 'back': o.x -= fx * step; o.z -= fz * step; break;
+    case 'up': o.y = (o.y || 0) + 0.25; break; case 'down': o.y = Math.max(0, (o.y || 0) - 0.25); break;
+    case 'rotL': o.ry += Math.PI / 12; break; case 'rotR': o.ry -= Math.PI / 12; break;
+    case 'big': for (const k of ['sx', 'sy', 'sz']) o[k] = Math.min(30, o[k] * 1.12); select(rb.build.sel); break;
+    case 'small': for (const k of ['sx', 'sy', 'sz']) o[k] = Math.max(0.2, o[k] / 1.12); select(rb.build.sel); break;
+    case 'dup': { const c = Object.assign({}, o, { x: o.x + 2, z: o.z + 2 }); store.rbPlaced.push(c); rbDirty(); select(store.rbPlaced.length - 1); return; }
+    case 'del': store.rbPlaced.splice(rb.build.sel, 1); rbDirty(); select(-1); return;
+    case 'done': select(-1); return;
+  }
+  rbDirty(); selBox(placedMeshes[rb.build.sel]);
+}
+function bdSlider(k, v) { const o = selObj(); if (!o) return; o[k] = Math.max(0.2, Math.pow(30, v / 100)); rbDirty(); selBox(placedMeshes[rb.build.sel]); }
+// free camera: held buttons / keys move it, drag turns it, wheel dollies
+const bdHold = {};
+function updateBuild(dt) {
+  if (!rb.build) return; const f = cam.free, k = c => keys.has(c), sp = (6 + f.y * 0.6) * dt;
+  const fx = Math.sin(f.yaw), fz = Math.cos(f.yaw);
+  let mx = (bdHold.right || k('KeyD') || k('ArrowRight') ? 1 : 0) - (bdHold.left || k('KeyA') || k('ArrowLeft') ? 1 : 0), my = (bdHold.fwd || k('KeyW') || k('ArrowUp') ? 1 : 0) - (bdHold.back || k('KeyS') || k('ArrowDown') ? 1 : 0), my2 = (bdHold.up || k('KeyR') ? 1 : 0) - (bdHold.down || k('KeyF') ? 1 : 0);
+  // forward along the view, sideways to the right of the view (right = (-fz, fx))
+  f.x += (fx * my - fz * mx) * sp; f.z += (fz * my + fx * mx) * sp;
+  f.x = clamp(f.x, -RB_SIZE / 2 + 2, RB_SIZE / 2 - 2); f.z = clamp(f.z, -RB_SIZE / 2 + 2, RB_SIZE / 2 - 2); f.y = clamp(f.y + my2 * sp, 0.6, RB_H - 5);
+  if (bdHold.zin || bdHold.zout) dolly((bdHold.zin ? 1 : -1) * sp * 1.6);
+  if (physT > 0) { physT -= dt; if (physT <= 0) rbRebuildPhysics(); }
+  if (selHelper) selHelper.update();
+}
+function dolly(d) { const f = cam.free, cp = Math.cos(f.pitch); f.x += Math.sin(f.yaw) * cp * d; f.z += Math.cos(f.yaw) * cp * d; f.y = clamp(f.y - Math.sin(f.pitch) * d, 0.6, RB_H - 5); }
+function updateCameraFree() {
+  const f = cam.free, cp = Math.cos(f.pitch);
+  camera.position.set(f.x, f.y, f.z); camera.lookAt(f.x + Math.sin(f.yaw) * cp, f.y - Math.sin(f.pitch), f.z + Math.cos(f.yaw) * cp);
+  if (camera.view && camera.view.enabled) camera.clearViewOffset();
+  if (Math.abs(camera.fov - 62) > 0.05) { camera.fov = cam.fov = 62; camera.updateProjectionMatrix(); }
+}
+// pointer: tap selects, drag on the selected object slides it on the floor, drag elsewhere turns the camera
+let bdPtr = null;
+function bdPointerDown(e) {
+  const r = cv.getBoundingClientRect(), nx = ((e.clientX - r.left) / r.width) * 2 - 1, ny = -((e.clientY - r.top) / r.height) * 2 + 1;
+  _ndc.set(nx, ny); _ray.setFromCamera(_ndc, camera); const hits = _ray.intersectObjects(placedMeshes, false);
+  bdPtr = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, obj: null };
+  if (hits.length) { const i = hits[0].object.userData.idx; if (i === rb.build.sel) { bdPtr.obj = i; bdPtr.off = (() => { const o = selObj(), p = floorHit(nx, ny, o.y || 0); return p ? [o.x - p.x, o.z - p.z] : [0, 0]; })(); } bdPtr.hit = i; }
+}
+function bdPointerMove(e) {
+  if (!bdPtr || e.pointerId !== bdPtr.id) return; const dx = e.clientX - bdPtr.x, dy = e.clientY - bdPtr.y;
+  if (Math.abs(dx) + Math.abs(dy) > 4) bdPtr.moved = true;
+  if (bdPtr.obj !== null && bdPtr.obj !== undefined && bdPtr.moved) {
+    const r = cv.getBoundingClientRect(), o = selObj(); const p = floorHit(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1, o.y || 0);
+    if (p) { o.x = +(p.x + bdPtr.off[0]).toFixed(2); o.z = +(p.z + bdPtr.off[1]).toFixed(2); rbSyncPlaced(); physT = 0.35; }
+  } else { const s = e.pointerType === 'mouse' ? 0.004 : 0.006; cam.free.yaw -= dx * s; cam.free.pitch = clamp(cam.free.pitch + dy * s, -1.4, 1.5); bdPtr.x = e.clientX; bdPtr.y = e.clientY; }
+}
+function bdPointerUp(e) {
+  if (!bdPtr || e.pointerId !== bdPtr.id) return;
+  if (!bdPtr.moved) select(bdPtr.hit !== undefined ? bdPtr.hit : -1);
+  else if (bdPtr.obj !== null && bdPtr.obj !== undefined) saveSoon();
+  bdPtr = null;
+}
+
+/* ============================================================
+   Flying car: any top speed you choose (with a live preview),
+   and an endless test ground (code 1818 there, 1717 back)
+   ============================================================ */
+const FLY_UNITS = { kmh: ['کیلومتر بر ساعت', 1 / 3.6], ms: ['متر بر ثانیه', 1], mmin: ['متر بر دقیقه', 1 / 60], kmmin: ['کیلومتر بر دقیقه', 1000 / 60], kms: ['کیلومتر بر ثانیه', 1000] };
+const fly = { obj: null };
+function flySet() { return store.fly || (store.fly = { val: 300, unit: 'kmh' }); }
+const flyMs = () => { const f = flySet(); return clamp(f.val * FLY_UNITS[f.unit][1], 0.3, 60000); };
+function fmtSpeed(ms) { const f = flySet(), v = ms / FLY_UNITS[f.unit][1]; return (v >= 100 ? Math.round(v) : v >= 1 ? Math.round(v * 10) / 10 : v > 0.0005 ? +v.toPrecision(2) : 0).toLocaleString('fa-IR', { maximumFractionDigits: 4 }); }
+function makeFlyerMesh() {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const paint = new THREE.MeshPhysicalMaterial({ color: 0x1a2a4a, metalness: 0.75, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.5, metalness: 0.6 });
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x0a1220, metalness: 0.1, roughness: 0.02, transparent: true, opacity: 0.55, clearcoat: 1 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0x5ae8ff, toneMapped: false }), red = new THREE.MeshBasicMaterial({ color: 0xff3040, toneMapped: false }), white = new THREE.MeshBasicMaterial({ color: 0xf4fbff, toneMapped: false });
+  const shape = new THREE.Shape(); shape.moveTo(-2.3, 0.25); shape.lineTo(2.0, 0.25); shape.quadraticCurveTo(2.55, 0.32, 2.45, 0.55); shape.quadraticCurveTo(1.6, 0.85, 0.6, 0.95); shape.lineTo(-1.6, 1.0); shape.quadraticCurveTo(-2.3, 0.95, -2.35, 0.6); shape.closePath();
+  const bg = new THREE.ExtrudeGeometry(shape, { depth: 1.7, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.12, bevelSegments: 4, curveSegments: 10 }); bg.translate(0, 0, -0.85); bg.rotateY(-Math.PI / 2);
+  const add = (geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, par = body) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; par.add(m); return m; };
+  add(bg, paint);
+  const can = new THREE.SphereGeometry(1, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2); add(can, glass, 0, 0.92, -0.1, 0, 0, 0).scale.set(0.72, 0.5, 1.35);
+  for (const sx of [-1, 1]) {
+    add(new THREE.BoxGeometry(1.4, 0.06, 0.9), paint, sx * 1.35, 0.55, -0.9, 0, 0, sx * 0.08);
+    for (const sz of [-1, 1]) { const pod = new THREE.Group(); pod.position.set(sx * 1.15, 0.28, sz * 1.45); body.add(pod); add(new THREE.CylinderGeometry(0.42, 0.48, 0.22, 24), dark, 0, 0, 0, 0, 0, 0, pod); add(new THREE.TorusGeometry(0.4, 0.05, 8, 28), glow, 0, -0.1, 0, Math.PI / 2, 0, 0, pod); add(new THREE.CircleGeometry(0.34, 24), glow, 0, -0.12, 0, Math.PI / 2, 0, 0, pod); }
+    add(new THREE.BoxGeometry(0.34, 0.08, 0.04), white, sx * 0.62, 0.5, 2.5); add(new THREE.BoxGeometry(0.4, 0.07, 0.04), red, sx * 0.62, 0.62, -2.47);
+  }
+  add(new THREE.BoxGeometry(0.06, 0.45, 0.7), paint, 0, 1.15, -2.0, -0.35);
+  const jets = [-0.38, 0.38].map(x => add(new THREE.ConeGeometry(0.2, 1.2, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x8ae8ff, transparent: true, opacity: 0.0, toneMapped: false, depthWrite: false, side: THREE.DoubleSide }), x, 0.55, -3.0, -Math.PI / 2));
+  g.userData = { body, jets };
+  return g;
+}
+function spawnFlyer() {
+  const P = player; if (P.where !== 'out' && P.where !== 'test') { toast('ماشین پرنده فقط بیرون و توی محیط آزمایشی ظاهر می‌شه'); return; }
+  if (!fly.obj) fly.obj = { mesh: makeFlyerMesh(), x: 0, y: 0, z: 0, h: 0, v: 0, vy: 0, pitch: 0, roll: 0, where: null };
+  const F = fly.obj, a = P.facing - Math.PI / 2; F.x = P.pos.x + Math.sin(a) * 2.9; F.z = P.pos.z + Math.cos(a) * 2.9; F.h = P.facing; F.v = F.vy = 0;
+  F.y = (P.where === 'out' ? groundH(F.x, F.z) : 0) + 0.8; F.where = P.where; zoneScene(P.where).add(F.mesh);
+  for (let k = 0; k < 16; k++) FX.emit(F.x + (Math.random() - 0.5) * 3, F.y, F.z + (Math.random() - 0.5) * 4, 0, 0.5, 0, 1.2, 0.1, 0.8, 0x8ae8ff, 0.5, 0.1);
+  Audio.slide(); banner('ماشین پرنده آماده است', `حداکثر سرعت: ${fmtSpeed(flyMs())} ${FLY_UNITS[flySet().unit][0]} — نزدیکش شو و سوار شو`);
+}
+function boardFlyer() { const P = player; if (!fly.obj || fly.obj.where !== P.where) return; P.state = 'fly'; P.inCar = fly.obj; P.anim.special = 'drive'; P.anim.sw = 0; P.vel.set(0, 0, 0); Audio.door(); Audio.start(); cam.yaw = fly.obj.h; }
+function leaveFlyer() {
+  const P = player, F = fly.obj, ground = F.where === 'out' ? groundH(F.x, F.z) : 0;
+  if (F.y - ground > 4 || Math.abs(F.v) > 12) { setPrompt('اول آروم کن و فرود بیا (دکمهٔ «پایین»)', 'پیاده شو', 1.5); return; }
+  const a = F.h - Math.PI / 2; P.pos.set(F.x + Math.sin(a) * 2.2, ground, F.z + Math.cos(a) * 2.2); P.state = 'foot'; P.inCar = null; P.anim.special = null; P.vel.set(0, 0, 0); P.facing = F.h; F.v = 0; Audio.door(); Audio.engine(false, 0, 0);
+}
+const _fq = new THREE.Quaternion(), _fe = new THREE.Euler();
+function updateFly(dt) {
+  const P = player, F = fly.obj; if (!F) { P.state = 'foot'; return; }
+  const vmax = flyMs(), acc = Math.max(14, vmax * 0.7), up = (keys.has('Space') || input.fUp ? 1 : 0) - (keys.has('KeyC') || keys.has('ControlLeft') || input.fDown ? 1 : 0);
+  const thr = input.my, target = thr * vmax;
+  F.v += clamp(target - F.v, -acc * (thr === 0 ? 0.6 : 1.4) * dt, acc * dt);
+  F.h -= input.mx * Math.max(0.55, 1.9 / (1 + Math.abs(F.v) / 120)) * dt * (F.v < -0.5 ? -1 : 1);
+  const vv = 6 + Math.min(vmax * 0.25, 400); F.vy = damp(F.vy, up * vv, 3, dt);
+  F.x += Math.sin(F.h) * F.v * dt; F.z += Math.cos(F.h) * F.v * dt; F.y += F.vy * dt;
+  let ground = 0;
+  if (F.where === 'out') {
+    ground = groundH(F.x, F.z);
+    if (F.y < 90) { world.col.query(F.x - 2, F.x + 2, F.z - 2, F.z + 2, _near); for (const c of _near) if (c.maxY > F.y - 0.6 && c.minY < F.y + 1.2 && c.maxY < 1200) ground = Math.max(ground, c.maxY); }
+    if (Math.abs(F.x) > 1550 || Math.abs(F.z) > 1550) { F.x = clamp(F.x, -1550, 1550); F.z = clamp(F.z, -1550, 1550); F.v *= 0.5; }
+    if (F.z < RB_DOOR_Z && F.z > RB_DOOR_Z - RB_SIZE && Math.abs(F.x) < RB_SIZE / 2 && F.y < RB_H) ground = Math.max(ground, RB_H);
+  } else testRecentre(F);
+  if (F.y < ground + 0.7) { F.y = ground + 0.7; if (F.vy < 0) F.vy = 0; }
+  F.y = Math.min(F.y, 4000);
+  // body attitude and engine sound
+  F.pitch = damp(F.pitch, -clamp(F.vy / vv, -1, 1) * 0.22 - clamp((target - F.v) / (acc + 1), -1, 1) * 0.06, 4, dt); F.roll = damp(F.roll, input.mx * 0.45 * Math.min(1, Math.abs(F.v) / 15), 4, dt);
+  const rpm = Math.min(1.2, Math.abs(F.v) / Math.max(vmax, 1)) ; Audio.engine(true, 0.5 + rpm, Math.abs(thr) * 0.8);
+  // you stay in the seat
+  P.pos.set(F.x, F.y, F.z);
+  const kmh = fmtSpeed(Math.abs(F.v)); $('speedo').hidden = false; $('spd').textContent = kmh; $('spdunit').textContent = FLY_UNITS[flySet().unit][0]; $('gear').textContent = 'F';
+  $('health').style.width = Math.min(100, (F.y - ground) / 5) + '%'; $('fuel-row').hidden = true;
+  if (promptHold <= 0) setPrompt(`ارتفاع ${fa(Math.round(F.y - ground))} متر · ${touchUI ? '«بالا/پایین»' : '<b>Space</b>/<b>C</b>'} بالا و پایین · ${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو`, 'پیاده شو');
+  if (input.actQ) { input.actQ = false; leaveFlyer(); }
+  input.jumpQ = false;
+}
+function syncFlyer(dt) {
+  const F = fly.obj; if (!F) return;
+  const m = F.mesh, hover = Math.abs(F.v) < 3 ? Math.sin(simTime * 2.2) * 0.06 : 0;
+  m.visible = F.where === player.where; m.position.set(F.x, F.y + hover - 0.55, F.z); _fe.set(F.pitch, F.h, F.roll, 'YXZ'); m.quaternion.setFromEuler(_fe);
+  const jet = clamp(Math.abs(F.v) / 30, 0, 1); for (const j of m.userData.jets) { j.material.opacity = jet * 0.7; j.scale.set(1, 1 + jet * 2.5, 1); }
+  if (player.state === 'fly') { m.updateMatrixWorld(true); const H = player.H; _rv.set(0, 0.42, -0.15).applyMatrix4(m.matrixWorld); H.root.position.copy(_rv); H.root.quaternion.copy(m.quaternion); H.root.scale.setScalar(player.look.h || 1); player.steer = input.mx; }
+}
+// speed lines that stream past the camera when you go fast
+let streaks = null;
+function updateStreaks(dt) {
+  const P = player, on = P.state === 'fly' && fly.obj && Math.abs(fly.obj.v) > 45;
+  if (!streaks) { const n = 260, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3)); streaks = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.5, toneMapped: false, depthWrite: false })); streaks.frustumCulled = false; streaks.userData.s = Array.from({ length: n }, () => [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 60]); }
+  if (streaks.parent !== zoneScene(P.where)) zoneScene(P.where).add(streaks);
+  streaks.visible = on; if (!on) return;
+  const F = fly.obj, v = Math.abs(F.v), fx = Math.sin(F.h), fz = Math.cos(F.h), rx = -fz, rz = fx, a = streaks.geometry.attributes.position.array, len = clamp(v * 0.012, 0.6, 9);
+  streaks.material.opacity = clamp((v - 45) / 200, 0.15, 0.6);
+  streaks.userData.s.forEach((s, i) => { s[2] -= v * dt * 0.25; if (s[2] < -10) { s[2] = 60; s[0] = Math.random() * 2 - 1; s[1] = Math.random() * 2 - 1; } const r = 3 + Math.abs(s[0]) * 14; const x = camera.position.x + fx * s[2] + rx * s[0] * r, y = camera.position.y + s[1] * r * 0.6, z = camera.position.z + fz * s[2] + rz * s[0] * r; a.set([x, y, z, x - fx * len, y, z - fz * len], i * 6); });
+  streaks.geometry.attributes.position.needsUpdate = true;
+}
+function updateCameraFly(dt) {
+  const F = fly.obj, P = player;
+  if (cam.fp) { _eye.set(0, 1.05, 0.15).applyMatrix4(F.mesh.matrixWorld); camera.position.copy(_eye); const cp = Math.cos(cam.fpPitch); camera.lookAt(_eye.x + Math.sin(F.h + cam.fpYaw) * cp, _eye.y - Math.sin(cam.fpPitch), _eye.z + Math.cos(F.h + cam.fpYaw) * cp); P.H.hideHead = true; }
+  else {
+    P.H.hideHead = false;
+    if (simTime - cam.lastLook > 1.2) cam.yaw += angDiff(cam.yaw, F.v >= -0.5 ? F.h : F.h + Math.PI) * Math.min(1, dt * 3);
+    const v = Math.abs(F.v), dist = (8 + Math.min(v * 0.015, 10)) * cam.zoom, cp = Math.cos(cam.pitch * 0.6);
+    cam.target.set(F.x, F.y + 1.2, F.z);
+    camera.position.set(F.x - Math.sin(cam.yaw) * dist * cp, F.y + 2 + Math.sin(cam.pitch * 0.6) * dist, F.z - Math.cos(cam.yaw) * dist * cp);
+    const gy = F.where === 'out' ? groundH(camera.position.x, camera.position.z) : 0; camera.position.y = Math.max(camera.position.y, gy + 0.6);
+    camera.lookAt(cam.target);
+  }
+  if (camera.view && camera.view.enabled) camera.clearViewOffset();
+  const fovT = 68 + clamp(Math.log10(1 + Math.abs(F.v)) * 9, 0, 32); cam.fov = damp(cam.fov, fovT, 3, dt); camera.fov = cam.fov; camera.updateProjectionMatrix();
+}
+/* ---------- the endless test ground ---------- */
+const testScene = new THREE.Scene(); let test = null, testPool = null;
+function gridTexture(base, line, bold) {
+  const c = mkCanvas(512), g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 512, 512); speckle(g, 512, 6000, ['rgba(255,255,255,0.08)', 'rgba(0,0,0,0.06)'], 1, 2, 0.5);
+  g.strokeStyle = line; g.lineWidth = 2; for (let k = 0; k <= 10; k++) { g.beginPath(); g.moveTo(k * 51.2, 0); g.lineTo(k * 51.2, 512); g.stroke(); g.beginPath(); g.moveTo(0, k * 51.2); g.lineTo(512, k * 51.2); g.stroke(); }
+  g.strokeStyle = bold; g.lineWidth = 6; g.strokeRect(0, 0, 512, 512); const t = toTex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function buildTest() {
+  if (test) return; test = { off: 0, offZ: 0, markers: [], col: new Colliders() };
+  testScene.background = new THREE.Color(0x9ec8ef); testScene.fog = new THREE.Fog(0xcfe0f0, 400, 2600);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }', fragmentShader: 'varying vec3 vP; void main(){ float h = normalize(vP).y; vec3 c = mix(vec3(0.85,0.9,0.95), vec3(0.28,0.52,0.86), smoothstep(0.0, 0.5, h)); gl_FragColor = vec4(c,1.0);\n#include <colorspace_fragment>\n}' }));
+  test.sky = sky; testScene.add(sky);
+  test.ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ map: gridTexture('#e8e0d0', 'rgba(120,110,95,0.35)', 'rgba(90,80,70,0.7)'), roughness: 0.9 }));
+  test.ground.material.map.repeat.set(60, 60); test.ground.rotation.x = -Math.PI / 2; test.ground.receiveShadow = true; testScene.add(test.ground);
+  test.runway = new THREE.Mesh(new THREE.PlaneGeometry(6000, 40), new THREE.MeshStandardMaterial({ map: T.asphalt, roughness: 0.8, color: 0x8a8a8a })); test.runway.material.map = T.asphalt.clone(); test.runway.material.map.wrapS = test.runway.material.map.wrapT = THREE.RepeatWrapping; test.runway.material.map.repeat.set(600, 4); test.runway.material.map.needsUpdate = true;
+  test.runway.rotation.x = -Math.PI / 2; test.runway.position.y = 0.02; test.runway.receiveShadow = true; testScene.add(test.runway);
+  const hemi = new THREE.HemisphereLight(0xdfefff, 0x8a7a60, 1.2); testScene.add(hemi);
+  test.sun = new THREE.DirectionalLight(0xfff4e0, 2.4); test.sun.castShadow = true; test.sun.shadow.mapSize.set(1024, 1024); const sc = test.sun.shadow.camera; sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.far = 300; testScene.add(test.sun, test.sun.target);
+  // distance posts every 100 m along the runway (relabelled as you travel)
+  for (let k = 0; k < 30; k++) {
+    const c = mkCanvas(256, 128), tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const g = new THREE.Group(); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 6, 8), new THREE.MeshStandardMaterial({ color: 0xe8303a })); post.position.y = 3; post.castShadow = true; g.add(post);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.5), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, toneMapped: false })); sign.position.y = 7.2; g.add(sign);
+    testScene.add(g); test.markers.push({ g, c, tex, v: null });
+  }
+  // rings to fly through, every 500 m
+  test.rings = []; for (let k = 0; k < 8; k++) { const r = new THREE.Mesh(new THREE.TorusGeometry(9, 0.6, 12, 48), new THREE.MeshStandardMaterial({ color: 0xffb340, emissive: 0xff8a1a, emissiveIntensity: 0.8 })); r.rotation.y = Math.PI / 2; testScene.add(r); test.rings.push(r); }
+  // far mountains
+  for (let k = 0; k < 26; k++) { const a = k / 26 * Math.PI * 2, R_ = 2200 + Math.random() * 300, h = 160 + Math.random() * 260; const m = new THREE.Mesh(new THREE.ConeGeometry(260 + Math.random() * 200, h, 7), new THREE.MeshStandardMaterial({ color: 0x8a9aa8, flatShading: true, fog: true })); m.position.set(Math.cos(a) * R_, h / 2 - 5, Math.sin(a) * R_); m.userData.base = [Math.cos(a) * R_, Math.sin(a) * R_]; testScene.add(m); (test.mtn || (test.mtn = [])).push(m); }
+  testPool = new HumanPool(testScene, 3);
+}
+// keep numbers small: shift the world back toward the origin, but remember how far you went
+function testRecentre(F) {
+  if (Math.abs(F.x) > 3000 || Math.abs(F.z) > 3000) { const sx = Math.round(F.x / 100) * 100, sz = Math.round(F.z / 100) * 100; F.x -= sx; F.z -= sz; test.off += sx; test.offZ += sz; player.pos.x -= sx; player.pos.z -= sz; cam.target.x -= sx; cam.target.z -= sz; camera.position.x -= sx; camera.position.z -= sz; }
+}
+function updateTest(dt) {
+  if (!test) return; const P = player, cx = P.pos.x, cz = P.pos.z;
+  test.sky.position.set(camera.position.x, 0, camera.position.z);
+  test.ground.position.set(Math.round(cx / 100) * 100, 0, Math.round(cz / 100) * 100); test.ground.material.map.offset.set((test.ground.position.x + test.off) / 100 % 1, -((test.ground.position.z + test.offZ) / 100 % 1));
+  test.runway.position.x = Math.round(cx / 10) * 10; test.runway.position.z = -test.offZ; test.runway.material.map.offset.x = ((test.runway.position.x + test.off) / 10) % 1;
+  for (const m of test.mtn) m.position.set(camera.position.x + m.userData.base[0], m.position.y, camera.position.z + m.userData.base[1]);
+  test.sun.target.position.set(cx, 0, cz); test.sun.position.set(cx + 80, 200, cz + 60); test.sun.target.updateMatrixWorld();
+  const base = Math.floor((cx + test.off) / 100) - 8;
+  test.markers.forEach((mk, i) => {
+    const d = (base + i) * 100; mk.g.position.set(d - test.off, 0, 24 - test.offZ);
+    if (mk.v !== d) { mk.v = d; const g = mk.c.getContext('2d'); g.fillStyle = '#14162a'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#ffffff'; g.font = 'bold 58px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(Math.abs(d) >= 1000 ? fa((d / 1000).toLocaleString('en', { maximumFractionDigits: 1 })) + ' کیلومتر' : fa(d) + ' متر', 128, 66); mk.tex.needsUpdate = true; }
+  });
+  const rb0 = Math.floor((cx + test.off) / 500) - 2; test.rings.forEach((r, i) => r.position.set((rb0 + i) * 500 - test.off, 30, -test.offZ));
+}
+function goTest() {
+  const P = player; if (P.where === 'test') return;
+  if (P.where === 'rb') leaveRB(); if (P.where === 'in') { toast('اول از ساختمان بیرون بیا'); return; }
+  if (P.state === 'car') exitCar(); if (P.state === 'fly') { fly.obj.v = 0; }
+  buildTest();
+  P.testFrom = { x: P.pos.x, y: P.pos.y, z: P.pos.z, flying: P.state === 'fly' };
+  P.where = 'test'; testPool.attach(P); test.off = 0; test.offZ = 0;
+  if (fly.obj) { fly.obj.where = 'test'; testScene.add(fly.obj.mesh); fly.obj.x = 0; fly.obj.y = P.state === 'fly' ? 20 : 0.8; fly.obj.z = 0; fly.obj.h = Math.PI / 2; }
+  if (P.state !== 'fly') { P.pos.set(-6, 0, 4); P.facing = Math.PI / 2; P.vel.set(0, 0, 0); if (!fly.obj) spawnFlyer(); }
+  cam.yaw = Math.PI / 2; cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z);
+  banner('محیط آزمایشی', 'سوار ماشین پرنده شو و سرعتش رو امتحان کن · برای برگشت کد ۱۷۱۷');
+}
+function leaveTest() {
+  const P = player; if (P.where !== 'test') { toast('الان توی محیط آزمایشی نیستی'); return; }
+  const f = P.testFrom || { x: -3, y: CURB, z: roadX(2) + RH + 2.2 };
+  P.where = 'out'; outdoorPool.attach(P);
+  if (P.state === 'fly' && fly.obj) { fly.obj.where = 'out'; scene.add(fly.obj.mesh); fly.obj.x = f.x; fly.obj.z = f.z; fly.obj.y = Math.max(f.y, groundH(f.x, f.z)) + 6; fly.obj.v = 0; }
+  else { P.state = 'foot'; P.pos.set(f.x, f.y, f.z); P.vel.set(0, 0, 0); if (fly.obj) { fly.obj.where = 'out'; scene.add(fly.obj.mesh); const a = P.facing - Math.PI / 2; fly.obj.x = f.x + Math.sin(a) * 4; fly.obj.z = f.z + Math.cos(a) * 4; fly.obj.y = groundH(fly.obj.x, fly.obj.z) + 0.8; } }
+  cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z); banner('برگشتی به شهر', ''); saveGame();
+}
+function runCode(c) {
+  c = String(c || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
+  if (c === '1818') goTest(); else if (c === '1717') leaveTest(); else toast('کد نامعتبر است');
+}
+/* ---------- the speed panel with a live preview in its own little 3D view ---------- */
+let prev = null;
+const PREV_ENVS = [
+  { n: 'بیابان', sky: 0xf2c88a, ground: '#d8b47a', line: 'rgba(120,80,40,0.3)', obj: 'cactus', fog: 0xf2d0a0 },
+  { n: 'برفی', sky: 0xcfe4f8, ground: '#f4f8fc', line: 'rgba(120,140,170,0.35)', obj: 'pine', fog: 0xe8f0f8 },
+  { n: 'جنگل', sky: 0x9ed0f0, ground: '#5a8a3a', line: 'rgba(30,60,20,0.35)', obj: 'tree', fog: 0xb8d8c8 },
+  { n: 'شهر در شب', sky: 0x0a1020, ground: '#2a2c32', line: 'rgba(255,200,100,0.25)', obj: 'tower', fog: 0x101828 },
+  { n: 'ساحل', sky: 0x8ad0f8, ground: '#e8d8a8', line: 'rgba(60,140,200,0.3)', obj: 'palm', fog: 0xbfe6ff }
+];
+function openFlyPanel() {
+  const f = flySet(); $('fly-panel').hidden = false; $('fly-val').value = f.val; $('fly-unit').value = f.unit; syncFlyRange(); updateFlyInfo();
+  const cvp = $('fly-prev'), env = PREV_ENVS[Math.floor(Math.random() * PREV_ENVS.length)];
+  try {
+    const r = new THREE.WebGLRenderer({ canvas: cvp, antialias: true, alpha: false, powerPreference: 'low-power' }); r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(cvp.clientWidth || 360, cvp.clientHeight || 190, false);
+    r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+    const sc = new THREE.Scene(); sc.background = new THREE.Color(env.sky); sc.fog = new THREE.Fog(env.fog, 60, 420);
+    const camP = new THREE.PerspectiveCamera(50, (cvp.clientWidth || 360) / (cvp.clientHeight || 190), 0.1, 1000);
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x8a7a6a, env.n === 'شهر در شب' ? 0.5 : 1.2)); const sun = new THREE.DirectionalLight(0xffffff, env.n === 'شهر در شب' ? 0.4 : 2); sun.position.set(30, 60, 20); sc.add(sun);
+    const gt = gridTexture(env.ground, env.line, env.line); gt.repeat.set(100, 100);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 })); ground.rotation.x = -Math.PI / 2; sc.add(ground);
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(2000, 8), new THREE.MeshStandardMaterial({ color: env.n === 'برفی' ? 0x8a9098 : 0x3a3c40, roughness: 0.7 })); road.rotation.x = -Math.PI / 2; road.position.y = 0.02; sc.add(road);
+    const posts = [], labels = [];
+    for (let k = 0; k < 14; k++) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), new THREE.MeshStandardMaterial({ color: k % 5 ? 0xf4f4f4 : 0xe8303a, emissive: env.n === 'شهر در شب' ? 0x553300 : 0 })); p.position.set(0, 1.5, -5); sc.add(p); posts.push(p); }
+    const props = []; for (let k = 0; k < 40; k++) { const o = prevProp(env.obj); o.userData.x = Math.random() * 600 - 300; o.position.z = (Math.random() < 0.5 ? -1 : 1) * (12 + Math.random() * 120); sc.add(o); props.push(o); }
+    const car = makeFlyerMesh(); car.rotation.y = Math.PI / 2; car.position.set(0, 1.6, 0); sc.add(car);
+    prev = { r, sc, camP, posts, props, car, dist: 0, last: performance.now(), env, gt };
+    $('fly-env').textContent = 'محیط آزمایشی شانسی: ' + env.n;
+    const loop = () => { if (!prev) return; prev.raf = requestAnimationFrame(loop); prevFrame(); }; loop();
+  } catch (e) { $('fly-env').textContent = 'پیش‌نمایش زنده روی این دستگاه در دسترس نیست'; }
+}
+function prevProp(kind) {
+  const g = new THREE.Group(), M_ = (c, e) => new THREE.MeshStandardMaterial({ color: c, emissive: e || 0, flatShading: true });
+  if (kind === 'cactus') { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4, 8), M_(0x3a7a3a)); m.position.y = 2; g.add(m); const a = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.6, 8), M_(0x3a7a3a)); a.position.set(0.7, 2.6, 0); g.add(a); }
+  else if (kind === 'pine') { const t = new THREE.Mesh(new THREE.ConeGeometry(2, 6, 7), M_(0x2a5a3a)); t.position.y = 3.5; g.add(t); const s = new THREE.Mesh(new THREE.ConeGeometry(1.6, 1.6, 7), M_(0xffffff)); s.position.y = 6; g.add(s); }
+  else if (kind === 'tree') { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 3, 6), M_(0x5a4030)); t.position.y = 1.5; g.add(t); const c = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 0), M_(0x3f7a2a)); c.position.y = 4.5; g.add(c); }
+  else if (kind === 'tower') { const h = 10 + Math.random() * 40; const t = new THREE.Mesh(new THREE.BoxGeometry(8, h, 8), M_(0x1a2030, 0x221a08)); t.position.y = h / 2; g.add(t); }
+  else { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 6, 6), M_(0x8a6a4a)); t.position.y = 3; t.rotation.z = 0.15; g.add(t); for (let k = 0; k < 5; k++) { const l = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.6), M_(0x3a8a3a)); l.position.y = 6; l.rotation.y = k * 1.25; l.rotation.z = -0.3; g.add(l); } }
+  return g;
+}
+function prevFrame() {
+  const p = prev, now = performance.now(), dt = Math.min(0.05, (now - p.last) / 1000); p.last = now;
+  const v = flyMs(); p.dist += v * dt;
+  // post spacing adapts so a few go by every second at any speed
+  const sp = Math.pow(10, Math.max(0, Math.ceil(Math.log10(Math.max(1, v * 0.35)))));
+  p.posts.forEach((o, k) => { const idx = Math.floor(p.dist / sp) - 3 + k; o.position.x = idx * sp - p.dist; o.position.z = -5.5; o.visible = o.position.x < 400; o.material.color.set(idx % 10 === 0 ? 0xe8303a : 0xf4f4f4); o.scale.y = idx % 10 === 0 ? 1.6 : 1; });
+  const period = 600; p.props.forEach(o => { const s = Math.abs(o.position.z) / 40 + 1; o.position.x = ((o.userData.x - p.dist / Math.min(s, 1.5)) % period + period * 1.5) % period - period / 2; });
+  p.gt.offset.x = (p.dist / 20) % 1;
+  p.car.position.y = 1.6 + Math.sin(now * 0.004) * 0.08; p.car.userData.jets.forEach(j => { j.material.opacity = Math.min(0.7, v / 40); j.scale.set(1, 1 + Math.min(3, v / 30), 1); });
+  p.camP.position.set(-9, 3.4, 11); p.camP.lookAt(2, 1.4, 0);
+  p.r.render(p.sc, p.camP);
+  const lbl = $('fly-post'); const t = sp >= 1000 ? fa(sp / 1000) + ' کیلومتر' : fa(sp) + ' متر'; if (lbl.textContent !== t) lbl.textContent = 'فاصلهٔ هر تیرک: ' + t;
+}
+function closeFlyPanel() {
+  $('fly-panel').hidden = true;
+  if (prev) { cancelAnimationFrame(prev.raf); prev.sc.traverse(o => { if (o.geometry) o.geometry.dispose(); }); prev.r.dispose(); try { prev.r.forceContextLoss(); } catch (_) { } prev = null; }
+}
+function syncFlyRange() { const v = flyMs(); $('fly-range').value = Math.round(Math.log10(Math.max(1, v)) / Math.log10(60000) * 1000); }
+function updateFlyInfo() {
+  const v = flyMs(); const parts = [`هر ثانیه ${fa(Math.round(v).toLocaleString('en'))} متر`, `${(v * 3.6).toLocaleString('fa-IR', { maximumFractionDigits: 0 })} کیلومتر بر ساعت`, `${(v * 60 / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} کیلومتر بر دقیقه`];
+  if (v >= 1000) parts.push(`${(v / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} کیلومتر بر ثانیه`);
+  $('fly-info').textContent = parts.join(' · ');
+}
+
+/* ---------- glue for the extra areas (rainbow hall, test ground) ---------- */
+function zoneScene(w) { return w === 'in' ? interiorScene : w === 'rb' ? rbScene : w === 'test' ? testScene : scene; }
+function zoneCol(w) { return w === 'in' ? interior.col : w === 'rb' ? rb.col : w === 'test' ? test.col : world.col; }
+function updatePlayerZone(dt) {
+  const P = player, col = zoneCol(P.where), key = touchUI ? '' : '<b>E</b> — ';
+  let promptTxt = '', actLabel = '';
+  if (P.state === 'hide') {
+    P.vel.set(0, 0, 0); input.jumpQ = false;
+    const sp = P.hideSpot; promptTxt = `${sp.kind === 'in' ? 'داخلِ' : 'پشتِ'} «${sp.name}» قایم شدی · ${touchUI ? '«بیا بیرون»' : '<b>E</b>'} بیا بیرون`; actLabel = 'بیا بیرون';
+    if (input.actQ) { input.actQ = false; rbUnhide(); }
+    setPrompt(promptTxt, actLabel); return;
+  }
+  if (P.state === 'use') { const u = P.use; u.t += dt; P.vel.set(0, 0, 0); if (input.actQ || (Math.hypot(input.mx, input.my) > 0.5 && u.t > 0.6) || (u.dur && u.t > u.dur)) { input.actQ = false; endUse(); } setPrompt(u.dur ? '' : `${touchUI ? '«بلند شو»' : '<b>E</b>'} بلند شو`, 'بلند شو'); return; }
+  if (P.state !== 'foot' && P.state !== 'down') { P.state = 'foot'; }
+  // walking, running and jumping on a flat floor
+  let mx = input.mx, my = input.my; if (chat.open || rb.build) { mx = 0; my = 0; input.jumpQ = false; }
+  const mag = Math.min(1, Math.hypot(mx, my)), fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw);
+  let dx = fx * my + rx * mx, dz = fz * my + rz * mx; const dl = Math.hypot(dx, dz); if (dl > 0) { dx /= dl; dz /= dl; }
+  const running = (input.run || (touchUI && mag > 0.93)) && store.energy > 8, tsp = mag * (running ? 6.6 : 2.5), k = P.onGround ? 12 : 2.5;
+  P.vel.x = damp(P.vel.x, dx * tsp, k, dt); P.vel.z = damp(P.vel.z, dz * tsp, k, dt);
+  if (cam.fpOn && !chat.open) P.facing += angDiff(P.facing, cam.yaw) * Math.min(1, 18 * dt); else if (tsp > 0.1) P.facing += angDiff(P.facing, Math.atan2(dx, dz)) * Math.min(1, 12 * dt);
+  if (input.jumpQ && P.onGround) { P.vel.y = 6.6; P.onGround = false; Audio.step(true); } input.jumpQ = false;
+  stepCharacter(P, col, dt, false);
+  if (P.onGround) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) Audio.step(running); } }
+  if (P.pos.y < -5) P.pos.set(0, 0, P.where === 'rb' ? RB_SIZE / 2 - 6 : 0);
+  if (chat.open) { input.actQ = false; if (!chat.npc || Math.hypot(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z) > 5) closeChat(); return; }
+  if (P.where === 'rb') {
+    const G = rb.game, sp = G && G.phase !== 'over' ? nearestSpot(1.8) : null, n = nearestNPC(rb.people.filter(p => !p.hidden), 2.6);
+    if (P.pos.z > RB_SIZE / 2 - 9 && Math.abs(P.pos.x) < 13) { promptTxt = `${key}خروج به شهر`; actLabel = 'خروج'; if (input.actQ) { input.actQ = false; leaveRB(); return; } if (P.pos.z > RB_SIZE / 2 - 2.2) { leaveRB(); return; } }
+    else if (sp && !rb.build) { promptTxt = `${key}${sp.kind === 'in' ? 'برو داخلِ' : 'قایم شو پشتِ'} «${sp.name}»`; actLabel = 'قایم شو'; if (input.actQ) { input.actQ = false; rbHide(sp); } }
+    else if (n && !(G && G.phase !== 'over')) { promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`; actLabel = 'حرف بزن'; if (input.actQ) { input.actQ = false; openChat(n); } }
+  } else if (P.where === 'test') {
+    if (fly.obj && fly.obj.where === 'test' && Math.hypot(fly.obj.x - P.pos.x, fly.obj.z - P.pos.z) < 3.4) { promptTxt = `${key}سوار ماشین پرنده شو`; actLabel = 'سوار شو'; if (input.actQ) { input.actQ = false; boardFlyer(); } }
+    else promptTxt = 'محیط آزمایشی · برای برگشت به شهر کد ۱۷۱۷ را بزن';
+  }
+  input.actQ = false; setPrompt(rb.build ? '' : promptTxt, actLabel);
+}
+// inside a hiding place you peek out through the gap
+function updateCameraHide(dt) {
+  const P = player, sp = P.hideSpot, eh = sp.pose === 'lie' ? 0.35 : sp.pose === 'crouch' || sp.pose === 'sit' ? 0.85 : 1.5;
+  const f = sp.face + cam.yaw * 0.0, a = (sp.face) + clamp(angDiff(sp.face, cam.yaw), -1.1, 1.1), cp = Math.cos(cam.pitch - 0.3);
+  const ex = sp.x + Math.sin(sp.face) * 0.35, ez = sp.z + Math.cos(sp.face) * 0.35, ey = sp.y + eh;
+  camera.position.set(ex, ey, ez); camera.lookAt(ex + Math.sin(a) * cp, ey - Math.sin(cam.pitch - 0.3), ez + Math.cos(a) * cp);
+  if (camera.view && camera.view.enabled) camera.clearViewOffset();
+  cam.fov = damp(cam.fov, 58, 3, dt); camera.fov = cam.fov; camera.updateProjectionMatrix(); P.H.hideHead = false;
+}
+/* a 3D arrow over your head that points to wherever you're heading */
+let guideArrow = null;
+function updateGuide(dt) {
+  const P = player, on = !!waypoint && P.where === 'out';
+  if (!guideArrow) { const g = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: 0xffb340, toneMapped: false }); const head = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 16), m); head.rotation.x = Math.PI / 2; head.position.z = 0.55; const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 10), m); tail.rotation.x = Math.PI / 2; g.add(head, tail); scene.add(g); guideArrow = g; }
+  guideArrow.visible = on; if (!on) return;
+  const src = P.state === 'car' ? P.car : P.state === 'fly' && fly.obj ? fly.obj : null, x = src ? src.x : P.pos.x, y = src ? (src.y || 0) + 3.2 : P.pos.y + 2.55, z = src ? src.z : P.pos.z;
+  guideArrow.position.set(x, y + Math.sin(simTime * 3) * 0.08, z); guideArrow.rotation.y = Math.atan2(waypoint.x - x, waypoint.z - z);
+}
+/* people you invited walk off toward the rainbow building */
+function updateInvites(dt) {
+  for (let i = npcs.length - 1; i >= 0; i--) { const n = npcs[i]; if (!n.invitedAway) continue; if (chat.open && chat.npc === n) continue; n.awayT = (n.awayT || 0) + dt; if (n.mode !== 'flee' && n.awayT < 0.2) { n.mode = 'flee'; n.timer = 4; n.fleeSpd = 1.6; n.fx = 0; n.fz = -1; } if (n.awayT > 4) { outdoorPool.detach(n); npcs.splice(i, 1); } }
+}
+function inviteNPC(n, role) {
+  store.invited = store.invited || [];
+  if (store.invited.length >= 5) { npcSpeak(n, 'ببخشید، اونجا دیگه جا نیست! پنج نفر دعوت کردی.'); return; }
+  store.invited.push({ look: n.look, persona: serPersona(n.persona), role });
+  npcSpeak(n, role === 'hide' ? mpick(['آخ جون! منم قایم می‌شم، ببینیم کی زرنگ‌تره!', 'باشه! با هم قایم می‌شیم، فقط بهم نخندی!']) : mpick(['باشه! من چشم می‌ذارم، هر جا قایم بشی پیدات می‌کنم!', 'من دنبالت می‌گردم! از دستم در نمی‌ری!']));
+  n.persona.rel = (n.persona.rel || 0) + 1; n.invitedAway = true;
+  banner(`${n.persona.name} دعوت رو قبول کرد`, `توی ساختمان رنگین‌کمان ${role === 'hide' ? 'با تو قایم می‌شه' : 'دنبالت می‌گرده'}`); saveGame();
+}
+function drawZoneMap() {
+  const cvm = $('minimap'), g = cvm.getContext('2d'), W = cvm.width, P = player;
+  if (P.where === 'test') { g.fillStyle = '#d8ccb0'; g.fillRect(0, 0, W, W); g.fillStyle = '#3a3c40'; g.fillRect(0, W / 2 - 8, W, 16); g.fillStyle = '#14162a'; g.font = 'bold 22px Vazirmatn, Tahoma'; g.textAlign = 'center'; g.fillText(fa(Math.round((P.pos.x + (test ? test.off : 0)) / 10) / 100) + ' کیلومتر', W / 2, W / 2 + 60); }
+  else {
+    const s = W / 360, ox = P.pos.x, oz = P.pos.z; g.fillStyle = '#2a2440'; g.fillRect(0, 0, W, W);
+    g.save(); g.translate(W / 2, W / 2); g.rotate(-Math.PI / 2 - Math.atan2(Math.cos(cam.yaw), Math.sin(cam.yaw)));
+    g.fillStyle = '#3a3a5a'; g.beginPath(); g.arc((RB_ARENA.x - ox) * s, (RB_ARENA.z - oz) * s, (RB_ARENA.r + 8) * s, 0, 7); g.fill();
+    g.fillStyle = '#c8b8ff'; g.beginPath(); g.arc((RB_ARENA.x - ox) * s, (RB_ARENA.z - oz) * s, 3.5, 0, 7); g.fill();
+    if (!rb.game || rb.game.phase === 'over') { g.fillStyle = '#ffcf7a'; for (const n of rb.people) { g.beginPath(); g.arc((n.pos.x - ox) * s, (n.pos.z - oz) * s, 2.2, 0, 7); g.fill(); } }
+    g.restore();
+    g.fillStyle = '#ffb340'; g.beginPath(); g.moveTo(W / 2, W / 2 - 14); g.lineTo(W / 2 + 10, W / 2 + 10); g.lineTo(W / 2 - 10, W / 2 + 10); g.closePath(); g.fill();
+  }
+}
+
+
+/* ============================================================
    Audio (synthesised)
    ============================================================ */
 const Audio = {
@@ -4241,7 +5155,7 @@ function readKeys(dt = 1 / 60) {
   const k = c => keys.has(c);
   const kx = (k('KeyD') || k('ArrowRight') ? 1 : 0) - (k('KeyA') || k('ArrowLeft') ? 1 : 0);
   const ky = (k('KeyW') || k('ArrowUp') ? 1 : 0) - (k('KeyS') || k('ArrowDown') ? 1 : 0);
-  if (player && player.state === 'car') {
+  if (player && (player.state === 'car' || player.state === 'fly')) {
     // pedals on the left edge, steering on the right edge; steering eases in like a real wheel
     const sx = clamp(kx + (input.cRight ? 1 : 0) - (input.cLeft ? 1 : 0), -1, 1);
     input.steer += clamp(sx - input.steer, -(sx ? 3.2 : 6) * dt, (sx ? 3.2 : 6) * dt);
@@ -4258,16 +5172,18 @@ function showTouchUI() { if (touchUI) return; touchUI = true; syncTouchUI(true);
 let lastUiMode = '';
 function syncTouchUI(force) {
   if (!touchUI) return;
-  const mode = chat.open ? 'chat' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? (player.car && player.car.service ? 'bus' : 'pass') : 'foot';
+  const mode = chat.open ? 'chat' : player && player.state === 'fly' ? 'fly' : player && rb.build ? 'build' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? (player.car && player.car.service ? 'bus' : 'pass') : 'foot';
   if (mode === lastUiMode && !force) return; lastUiMode = mode;
   $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; updateUseBtn(); if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
-  for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car';
-  $('drive-x').hidden = mode !== 'car' && mode !== 'pass' && mode !== 'bus'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
+  for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car' && mode !== 'fly';
+  $('fly-ud').hidden = mode !== 'fly'; if (mode === 'build') { $('pad').hidden = true; $('joy-hint').hidden = true; }
+  $('drive-x').hidden = mode !== 'car' && mode !== 'pass' && mode !== 'bus' && mode !== 'fly'; $('b-hand').hidden = $('b-horn').hidden = mode !== 'car'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
   if (mode !== 'car') { input.cGas = input.cBrake = input.cLeft = input.cRight = false; input.hornBtn = input.handBtn = false; for (const b of document.querySelectorAll('.dbtn')) b.classList.remove('down'); }
 }
 cv.addEventListener('pointerdown', e => {
   if (!started) return; Audio.init();
   if (typing()) document.activeElement.blur();
+  if (rb.build) { bdPointerDown(e); try { cv.setPointerCapture(e.pointerId); } catch (_) { } return; }
   if (e.pointerType !== 'mouse') {
     showTouchUI();
     const foot = player.state === 'foot' && !chat.open;
@@ -4277,6 +5193,7 @@ cv.addEventListener('pointerdown', e => {
   try { cv.setPointerCapture(e.pointerId); } catch (_) { }
 });
 cv.addEventListener('pointermove', e => {
+  if (rb.build) { bdPointerMove(e); return; }
   if (e.pointerId === joyId) {
     let dx = e.clientX - joyX, dy = e.clientY - joyY; const l = Math.hypot(dx, dy); if (l > JR) { dx *= JR / l; dy *= JR / l; }
     input.jx = dx / JR; input.jy = -dy / JR; $('joy-knob').style.transform = `translate(${dx}px,${dy}px)`;
@@ -4292,11 +5209,12 @@ cv.addEventListener('pointermove', e => {
   }
 });
 const endPtr = e => {
+  if (rb.build) { bdPointerUp(e); }
   if (e.pointerId === joyId) { joyId = null; input.jx = input.jy = 0; $('joy').hidden = true; if (player.state === 'foot' && !chat.open) $('joy-hint').hidden = false; }
   if (e.pointerId === lookId) lookId = null;
 };
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
-cv.addEventListener('wheel', e => { cam.zoom = clamp(cam.zoom * (1 + e.deltaY * 0.001), 0.55, 1.9); e.preventDefault(); }, { passive: false });
+cv.addEventListener('wheel', e => { if (rb.build && cam.free) { dolly(-e.deltaY * 0.02); e.preventDefault(); return; } cam.zoom = clamp(cam.zoom * (1 + e.deltaY * 0.001), 0.55, 1.9); e.preventDefault(); }, { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 // no browser menus on long press anywhere (copy, search, print, save image...), except in text boxes
 { const editable = t => t && t.closest && t.closest('input,textarea,select,[contenteditable]');
@@ -4336,6 +5254,67 @@ $('btn-time').addEventListener('click', () => cycleTime());
 $('btn-sound').addEventListener('click', () => { Audio.init(); Audio.setMute(Audio.on); $('btn-sound').textContent = Audio.on ? 'صدا: روشن' : 'صدا: خاموش'; });
 $('btn-weather').addEventListener('click', () => { const order = ['auto', 'clear', 'cloudy', 'rain']; settings.weather = order[(order.indexOf(settings.weather) + 1) % 4]; saveSettings(); applyWeatherSetting(); });
 $('btn-settings').addEventListener('click', () => openSettings());
+/* ---------- buttons and panels for the rainbow building, build mode, flying car and codes ---------- */
+$('btn-rb').addEventListener('click', () => { if (player.where === 'rb') { leaveRB(); return; } $('rb-go').hidden = false; });
+$('rbg-route').addEventListener('click', () => { $('rb-go').hidden = true; setWaypoint({ name: 'ساختمان رنگین‌کمان', x: rb.door.x, z: rb.door.z + 4 }); toast('فلش نارنجیِ بالای سرت و خط روی نقشه راه رو نشون می‌دن'); });
+$('rbg-go').addEventListener('click', () => {
+  $('rb-go').hidden = true; const P = player;
+  if (P.where === 'in') { toast('اول از ساختمان بیرون بیا'); return; } if (P.where === 'test') leaveTest();
+  if (P.state === 'fly') leaveFlyerForce(); if (P.state === 'passenger') { if (P.car === bus) leaveBus(); else leaveTow(); }
+  if (P.state === 'car') { const c = P.car; c.x = rb.door.x + 6; c.z = rb.door.z + 12; c.h = Math.PI; c.vx = c.vz = 0; c.sync(0); }
+  else { P.state = 'foot'; P.pos.set(rb.door.x, CURB, rb.door.z + 6); P.vel.set(0, 0, 0); P.facing = Math.PI; }
+  cam.yaw = Math.PI; cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z); banner('جلوی ساختمان رنگین‌کمان', 'برو داخل در بزرگ');
+});
+$('rbg-close').addEventListener('click', () => { $('rb-go').hidden = true; });
+function leaveFlyerForce() { const P = player, F = fly.obj; if (!F) return; F.v = 0; F.y = (F.where === 'out' ? groundH(F.x, F.z) : 0) + 0.8; P.state = 'foot'; P.inCar = null; P.anim.special = null; }
+// hide and seek
+$('rb-start').addEventListener('click', () => { $('rb-setup').hidden = false; $('rbs-level').textContent = fa(rbSettings().level); });
+document.querySelectorAll('#rb-setup [data-min]').forEach(b => b.addEventListener('click', () => { const v = b.dataset.min === 'c' ? Math.max(1, Math.min(600, parseInt(String($('rbs-custom').value).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10) || 5)) : +b.dataset.min; rbStartGame(v); }));
+$('rbs-close').addEventListener('click', () => { $('rb-setup').hidden = true; });
+$('rb-stop').addEventListener('click', () => { rbEndGame(); toast('بازی تموم شد'); });
+$('rbm-next').addEventListener('click', () => rbNextLevel(false));
+$('rbm-again').addEventListener('click', () => rbNextLevel(true));
+$('rbm-exit').addEventListener('click', () => { $('rb-menu').hidden = true; leaveRB(); });
+$('rbm-stay').addEventListener('click', () => { $('rb-menu').hidden = true; rbEndGame(); });
+// rainbow colours
+function renderColors() {
+  const s = rbSettings(), w = $('rbc-presets'); w.textContent = '';
+  for (const [k, p] of Object.entries(RB_PALETTES)) { const b = document.createElement('button'); b.type = 'button'; b.className = 'rbc-pre' + (s.pal === k ? ' on' : ''); b.style.background = `linear-gradient(90deg,${p.c.join(',')})`; b.textContent = p.n; b.addEventListener('click', () => { s.pal = k; s.custom = p.c.slice(); applyRbPalette(); renderColors(); saveSoon(); }); w.appendChild(b); }
+  const cw = $('rbc-custom'); cw.textContent = '';
+  s.custom.forEach((c, i) => { const inp = document.createElement('input'); inp.type = 'color'; inp.value = c; inp.addEventListener('input', () => { s.custom[i] = inp.value; s.pal = 'custom'; applyRbPalette(); saveSoon(); }); cw.appendChild(inp); });
+  document.querySelectorAll('#rb-colors [data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === s.speed));
+}
+$('rb-colors-btn').addEventListener('click', () => { $('rb-colors').hidden = false; renderColors(); });
+document.querySelectorAll('#rb-colors [data-speed]').forEach(b => b.addEventListener('click', () => { rbSettings().speed = +b.dataset.speed; applyRbPalette(); renderColors(); saveSoon(); }));
+$('rbc-add').addEventListener('click', () => { const s = rbSettings(); if (s.custom.length < 8) { s.custom.push('#ffffff'); s.pal = 'custom'; applyRbPalette(); renderColors(); } });
+$('rbc-del').addEventListener('click', () => { const s = rbSettings(); if (s.custom.length > 2) { s.custom.pop(); s.pal = 'custom'; applyRbPalette(); renderColors(); } });
+$('rbc-close').addEventListener('click', () => { $('rb-colors').hidden = true; saveGame(); });
+// build mode
+$('rb-build').addEventListener('click', () => { if (rb.build) endBuild(); else startBuild(); });
+$('bd-exit').addEventListener('click', () => endBuild());
+$('bd-search').addEventListener('input', () => renderPalette());
+$('bd-toggle').addEventListener('click', () => { $('bd-pal').classList.toggle('closed'); });
+document.querySelectorAll('#bd-obj [data-a]').forEach(b => { let t = null; const go = () => bdAct(b.dataset.a); b.addEventListener('pointerdown', e => { e.preventDefault(); go(); if (['left', 'right', 'fwd', 'back', 'up', 'down', 'rotL', 'rotR', 'big', 'small'].includes(b.dataset.a)) t = setInterval(go, 120); }); const stop = () => { clearInterval(t); t = null; }; b.addEventListener('pointerup', stop); b.addEventListener('pointerleave', stop); b.addEventListener('pointercancel', stop); });
+for (const k of ['sx', 'sy', 'sz']) $('bd-' + k).addEventListener('input', e => bdSlider(k, +e.target.value));
+document.querySelectorAll('#bd-cam [data-c]').forEach(b => { const k = b.dataset.c; b.addEventListener('pointerdown', e => { e.preventDefault(); bdHold[k] = true; }); const up = () => { bdHold[k] = false; }; b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up); });
+$('bd-camreset').addEventListener('click', () => { const P = player; cam.free = { x: P.pos.x, y: 9, z: P.pos.z + 14, yaw: Math.PI, pitch: 0.42 }; });
+for (const id of ['bd-ui', 'rb-go', 'rb-setup', 'rb-menu', 'rb-colors', 'fly-panel', 'code-panel', 'rb-hud']) for (const ev of ['pointerdown', 'touchstart', 'wheel']) $(id).addEventListener(ev, e => e.stopPropagation(), { passive: true });
+// flying car
+$('btn-fly').addEventListener('click', () => openFlyPanel());
+$('fly-val').addEventListener('input', () => { const v = parseFloat(String($('fly-val').value).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))); if (v > 0) { flySet().val = v; syncFlyRange(); updateFlyInfo(); } });
+$('fly-unit').addEventListener('change', () => { const f = flySet(), ms = flyMs(); f.unit = $('fly-unit').value; f.val = +(ms / FLY_UNITS[f.unit][1]).toPrecision(4); $('fly-val').value = f.val; updateFlyInfo(); });
+$('fly-range').addEventListener('input', () => { const ms = Math.pow(60000, +$('fly-range').value / 1000), f = flySet(); f.val = +(ms / FLY_UNITS[f.unit][1]).toPrecision(3); $('fly-val').value = f.val; updateFlyInfo(); });
+$('fly-spawn').addEventListener('click', () => { closeFlyPanel(); if (player.state === 'fly') { toast('سرعت ماشین پرنده تنظیم شد'); return; } spawnFlyer(); saveGame(); });
+$('fly-close').addEventListener('click', () => { closeFlyPanel(); saveGame(); });
+holdBtn('f-up', () => { input.fUp = true; }, () => { input.fUp = false; });
+holdBtn('f-down', () => { input.fDown = true; }, () => { input.fDown = false; });
+// secret codes
+$('btn-code').addEventListener('click', () => { $('code-panel').hidden = false; $('code-in').value = ''; setTimeout(() => $('code-in').focus(), 50); });
+$('code-form').addEventListener('submit', e => { e.preventDefault(); $('code-panel').hidden = true; $('code-in').blur(); runCode($('code-in').value); });
+$('code-close').addEventListener('click', () => { $('code-panel').hidden = true; });
+let codeBuf = '';
+addEventListener('keydown', e => { if (!started || typing()) return; const d = e.key && /^[0-9۰-۹]$/.test(e.key) ? e.key : null; if (!d) return; codeBuf = (codeBuf + d).slice(-4); if (/^(1818|1717|۱۸۱۸|۱۷۱۷)$/.test(codeBuf)) { runCode(codeBuf); codeBuf = ''; } });
+
 $('chat-close').addEventListener('click', () => closeChat());
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); sendChat($('chat-input').value); });
 for (const id of ['chat', 'settings']) for (const ev of ['pointerdown', 'touchstart']) $(id).addEventListener(ev, e => e.stopPropagation(), { passive: true });
@@ -4495,7 +5474,7 @@ function exitThrough() {
   for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = [];
   Audio.door(); saveGame();
 }
-let fading = false;
+let fading = false, resumeRB = false;
 function fadeTo(fn) {
   fading = true; $('fade').style.opacity = '1';
   setTimeout(() => { fn(); $('fade').style.opacity = '0'; setTimeout(() => { fading = false; }, 330); }, 340);
@@ -4609,7 +5588,7 @@ function places() {
 }
 function dialogCtx(n) {
   const hh = Math.floor(tod), mm = Math.floor((tod - hh) * 60);
-  return { hour: tod, timeStr: fa(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0')), weather: weather.state, place: player.where === 'in' ? interior.door.name : streetAt(player.pos.x, player.pos.z),
+  return { hour: tod, timeStr: fa(String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0')), weather: weather.state, place: player.where === 'in' ? interior.door.name : player.where === 'rb' ? 'ساختمان رنگین‌کمان' : player.where === 'test' ? 'محیط آزمایشی' : streetAt(player.pos.x, player.pos.z),
     home: n.ring ? streetAt(n.ring.x + RING, n.ring.z) : (interior.door ? interior.door.name : STREET_H[1]), events, places: places() };
 }
 function addMsg(who, text) {
@@ -4622,6 +5601,12 @@ function openChat(n) {
   $('chat-log').innerHTML = ''; $('chat').hidden = false; $('pad').hidden = true; $('joy').hidden = true; $('joy-hint').hidden = true; setPrompt('', '');
   const chips = $('chat-chips'); chips.innerHTML = '';
   if (store.held && ITEMS[store.held].model === 'flowers') { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-q'; b.style.background = 'rgba(200,32,42,.5)'; b.textContent = 'این گل برای توئه'; b.addEventListener('click', () => { addMsg('me', 'این گل برای توئه!'); giveFlowers(n); b.remove(); }); chips.appendChild(b); }
+  if (player.where === 'out' && n.npc && !n.mallStaff && !n.mech && !n.medic && !n.invitedAway && !(store.invited || []).some(v => v.persona.name === n.persona.name && v.persona.family === n.persona.family)) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-q'; b.style.background = 'linear-gradient(90deg,#ff2a2a88,#ffe02a88,#3ad83a88,#2a9aff88,#a03aff88)'; b.textContent = 'بیا بریم قایم‌موشک!';
+    b.addEventListener('click', () => { addMsg('me', 'بیا بریم ساختمان رنگین‌کمان قایم‌موشک بازی کنیم!'); npcSpeak(n, mpick(['قایم‌موشک؟ عاشقشم! من قایم بشم یا چشم بذارم؟', 'آره بریم! نقش من چیه؟'])); b.remove();
+      for (const [lbl, role] of [['با من قایم شو', 'hide'], ['تو دنبال من بگرد', 'seek']]) { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-q'; c.style.background = 'rgba(160,58,255,.45)'; c.textContent = lbl; c.addEventListener('click', () => { addMsg('me', lbl); inviteNPC(n, role); for (const x of chips.querySelectorAll('.inv')) x.remove(); }); c.classList.add('inv'); chips.prepend(c); } });
+    chips.prepend(b);
+  }
   for (const q of QUICK) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-q'; b.textContent = q; b.addEventListener('click', () => sendChat(q)); chips.appendChild(b); }
   const open = p.mem.carTaken ? 'باز تویی؟! ماشینمو پس بده!' : p.mem.hitByPlayer ? 'تویی که با ماشین زدی به من! چی می‌خوای؟' : p.met ? `${p.mem.playerName ? p.mem.playerName + '! ' : ''}باز هم سلام!` : mpick(['بله؟ کاری داشتی؟', 'سلام! چیزی می‌خواستی؟', 'جانم؟', 'سلام، بفرمایید.']);
   npcSpeak(n, open);
@@ -4675,7 +5660,8 @@ function snapshot() {
     v: 1, time: Date.now(), tod, weather: settings.weather, events, waypoint,
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
-    player: { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
+    player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
     cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
@@ -4690,6 +5676,8 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) 
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
   if (sv.shop) Object.assign(store, sv.shop);
+  if (sv.ext) { for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
+  if (sv.player && sv.player.where === 'rb') resumeRB = true;
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
   const made = [];
@@ -4750,7 +5738,10 @@ function setWaypoint(pl) {
 }
 
 function updatePlayer(dt) {
-  const P = player, outdoor = P.where === 'out', col = outdoor ? world.col : interior.col;
+  const P = player;
+  if (P.state === 'fly') { updateFly(dt); return; }
+  if (P.where === 'rb' || P.where === 'test') { updatePlayerZone(dt); return; }
+  const outdoor = P.where === 'out', col = outdoor ? world.col : interior.col;
   if (waypoint && Math.hypot(waypoint.x - P.pos.x, waypoint.z - P.pos.z) < 7) { banner('رسیدی!', waypoint.name); waypoint = null; if (wpMesh) wpMesh.visible = false; }
   if (P.state === 'foot' || P.state === 'down') {
     let mx = input.mx, my = input.my; if (chat.open) { mx = 0; my = 0; input.jumpQ = false; }
@@ -4809,6 +5800,11 @@ function updatePlayer(dt) {
         else if (n && (!car || Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) < 1.8)) {
           actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`;
           if (input.actQ) { input.actQ = false; openChat(n); }
+        } else if (fly.obj && fly.obj.where === 'out' && Math.hypot(fly.obj.x - P.pos.x, fly.obj.z - P.pos.z) < 3.4 && Math.abs(fly.obj.y - P.pos.y) < 3) {
+          promptTxt = `${key}سوار ماشین پرنده شو`; actLabel = 'سوار شو'; if (input.actQ) { input.actQ = false; boardFlyer(); }
+        } else if (rb.door && P.state === 'foot' && Math.abs(P.pos.x - rb.door.x) < 5 && P.pos.z < rb.door.z + 3.5 && P.pos.z > rb.door.z - 4.5) {
+          promptTxt = `${key}ورود به ساختمان رنگین‌کمان`; actLabel = 'برو داخل';
+          if (input.actQ || (P.pos.z < rb.door.z - 1.9 && Math.abs(P.pos.x - rb.door.x) < 3.2)) { input.actQ = false; enterRB(); }
         } else if (bus && bus.phase === 'stop' && bus.doorsOpen && Math.hypot(busDoorPos(bus)[0] - P.pos.x, busDoorPos(bus)[1] - P.pos.z) < 2.6) {
           promptTxt = `${key}سوار اتوبوس خط ۱ شو (بلیت ${fmtT(10000)})`; actLabel = 'سوار شو';
           if (input.actQ) { input.actQ = false; boardBus(); }
@@ -4991,6 +5987,9 @@ function updateCameraFP(dt) {
 }
 function updateCamera(dt) {
   const P = player;
+  if (P.state === 'fly' && fly.obj) { cam.fpOn = false; updateCameraFly(dt); return; }
+  if (P.where === 'rb' && rb.build && cam.free) { cam.fpOn = false; P.H.hideHead = false; updateCameraFree(); return; }
+  if (P.state === 'hide' && P.hideSpot && P.hideSpot.kind === 'in') { cam.fpOn = false; updateCameraHide(dt); return; }
   const fpNow = fpWanted();
   if (fpNow && !cam.fpOn) { cam.fpPitch = 0.08; cam.fpYaw = 0; cam.fpY = P.pos.y + 1.6; }
   if (!fpNow && cam.fpOn && (P.state === 'car' || P.state === 'passenger')) cam.yaw = P.car.h + cam.fpYaw;
@@ -5006,7 +6005,7 @@ function updateCamera(dt) {
   } else if (chat.open && chat.npc) {
     // over-the-shoulder conversation framing
     const n = chat.npc, mx = lerp(P.pos.x, n.pos.x, 0.6), mz = lerp(P.pos.z, n.pos.z, 0.6);
-    const base = Math.atan2(n.pos.x - P.pos.x, n.pos.z - P.pos.z), col0 = outdoor ? world.col : interior.col;
+    const base = Math.atan2(n.pos.x - P.pos.x, n.pos.z - P.pos.z), col0 = zoneCol(P.where);
     if (!chat.side || simTime > chat.sideT) { chat.sideT = simTime + 1.5; let best = -0.42, bd = -1; for (const off of [-0.42, 0.42, -0.9, 0.9]) { const y = base + off, d = rayCast(col0, mx, n.pos.y + 1.5, mz, -Math.sin(y) * 0.99, 0.1, -Math.cos(y) * 0.99, 3.2, 0.1); if (d > bd + 0.2) { bd = d; best = off; } } chat.side = best; }
     const yawT = base + chat.side;
     cam.yaw += angDiff(cam.yaw, yawT) * Math.min(1, 3 * dt); cam.pitch = damp(cam.pitch, 0.1, 3, dt);
@@ -5016,16 +6015,16 @@ function updateCamera(dt) {
     if (P.state === 'use' && P.use.kind === 'lie') cam.pitch = damp(cam.pitch, 0.85, 2, dt);
     tx = P.pos.x; ty = P.pos.y + (P.state === 'use' && P.use.kind === 'lie' ? 0.45 : P.state === 'use' && P.use.kind === 'sit' ? 1.05 : 1.45) - P.anim.knock * 1.0; tz = P.pos.z;
     if (P.state === 'entering' || P.state === 'exiting') { tx = P.car.x; tz = P.car.z; ty = P.car.y + 1.4; }
-    desired = (outdoor ? 4.6 : 3.1) * cam.zoom;
+    desired = (outdoor || P.where === 'rb' || P.where === 'test' ? 4.6 : 3.1) * cam.zoom;
     cam.target.x = damp(cam.target.x, tx, 18, dt); cam.target.z = damp(cam.target.z, tz, 18, dt); cam.target.y = damp(cam.target.y, ty, 9, dt);
   }
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp;
-  const col = outdoor ? world.col : interior.col;
+  const col = zoneCol(P.where);
   const hit = rayCast(col, cam.target.x, cam.target.y, cam.target.z, dx, dy, dz, desired + 0.3, chat.open ? 0.1 : 0.45) - 0.3;
   const want = Math.max(0.6, Math.min(desired, hit));
   cam.cur = want < cam.cur ? want : damp(cam.cur, want, 3, dt);
   let px = cam.target.x + dx * cam.cur, py = cam.target.y + dy * cam.cur, pz = cam.target.z + dz * cam.cur;
-  if (outdoor) py = Math.max(py, groundH(px, pz) + 0.35); else py = clamp(py, 0.4, 2.9);
+  if (outdoor) py = Math.max(py, groundH(px, pz) + 0.35); else if (P.where === 'in') py = clamp(py, 0.4, 2.9); else py = Math.max(py, 0.4);
   if (cam.shake > 0) { px += (Math.random() - 0.5) * cam.shake * 0.4; py += (Math.random() - 0.5) * cam.shake * 0.4; pz += (Math.random() - 0.5) * cam.shake * 0.4; cam.shake = Math.max(0, cam.shake - dt * 1.6); }
   camera.position.set(px, py, pz); camera.lookAt(cam.target);
   const off = chat.open && innerWidth > innerHeight * 1.25 ? innerWidth * 0.2 : 0;
@@ -5231,7 +6230,7 @@ function throwDriver() {
 function goGarage(mode) {
   const b = garage.bays[0], pt = { name: 'تعمیرگاه مرکزی شهر', x: roadX(1) - RH - 2, z: 0 };
   if (mode === 'route') { setWaypoint(pt); return 'مسیر تعمیرگاه روی نقشه علامت خورد.'; }
-  if (player.where === 'in') return 'اول از ساختمان بیرون برو.';
+  if (player.where !== 'out') return 'اول از ساختمان بیرون برو.';
   if (player.state === 'passenger') return 'الان مسافر یدک‌کشی!';
   if (player.state !== 'foot' && player.state !== 'car') return '';
   fadeTo(() => {
@@ -5268,6 +6267,7 @@ function buildMapBase() {
   mapBase = c;
 }
 function drawMap() {
+  if (player.where === 'rb' || player.where === 'test') { drawZoneMap(); return; }
   const cvm = $('minimap'), g = cvm.getContext('2d'), W = cvm.width, s = 1024 / MAPW, zoom = 1.25;
   const px = player.where === 'out' ? (player.state === 'car' ? player.car.x : player.pos.x) : interior.door.x, pz = player.where === 'out' ? (player.state === 'car' ? player.car.z : player.pos.z) : interior.door.z;
   const rot = -Math.PI / 2 - Math.atan2(Math.cos(cam.yaw), Math.sin(cam.yaw));
@@ -5380,8 +6380,11 @@ function updateWorld(dt) {
     updateNPC(n, Math.min(n.acc, 0.15), true, world.col); n.acc = 0;
   }
   if (player.where === 'in') { for (const n of interior.npcs) updateNPC(n, dt, false, interior.col); updateInterior(dt); }
+  if (player.where === 'rb') { updateRB(dt); updateBuild(dt); }
+  if (player.where === 'test') updateTest(dt);
+  updateInvites(dt);
   const people = player.state !== 'foot' ? (player.where === 'out' ? npcs : interior.npcs) : player.where === 'out' ? [player, ...npcs] : [player, ...interior.npcs];
-  separatePeople(people.filter(p => p.mode !== 'sit' && p.mode !== 'inside' && p.mode !== 'valet'));
+  if (player.where === 'out' || player.where === 'in') separatePeople(people.filter(p => p.mode !== 'sit' && p.mode !== 'inside' && p.mode !== 'valet'));
   updateSignals(); updateFountain(dt); FX.update(dt); updateBirds(dt); updatePigeons(dt);
   updateMall(dt); updateSwings(dt); updateBalls(dt); updateFloaters(dt); updateEnergy(dt); updateSkate(dt);
   if (frameNo % 8 === 0) updateWalletHUD();
@@ -5418,8 +6421,11 @@ function syncVisuals(dt) {
   if (player.where === 'in') for (const n of interior.npcs) showPeople(n, false);
   const P = player, seated = P.inCar || (P.state === 'exiting' && P.exitT < 0.35);
   if (!seated) { P.H.root.position.copy(P.pos); P.H.root.rotation.set(0, P.facing, 0); }
-  P.H.visible = true; poseHuman(P, dt, simTime);
-  outdoorPool.update(); interiorPool.update(); updateBlobs(); updateAttachments(); updateCockpit(); updateHeadLights();
+  if (player.where === 'rb') for (const n of rb.people) showPeople(n, false);
+  syncFlyer(dt);
+  P.H.visible = !(P.state === 'hide' && P.hideSpot && P.hideSpot.kind === 'in'); poseHuman(P, dt, simTime);
+  outdoorPool.update(); interiorPool.update(); if (rbPool && player.where === 'rb') rbPool.update(); if (testPool && player.where === 'test') testPool.update();
+  updateBlobs(); updateAttachments(); updateCockpit(); updateHeadLights(); updateGuide(dt); updateStreaks(dt);
   // car glow sprites
   const gp = carGlow.geometry.attributes.position.array, gc = carGlow.geometry.attributes.color.array; let k = 0;
   for (const c of cars) {
@@ -5445,12 +6451,14 @@ function updateHUD(dt) {
   promptHold -= dt;
   const P = player;
   const inCar = P.state === 'car' || P.state === 'passenger';
-  $('speedo').hidden = !inCar;
+  if (P.state !== 'fly') { $('speedo').hidden = !inCar; if (inCar) { $('fuel-row').hidden = false; if ($('spdunit').textContent !== 'کیلومتر بر ساعت') $('spdunit').textContent = 'کیلومتر بر ساعت'; } }
   if (inCar) { $('fuel').style.width = (P.car.fuel ?? 100) + '%'; $('fuel').style.background = P.car.fuel > 20 ? 'var(--amber)' : 'var(--red)';
     const kmh = Math.round(Math.abs(P.car.vf) * 3.6); $('spd').textContent = fa(kmh); $('gear').textContent = P.car.vf < -0.5 ? 'R' : P.car.inHand ? 'P' : 'D'; $('health').style.width = P.car.health + '%'; $('health').style.background = P.car.health > 50 ? '#5fd3c3' : P.car.health > 20 ? '#ffb340' : '#ff5b4e'; }
   syncTouchUI();
   let label;
   if (P.where === 'in') label = interior.door.name;
+  else if (P.where === 'rb') label = 'ساختمان رنگین‌کمان';
+  else if (P.where === 'test') label = 'محیط آزمایشی';
   else if (!inCar && inMall(P.pos.x, P.pos.z)) label = P.inShop ? P.inShop.name : 'پاساژ آزادی · ' + (mallFloorAt(P.pos.y) ? 'طبقهٔ اول' : 'همکف');
   else label = streetAt(inCar ? P.car.x : P.pos.x, inCar ? P.car.z : P.pos.z);
   if ($('street').textContent !== label) $('street').textContent = label;
@@ -5460,7 +6468,7 @@ function updateHUD(dt) {
   if (P.state === 'car') { const c = P.car; const rpm = (Math.abs(c.vf) % 14) / 14 * 0.6 + Math.abs(c.vf) / c.T.vmax * 0.6 + Math.abs(c.inThrottle) * 0.15; Audio.engine(c.health > 0, rpm, Math.max(0, c.inThrottle)); Audio.tyre((c.slip - 1.5) / 5 + (c.inHand && Math.abs(c.vf) > 3 ? 0.4 : 0)); }
 }
 function render() {
-  const sc = player && player.where === 'in' ? interiorScene : scene;
+  const sc = player ? zoneScene(player.where) : scene;
   if (composer) { renderPass.scene = sc; composer.render(); } else renderer.render(sc, camera);
 }
 
@@ -5519,7 +6527,7 @@ async function boot(data) {
   setView(settings.view === 'first'); updateWalletHUD();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
   if (data && typeof data.tod === 'number') tod = data.tod;
-  initFixedLights();
+  initFixedLights(); buildRainbow(); buildTest();
   applyWeatherSetting(); applyQuality(); bakeEnvironments();
   try { // warm up every shader now instead of stalling the first time something appears
     const RT0 = composerAll ? composerAll.renderTarget1 : null; renderer.setRenderTarget(RT0); renderer.compile(scene, camera);
@@ -5527,17 +6535,19 @@ async function boot(data) {
       for (const d of [dd, dh]) if (d) { buildInterior(d); renderer.setRenderTarget(RT0); renderer.compile(interiorScene, camera); renderer.setRenderTarget(null);
         const cp0 = camera.position.clone(), cq0 = camera.quaternion.clone(); camera.position.set(0, 1.6, interior.D / 2 - 0.8); camera.lookAt(0, 1.2, 0); renderer.shadowMap.needsUpdate = true; if (composerAll) { renderPass.scene = interiorScene; composerAll.render(); renderPass.scene = scene; } else renderer.render(interiorScene, camera); camera.position.copy(cp0); camera.quaternion.copy(cq0); for (const n of interior.npcs) if (n.persona && n.persona.met > 0) n.persona.met--; }
       for (const n of interior.npcs) interiorPool.detach(n); interior.npcs = []; }
+    for (const zs of [rbScene, testScene]) { renderer.setRenderTarget(RT0); renderer.compile(zs, camera); renderer.setRenderTarget(null); }
     renderer.setRenderTarget(null); renderer.shadowMap.needsUpdate = true; render();
   } catch (e) { console.warn(e); }
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, world, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { rb, rbCanSee, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
 renderer.domElement.addEventListener('webglcontextrestored', () => { renderer.shadowMap.needsUpdate = true; envTod = -99; });
 $('play').addEventListener('click', () => {
+  if (resumeRB) { resumeRB = false; setTimeout(() => { try { enterRB(); } catch (e) { console.error(e); } }, 50); }
   Audio.init(); started = true; $('start').classList.add('gone'); setTimeout(() => $('start').hidden = true, 650);
   $('minimap').hidden = false; $('topbar').hidden = false; if (IS_TOUCH) showTouchUI();
   try { if (IS_TOUCH && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (_) { }
