@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>واژه‌دان</title>
-<meta name="description" content="کتابخانهٔ ابری کلمه‌ها به هر زبانی، با بلندگو و دستیار هوش مصنوعی برای یادگیری زبان">
+<meta name="description" content="کتابخانهٔ ابری کلمه‌ها به ۱۶۹ زبان با ورود گوگل، بلندگو و دستیار هوش مصنوعی">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=Roboto:wght@500&family=Vazirmatn:wght@400;500;700&display=swap">
 <style>
 /* Layout: one calm column with three tabs (library, assistant, cloud); the speaker button is the hero of every row. */
 :root {
@@ -240,6 +240,35 @@ details.settings[open] > summary { margin-bottom: 10px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Sign-in gate, setup guide and account */
+.gate { max-width: 520px; margin: 24px auto 0; text-align: center; justify-items: center; padding: 28px 22px; }
+.gate .brand-mark { width: 64px; height: 64px; border-radius: 18px; }
+.gate h2 { font-family: var(--font-display); font-weight: 400; font-size: 34px; margin: 0; }
+.gate p { color: var(--muted); max-width: 40ch; }
+.gbtn {
+  display: inline-flex; align-items: center; gap: 12px; padding: 11px 22px; border-radius: 999px;
+  background: #FFFFFF; color: #1F1F1F; border: 1px solid #747775; font-weight: 500; font-size: 15px;
+  font-family: "Roboto", var(--font-body);
+}
+.gbtn:hover { background: #F3F6FB; }
+.gbtn[disabled] { opacity: .6; cursor: default; }
+.gbtn svg { width: 20px; height: 20px; flex: none; }
+.setup { text-align: start; }
+.setup .steps li { padding-inline-start: 2px; }
+.code {
+  position: relative; margin: 6px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2);
+  border: 1px solid var(--line); font-size: 12.5px; line-height: 1.55; overflow-x: auto; white-space: pre;
+}
+.copy { margin-top: 6px; }
+.textarea.mono { font-size: 12.5px; min-height: 140px; resize: vertical; }
+.who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.who img { width: 44px; height: 44px; border-radius: 50%; flex: none; background: var(--surface-2); }
+.who b { display: block; overflow-wrap: anywhere; }
+.who small { color: var(--muted); overflow-wrap: anywhere; direction: ltr; display: block; text-align: right; }
+.avatar-btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 4px 3px 12px; font-size: 13px; font-weight: 500; }
+.avatar-btn img { width: 28px; height: 28px; border-radius: 50%; }
+.top-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -254,197 +283,209 @@ details.settings[open] > summary { margin-bottom: 10px; }
         <p>کلمه‌هایت را به هر زبانی نگه دار، بشنو و یاد بگیر</p>
       </div>
     </div>
-    <button class="status" id="status" type="button" data-mode="connecting" title="وضعیت ذخیره‌سازی"><span class="dot"></span><span id="statusText">در حال اتصال…</span></button>
+    <div class="top-right" id="topRight" hidden>
+      <button class="status" id="status" type="button" data-mode="connecting" title="وضعیت ذخیره‌سازی"><span class="dot"></span><span id="statusText">در حال اتصال…</span></button>
+      <button class="avatar-btn" id="avatarBtn" type="button" data-goto="account"><img id="avatarImg" alt="" referrerpolicy="no-referrer"><span id="avatarName"></span></button>
+    </div>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="بخش‌های برنامه">
-    <button class="tab" role="tab" id="tab-library" data-view="library" aria-selected="true" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>کتابخانه</button>
-    <button class="tab" role="tab" id="tab-assistant" data-view="assistant" aria-selected="false" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>دستیار زبان</button>
-    <button class="tab" role="tab" id="tab-cloud" data-view="cloud" aria-selected="false" type="button">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.75 4.75 0 0 1-.5 9.5z"/></svg>فضای ابری</button>
-  </nav>
+  <!-- ============ Firebase setup (only until the project is configured) ============ -->
+  <section class="card setup" id="setupView" hidden>
+    <h2>راه‌اندازی یک‌بارهٔ ورود با گوگل</h2>
+    <p>برای اینکه ورود با حساب واقعی گوگل و فضای ابری کار کند، برنامه به یک پروژهٔ رایگان Firebase (سرویس گوگل) وصل می‌شود. این کار فقط یک بار لازم است.</p>
+    <ol class="steps">
+      <li>به <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">console.firebase.google.com</a> برو، با حساب گوگلت وارد شو و <b>Create a project</b> را بزن. یک اسم بده (مثلاً vazhedan) و مراحل را تا آخر جلو برو.</li>
+      <li>از منوی سمت چپ <b>Security</b> (یا <b>Build</b>) ← <b>Authentication</b> ← <b>Get started</b>. در بخش <b>Sign-in method</b>، گزینهٔ <b>Google</b> را انتخاب کن، <b>Enable</b> را روشن کن و <b>Save</b> بزن.</li>
+      <li>در همان Authentication، به <b>Settings</b> ← <b>Authorized domains</b> برو، <b>Add domain</b> را بزن و این را اضافه کن:
+        <div class="code mono" id="domainCode"></div>
+        <button class="mini copy" type="button" data-copy="domainCode">کپی</button>
+      </li>
+      <li><b>Databases &amp; Storage</b> (یا <b>Build</b>) ← <b>Firestore Database</b> ← <b>Create database</b>. حالت <b>Production</b> را انتخاب کن و یک منطقه (location) بردار.</li>
+      <li>در Firestore به تب <b>Rules</b> برو، همه‌چیز را پاک کن، این را بگذار و <b>Publish</b> بزن. با این قانون هر کس فقط کلمه‌های خودش را می‌بیند:
+        <div class="code mono" id="rulesCode">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null &amp;&amp; request.auth.uid == uid;
+    }
+  }
+}</div>
+        <button class="mini copy" type="button" data-copy="rulesCode">کپی</button>
+      </li>
+      <li>برای دستیار رایگان بدون کلید: <b>AI</b> ← <b>AI Logic</b> ← <b>Get started</b> و گزینهٔ <b>Gemini Developer API</b> را فعال کن.</li>
+      <li>روی چرخ‌دندهٔ ⚙️ ← <b>Project settings</b> بزن. پایین صفحه در <b>Your apps</b> روی آیکن وب <b>&lt;/&gt;</b> بزن، یک اسم بده و <b>Register app</b> را بزن.</li>
+      <li>بخشی را که با <span class="mono">const firebaseConfig = {</span> شروع می‌شود کپی کن، اینجا بگذار و «ذخیره» را بزن.</li>
+    </ol>
+    <label class="field">
+      <span>تنظیمات Firebase (firebaseConfig)</span>
+      <textarea class="textarea mono" id="cfgInput" spellcheck="false" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;…&quot;,&#10;  authDomain: &quot;…&quot;,&#10;  projectId: &quot;…&quot;,&#10;  appId: &quot;…&quot;&#10;};"></textarea>
+    </label>
+    <div class="actions"><button class="btn btn-primary btn-grow" id="cfgSave" type="button">ذخیره</button></div>
+    <p class="hint" id="cfgHint">این تنظیمات رمز نیستند و فقط آدرس پروژهٔ تو را مشخص می‌کنند.</p>
+  </section>
 
-  <p class="note" id="ttsNote" hidden>این مرورگر خواندن متن با صدا را پشتیبانی نمی‌کند. با Chrome، Edge یا Safari باز کن.</p>
+  <!-- ============ Sign-in gate ============ -->
+  <section class="card gate" id="gateView" hidden>
+    <div class="brand-mark" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M10 8.5v4l3-2-3-2z" fill="currentColor"/></svg>
+    </div>
+    <h2>به واژه‌دان خوش آمدی</h2>
+    <p>با حساب گوگل خودت وارد شو. کتابخانه‌ات در فضای ابری همین حساب ذخیره می‌شود و روی هر دستگاهی که وارد شوی، همان را می‌بینی.</p>
+    <button class="gbtn" id="googleBtn" type="button">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      <span id="googleBtnText">ورود با گوگل</span>
+    </button>
+    <p class="hint bad" id="gateError" hidden></p>
+    <p class="hint" id="gateNote"></p>
+  </section>
 
-  <!-- ============ Library ============ -->
-  <section class="view" id="view-library" role="tabpanel" aria-labelledby="tab-library">
-    <p class="note" id="localNote" hidden>کلمه‌ها الان فقط روی همین دستگاه ذخیره می‌شوند. برای اینکه همیشه و روی هر دستگاهی بمانند، <button class="linkbtn" type="button" data-goto="cloud">فضای ابری را وصل کن</button>.</p>
+  <!-- ============ App (after sign-in) ============ -->
+  <div id="appView" class="view" hidden>
+    <nav class="tabs" role="tablist" aria-label="بخش‌های برنامه">
+      <button class="tab" role="tab" id="tab-library" data-view="library" aria-selected="true" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>کتابخانه</button>
+      <button class="tab" role="tab" id="tab-assistant" data-view="assistant" aria-selected="false" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>دستیار زبان</button>
+      <button class="tab" role="tab" id="tab-account" data-view="account" aria-selected="false" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>حساب من</button>
+    </nav>
 
-    <form class="card" id="addForm" autocomplete="off">
-      <h2>کلمه یا متن تازه</h2>
-      <label class="field">
-        <span>کلمه، عبارت یا جمله، به هر زبانی</span>
-        <input class="input" id="word" dir="auto" maxlength="500" placeholder="مثلاً Bonjour یا ありがとう" required>
-      </label>
-      <div class="row2">
+    <!-- Library -->
+    <section class="view" id="view-library" role="tabpanel" aria-labelledby="tab-library">
+      <form class="card" id="addForm" autocomplete="off">
+        <h2>کلمه یا متن تازه</h2>
         <label class="field">
-          <span>زبان</span>
-          <select class="select" id="lang"></select>
+          <span>کلمه، عبارت یا جمله، به هر زبانی</span>
+          <input class="input" id="word" dir="auto" maxlength="500" placeholder="مثلاً Bonjour یا ありがとう" required>
         </label>
-        <label class="field">
-          <span>معنی یا یادداشت (اختیاری)</span>
-          <input class="input" id="meaning" dir="auto" maxlength="500" placeholder="مثلاً: سلام">
-        </label>
-      </div>
-      <p class="hint" id="langHint"></p>
-      <div class="actions">
-        <button class="btn btn-primary btn-grow" id="saveBtn" type="submit">ذخیره در کتابخانه</button>
-        <button class="btn btn-ghost" id="previewBtn" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
-          گوش بده
-        </button>
-      </div>
-    </form>
+        <div class="row2">
+          <label class="field">
+            <span>زبان</span>
+            <select class="select" id="lang"></select>
+          </label>
+          <label class="field">
+            <span>معنی یا یادداشت (اختیاری)</span>
+            <input class="input" id="meaning" dir="auto" maxlength="500" placeholder="مثلاً: سلام">
+          </label>
+        </div>
+        <p class="hint" id="langHint"></p>
+        <div class="actions">
+          <button class="btn btn-primary btn-grow" id="saveBtn" type="submit">ذخیره در کتابخانه</button>
+          <button class="btn btn-ghost" id="previewBtn" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+            گوش بده
+          </button>
+        </div>
+      </form>
 
-    <section class="lib" aria-labelledby="libTitle">
-      <div class="lib-head">
-        <h2 id="libTitle">کتابخانه</h2>
-        <span class="count" id="count"></span>
+      <section class="lib" aria-labelledby="libTitle">
+        <div class="lib-head">
+          <h2 id="libTitle">کتابخانه</h2>
+          <span class="count" id="count"></span>
+        </div>
+        <div class="filters">
+          <label class="field">
+            <span>جست‌وجو</span>
+            <input class="input" id="search" type="search" dir="auto" placeholder="کلمه یا معنی…">
+          </label>
+          <label class="field">
+            <span>زبان</span>
+            <select class="select" id="langFilter"><option value="">همهٔ زبان‌ها</option></select>
+          </label>
+        </div>
+        <ul class="list" id="list"></ul>
+        <div class="empty" id="empty">
+          <strong>در حال باز کردن کتابخانه…</strong>
+          کلمه‌های ذخیره‌شده‌ات اینجا با یک دکمهٔ بلندگو نشان داده می‌شوند.
+        </div>
+      </section>
+    </section>
+
+    <!-- Assistant -->
+    <section class="view" id="view-assistant" role="tabpanel" aria-labelledby="tab-assistant" hidden>
+      <div class="card">
+        <h2>دستیار زبان</h2>
+        <p class="hint">هر کلمه‌ای خواستی بپرس تا معنی، تلفظ و مثالش را یاد بگیری، یا از کلمه‌های کتابخانه‌ات امتحان بگیرد. کلمه‌هایی که یاد می‌دهد دکمهٔ پخش و ذخیره دارند.</p>
+        <div class="seg" id="engineSeg" role="radiogroup" aria-label="موتور هوش مصنوعی">
+          <label><input type="radio" name="engine" value="firebase"><span><b>رایگان، بدون کلید</b><small>Gemini از طریق حساب برنامه؛ روی هر دستگاه و هر مرورگری</small></span></label>
+          <label><input type="radio" name="engine" value="gemini"><span><b>Gemini با کلید خودم</b><small>کلید API شخصی از Google AI Studio</small></span></label>
+        </div>
+
+        <details class="settings" id="geminiBox" hidden>
+          <summary id="geminiSummary">تنظیم کلید Gemini</summary>
+          <div class="card" style="box-shadow:none">
+            <ol class="steps">
+              <li>به <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> برو و با حساب گوگل وارد شو.</li>
+              <li>دکمهٔ <b>Create API key</b> را بزن و کلید را کپی کن.</li>
+              <li>کلید را اینجا بگذار و «ذخیره و آزمایش» را بزن.</li>
+            </ol>
+            <label class="field">
+              <span>کلید API جمنای</span>
+              <div class="keyrow">
+                <input class="input mono" id="geminiKey" type="password" placeholder="AIza…" autocomplete="off" spellcheck="false">
+                <button class="btn btn-ghost" id="geminiShow" type="button">نمایش</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>مدل</span>
+              <select class="select mono" id="geminiModel"></select>
+            </label>
+            <div class="actions">
+              <button class="btn btn-primary" id="geminiSave" type="button">ذخیره و آزمایش</button>
+              <button class="btn btn-danger" id="geminiDel" type="button">حذف کلید</button>
+            </div>
+            <p class="hint" id="geminiHint">کلید فقط روی همین دستگاه نگه داشته می‌شود و فقط برای گوگل فرستاده می‌شود. با این کلید، کلمه‌هایی که صدایشان روی دستگاه نیست با صدای Gemini هم پخش می‌شوند.</p>
+          </div>
+        </details>
       </div>
-      <div class="filters">
-        <label class="field">
-          <span>جست‌وجو</span>
-          <input class="input" id="search" type="search" dir="auto" placeholder="کلمه یا معنی…">
-        </label>
-        <label class="field">
-          <span>زبان</span>
-          <select class="select" id="langFilter"><option value="">همهٔ زبان‌ها</option></select>
-        </label>
-      </div>
-      <ul class="list" id="list"></ul>
-      <div class="empty" id="empty">
-        <strong>در حال باز کردن کتابخانه…</strong>
-        کلمه‌های ذخیره‌شده‌ات اینجا با یک دکمهٔ بلندگو نشان داده می‌شوند.
+
+      <div class="card chat">
+        <div class="msgs" id="msgs" aria-live="polite"></div>
+        <div class="quick" id="quick">
+          <button type="button" data-q="۵ کلمهٔ پرکاربرد انگلیسی برای مکالمهٔ روزمره یادم بده.">۵ کلمهٔ پرکاربرد انگلیسی</button>
+          <button type="button" data-q="از کلمه‌های کتابخانه‌ام امتحان بگیر. هر بار فقط یک سؤال بپرس و منتظر جوابم بمان.">از کتابخانه‌ام امتحان بگیر</button>
+          <button type="button" data-q="برای چند کلمهٔ آخر کتابخانه‌ام جملهٔ نمونهٔ ساده با ترجمهٔ فارسی بساز.">با کلمه‌هایم جمله بساز</button>
+        </div>
+        <form class="composer" id="chatForm" autocomplete="off">
+          <textarea class="textarea" id="chatInput" rows="2" dir="auto" maxlength="4000" placeholder="مثلاً: «خداحافظ» به ژاپنی چه می‌شود؟"></textarea>
+          <button class="btn btn-primary" id="chatSend" type="submit">بفرست</button>
+        </form>
+        <div class="actions" style="justify-content:space-between">
+          <p class="engine-line" id="engineLine"></p>
+          <button class="mini" id="chatClear" type="button">پاک کردن گفتگو</button>
+        </div>
       </div>
     </section>
-  </section>
 
-  <!-- ============ Assistant ============ -->
-  <section class="view" id="view-assistant" role="tabpanel" aria-labelledby="tab-assistant" hidden>
-    <div class="card" id="aiSetup">
-      <h2>دستیار زبان</h2>
-      <p class="hint" id="aiIntro">هر کلمه‌ای خواستی بپرس تا معنی، تلفظ و مثالش را یاد بگیری، یا از کلمه‌های کتابخانه‌ات امتحان بگیرد. کلمه‌هایی که یاد می‌دهد دکمهٔ پخش و ذخیره دارند.</p>
-
-      <div class="seg" id="engineSeg" role="radiogroup" aria-label="موتور هوش مصنوعی">
-        <label id="engClaudeOpt" hidden><input type="radio" name="engine" value="claude"><span><b>Claude</b><small>بدون نیاز به کلید، داخل همین صفحه</small></span></label>
-        <label id="engGeminiOpt"><input type="radio" name="engine" value="gemini"><span><b>Gemini گوگل</b><small>با کلید API رایگان؛ دقیق‌ترین جواب‌ها</small></span></label>
-        <label id="engLocalOpt"><input type="radio" name="engine" value="local"><span><b>بدون کلید</b><small>هوش مصنوعی داخل خود مرورگر؛ یک بار دانلود</small></span></label>
-      </div>
-
-      <details class="settings" id="geminiBox" hidden>
-        <summary id="geminiSummary">تنظیم کلید Gemini</summary>
-        <div class="card" style="box-shadow:none">
-          <ol class="steps">
-            <li>به <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> برو و با حساب گوگل وارد شو.</li>
-            <li>دکمهٔ <b>Create API key</b> را بزن و کلید را کپی کن.</li>
-            <li>کلید را اینجا بگذار و «ذخیره و آزمایش» را بزن.</li>
-          </ol>
-          <label class="field">
-            <span>کلید API جمنای</span>
-            <div class="keyrow">
-              <input class="input mono" id="geminiKey" type="password" placeholder="AIza…" autocomplete="off" spellcheck="false">
-              <button class="btn btn-ghost" id="geminiShow" type="button">نمایش</button>
-            </div>
-          </label>
-          <label class="field">
-            <span>مدل</span>
-            <select class="select mono" id="geminiModel"></select>
-          </label>
-          <div class="actions">
-            <button class="btn btn-primary" id="geminiSave" type="button">ذخیره و آزمایش</button>
-            <button class="btn btn-danger" id="geminiDel" type="button">حذف کلید</button>
-          </div>
-          <p class="hint" id="geminiHint">کلید فقط روی همین دستگاه نگه داشته می‌شود و فقط برای گوگل فرستاده می‌شود.</p>
+    <!-- Account -->
+    <section class="view" id="view-account" role="tabpanel" aria-labelledby="tab-account" hidden>
+      <div class="card">
+        <h2>حساب من</h2>
+        <div class="who"><img id="whoImg" alt="" referrerpolicy="no-referrer"><div style="min-width:0"><b id="whoName"></b><small id="whoEmail"></small></div></div>
+        <p>کتابخانه‌ات در فضای ابری و به نام همین حساب گوگل ذخیره می‌شود. صفحه را ببندی، رفرش کنی یا سال‌ها بعد برگردی، کلمه‌ها سر جایشان هستند. روی هر گوشی یا کامپیوتری با همین حساب وارد شوی، همین کتابخانه را می‌بینی. اگر اینترنت قطع باشد، کلمه‌ها روی دستگاه می‌مانند و وقتی وصل شدی خودشان به ابر می‌روند.</p>
+        <p class="hint" id="syncLine"></p>
+        <div class="actions">
+          <button class="btn btn-danger" id="signOutBtn" type="button">خروج از حساب</button>
         </div>
-      </details>
-
-      <details class="settings" id="localBox" hidden>
-        <summary>تنظیم هوش مصنوعی بدون کلید</summary>
-        <div class="card" style="box-shadow:none">
-          <p>این دستیار یک مدل هوش مصنوعی کوچک است که داخل خود مرورگرت اجرا می‌شود. کلید و حساب نمی‌خواهد و حرف‌هایت از دستگاهت بیرون نمی‌رود. بار اول مدل دانلود می‌شود و بعد از آن بدون دانلود دوباره کار می‌کند.</p>
-          <label class="field">
-            <span>اندازهٔ مدل</span>
-            <select class="select" id="localModel">
-              <option value="light">سبک‌تر و سریع‌تر (حدود ۱ گیگابایت)</option>
-              <option value="strong">باهوش‌تر (حدود ۲ گیگابایت)</option>
-            </select>
-          </label>
-          <p class="hint" id="localHint">به Chrome یا Edge جدید با پشتیبانی WebGPU نیاز دارد (کامپیوتر، یا گوشی اندرویدی قوی). مدل کوچک گاهی اشتباه می‌کند؛ برای جواب‌های دقیق‌تر Gemini را انتخاب کن.</p>
-          <div class="progress" id="localProgress" hidden><span></span></div>
-        </div>
-      </details>
-    </div>
-
-    <div class="card chat">
-      <div class="msgs" id="msgs" aria-live="polite"></div>
-      <div class="quick" id="quick">
-        <button type="button" data-q="۵ کلمهٔ پرکاربرد انگلیسی برای مکالمهٔ روزمره یادم بده.">۵ کلمهٔ پرکاربرد انگلیسی</button>
-        <button type="button" data-q="از کلمه‌های کتابخانه‌ام امتحان بگیر. هر بار فقط یک سؤال بپرس و منتظر جوابم بمان.">از کتابخانه‌ام امتحان بگیر</button>
-        <button type="button" data-q="برای چند کلمهٔ آخر کتابخانه‌ام جملهٔ نمونهٔ ساده با ترجمهٔ فارسی بساز.">با کلمه‌هایم جمله بساز</button>
       </div>
-      <form class="composer" id="chatForm" autocomplete="off">
-        <textarea class="textarea" id="chatInput" rows="2" dir="auto" maxlength="4000" placeholder="مثلاً: «خداحافظ» به ژاپنی چه می‌شود؟"></textarea>
-        <button class="btn btn-primary" id="chatSend" type="submit">بفرست</button>
-      </form>
-      <div class="actions" style="justify-content:space-between">
-        <p class="engine-line" id="engineLine"></p>
-        <button class="mini" id="chatClear" type="button">پاک کردن گفتگو</button>
+      <div class="card" id="cfgCard" hidden>
+        <h2>تنظیمات Firebase</h2>
+        <p class="hint">این برنامه به پروژهٔ <span class="mono" id="cfgProject"></span> وصل است.</p>
+        <div class="actions"><button class="btn btn-ghost" id="cfgReset" type="button">تغییر تنظیمات Firebase</button></div>
       </div>
-    </div>
-  </section>
-
-  <!-- ============ Cloud ============ -->
-  <section class="view" id="view-cloud" role="tabpanel" aria-labelledby="tab-cloud" hidden>
-    <div class="card" id="cloudClaude" hidden>
-      <h2>فضای ابری فعال است</h2>
-      <p>کتابخانه‌ات در فضای ابری حساب Claude تو ذخیره می‌شود. صفحه را ببندی، رفرش کنی یا سال‌ها بعد برگردی، کلمه‌ها سر جایشان هستند. روی هر دستگاهی که با همین حساب این صفحه را باز کنی، همین کتابخانه را می‌بینی.</p>
-      <p class="hint">نسخهٔ فایل HTML (بیرون از Claude) فضای ابری جداگانه‌ای دارد که با GitHub کار می‌کند.</p>
-    </div>
-
-    <div class="card" id="cloudOff" hidden>
-      <h2>اتصال به فضای ابری</h2>
-      <p>کتابخانه در یک فایل خصوصی در حساب GitHub خودت ذخیره می‌شود. GitHub رایگان است و فایل برای همیشه می‌ماند. هر وقت و روی هر دستگاهی همین برنامه را باز کنی و همین کلید را وارد کنی، کلمه‌هایت را می‌بینی.</p>
-      <ol class="steps">
-        <li>اگر حساب GitHub نداری، رایگان بساز: <a href="https://github.com/signup" target="_blank" rel="noopener">github.com/signup</a></li>
-        <li>این لینک را باز کن تا کلید مخصوص ساخته شود: <a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=Vazhedan" target="_blank" rel="noopener">ساخت کلید GitHub</a></li>
-        <li>در بخش <b>Expiration</b> گزینهٔ <b>No expiration</b> را انتخاب کن تا کلید هیچ‌وقت باطل نشود. تیک <b>gist</b> خودش زده شده است.</li>
-        <li>پایین صفحه <b>Generate token</b> را بزن، کلیدی را که با <span class="mono">ghp_</span> شروع می‌شود کپی کن و اینجا بگذار.</li>
-      </ol>
-      <label class="field">
-        <span>کلید GitHub</span>
-        <input class="input mono" id="ghToken" type="password" placeholder="ghp_…" autocomplete="off" spellcheck="false">
-      </label>
-      <div class="actions">
-        <button class="btn btn-primary btn-grow" id="ghConnect" type="button">اتصال به فضای ابری</button>
-      </div>
-      <p class="hint" id="ghHint">کلید را به کسی نده. فقط روی همین دستگاه نگه داشته می‌شود و فقط به GitHub فرستاده می‌شود.</p>
-    </div>
-
-    <div class="card" id="cloudOn" hidden>
-      <h2>فضای ابری وصل است</h2>
-      <p id="ghWho"></p>
-      <p class="hint" id="ghSyncLine"></p>
-      <div class="actions">
-        <button class="btn btn-primary" id="ghSyncNow" type="button">همگام‌سازی الان</button>
-        <a class="btn btn-ghost" id="ghOpen" href="https://gist.github.com/" target="_blank" rel="noopener">دیدن فایل ابری</a>
-        <button class="btn btn-danger" id="ghDisconnect" type="button">قطع اتصال این دستگاه</button>
-      </div>
-      <p class="hint">روی دستگاه دیگر، همین برنامه را باز کن و در همین بخش همان کلید را وارد کن. قطع اتصال فقط این دستگاه را جدا می‌کند و چیزی از فضای ابری پاک نمی‌شود.</p>
-    </div>
-
-    <div class="card" id="cloudNoGh" hidden>
-      <h2>فضای ابری</h2>
-      <p>این صفحه داخل Claude باز شده ولی به حساب Claude وصل نیست. وارد حسابت شو تا کتابخانه در فضای ابری ذخیره شود.</p>
-    </div>
-  </section>
+    </section>
+  </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 (() => {
   "use strict";
+
+  /* Firebase project of this app. Fill this in once (Project settings → Your apps → firebaseConfig)
+     so that every device signs in without the setup screen. Until then the setup screen asks for it. */
+  const EMBEDDED_FIREBASE_CONFIG = null;
+  const FIREBASE_SDK = "https://www.gstatic.com/firebasejs/12.19.0/";
 
   /* ================= Languages ================= */
   const COMMON = [
@@ -467,12 +508,12 @@ details.settings[open] > summary { margin-bottom: 10px; }
 
   const $ = (id) => document.getElementById(id);
   const els = {};
-  for (const id of ["status", "statusText", "localNote", "ttsNote", "addForm", "word", "lang", "meaning", "langHint",
-    "saveBtn", "previewBtn", "search", "langFilter", "list", "empty", "count", "toast", "msgs", "quick", "chatForm",
-    "chatInput", "chatSend", "chatClear", "engineLine", "engineSeg", "engClaudeOpt", "engGeminiOpt", "engLocalOpt",
-    "geminiBox", "geminiSummary", "geminiKey", "geminiShow", "geminiModel", "geminiSave", "geminiDel", "geminiHint",
-    "localBox", "localModel", "localHint", "localProgress", "cloudClaude", "cloudOff", "cloudOn", "cloudNoGh",
-    "ghToken", "ghConnect", "ghHint", "ghWho", "ghSyncLine", "ghSyncNow", "ghOpen", "ghDisconnect"]) els[id] = $(id);
+  for (const id of ["topRight", "status", "statusText", "avatarImg", "avatarName", "setupView", "domainCode", "cfgInput",
+    "cfgSave", "cfgHint", "gateView", "googleBtn", "googleBtnText", "gateError", "gateNote", "appView", "addForm", "word",
+    "lang", "meaning", "langHint", "saveBtn", "previewBtn", "search", "langFilter", "list", "empty", "count", "toast",
+    "msgs", "quick", "chatForm", "chatInput", "chatSend", "chatClear", "engineLine", "engineSeg", "geminiBox",
+    "geminiSummary", "geminiKey", "geminiShow", "geminiModel", "geminiSave", "geminiDel", "geminiHint", "whoImg", "whoName",
+    "whoEmail", "syncLine", "signOutBtn", "cfgCard", "cfgProject", "cfgReset"]) els[id] = $(id);
 
   const faNum = (n) => Number(n).toLocaleString("fa-IR");
   let displayNames = null;
@@ -499,8 +540,8 @@ details.settings[open] > summary { margin-bottom: 10px; }
     del(k) { try { localStorage.removeItem(k); } catch (e) {} },
     json(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   };
-  const K = { lib: "vazhedan.library.v2", libV1: "vazhedan.words.v1", pending: "vazhedan.pending", lastLang: "vazhedan.lastLang",
-    cloud: "vazhedan.cloud.github", ai: "vazhedan.ai", chat: "vazhedan.chat" };
+  const K = { lib: "vazhedan.library.v2", libV1: "vazhedan.words.v1", lastLang: "vazhedan.lastLang", ai: "vazhedan.ai",
+    chat: "vazhedan.chat", cfg: "vazhedan.firebaseConfig", migrated: "vazhedan.migrated.", aiModel: "vazhedan.freeModel" };
 
   /* ================= Toast ================= */
   let toastTimer = 0;
@@ -512,7 +553,7 @@ details.settings[open] > summary { margin-bottom: 10px; }
   }
 
   /* ================= Tabs ================= */
-  const VIEWS = ["library", "assistant", "cloud"];
+  const VIEWS = ["library", "assistant", "account"];
   function showView(v) {
     if (!VIEWS.includes(v)) v = "library";
     for (const name of VIEWS) {
@@ -524,14 +565,55 @@ details.settings[open] > summary { margin-bottom: 10px; }
   }
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
   document.addEventListener("click", (e) => { const g = e.target.closest("[data-goto]"); if (g) showView(g.dataset.goto); });
-  els.status.addEventListener("click", () => showView("cloud"));
+  els.status.addEventListener("click", () => showView("account"));
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-copy]");
+    if (!b) return;
+    const src = $(b.dataset.copy);
+    try { await navigator.clipboard.writeText(src.textContent); b.textContent = "کپی شد ✓"; }
+    catch (err) { const r = document.createRange(); r.selectNodeContents(src); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "انتخاب شد؛ کپی کن"; }
+    setTimeout(() => { b.textContent = "کپی"; }, 2000);
+  });
 
-  /* ================= Speech ================= */
+  /* ================= Speech =================
+     Works on every browser, including Mi Browser and other Android browsers whose built-in
+     speech engine is missing or silent: device voice → online voice → Gemini voice (with a key)
+     → device default. One shared <audio> element is unlocked by the first tap so later
+     playback is never blocked by autoplay rules. */
   const synth = "speechSynthesis" in window ? window.speechSynthesis : null;
   let voices = [];
   let speakingId = null;
-  let currentAudio = null;
-  let inClaude = false;
+  let speakToken = 0;
+  const player = new Audio();
+  player.preload = "auto";
+  let audioUnlocked = false;
+
+  function wavBlob(pcm, rate) {
+    const len = pcm.byteLength;
+    const buf = new ArrayBuffer(44 + len);
+    const v = new DataView(buf);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, "RIFF"); v.setUint32(4, 36 + len, true); w(8, "WAVE"); w(12, "fmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, "data"); v.setUint32(40, len, true);
+    new Uint8Array(buf, 44).set(new Uint8Array(pcm));
+    return new Blob([buf], { type: "audio/wav" });
+  }
+  const SILENCE = URL.createObjectURL(wavBlob(new Int16Array(800).buffer, 16000));
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    try {
+      player.src = SILENCE;
+      const p = player.play();
+      if (p && p.catch) p.catch(() => { audioUnlocked = false; });
+    } catch (e) { audioUnlocked = false; }
+    // Some Android browsers only enable speechSynthesis after it is used inside a tap.
+    if (synth) { try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } catch (e) {} }
+  }
+  document.addEventListener("pointerdown", unlockAudio, true);
+  document.addEventListener("keydown", unlockAudio, true);
 
   function loadVoices() { if (synth) { try { voices = synth.getVoices() || []; } catch (e) { voices = []; } buildLangOptions(); } }
   if (synth) {
@@ -552,7 +634,7 @@ details.settings[open] > summary { margin-bottom: 10px; }
     return best;
   }
 
-  // Online voice (Google Translate's speech) for languages this device has no voice for.
+  // Online voice (Google Translate's speech).
   const GTL = { "zh-cn": "zh-CN", "zh-tw": "zh-TW", "zh-hk": "yue", "he-il": "iw", "fil-ph": "tl", "nb-no": "no", "nn": "no",
     "jv": "jw", "fa-af": "fa", "pt-pt": "pt-PT", "en-gb": "en-GB", "en-au": "en-AU", "en-in": "en-IN", "fr-ca": "fr-CA", "es-mx": "es-MX", "es-us": "es-US" };
   function onlineLang(lang) { const n = normLang(lang); return GTL[n] || n.split("-")[0]; }
@@ -568,54 +650,110 @@ details.settings[open] > summary { margin-bottom: 10px; }
     if (rest) out.push(rest);
     return out;
   }
-  function playOnline(text, lang, slow) {
+  // Play one source on the shared player; resolves when it ends, rejects if it cannot start.
+  function playSrc(src, rate, token) {
+    return new Promise((resolve, reject) => {
+      let started = false;
+      const done = (ok, err) => { player.onended = player.onerror = null; clearTimeout(t); ok ? resolve() : reject(err || new Error("audio")); };
+      const t = setTimeout(() => { if (!started) { try { player.pause(); } catch (e) {} done(false); } }, 8000);
+      player.onended = () => done(true);
+      player.onerror = () => done(started, new Error("audio error"));
+      player.src = src;
+      player.playbackRate = rate;
+      const p = player.play();
+      const ok = () => { started = true; if (token !== speakToken) { player.pause(); done(true); } };
+      if (p && p.then) p.then(ok).catch((e) => done(false, e)); else ok();
+    });
+  }
+  async function playOnline(text, lang, slow, token) {
     const parts = chunkText(text, 180);
     const tl = onlineLang(lang);
-    return new Promise((resolve, reject) => {
-      let i = 0, started = false;
-      const next = () => {
-        if (i >= parts.length) { currentAudio = null; resolve(); return; }
-        const a = new Audio("https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + encodeURIComponent(tl) +
-          "&total=" + parts.length + "&idx=" + i + "&textlen=" + parts[i].length + "&q=" + encodeURIComponent(parts[i]));
-        a.playbackRate = slow ? 0.75 : 1;
-        currentAudio = a;
-        a.onended = () => { i++; next(); };
-        a.onerror = () => { currentAudio = null; started ? resolve() : reject(new Error("online voice failed")); };
-        a.play().then(() => { started = true; }).catch((e) => { currentAudio = null; started ? resolve() : reject(e); });
-      };
-      next();
+    for (let i = 0; i < parts.length; i++) {
+      if (token !== speakToken) return;
+      await playSrc("https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + encodeURIComponent(tl) +
+        "&total=" + parts.length + "&idx=" + i + "&textlen=" + parts[i].length + "&q=" + encodeURIComponent(parts[i]), slow ? 0.75 : 1, token);
+    }
+  }
+  const ttsCache = new Map();
+  async function playGeminiVoice(text, lang, slow, token) {
+    if (!ai.geminiKey) throw new Error("no key");
+    const key = lang + "|" + text;
+    let url = ttsCache.get(key);
+    if (!url) {
+      const model = ai.ttsModel || "gemini-2.5-flash-preview-tts";
+      const r = await fetch(GEMINI + "models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(ai.geminiKey), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "Read aloud in " + langEnglish(lang) + ", clearly, like a language teacher: " + text }] }],
+          generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } } }
+        })
+      });
+      if (!r.ok) throw new Error("gemini tts " + r.status);
+      const j = await r.json();
+      const part = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts.find((p) => p.inlineData);
+      if (!part) throw new Error("no audio");
+      const bin = atob(part.inlineData.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const rate = parseInt(((part.inlineData.mimeType || "").match(/rate=(\d+)/) || [])[1] || "24000", 10);
+      url = URL.createObjectURL(wavBlob(bytes.buffer, rate));
+      ttsCache.set(key, url);
+    }
+    if (token !== speakToken) return;
+    await playSrc(url, slow ? 0.8 : 1, token);
+  }
+  function langEnglish(code) {
+    try { return new Intl.DisplayNames(["en"], { type: "language" }).of(code) || code; } catch (e) { return code; }
+  }
+
+  // Speak with the device engine; resolves true once speech really starts, false if the engine stays silent.
+  function speakDevice(text, lang, voice, slow, id, token) {
+    return new Promise((resolve) => {
+      if (!synth) return resolve(false);
+      let settled = false;
+      const settle = (v) => { if (!settled) { settled = true; clearTimeout(t); resolve(v); } };
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      if (voice) u.voice = voice;
+      u.rate = slow ? 0.6 : 0.95;
+      u.onstart = () => { if (token === speakToken) setSpeaking(id); settle(true); };
+      u.onend = () => { if (token === speakToken) setSpeaking(null); settle(true); };
+      u.onerror = () => { if (token === speakToken) setSpeaking(null); settle(false); };
+      const t = setTimeout(() => { if (!settled) { try { synth.cancel(); } catch (e) {} settle(false); } }, 1800);
+      try { synth.resume(); } catch (e) {}
+      setTimeout(() => { try { synth.speak(u); } catch (e) { settle(false); } }, 30);
     });
   }
 
   function stopSpeech() {
     if (synth) { try { synth.cancel(); } catch (e) {} }
-    if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
-  }
-
-  function speakDevice(text, lang, voice, slow, id) {
-    if (!synth) { toast("این مرورگر نمی‌تواند متن را با صدا بخواند."); setSpeaking(null); return; }
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang;
-    if (voice) u.voice = voice;
-    u.rate = slow ? 0.6 : 0.95;
-    u.onstart = () => setSpeaking(id);
-    u.onend = u.onerror = () => setSpeaking(null);
-    // Some browsers drop an utterance queued right after cancel(); a tick of delay avoids it.
-    setTimeout(() => synth.speak(u), 30);
+    try { player.pause(); } catch (e) {}
   }
 
   async function speak(text, lang, opts = {}) {
     const id = opts.id || null;
+    const token = ++speakToken;
+    unlockAudio();
     stopSpeech();
     const voice = pickVoice(lang);
-    if (voice) return speakDevice(text, lang, voice, opts.slow, id);
-    if (!inClaude && navigator.onLine !== false) {
-      setSpeaking(id);
-      try { await playOnline(text, lang, opts.slow); setSpeaking(null); return; }
-      catch (e) { setSpeaking(null); }
+    if (voice && await speakDevice(text, lang, voice, opts.slow, id, token)) return;
+    if (token !== speakToken) return;
+    setSpeaking(id);
+    try {
+      if (navigator.onLine !== false) {
+        try { await playOnline(text, lang, opts.slow, token); return; } catch (e) {}
+        if (token !== speakToken) return;
+        if (ai.geminiKey) { try { await playGeminiVoice(text, lang, opts.slow, token); return; } catch (e) {} }
+        if (token !== speakToken) return;
+      }
+      if (!voice && synth && await speakDevice(text, lang, null, opts.slow, id, token)) {
+        toast("صدای «" + langName(lang) + "» پیدا نشد؛ با صدای پیش‌فرض دستگاه خوانده شد.");
+        return;
+      }
+      if (token === speakToken) toast("پخش صدا ممکن نشد. اینترنت را بررسی کن. برای زبان‌های کم‌کاربرد، کلید Gemini را در بخش دستیار وارد کن تا با صدای Gemini پخش شود.", 6000);
+    } finally {
+      if (token === speakToken) setSpeaking(null);
     }
-    if (synth) toast("صدای «" + langName(lang) + "» پیدا نشد؛ با صدای پیش‌فرض دستگاه خوانده می‌شود.");
-    speakDevice(text, lang, null, opts.slow, id);
   }
 
   function setSpeaking(id) {
@@ -647,7 +785,7 @@ details.settings[open] > summary { margin-bottom: 10px; }
       [...extra.values()].map((c) => [c, langName(c)]).sort(byName).forEach(([c, n]) => g3.append(new Option(n + " (" + c + ")", c)));
       els.lang.append(g3);
     }
-    for (const w of allWords()) ensureLangOption(w.lang);
+    for (const w of words) ensureLangOption(w.lang);
     ensureLangOption(current);
     els.lang.value = current;
     updateLangHint();
@@ -657,13 +795,9 @@ details.settings[open] > summary { margin-bottom: 10px; }
     els.lang.append(new Option(langName(code) + " (" + code + ")", code));
   }
   function updateLangHint() {
-    const code = els.lang.value;
+    const v = voices.length ? pickVoice(els.lang.value) : null;
     els.langHint.className = "hint";
-    if (!synth && inClaude) { els.langHint.textContent = ""; return; }
-    const v = voices.length ? pickVoice(code) : null;
-    if (v) els.langHint.textContent = "صدای این زبان روی دستگاهت: " + v.name;
-    else if (!inClaude) els.langHint.textContent = voices.length ? "صدای این زبان روی دستگاهت نصب نیست؛ با صدای آنلاین پخش می‌شود." : "";
-    else els.langHint.textContent = voices.length ? "صدای این زبان روی این دستگاه نصب نیست؛ کلمه ذخیره می‌شود و روی دستگاهی که صدایش را دارد درست خوانده می‌شود." : "";
+    els.langHint.textContent = v ? "صدای این زبان روی دستگاهت: " + v.name : "این زبان با صدای آنلاین پخش می‌شود.";
   }
 
   // Guess the language from the script being typed, until the user picks one by hand.
@@ -701,324 +835,230 @@ details.settings[open] > summary { margin-bottom: 10px; }
     return null;
   }
 
-  /* ================= Library data =================
-     Three homes for the same library:
-     - "claude": the Claude artifact's own cloud database (inside claude.ai)
-     - "gist":   a private GitHub Gist in the user's account (the HTML file anywhere)
-     - "local":  this browser only, until the cloud is connected
-     The gist and local modes share one on-device copy, merged with the cloud copy on every sync. */
-  let mode = "connecting";
+  /* ================= Firebase: sign-in and cloud library ================= */
+  const fb = { app: null, auth: null, db: null, mods: null, user: null, unsub: null, aiMod: null };
+  let words = [];
   let loaded = false;
-  let claudeWords = [];
-  let col = null;
-  let lib = loadLocalLib();
 
-  function loadLocalLib() {
-    const v = store.json(K.lib, null);
-    const out = { words: {}, deleted: {} };
-    if (v && typeof v === "object") {
-      Object.assign(out.words, v.words || {});
-      Object.assign(out.deleted, v.deleted || {});
-    }
-    const old = store.json(K.libV1, null);
-    if (Array.isArray(old) && old.length) {
-      for (const w of old) if (w && w.id && !out.words[w.id]) out.words[w.id] = Object.assign({ updatedAt: w.createdAt || Date.now() }, w);
-      store.set(K.lib, JSON.stringify(out));
-      store.del(K.libV1);
-    }
-    return out;
+  function readConfig() {
+    if (EMBEDDED_FIREBASE_CONFIG) return EMBEDDED_FIREBASE_CONFIG;
+    const c = store.json(K.cfg, null);
+    return c && c.apiKey && c.projectId ? c : null;
   }
-  function saveLocalLib() {
-    if (!store.set(K.lib, JSON.stringify(lib))) toast("ذخیره روی این دستگاه ممکن نشد؛ حافظهٔ مرورگر پر یا بسته است.");
+  function parseConfig(text) {
+    const s = String(text || "");
+    try { const j = JSON.parse(s); if (j && j.apiKey) return j; } catch (e) {}
+    const out = {};
+    for (const k of ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId", "measurementId"]) {
+      const m = s.match(new RegExp("[\"']?" + k + "[\"']?\\s*:\\s*[\"']([^\"']+)[\"']"));
+      if (m) out[k] = m[1].trim();
+    }
+    return out.apiKey && out.projectId && out.appId ? Object.assign({ authDomain: out.projectId + ".firebaseapp.com" }, out) : null;
   }
-  function allWords() {
-    if (mode === "claude") return claudeWords;
-    return Object.values(lib.words).filter((w) => !lib.deleted[w.id]).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  function showScreen(which) {
+    els.setupView.hidden = which !== "setup";
+    els.gateView.hidden = which !== "gate";
+    els.appView.hidden = which !== "app";
+    els.topRight.hidden = which !== "app";
+  }
+
+  function authErrorText(e) {
+    const c = (e && e.code) || "";
+    if (location.protocol === "file:" || c === "auth/operation-not-supported-in-this-environment")
+      return "ورود با گوگل فقط وقتی کار می‌کند که برنامه از روی یک آدرس اینترنتی (https) باز شود، نه از روی فایل داخل گوشی.";
+    if (c === "auth/unauthorized-domain") return "این آدرس هنوز در Firebase مجاز نشده. در Authentication ← Settings ← Authorized domains این را اضافه کن: " + location.hostname;
+    if (c === "auth/operation-not-allowed") return "ورود با گوگل در Firebase روشن نیست. در Authentication ← Sign-in method گزینهٔ Google را فعال کن.";
+    if (c === "auth/network-request-failed") return "به سرور گوگل وصل نشد. اینترنت را بررسی کن. اگر در ایران هستی، سرویس‌های گوگل (Firebase) ممکن است بدون VPN کار نکنند.";
+    if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return "";
+    if (c === "auth/user-disabled") return "این حساب غیرفعال شده است.";
+    if (/api-key|invalid-api-key/.test(c)) return "تنظیمات Firebase درست نیست. از بخش Project settings دوباره کپی کن.";
+    if (c === "auth/too-many-requests") return "تلاش‌ها زیاد شد. چند دقیقهٔ دیگر دوباره امتحان کن.";
+    return "ورود انجام نشد" + (c ? " (" + c + ")" : "") + ". دوباره امتحان کن.";
+  }
+  function gateError(msg) { els.gateError.textContent = msg; els.gateError.hidden = !msg; }
+
+  async function loadFirebase() {
+    if (fb.mods) return fb.mods;
+    const [app, auth, fs] = await Promise.all([
+      import(FIREBASE_SDK + "firebase-app.js"), import(FIREBASE_SDK + "firebase-auth.js"), import(FIREBASE_SDK + "firebase-firestore.js")
+    ]);
+    fb.mods = { app, auth, fs };
+    return fb.mods;
+  }
+
+  async function startFirebase(cfg) {
+    showScreen("gate");
+    els.googleBtn.disabled = true;
+    els.googleBtnText.textContent = "در حال آماده‌سازی…";
+    if (location.protocol === "file:") els.gateNote.textContent = "این صفحه از روی فایل باز شده. برای ورود با گوگل، آن را از آدرس اینترنتی برنامه باز کن.";
+    let m;
+    try { m = await loadFirebase(); }
+    catch (e) {
+      els.googleBtnText.textContent = "ورود با گوگل";
+      gateError("بارگذاری سرویس ورود گوگل ممکن نشد. اینترنت را بررسی کن و صفحه را دوباره باز کن.");
+      els.googleBtn.disabled = false;
+      return;
+    }
+    try {
+      fb.app = m.app.initializeApp(cfg);
+      fb.auth = m.auth.getAuth(fb.app);
+      try { fb.auth.languageCode = "fa"; } catch (e) {}
+      try {
+        fb.db = m.fs.initializeFirestore(fb.app, { localCache: m.fs.persistentLocalCache({ tabManager: m.fs.persistentMultipleTabManager() }) });
+      } catch (e) {
+        fb.db = m.fs.getFirestore(fb.app);
+      }
+    } catch (e) {
+      gateError("تنظیمات Firebase درست نیست. دوباره وارد کن.");
+      store.del(K.cfg);
+      return setTimeout(() => location.reload(), 2500);
+    }
+    m.auth.getRedirectResult(fb.auth).catch((e) => gateError(authErrorText(e)));
+    m.auth.onAuthStateChanged(fb.auth, (user) => { if (user) startSession(user); else endSession(); });
+    els.googleBtn.disabled = false;
+    els.googleBtnText.textContent = "ورود با گوگل";
+  }
+
+  async function signIn() {
+    if (!fb.auth) return;
+    gateError("");
+    const { auth } = fb.mods;
+    const provider = new auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    els.googleBtn.disabled = true;
+    try {
+      await auth.signInWithPopup(fb.auth, provider);
+    } catch (e) {
+      // Browsers that block pop-ups (some Android browsers) sign in by redirecting instead.
+      if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment" && location.protocol !== "file:")) {
+        try { await auth.signInWithRedirect(fb.auth, provider); return; } catch (e2) { gateError(authErrorText(e2)); }
+      } else {
+        gateError(authErrorText(e));
+      }
+    } finally {
+      els.googleBtn.disabled = false;
+    }
+  }
+  els.googleBtn.addEventListener("click", signIn);
+
+  function wordsCol() { return fb.mods.fs.collection(fb.db, "users", fb.user.uid, "words"); }
+
+  function startSession(user) {
+    if (fb.user && fb.user.uid === user.uid) return;
+    fb.user = user;
+    gateError("");
+    showScreen("app");
+    const photo = user.photoURL || "";
+    els.avatarImg.src = els.whoImg.src = photo;
+    els.avatarImg.hidden = els.whoImg.hidden = !photo;
+    els.avatarName.textContent = (user.displayName || user.email || "").split(" ")[0];
+    els.whoName.textContent = user.displayName || "";
+    els.whoEmail.textContent = user.email || "";
+    els.cfgCard.hidden = !!EMBEDDED_FIREBASE_CONFIG;
+    els.cfgProject.textContent = (readConfig() || {}).projectId || "";
+    setupEngines();
+    loaded = false; words = []; render();
+    const { fs } = fb.mods;
+    let migrationDone = false;
+    fb.unsub = fs.onSnapshot(fs.query(wordsCol(), fs.orderBy("createdAt", "desc")), { includeMetadataChanges: true }, (snap) => {
+      words = snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
+      loaded = true;
+      render();
+      if (snap.metadata.hasPendingWrites) setStatus("syncing", "در حال ذخیره در ابر…");
+      else if (snap.metadata.fromCache) setStatus(navigator.onLine === false ? "offline" : "syncing", navigator.onLine === false ? "آفلاین؛ بعداً همگام می‌شود" : "در حال اتصال به ابر…");
+      else setStatus("cloud", "همگام با فضای ابری");
+      els.syncLine.textContent = snap.metadata.fromCache ? "" : "آخرین همگام‌سازی: " + (timeFmt ? timeFmt.format(new Date()) : "");
+      if (!migrationDone && !snap.metadata.fromCache) { migrationDone = true; migrateLocal(); }
+    }, (err) => {
+      setStatus("error", "خطای فضای ابری");
+      toast(err && err.code === "permission-denied"
+        ? "Firestore اجازهٔ دسترسی نداد. قانون‌های (Rules) Firestore را طبق راهنما بگذار."
+        : "اتصال به فضای ابری قطع شد. صفحه را دوباره باز کن.", 7000);
+    });
+    showView(location.hash.slice(1));
+  }
+  function endSession() {
+    if (fb.unsub) { fb.unsub(); fb.unsub = null; }
+    fb.user = null;
+    words = []; loaded = false;
+    showScreen("gate");
+  }
+  let signOutArmed = 0;
+  els.signOutBtn.addEventListener("click", async () => {
+    if (!signOutArmed) {
+      els.signOutBtn.textContent = "مطمئنی؟ دوباره بزن";
+      signOutArmed = setTimeout(() => { signOutArmed = 0; els.signOutBtn.textContent = "خروج از حساب"; }, 3500);
+      return;
+    }
+    clearTimeout(signOutArmed); signOutArmed = 0;
+    els.signOutBtn.textContent = "خروج از حساب";
+    try { await fb.mods.auth.signOut(fb.auth); } catch (e) {}
+  });
+
+  function setStatus(m, text) { els.status.dataset.mode = m; els.statusText.textContent = text; }
+  window.addEventListener("offline", () => { if (fb.user) setStatus("offline", "آفلاین؛ بعداً همگام می‌شود"); });
+
+  function firestoreError(e) {
+    const c = (e && e.code) || "";
+    if (c === "permission-denied") return "Firestore اجازهٔ ذخیره نداد. قانون‌های (Rules) Firestore را طبق راهنما بگذار.";
+    if (c === "resource-exhausted") return "سقف رایگان Firebase برای امروز پر شده. فردا دوباره امتحان کن.";
+    return "ذخیره در فضای ابری ممکن نشد. دوباره امتحان کن.";
   }
   function newId() {
     try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   }
-
-  function setStatus(m, text) {
-    els.status.dataset.mode = m;
-    els.statusText.textContent = text;
-  }
-  function refreshStatus() {
-    if (mode === "claude") return setStatus("cloud", "همگام با فضای ابری");
-    if (mode === "connecting") return setStatus("connecting", "در حال اتصال…");
-    if (mode === "local") return setStatus("local", "فقط روی همین دستگاه");
-    if (gh.state === "syncing") return setStatus("syncing", "در حال ذخیره در ابر…");
-    if (gh.state === "offline") return setStatus("offline", "آفلاین؛ بعداً همگام می‌شود");
-    if (gh.state === "error") return setStatus("error", "خطای فضای ابری");
-    return setStatus("cloud", "همگام با فضای ابری");
-  }
-
-  async function addWord(item) {
+  // Writes return at once (shown immediately from the local cache) and reach the cloud as soon as there is internet.
+  function addWord(item, id) {
+    const { fs } = fb.mods;
     const now = Date.now();
-    const w = { text: item.text, lang: item.lang, meaning: item.meaning || "", createdAt: now, updatedAt: now };
-    if (mode === "claude") {
-      await withRetry(() => col.add(w));
-      return;
-    }
-    const id = newId();
-    lib.words[id] = Object.assign({ id }, w);
-    saveLocalLib();
-    render();
-    markChanged();
+    const data = { text: item.text, lang: item.lang, meaning: item.meaning || "", createdAt: item.createdAt || now, updatedAt: now };
+    fs.setDoc(fs.doc(wordsCol(), id || newId()), data).catch((e) => toast(firestoreError(e), 6000));
   }
-  async function removeWord(id) {
-    if (mode === "claude") {
-      await withRetry(() => col.doc(id).delete());
-      return;
-    }
-    delete lib.words[id];
-    lib.deleted[id] = Date.now();
-    saveLocalLib();
-    render();
-    markChanged();
+  function removeWord(id) {
+    const { fs } = fb.mods;
+    fs.deleteDoc(fs.doc(wordsCol(), id)).catch((e) => toast(firestoreError(e), 6000));
   }
   function findDuplicate(text, lang) {
     const t = String(text).trim().toLowerCase();
-    return allWords().find((w) => w.lang === lang && String(w.text).trim().toLowerCase() === t);
+    return words.find((w) => w.lang === lang && String(w.text).trim().toLowerCase() === t);
+  }
+  // Words saved on this device by earlier versions move into the signed-in account once.
+  function migrateLocal() {
+    const flag = K.migrated + fb.user.uid;
+    if (store.get(flag)) return;
+    const lib = store.json(K.lib, null);
+    const list = [];
+    if (lib && lib.words) for (const w of Object.values(lib.words)) if (w && w.id && !(lib.deleted || {})[w.id]) list.push(w);
+    const v1 = store.json(K.libV1, null);
+    if (Array.isArray(v1)) list.push(...v1.filter((w) => w && w.id));
+    let n = 0;
+    for (const w of list) {
+      if (!w.text || findDuplicate(w.text, w.lang)) continue;
+      addWord({ text: String(w.text), lang: String(w.lang || "en-US"), meaning: String(w.meaning || ""), createdAt: w.createdAt }, String(w.id).replace(/[^A-Za-z0-9_-]/g, "") || undefined);
+      n++;
+    }
+    store.set(flag, "1");
+    if (n) toast(faNum(n) + " کلمهٔ قبلی این دستگاه به حسابت منتقل شد.", 5000);
   }
 
-  async function withRetry(fn) {
-    try { return await fn(); }
-    catch (e) {
-      if (e && e.code === "unavailable") { await new Promise((r) => setTimeout(r, 400 + Math.random() * 600)); return fn(); }
-      throw e;
-    }
-  }
-  function saveError(e) {
-    const code = e && e.code;
-    if (code === "quota_exceeded") return "فضای کتابخانه پر شده است؛ چند کلمه را حذف کن و دوباره امتحان کن.";
-    if (code === "invalid_argument") return "اجازهٔ ذخیره در این صفحه را نداری. از صاحب صفحه بخواه دسترسی «Contributor» بدهد.";
-    if (code === "resource_exhausted") return "کمی صبر کن و دوباره امتحان کن.";
-    return "ذخیره ممکن نشد. اتصال اینترنت را بررسی کن و دوباره امتحان کن.";
-  }
-
-  /* ---------- GitHub Gist cloud ---------- */
-  const GIST_FILE = "vazhedan-library.json";
-  const gh = Object.assign({ token: "", gistId: "", login: "", url: "", lastSync: 0 }, store.json(K.cloud, {}), { state: "idle", error: "" });
-  let changeSeq = 0;
-  let syncChain = Promise.resolve();
-  let syncTimer = 0;
-
-  function saveGhConfig() {
-    store.set(K.cloud, JSON.stringify({ token: gh.token, gistId: gh.gistId, login: gh.login, url: gh.url, lastSync: gh.lastSync }));
-  }
-  async function ghApi(path, opts = {}) {
-    const headers = { Accept: "application/vnd.github+json", Authorization: "Bearer " + gh.token };
-    if (opts.body) headers["Content-Type"] = "application/json";
-    let r;
-    try {
-      r = await fetch("https://api.github.com" + path, { method: opts.method || "GET", headers, body: opts.body, cache: "no-store" });
-    } catch (e) {
-      const err = new Error("network"); err.network = true; throw err;
-    }
-    if (!r.ok) {
-      const err = new Error("GitHub " + r.status); err.status = r.status;
-      try { err.body = await r.json(); } catch (e) {}
-      throw err;
-    }
-    return r.status === 204 ? null : r.json();
-  }
-  function ghErrorText(e) {
-    if (e && e.network) return "اینترنت در دسترس نیست. کلمه‌ها روی همین دستگاه نگه داشته می‌شوند و وقتی وصل شدی به ابر می‌روند.";
-    if (e && e.status === 401) return "کلید GitHub نامعتبر است یا باطل شده. یک کلید تازه بساز و دوباره وصل کن.";
-    if (e && (e.status === 403 || e.status === 404)) {
-      const m = (e.body && e.body.message) || "";
-      if (/rate limit/i.test(m)) return "GitHub موقتاً درخواست‌ها را محدود کرده. چند دقیقهٔ دیگر خودش دوباره امتحان می‌کند.";
-      return "این کلید اجازهٔ ساخت فایل ابری (gist) را ندارد. هنگام ساخت کلید، تیک gist را بزن.";
-    }
-    if (e && e.status === 422) return "GitHub این تغییر را نپذیرفت. دوباره امتحان کن.";
-    return "ارتباط با GitHub برقرار نشد. دوباره امتحان کن.";
-  }
-  function payloadOf(l) {
-    return { app: "vazhedan", version: 2, savedAt: new Date().toISOString(), words: l.words, deleted: l.deleted };
-  }
-  function parseRemote(text) {
-    try {
-      const v = JSON.parse(text);
-      return { words: (v && v.words) || {}, deleted: (v && v.deleted) || {} };
-    } catch (e) { return { words: {}, deleted: {} }; }
-  }
-  function mergeLibs(a, b) {
-    const out = { words: {}, deleted: Object.assign({}, a.deleted) };
-    for (const [id, t] of Object.entries(b.deleted || {})) out.deleted[id] = Math.max(out.deleted[id] || 0, t);
-    for (const src of [a.words, b.words]) {
-      for (const [id, w] of Object.entries(src || {})) {
-        if (!w || out.deleted[id]) continue;
-        const cur = out.words[id];
-        if (!cur || (w.updatedAt || w.createdAt || 0) > (cur.updatedAt || cur.createdAt || 0)) out.words[id] = Object.assign({}, w, { id });
-      }
-    }
-    return out;
-  }
-  function canon(l) {
-    const words = Object.keys(l.words).sort().map((k) => [k, l.words[k].text, l.words[k].lang, l.words[k].meaning || "", l.words[k].updatedAt || 0]);
-    const del = Object.keys(l.deleted).sort().map((k) => [k, l.deleted[k]]);
-    return JSON.stringify([words, del]);
-  }
-  async function findOrCreateGist() {
-    for (let page = 1; page <= 10; page++) {
-      const list = await ghApi("/gists?per_page=100&page=" + page);
-      const hit = list.find((g) => g.files && g.files[GIST_FILE]);
-      if (hit) return hit;
-      if (list.length < 100) break;
-    }
-    return ghApi("/gists", { method: "POST", body: JSON.stringify({
-      description: "Vazhedan word library (واژه‌دان)", public: false,
-      files: { [GIST_FILE]: { content: JSON.stringify(payloadOf({ words: {}, deleted: {} }), null, 1) } }
-    }) });
-  }
-  async function pullGist() {
-    let g;
-    try { g = await ghApi("/gists/" + gh.gistId); }
-    catch (e) {
-      if (e.status !== 404) throw e;
-      g = await findOrCreateGist();
-      gh.gistId = g.id; gh.url = g.html_url; saveGhConfig();
-    }
-    const f = g.files && g.files[GIST_FILE];
-    if (!f) return { words: {}, deleted: {} };
-    let text = f.content;
-    if (f.truncated && f.raw_url) {
-      const r = await fetch(f.raw_url, { cache: "no-store" });
-      text = await r.text();
-    }
-    return parseRemote(text || "{}");
-  }
-  async function doSync() {
-    if (mode !== "gist" || !gh.token) return;
-    const seqAtStart = changeSeq;
-    gh.state = "syncing"; refreshStatus(); renderCloud();
-    try {
-      const remote = await pullGist();
-      const before = canon(lib);
-      lib = mergeLibs(lib, remote);
-      if (canon(lib) !== before) { saveLocalLib(); render(); }
-      if (canon(lib) !== canon(remote)) {
-        await ghApi("/gists/" + gh.gistId, { method: "PATCH", body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(payloadOf(lib), null, 1) } } }) });
-      }
-      if (changeSeq === seqAtStart) store.del(K.pending);
-      gh.lastSync = Date.now(); gh.state = "ok"; gh.error = ""; saveGhConfig();
-    } catch (e) {
-      gh.state = e.network ? "offline" : "error";
-      gh.error = ghErrorText(e);
-    }
-    refreshStatus(); renderCloud();
-  }
-  function syncNow() { syncChain = syncChain.then(doSync, doSync); return syncChain; }
-  function markChanged() {
-    if (mode !== "gist") return;
-    changeSeq++;
-    store.set(K.pending, "1");
-    gh.state = "syncing"; refreshStatus();
-    clearTimeout(syncTimer);
-    syncTimer = setTimeout(syncNow, 500);
-  }
-
-  async function ghConnect() {
-    const token = els.ghToken.value.trim();
-    if (!token) { els.ghHint.textContent = "اول کلید را اینجا بگذار."; els.ghHint.className = "hint bad"; return; }
-    els.ghConnect.disabled = true;
-    els.ghHint.className = "hint"; els.ghHint.textContent = "در حال اتصال به GitHub…";
-    const prev = gh.token;
-    gh.token = token;
-    try {
-      const me = await ghApi("/user");
-      const g = await findOrCreateGist();
-      gh.login = me.login; gh.gistId = g.id; gh.url = g.html_url;
-      saveGhConfig();
-      els.ghToken.value = "";
-      mode = "gist";
-      els.localNote.hidden = true;
-      startGistWatch();
-      await syncNow();
-      toast(gh.state === "ok" ? "فضای ابری وصل شد و کتابخانه همگام شد." : gh.error);
-    } catch (e) {
-      gh.token = prev;
-      els.ghHint.textContent = ghErrorText(e); els.ghHint.className = "hint bad";
-    } finally {
-      els.ghConnect.disabled = false;
-      renderCloud(); refreshStatus();
-    }
-  }
-  let disconnectArmed = 0;
-  function ghDisconnect() {
-    if (!disconnectArmed) {
-      els.ghDisconnect.textContent = "مطمئنی؟ دوباره بزن";
-      disconnectArmed = setTimeout(() => { disconnectArmed = 0; els.ghDisconnect.textContent = "قطع اتصال این دستگاه"; }, 3500);
-      return;
-    }
-    clearTimeout(disconnectArmed); disconnectArmed = 0;
-    els.ghDisconnect.textContent = "قطع اتصال این دستگاه";
-    Object.assign(gh, { token: "", gistId: "", login: "", url: "", lastSync: 0, state: "idle", error: "" });
-    store.del(K.cloud);
-    mode = "local";
-    els.localNote.hidden = false;
-    refreshStatus(); renderCloud();
-    toast("این دستگاه از فضای ابری جدا شد. کلمه‌ها روی دستگاه باقی ماندند.");
-  }
+  /* ---------- Setup screen ---------- */
+  els.domainCode.textContent = location.hostname || "arezooaa2001-collab.github.io";
+  els.cfgSave.addEventListener("click", () => {
+    const cfg = parseConfig(els.cfgInput.value);
+    if (!cfg) { els.cfgHint.textContent = "تنظیمات کامل نیست. مطمئن شو apiKey، projectId و appId داخلش هست."; els.cfgHint.className = "hint bad"; return; }
+    store.set(K.cfg, JSON.stringify(cfg));
+    location.reload();
+  });
+  els.cfgReset.addEventListener("click", async () => {
+    try { if (fb.auth) await fb.mods.auth.signOut(fb.auth); } catch (e) {}
+    store.del(K.cfg);
+    location.reload();
+  });
 
   let timeFmt = null;
   try { timeFmt = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" }); } catch (e) {}
-  function renderCloud() {
-    els.cloudClaude.hidden = mode !== "claude";
-    els.cloudNoGh.hidden = !(inClaude && mode === "local");
-    const standalone = !inClaude && mode !== "connecting";
-    els.cloudOff.hidden = !(standalone && !gh.token);
-    els.cloudOn.hidden = !(standalone && !!gh.token);
-    if (gh.token) {
-      els.ghWho.textContent = "کتابخانه در حساب GitHub ‏@" + (gh.login || "?") + " ذخیره می‌شود.";
-      els.ghOpen.href = gh.url || "https://gist.github.com/";
-      let line = gh.state === "syncing" ? "در حال همگام‌سازی…" :
-        gh.lastSync && timeFmt ? "آخرین همگام‌سازی: " + timeFmt.format(new Date(gh.lastSync)) : "";
-      if (gh.error && gh.state !== "syncing") line = gh.error;
-      els.ghSyncLine.textContent = line;
-      els.ghSyncLine.className = "hint" + (gh.error && gh.state !== "syncing" ? " bad" : "");
-    }
-  }
-
-  /* ---------- Startup: pick where the library lives ---------- */
-  async function connect() {
-    inClaude = !!(window.claude && typeof window.claude.use === "function");
-    if (inClaude) {
-      let db = null, user = null;
-      try { [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]); } catch (e) {}
-      let uid = null;
-      try { uid = user ? await user.id() : null; } catch (e) {}
-      if (db && uid) {
-        mode = "claude";
-        col = db.collection("data/users/" + uid);
-        refreshStatus(); renderCloud(); setupEngines();
-        col.orderBy("createdAt", "desc").limit(1000).onSnapshot(
-          (snap) => {
-            claudeWords = snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
-            loaded = true;
-            render();
-          },
-          (err) => toast(err && err.code === "revoked" ? "دسترسی به فضای ابری قطع شد." : "اتصال به فضای ابری قطع شد. صفحه را دوباره باز کن.")
-        );
-        return;
-      }
-    }
-    mode = gh.token && !inClaude ? "gist" : "local";
-    loaded = true;
-    els.localNote.hidden = mode !== "local" || inClaude;
-    refreshStatus(); renderCloud(); setupEngines(); render();
-    if (mode === "gist") { startGistWatch(); syncNow(); }
-  }
-  let gistWatching = false;
-  function startGistWatch() {
-    if (gistWatching) return;
-    gistWatching = true;
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncNow(); });
-    window.addEventListener("online", syncNow);
-    setInterval(() => { if (document.visibilityState === "visible" && gh.state !== "syncing") syncNow(); }, 120000);
-  }
 
   /* ================= Library rendering ================= */
   const SPEAKER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path class="w1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
@@ -1026,7 +1066,6 @@ details.settings[open] > summary { margin-bottom: 10px; }
   try { dateFmt = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }); } catch (e) {}
 
   function render() {
-    const words = allWords();
     const used = [...new Set(words.map((w) => w.lang).filter(Boolean))];
     const keep = els.langFilter.value;
     els.langFilter.length = 1;
@@ -1047,6 +1086,7 @@ details.settings[open] > summary { margin-bottom: 10px; }
 
     if (!loaded) {
       els.empty.hidden = false;
+      els.empty.innerHTML = "<strong>در حال باز کردن کتابخانه…</strong>کلمه‌های ذخیره‌شده‌ات اینجا با یک دکمهٔ بلندگو نشان داده می‌شوند.";
     } else if (!words.length) {
       els.empty.hidden = false;
       els.empty.innerHTML = "<strong>کتابخانه هنوز خالی است</strong>اولین کلمه‌ات را بالا بنویس، زبانش را انتخاب کن و «ذخیره در کتابخانه» را بزن.";
@@ -1108,7 +1148,7 @@ details.settings[open] > summary { margin-bottom: 10px; }
     });
     const del = miniBtn("حذف", "mini del", null);
     let armTimer = 0;
-    del.addEventListener("click", async () => {
+    del.addEventListener("click", () => {
       if (!del.classList.contains("armed")) {
         del.classList.add("armed");
         del.textContent = "مطمئنی؟";
@@ -1117,8 +1157,8 @@ details.settings[open] > summary { margin-bottom: 10px; }
       }
       clearTimeout(armTimer);
       del.disabled = true;
-      try { await removeWord(w.id); toast("«" + w.text + "» حذف شد."); }
-      catch (e) { del.disabled = false; toast(saveError(e)); }
+      removeWord(w.id);
+      toast("«" + w.text + "» حذف شد.");
     });
     acts.append(slow, learn, del);
 
@@ -1144,13 +1184,13 @@ details.settings[open] > summary { margin-bottom: 10px; }
     if (!t) { toast("اول یک کلمه بنویس."); els.word.focus(); return; }
     speak(t, els.lang.value);
   });
-  els.addForm.addEventListener("submit", async (ev) => {
+  els.addForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const text = els.word.value.trim().replace(/\s+/g, " ");
     const lang = els.lang.value;
     const meaning = els.meaning.value.trim();
     if (!text) { els.word.focus(); return; }
-    if (mode === "connecting") { toast("یک لحظه صبر کن تا کتابخانه باز شود."); return; }
+    if (!fb.user) return;
     const dup = findDuplicate(text, lang);
     if (dup) {
       toast("«" + text + "» قبلاً در کتابخانه هست.");
@@ -1159,42 +1199,30 @@ details.settings[open] > summary { margin-bottom: 10px; }
       if (li) { li.scrollIntoView({ behavior: "smooth", block: "center" }); li.classList.add("flash"); setTimeout(() => li.classList.remove("flash"), 1800); }
       return;
     }
-    els.saveBtn.disabled = true;
-    try {
-      await addWord({ text, lang, meaning });
-      store.set(K.lastLang, lang);
-      els.word.value = ""; els.meaning.value = "";
-      langTouched = false;
-      toast("«" + text + "» در کتابخانه ذخیره شد.");
-      els.word.focus();
-    } catch (e) {
-      toast(saveError(e));
-    } finally {
-      els.saveBtn.disabled = false;
-    }
+    addWord({ text, lang, meaning });
+    store.set(K.lastLang, lang);
+    els.word.value = ""; els.meaning.value = "";
+    langTouched = false;
+    toast("«" + text + "» در کتابخانه ذخیره شد.");
+    els.word.focus();
   });
   els.search.addEventListener("input", render);
   els.langFilter.addEventListener("change", render);
 
-  els.ghConnect.addEventListener("click", ghConnect);
-  els.ghToken.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ghConnect(); } });
-  els.ghSyncNow.addEventListener("click", async () => { await syncNow(); toast(gh.state === "ok" ? "کتابخانه با فضای ابری همگام شد." : gh.error); });
-  els.ghDisconnect.addEventListener("click", ghDisconnect);
-
   /* ================= Assistant ================= */
-  const ai = Object.assign({ engine: "", geminiKey: "", geminiModel: "", localModel: "light" }, store.json(K.ai, {}));
+  const ai = Object.assign({ engine: "firebase", geminiKey: "", geminiModel: "", ttsModel: "" }, store.json(K.ai, {}));
+  if (ai.engine !== "gemini") ai.engine = "firebase";
   let chat = store.json(K.chat, []);
   if (!Array.isArray(chat)) chat = [];
   let busy = false;
   let abortCtl = null;
-  let sampleFn = null;
   function saveAi() { store.set(K.ai, JSON.stringify(ai)); }
   function saveChat() { store.set(K.chat, JSON.stringify(chat.slice(-40))); }
 
-  function systemPrompt(short) {
-    const words = allWords().slice(0, short ? 25 : 80);
-    const libLines = words.length
-      ? words.map((w) => "- " + w.text + " | " + w.lang + (w.meaning ? " | " + w.meaning : "")).join("\n")
+  function systemPrompt() {
+    const list = words.slice(0, 80);
+    const libLines = list.length
+      ? list.map((w) => "- " + w.text + " | " + w.lang + (w.meaning ? " | " + w.meaning : "")).join("\n")
       : "(کتابخانه هنوز خالی است)";
     return [
       "تو «دستیار واژه‌دان» هستی: یک معلم زبان مهربان، دقیق و صبور برای یک فارسی‌زبان.",
@@ -1210,42 +1238,91 @@ details.settings[open] > summary { margin-bottom: 10px; }
       libLines
     ].join("\n");
   }
+  // Gemini needs turns that start with the user and alternate; merge any repeats.
+  function geminiContents(turns) {
+    const out = [];
+    for (const m of turns) {
+      const role = m.role === "assistant" ? "model" : "user";
+      if (!out.length && role === "model") continue;
+      const last = out[out.length - 1];
+      if (last && last.role === role) last.parts[0].text += "\n\n" + m.text;
+      else out.push({ role, parts: [{ text: m.text }] });
+    }
+    return out;
+  }
 
-  /* ---------- Engines ---------- */
   function setupEngines() {
-    els.engClaudeOpt.hidden = !inClaude;
-    els.engGeminiOpt.hidden = inClaude;
-    els.engLocalOpt.hidden = inClaude;
-    if (inClaude) ai.engine = "claude";
-    else if (ai.engine !== "gemini" && ai.engine !== "local") ai.engine = ai.geminiKey ? "gemini" : "local";
     const r = els.engineSeg.querySelector('input[value="' + ai.engine + '"]');
     if (r) r.checked = true;
-    if (inClaude) window.claude.use("sample").then((s) => { sampleFn = s; updateEngineUi(); }).catch(() => {});
     els.geminiKey.value = ai.geminiKey || "";
-    els.localModel.value = ai.localModel === "strong" ? "strong" : "light";
     fillModelSelect(ai.geminiModel ? [ai.geminiModel] : FALLBACK_MODELS, ai.geminiModel);
     updateEngineUi();
   }
   function updateEngineUi() {
     els.geminiBox.hidden = ai.engine !== "gemini";
-    els.localBox.hidden = ai.engine !== "local";
     if (ai.engine === "gemini") {
       els.geminiSummary.textContent = ai.geminiKey ? "کلید Gemini ذخیره شده ✓ (تغییر یا حذف)" : "تنظیم کلید Gemini";
       if (!ai.geminiKey) els.geminiBox.open = true;
     }
-    let line = "";
-    if (ai.engine === "claude") line = sampleFn ? "دستیار: Claude، بدون نیاز به کلید." : "دستیار Claude فقط وقتی وارد حساب Claude شده باشی کار می‌کند.";
-    else if (ai.engine === "gemini") line = ai.geminiKey ? "دستیار: Gemini (" + (ai.geminiModel || "انتخاب خودکار") + ")" : "برای شروع، کلید Gemini را بالا وارد کن.";
-    else if (ai.engine === "local") line = "دستیار: هوش مصنوعی داخل مرورگر، بدون کلید" + (localEngine ? " (آماده)" : "");
-    els.engineLine.textContent = line;
+    els.engineLine.textContent = ai.engine === "gemini"
+      ? (ai.geminiKey ? "دستیار: Gemini با کلید خودت (" + (ai.geminiModel || "انتخاب خودکار") + ")" : "برای شروع، کلید Gemini را بالا وارد کن.")
+      : "دستیار: Gemini رایگان، بدون کلید";
   }
   els.engineSeg.addEventListener("change", (e) => {
     if (e.target.name !== "engine") return;
     ai.engine = e.target.value; saveAi(); updateEngineUi();
   });
 
-  /* ---------- Gemini ---------- */
-  const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"];
+  /* ---------- Free assistant: Gemini through the app's Firebase project (no key for the user) ---------- */
+  const FREE_MODELS = ["gemini-flash-latest", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+  function freeErrorText(e) {
+    const s = String((e && (e.message || e.code)) || "") + " " + String((e && e.customErrorData && JSON.stringify(e.customErrorData)) || "");
+    if (/location is not supported|FAILED_PRECONDITION/i.test(s)) return "Gemini در منطقه‌ای که از آن وصل شده‌ای در دسترس نیست. با VPN امتحان کن.";
+    if (/api-not-enabled|SERVICE_DISABLED|has not been used|is disabled/i.test(s)) return "دستیار رایگان هنوز در Firebase فعال نشده. در کنسول Firebase بخش AI Logic ← Get started ← Gemini Developer API را فعال کن.";
+    if (/429|quota|RESOURCE_EXHAUSTED/i.test(s)) return "سقف استفادهٔ رایگان دستیار موقتاً پر شده. چند دقیقهٔ دیگر دوباره امتحان کن، یا از گزینهٔ «Gemini با کلید خودم» استفاده کن.";
+    if (/fetch-error|Failed to fetch|NetworkError|network/i.test(s)) return "به سرور Gemini وصل نشد. اینترنت را بررسی کن؛ اگر در ایران هستی، VPN لازم است.";
+    if (/SAFETY|blocked/i.test(s)) return "Gemini به این سؤال جواب نداد. سؤال را جور دیگری بپرس.";
+    return "دستیار جواب نداد. دوباره امتحان کن.";
+  }
+  const isModelMissing = (e) => /404|not found|NOT_FOUND|is not supported for generateContent/i.test(String((e && e.message) || ""));
+  async function freeAsk(turns, onText, signal) {
+    if (!fb.aiMod) {
+      try { fb.aiMod = await import(FIREBASE_SDK + "firebase-ai.js"); }
+      catch (e) { throw { friendly: "بارگذاری دستیار ممکن نشد. اینترنت را بررسی کن." }; }
+    }
+    const A = fb.aiMod;
+    const inst = A.getAI(fb.app, { backend: new A.GoogleAIBackend() });
+    const contents = geminiContents(turns);
+    const last = contents.pop();
+    const saved = store.get(K.aiModel);
+    const order = saved ? [saved].concat(FREE_MODELS.filter((m) => m !== saved)) : FREE_MODELS;
+    let lastErr = null;
+    for (const name of order) {
+      let text = "";
+      try {
+        const model = A.getGenerativeModel(inst, { model: name, systemInstruction: systemPrompt(), generationConfig: { temperature: 0.6 } });
+        const session = model.startChat({ history: contents });
+        const res = await session.sendMessageStream(last.parts[0].text);
+        for await (const chunk of res.stream) {
+          if (signal.aborted) throw { cancelled: true, text };
+          let t = "";
+          try { t = chunk.text(); } catch (e) {}
+          if (t) { text += t; onText(text); }
+        }
+        if (!text) throw { friendly: "دستیار جوابی نفرستاد. سؤال را جور دیگری بپرس." };
+        store.set(K.aiModel, name);
+        return text;
+      } catch (e) {
+        if (e && (e.cancelled || e.friendly)) throw e;
+        if (!text && isModelMissing(e)) { lastErr = e; continue; }
+        throw { friendly: freeErrorText(e), text };
+      }
+    }
+    throw { friendly: freeErrorText(lastErr) };
+  }
+
+  /* ---------- Gemini with the user's own key ---------- */
+  const FALLBACK_MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-pro"];
   const GEMINI = "https://generativelanguage.googleapis.com/v1beta/";
   function fillModelSelect(list, selected) {
     els.geminiModel.textContent = "";
@@ -1265,21 +1342,20 @@ details.settings[open] > summary { margin-bottom: 10px; }
     const r = await fetch(GEMINI + "models?pageSize=1000&key=" + encodeURIComponent(key), { cache: "no-store" });
     const body = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error("gemini"); e.status = r.status; e.body = body; throw e; }
-    return (body.models || [])
-      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
-      .map((m) => String(m.name).replace(/^models\//, ""))
-      .filter((n) => /^gemini/.test(n) && !/tts|image|embed|live|audio|robotics|computer-use|learnlm/.test(n))
-      .sort((a, b) => modelScore(b) - modelScore(a));
+    const all = (body.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => String(m.name).replace(/^models\//, ""));
+    const tts = all.filter((n) => /^gemini.*tts/.test(n)).sort((a, b) => modelScore(b) - modelScore(a));
+    const chatModels = all.filter((n) => /^gemini/.test(n) && !/tts|image|embed|live|audio|robotics|computer-use|learnlm/.test(n)).sort((a, b) => modelScore(b) - modelScore(a));
+    return { chatModels, tts: tts.find((n) => /flash/.test(n)) || tts[0] || "" };
   }
   function geminiErrorText(e) {
     if (e && e.network) return "به سرور Gemini وصل نشد. اینترنت را بررسی کن. اگر در ایران هستی، Gemini بدون VPN کار نمی‌کند.";
     const msg = (e && e.body && e.body.error && e.body.error.message) || "";
     const status = (e && e.body && e.body.error && e.body.error.status) || "";
     if (/API key not valid|API_KEY_INVALID/i.test(msg)) return "کلید Gemini درست نیست. دوباره از aistudio.google.com/apikey کپی‌اش کن.";
-    if (/location is not supported/i.test(msg)) return "Gemini در منطقه‌ای که از آن وصل شده‌ای در دسترس نیست. با VPN امتحان کن یا گزینهٔ «بدون کلید» را انتخاب کن.";
+    if (/location is not supported/i.test(msg)) return "Gemini در منطقه‌ای که از آن وصل شده‌ای در دسترس نیست. با VPN امتحان کن یا گزینهٔ «رایگان، بدون کلید» را انتخاب کن.";
     if (e && e.status === 429) return "سقف استفادهٔ رایگان Gemini موقتاً پر شده. چند دقیقهٔ دیگر دوباره امتحان کن.";
     if (e && e.status === 404) return "این مدل Gemini دیگر در دسترس نیست. در تنظیمات کلید، مدل دیگری انتخاب کن.";
-    if (e && e.status === 403 || status === "PERMISSION_DENIED") return "این کلید اجازهٔ استفاده از Gemini را ندارد. یک کلید تازه در AI Studio بساز.";
+    if ((e && e.status === 403) || status === "PERMISSION_DENIED") return "این کلید اجازهٔ استفاده از Gemini را ندارد. یک کلید تازه در AI Studio بساز.";
     return "Gemini جواب نداد" + (msg ? ": " + msg : ".");
   }
   async function geminiSaveKey() {
@@ -1288,13 +1364,14 @@ details.settings[open] > summary { margin-bottom: 10px; }
     els.geminiSave.disabled = true;
     els.geminiHint.className = "hint"; els.geminiHint.textContent = "در حال آزمایش کلید…";
     try {
-      let models;
-      try { models = await geminiListModels(key); }
+      let res;
+      try { res = await geminiListModels(key); }
       catch (e) { if (!e.status) e.network = true; throw e; }
-      if (!models.length) models = FALLBACK_MODELS;
+      const models = res.chatModels.length ? res.chatModels : FALLBACK_MODELS;
       const chosen = models.includes(els.geminiModel.value) && ai.geminiKey ? els.geminiModel.value : models[0];
       fillModelSelect(models, chosen);
-      ai.geminiKey = key; ai.geminiModel = chosen; ai.engine = "gemini"; saveAi();
+      Object.assign(ai, { geminiKey: key, geminiModel: chosen, ttsModel: res.tts, engine: "gemini" });
+      saveAi();
       els.geminiHint.textContent = "کلید درست است ✓ حالا می‌توانی سؤال بپرسی."; els.geminiHint.className = "hint good";
       els.geminiBox.open = false;
       updateEngineUi();
@@ -1313,17 +1390,18 @@ details.settings[open] > summary { margin-bottom: 10px; }
   });
   els.geminiModel.addEventListener("change", () => { ai.geminiModel = els.geminiModel.value; saveAi(); updateEngineUi(); });
   els.geminiDel.addEventListener("click", () => {
-    ai.geminiKey = ""; saveAi(); els.geminiKey.value = "";
+    ai.geminiKey = ""; ai.engine = "firebase"; saveAi(); els.geminiKey.value = "";
+    const r = els.engineSeg.querySelector('input[value="firebase"]'); if (r) r.checked = true;
     els.geminiHint.textContent = "کلید از این دستگاه پاک شد."; els.geminiHint.className = "hint";
     updateEngineUi();
   });
 
   async function geminiAsk(turns, onText, signal) {
-    if (!ai.geminiKey) throw { friendly: "برای استفاده از Gemini اول کلید API را در بالای همین بخش وارد کن." };
+    if (!ai.geminiKey) throw { friendly: "برای استفاده از Gemini اول کلید API را در بالای همین بخش وارد کن، یا گزینهٔ «رایگان، بدون کلید» را انتخاب کن." };
     const model = ai.geminiModel || FALLBACK_MODELS[0];
     const body = {
-      systemInstruction: { parts: [{ text: systemPrompt(false) }] },
-      contents: turns.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.text }] })),
+      systemInstruction: { parts: [{ text: systemPrompt() }] },
+      contents: geminiContents(turns),
       generationConfig: { temperature: 0.6 }
     };
     let r;
@@ -1368,80 +1446,6 @@ details.settings[open] > summary { margin-bottom: 10px; }
     if (!text && (finish === "SAFETY" || finish === "BLOCKED")) throw { friendly: "Gemini به این سؤال جواب نداد. سؤال را جور دیگری بپرس." };
     if (!text) throw { friendly: "Gemini جوابی نفرستاد. دوباره امتحان کن." };
     return text;
-  }
-
-  /* ---------- Keyless: model running inside the browser (WebLLM) ---------- */
-  const LOCAL_MODELS = {
-    light: ["Qwen2.5-1.5B-Instruct-q4f16_1-MLC", "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", "gemma-2-2b-it-q4f16_1-MLC", "Llama-3.2-1B-Instruct-q4f16_1-MLC"],
-    strong: ["Qwen2.5-3B-Instruct-q4f16_1-MLC", "Llama-3.2-3B-Instruct-q4f16_1-MLC", "gemma-2-2b-it-q4f16_1-MLC", "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"]
-  };
-  let webllm = null, localEngine = null, localEngineKey = "", localLoading = null;
-  els.localModel.addEventListener("change", () => { ai.localModel = els.localModel.value; saveAi(); });
-
-  async function importWebLLM() {
-    const urls = ["https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.79/+esm", "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm", "https://esm.run/@mlc-ai/web-llm@0.2"];
-    for (const u of urls) { try { return await import(u); } catch (e) {} }
-    throw { friendly: "دانلود هوش مصنوعی بدون کلید ممکن نشد. اینترنت را بررسی کن و دوباره امتحان کن." };
-  }
-  async function ensureLocalEngine(onProgress) {
-    const size = ai.localModel === "strong" ? "strong" : "light";
-    if (localEngine && localEngineKey === size) return localEngine;
-    if (localLoading) return localLoading;
-    localLoading = (async () => {
-      if (!("gpu" in navigator)) throw { friendly: "مرورگرت WebGPU ندارد و نمی‌تواند هوش مصنوعی را داخل خودش اجرا کند. Chrome یا Edge جدید روی کامپیوتر (یا گوشی اندرویدی قوی) لازم است. راه دیگر: گزینهٔ Gemini با کلید رایگان." };
-      let adapter = null;
-      try { adapter = await navigator.gpu.requestAdapter(); } catch (e) {}
-      if (!adapter) throw { friendly: "کارت گرافیک این دستگاه برای اجرای هوش مصنوعی داخل مرورگر در دسترس نیست. گزینهٔ Gemini را امتحان کن." };
-      webllm = webllm || await importWebLLM();
-      const available = new Set(((webllm.prebuiltAppConfig && webllm.prebuiltAppConfig.model_list) || []).map((m) => m.model_id));
-      const id = LOCAL_MODELS[size].find((m) => available.has(m)) || LOCAL_MODELS[size][0];
-      if (localEngine) { try { await localEngine.unload(); } catch (e) {} localEngine = null; }
-      els.localProgress.hidden = false;
-      const eng = await webllm.CreateMLCEngine(id, {
-        initProgressCallback: (p) => {
-          const pct = Math.round((p.progress || 0) * 100);
-          els.localProgress.firstElementChild.style.width = pct + "%";
-          onProgress(pct, p.text || "");
-        }
-      });
-      els.localProgress.hidden = true;
-      localEngine = eng; localEngineKey = size;
-      updateEngineUi();
-      return eng;
-    })();
-    try { return await localLoading; }
-    catch (e) { els.localProgress.hidden = true; throw e.friendly ? e : { friendly: "راه‌اندازی هوش مصنوعی داخل مرورگر ممکن نشد. حافظهٔ دستگاه کم است یا مرورگر پشتیبانی نمی‌کند. گزینهٔ Gemini را امتحان کن." }; }
-    finally { localLoading = null; }
-  }
-  async function localAsk(turns, onText, signal, onProgress) {
-    const eng = await ensureLocalEngine(onProgress);
-    const messages = [{ role: "system", content: systemPrompt(true) }]
-      .concat(turns.slice(-8).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text })));
-    const stream = await eng.chat.completions.create({ messages, stream: true, temperature: 0.4, top_p: 0.9, max_tokens: 900 });
-    let text = "";
-    for await (const c of stream) {
-      if (signal.aborted) { try { eng.interruptGenerate(); } catch (e) {} throw { cancelled: true, text }; }
-      text += (c.choices && c.choices[0] && c.choices[0].delta && c.choices[0].delta.content) || "";
-      onText(text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim());
-    }
-    text = text.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim();
-    if (!text) throw { friendly: "هوش مصنوعی جوابی نساخت. سؤال را ساده‌تر بپرس." };
-    return text;
-  }
-
-  /* ---------- Claude (inside claude.ai) ---------- */
-  async function claudeAsk(turns, onText, signal) {
-    if (!sampleFn) throw { friendly: "دستیار Claude اینجا در دسترس نیست. وارد حساب Claude شو و صفحه را دوباره باز کن." };
-    const input = [{ role: "user", content: systemPrompt(false) }].concat(turns.slice(-12).map((m) => ({ role: m.role, content: m.text })));
-    try {
-      const r = await sampleFn(input, { cache: false, modelTier: "quick", signal, onText: ({ text }) => onText(text) });
-      return r.text;
-    } catch (e) {
-      if (e && e.code === "cancelled") throw { cancelled: true, text: e.text };
-      if (e && e.code === "not_granted") throw { friendly: "اجازهٔ استفاده از Claude داده نشد. اگر خواستی، صفحه را دوباره باز کن و اجازه بده." };
-      if (e && e.code === "rate_limited") throw { friendly: "درخواست‌ها زیاد شد. کمی صبر کن و دوباره بپرس." };
-      throw { friendly: "Claude جواب نداد. دوباره امتحان کن.", text: e && e.text };
-    }
   }
 
   /* ---------- Chat UI ---------- */
@@ -1493,13 +1497,10 @@ details.settings[open] > summary { margin-bottom: 10px; }
     sp.addEventListener("click", () => speak(text, lang));
     const add = document.createElement("button");
     add.type = "button"; add.className = "add";
-    add.addEventListener("click", async () => {
-      if (findDuplicate(text, lang)) return;
-      add.disabled = true;
-      try { await addWord({ text, lang, meaning }); toast("«" + text + "» به کتابخانه اضافه شد."); }
-      catch (e) { toast(saveError(e)); }
-      add.disabled = false;
-      refreshChipStates();
+    add.addEventListener("click", () => {
+      if (!fb.user || findDuplicate(text, lang)) return;
+      addWord({ text, lang, meaning });
+      toast("«" + text + "» به کتابخانه اضافه شد.");
     });
     c.append(t);
     if (meaning) { const mm = document.createElement("span"); mm.className = "vm"; mm.textContent = "(" + meaning + ")"; c.append(mm); }
@@ -1528,10 +1529,7 @@ details.settings[open] > summary { margin-bottom: 10px; }
   }
   function renderChat() {
     els.msgs.textContent = "";
-    if (!chat.length) {
-      const d = bubble("assistant", "سلام! من دستیار زبان تو هستم. هر کلمه‌ای خواستی بپرس، مثلاً «سلام به فرانسوی چه می‌شود؟». کلمه‌هایی که یادت می‌دهم دکمهٔ ▶ برای شنیدن و + برای ذخیره در کتابخانه دارند.");
-      d.classList.add("welcome");
-    }
+    if (!chat.length) bubble("assistant", "سلام! من دستیار زبان تو هستم. هر کلمه‌ای خواستی بپرس، مثلاً «سلام به فرانسوی چه می‌شود؟». کلمه‌هایی که یادت می‌دهم دکمهٔ ▶ برای شنیدن و + برای ذخیره در کتابخانه دارند.");
     for (const m of chat) bubble(m.role, m.text);
     els.quick.hidden = chat.length > 0;
   }
@@ -1552,16 +1550,9 @@ details.settings[open] > summary { margin-bottom: 10px; }
     els.chatSend.textContent = "توقف";
     let shown = "";
     const onText = (t) => { shown = t; out.classList.remove("wait"); renderRich(out, t); scrollChat(); };
-    const onProgress = (pct, info) => {
-      out.classList.add("wait");
-      out.textContent = "بار اول: در حال دانلود هوش مصنوعی داخل مرورگر… " + faNum(pct) + "٪" + (pct >= 100 ? " (در حال آماده‌سازی)" : "");
-    };
     const turns = chat.slice(-12).map((m) => ({ role: m.role, text: m.text }));
     try {
-      let answer;
-      if (ai.engine === "claude") answer = await claudeAsk(turns, onText, abortCtl.signal);
-      else if (ai.engine === "gemini") answer = await geminiAsk(turns, onText, abortCtl.signal);
-      else answer = await localAsk(turns, onText, abortCtl.signal, onProgress);
+      const answer = ai.engine === "gemini" ? await geminiAsk(turns, onText, abortCtl.signal) : await freeAsk(turns, onText, abortCtl.signal);
       chat.push({ role: "assistant", text: answer });
     } catch (e) {
       const partial = (e && e.text) || shown;
@@ -1578,7 +1569,6 @@ details.settings[open] > summary { margin-bottom: 10px; }
       abortCtl = null;
       els.chatSend.textContent = "بفرست";
       saveChat();
-      // Keep the error bubble visible: re-render only the stored history when there was no error.
       if (!els.msgs.querySelector(".msg.err")) renderChat();
       els.quick.hidden = true;
       refreshChipStates();
@@ -1603,12 +1593,11 @@ details.settings[open] > summary { margin-bottom: 10px; }
   });
 
   /* ================= Boot ================= */
-  if (!synth) els.ttsNote.hidden = false;
   if (synth) loadVoices(); else buildLangOptions();
   render();
   renderChat();
-  showView(location.hash.slice(1));
-  connect();
+  const cfg = readConfig();
+  if (cfg) startFirebase(cfg); else showScreen("setup");
 })();
 </script>
 </body>
