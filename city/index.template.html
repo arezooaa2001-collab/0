@@ -166,6 +166,8 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:19}
 .chip.on{background:rgba(255,179,64,.85);color:var(--amber-ink)}
 #b-turbo.on{outline:3px solid #fff;box-shadow:0 0 18px #ffe94d}
+#b-turbo.hyper{animation:hyp .5s linear infinite;font-size:11px;line-height:1.1}@keyframes hyp{50%{box-shadow:0 0 30px #ff4dff}}
+#lift-panel .gm-row .gm-btn{flex:1 1 14%;padding:10px 4px}
 /* settings */
 #settings{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(5,7,11,.6);padding:16px}
 #settings form{width:min(440px,100%);background:#121824;border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -359,6 +361,16 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
     <p style="font-size:12px"><span id="fly-env"></span> · <span id="fly-post"></span></p>
     <p style="font-size:12px">کد <b>۱۸۱۸</b> = رفتن به همین محیط آزمایشی · کد <b>۱۷۱۷</b> = برگشت به شهر</p>
   </div>
+</div>
+<div id="lift-panel" class="rb-wrap" hidden>
+  <form id="lift-form" class="gm-card rb-card" autocomplete="off">
+    <h2>آسانسور</h2>
+    <p id="lift-now"></p>
+    <div class="gm-row"><input id="lift-in" class="gm-in" type="text" inputmode="numeric" maxlength="6" placeholder="شمارهٔ طبقه"><button type="submit" class="gm-btn primary" style="flex:none">برو</button></div>
+    <div class="gm-row"><button type="button" class="gm-btn" data-df="-100">−۱۰۰</button><button type="button" class="gm-btn" data-df="-10">−۱۰</button><button type="button" class="gm-btn" data-df="-1">−۱</button><button type="button" class="gm-btn" data-df="1">+۱</button><button type="button" class="gm-btn" data-df="10">+۱۰</button><button type="button" class="gm-btn" data-df="100">+۱۰۰</button></div>
+    <div class="gm-row"><button type="button" class="gm-btn" data-fl="0">همکف</button><button type="button" class="gm-btn" data-fl="rand">یه طبقهٔ شانسی</button><button type="button" class="gm-btn" data-fl="max">آخرین طبقه</button></div>
+    <button id="lift-close" type="button" class="gm-btn">بستن</button>
+  </form>
 </div>
 <div id="code-panel" class="rb-wrap" hidden>
   <form id="code-form" class="gm-card" autocomplete="off">

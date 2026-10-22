@@ -324,7 +324,7 @@ class Colliders {
   add(c) {
     c._s = 0; const cs = this.cell;
     for (let i = Math.floor(c.minX / cs); i <= Math.floor(c.maxX / cs); i++) for (let j = Math.floor(c.minZ / cs); j <= Math.floor(c.maxZ / cs); j++) {
-      const k = (i + 4096) * 8192 + (j + 4096); let a = this.map.get(k); if (!a) { a = []; this.map.set(k, a); } a.push(c);
+      const k = (i + 32768) * 65536 + (j + 32768); let a = this.map.get(k); if (!a) { a = []; this.map.set(k, a); } a.push(c);
     }
     return c;
   }
@@ -340,7 +340,7 @@ class Colliders {
   query(minX, maxX, minZ, maxZ, out) {
     out.length = 0; const s = ++this.stamp, cs = this.cell;
     for (let i = Math.floor(minX / cs); i <= Math.floor(maxX / cs); i++) for (let j = Math.floor(minZ / cs); j <= Math.floor(maxZ / cs); j++) {
-      const a = this.map.get((i + 4096) * 8192 + (j + 4096)); if (!a) continue;
+      const a = this.map.get((i + 32768) * 65536 + (j + 32768)); if (!a) continue;
       for (const c of a) { if (c._s === s) continue; c._s = s; if (c.maxX >= minX && c.minX <= maxX && c.maxZ >= minZ && c.minZ <= maxZ) out.push(c); }
     }
     return out;
@@ -1341,7 +1341,7 @@ const FX = {
       C[i * 3] = p.r; C[i * 3 + 1] = p.gg; C[i * 3 + 2] = p.b;
     }
     g.attributes.position.needsUpdate = g.attributes.aSize.needsUpdate = g.attributes.aAlpha.needsUpdate = g.attributes.aColor.needsUpdate = true;
-    this.pts.material.uniforms.uLight.value = 0.35 + 0.65 * dayF; this.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5;
+    this.pts.material.uniforms.uLight.value = 0.35 + 0.65 * dayF; if (rb.extLit) { rbUniforms.uTime.value = simTime; rb.extLit.value = 0.16 + 0.84 * dayF; } this.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5;
   }
 };
 /* tyre marks */
@@ -1529,6 +1529,7 @@ const PARTS = {
   umb: ['umb', 0.5, 1, true], stick: ['stick', 0.4, 1]
 };
 const _zeroM = new THREE.Matrix4().makeScale(0, 0, 0), _hc = new THREE.Color();
+const _hpm = new THREE.Matrix4();
 class HumanPool {
   constructor(parent, cap) {
     this.parent = parent; this.cap = cap; this.free = []; for (let i = cap - 1; i >= 0; i--) this.free.push(i); this.people = new Set(); this.meshes = {};
@@ -1552,12 +1553,14 @@ class HumanPool {
     for (const e of p.H.slots) { const m = this.meshes[e.part]; m.setMatrixAt(e.idx, _zeroM); m.instanceMatrix.needsUpdate = true; }
     this.people.delete(p); this.free.push(p.slot); p.pool = null;
   }
+  setOffset(x, z) { this.off = this.off || { x: 0, z: 0 }; this.off.x = x; this.off.z = z; for (const m of Object.values(this.meshes)) { m.position.set(x, 0, z); m.updateMatrix(); m.updateMatrixWorld(); } }
   update() {
+    const off = this.off;
     for (const p of this.people) {
       const H = p.H;
       if (!H.visible) { if (H.shown) { for (const e of H.slots) this.meshes[e.part].setMatrixAt(e.idx, _zeroM); H.shown = false; } continue; }
       H.root.updateMatrixWorld(true); H.shown = true;
-      for (const e of H.slots) this.meshes[e.part].setMatrixAt(e.idx, (e.umb && !H.umb.visible) || (e.head && H.hideHead) || (e.trunk && H.hideTrunk) ? _zeroM : e.obj.matrixWorld);
+      for (const e of H.slots) { const hide = (e.umb && !H.umb.visible) || (e.head && H.hideHead) || (e.trunk && H.hideTrunk); if (hide || !off) { this.meshes[e.part].setMatrixAt(e.idx, hide ? _zeroM : e.obj.matrixWorld); continue; } _hpm.copy(e.obj.matrixWorld); _hpm.elements[12] -= off.x; _hpm.elements[14] -= off.z; this.meshes[e.part].setMatrixAt(e.idx, _hpm); }
     }
     let top = -1; for (const p of this.people) top = Math.max(top, p.slot);
     for (const m of Object.values(this.meshes)) { m.count = (top + 1) * m.userData.per; m.instanceMatrix.needsUpdate = true; }
@@ -1655,6 +1658,7 @@ function poseHuman(p, dt, t) {
   _P.hipY = 0.95 + lerp(0.025, 0.06, rB) * wB * (Math.abs(c) - 0.6) - rB * 0.04;
   _P.hipX = 0; _P.hipZ = s * 0.035 * wB + Math.sin(t * 0.35 + sd) * 0.035 * iB; _P.hipRy = s * 0.12 * wB;
   _P.hdX = -_P.spX * 0.6; _P.hdY = a.look; _P.hdZ = 0; _P.rigX = 0; _P.rigY = 0; _P.rigZ = 0;
+  if (sp > 7) { const k = Math.min(1, (sp - 7) / 15); _P.spX += 0.3 * k; _P.thLx *= 1 + 0.45 * k; _P.thRx *= 1 + 0.45 * k; _P.shLx *= 1 + 0.7 * k; _P.shRx *= 1 + 0.7 * k; _P.elL -= 0.25 * k; _P.elR -= 0.25 * k; _P.hdX = -_P.spX * 0.45; }
   // weight shift while idle
   if (iB > 0.01) { const ws = Math.sin(t * 0.35 + sd); _P.thLz += ws * 0.03 * iB; _P.thRz += ws * 0.03 * iB; _P.knL += Math.max(0, ws) * 0.12 * iB; _P.knR += Math.max(0, -ws) * 0.12 * iB; }
   // idle variations
@@ -2234,11 +2238,11 @@ function stepCharacter(p, col, dt, outdoor) {
   if (p.standCar) { const c = p.standCar; const dx = p.pos.x - c.x, dz = p.pos.z - c.z, a = c.av * dt, ca = Math.cos(a), sa = Math.sin(a); p.pos.x = c.x + dx * ca + dz * sa + c.vx * dt; p.pos.z = c.z - dx * sa + dz * ca + c.vz * dt; p.facing += a; }
   p.vel.y -= GRAV * dt;
   p.pos.x += p.vel.x * dt; p.pos.z += p.vel.z * dt;
-  const r = p.radius; p.hitWall = false;
+  const r = p.radius, ST = p.stepH || STEP; p.hitWall = false;
   for (let it = 0; it < 2; it++) {
     col.query(p.pos.x - r - 0.1, p.pos.x + r + 0.1, p.pos.z - r - 0.1, p.pos.z + r + 0.1, _near);
     for (const c of _near) {
-      if (c.maxY <= p.pos.y + STEP || c.minY >= p.pos.y + p.height) continue;
+      if (c.maxY <= p.pos.y + ST || c.minY >= p.pos.y + p.height) continue;
       if (!colPush(c, p.pos.x, p.pos.z, r)) continue;
       const nx = _push.nx, nz = _push.nz, pen = _push.pen;
       p.pos.x += nx * pen; p.pos.z += nz * pen; const vn = p.vel.x * nx + p.vel.z * nz; if (vn < 0) { p.vel.x -= vn * nx; p.vel.z -= vn * nz; } p.hitWall = true;
@@ -2264,7 +2268,7 @@ function stepCharacter(p, col, dt, outdoor) {
   const fr = r * 0.6;
   col.query(p.pos.x - fr, p.pos.x + fr, p.pos.z - fr, p.pos.z + fr, _near);
   for (const c of _near) {
-    if (c.maxY > p.pos.y + STEP + 0.01 || c.maxY <= g) continue;
+    if (c.maxY > p.pos.y + ST + 0.01 || c.maxY <= g) continue;
     if (!colOver(c, p.pos.x, p.pos.z, fr)) continue;
     g = c.maxY;
   }
@@ -4172,7 +4176,7 @@ function buildCables() {
    Rainbow building: an 1100 m hall with animated rainbow walls,
    hundreds of things to hide in, 20 seekers, and a build mode
    ============================================================ */
-const RB_W = 10000, RB_L = 20000, RB_H = 100000, RB_FH = 10, RB_FLOORS = RB_H / RB_FH, RB_CH = 50, RB_NI = RB_W / RB_CH, RB_NJ = RB_L / RB_CH, RB_WIN = 2, RB_DOOR_Z = -(BOUND + 60); // the facade toward the city
+const RB_W = 100000, RB_L = 100000, RB_H = 100000, RB_FH = 10, RB_FLOORS = RB_H / RB_FH, RB_CH = 50, RB_NI = RB_W / RB_CH, RB_NJ = RB_L / RB_CH, RB_WIN = 2, RB_DOOR_Z = -(BOUND + 60); // the facade toward the city
 const RB_PALETTES = {
   classic: { n: 'رنگین‌کمان کلاسیک', c: ['#ff2a2a', '#ff8a1a', '#ffe02a', '#3ad83a', '#2a9aff', '#3a3aff', '#a03aff'] },
   pastel: { n: 'پاستیلی', c: ['#ffb3c6', '#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#a0c4ff', '#bdb2ff'] },
@@ -4181,8 +4185,8 @@ const RB_PALETTES = {
   ocean: { n: 'اقیانوس', c: ['#003f5c', '#2f9fd6', '#5ad8e6', '#a6f0e8', '#2fd6a8', '#1a6ad8'] },
   fire: { n: 'آتش', c: ['#ff0000', '#ff5a00', '#ff9a00', '#ffce00', '#ff7a2a'] }
 };
-const rb = { built: false, people: [], seekers: [], hiders: [], spots: [], objs: [], placed: [], game: null, build: null };
-const rbUniforms = { uCols: { value: Array.from({ length: 8 }, () => new THREE.Color()) }, uN: { value: 7 }, uTime: { value: 0 }, uSpeed: { value: 0.05 }, uBand: { value: 90 } };
+const rb = { org: { x: 0, z: 0 }, lift: null, built: false, people: [], seekers: [], hiders: [], spots: [], objs: [], placed: [], game: null, build: null };
+const rbUniforms = { uCols: { value: Array.from({ length: 8 }, () => new THREE.Color()) }, uN: { value: 7 }, uTime: { value: 0 }, uSpeed: { value: 0.05 }, uBand: { value: 90 }, uLit: { value: 1 } };
 function rbSettings() { return store.rbSet || (store.rbSet = { pal: 'classic', custom: RB_PALETTES.classic.c.slice(), speed: 1, level: 1, minutes: 0 }); }
 function applyRbPalette() {
   const s = rbSettings(), cols = s.pal === 'custom' ? s.custom : RB_PALETTES[s.pal].c;
@@ -4191,14 +4195,14 @@ function applyRbPalette() {
 }
 const RB_VERT = `varying vec3 vW; varying vec3 vN;
   #include <fog_pars_vertex>
-  void main() { mat4 mm = modelMatrix;
+  void main() { mat4 im = mat4(1.0);
   #ifdef USE_INSTANCING
-  mm = modelMatrix * instanceMatrix;
+  im = instanceMatrix;
   #endif
-  vec4 w = mm * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(mm) * normal); vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+  vec4 lp = im * vec4(position, 1.0), w = modelMatrix * lp; vW = w.xyz; vN = normalize(mat3(modelMatrix) * mat3(im) * normal); vec4 mvPosition = modelViewMatrix * lp; gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
   }`;
-const RB_FRAG = `uniform vec3 uCols[8]; uniform int uN; uniform float uTime; uniform float uSpeed; uniform float uBand;
+const RB_FRAG = `uniform vec3 uCols[8]; uniform int uN; uniform float uTime; uniform float uSpeed; uniform float uBand; uniform float uLit;
   varying vec3 vW; varying vec3 vN;
   #include <fog_pars_fragment>
   vec3 pal(float t) { float f = fract(t) * float(uN); int i = int(floor(f)); float k = smoothstep(0.0, 1.0, fract(f)); vec3 a = uCols[0], b = uCols[0];
@@ -4211,7 +4215,7 @@ const RB_FRAG = `uniform vec3 uCols[8]; uniform int uN; uniform float uTime; uni
     c = mix(c, c * 0.55, seam * 0.6);
     c *= 0.85 + 0.25 * smoothstep(400.0, 0.0, vW.y);
     c += 0.06 * sin(vW.y * 0.05 + uTime * 0.7);
-    gl_FragColor = vec4(c, 1.0);
+    gl_FragColor = vec4(c * uLit, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <fog_fragment>
@@ -4223,7 +4227,7 @@ function rbMaterial(side, fog, band) {
 /* the outside, seen from the city: a monumental rainbow block south of the wall */
 function buildRbExterior() {
   const z1 = RB_DOOR_Z, zc = z1 - RB_L / 2;
-  const box = new THREE.Mesh(new THREE.BoxGeometry(RB_W, RB_H, RB_L), rbMaterial(THREE.FrontSide, true));
+  const box = new THREE.Mesh(new THREE.BoxGeometry(RB_W, RB_H, RB_L), rbMaterial(THREE.FrontSide, true)); box.material.uniforms.uLit = rb.extLit = { value: 1 };
   box.position.set(0, RB_H / 2 - 0.05, zc); box.matrixAutoUpdate = false; box.updateMatrix(); scene.add(box);
   CL.box(-80, 80, z1 - 4, z1, 0, 400);
   // a hedged forecourt between the city wall and the facade
@@ -4390,7 +4394,7 @@ function rbChunk(f, i, j) {
     const x = x0 + 2 + hw + rnd() * Math.max(0, RB_CH - 4 - 2 * hw), z = z0 + 2 + hd + rnd() * Math.max(0, RB_CH - 4 - 2 * hd), r = Math.max(hw, hd);
     // keep clear: the pillars on the chunk corners, the stair core and its doors, the entrance, the outer walls
     if (Math.min(Math.hypot(x - x0, z - z0), Math.hypot(x - x0 - RB_CH, z - z0), Math.hypot(x - x0, z - z0 - RB_CH), Math.hypot(x - x0 - RB_CH, z - z0 - RB_CH)) < 3.2 + r) continue;
-    if (core && Math.abs(x - core[0]) < 10 + hw && z - core[1] > -18 - hd && z - core[1] < 23 + hd) continue;
+    if (core && x - core[0] > -12 - hw && x - core[0] < 10 + hw && z - core[1] > -18 - hd && z - core[1] < 23 + hd) continue;
     if (f === 0 && Math.abs(x) < 16 + hw && z > RB_L / 2 - 36 - hd) continue;
     if (objs.some(o => Math.abs(o.x - x) < o.hw + hw + 2.2 && Math.abs(o.z - z) < o.hd + hd + 2.2)) continue;
     objs.push({ type, x, z, y: 0, ry: rot * Math.PI / 2, sx: sc, sy: sc, sz: sc, tint: T_.tint[Math.floor(rnd() * T_.tint.length)], hw, hd, f });
@@ -4428,17 +4432,21 @@ function rbBoxes(list) {
    enclosed, with doors on the south face; built for the floor below, this floor and the one above */
 const RB_ESC = { run: 17.3, zb: 12, speed: 1.5 };
 function rbCoreTemplate() {
-  const FH = RB_FH, W = [], C = [], Mt = [], Gl = [], Bl = [], Rl = [], col = [], doors = [], bars = [];
+  const FH = RB_FH, W = [], C = [], Mt = [], Gl = [], Bl = [], Rl = [], Lp = [], col = [], doors = [], bars = [];
   const box = (arr, x0, x1, y0, y1, z0, z1, c = true) => { arr.push([x0, x1, y0, y1, z0, z1]); if (c) col.push([x0, x1, z0, z1, y0, y1]); };
   const ang = Math.atan2(FH, RB_ESC.run), Ls = Math.hypot(FH, RB_ESC.run), zt = RB_ESC.zb - RB_ESC.run, zm = (RB_ESC.zb + zt) / 2;
   for (let L = -1; L <= 1; L++) {
     const yb = L * FH, yt = yb + FH;
     // walls (the south face has a doorway for the stairs and one for the escalators)
-    box(W, -7, -6.7, yb, yt, -15.5, 15.5); box(W, 6.7, 7, yb, yt, -15.5, 15.5); box(W, -7, 7, yb, yt, -15.5, -15.2);
+    box(W, -7, -6.7, yb, yt, -15.5, -4.6); box(W, -7, -6.7, yb, yt, -2.2, 15.5); box(W, -7, -6.7, yb + 3, yt, -4.6, -2.2); box(W, 6.7, 7, yb, yt, -15.5, 15.5); box(W, -7, 7, yb, yt, -15.5, -15.2);
     box(W, -7, -4.6, yb, yt, 15.2, 15.5); box(W, -2.2, 4.3, yb, yt, 15.2, 15.5); box(W, 6.5, 7, yb, yt, 15.2, 15.5);
     box(W, -4.6, -2.2, yb + 3, yt, 15.2, 15.5); box(W, 4.3, 6.5, yb + 3, yt, 15.2, 15.5);
-    box(W, -0.3, 0.3, yb, yt, -15.2, 15.2); box(W, -6.7, -0.3, yb, yt, -15.2, -1);
-    doors.push({ L, x: -3.4, y: yb, w: 2.4 }, { L, x: 5.4, y: yb, w: 2.2 });
+    box(W, -0.3, 0.3, yb, yt, -15.2, 15.2);
+    // the elevator: a cabin behind a door in the west wall, solid masonry round it
+    box(W, -6.7, -0.3, yb, yt, -15.2, -5.5); box(W, -3.7, -0.3, yb, yt, -5.5, -1); box(W, -6.7, -3.7, yb, yt, -1.3, -1);
+    box(C, -6.7, -3.7, yb - 0.4, yb, -5.5, -1.3); box(W, -6.7, -3.7, yb + 3.2, yt, -5.5, -1.3);
+    Lp.push([-6.2, -4.2, yb + 3.14, yb + 3.2, -4.8, -2.0], [-3.74, -3.7, yb + 1.45, yb + 1.62, -3.12, -2.58]); Mt.push([-3.78, -3.7, yb + 0.95, yb + 1.7, -3.2, -2.5]); for (let q = 0; q < 6; q++) Bl.push([-3.8, -3.77, yb + 1.05 + (q % 3) * 0.12, yb + 1.13 + (q % 3) * 0.12, -3.05 + (q >> 1 & 1) * 0.3, -2.95 + (q >> 1 & 1) * 0.3]);
+    doors.push({ L, x: -3.4, y: yb, w: 2.4 }, { L, x: 5.4, y: yb, w: 2.2 }, { L, axis: 'z', z: -3.4, y: yb, w: 2.4 });
     // stairs: landing, flight 1 up the west lane, mid landing, flight 2 back up the east lane
     box(C, -6.7, -0.3, yb - 0.4, yb, 11, 15.2);
     for (let k = 0; k < 25; k++) { const t = yb + 0.2 * (k + 1); box(C, -6.7, -3.8, t - 0.45, t, 11 - 0.3 * (k + 1), 11 - 0.3 * k); }
@@ -4447,10 +4455,12 @@ function rbCoreTemplate() {
     box(W, -3.8, -3.2, yb, yt, 3.5, 11);
     { const a = Math.atan2(5, 7.5), l = Math.hypot(5, 7.5) + 0.3; Rl.push({ w: 0.06, h: 0.06, d: l, x: -6.58, y: yb + 2.5 + 0.95, z: 7.25, rx: a }, { w: 0.06, h: 0.06, d: l, x: -0.42, y: yb + 7.5 + 0.95, z: 7.25, rx: -a }); }
     // escalator hall floor, with the openings where the escalators pass through
-    box(C, 0.3, 6.7, yb - 0.4, yb, -15.2, -5.3); box(C, 1.9, 6.7, yb - 0.4, yb, -5.3, -1); box(C, 0.3, 6.7, yb - 0.4, yb, -1, 7.7);
-    box(C, 0.3, 2.3, yb - 0.4, yb, 7.7, 12); box(C, 3.9, 6.7, yb - 0.4, yb, 7.7, 12); box(C, 0.3, 6.7, yb - 0.4, yb, 12, 15.2);
+    // (the openings are long enough that a rider always has more than two metres over their head)
+    const oA = 1.7, oB = 5.0;
+    box(C, 0.3, 6.7, yb - 0.4, yb, -15.2, -5.3); box(C, 1.9, 6.7, yb - 0.4, yb, -5.3, oA); box(C, 0.3, 6.7, yb - 0.4, yb, oA, oB);
+    box(C, 0.3, 2.3, yb - 0.4, yb, oB, 12); box(C, 3.9, 6.7, yb - 0.4, yb, oB, 12); box(C, 0.3, 6.7, yb - 0.4, yb, 12, 15.2);
     // guard rails round the openings
-    box(Gl, 0.3, 1.9, yb, yb + 1.1, -1, -0.85); box(Gl, 2.3, 3.9, yb, yb + 1.1, 7.55, 7.7); box(Gl, 3.9, 4.1, yb, yb + 1.1, 7.7, 12);
+    box(Gl, 0.3, 1.9, yb, yb + 1.1, oA, oA + 0.15); box(Gl, 2.3, 3.9, yb, yb + 1.1, oB - 0.15, oB); box(Gl, 3.9, 4.1, yb, yb + 1.1, oB, 12);
     // escalator A goes up from this level, escalator B comes down into it from the level above
     const NS = 40;
     for (let k = 0; k < NS; k++) {
@@ -4471,7 +4481,7 @@ function rbCoreTemplate() {
     // the bottom floor has nowhere further down, the top floor nowhere further up
     bars.push({ L, kind: 'down', b: [[-3.2, -0.3, yb, yb + 1.15, 10.6, 10.75], [2.3, 3.9, yb, yb + 1.15, 12.05, 12.2]] }, { L, kind: 'up', b: [[-6.7, -3.8, yb, yb + 1.15, 11.05, 11.2], [0.3, 1.9, yb, yb + 1.15, 12.05, 12.2]] });
   }
-  return { W, C, Mt, Gl, Bl, Rl, col, doors, bars };
+  return { W, C, Mt, Gl, Bl, Rl, Lp, col, doors, bars };
 }
 let rbCoreT = null; const rbCoreMeshes = [];
 function rbCoreMats() {
@@ -4482,7 +4492,7 @@ function rbCoreMats() {
     wall: rbMaterial(THREE.FrontSide, true, 9), conc: new THREE.MeshStandardMaterial({ color: 0xd6d0e0, roughness: 0.82 }), metal: new THREE.MeshStandardMaterial({ color: 0xaab0ba, metalness: 0.6, roughness: 0.35 }),
     glass: new THREE.MeshStandardMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false }), rail: new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.5 }),
     belt: new THREE.MeshStandardMaterial({ map: bt, metalness: 0.45, roughness: 0.45 }), door: new THREE.MeshStandardMaterial({ color: 0x241c40, emissive: 0x6a4ad8, emissiveIntensity: 0.4, metalness: 0.4, roughness: 0.25 }),
-    bar: new THREE.MeshStandardMaterial({ color: 0xffc020, roughness: 0.5 })
+    bar: new THREE.MeshStandardMaterial({ color: 0xffc020, roughness: 0.5 }), lamp: new THREE.MeshBasicMaterial({ color: 0xfff4e0 })
   };
 }
 const rbSignMats = [null, null, null]; let rbSignFloor = -1;
@@ -4495,9 +4505,9 @@ function rbSignTex(k, f) {
 function rbMakeCore() {
   if (!rbCoreT) rbCoreT = rbCoreTemplate();
   const T_ = rbCoreT, M_ = rbCoreMats(), grp = new THREE.Group();
-  if (!rbMakeCore.g) rbMakeCore.g = { wall: rbBoxes(T_.W), conc: rbBoxes(T_.C), metal: rbBoxes(T_.Mt), glass: rbBoxes(T_.Gl), belt: rbBoxes(T_.Bl), rail: rbBoxes(T_.Rl) };
+  if (!rbMakeCore.g) rbMakeCore.g = { wall: rbBoxes(T_.W), conc: rbBoxes(T_.C), metal: rbBoxes(T_.Mt), glass: rbBoxes(T_.Gl), belt: rbBoxes(T_.Bl), rail: rbBoxes(T_.Rl), lamp: rbBoxes(T_.Lp) };
   for (const [k, geo] of Object.entries(rbMakeCore.g)) { const m = new THREE.Mesh(geo, M_[k]); m.receiveShadow = true; m.castShadow = false; m.frustumCulled = false; grp.add(m); }
-  grp.userData.doors = T_.doors.map(d => { const ps = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(d.w / 2, 3, 0.08), M_.door); m.position.set(d.x + s * d.w / 4, d.y + 1.5, 15.35); grp.add(m); return m; }); return Object.assign({ ps, open: 0 }, d); });
+  grp.userData.doors = T_.doors.map(d => { const ps = [-1, 1].map(s => { const m = d.axis === 'z' ? new THREE.Mesh(new THREE.BoxGeometry(0.08, 3, d.w / 2), M_.door) : new THREE.Mesh(new THREE.BoxGeometry(d.w / 2, 3, 0.08), M_.door); if (d.axis === 'z') m.position.set(-6.85, d.y + 1.5, d.z + s * d.w / 4); else m.position.set(d.x + s * d.w / 4, d.y + 1.5, 15.35); grp.add(m); return m; }); return Object.assign({ ps, open: 0 }, d); });
   grp.userData.bars = T_.bars.map(b => { const m = new THREE.Mesh(rbBoxes(b.b), M_.bar); grp.add(m); return Object.assign({ m }, b); });
   grp.userData.signs = [-1, 0, 1].map((L, k) => { if (!rbSignMats[k]) rbSignTex(k, 0); const m = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), rbSignMats[k]); m.position.set(1.2, L * RB_FH + 4.4, 15.56); grp.add(m); return m; });
   rbScene.add(grp); return grp;
@@ -4517,18 +4527,34 @@ function rbUpdateDoors(dt) {
   for (const k of rb.cores) {
     if (!k.g) continue;
     for (const d of k.g.userData.doors) {
-      const dx = k.x + d.x, dz = k.z + 15.35; let want = 0;
-      for (const p of who) if (Math.abs(p.pos.x - dx) < 3.4 && Math.abs(p.pos.z - dz) < 4.2 && Math.abs(p.pos.y - d.y) < 2.4) { want = 1; break; }
+      const ax = d.axis === 'z', dx = ax ? k.x - 6.85 : k.x + d.x, dz = ax ? k.z + d.z : k.z + 15.35; let want = 0;
+      if (!(ax && rb.lift && rb.lift.k === k)) for (const p of who) if (Math.abs(p.pos.x - dx) < (ax ? 4.2 : 3.4) && Math.abs(p.pos.z - dz) < (ax ? 3.4 : 4.2) && Math.abs(p.pos.y - d.y) < 2.4) { want = 1; break; }
       d.open = clamp(d.open + (want ? 3 : -2) * dt, 0, 1); const e = d.open * d.open * (3 - 2 * d.open);
-      d.ps[0].position.x = d.x - d.w / 4 - e * d.w * 0.48; d.ps[1].position.x = d.x + d.w / 4 + e * d.w * 0.48;
+      if (ax) { d.ps[0].position.z = d.z - d.w / 4 - e * d.w * 0.48; d.ps[1].position.z = d.z + d.w / 4 + e * d.w * 0.48; }
+      else { d.ps[0].position.x = d.x - d.w / 4 - e * d.w * 0.48; d.ps[1].position.x = d.x + d.w / 4 + e * d.w * 0.48; }
     }
   }
+}
+function rbInLift(p) { for (const k of rb.cores) { const lx = p.pos.x - k.x, lz = p.pos.z - k.z; if (lx > -6.7 && lx < -3.7 && lz > -5.5 && lz < -1.3 && Math.abs(p.pos.y) < 1.5) return k; } return null; }
+function rbSetFloor(nf) { nf = clamp(Math.round(nf), 0, RB_FLOORS - 1); if (nf === rb.floor) return; for (const n of rb.people) if (!n.virt) rbToVirt(n); rb.floor = nf; rbBuildWindow(); rbUpdateDoors(0); }
+function openLift() { $('lift-panel').hidden = false; $('lift-now').textContent = `الان طبقهٔ ${fa(rb.floor)} هستی · ساختمان ${fa(RB_FLOORS)} طبقه داره (۰ تا ${fa(RB_FLOORS - 1)})`; $('lift-in').value = ''; }
+function rbLiftGo(to) {
+  $('lift-panel').hidden = true; const k = rbInLift(player); to = clamp(Math.round(to), 0, RB_FLOORS - 1); if (!k || !isFinite(to)) return; if (to === rb.floor) { toast('همین طبقه‌ای!'); return; }
+  rb.lift = { t: 0, from: rb.floor, to, dur: 2.4 + Math.min(6, Math.log10(1 + Math.abs(to - rb.floor)) * 1.5), k }; Audio.tick(); toast(`آسانسور به طبقهٔ ${fa(to)} می‌ره`);
+}
+function rbUpdateLift(dt) {
+  const L = rb.lift; L.t += dt; const u = clamp((L.t - 0.9) / (L.dur - 0.9), 0, 1), e = u * u * (3 - 2 * u), cur = Math.round(L.from + (L.to - L.from) * e);
+  setPrompt(`آسانسور ${L.to > L.from ? '▲' : '▼'} طبقهٔ <b>${fa(cur)}</b>`, ''); if (u > 0 && u < 1) cam.shake = Math.max(cam.shake, 0.025);
+  if (L.t >= L.dur) { rb.lift = null; rbSetFloor(L.to); Audio.tick(); banner(`طبقهٔ ${fa(L.to)}`, 'درِ آسانسور باز شد'); }
 }
 // the camera must not slip through a closed core door
 function rbDoorHit(ox, oy, oz, dx, dy, dz, maxD) {
   let t = maxD;
-  for (const k of rb.cores) { if (!k.g || Math.abs(dz) < 1e-6) continue; const tz = (k.z + 15.35 - oz) / dz; if (tz <= 0 || tz >= t) continue; const x = ox + dx * tz - k.x, y = oy + dy * tz;
-    for (const d of k.g.userData.doors) if (d.open < 0.9 && Math.abs(x - d.x) < d.w / 2 && y > d.y && y < d.y + 3) t = tz; }
+  for (const k of rb.cores) {
+    if (!k.g) continue;
+    if (Math.abs(dz) > 1e-6) { const tz = (k.z + 15.35 - oz) / dz; if (tz > 0 && tz < t) { const x = ox + dx * tz - k.x, y = oy + dy * tz; for (const d of k.g.userData.doors) if (!d.axis && d.open < 0.9 && Math.abs(x - d.x) < d.w / 2 && y > d.y && y < d.y + 3) t = tz; } }
+    if (Math.abs(dx) > 1e-6) { const tx = (k.x - 6.85 - ox) / dx; if (tx > 0 && tx < t) { const z = oz + dz * tx - k.z, y = oy + dy * tx; for (const d of k.g.userData.doors) if (d.axis === 'z' && d.open < 0.9 && Math.abs(z - d.z) < d.w / 2 && y > d.y && y < d.y + 3) t = tx; } }
+  }
   return t;
 }
 // standing on an escalator carries you along (both run toward -z: A climbs, B descends)
@@ -4548,6 +4574,7 @@ function rbBuildWindow() {
   const fp = rbFocus(), f = rb.floor, ci = rbCi(fp.x), cj = rbCj(fp.z);
   const i0 = Math.max(0, ci - RB_WIN), i1 = Math.min(RB_NI - 1, ci + RB_WIN), j0 = Math.max(0, cj - RB_WIN), j1 = Math.min(RB_NJ - 1, cj + RB_WIN);
   if (rb.win) for (const C of rb.win.chunks) C.win = false;
+  rb.org.x = Math.round((-RB_W / 2 + (ci + 0.5) * RB_CH) / 4) * 4; rb.org.z = Math.round((-RB_L / 2 + (cj + 0.5) * RB_CH) / 4) * 4; if (rbPool) rbPool.setOffset(rb.org.x, rb.org.z);
   const W = rb.win = { f, i: ci, j: cj, i0, i1, j0, j1, x0: -RB_W / 2 + i0 * RB_CH, x1: -RB_W / 2 + (i1 + 1) * RB_CH, z0: -RB_L / 2 + j0 * RB_CH, z1: -RB_L / 2 + (j1 + 1) * RB_CH, chunks: [] };
   const objs = [], spots = [], cores = [];
   for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const C = rbChunk(f, i, j); C.win = true; W.chunks.push(C); for (const o of C.objs) objs.push(o); for (const s of C.spots) spots.push(s); if (C.core) cores.push(C.core); }
@@ -4566,7 +4593,8 @@ function rbInstances(objs) {
       const T_ = RB_TYPES[type]; if (!T_.g) T_.g = T_.geo(); const cap = Math.max(24, Math.ceil(list.length * 1.6));
       im = new THREE.InstancedMesh(T_.g, rbMat(type), cap); im.userData.cap = cap; im.castShadow = im.receiveShadow = true; im.frustumCulled = false; rbScene.add(im); rb.inst[type] = im;
     }
-    list.forEach((o, k) => { _rq.setFromAxisAngle(_ry, o.ry); im.setMatrixAt(k, _rm.compose(_rv.set(o.x, o.y || 0, o.z), _rq, _rs.set(o.sx || 1, o.sy || 1, o.sz || 1))); im.setColorAt(k, _col.set(o.tint || '#ffffff')); });
+    im.position.set(rb.org.x, 0, rb.org.z); im.updateMatrix();
+    list.forEach((o, k) => { _rq.setFromAxisAngle(_ry, o.ry); im.setMatrixAt(k, _rm.compose(_rv.set(o.x - rb.org.x, o.y || 0, o.z - rb.org.z), _rq, _rs.set(o.sx || 1, o.sy || 1, o.sz || 1))); im.setColorAt(k, _col.set(o.tint || '#ffffff')); });
     im.count = list.length; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
   }
 }
@@ -4574,15 +4602,21 @@ function rbInstances(objs) {
 function rbSlabs(W) {
   W.pillars = [];
   for (let i = W.i0; i <= W.i1 + 1; i++) for (let j = W.j0; j <= W.j1 + 1; j++) { if (i <= 0 || j <= 0 || i >= RB_NI || j >= RB_NJ) continue; W.pillars.push([-RB_W / 2 + i * RB_CH, -RB_L / 2 + j * RB_CH]); }
-  const pm = rb.pillars; W.pillars.forEach(([x, z], k) => pm.setMatrixAt(k, _rm.makeTranslation(x, (RB_FH - 0.4) / 2, z))); pm.count = W.pillars.length; pm.instanceMatrix.needsUpdate = true;
+  const ox = rb.org.x, oz = rb.org.z, pm = rb.pillars; pm.position.set(ox, 0, oz); pm.updateMatrix();
+  W.pillars.forEach(([x, z], k) => pm.setMatrixAt(k, _rm.makeTranslation(x - ox, (RB_FH - 0.4) / 2, z - oz))); pm.count = W.pillars.length; pm.instanceMatrix.needsUpdate = true;
   const rects = [];
   for (const C of W.chunks) {
     const x0 = -RB_W / 2 + C.i * RB_CH, z0 = -RB_L / 2 + C.j * RB_CH, x1 = x0 + RB_CH, z1 = z0 + RB_CH, k = C.core;
     if (!k) { rects.push([x0, z0, x1, z1]); continue; }
     rects.push([x0, z0, x1, k.z - 15.5], [x0, k.z + 15.5, x1, z1], [x0, k.z - 15.5, k.x - 7, k.z + 15.5], [k.x + 7, k.z - 15.5, x1, k.z + 15.5]);
   }
-  const quad = (y, up) => { const pos = new Float32Array(rects.length * 18), nor = new Float32Array(rects.length * 18), uv = new Float32Array(rects.length * 12); rects.forEach(([x0, z0, x1, z1], k) => { const v = up ? [[x0, z1], [x1, z1], [x1, z0], [x0, z1], [x1, z0], [x0, z0]] : [[x0, z0], [x1, z0], [x1, z1], [x0, z0], [x1, z1], [x0, z1]]; v.forEach(([x, z], q) => { pos.set([x, y, z], k * 18 + q * 3); nor.set([0, up ? 1 : -1, 0], k * 18 + q * 3); uv.set([x / 4, z / 4], k * 12 + q * 2); }); }); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.computeBoundingSphere(); return g; };
+  const quad = (y, up) => { const pos = new Float32Array(rects.length * 18), nor = new Float32Array(rects.length * 18), uv = new Float32Array(rects.length * 12); rects.forEach(([x0, z0, x1, z1], k) => { const v = up ? [[x0, z1], [x1, z1], [x1, z0], [x0, z1], [x1, z0], [x0, z0]] : [[x0, z0], [x1, z0], [x1, z1], [x0, z0], [x1, z1], [x0, z1]]; v.forEach(([x, z], q) => { pos.set([x - ox, y, z - oz], k * 18 + q * 3); nor.set([0, up ? 1 : -1, 0], k * 18 + q * 3); uv.set([(x - ox) / 4, (z - oz) / 4], k * 12 + q * 2); }); }); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.computeBoundingSphere(); return g; };
   W.rects = rects; rb.floorM.geometry.dispose(); rb.floorM.geometry = quad(0, true); rb.ceilM.geometry.dispose(); rb.ceilM.geometry = quad(RB_FH - 0.4, false);
+  rb.floorM.position.set(ox, 0, oz); rb.ceilM.position.set(ox, 0, oz);
+  // light panels in the ceiling
+  const lp = rb.lights; lp.position.set(ox, 0, oz); lp.updateMatrix(); let nl = 0;
+  for (const C of W.chunks) { const x0 = -RB_W / 2 + C.i * RB_CH, z0 = -RB_L / 2 + C.j * RB_CH; for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { const x = x0 + 6.25 + a * 12.5, z = z0 + 6.25 + b * 12.5; if (C.core && Math.abs(x - C.core.x) < 9 && Math.abs(z - C.core.z) < 18) continue; if (nl < lp.userData.cap) lp.setMatrixAt(nl++, _rm.makeTranslation(x - ox, RB_FH - 0.43, z - oz)); } }
+  lp.count = nl; lp.instanceMatrix.needsUpdate = true;
   rb.exitG.visible = rb.floor === 0;
 }
 function rbPhysics(W, objs, spots) {
@@ -4597,7 +4631,13 @@ function rbPhysics(W, objs, spots) {
     if (k.g) for (const b of k.g.userData.bars) if (b.m.visible) for (const c of b.b) col.box(k.x + c[0], k.x + c[1], k.z + c[4], k.z + c[5], c[2], c[3]);
   }
   for (const o of objs) rbAddObjCol(col, o);
-  // the walking grid for the seekers (floor level only; the cores are walked by their routes)
+  rb.col = col; rbGrid = null; rb.navDirty = true;
+  // places to hide behind must be free floor
+  rb.spots = spots.filter(sp => { if (sp.kind === 'in') return true; col.query(sp.x - 0.3, sp.x + 0.3, sp.z - 0.3, sp.z + 0.3, _near); return !_near.some(c => c.maxY > sp.y + 0.5 && c.minY < sp.y + 1.6 && colOver(c, sp.x, sp.z, 0.24)); });
+}
+// the walking grid for the seekers (floor level only; the cores are walked by their routes)
+function rbNav() {
+  if (!rb.navDirty) return rbGrid; rb.navDirty = false; const W = rb.win, col = rb.col; if (!W || !col) return null;
   const G = rbGrid = { x0: W.x0, z0: W.z0, cs: 1.25, nx: Math.ceil((W.x1 - W.x0) / 1.25), nz: Math.ceil((W.z1 - W.z0) / 1.25) }; G.b = new Uint8Array(G.nx * G.nz);
   const seen = new Set();
   for (const c of col.query(W.x0, W.x1, W.z0, W.z1, [])) {
@@ -4606,13 +4646,11 @@ function rbPhysics(W, objs, spots) {
     for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) if (colOver(c, G.x0 + (i + 0.5) * G.cs, G.z0 + (j + 0.5) * G.cs, 0.38)) G.b[j * G.nx + i] = 1;
   }
   for (const k of rb.cores) { const i0 = Math.max(0, Math.floor((k.x - 7.4 - G.x0) / G.cs)), i1 = Math.min(G.nx - 1, Math.floor((k.x + 7.4 - G.x0) / G.cs)), j0 = Math.max(0, Math.floor((k.z - 15.9 - G.z0) / G.cs)), j1 = Math.min(G.nz - 1, Math.floor((k.z + 15.9 - G.z0) / G.cs)); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) G.b[j * G.nx + i] = 1; }
-  // places to hide behind must be free floor
-  rb.spots = spots.filter(sp => { if (sp.kind === 'in') return true; col.query(sp.x - 0.3, sp.x + 0.3, sp.z - 0.3, sp.z + 0.3, _near); return !_near.some(c => c.maxY > sp.y + 0.5 && c.minY < sp.y + 1.6 && colOver(c, sp.x, sp.z, 0.24)); });
-  rb.col = col;
+  return G;
 }
 /* A* on the window grid */
 function rbPath(x0, z0, x1, z1) {
-  const G = rbGrid; if (!G) return [[x1, z1]];
+  const G = rbNav(); if (!G) return [[x1, z1]];
   const nx = G.nx, nz = G.nz, cell = (x, z) => [clamp(Math.floor((x - G.x0) / G.cs), 0, nx - 1), clamp(Math.floor((z - G.z0) / G.cs), 0, nz - 1)];
   let [si, sj] = cell(x0, z0), [gi, gj] = cell(x1, z1);
   const near = (ci, cj) => { if (!G.b[cj * nx + ci]) return [ci, cj]; let best = null, bd = 1e9; for (let di = -4; di <= 4; di++) for (let dj = -4; dj <= 4; dj++) { const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= nx || j >= nz || G.b[j * nx + i]) continue; const d = di * di + dj * dj; if (d < bd) { bd = d; best = [i, j]; } } return best || [ci, cj]; };
@@ -4635,13 +4673,14 @@ function rbPath(x0, z0, x1, z1) {
   if (!G.b[gj * nx + gi] && Math.hypot(out.length ? out[out.length - 1][0] - x1 : 9, out.length ? out[out.length - 1][1] - z1 : 9) > 0.1) { const [ex, ez] = [G.x0 + (gi + 0.5) * G.cs, G.z0 + (gj + 0.5) * G.cs]; if (Math.hypot(ex - x1, ez - z1) < 1.3) out.push([x1, z1]); }
   return out.length ? out : [[x1, z1]];
 }
-function rbFreeAt(p) { const G = rbGrid; if (!G) return; const i = clamp(Math.floor((p.x - G.x0) / G.cs), 0, G.nx - 1), j = clamp(Math.floor((p.z - G.z0) / G.cs), 0, G.nz - 1); if (!G.b[j * G.nx + i]) return; for (let r = 1; r <= 8; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= G.nx || b >= G.nz || G.b[b * G.nx + a]) continue; p.x = G.x0 + (a + 0.5) * G.cs; p.z = G.z0 + (b + 0.5) * G.cs; return; } }
+function rbFreeAt(p) { const G = rbNav(); if (!G) return; const i = clamp(Math.floor((p.x - G.x0) / G.cs), 0, G.nx - 1), j = clamp(Math.floor((p.z - G.z0) / G.cs), 0, G.nz - 1); if (!G.b[j * G.nx + i]) return; for (let r = 1; r <= 8; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= G.nx || b >= G.nz || G.b[b * G.nx + a]) continue; p.x = G.x0 + (a + 0.5) * G.cs; p.z = G.z0 + (b + 0.5) * G.cs; return; } }
 /* ---------- building it ---------- */
 function rbMigrate() {
-  if (store.rbVer === 2) return; const dz = RB_L / 2 - 550;
-  for (const o of store.rbPlaced || []) { o.z += dz; o.f = 0; }
-  if (store.rbCam) { store.rbCam.z += dz; store.rbCam.f = 0; store.rbCam.y = clamp(store.rbCam.y, 0.8, RB_FH - 1); }
-  store.rbVer = 2;
+  if (store.rbVer === 3) return; const dz = store.rbVer === 2 ? RB_L / 2 - 10000 : RB_L / 2 - 550;
+  for (const o of store.rbPlaced || []) { o.z += dz; if (o.f === undefined) o.f = 0; }
+  if (store.rbCam) { store.rbCam.z += dz; store.rbCam.f = store.rbCam.f || 0; store.rbCam.y = clamp(store.rbCam.y, 0.8, RB_FH - 1); }
+  if (store.rbPos) store.rbPos.z += dz;
+  store.rbVer = 3;
 }
 function buildRainbow() {
   if (rb.built) return; rb.built = true; rbMigrate();
@@ -4652,6 +4691,7 @@ function buildRainbow() {
   rb.ceilM = new THREE.Mesh(new THREE.BufferGeometry(), rbMaterial(THREE.FrontSide, true, 16)); rb.ceilM.frustumCulled = false; rbScene.add(rb.ceilM);
   const wm = rbMaterial(THREE.FrontSide, true, 12);
   for (const [w, x, z, a] of [[RB_W, 0, -RB_L / 2, 0], [RB_W, 0, RB_L / 2, Math.PI], [RB_L, -RB_W / 2, 0, Math.PI / 2], [RB_L, RB_W / 2, 0, -Math.PI / 2]]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, RB_FH), wm); m.position.set(x, RB_FH / 2, z); m.rotation.y = a; rbScene.add(m); }
+  rb.lights = new THREE.InstancedMesh(new THREE.BoxGeometry(5.5, 0.06, 1.1), new THREE.MeshBasicMaterial({ color: 0xfff8ee }), 460); rb.lights.userData.cap = 460; rb.lights.frustumCulled = false; rbScene.add(rb.lights);
   rb.pillars = new THREE.InstancedMesh(new THREE.BoxGeometry(1.6, RB_FH - 0.4, 1.6), rbMaterial(THREE.FrontSide, true, 5), 64); rb.pillars.castShadow = true; rb.pillars.receiveShadow = true; rb.pillars.frustumCulled = false; rbScene.add(rb.pillars);
   rbHemi = new THREE.HemisphereLight(0xf4f0ff, 0x6a5a8a, 1.15); rbScene.add(rbHemi);
   rbSun = new THREE.DirectionalLight(0xffffff, 1.5); rbSun.castShadow = true; rbSun.shadow.mapSize.set(LOW ? 1024 : 2048, LOW ? 1024 : 2048);
@@ -4685,7 +4725,7 @@ function spawnSeekers() {
   });
 }
 function rbToVirt(n) { if (n.virt) return; n.virt = true; n.vp = n.vp || new V3(); n.vp.set(n.pos.x, RBY() + n.pos.y, n.pos.z); n.task = null; n.rbPath = null; if (n.mode !== 'wander') n.mode = 'stand'; }
-function rbCanHall(n) { const v = n.vp, W = rb.win; return !!W && Math.abs(v.y - RBY()) < 0.35 && v.x > W.x0 + 3 && v.x < W.x1 - 3 && v.z > W.z0 + 3 && v.z < W.z1 - 3 && !rbInCore(v.x, v.z, 0.3) && !(n.route && n.route.length && n.route[0][3] === 'c'); }
+function rbCanHall(n) { const v = n.vp, W = rb.win; return !!W && Math.abs(v.y - RBY()) < 0.35 && v.x > W.x0 + 3 && v.x < W.x1 - 3 && v.z > W.z0 + 3 && v.z < W.z1 - 3 && !rbInCore(v.x, v.z, 0.3) && !(n.route && n.route.length && (n.route[0][3] === 'c' || n.route[0][3] === 'e')); }
 function rbToHall(n) { n.virt = false; n.pos.set(n.vp.x, 0, n.vp.z); rbFreeAt(n.pos); n.vel.set(0, 0, 0); n.onGround = true; n.route = null; n.rbPath = null; n.hallExit = null; }
 // a route between floors: to a core, up or down its stairs or escalators, and on to the goal
 function rbCoreSeq(out, k, f0, f1, esc) {
@@ -4704,15 +4744,23 @@ function rbCoreSeq(out, k, f0, f1, esc) {
     P_(5.4, f1 * RB_FH, 17.2, 'h');
   }
 }
+// from just outside a core on floor f0 to just outside it on floor f1: stairs or escalators for a floor or two, the elevator for more
+function rbCoreRoute(k, f0, f1) {
+  const out = [];
+  if (Math.abs(f1 - f0) > 2) { out.push([k.x - 8.8, f0 * RB_FH, k.z - 3.4, 'h'], [k.x - 5.2, f0 * RB_FH, k.z - 3.4, 'c'], [k.x - 5.2, f1 * RB_FH, k.z - 3.4, 'e'], [k.x - 8.8, f1 * RB_FH, k.z - 3.4, 'c']); return out; }
+  const esc = Math.random() < 0.5; out.push([esc ? k.x + 5.4 : k.x - 3.4, f0 * RB_FH, k.z + 17.2, 'h']); rbCoreSeq(out, k, f0, f1, esc); return out;
+}
 function rbRoute(from, goal) {
-  const f0 = Math.round(from.y / RB_FH), out = [];
-  if (goal.fl !== f0) { const k = rbNearestCore(from.x, from.z), esc = Math.random() < 0.5; out.push([esc ? k.x + 5.4 : k.x - 3.4, f0 * RB_FH, k.z + 17.2, 'h']); rbCoreSeq(out, k, f0, goal.fl, esc); }
+  const f0 = Math.round(from.y / RB_FH); let out = [];
+  if (goal.fl !== f0) out = rbCoreRoute(rbNearestCore(from.x, from.z), f0, goal.fl);
   out.push([goal.x, goal.fl * RB_FH, goal.z, 'h']); return out;
 }
 // follow a route without the physics (off the loaded area, on other floors, on the stairs)
 function rbMoveVirt(n, dt, spd) {
   const R = n.route; if (!R || !R.length) { n.vel.set(0, 0, 0); return true; }
-  const [tx, ty, tz, seg] = R[0], v = n.vp, dx = tx - v.x, dy = ty - v.y, dz = tz - v.z, d = Math.hypot(dx, dy, dz), s = seg === 'c' ? Math.min(spd, 3.4) : spd;
+  const [tx, ty, tz, seg] = R[0], v = n.vp;
+  if (seg === 'e') { n.vel.set(0, 0, 0); if (n.liftT === undefined) n.liftT = 2.5 + Math.min(4, Math.log10(1 + Math.abs(ty - v.y) / RB_FH) * 1.4); n.liftT -= dt; if (n.liftT <= 0) { v.set(tx, ty, tz); R.shift(); n.liftT = undefined; } return false; }
+  const dx = tx - v.x, dy = ty - v.y, dz = tz - v.z, d = Math.hypot(dx, dy, dz), s = seg === 'c' ? Math.min(spd, n.H.visible ? 3.4 : 14) : spd;
   if (d <= s * dt) { v.set(tx, ty, tz); R.shift(); } else { const k = s * dt / d; v.x += dx * k; v.y += dy * k; v.z += dz * k; }
   const dh = Math.hypot(dx, dz); if (dh > 0.05) { n.facing += angDiff(n.facing, Math.atan2(dx, dz)) * Math.min(1, 10 * dt); n.vel.set(dx / dh * s * (dh / Math.max(d, 1e-6)), 0, dz / dh * s * (dh / Math.max(d, 1e-6))); } else n.vel.set(0, 0, 0);
   return false;
@@ -4762,7 +4810,7 @@ function rbStartGame(minutes) {
   const L = s.level, cnt = Math.max(10, 26 - L * 2);
   // they count at the pillar nearest to you
   const px = clamp(Math.round((P.pos.x + RB_W / 2) / RB_CH), 1, RB_NI - 1) * RB_CH - RB_W / 2, pz = clamp(Math.round((P.pos.z + RB_L / 2) / RB_CH), 1, RB_NJ - 1) * RB_CH - RB_L / 2;
-  rb.game = { phase: 'count', t: cnt, count: cnt, left: minutes ? minutes * 60 : Infinity, level: L, findP: Math.min(0.85, 0.32 + L * 0.06), speed: 1 + L * 0.08, found: [], seen: 0, f0: rb.floor, sx: px, sz: pz, tSeek: 0 };
+  rb.game = { phase: 'count', t: cnt, count: cnt, left: minutes ? minutes * 60 : Infinity, level: L, findP: Math.min(0.85, 0.32 + L * 0.06), speed: 1 + L * 0.08, found: [], seen: 0, f0: rb.floor, sx: px, sz: pz, tSeek: 0, kf: rb.floor, kfT: 0, floorT: 0 };
   for (const C of rbCache.values()) for (const sp of C.spots) { sp.used = null; sp.checked = -99; }
   for (const sp of rb.spots) { sp.used = null; sp.checked = -99; }
   rb.seekers.forEach((n, i) => { const a = i / rb.seekers.length * Math.PI * 2; n.virt = false; n.pos.set(px + Math.cos(a) * 3.3, 0, pz + Math.sin(a) * 3.3); rbFreeAt(n.pos); n.vel.set(0, 0, 0); n.facing = Math.atan2(px - n.pos.x, pz - n.pos.z); n.mode = 'stand'; n.task = null; n.anim.special = 'count'; n.specialT = undefined; n.H.visible = true; n.rbPath = null; n.route = null; n.goal = null; n.hallExit = null; n.lastHeard = null; n.checking = 0; });
@@ -4822,21 +4870,23 @@ function rbNextLevel(same) {
   const s = rbSettings(); if (!same) { s.level++; rbRegenerate(); }
   rbEndGame(); rbStartGame(s.minutes);
 }
-// where to look next: around where they counted (wider and on more floors as time goes on), and now and then a lucky hunch
+// where to look next. They always know which floor you are on (a few seconds late) but not where on it;
+// on the floor where they counted they sweep in on you and will find you in the end
 function rbPickGoal(n) {
-  const G = rb.game, P = player, t = G.tSeek, L = G.level;
-  let fl, x, z, sp = null;
-  if (Math.random() < Math.min(0.55, 0.05 + L * 0.02 + t / 900)) {
-    fl = rb.floor; if (P.state === 'hide' && P.hideSpot && Math.random() < 0.22 + L * 0.02) sp = P.hideSpot;
-    else { const a = Math.random() * 6.28, r = 3 + Math.random() * 26; x = P.pos.x + Math.cos(a) * r; z = P.pos.z + Math.sin(a) * r; }
+  const G = rb.game, P = player, L = G.level, fl = G.kf;
+  let x, z, sp = null;
+  if (fl === G.f0 && rb.floor === G.f0) {
+    const R = Math.max(6, 80 - G.kfT * 1.3); let bd = 1e9;
+    for (const s of rb.spots) { if (s.used && s.used.seeker) continue; if (simTime - s.checked < 25) continue; const d = Math.hypot(s.x - P.pos.x, s.z - P.pos.z); if (d > R) continue; const sc = d * 0.35 + Math.random() * R; if (sc < bd) { bd = sc; sp = s; } }
+    if (!sp) { const a = Math.random() * 6.28, r = Math.random() * R; x = P.pos.x + Math.cos(a) * r; z = P.pos.z + Math.sin(a) * r; }
   } else {
-    const R = Math.min(3000, 30 + t * 3.2), fs = Math.min(300, Math.floor(t / 35));
-    fl = clamp(G.f0 + Math.round((Math.random() * 2 - 1) * fs), 0, RB_FLOORS - 1); const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * R; x = G.sx + Math.cos(a) * r; z = G.sz + Math.sin(a) * r;
+    const R = Math.min(RB_W / 2, 45 + G.kfT * 5);
+    if (fl === rb.floor && Math.random() < 0.02 + L * 0.006) { const a = Math.random() * 6.28, r = 3 + Math.random() * 25; x = P.pos.x + Math.cos(a) * r; z = P.pos.z + Math.sin(a) * r; }
+    else { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * R; x = G.sx + Math.cos(a) * r; z = G.sz + Math.sin(a) * r; }
   }
   if (!sp) {
     x = clamp(x, -RB_W / 2 + 4, RB_W / 2 - 4); z = clamp(z, -RB_L / 2 + 4, RB_L / 2 - 4);
-    const C = rbChunk(fl, rbCi(x), rbCj(z)); let bd = 1e9;
-    const pool = fl === rb.floor && rb.win && x > rb.win.x0 && x < rb.win.x1 && z > rb.win.z0 && z < rb.win.z1 ? rb.spots : C.spots;
+    const pool = fl === rb.floor && rb.win && x > rb.win.x0 && x < rb.win.x1 && z > rb.win.z0 && z < rb.win.z1 ? rb.spots : rbChunk(fl, rbCi(x), rbCj(z)).spots; let bd = 1e9;
     for (const s of pool) { if (simTime - s.checked < 40) continue; const d = Math.hypot(s.x - x, s.z - z) + Math.random() * 8; if (d < bd) { bd = d; sp = s; } }
   }
   n.goal = sp ? { fl: sp.fl, x: sp.x, z: sp.z, sp } : { fl, x, z, sp: null };
@@ -4847,7 +4897,7 @@ function rbArrive(n) {
   n.checking = 1.4; n.vel.set(0, 0, 0);
   if (!n.virt) { setSpecial(n, 'peek', 1.4); n.mode = 'stand'; if (sp) n.facing = Math.atan2(sp.x - n.pos.x, sp.z - n.pos.z); }
   if (!sp) return; sp.checked = simTime;
-  if (sp.used && sp.used.seeker !== true) { const hid = sp.used, chance = G.findP * (1 - sp.conceal * 0.55); if (Math.random() < chance) { rbFound(n, hid); return; } if (hid === P && !n.virt && Math.random() < 0.5) say(n, mpick(['هوم... اینجا نیست.', 'یه صدایی اومد...', 'نه، اینجا کسی نیست.']), 2); }
+  if (sp.used && sp.used.seeker !== true) { const hid = sp.used, careful = hid === P && G.kf === G.f0 && rb.floor === G.f0, chance = careful ? 1 : G.findP * (1 - sp.conceal * 0.55); if (Math.random() < chance) { rbFound(n, hid); return; } if (hid === P && !n.virt && Math.random() < 0.5) say(n, mpick(['هوم... اینجا نیست.', 'یه صدایی اومد...', 'نه، اینجا کسی نیست.']), 2); }
   else if (!n.virt && Math.random() < 0.08) say(n, mpick(['کجا قایم شدی؟', 'پیدات می‌کنم!', 'آماده باش، دارم میام!']), 2);
 }
 // hall mode: the walking grid inside the loaded area; to leave it (other floors, far away) walk to the edge or a core door
@@ -4856,7 +4906,7 @@ function rbPlanHall(n) {
   if (g.fl === rb.floor && g.x > W.x0 + 2 && g.x < W.x1 - 2 && g.z > W.z0 + 2 && g.z < W.z1 - 2) { n.rbPath = rbPath(n.pos.x, n.pos.z, g.x, g.z); n.hallExit = null; return; }
   if (g.fl !== rb.floor && rb.cores.length) {
     let k = rb.cores[0], bd = 1e9; for (const c of rb.cores) { const d = Math.hypot(c.x - n.pos.x, c.z - n.pos.z); if (d < bd) { bd = d; k = c; } }
-    const esc = Math.random() < 0.5; n.rbPath = rbPath(n.pos.x, n.pos.z, esc ? k.x + 5.4 : k.x - 3.4, k.z + 17.2); const R = []; rbCoreSeq(R, k, rb.floor, g.fl, esc); R.push([g.x, g.fl * RB_FH, g.z, 'h']); n.hallExit = R; return;
+    const R = rbCoreRoute(k, rb.floor, g.fl), [ex, , ez] = R.shift(); n.rbPath = rbPath(n.pos.x, n.pos.z, ex, ez); R.push([g.x, g.fl * RB_FH, g.z, 'h']); n.hallExit = R; return;
   }
   const ex = clamp(g.x, W.x0 + 2.5, W.x1 - 2.5), ez = clamp(g.z, W.z0 + 2.5, W.z1 - 2.5); n.rbPath = rbPath(n.pos.x, n.pos.z, ex, ez); n.hallExit = [[g.x, g.fl * RB_FH, g.z, 'h']];
 }
@@ -4868,7 +4918,7 @@ function rbSeekerThink(n, dt) {
   if (n.virt) {
     if (!n.route) n.route = rbRoute(n.vp, n.goal);
     if (rbCanHall(n)) rbToHall(n);
-    else { if (rbMoveVirt(n, dt, (far ? 11 : n.run ? 3.6 : 1.7) * G.speed)) rbArrive(n); return; }
+    else { const gd = Math.hypot(n.goal.x - n.vp.x, n.goal.z - n.vp.z); if (rbMoveVirt(n, dt, far ? Math.max(11 * G.speed, gd / 12) : (n.run ? 3.6 : 1.7) * G.speed)) rbArrive(n); return; }
   }
   if (!n.rbPath) rbPlanHall(n);
   if (!n.rbPath.length) { if (n.hallExit) { rbToVirt(n); n.route = n.hallExit; n.hallExit = null; } else rbArrive(n); return; }
@@ -4897,7 +4947,8 @@ function updateRB(dt) {
       const sec = Math.ceil(G.t); if (sec !== G.lastSec) { G.lastSec = sec; if (sec <= 10 || sec % 5 === 0) say(rb.seekers[sec % rb.seekers.length], fa(G.count - sec + 1) + '...', 0.9); }
       if (G.t <= 0) { G.phase = 'seek'; G.t = 0; for (const n of rb.seekers) { n.anim.special = null; n.rbPath = null; n.checking = Math.random() * 0.8; n.goal = null; } say(rb.seekers[0], 'آماده یا نه، دارم میام!!', 3); Audio.honk(G.sx, G.sz); }
     } else if (G.phase === 'seek') {
-      G.tSeek += dt;
+      G.tSeek += dt; G.kfT += dt;
+      if (rb.floor !== G.kf) { G.floorT += dt; if (G.floorT > 6) { G.kf = rb.floor; G.kfT = 0; G.floorT = 0; for (const n of rb.seekers) { n.goal = null; n.route = null; n.rbPath = null; n.hallExit = null; n.checking = 0; } const n0 = rb.seekers.find(n => n.H.visible); if (n0) say(n0, rb.floor === G.f0 ? 'برگشت این طبقه! بگردین!' : `رفته طبقهٔ ${fa(rb.floor)}! بریم!`, 2.5); } } else G.floorT = 0;
       if (G.left !== Infinity) { G.left -= dt; if (G.left <= 0) { G.phase = 'over'; G.result = 'won'; for (const n of rb.seekers) { if (!n.virt) { setSpecial(n, 'laugh', 2); n.mode = 'stand'; } n.vel.set(0, 0, 0); } rbShowMenu('won'); } }
       G.seen += dt; const look = G.seen > 0.2; if (look) G.seen = 0;
       const hiding = P.state === 'hide', sp = P.hideSpot, spd = Math.hypot(P.vel.x, P.vel.z);
@@ -4945,8 +4996,12 @@ function updateRB(dt) {
 /* ---------- HUD bits ---------- */
 function placeRbHud() { const tb = $('topbar').getBoundingClientRect(); $('rb-hud').style.top = Math.round(tb.bottom + 8) + 'px'; }
 addEventListener('resize', () => { if (!$('rb-hud').hidden) placeRbHud(); });
-function toggleTurbo() { const P = player; if (P.where !== 'rb') return; P.turbo = !P.turbo; $('b-turbo').classList.toggle('on', P.turbo); toast(P.turbo ? 'توربو روشن شد — خیلی خیلی سریع!' : 'توربو خاموش شد'); }
-function showRbHud(on) { $('rb-hud').hidden = !on; $('b-turbo').hidden = !on; if (!on) { player.turbo = false; $('b-turbo').classList.remove('on'); } if (on) requestAnimationFrame(placeRbHud); $('btn-rb').textContent = on ? 'خروج از رنگین‌کمان' : 'ساختمان رنگین‌کمان'; }
+function toggleTurbo() {
+  const P = player; if (P.where !== 'rb') return; P.turbo = ((P.turbo || 0) + 1) % 3; const b = $('b-turbo');
+  b.classList.toggle('on', !!P.turbo); b.classList.toggle('hyper', P.turbo === 2); b.textContent = P.turbo === 2 ? 'خیلی خیلی توربو' : P.turbo ? 'توربو ✓' : 'توربو';
+  toast(P.turbo === 2 ? 'خیلی خیلی توربو! حدود ۸۰۰ کیلومتر بر ساعت — از روی وسیله‌ها می‌پری' : P.turbo ? 'توربو: حدود ۸۶ کیلومتر بر ساعت (یه بار دیگه بزن برای خیلی خیلی توربو)' : 'توربو خاموش شد');
+}
+function showRbHud(on) { $('rb-hud').hidden = !on; $('b-turbo').hidden = !on; if (!on) { player.turbo = 0; $('b-turbo').classList.remove('on', 'hyper'); $('b-turbo').textContent = 'توربو'; } if (on) requestAnimationFrame(placeRbHud); $('btn-rb').textContent = on ? 'خروج از رنگین‌کمان' : 'ساختمان رنگین‌کمان'; }
 let rbHudKey = '';
 function updateRbHud() {
   const G = rb.game; let t = '';
@@ -5258,7 +5313,7 @@ function leaveTest() {
 }
 function runCode(c) {
   c = String(c || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '');
-  if (c === '1818') goTest(); else if (c === '1717') leaveTest(); else toast('کد نامعتبر است');
+  if (c === '1818') goTest(); else if (c === '1717') leaveTest(); else if (c === '1400') { if (player.where !== 'out') { toast('آتش‌بازی رو باید بیرون توی شهر ببینی'); return; } startFireworks(70); banner('آتش‌بازی!', 'به آسمون نگاه کن'); } else toast('کد نامعتبر است');
 }
 /* ---------- the speed panel with a live preview in its own little 3D view ---------- */
 let prev = null;
@@ -5337,15 +5392,18 @@ function updatePlayerZone(dt) {
   }
   if (P.state === 'use') { const u = P.use; u.t += dt; P.vel.set(0, 0, 0); if (input.actQ || (Math.hypot(input.mx, input.my) > 0.5 && u.t > 0.6) || (u.dur && u.t > u.dur)) { input.actQ = false; endUse(); } setPrompt(u.dur ? '' : `${touchUI ? '«بلند شو»' : '<b>E</b>'} بلند شو`, 'بلند شو'); return; }
   if (P.state !== 'foot' && P.state !== 'down') { P.state = 'foot'; }
+  if (P.where === 'rb' && rb.lift) { P.vel.x = P.vel.z = 0; input.actQ = false; input.jumpQ = false; stepCharacter(P, col, dt, false); rbUpdateLift(dt); return; }
   // walking, running and jumping on a flat floor
   let mx = input.mx, my = input.my; if (chat.open || rb.build) { mx = 0; my = 0; input.jumpQ = false; }
   const mag = Math.min(1, Math.hypot(mx, my)), fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw);
   let dx = fx * my + rx * mx, dz = fz * my + rz * mx; const dl = Math.hypot(dx, dz); if (dl > 0) { dx /= dl; dz /= dl; }
-  const running = (input.run || (touchUI && mag > 0.93)) && store.energy > 8, turbo = P.where === 'rb' && P.turbo, tsp = mag * (turbo ? 24 : running ? 6.6 : 2.5), k = P.onGround ? (turbo ? 5 : 12) : 2.5;
+  const inCore = P.where === 'rb' && rbInCore(P.pos.x, P.pos.z, 0.5), turbo = P.where === 'rb' && !rb.lift ? (P.turbo === 2 && inCore ? 1 : P.turbo || 0) : 0;
+  const running = (input.run || (touchUI && mag > 0.93)) && store.energy > 8, tsp = mag * (turbo === 2 ? 220 : turbo ? 24 : running ? 6.6 : 2.5), k = P.onGround ? (turbo === 2 ? 2.2 : turbo ? 5 : 12) : 2.5;
+  P.stepH = turbo === 2 ? 4.2 : 0;
   P.vel.x = damp(P.vel.x, dx * tsp, k, dt); P.vel.z = damp(P.vel.z, dz * tsp, k, dt);
   if (cam.fpOn && !chat.open) P.facing += angDiff(P.facing, cam.yaw) * Math.min(1, 18 * dt); else if (tsp > 0.1) P.facing += angDiff(P.facing, Math.atan2(dx, dz)) * Math.min(1, 12 * dt);
   if (input.jumpQ && P.onGround) { P.vel.y = 6.6; P.onGround = false; Audio.step(true); } input.jumpQ = false;
-  const nSub = Math.max(1, Math.ceil(Math.hypot(P.vel.x, P.vel.z) * dt / 0.2));
+  const nSub = Math.min(48, Math.max(1, Math.ceil(Math.hypot(P.vel.x, P.vel.z) * dt / 0.2)));
   for (let q = 0; q < nSub; q++) stepCharacter(P, col, dt / nSub, false);
   if (P.onGround) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) Audio.step(running); } }
   if (P.where === 'rb') { rbEscCarry(P, dt); if (P.pos.y > 6.6) rbChangeFloor(1); else if (P.pos.y < -3.6) rbChangeFloor(-1); if (P.pos.y < -12) { P.pos.y = 0; P.vel.set(0, 0, 0); rbFreeAt(P.pos); } }
@@ -5353,7 +5411,8 @@ function updatePlayerZone(dt) {
   if (chat.open) { input.actQ = false; if (!chat.npc || Math.hypot(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z) > 5) closeChat(); return; }
   if (P.where === 'rb') {
     const G = rb.game, sp = G && G.phase !== 'over' ? nearestSpot(1.8) : null, n = nearestNPC(rb.people.filter(p => !p.hidden), 2.6);
-    if (rb.floor === 0 && P.pos.z > RB_L / 2 - 9 && Math.abs(P.pos.x) < 13 && P.pos.y < 2) { promptTxt = `${key}خروج به شهر`; actLabel = 'خروج'; if (input.actQ) { input.actQ = false; leaveRB(); return; } if (P.pos.z > RB_L / 2 - 2.2) { leaveRB(); return; } }
+    if (rb.floor === 0 && P.pos.z > RB_L / 2 - 9 && Math.abs(P.pos.x) < 13 && P.pos.y < 2 && !rb.lift) { promptTxt = `${key}خروج به شهر`; actLabel = 'خروج'; if (input.actQ) { input.actQ = false; leaveRB(); return; } if (P.pos.z > RB_L / 2 - 2.2) { leaveRB(); return; } }
+    else if (rbInLift(P) && !rb.build) { promptTxt = `${key}آسانسور — انتخاب طبقه`; actLabel = 'آسانسور'; if (input.actQ) { input.actQ = false; openLift(); } }
     else if (sp && !rb.build) { promptTxt = `${key}${sp.kind === 'in' ? 'برو داخلِ' : 'قایم شو پشتِ'} «${sp.name}»`; actLabel = 'قایم شو'; if (input.actQ) { input.actQ = false; rbHide(sp); } }
     else if (n && !(G && G.phase !== 'over')) { promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`; actLabel = 'حرف بزن'; if (input.actQ) { input.actQ = false; openChat(n); } }
   } else if (P.where === 'test') {
@@ -5410,6 +5469,75 @@ function drawZoneMap() {
   }
 }
 
+
+/* ============================================================
+   Sky life over the city: hot-air balloons by day, fireworks at night
+   ============================================================ */
+const balloons = [];
+function buildBalloons() {
+  const prof = [[0.01, 0], [1.6, 0.4], [3.6, 1.9], [5.6, 4.6], [6.6, 8], [6.3, 11.2], [4.9, 13.8], [2.6, 15.3], [0.01, 15.8]].map(([r, y]) => new V2(r, y));
+  const sets = [['#e8303a', '#ffd23a'], ['#2a6ad8', '#ffffff'], ['#3ab84a', '#ffcf3a', '#e8303a'], ['#a03aff', '#ff8ad8'], ['#ff8a1a', '#2a2a2a'], ['#1fb8c8', '#f4f4f4', '#e8303a']];
+  const ropeM = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.9 }), basketM = new THREE.MeshStandardMaterial({ color: 0x8a5a2a, roughness: 0.95 });
+  sets.forEach((cols, i) => {
+    const g = new THREE.LatheGeometry(prof, 24).toNonIndexed(), p = g.attributes.position, ca = new Float32Array(p.count * 3), c = new THREE.Color();
+    for (let k = 0; k < p.count; k += 3) { const ax = (p.getX(k) + p.getX(k + 1) + p.getX(k + 2)) / 3, az = (p.getZ(k) + p.getZ(k + 1) + p.getZ(k + 2)) / 3; const gore = Math.floor(((Math.atan2(az, ax) / (Math.PI * 2) + 1) % 1) * 12); c.set(cols[gore % cols.length]); for (let q = 0; q < 3; q++) ca.set([c.r, c.g, c.b], (k + q) * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(ca, 3)); g.computeVertexNormals();
+    const grp = new THREE.Group(), env = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, side: THREE.DoubleSide }));
+    env.castShadow = true; grp.add(env);
+    const basket = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.05, 1.5), basketM); basket.position.y = -4.6; grp.add(basket);
+    for (const [x, z] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 4.6, 4), ropeM); r.position.set(x * 1.05, -2.1, z * 1.05); r.rotation.set(z * 0.09, 0, -x * 0.09); grp.add(r); }
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.3, 10), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, toneMapped: false })); flame.position.y = -2.9; grp.add(flame);
+    const s = 1 + (i % 3) * 0.12; grp.scale.setScalar(s); scene.add(grp);
+    balloons.push({ grp, flame, a: i / sets.length * Math.PI * 2, r: 160 + (i * 53) % 140, y: 95 + (i * 37) % 90, w: (i % 2 ? 1 : -1) * (0.006 + i * 0.0012), seed: i * 1.7, burn: 0 });
+  });
+}
+function updateBalloons(dt) {
+  if (!balloons.length) return;
+  for (const b of balloons) {
+    b.a += b.w * dt; b.burn = Math.max(0, b.burn - dt); if (Math.random() < dt * 0.15) b.burn = 1.2 + Math.random();
+    const x = Math.cos(b.a) * b.r, z = Math.sin(b.a) * b.r * 0.8 - 40, y = b.y + Math.sin(simTime * 0.08 + b.seed) * 8 + (b.burn > 0 ? 1.5 : 0);
+    b.grp.position.set(x, y, z); b.grp.rotation.set(Math.sin(simTime * 0.4 + b.seed) * 0.03, b.a * 0.3, Math.cos(simTime * 0.33 + b.seed) * 0.03);
+    b.flame.visible = b.burn > 0; if (b.burn > 0) { b.flame.scale.set(1, 0.7 + Math.random() * 0.6, 1); }
+  }
+}
+/* fireworks: rockets climb with a spark trail and burst into coloured shells, every night (and on code 1400) */
+const fwk = { pts: null, data: [], rockets: [], n: 0, max: LOW ? 900 : 1600, t: 0, show: 0 };
+function buildFireworks() {
+  const m = fwk.max, g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(m * 3), 3)); g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(m), 1));
+  g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(m), 1)); g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(m * 3), 3));
+  const mat = new THREE.ShaderMaterial({ uniforms: { uScale: { value: innerHeight * 0.5 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    vertexShader: `attribute float aSize; attribute float aAlpha; attribute vec3 aColor; varying float vA; varying vec3 vC; uniform float uScale;
+      void main(){ vA = aAlpha; vC = aColor; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = max(1.5, aSize * uScale / max(-mv.z, 0.1)); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying float vA; varying vec3 vC; void main(){ vec2 d = gl_PointCoord - 0.5; float r = dot(d,d)*4.0; if(r>1.0) discard; gl_FragColor = vec4(vC * (1.25 - r * 0.6), vA * (1.0 - r * r)); }` });
+  fwk.pts = new THREE.Points(g, mat); fwk.pts.frustumCulled = false; fwk.pts.renderOrder = 4; scene.add(fwk.pts);
+  for (let i = 0; i < m; i++) fwk.data.push({ life: 0 });
+}
+function fwEmit(x, y, z, vx, vy, vz, life, size, color, drag) { const p = fwk.data[fwk.n]; fwk.n = (fwk.n + 1) % fwk.max; Object.assign(p, { x, y, z, vx, vy, vz, life, max: life, size, drag }); _col.set(color); p.r = _col.r; p.g = _col.g; p.b = _col.b; }
+const FW_SITES = [[-120, -150], [130, -140], [-140, 120], [150, 130], [0, -190], [10, 170]], FW_COLS = ['#ff3a3a', '#ffd23a', '#3aff6a', '#3ab8ff', '#c43aff', '#ff8ad8', '#ffffff', '#ff9a2a'];
+function startFireworks(sec) { fwk.show = Math.max(fwk.show, sec); }
+function updateFireworks(dt) {
+  if (!fwk.pts) return;
+  const night = tod >= 20.2 || tod < 1.2, on = player.where === 'out' && (fwk.show > 0 || night); fwk.show = Math.max(0, fwk.show - dt);
+  fwk.pts.visible = player.where === 'out';
+  if (on) { fwk.t -= dt; if (fwk.t <= 0) { fwk.t = (fwk.show > 0 ? 0.35 : 1.1) + Math.random() * 1.2; const [sx, sz] = FW_SITES[Math.floor(Math.random() * FW_SITES.length)]; fwk.rockets.push({ x: sx + (Math.random() - 0.5) * 20, y: 2, z: sz + (Math.random() - 0.5) * 20, vx: (Math.random() - 0.5) * 6, vy: 52 + Math.random() * 22, vz: (Math.random() - 0.5) * 6, fuse: 1.6 + Math.random() * 0.9 }); Audio.burst(0.05 * Audio.vol(sx, sz), 1800, 0.5, 'highpass', 1); } }
+  for (let i = fwk.rockets.length - 1; i >= 0; i--) {
+    const r = fwk.rockets[i]; r.fuse -= dt; r.vy -= 9.8 * dt; r.x += r.vx * dt; r.y += r.vy * dt; r.z += r.vz * dt;
+    fwEmit(r.x, r.y, r.z, (Math.random() - 0.5) * 2, -2, (Math.random() - 0.5) * 2, 0.6, 1.6, '#ffcf7a', 1.5);
+    if (r.fuse <= 0) {
+      fwk.rockets.splice(i, 1); const c1 = FW_COLS[Math.floor(Math.random() * FW_COLS.length)], c2 = FW_COLS[Math.floor(Math.random() * FW_COLS.length)], n = LOW ? 70 : 120, sp = 18 + Math.random() * 14, ring = Math.random() < 0.3;
+      for (let k = 0; k < n; k++) { let x, y, z; if (ring) { const a = k / n * Math.PI * 2; x = Math.cos(a); y = Math.sin(a) * 0.25; z = Math.sin(a); } else { const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, q = Math.sqrt(1 - u * u); x = q * Math.cos(a); y = u; z = q * Math.sin(a); } const s = sp * (0.85 + Math.random() * 0.3); fwEmit(r.x, r.y, r.z, x * s, y * s, z * s, 1.6 + Math.random() * 1.1, 3.6 + Math.random() * 2.2, k % 3 ? c1 : c2, 1.1); }
+      const v = Audio.vol(r.x, r.z); setTimeout(() => { Audio.burst(0.5 * v, 110, 1.4, 'lowpass', 1); Audio.burst(0.18 * v, 2600, 0.9, 'highpass', 1); }, Math.min(1500, Math.hypot(r.x - player.pos.x, r.z - player.pos.z) / 0.34));
+    }
+  }
+  const g = fwk.pts.geometry, P = g.attributes.position.array, S = g.attributes.aSize.array, A = g.attributes.aAlpha.array, C = g.attributes.aColor.array; let any = false;
+  for (let i = 0; i < fwk.max; i++) {
+    const p = fwk.data[i]; if (p.life <= 0) { if (A[i]) { A[i] = 0; S[i] = 0; any = true; } continue; }
+    any = true; p.life -= dt; const f = Math.exp(-p.drag * dt); p.vx *= f; p.vy = p.vy * f - 4.5 * dt; p.vz *= f; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    const t = Math.max(0, p.life) / p.max; P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z; S[i] = p.size * (0.5 + t * 0.6); A[i] = Math.min(1, t * 1.6) * (0.75 + Math.random() * 0.25); C[i * 3] = p.r; C[i * 3 + 1] = p.g; C[i * 3 + 2] = p.b;
+  }
+  if (any) { g.attributes.position.needsUpdate = g.attributes.aSize.needsUpdate = g.attributes.aAlpha.needsUpdate = g.attributes.aColor.needsUpdate = true; }
+}
 
 /* ============================================================
    Audio (synthesised)
@@ -5674,13 +5802,19 @@ $('fly-spawn').addEventListener('click', () => { closeFlyPanel(); if (player.sta
 $('fly-close').addEventListener('click', () => { closeFlyPanel(); saveGame(); });
 holdBtn('f-up', () => { input.fUp = true; }, () => { input.fUp = false; });
 $('b-turbo').addEventListener('click', () => toggleTurbo());
+const liftNum = () => parseInt(String($('lift-in').value).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[^0-9]/g, ''), 10);
+document.querySelectorAll('#lift-panel [data-df]').forEach(b => b.addEventListener('click', () => { const v = isFinite(liftNum()) ? liftNum() : rb.floor; $('lift-in').value = clamp(v + (+b.dataset.df), 0, RB_FLOORS - 1); }));
+document.querySelectorAll('#lift-panel [data-fl]').forEach(b => b.addEventListener('click', () => { const f = b.dataset.fl; rbLiftGo(f === 'max' ? RB_FLOORS - 1 : f === 'rand' ? Math.floor(Math.random() * RB_FLOORS) : +f); }));
+$('lift-form').addEventListener('submit', e => { e.preventDefault(); $('lift-in').blur(); const v = liftNum(); if (isFinite(v)) rbLiftGo(v); else toast('شمارهٔ طبقه رو بنویس'); });
+$('lift-close').addEventListener('click', () => { $('lift-panel').hidden = true; });
+for (const ev of ['pointerdown', 'touchstart', 'wheel']) $('lift-panel').addEventListener(ev, e => e.stopPropagation(), { passive: true });
 holdBtn('f-down', () => { input.fDown = true; }, () => { input.fDown = false; });
 // secret codes
 $('btn-code').addEventListener('click', () => { $('code-panel').hidden = false; $('code-in').value = ''; setTimeout(() => $('code-in').focus(), 50); });
 $('code-form').addEventListener('submit', e => { e.preventDefault(); $('code-panel').hidden = true; $('code-in').blur(); runCode($('code-in').value); });
 $('code-close').addEventListener('click', () => { $('code-panel').hidden = true; });
 let codeBuf = '';
-addEventListener('keydown', e => { if (!started || typing()) return; const d = e.key && /^[0-9۰-۹]$/.test(e.key) ? e.key : null; if (!d) return; codeBuf = (codeBuf + d).slice(-4); if (/^(1818|1717|۱۸۱۸|۱۷۱۷)$/.test(codeBuf)) { runCode(codeBuf); codeBuf = ''; } });
+addEventListener('keydown', e => { if (!started || typing()) return; const d = e.key && /^[0-9۰-۹]$/.test(e.key) ? e.key : null; if (!d) return; codeBuf = (codeBuf + d).slice(-4); if (/^(1818|1717|1400|۱۸۱۸|۱۷۱۷|۱۴۰۰)$/.test(codeBuf)) { runCode(codeBuf); codeBuf = ''; } });
 
 $('chat-close').addEventListener('click', () => closeChat());
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); sendChat($('chat-input').value); });
@@ -6028,7 +6162,7 @@ function snapshot() {
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, rbVer: store.rbVer || 2, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
     cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
@@ -6383,7 +6517,7 @@ function updateCamera(dt) {
     tx = P.pos.x; ty = P.pos.y + (P.state === 'use' && P.use.kind === 'lie' ? 0.45 : P.state === 'use' && P.use.kind === 'sit' ? 1.05 : 1.45) - P.anim.knock * 1.0; tz = P.pos.z;
     if (P.state === 'entering' || P.state === 'exiting') { tx = P.car.x; tz = P.car.z; ty = P.car.y + 1.4; }
     desired = (outdoor || P.where === 'rb' || P.where === 'test' ? 4.6 : 3.1) * cam.zoom;
-    cam.target.x = damp(cam.target.x, tx, 18, dt); cam.target.z = damp(cam.target.z, tz, 18, dt); cam.target.y = damp(cam.target.y, ty, 9, dt);
+    const kT = Math.max(18, Math.hypot(P.vel.x, P.vel.z) * 0.9); cam.target.x = damp(cam.target.x, tx, kT, dt); cam.target.z = damp(cam.target.z, tz, kT, dt); cam.target.y = damp(cam.target.y, ty, 9, dt);
   }
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp;
   const col = zoneCol(P.where);
@@ -6398,7 +6532,7 @@ function updateCamera(dt) {
   const off = chat.open && innerWidth > innerHeight * 1.25 ? innerWidth * 0.2 : 0;
   cam.voff = damp(cam.voff || 0, off, 5, dt);
   if (cam.voff > 1) camera.setViewOffset(innerWidth, innerHeight, cam.voff, 0, innerWidth, innerHeight); else if (camera.view && camera.view.enabled) camera.clearViewOffset();
-  const fovT = 60 + ((P.state === 'car' || P.state === 'passenger') ? clamp(Math.abs(P.car.vf) * 0.32, 0, 14) : 0);
+  const fovT = 60 + ((P.state === 'car' || P.state === 'passenger') ? clamp(Math.abs(P.car.vf) * 0.32, 0, 14) : 0) + (P.where === 'rb' && P.turbo ? clamp(Math.hypot(P.vel.x, P.vel.z) * (P.turbo === 2 ? 0.1 : 0.45), 0, 22) : 0);
   cam.fov = damp(cam.fov, fovT, 3, dt); if (Math.abs(camera.fov - cam.fov) > 0.05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
 }
 
@@ -6749,6 +6883,7 @@ function updateWorld(dt) {
   }
   if (player.where === 'in') { for (const n of interior.npcs) updateNPC(n, dt, false, interior.col); updateInterior(dt); }
   if (player.where === 'rb') { updateRB(dt); updateBuild(dt); }
+  if (player.where === 'out') updateBalloons(dt); updateFireworks(dt);
   if (player.where === 'test') updateTest(dt);
   updateInvites(dt);
   const people = player.state !== 'foot' ? (player.where === 'out' ? npcs : interior.npcs) : player.where === 'out' ? [player, ...npcs] : [player, ...interior.npcs];
@@ -6890,7 +7025,7 @@ async function boot(data) {
   const sv = loadSave();
   if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
   if (!restored) { spawnTraffic(); spawnPeople(); }
-  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices();
+  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); buildFireworks();
   if (restored) rebuildPlayerLook();
   setView(settings.view === 'first'); updateWalletHUD();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
@@ -6909,7 +7044,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { rb, rbCanSee, rbX: { rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
