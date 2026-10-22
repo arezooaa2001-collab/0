@@ -1,0 +1,8 @@
+{
+  "name": "shahr-azad",
+  "private": true,
+  "description": "Source for city-game.html (single-file 3D city game).",
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "devDependencies": { "esbuild": "0.23.1", "three": "0.160.0" }
+}
