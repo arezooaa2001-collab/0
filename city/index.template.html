@@ -165,6 +165,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 #bag-photos img{width:100%;border-radius:8px;display:block}
 #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:19}
 .chip.on{background:rgba(255,179,64,.85);color:var(--amber-ink)}
+#b-turbo.on{outline:3px solid #fff;box-shadow:0 0 18px #ffe94d}
 /* settings */
 #settings{position:fixed;inset:0;z-index:25;display:grid;place-items:center;background:rgba(5,7,11,.6);padding:16px}
 #settings form{width:min(440px,100%);background:#121824;border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -244,6 +245,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 <div id="pad" hidden>
   <button id="b-run" class="tbtn" type="button">دویدن</button>
   <button id="b-jump" class="tbtn" type="button">پرش</button>
+  <button id="b-turbo" class="tbtn" type="button" hidden style="background:linear-gradient(135deg,#ff4d4d,#ffb340,#4db8ff,#a66bff);color:#111;font-weight:800">توربو</button>
   <button id="b-use" class="tbtn" type="button" hidden style="grid-column:span 2;width:auto;border-radius:18px;padding:0 14px;height:46px">استفاده</button>
   <button id="b-act" class="tbtn big" type="button" style="grid-column:span 2">سوار شو</button>
 </div>
