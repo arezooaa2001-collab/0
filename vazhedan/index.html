@@ -1,0 +1,648 @@
+<title>واژه‌دان</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="کتابخانهٔ ابری کلمه‌ها به هر زبانی، با بلندگو برای شنیدن تلفظ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@400;500;700&display=swap">
+<style>
+/* Layout: one calm column — add-word card on top, the library list below; the speaker button is the hero of every row. */
+:root {
+  --bg: #EDF3F1;
+  --surface: #FFFFFF;
+  --surface-2: #E1EBE8;
+  --ink: #10302C;
+  --muted: #56706B;
+  --line: #CCDBD7;
+  --teal: #1B6A61;
+  --on-teal: #FFFFFF;
+  --saffron: #E4A11E;
+  --on-saffron: #2A1C00;
+  --danger: #B3261E;
+  --shadow: 0 1px 2px rgba(16, 48, 44, .06), 0 8px 24px rgba(16, 48, 44, .06);
+  --font-body: "Vazirmatn", system-ui, "Noto Sans", "Segoe UI", sans-serif;
+  --font-display: "Lalezar", "Vazirmatn", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1615; --surface: #12211F; --surface-2: #1A2D2A; --ink: #E3EFEC; --muted: #93ABA6;
+    --line: #26403B; --teal: #5EC1B3; --on-teal: #062420; --saffron: #F0B53F; --on-saffron: #241800;
+    --danger: #FF8A80; --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B1615; --surface: #12211F; --surface-2: #1A2D2A; --ink: #E3EFEC; --muted: #93ABA6;
+  --line: #26403B; --teal: #5EC1B3; --on-teal: #062420; --saffron: #F0B53F; --on-saffron: #241800;
+  --danger: #FF8A80; --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 96px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-mark {
+  width: 46px; height: 46px; border-radius: 13px; flex: none;
+  background: var(--teal); color: var(--on-teal);
+  display: grid; place-items: center;
+}
+.brand h1 { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1.1; margin: 0; letter-spacing: 0; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.status {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+}
+.status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.status[data-mode="cloud"] { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 40%, var(--line)); }
+.status[data-mode="cloud"] .dot { background: var(--teal); }
+.status[data-mode="local"] { color: var(--ink); border-color: color-mix(in srgb, var(--saffron) 60%, var(--line)); }
+.status[data-mode="local"] .dot { background: var(--saffron); }
+.status[data-mode="connecting"] .dot { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+
+.note {
+  margin: -8px 0 0; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+  background: color-mix(in srgb, var(--saffron) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--saffron) 45%, var(--line));
+}
+
+/* Add card */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+.add { display: grid; gap: 12px; }
+.add h2, .lib-head h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.field { display: grid; gap: 5px; min-width: 0; }
+.field > span { font-size: 12.5px; color: var(--muted); font-weight: 500; letter-spacing: .01em; }
+.input, .select {
+  width: 100%; min-width: 0; border: 1px solid var(--line); background: var(--bg);
+  border-radius: 11px; padding: 10px 12px; transition: border-color .15s;
+}
+.input:focus, .select:focus { border-color: var(--teal); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent); }
+#word { font-size: 22px; font-weight: 500; padding: 12px 14px; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; }
+.lang-line { font-size: 12px; color: var(--muted); min-height: 1.2em; margin: 0; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 11px; padding: 10px 18px; font-weight: 700; border: 1px solid transparent;
+  transition: transform .08s, filter .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--teal); color: var(--on-teal); flex: 1 1 200px; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: var(--surface-2); border-color: var(--line); flex: 0 1 auto; }
+.btn[disabled] { opacity: .55; cursor: default; }
+
+/* Library */
+.lib { display: grid; gap: 12px; }
+.lib-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.filters { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; }
+.list { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.item.flash { border-color: var(--saffron); box-shadow: 0 0 0 3px color-mix(in srgb, var(--saffron) 35%, transparent); }
+.speak {
+  width: 54px; height: 54px; border-radius: 50%; border: 0; flex: none;
+  background: var(--saffron); color: var(--on-saffron);
+  display: grid; place-items: center; transition: transform .1s, filter .15s;
+}
+.speak:hover { filter: brightness(1.05); }
+.speak:active { transform: scale(.94); }
+.speak svg { width: 26px; height: 26px; }
+.speak .w1, .speak .w2 { opacity: .9; }
+.speaking .speak .w1 { animation: wave .9s ease-in-out infinite; }
+.speaking .speak .w2 { animation: wave .9s ease-in-out .3s infinite; }
+@keyframes wave { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+.speaking .speak { filter: brightness(1.08); box-shadow: 0 0 0 5px color-mix(in srgb, var(--saffron) 30%, transparent); }
+.word-box { min-width: 0; display: grid; gap: 2px; }
+.word {
+  font-size: 21px; font-weight: 700; line-height: 1.35; margin: 0;
+  overflow-wrap: anywhere; unicode-bidi: plaintext; text-align: start;
+}
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12.5px; color: var(--muted); }
+.chip {
+  display: inline-block; padding: 1px 9px; border-radius: 999px; font-weight: 500;
+  background: var(--surface-2); color: var(--teal); border: 1px solid var(--line);
+}
+.meaning { font-size: 14px; color: var(--ink); opacity: .85; margin: 0; overflow-wrap: anywhere; unicode-bidi: plaintext; text-align: start; }
+.item-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.mini {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 9px;
+  padding: 3px 10px; font-size: 12.5px; font-weight: 500; white-space: nowrap;
+}
+.mini:hover { border-color: var(--teal); }
+.mini.del { color: var(--danger); }
+.mini.del.armed { background: var(--danger); color: var(--surface); border-color: var(--danger); }
+
+.empty {
+  text-align: center; padding: 34px 18px; color: var(--muted);
+  border: 1.5px dashed var(--line); border-radius: var(--radius); background: var(--surface);
+}
+.empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  max-width: min(520px, calc(100vw - 32px));
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px;
+  font-size: 14px; box-shadow: var(--shadow); z-index: 20;
+}
+
+@media (max-width: 560px) {
+  .row2, .filters { grid-template-columns: minmax(0, 1fr); }
+  .item { grid-template-columns: auto minmax(0, 1fr); }
+  .item-actions { grid-column: 1 / -1; flex-direction: row; justify-content: flex-end; }
+  .brand h1 { font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="wrap" dir="rtl" lang="fa">
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M10 8.5v4l3-2-3-2z" fill="currentColor"/></svg>
+      </div>
+      <div>
+        <h1>واژه‌دان</h1>
+        <p>کلمه‌هایت را به هر زبانی نگه دار و هر وقت خواستی بشنو</p>
+      </div>
+    </div>
+    <span class="status" id="status" data-mode="connecting"><span class="dot"></span><span id="statusText">در حال اتصال…</span></span>
+  </header>
+
+  <p class="note" id="localNote" hidden>الان کلمه‌ها فقط روی همین دستگاه ذخیره می‌شوند. برای ذخیرهٔ ابری، این صفحه را از داخل Claude باز کن و وارد حسابت شو.</p>
+  <p class="note" id="ttsNote" hidden>این مرورگر خواندن متن با صدا را پشتیبانی نمی‌کند. با Chrome، Edge یا Safari باز کن.</p>
+
+  <form class="card add" id="addForm" autocomplete="off">
+    <h2>کلمهٔ تازه</h2>
+    <label class="field">
+      <span>کلمه یا عبارت</span>
+      <input class="input" id="word" dir="auto" maxlength="200" placeholder="مثلاً Bonjour یا ありがとう" required>
+    </label>
+    <div class="row2">
+      <label class="field">
+        <span>زبان</span>
+        <select class="select" id="lang"></select>
+      </label>
+      <label class="field">
+        <span>معنی یا یادداشت (اختیاری)</span>
+        <input class="input" id="meaning" dir="auto" maxlength="300" placeholder="مثلاً: سلام">
+      </label>
+    </div>
+    <p class="lang-line" id="langHint"></p>
+    <div class="actions">
+      <button class="btn btn-primary" id="saveBtn" type="submit">ذخیره در کتابخانه</button>
+      <button class="btn btn-ghost" id="previewBtn" type="button" aria-label="پیش از ذخیره گوش بده">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        گوش بده
+      </button>
+    </div>
+  </form>
+
+  <section class="lib" aria-labelledby="libTitle">
+    <div class="lib-head">
+      <h2 id="libTitle">کتابخانه</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="filters">
+      <label class="field">
+        <span>جست‌وجو</span>
+        <input class="input" id="search" type="search" dir="auto" placeholder="کلمه یا معنی…">
+      </label>
+      <label class="field">
+        <span>زبان</span>
+        <select class="select" id="langFilter"><option value="">همهٔ زبان‌ها</option></select>
+      </label>
+    </div>
+    <ul class="list" id="list"></ul>
+    <div class="empty" id="empty">
+      <strong>در حال باز کردن کتابخانه…</strong>
+      کلمه‌های ذخیره‌شده‌ات اینجا با یک دکمهٔ بلندگو نشان داده می‌شوند.
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const LANGS = [
+    ["fa-IR", "فارسی"], ["en-US", "انگلیسی (آمریکا)"], ["en-GB", "انگلیسی (بریتانیا)"], ["ar-SA", "عربی"],
+    ["tr-TR", "ترکی استانبولی"], ["fr-FR", "فرانسوی"], ["de-DE", "آلمانی"], ["es-ES", "اسپانیایی"],
+    ["it-IT", "ایتالیایی"], ["pt-BR", "پرتغالی (برزیل)"], ["pt-PT", "پرتغالی (پرتغال)"], ["ru-RU", "روسی"],
+    ["zh-CN", "چینی ماندارین"], ["zh-TW", "چینی (تایوان)"], ["zh-HK", "کانتونی"], ["ja-JP", "ژاپنی"],
+    ["ko-KR", "کره‌ای"], ["hi-IN", "هندی"], ["ur-PK", "اردو"], ["nl-NL", "هلندی"], ["sv-SE", "سوئدی"],
+    ["nb-NO", "نروژی"], ["da-DK", "دانمارکی"], ["fi-FI", "فنلاندی"], ["pl-PL", "لهستانی"], ["cs-CZ", "چکی"],
+    ["el-GR", "یونانی"], ["he-IL", "عبری"], ["th-TH", "تایلندی"], ["vi-VN", "ویتنامی"], ["id-ID", "اندونزیایی"],
+    ["ms-MY", "مالایی"], ["fil-PH", "فیلیپینی"], ["uk-UA", "اوکراینی"], ["ro-RO", "رومانیایی"], ["hu-HU", "مجاری"],
+    ["bg-BG", "بلغاری"], ["hr-HR", "کرواتی"], ["sr-RS", "صربی"], ["sk-SK", "اسلواکی"], ["ca-ES", "کاتالان"],
+    ["hy-AM", "ارمنی"], ["ka-GE", "گرجی"], ["az-AZ", "آذربایجانی"], ["kk-KZ", "قزاقی"], ["uz-UZ", "ازبکی"],
+    ["ps-AF", "پشتو"], ["bn-BD", "بنگالی"], ["ta-IN", "تامیلی"], ["sw-KE", "سواحیلی"], ["af-ZA", "آفریکانس"]
+  ];
+  const LANG_NAMES = new Map(LANGS);
+  const LOCAL_KEY = "vazhedan.words.v1";
+  const PREF_KEY = "vazhedan.lastLang";
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    status: $("status"), statusText: $("statusText"), localNote: $("localNote"), ttsNote: $("ttsNote"),
+    form: $("addForm"), word: $("word"), lang: $("lang"), meaning: $("meaning"), langHint: $("langHint"),
+    saveBtn: $("saveBtn"), previewBtn: $("previewBtn"), search: $("search"), langFilter: $("langFilter"),
+    list: $("list"), empty: $("empty"), count: $("count"), toast: $("toast")
+  };
+
+  const state = { mode: "connecting", words: [], loaded: false, col: null, langTouched: false, speakingId: null };
+  const faNum = (n) => Number(n).toLocaleString("fa-IR");
+  let displayNames = null;
+  try { displayNames = new Intl.DisplayNames(["fa"], { type: "language" }); } catch (e) {}
+
+  function langName(code) {
+    if (LANG_NAMES.has(code)) return LANG_NAMES.get(code);
+    try { return (displayNames && displayNames.of(code)) || code; } catch (e) { return code; }
+  }
+  const normLang = (l) => String(l || "").replace("_", "-").toLowerCase();
+
+  /* ---------- toast ---------- */
+  let toastTimer = 0;
+  function toast(msg) {
+    els.toast.textContent = msg;
+    els.toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { els.toast.hidden = true; }, 3600);
+  }
+
+  /* ---------- speech ---------- */
+  const synth = "speechSynthesis" in window ? window.speechSynthesis : null;
+  let voices = [];
+  function loadVoices() { if (synth) { try { voices = synth.getVoices() || []; } catch (e) { voices = []; } buildLangOptions(); } }
+  if (synth) {
+    loadVoices();
+    try { synth.addEventListener("voiceschanged", loadVoices); } catch (e) { synth.onvoiceschanged = loadVoices; }
+  } else {
+    els.ttsNote.hidden = false;
+  }
+
+  function pickVoice(lang) {
+    const want = normLang(lang), base = want.split("-")[0];
+    let best = null, bestScore = -1;
+    for (const v of voices) {
+      const vl = normLang(v.lang);
+      let s = vl === want ? 100 : vl.split("-")[0] === base ? 60 : -1;
+      if (s < 0) continue;
+      if (/natural|neural|premium|enhanced|google/i.test(v.name)) s += 10;
+      if (v.default) s += 2;
+      if (s > bestScore) { best = v; bestScore = s; }
+    }
+    return best;
+  }
+
+  function speak(text, lang, opts = {}) {
+    if (!synth) { toast("این مرورگر نمی‌تواند متن را با صدا بخواند."); return; }
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang;
+    const v = pickVoice(lang);
+    if (v) u.voice = v;
+    else if (voices.length) toast("صدای «" + langName(lang) + "» روی این دستگاه نصب نیست؛ با صدای پیش‌فرض خوانده می‌شود.");
+    u.rate = opts.slow ? 0.6 : 0.95;
+    u.onstart = () => setSpeaking(opts.id || null);
+    u.onend = u.onerror = () => setSpeaking(null);
+    // Some browsers drop an utterance queued right after cancel(); a tick of delay avoids it.
+    setTimeout(() => synth.speak(u), 30);
+  }
+
+  function setSpeaking(id) {
+    state.speakingId = id;
+    for (const li of els.list.children) li.classList.toggle("speaking", !!id && li.dataset.id === id);
+  }
+
+  /* ---------- language picker ---------- */
+  function buildLangOptions() {
+    const current = els.lang.value || readPref() || "en-US";
+    const known = new Set(LANGS.map(([c]) => normLang(c)));
+    const extra = new Map();
+    for (const v of voices) {
+      const c = String(v.lang || "").replace("_", "-");
+      if (c && !known.has(normLang(c)) && !extra.has(normLang(c))) extra.set(normLang(c), c);
+    }
+    els.lang.textContent = "";
+    const g1 = document.createElement("optgroup");
+    g1.label = "زبان‌های رایج";
+    for (const [code, name] of LANGS) g1.append(new Option(name, code));
+    els.lang.append(g1);
+    if (extra.size) {
+      const g2 = document.createElement("optgroup");
+      g2.label = "زبان‌های دیگرِ این دستگاه";
+      [...extra.values()].map((c) => [c, langName(c)]).sort((a, b) => a[1].localeCompare(b[1], "fa"))
+        .forEach(([c, n]) => g2.append(new Option(n + " (" + c + ")", c)));
+      els.lang.append(g2);
+    }
+    // Keep languages already used in the library selectable even if this device lacks their voice.
+    for (const w of state.words) ensureLangOption(w.lang);
+    ensureLangOption(current);
+    els.lang.value = current;
+    updateLangHint();
+  }
+  function ensureLangOption(code) {
+    if (!code || [...els.lang.options].some((o) => o.value === code)) return;
+    els.lang.append(new Option(langName(code) + " (" + code + ")", code));
+  }
+  function updateLangHint() {
+    const code = els.lang.value;
+    if (!synth) { els.langHint.textContent = ""; return; }
+    if (!voices.length) { els.langHint.textContent = ""; return; }
+    const v = pickVoice(code);
+    els.langHint.textContent = v
+      ? "صدای این زبان روی دستگاهت: " + v.name
+      : "صدای این زبان روی این دستگاه نصب نیست؛ کلمه ذخیره می‌شود و روی دستگاهی که صدایش را دارد درست خوانده می‌شود.";
+  }
+  function readPref() { try { return localStorage.getItem(PREF_KEY); } catch (e) { return null; } }
+  function writePref(v) { try { localStorage.setItem(PREF_KEY, v); } catch (e) {} }
+
+  // Guess the language from the script being typed, until the user picks one by hand.
+  function guessLang(text) {
+    if (/[぀-ヿ]/.test(text)) return "ja-JP";
+    if (/[가-힯ᄀ-ᇿ]/.test(text)) return "ko-KR";
+    if (/[一-鿿]/.test(text)) return "zh-CN";
+    if (/[؀-ۿ]/.test(text)) return /[پچژگک‌ی]/.test(text) ? "fa-IR" : (/[ةىإأ]/.test(text) ? "ar-SA" : null);
+    if (/[Ѐ-ӿ]/.test(text)) return /[іїєґ]/i.test(text) ? "uk-UA" : "ru-RU";
+    if (/[Ͱ-Ͽ]/.test(text)) return "el-GR";
+    if (/[֐-׿]/.test(text)) return "he-IL";
+    if (/[฀-๿]/.test(text)) return "th-TH";
+    if (/[ऀ-ॿ]/.test(text)) return "hi-IN";
+    if (/[԰-֏]/.test(text)) return "hy-AM";
+    if (/[Ⴀ-ჿ]/.test(text)) return "ka-GE";
+    if (/[äöüß]/i.test(text)) return "de-DE";
+    if (/[ñ¿¡]/i.test(text)) return "es-ES";
+    if (/[çàèéêëîïôœùû]/i.test(text)) return "fr-FR";
+    if (/[ğışİ]/.test(text)) return "tr-TR";
+    return null;
+  }
+
+  /* ---------- storage: cloud (Claude db) with on-device fallback ---------- */
+  function setMode(mode) {
+    state.mode = mode;
+    els.status.dataset.mode = mode;
+    els.statusText.textContent = mode === "cloud" ? "همگام با فضای ابری" : mode === "local" ? "ذخیره روی همین دستگاه" : "در حال اتصال…";
+    els.localNote.hidden = mode !== "local";
+  }
+  function readLocal() { try { const v = JSON.parse(localStorage.getItem(LOCAL_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function writeLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state.words)); } catch (e) { toast("ذخیره روی دستگاه ممکن نشد."); } }
+
+  function useLocal() {
+    setMode("local");
+    state.words = readLocal().sort((a, b) => b.createdAt - a.createdAt);
+    state.loaded = true;
+    render();
+  }
+
+  async function connect() {
+    let db = null, user = null;
+    try {
+      if (window.claude && typeof window.claude.use === "function") {
+        [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+      }
+    } catch (e) {}
+    let uid = null;
+    try { uid = user ? await user.id() : null; } catch (e) {}
+    if (!db || !uid) return useLocal();
+
+    state.col = db.collection("data/users/" + uid);
+    setMode("cloud");
+    state.col.orderBy("createdAt", "desc").limit(1000).onSnapshot(
+      (snap) => {
+        state.words = snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
+        state.loaded = true;
+        render();
+      },
+      (err) => {
+        if (err && err.code === "revoked") { toast("دسترسی به فضای ابری قطع شد."); return; }
+        toast("اتصال به فضای ابری قطع شد. صفحه را دوباره باز کن.");
+      }
+    );
+  }
+
+  function cloudError(e) {
+    const code = e && e.code;
+    if (code === "quota_exceeded") return "فضای کتابخانه پر شده است؛ چند کلمه را حذف کن و دوباره امتحان کن.";
+    if (code === "invalid_argument") return "اجازهٔ ذخیره در این صفحه را نداری. از صاحب صفحه بخواه دسترسی «Contributor» بدهد.";
+    if (code === "resource_exhausted") return "کمی صبر کن و دوباره امتحان کن.";
+    return "ذخیره در فضای ابری ممکن نشد. اتصال اینترنت را بررسی کن.";
+  }
+  async function withRetry(fn) {
+    try { return await fn(); }
+    catch (e) {
+      if (e && e.code === "unavailable") { await new Promise((r) => setTimeout(r, 400 + Math.random() * 600)); return fn(); }
+      throw e;
+    }
+  }
+
+  async function addWord(item) {
+    if (state.mode === "cloud") {
+      await withRetry(() => state.col.add(item));
+    } else {
+      const id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random().toString(36).slice(2);
+      state.words.unshift(Object.assign({ id }, item));
+      writeLocal();
+      render();
+    }
+  }
+  async function removeWord(id) {
+    if (state.mode === "cloud") {
+      await withRetry(() => state.col.doc(id).delete());
+    } else {
+      state.words = state.words.filter((w) => w.id !== id);
+      writeLocal();
+      render();
+    }
+  }
+
+  /* ---------- render ---------- */
+  const SPEAKER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path class="w1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+  let dateFmt = null;
+  try { dateFmt = new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }); } catch (e) {}
+
+  function render() {
+    // language filter options from what's in the library
+    const used = [...new Set(state.words.map((w) => w.lang).filter(Boolean))];
+    const keep = els.langFilter.value;
+    els.langFilter.length = 1;
+    used.map((c) => [c, langName(c)]).sort((a, b) => a[1].localeCompare(b[1], "fa"))
+      .forEach(([c, n]) => els.langFilter.append(new Option(n, c)));
+    els.langFilter.value = used.includes(keep) ? keep : "";
+    for (const c of used) ensureLangOption(c);
+
+    const q = els.search.value.trim().toLowerCase();
+    const lf = els.langFilter.value;
+    const shown = state.words.filter((w) =>
+      (!lf || w.lang === lf) &&
+      (!q || String(w.text || "").toLowerCase().includes(q) || String(w.meaning || "").toLowerCase().includes(q))
+    );
+
+    els.count.textContent = state.loaded
+      ? (shown.length === state.words.length ? faNum(state.words.length) + " کلمه" : faNum(shown.length) + " از " + faNum(state.words.length) + " کلمه")
+      : "";
+
+    els.list.textContent = "";
+    for (const w of shown) els.list.append(renderItem(w));
+
+    if (!state.loaded) {
+      els.empty.hidden = false;
+    } else if (!state.words.length) {
+      els.empty.hidden = false;
+      els.empty.innerHTML = "<strong>کتابخانه هنوز خالی است</strong>اولین کلمه‌ات را بالا بنویس، زبانش را انتخاب کن و «ذخیره در کتابخانه» را بزن.";
+    } else if (!shown.length) {
+      els.empty.hidden = false;
+      els.empty.innerHTML = "<strong>چیزی پیدا نشد</strong>جست‌وجو یا فیلتر زبان را تغییر بده.";
+    } else {
+      els.empty.hidden = true;
+    }
+  }
+
+  function renderItem(w) {
+    const li = document.createElement("li");
+    li.className = "item" + (state.speakingId === w.id ? " speaking" : "");
+    li.dataset.id = w.id;
+
+    const sp = document.createElement("button");
+    sp.type = "button";
+    sp.className = "speak";
+    sp.innerHTML = SPEAKER_SVG;
+    sp.setAttribute("aria-label", "پخش «" + w.text + "»");
+    sp.addEventListener("click", () => speak(w.text, w.lang, { id: w.id }));
+
+    const box = document.createElement("div");
+    box.className = "word-box";
+    const word = document.createElement("p");
+    word.className = "word";
+    word.dir = "auto";
+    word.lang = w.lang || "";
+    word.textContent = w.text;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = langName(w.lang);
+    meta.append(chip);
+    if (w.createdAt && dateFmt) {
+      const d = document.createElement("span");
+      d.textContent = dateFmt.format(new Date(w.createdAt));
+      meta.append(d);
+    }
+    box.append(word);
+    if (w.meaning) {
+      const m = document.createElement("p");
+      m.className = "meaning";
+      m.dir = "auto";
+      m.textContent = w.meaning;
+      box.append(m);
+    }
+    box.append(meta);
+
+    const acts = document.createElement("div");
+    acts.className = "item-actions";
+    const slow = document.createElement("button");
+    slow.type = "button";
+    slow.className = "mini";
+    slow.textContent = "آهسته";
+    slow.addEventListener("click", () => speak(w.text, w.lang, { id: w.id, slow: true }));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "mini del";
+    del.textContent = "حذف";
+    let armTimer = 0;
+    del.addEventListener("click", async () => {
+      if (!del.classList.contains("armed")) {
+        del.classList.add("armed");
+        del.textContent = "مطمئنی؟";
+        armTimer = setTimeout(() => { del.classList.remove("armed"); del.textContent = "حذف"; }, 3000);
+        return;
+      }
+      clearTimeout(armTimer);
+      del.disabled = true;
+      try { await removeWord(w.id); toast("«" + w.text + "» حذف شد."); }
+      catch (e) { del.disabled = false; toast(cloudError(e)); }
+    });
+    acts.append(slow, del);
+
+    li.append(sp, box, acts);
+    return li;
+  }
+
+  /* ---------- events ---------- */
+  els.word.addEventListener("input", () => {
+    if (state.langTouched) return;
+    const g = guessLang(els.word.value);
+    if (g && g !== els.lang.value) { ensureLangOption(g); els.lang.value = g; updateLangHint(); }
+  });
+  els.lang.addEventListener("change", () => { state.langTouched = true; writePref(els.lang.value); updateLangHint(); });
+
+  els.previewBtn.addEventListener("click", () => {
+    const t = els.word.value.trim();
+    if (!t) { toast("اول یک کلمه بنویس."); els.word.focus(); return; }
+    speak(t, els.lang.value);
+  });
+
+  els.form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const text = els.word.value.trim().replace(/\s+/g, " ");
+    const lang = els.lang.value;
+    const meaning = els.meaning.value.trim();
+    if (!text) { els.word.focus(); return; }
+    if (state.mode === "connecting") { toast("یک لحظه صبر کن تا کتابخانه باز شود."); return; }
+
+    const dup = state.words.find((w) => w.lang === lang && String(w.text).toLowerCase() === text.toLowerCase());
+    if (dup) {
+      toast("«" + text + "» قبلاً در کتابخانه هست.");
+      els.search.value = ""; els.langFilter.value = ""; render();
+      const li = els.list.querySelector('[data-id="' + CSS.escape(dup.id) + '"]');
+      if (li) { li.scrollIntoView({ behavior: "smooth", block: "center" }); li.classList.add("flash"); setTimeout(() => li.classList.remove("flash"), 1800); }
+      return;
+    }
+
+    els.saveBtn.disabled = true;
+    try {
+      await addWord({ text, lang, meaning, createdAt: Date.now() });
+      writePref(lang);
+      els.word.value = ""; els.meaning.value = "";
+      state.langTouched = false;
+      toast("«" + text + "» در کتابخانه ذخیره شد.");
+      els.word.focus();
+    } catch (e) {
+      toast(cloudError(e));
+    } finally {
+      els.saveBtn.disabled = false;
+    }
+  });
+
+  els.search.addEventListener("input", render);
+  els.langFilter.addEventListener("change", render);
+
+  buildLangOptions();
+  render();
+  connect();
+})();
+</script>
