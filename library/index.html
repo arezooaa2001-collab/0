@@ -1,0 +1,3471 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>html{color-scheme:light}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>کتابخانه قفسه</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&family=Noto+Naskh+Arabic:wght@600;700&family=Vazirmatn:wght@400;500;700&display=swap">
+<style>
+/* Layout: one column app shell — shelf header with two rooms (library, flashcards); catalog-card styling for the vocabulary. */
+:root{
+  --bg:#EDF1EE; --surface:#FFFFFF; --surface-2:#E2E9E5; --ink:#16221E; --muted:#5A6A64; --line:#CBD6D1;
+  --accent:#1D5A46; --accent-ink:#FFFFFF; --accent-soft:#D5E7DF; --brass:#9C711E; --danger:#B3261E; --danger-soft:#F6DEDB;
+  --card:#FFFEFA; --card-rule:#C64A3F; --card-line:#D9E4EE; --rec:#C62F2F;
+  --f-display:"Noto Naskh Arabic","Vazirmatn",serif; --f-body:"Vazirmatn",system-ui,"Segoe UI",Tahoma,sans-serif; --f-en:"Literata",Georgia,"Times New Roman",serif;
+  --r:14px; --shadow:0 1px 2px rgba(20,40,30,.06),0 6px 20px rgba(20,40,30,.07);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1412; --surface:#151F1C; --surface-2:#1C2925; --ink:#E3ECE8; --muted:#93A69F; --line:#2A3934;
+  --accent:#5DBA93; --accent-ink:#08190F; --accent-soft:#1D3A2F; --brass:#D6A74A; --danger:#F08A80; --danger-soft:#3A1D1B;
+  --card:#1A2521; --card-rule:#E0776C; --card-line:#24333A; --rec:#F06262; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1412; --surface:#151F1C; --surface-2:#1C2925; --ink:#E3ECE8; --muted:#93A69F; --line:#2A3934;
+  --accent:#5DBA93; --accent-ink:#08190F; --accent-soft:#1D3A2F; --brass:#D6A74A; --danger:#F08A80; --danger-soft:#3A1D1B;
+  --card:#1A2521; --card-rule:#E0776C; --card-line:#24333A; --rec:#F06262; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:980px;margin-inline:auto}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;margin-inline-end:auto}
+.shelf{display:flex;align-items:flex-end;gap:2px;height:30px;padding-bottom:3px;border-bottom:3px solid var(--brass)}
+.shelf i{display:block;width:6px;border-radius:2px 2px 0 0;background:var(--accent)}
+.shelf i:nth-child(1){height:22px}.shelf i:nth-child(2){height:26px;background:var(--brass)}.shelf i:nth-child(3){height:18px}.shelf i:nth-child(4){height:24px;transform:rotate(-12deg);transform-origin:bottom left;margin-inline-start:3px}
+.brand h1{font-family:var(--f-display);font-size:26px;margin:0;line-height:1.1}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.tabs{display:flex;background:var(--surface-2);border-radius:999px;padding:4px;gap:4px}
+.tabs button{border:0;background:transparent;padding:7px 16px;border-radius:999px;font-weight:500;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:3px 10px;border-radius:999px}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status[data-s="cloud"]::before{background:var(--accent)}
+.status[data-s="local"]::before{background:var(--brass)}
+.status[data-s="wait"]::before{animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+main{padding-top:20px}
+section[role="tabpanel"]{display:grid;gap:18px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel h2{font-family:var(--f-display);font-size:20px;margin:0 0 4px}
+.panel .sub{color:var(--muted);margin:0 0 14px;font-size:13.5px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:10px;font-weight:500;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--danger)}
+.btn.danger.solid{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:4px 10px;font-size:13px;border-radius:8px}
+input[type="text"],input[type="search"],select{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 12px;min-width:0}
+
+/* recorder */
+.recorder{display:grid;gap:14px}
+.rec-main{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.rec-btn{width:74px;height:74px;border-radius:50%;border:4px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none;transition:border-color .2s}
+.rec-btn span{width:30px;height:30px;border-radius:50%;background:var(--rec);transition:all .2s}
+.rec-btn.on{border-color:var(--rec)}
+.rec-btn.on span{width:24px;height:24px;border-radius:5px}
+.rec-info{flex:1;min-width:160px}
+.timer{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;direction:ltr;text-align:right;letter-spacing:.02em}
+.meter{width:100%;height:46px;display:block;background:var(--surface-2);border-radius:10px}
+.note{font-size:13px;color:var(--muted);margin:0}
+.alert{border-radius:10px;padding:10px 12px;font-size:13.5px;background:var(--danger-soft);color:var(--ink);border:1px solid var(--line)}
+.review{display:grid;gap:10px;border-top:1px dashed var(--line);padding-top:14px}
+.review audio{width:100%}
+
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:22px 16px;text-align:center;display:grid;gap:8px;justify-items:center;transition:border-color .2s,background .2s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop b{font-size:15px}
+.meter-bar{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.meter-bar span{display:block;height:100%;background:var(--accent);width:0}
+.usage{display:grid;gap:6px;font-size:12.5px;color:var(--muted);margin-top:12px}
+
+/* library list */
+.lib-head{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.lib-head h2{margin:0;margin-inline-end:auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.items{display:grid;gap:8px;margin-top:12px}
+.item{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.item .ic{width:44px;height:52px;border-radius:4px 8px 8px 4px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;letter-spacing:.04em;position:relative;font-family:var(--f-body)}
+.item .ic::after{content:"";position:absolute;inset-block:6px;inset-inline-start:5px;width:2px;background:rgba(255,255,255,.35)}
+.ic.audio{background:#2F6E5A}.ic.image{background:#3E5C8A}.ic.video{background:#7A4A86}.ic.pdf{background:#A8452F}.ic.text{background:#6B6B3A}.ic.other{background:#5A6470}
+.item .meta{min-width:0}
+.item .nm{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .dt{font-size:12.5px;color:var(--muted)}
+.item .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.item .player{grid-column:1/-1}
+.item .player audio,.item .player video{width:100%;display:block;border-radius:8px}
+.item .player img{display:block;max-height:420px;margin-inline:auto;border-radius:8px}
+.item .player pre{white-space:pre-wrap;max-height:320px;overflow:auto;background:var(--surface-2);padding:12px;border-radius:8px;font-size:13px;direction:auto;margin:0}
+.item .confirm{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--danger-soft);border-radius:8px;padding:8px 10px;font-size:13.5px}
+.item .rename{grid-column:1/-1;display:flex;gap:8px}
+.item .rename input{flex:1}
+.empty{text-align:center;color:var(--muted);padding:28px 10px;border:1px dashed var(--line);border-radius:12px}
+.empty b{display:block;color:var(--ink);font-family:var(--f-display);font-size:18px}
+@media (max-width:520px){.item{grid-template-columns:40px 1fr}.item .acts{grid-column:1/-1;justify-content:flex-start}}
+
+/* flashcards */
+.fc-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;font-size:13.5px;color:var(--muted)}
+.seg button+button{border-inline-start:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.levels{display:flex;gap:6px;flex-wrap:wrap}
+.lv{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:4px 10px;text-align:center;line-height:1.3;min-width:72px}
+.lv b{display:block;font-family:var(--f-en);direction:ltr}
+.lv small{font-size:11.5px;color:var(--muted)}
+.lv[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.stage{display:grid;justify-items:center;gap:14px;padding-block:8px}
+.card{width:min(520px,100%);aspect-ratio:5/3;perspective:1200px;border:0;background:none;padding:0;max-width:100%}
+.card .in{position:relative;width:100%;height:100%;transition:transform .55s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}
+.card.flipped .in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:10px;background:var(--card);box-shadow:var(--shadow);border:1px solid var(--line);
+  display:grid;grid-template-rows:auto 1fr auto;padding:14px 18px 12px;overflow:hidden;
+  background-image:linear-gradient(var(--card-rule),var(--card-rule)),repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--card-line) 27px,var(--card-line) 28px);
+  background-size:100% 2px,100% 100%;background-position:0 46px,0 48px;background-repeat:no-repeat,no-repeat}
+.face.back{transform:rotateY(180deg)}
+.face .hd{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);direction:ltr;height:26px}
+.face .no{font-family:var(--f-en);font-variant-numeric:tabular-nums;letter-spacing:.06em}
+.face .badge{border:1px solid var(--brass);color:var(--brass);border-radius:4px;padding:0 6px;font-weight:700;font-family:var(--f-en)}
+.face .body{display:grid;place-items:center;align-content:center;gap:4px;text-align:center;min-height:0}
+.face .en{font-family:var(--f-en);font-weight:700;font-size:clamp(28px,7vw,46px);direction:ltr;line-height:1.15;word-break:break-word}
+.face .fa{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,5.4vw,34px);line-height:1.5;direction:rtl}
+.face .pos{font-family:var(--f-en);font-style:italic;color:var(--muted);font-size:14px;direction:ltr}
+.face .ft{display:flex;justify-content:center;font-size:12px;color:var(--muted)}
+.face .hole{width:14px;height:14px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.card.known .face .hd::after{content:"✓ بلدم";direction:rtl;color:var(--accent);font-weight:700;font-family:var(--f-body)}
+.fc-nav{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.fc-count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13.5px}
+.prog{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+.hint{font-size:12.5px;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:reduce){.card .in{transition:none}.status[data-s="wait"]::before{animation:none}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 16px;border-radius:10px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+</style>
+
+<div class="wrap" dir="rtl" lang="fa">
+  <header class="top">
+    <div class="brand">
+      <div class="shelf" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div><h1>قفسه</h1><small>کتابخانه شخصی و فلش‌کارت لغت</small></div>
+    </div>
+    <span class="status" id="status" data-s="wait">در حال اتصال…</span>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-lib" aria-controls="p-lib" aria-selected="true">کتابخانه</button>
+      <button role="tab" id="tab-fc" aria-controls="p-fc" aria-selected="false">فلش‌کارت</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- LIBRARY -->
+    <section role="tabpanel" id="p-lib" aria-labelledby="tab-lib">
+      <div class="grid2">
+        <div class="panel recorder">
+          <div>
+            <h2>ضبط صدا</h2>
+            <p class="sub">صدا مستقیم داخل همین برنامه ضبط می‌شود و فقط در کتابخانه قفسه نگه داشته می‌شود؛ به گالری یا برنامه ضبط‌صوت دستگاهت نمی‌رود.</p>
+          </div>
+          <div class="rec-main">
+            <button class="rec-btn" id="recBtn" aria-label="شروع ضبط"><span></span></button>
+            <div class="rec-info">
+              <div class="timer" id="recTime">00:00</div>
+              <p class="note" id="recState">برای شروع، دکمه قرمز را بزن. اولین بار اجازه میکروفون پرسیده می‌شود.</p>
+            </div>
+            <button class="btn sm" id="recPause" hidden>مکث</button>
+          </div>
+          <canvas class="meter" id="meter" width="600" height="92" aria-hidden="true"></canvas>
+          <div class="alert" id="micAlert" hidden></div>
+          <div class="review" id="review" hidden>
+            <audio id="reviewAudio" controls></audio>
+            <label class="row"><span>نام:</span><input type="text" id="recName" style="flex:1"></label>
+            <div class="row">
+              <button class="btn primary" id="recSave">ذخیره در کتابخانه</button>
+              <button class="btn danger" id="recDiscard">دور انداختن</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>افزودن فایل</h2>
+          <p class="sub">هر فایلی را اضافه کن: صدا، عکس، ویدیو، PDF، متن، ورد، زیپ و…</p>
+          <label class="drop" id="drop" for="fileIn">
+            <b>فایل را اینجا بکش و رها کن</b>
+            <span class="note">یا بزن تا انتخاب کنی · حداکثر ۲۰ مگابایت برای صدا/عکس/ویدیو/PDF، ۱۴ مگابایت برای بقیه</span>
+            <span class="btn sm">انتخاب فایل</span>
+          </label>
+          <input type="file" id="fileIn" multiple hidden>
+          <div class="usage" id="usage" hidden>
+            <div class="row" style="justify-content:space-between"><span>فضای ابری مصرف‌شده</span><span id="usageTxt" style="direction:ltr"></span></div>
+            <div class="meter-bar"><span id="usageBar"></span></div>
+          </div>
+          <p class="note" id="upMsg" style="margin-top:10px"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="lib-head">
+          <h2>قفسه‌های من</h2>
+          <input type="search" id="libQ" placeholder="جستجو در کتابخانه" aria-label="جستجو در کتابخانه">
+        </div>
+        <div class="chips" id="kinds"></div>
+        <div class="items" id="items"></div>
+      </div>
+    </section>
+
+    <!-- FLASHCARDS -->
+    <section role="tabpanel" id="p-fc" aria-labelledby="tab-fc" hidden>
+      <div class="panel">
+        <h2>۶۰۰۰ لغت ضروری انگلیسی</h2>
+        <p class="sub">از سطح مبتدی (A1) تا حرفه‌ای (C2)، به ترتیب پرکاربردی. روی کارت بزن تا برگردد.</p>
+        <div class="levels" id="levels"></div>
+      </div>
+      <div class="panel">
+        <div class="fc-controls">
+          <span class="note">روی کارت:</span>
+          <div class="seg" id="dirSeg">
+            <button data-d="en" aria-pressed="true">انگلیسی ← فارسی</button>
+            <button data-d="fa" aria-pressed="false">فارسی ← انگلیسی</button>
+          </div>
+          <div class="seg" id="orderSeg">
+            <button data-o="seq" aria-pressed="true">به ترتیب</button>
+            <button data-o="mix" aria-pressed="false">درهم</button>
+          </div>
+          <label class="row" style="gap:6px;font-size:13.5px"><input type="checkbox" id="onlyNew"> فقط لغت‌هایی که بلد نیستم</label>
+          <input type="search" id="fcQ" placeholder="جستجوی لغت (انگلیسی یا فارسی)" aria-label="جستجوی لغت" style="flex:1;min-width:180px">
+        </div>
+        <div class="stage">
+          <button class="card" id="card" aria-label="برگرداندن کارت">
+            <div class="in">
+              <div class="face front"><div class="hd"><span class="no" id="cNo1"></span><span class="badge" id="cLv1"></span></div><div class="body" id="cFront"></div><div class="ft"><span class="hole"></span></div></div>
+              <div class="face back"><div class="hd"><span class="no" id="cNo2"></span><span class="badge" id="cLv2"></span></div><div class="body" id="cBack"></div><div class="ft"><span class="hole"></span></div></div>
+            </div>
+          </button>
+          <div class="fc-count" id="fcCount"></div>
+          <div class="fc-nav">
+            <button class="btn" id="fcPrev">→ قبلی</button>
+            <button class="btn" id="fcSpeak" title="تلفظ انگلیسی">🔊 تلفظ</button>
+            <button class="btn" id="fcAgain">دوباره مرور</button>
+            <button class="btn primary" id="fcKnow">بلدم ✓</button>
+            <button class="btn" id="fcNext">بعدی ←</button>
+          </div>
+          <p class="hint">میانبرها: فاصله = چرخاندن کارت · فلش چپ و راست = بعدی و قبلی</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="text/plain" id="wordData">to|prep|به، تا، برای
+in|prep|در، داخل
+i|pron|من
+be|v|بودن، شدن
+that|pron|آن، که
+you|pron|تو، شما
+it|pron|آن
+on|prep|روی، بر
+this|pron|این
+as|conj|به عنوان، چون، همان‌طور که
+have|v|داشتن
+he|pron|او (مرد)
+not|adv|نه، نـ (منفی)
+by|prep|توسط، کنار، با
+my|det|مال من
+or|conj|یا
+we|pron|ما
+your|det|مال تو، مال شما
+all|det|همه، تمام
+so|adv|پس، خیلی، بنابراین
+his|det|مال او (مرد)
+they|pron|آنها، ایشان
+me|pron|من (مفعولی)، مرا
+one|num|یک
+can|v|توانستن
+will|v|خواهد، اراده
+just|adv|فقط، همین الان، درست
+like|prep|مانند، مثل
+about|prep|درباره، حدود
+up|adv|بالا
+out|adv|بیرون
+what|pron|چه، چه چیزی
+when|adv|کی، وقتی که
+more|adv|بیشتر
+do|v|انجام دادن، کردن
+no|det|نه، هیچ
+who|pron|چه کسی، که
+their|det|مال آنها
+there|adv|آنجا
+her|pron|او (زن)، مال او
+which|pron|کدام، که
+time|n|زمان، وقت، بار
+get|v|گرفتن، به دست آوردن، شدن
+she|pron|او (زن)
+new|adj|جدید، تازه، نو
+people|n|مردم، افراد
+how|adv|چگونه، چطور
+some|det|بعضی، مقداری
+also|adv|همچنین، نیز
+them|pron|آنها (مفعولی)
+now|adv|اکنون، حالا
+other|adj|دیگر
+its|det|مال آن
+our|det|مال ما
+good|adj|خوب
+only|adv|فقط، تنها
+after|prep|بعد از، پس از
+first|adj|اول، نخستین
+him|pron|او (مفعولی، مرد)
+know|v|دانستن، شناختن
+see|v|دیدن، فهمیدن
+two|num|دو
+make|v|ساختن، درست کردن
+over|prep|بالای، روی، بیش از
+think|v|فکر کردن
+any|det|هر، هیچ
+then|adv|سپس، آن وقت
+back|adv|عقب، برگشت
+these|pron|اینها
+us|pron|ما (مفعولی)، ما را
+want|v|خواستن
+go|v|رفتن
+well|adv|خوب، به خوبی
+say|v|گفتن
+way|n|راه، روش
+most|adv|بیشترین، اکثر
+much|adv|زیاد، بسیار
+very|adv|خیلی، بسیار
+where|adv|کجا، جایی که
+even|adv|حتی
+shall|v|خواهم، باید
+may|v|ممکن است، شاید
+here|adv|اینجا
+need|v|نیاز داشتن
+really|adv|واقعاً
+right|adj|درست، راست، حق
+work|n|کار
+year|n|سال
+being|n|موجود، هستی
+day|n|روز
+too|adv|هم، نیز، بیش از حد
+going|n|رفتن
+before|prep|قبل از
+off|adv|خاموش، دور، جدا
+why|adv|چرا
+still|adv|هنوز، با این حال
+take|v|گرفتن، بردن
+many|det|بسیاری، زیاد
+never|adv|هرگز
+those|pron|آنها (اشاره)
+life|n|زندگی، حیات
+world|n|جهان، دنیا
+down|adv|پایین
+great|adj|بزرگ، عالی
+through|prep|از طریق، از میان
+last|adj|آخرین، گذشته
+while|conj|در حالی که، وقتی که
+best|adj|بهترین
+such|det|چنین
+love|n|عشق، محبت
+man|n|مرد، انسان
+home|n|خانه، منزل
+long|adj|بلند، طولانی
+look|v|نگاه کردن، به نظر رسیدن
+something|pron|چیزی
+use|v|استفاده کردن
+same|adj|همان، یکسان
+used|adj|دست دوم، مستعمل
+both|det|هر دو
+come|v|آمدن
+part|n|بخش، قسمت
+state|n|ایالت، وضعیت، دولت
+around|prep|اطراف، حدود
+between|prep|بین، میان
+always|adv|همیشه
+better|adj|بهتر
+find|v|پیدا کردن، یافتن
+help|v|کمک کردن
+high|adj|بلند، بالا
+little|adj|کوچک، کم
+old|adj|پیر، قدیمی، کهنه
+since|prep|از، از زمانی که، چون
+another|det|دیگر، یکی دیگر
+own|adj|خود، شخصی
+things|n|چیزها، وسایل
+under|prep|زیر، تحت
+game|n|بازی
+thing|n|چیز
+give|v|دادن
+house|n|خانه
+place|n|مکان، جا
+school|n|مدرسه
+again|adv|دوباره
+next|adj|بعدی، آینده
+each|det|هر، هر یک
+without|prep|بدون
+end|n|پایان، انتها
+found|v|تأسیس کردن، بنیان نهادن
+must|v|باید
+show|v|نشان دادن
+big|adj|بزرگ
+feel|v|احساس کردن
+sure|adj|مطمئن
+team|n|تیم، گروه
+ever|adv|هرگز، تاکنون، همیشه
+family|n|خانواده
+keep|v|نگه داشتن، ادامه دادن
+please|adv|لطفاً
+put|v|گذاشتن، قرار دادن
+money|n|پول
+free|adj|آزاد، رایگان
+second|adj|دوم
+someone|pron|کسی، شخصی
+away|adv|دور
+left|adj|چپ
+number|n|عدد، شماره
+city|n|شهر
+lot|n|مقدار زیاد، قطعه زمین
+name|n|نام، اسم
+night|n|شب
+play|v|بازی کردن، نواختن
+company|n|شرکت، همراهی
+doing|n|کار، عمل
+few|det|کم، چند
+let|v|اجازه دادن، گذاشتن
+real|adj|واقعی
+call|v|صدا زدن، تماس گرفتن
+different|adj|متفاوت، گوناگون
+set|v|قرار دادن، تنظیم کردن
+thought|n|فکر، اندیشه
+done|adj|انجام‌شده، تمام
+however|adv|اما، با این حال
+god|n|خدا
+government|n|دولت، حکومت
+group|n|گروه
+public|adj|عمومی، همگانی
+top|n|بالا، سر، اوج
+woman|n|زن
+business|n|کسب‌وکار، تجارت
+care|n|مراقبت، توجه
+start|v|شروع کردن
+system|n|سیستم، نظام
+week|n|هفته
+already|adv|قبلاً، تا حالا
+anything|pron|هر چیزی، هیچ چیز
+case|n|مورد، پرونده، جعبه
+nothing|pron|هیچ چیز
+person|n|شخص، فرد
+today|adv|امروز
+change|n|تغییر
+enough|adj|کافی
+everything|pron|همه چیز
+full|adj|پر، کامل
+live|v|زندگی کردن
+point|n|نقطه، نکته، امتیاز
+read|v|خواندن
+tell|v|گفتن، تعریف کردن
+yet|adv|هنوز، تاکنون
+bad|adj|بد
+hard|adj|سخت، دشوار
+mean|v|معنی دادن، منظور داشتن
+once|adv|یک بار، زمانی
+support|n|حمایت، پشتیبانی
+include|v|شامل شدن، دربر داشتن
+music|n|موسیقی
+power|n|قدرت، نیرو، برق
+stop|v|متوقف کردن، ایستادن
+water|n|آب
+based|adj|مبتنی، مستقر
+believe|v|باور کردن
+head|n|سر، رئیس
+national|adj|ملی
+small|adj|کوچک
+white|adj|سفید
+far|adv|دور
+job|n|شغل، کار
+side|n|طرف، کنار
+though|conj|اگرچه، هرچند
+try|v|تلاش کردن، امتحان کردن
+yes|int|بله، آری
+actually|adv|در واقع
+later|adv|بعداً
+less|adv|کمتر
+line|n|خط، صف
+order|n|سفارش، دستور، نظم
+party|n|مهمانی، حزب
+run|v|دویدن، اداره کردن
+service|n|خدمت، سرویس
+country|n|کشور
+open|adj|باز
+season|n|فصل
+thank|v|تشکر کردن
+child|n|کودک، بچه
+everyone|pron|همه، هر کس
+general|adj|کلی، عمومی
+united|adj|متحد
+area|n|منطقه، ناحیه
+black|adj|سیاه
+following|adj|بعدی، زیر
+law|n|قانون، حقوق
+together|adv|با هم
+war|n|جنگ
+whole|adj|کامل، تمام
+car|n|ماشین، خودرو
+face|n|صورت، چهره
+kind|n|نوع، قسم
+maybe|adv|شاید
+president|n|رئیس‌جمهور، رئیس
+story|n|داستان، طبقه
+working|adj|کاری، فعال
+course|n|دوره، مسیر، درس
+games|n|بازی‌ها
+health|n|سلامت، بهداشت
+hope|n|امید
+important|adj|مهم
+means|n|وسیله، راه
+news|n|خبر، اخبار
+within|prep|در داخل، در عرض
+able|adj|توانا، قادر
+book|n|کتاب
+early|adj|زود، اولیه
+friend|n|دوست
+information|n|اطلاعات
+local|adj|محلی
+post|n|پست، تیرک، مطلب
+video|n|ویدیو
+young|adj|جوان
+ago|adv|پیش، قبل
+social|adj|اجتماعی
+talk|v|صحبت کردن
+court|n|دادگاه، زمین بازی
+fact|n|واقعیت
+given|adj|معین، مفروض
+guy|n|مرد، یارو
+half|n|نصف، نیمه
+hand|n|دست
+level|n|سطح، تراز
+mind|n|ذهن، فکر
+often|adv|اغلب، غالباً
+single|adj|تک، مجرد
+become|v|شدن
+body|n|بدن، جسم
+coming|adj|آینده، آتی
+control|n|کنترل، مهار
+death|n|مرگ
+food|n|غذا، خوراک
+hour|n|ساعت
+office|n|دفتر، اداره
+pay|v|پرداختن
+problem|n|مشکل، مسئله
+south|n|جنوب
+true|adj|درست، واقعی
+almost|adv|تقریباً
+history|n|تاریخ، سابقه
+known|adj|شناخته‌شده، معروف
+large|adj|بزرگ
+lose|v|از دست دادن، باختن
+research|n|پژوهش، تحقیق
+room|n|اتاق، جا
+several|det|چند، چندین
+taking|n|گرفتن، تصرف
+university|n|دانشگاه
+win|v|بردن، پیروز شدن
+wrong|adj|غلط، اشتباه
+along|prep|در طول، همراه
+anyone|pron|هر کسی، هیچ کس
+else|adv|دیگر
+girl|n|دختر
+matter|n|موضوع، ماده
+pretty|adj|زیبا، قشنگ، نسبتاً
+remember|v|به یاد آوردن
+air|n|هوا
+bit|n|تکه، کمی
+hit|v|زدن، ضربه زدن
+needs|n|نیازها
+nice|adj|خوب، زیبا، مهربان
+probably|adv|احتمالاً
+saying|n|ضرب‌المثل، گفته
+understand|v|فهمیدن، درک کردن
+class|n|کلاس، طبقه
+close|v|بستن
+comes|v|می‌آید
+idea|n|ایده، فکر
+international|adj|بین‌المللی
+past|n|گذشته
+possible|adj|ممکن
+wanted|adj|تحت تعقیب، مطلوب
+cause|n|علت، دلیل
+due|adj|موعد مقرر، ناشی از
+human|n|انسان
+member|n|عضو
+month|n|ماه
+move|v|حرکت کردن، جابه‌جا کردن
+question|n|سؤال، پرسش
+series|n|مجموعه، سریال
+wait|v|صبر کردن، منتظر ماندن
+ask|v|پرسیدن، خواستن
+community|n|جامعه، اجتماع
+data|n|داده‌ها، اطلاعات
+late|adj|دیر، مرحوم
+leave|v|ترک کردن، رفتن
+north|n|شمال
+saw|n|اره
+special|adj|ویژه، خاص
+watch|v|تماشا کردن
+either|det|هر یک، یا
+future|n|آینده
+light|n|نور، چراغ
+low|adj|پایین، کم
+million|num|میلیون
+morning|n|صبح
+police|n|پلیس
+short|adj|کوتاه
+stay|v|ماندن
+age|n|سن، عصر
+buy|v|خریدن
+deal|n|معامله، توافق
+rather|adv|نسبتاً، ترجیحاً
+reason|n|دلیل، عقل
+red|adj|قرمز
+report|n|گزارش
+soon|adv|به زودی
+third|adj|سوم
+turn|v|چرخیدن، برگرداندن
+whether|conj|آیا، چه
+check|v|بررسی کردن
+development|n|توسعه، پیشرفت
+form|n|فرم، شکل
+further|adv|بیشتر، دورتر
+heart|n|قلب، دل
+minutes|n|دقایق، صورت‌جلسه
+myself|pron|خودم
+yourself|pron|خودت، خودتان
+act|n|عمل، قانون، پرده
+fire|n|آتش
+fun|n|سرگرمی، تفریح
+living|n|زندگی، معاش
+major|adj|اصلی، عمده
+media|n|رسانه‌ها
+phone|n|تلفن
+player|n|بازیکن، نوازنده
+art|n|هنر
+behind|prep|پشت، عقب
+building|n|ساختمان
+easy|adj|آسان
+market|n|بازار
+near|prep|نزدیک
+plan|n|برنامه، نقشه
+political|adj|سیاسی
+quite|adv|کاملاً، نسبتاً
+west|n|غرب
+accord|n|توافق، سازش
+available|adj|در دسترس، موجود
+education|n|آموزش، تحصیلات
+final|adj|نهایی
+former|adj|سابق، پیشین
+front|n|جلو، جبهه
+kid|n|بچه
+list|n|فهرست
+ready|adj|آماده
+sometimes|adv|گاهی
+son|n|پسر
+street|n|خیابان
+bring|v|آوردن
+college|n|دانشکده، کالج
+current|adj|کنونی، جاری
+example|n|مثال، نمونه
+experience|n|تجربه
+hear|v|شنیدن
+meet|v|ملاقات کردن
+program|n|برنامه
+type|n|نوع
+baby|n|نوزاد، بچه
+chance|n|شانس، فرصت
+father|n|پدر
+march|v|رژه رفتن، راهپیمایی کردن
+process|n|فرایند
+song|n|آهنگ، ترانه
+study|v|مطالعه کردن، درس خواندن
+word|n|کلمه، واژه
+across|prep|آن طرف، در سراسر
+action|n|عمل، اقدام
+clear|adj|روشن، واضح
+himself|pron|خودش (مرد)
+outside|adv|بیرون
+self|n|خود، نفس
+student|n|دانش‌آموز، دانشجو
+board|n|تخته، هیئت مدیره
+cost|n|هزینه
+cut|v|بریدن
+field|n|زمین، رشته، میدان
+hold|v|نگه داشتن
+instead|adv|به جای آن
+main|adj|اصلی
+moment|n|لحظه
+mother|n|مادر
+road|n|جاده، راه
+seem|v|به نظر رسیدن
+town|n|شهرک، شهر
+department|n|بخش، اداره
+energy|n|انرژی
+fight|v|جنگیدن، دعوا کردن
+fine|adj|خوب، ظریف
+force|n|نیرو، زور
+issue|n|مسئله، شماره نشریه
+price|n|قیمت
+rest|n|استراحت، بقیه
+result|n|نتیجه
+running|n|دویدن
+space|n|فضا، جا
+summer|n|تابستان
+term|n|اصطلاح، ترم، مدت
+wife|n|همسر، زن
+beautiful|adj|زیبا
+date|n|تاریخ، قرار
+kill|v|کشتن
+land|n|زمین، سرزمین
+miss|v|از دست دادن، دلتنگ شدن
+project|n|پروژه، طرح
+sex|n|جنسیت، رابطه جنسی
+shot|n|شلیک، ضربه، عکس
+site|n|محل، سایت
+strong|adj|قوی، محکم
+account|n|حساب، گزارش
+especially|adv|مخصوصاً، به‌ویژه
+eye|n|چشم
+parent|n|والد
+period|n|دوره، نقطه
+position|n|موقعیت، مقام
+record|n|رکورد، سابقه، سند
+similar|adj|مشابه
+total|adj|کل، کامل
+above|prep|بالای، بالاتر از
+club|n|باشگاه
+common|adj|رایج، مشترک
+die|v|مردن
+film|n|فیلم
+happen|v|اتفاق افتادن
+lead|v|رهبری کردن، هدایت کردن
+likely|adj|محتمل
+military|adj|نظامی
+perfect|adj|کامل، بی‌نقص
+personal|adj|شخصی
+security|n|امنیت
+share|v|به اشتراک گذاشتن
+center|n|مرکز
+couple|n|زوج، چند تا
+dead|adj|مرده
+industry|n|صنعت
+inside|adv|داخل
+online|adj|آنلاین، برخط
+private|adj|خصوصی
+return|v|بازگشتن، برگرداندن
+sense|n|حس، معنا
+star|n|ستاره
+test|n|آزمون، آزمایش
+view|n|منظره، دیدگاه
+break|v|شکستن
+event|n|رویداد، واقعه
+middle|n|وسط، میانه
+present|adj|حاضر، کنونی
+sorry|adj|متأسف
+training|n|آموزش، تمرین
+wish|v|آرزو کردن
+answer|n|جواب، پاسخ
+boy|n|پسر
+design|n|طراحی، طرح
+finally|adv|سرانجام، بالاخره
+gold|n|طلا
+guess|v|حدس زدن
+interest|n|علاقه، سود، بهره
+king|n|پادشاه، شاه
+learn|v|یاد گرفتن
+policy|n|سیاست، خط‌مشی
+society|n|جامعه، انجمن
+add|v|اضافه کردن
+alone|adj|تنها
+average|adj|میانگین، متوسط
+bank|n|بانک، ساحل رود
+certain|adj|مطمئن، معین
+church|n|کلیسا
+east|n|شرق
+hot|adj|داغ، گرم
+medical|adj|پزشکی
+movie|n|فیلم
+original|adj|اصلی، اصیل
+park|n|پارک
+performance|n|اجرا، عملکرد
+press|v|فشار دادن
+receive|v|دریافت کردن
+role|n|نقش
+send|v|فرستادن
+themselves|pron|خودشان
+tried|adj|آزموده
+worth|adj|ارزشمند، می‌ارزد
+bill|n|صورت‌حساب، لایحه
+cool|adj|خنک، باحال
+director|n|مدیر، کارگردان
+exactly|adv|دقیقاً
+ground|n|زمین
+meeting|n|جلسه، ملاقات
+provide|v|فراهم کردن، تأمین کردن
+relationship|n|رابطه
+sound|n|صدا
+source|n|منبع
+usually|adv|معمولاً
+value|n|ارزش
+evidence|n|شواهد، مدرک
+follow|v|دنبال کردن
+official|adj|رسمی
+production|n|تولید
+rate|n|نرخ، میزان
+reading|n|خواندن، مطالعه
+round|adj|گرد
+save|v|نجات دادن، پس‌انداز کردن
+stand|v|ایستادن
+stuff|n|چیزها، وسایل
+tax|n|مالیات
+whatever|pron|هر چه
+amount|n|مقدار، مبلغ
+blue|adj|آبی
+drive|v|رانندگی کردن
+eat|v|خوردن
+fall|v|افتادن
+fast|adj|سریع
+federal|adj|فدرال
+feeling|n|احساس
+felt|n|نمد
+green|adj|سبز
+league|n|لیگ، اتحادیه
+management|n|مدیریت
+match|n|مسابقه، کبریت
+model|n|مدل، نمونه
+picture|n|عکس، تصویر
+size|n|اندازه
+step|n|قدم، گام
+trust|n|اعتماد
+central|adj|مرکزی
+forward|adv|به جلو
+key|n|کلید
+mom|n|مامان
+page|n|صفحه
+range|n|دامنه، محدوده
+review|n|بررسی، نقد
+science|n|علم
+trade|n|تجارت، داد و ستد
+various|adj|گوناگون، مختلف
+attention|n|توجه
+brother|n|برادر
+character|n|شخصیت، کاراکتر، حرف
+chief|n|رئیس
+cup|n|فنجان، جام
+football|n|فوتبال
+hate|v|متنفر بودن
+lower|adj|پایین‌تر
+natural|adj|طبیعی
+property|n|دارایی، ملک، ویژگی
+quality|n|کیفیت
+style|n|سبک
+vote|n|رأی
+amazing|adj|شگفت‌انگیز
+august|adj|باشکوه، والامقام
+blood|n|خون
+complete|adj|کامل
+dog|n|سگ
+economic|adj|اقتصادی
+hell|n|جهنم
+involve|v|درگیر کردن، شامل شدن
+itself|pron|خودش
+language|n|زبان
+lord|n|ارباب، خداوند
+oil|n|نفت، روغن
+related|adj|مرتبط
+serious|adj|جدی
+stage|n|مرحله، صحنه
+title|n|عنوان
+article|n|مقاله
+attack|n|حمله
+born|adj|متولد
+damn|int|لعنتی
+decide|v|تصمیم گرفتن
+decision|n|تصمیم
+enjoy|v|لذت بردن
+entire|adj|کامل، تمام
+perhaps|adv|شاید
+poor|adj|فقیر، ضعیف
+release|v|آزاد کردن، منتشر کردن
+situation|n|موقعیت، وضعیت
+technology|n|فناوری
+write|v|نوشتن
+choice|n|انتخاب
+code|n|کد، رمز
+considered|adj|سنجیده
+continue|v|ادامه دادن
+council|n|شورا
+cover|v|پوشاندن
+currently|adv|در حال حاضر
+door|n|در
+election|n|انتخابات
+financial|adj|مالی
+hair|n|مو
+increase|n|افزایش
+legal|adj|قانونی، حقوقی
+pick|v|برداشتن، انتخاب کردن
+race|n|نژاد، مسابقه
+sign|n|نشانه، تابلو
+simple|adj|ساده
+simply|adv|به سادگی، صرفاً
+staff|n|کارکنان
+super|adj|عالی
+union|n|اتحادیه
+walk|v|راه رفتن
+bed|n|تخت
+begin|v|شروع کردن
+build|v|ساختن
+career|n|حرفه، شغل
+crazy|adj|دیوانه
+daily|adj|روزانه
+daughter|n|دختر
+difficult|adj|دشوار، سخت
+figure|n|رقم، شکل، چهره
+hospital|n|بیمارستان
+loss|n|ضرر، فقدان
+modern|adj|مدرن، نوین
+paper|n|کاغذ، مقاله
+popular|adj|محبوب
+publish|v|منتشر کردن
+safe|adj|امن
+version|n|نسخه
+voice|n|صدا
+whose|pron|مال چه کسی
+writing|n|نوشتن، نوشته
+army|n|ارتش
+earth|n|زمین، خاک
+forget|v|فراموش کردن
+goal|n|هدف، گل
+huge|adj|عظیم، بزرگ
+internet|n|اینترنت
+listen|v|گوش دادن
+okay|adj|خوب، باشه
+practice|n|تمرین
+rule|n|قانون، قاعده
+sea|n|دریا
+sir|n|آقا، قربان
+success|n|موفقیت
+access|n|دسترسی
+base|n|پایه، پایگاه
+below|prep|زیر، پایین
+create|v|ایجاد کردن
+deep|adj|عمیق
+mark|n|علامت، نمره
+missing|adj|گمشده
+offer|n|پیشنهاد
+pass|v|گذشتن، قبول شدن
+professional|adj|حرفه‌ای
+risk|n|خطر، ریسک
+sleep|v|خوابیدن
+table|n|میز، جدول
+truth|n|حقیقت
+ball|n|توپ
+box|n|جعبه
+card|n|کارت
+dark|adj|تاریک
+district|n|منطقه، ناحیه
+mine|pron|مال من
+minister|n|وزیر
+note|n|یادداشت
+percent|n|درصد
+piece|n|تکه، قطعه
+product|n|محصول
+recent|adj|اخیر
+straight|adj|مستقیم، صاف
+visit|v|بازدید کردن، دیدن
+wall|n|دیوار
+allow|v|اجازه دادن
+culture|n|فرهنگ
+fan|n|طرفدار، پنکه
+growth|n|رشد
+included|adj|شامل‌شده
+married|adj|متأهل
+officer|n|افسر، مأمور
+pain|n|درد
+respect|n|احترام
+response|n|پاسخ
+river|n|رودخانه
+rock|n|سنگ، صخره
+speak|v|صحبت کردن
+specific|adj|خاص، مشخص
+standard|n|استاندارد، معیار
+tonight|adv|امشب
+album|n|آلبوم
+century|n|قرن
+charge|n|هزینه، اتهام، شارژ
+cold|adj|سرد
+effect|n|اثر، تأثیر
+except|prep|به جز
+funny|adj|خنده‌دار
+limited|adj|محدود
+moving|adj|متحرک، تأثیرگذار
+network|n|شبکه
+peace|n|صلح، آرامش
+recently|adv|اخیراً
+require|v|نیاز داشتن، لازم داشتن
+sale|n|فروش، حراج
+spend|v|خرج کردن، گذراندن
+store|n|فروشگاه
+tomorrow|adv|فردا
+track|n|مسیر، رد، آهنگ
+via|prep|از طریق
+weight|n|وزن
+addition|n|افزودن، جمع
+ahead|adv|جلو، پیش
+association|n|انجمن، ارتباط
+beat|v|زدن، شکست دادن
+brown|adj|قهوه‌ای
+capital|n|پایتخت، سرمایه
+committee|n|کمیته
+conference|n|کنفرانس، همایش
+difference|n|تفاوت
+double|adj|دوبرابر، دوتایی
+expect|v|انتظار داشتن
+gas|n|گاز، بنزین
+island|n|جزیره
+normal|adj|عادی، طبیعی
+population|n|جمعیت
+potential|adj|بالقوه
+pressure|n|فشار
+radio|n|رادیو
+station|n|ایستگاه
+text|n|متن
+treatment|n|درمان، رفتار
+western|adj|غربی
+beginning|n|آغاز، شروع
+campaign|n|کارزار، مبارزه
+certainly|adv|مطمئناً
+completely|adv|کاملاً
+content|n|محتوا
+credit|n|اعتبار، وام
+cross|v|عبور کردن
+describe|v|توصیف کردن
+female|adj|مؤنث، زن
+focus|n|تمرکز
+husband|n|شوهر
+ice|n|یخ
+individual|n|فرد
+interesting|adj|جالب
+join|v|پیوستن
+message|n|پیام
+mile|n|مایل
+nearly|adv|تقریباً
+particular|adj|خاص، ویژه
+previous|adj|قبلی
+quickly|adv|به سرعت
+region|n|منطقه
+section|n|بخش
+sort|n|نوع، جور
+speed|n|سرعت
+travel|v|سفر کردن
+consider|v|در نظر گرفتن
+contact|n|تماس
+drop|v|انداختن، افتادن
+fair|adj|منصفانه
+foot|n|پا
+link|n|پیوند، لینک
+positive|adj|مثبت
+throughout|prep|در سراسر
+tour|n|تور، گشت
+welcome|int|خوش آمدید
+absolutely|adv|کاملاً، مطلقاً
+additional|adj|اضافی
+beyond|prep|فراتر از
+condition|n|شرط، وضعیت
+extra|adj|اضافی
+immediately|adv|فوراً
+minute|n|دقیقه
+nature|n|طبیعت، ماهیت
+quick|adj|سریع
+sell|v|فروختن
+significant|adj|قابل توجه، مهم
+agree|v|موافقت کردن
+clean|adj|تمیز
+computer|n|رایانه، کامپیوتر
+construction|n|ساخت‌وساز
+episode|n|قسمت، اپیزود
+favorite|adj|مورد علاقه
+income|n|درآمد
+justice|n|عدالت
+manager|n|مدیر
+movement|n|حرکت، جنبش
+photo|n|عکس
+safety|n|ایمنی
+scene|n|صحنه
+statement|n|بیانیه، اظهار
+sun|n|خورشید
+ability|n|توانایی
+announce|v|اعلام کردن
+coach|n|مربی
+collection|n|مجموعه
+definitely|adv|قطعاً
+expected|adj|مورد انتظار
+gun|n|اسلحه
+heavy|adj|سنگین
+knowledge|n|دانش
+particularly|adv|به‌ویژه
+search|n|جستجو
+subject|n|موضوع، درس
+train|n|قطار
+wide|adj|پهن، عریض
+wow|int|وای
+author|n|نویسنده
+centre|n|مرکز
+claim|n|ادعا
+dad|n|بابا
+develop|v|توسعه دادن، رشد کردن
+fear|n|ترس
+fit|adj|متناسب، سالم
+generally|adv|عموماً
+global|adj|جهانی
+hotel|n|هتل
+interested|adj|علاقه‌مند
+judge|n|قاضی
+lady|n|خانم، بانو
+leader|n|رهبر
+letter|n|نامه، حرف
+material|n|ماده، مصالح
+nobody|pron|هیچ کس
+opportunity|n|فرصت
+plus|prep|به اضافه
+regular|adj|منظم، معمولی
+secretary|n|منشی، دبیر
+sister|n|خواهر
+unit|n|واحد
+worker|n|کارگر
+annual|adj|سالانه
+anymore|adv|دیگر
+bar|n|میله، کافه
+battle|n|نبرد
+brain|n|مغز
+contract|n|قرارداد
+degree|n|درجه، مدرک
+feature|n|ویژگی
+finish|v|تمام کردن
+floor|n|کف، طبقه
+grow|v|رشد کردن
+hurt|v|آسیب زدن، درد کردن
+image|n|تصویر
+insurance|n|بیمه
+majority|n|اکثریت
+opening|n|افتتاح، روزنه
+opinion|n|نظر، عقیده
+physical|adj|فیزیکی، جسمی
+pro|n|حرفه‌ای، مزیت
+reach|v|رسیدن
+seriously|adv|به طور جدی
+sports|n|ورزش‌ها
+stupid|adj|احمق
+successful|adj|موفق
+active|adj|فعال
+administration|n|مدیریت، دولت
+approach|n|رویکرد
+cancer|n|سرطان
+civil|adj|مدنی
+dance|v|رقصیدن
+defense|n|دفاع
+direction|n|جهت، مسیر
+independent|adj|مستقل
+master|n|استاد، ارباب
+none|pron|هیچ‌کدام
+ship|n|کشتی
+stock|n|سهام، موجودی
+trump|n|برگ برنده
+weekend|n|آخر هفته
+wonder|v|تعجب کردن، کنجکاو بودن
+ill|adj|بیمار
+awesome|adj|عالی، فوق‌العاده
+band|n|گروه موسیقی، نوار
+beach|n|ساحل
+cash|n|پول نقد
+clearly|adv|به وضوح
+commercial|adj|تجاری
+compare|v|مقایسه کردن
+effort|n|تلاش
+imagine|v|تصور کردن
+impact|n|تأثیر، ضربه
+lack|n|کمبود
+learning|n|یادگیری
+multiple|adj|چندگانه
+operation|n|عملیات، جراحی
+organization|n|سازمان
+protect|v|محافظت کردن
+secret|n|راز
+senior|adj|ارشد
+spring|n|بهار، فنر، چشمه
+wear|v|پوشیدن
+activity|n|فعالیت
+address|n|نشانی، آدرس، سخنرانی
+analysis|n|تحلیل، تجزیه
+anyway|adv|به هر حال
+choose|v|انتخاب کردن
+color|n|رنگ
+commission|n|کمیسیون، حق‌العمل
+competition|n|رقابت، مسابقه
+detail|n|جزئیات
+direct|adj|مستقیم
+dream|n|رؤیا، خواب
+easily|adv|به آسانی
+grand|adj|بزرگ، باشکوه
+increased|adj|افزایش‌یافته
+literally|adv|به معنای واقعی، واقعاً
+luck|n|شانس، بخت
+marriage|n|ازدواج
+necessary|adj|لازم، ضروری
+patient|n|بیمار
+resource|n|منبع
+rich|adj|ثروتمند، غنی
+skin|n|پوست
+supposed|adj|فرضی، قرار بر این
+sweet|adj|شیرین
+thus|adv|بنابراین، بدین ترتیب
+touch|v|لمس کردن
+yesterday|adv|دیروز
+catch|v|گرفتن، گیر انداختن
+closed|adj|بسته
+congress|n|کنگره
+damage|n|خسارت، آسیب
+directly|adv|مستقیماً
+disease|n|بیماری
+doctor|n|پزشک، دکتر
+doubt|n|شک، تردید
+drink|v|نوشیدن
+driving|n|رانندگی
+establish|v|تأسیس کردن، برقرار کردن
+fish|n|ماهی
+gay|adj|همجنس‌گرا، شاد
+glad|adj|خوشحال
+machine|n|ماشین، دستگاه
+notice|v|متوجه شدن
+overall|adj|کلی
+planning|n|برنامه‌ریزی
+professor|n|استاد
+sit|v|نشستن
+trip|n|سفر
+associate|v|مرتبط دانستن، معاشرت کردن
+basic|adj|پایه‌ای، اساسی
+captain|n|کاپیتان، ناخدا
+carry|v|حمل کردن
+crime|n|جرم، جنایت
+effective|adj|مؤثر
+explain|v|توضیح دادن
+fully|adv|کاملاً
+highly|adv|بسیار، به شدت
+holding|n|دارایی، نگه‌داری
+male|adj|مذکر، نر
+plant|n|گیاه، کارخانه
+reality|n|واقعیت
+spot|n|نقطه، لکه، جا
+winter|n|زمستان
+worse|adj|بدتر
+advice|n|توصیه، نصیحت
+agreement|n|توافق، قرارداد
+award|n|جایزه
+block|n|بلوک، مانع
+broken|adj|شکسته
+challenge|n|چالش
+comment|n|نظر، اظهار نظر
+equipment|n|تجهیزات
+eventually|adv|سرانجام
+holy|adj|مقدس
+killing|n|قتل، کشتار
+nation|n|ملت، کشور
+otherwise|adv|وگرنه، در غیر این صورت
+primary|adj|اولیه، اصلی، ابتدایی
+purpose|n|هدف، منظور
+responsible|adj|مسئول
+shop|n|مغازه
+sick|adj|بیمار
+teacher|n|معلم
+theory|n|نظریه
+agency|n|آژانس، نمایندگی
+avoid|v|اجتناب کردن
+camera|n|دوربین
+cell|n|سلول، یاخته
+coast|n|ساحل
+drug|n|دارو، مواد مخدر
+economy|n|اقتصاد
+environment|n|محیط، محیط زیست
+executive|n|مدیر اجرایی
+hall|n|سالن، تالار
+mass|n|توده، جرم
+meaning|n|معنی
+mission|n|مأموریت
+politics|n|سیاست
+pop|n|پاپ، صدای ترکیدن
+produce|v|تولید کردن
+status|n|وضعیت، جایگاه
+therefore|adv|بنابراین
+trial|n|محاکمه، آزمایش
+truly|adv|واقعاً، صادقانه
+weather|n|هوا، آب و هوا
+application|n|درخواست، کاربرد، برنامه
+coffee|n|قهوه
+complex|adj|پیچیده
+division|n|تقسیم، بخش
+evening|n|عصر، شب
+flight|n|پرواز
+freedom|n|آزادی
+heat|n|گرما
+interview|n|مصاحبه
+library|n|کتابخانه
+locate|v|پیدا کردن، قرار دادن
+location|n|مکان، موقعیت
+murder|n|قتل
+queen|n|ملکه
+sitting|n|جلسه، نشست
+standing|adj|ایستاده، دائمی
+accept|v|پذیرفتن
+actual|adj|واقعی
+appear|v|ظاهر شدن، به نظر رسیدن
+attempt|n|تلاش، کوشش
+broke|adj|بی‌پول، ورشکسته
+channel|n|کانال، مجرا
+distance|n|فاصله
+exchange|n|تبادل، مبادله
+fat|adj|چاق
+fell|v|بریدن درخت، انداختن
+finding|n|یافته
+glass|n|شیشه، لیوان
+mobile|adj|سیار، متحرک
+placed|adj|قرارگرفته
+powerful|adj|قدرتمند
+prior|adj|قبلی
+protection|n|حفاظت
+religious|adj|مذهبی، دینی
+ride|v|سوار شدن، راندن
+royal|adj|سلطنتی
+screen|n|صفحه نمایش
+serve|v|خدمت کردن، سرو کردن
+slow|adj|کند، آهسته
+species|n|گونه
+speech|n|سخنرانی، گفتار
+traffic|n|ترافیک، آمد و شد
+tree|n|درخت
+whom|pron|چه کسی را، که
+wonderful|adj|فوق‌العاده، شگفت‌انگیز
+airport|n|فرودگاه
+animal|n|حیوان
+benefit|n|سود، فایده
+bottom|n|پایین، ته
+demand|n|تقاضا
+engine|n|موتور
+everybody|pron|همه
+famous|adj|مشهور
+investment|n|سرمایه‌گذاری
+lie|v|دروغ گفتن، دراز کشیدن
+partner|n|شریک، همسر
+raise|v|بالا بردن، پرورش دادن
+sad|adj|غمگین
+solution|n|راه‌حل، محلول
+southern|adj|جنوبی
+square|n|مربع، میدان
+structure|n|ساختار
+traditional|adj|سنتی
+twice|adv|دو بار
+wind|n|باد
+worry|v|نگران بودن
+brand|n|برند، مارک
+bus|n|اتوبوس
+cent|n|سنت
+count|v|شمردن
+critical|adj|حیاتی، انتقادی
+digital|adj|دیجیتال
+fourth|adj|چهارم
+fresh|adj|تازه
+lake|n|دریاچه
+mental|adj|ذهنی، روانی
+mention|v|اشاره کردن، ذکر کردن
+mostly|adv|بیشتر، عمدتاً
+mouth|n|دهان
+owner|n|مالک
+previously|adv|قبلاً
+realize|v|متوجه شدن، پی بردن
+remain|v|باقی ماندن
+scale|n|مقیاس، ترازو
+score|n|امتیاز، نمره
+separate|adj|جدا، مجزا
+smart|adj|باهوش، زیرک
+surface|n|سطح، رویه
+throw|v|پرتاب کردن
+totally|adv|کاملاً
+wedding|n|عروسی
+acting|n|بازیگری
+arm|n|بازو
+budget|n|بودجه
+click|v|کلیک کردن
+estate|n|ملک، املاک
+fail|v|شکست خوردن، رد شدن
+faith|n|ایمان، اعتماد
+fashion|n|مد
+fund|n|صندوق، بودجه
+generation|n|نسل، تولید
+hearing|n|شنوایی، جلسه دادرسی
+hill|n|تپه
+metal|n|فلز
+mid|adj|میانی، وسط
+profile|n|نمایه، نیم‌رخ
+pull|v|کشیدن
+push|v|هل دادن
+rose|n|گل رز
+seat|n|صندلی، جا
+sexual|adj|جنسی
+target|n|هدف
+understanding|n|درک، تفاهم
+village|n|روستا
+agent|n|نماینده، مأمور
+apply|v|درخواست دادن، به کار بردن
+authority|n|اختیار، مقام
+basis|n|اساس، پایه
+becoming|adj|برازنده
+draw|v|کشیدن، نقاشی کردن
+dude|n|رفیق، یارو
+employee|n|کارمند
+enter|v|وارد شدن
+ex|n|همسر سابق، دوست سابق
+foundation|n|بنیاد، پایه
+gain|v|به دست آوردن
+memory|n|حافظه، خاطره
+prime|adj|اصلی، عالی
+ring|n|حلقه، انگشتر
+rise|v|بالا رفتن، طلوع کردن
+silver|n|نقره
+soul|n|روح
+spread|v|پخش کردن، گستردن
+supply|n|عرضه، تدارکات
+waste|n|زباله، اتلاف
+weird|adj|عجیب
+adult|n|بزرگسال
+apparently|adv|ظاهراً
+artist|n|هنرمند
+chairman|n|رئیس
+edition|n|ویرایش، چاپ
+engineering|n|مهندسی
+grade|n|نمره، پایه
+happening|n|رویداد
+healthy|adj|سالم
+institute|n|مؤسسه
+method|n|روش
+obviously|adv|بدیهی است، آشکارا
+option|n|گزینه
+prison|n|زندان
+remains|n|بقایا
+senate|n|سنا
+somebody|pron|کسی
+stone|n|سنگ
+strength|n|قدرت، توان
+user|n|کاربر
+wild|adj|وحشی
+window|n|پنجره
+winner|n|برنده
+arrive|v|رسیدن
+bag|n|کیف، کیسه
+bet|v|شرط بستن
+camp|n|اردوگاه
+cast|n|بازیگران، گچ
+correct|adj|درست، صحیح
+dangerous|adj|خطرناک
+extremely|adv|به شدت، بسیار
+firm|n|شرکت، بنگاه
+handle|v|اداره کردن، از پس برآمدن
+improve|v|بهبود بخشیدن
+indeed|adv|در واقع، به راستی
+leaf|n|برگ
+movies|n|فیلم‌ها، سینما
+negative|adj|منفی
+prevent|v|جلوگیری کردن
+remove|v|برداشتن، حذف کردن
+spirit|n|روح، روحیه
+television|n|تلویزیون
+till|prep|تا
+trouble|n|دردسر، مشکل
+advantage|n|مزیت
+apart|adv|جدا، دور از هم
+aware|adj|آگاه
+cat|n|گربه
+customer|n|مشتری
+dinner|n|شام
+dollar|n|دلار
+eastern|adj|شرقی
+fifth|adj|پنجم
+function|n|عملکرد، تابع
+gift|n|هدیه، استعداد
+helping|n|سهم غذا، کمک
+herself|pron|خودش (زن)
+impossible|adj|غیرممکن
+influence|n|نفوذ، تأثیر
+item|n|مورد، قلم
+marketing|n|بازاریابی
+progress|n|پیشرفت
+proud|adj|مغرور، سربلند
+shooting|n|تیراندازی
+shut|v|بستن
+van|n|ون، وانت
+wood|n|چوب، جنگل
+background|n|پیشینه، پس‌زمینه
+birth|n|تولد
+bridge|n|پل
+completed|adj|تکمیل‌شده
+concept|n|مفهوم
+copy|n|نسخه، رونوشت
+dear|adj|عزیز
+garden|n|باغ
+host|n|میزبان
+housing|n|مسکن
+journal|n|مجله، روزنامه
+labor|n|کار، کارگر
+leadership|n|رهبری
+length|n|طول
+lucky|adj|خوش‌شانس
+neither|det|هیچ‌کدام
+possibly|adv|احتمالاً
+prove|v|ثابت کردن
+rare|adj|نادر، کمیاب
+setting|n|محیط، تنظیم
+skill|n|مهارت
+software|n|نرم‌افزار
+thousand|num|هزار
+tough|adj|سخت، محکم
+alive|adj|زنده
+apple|n|سیب
+balance|n|تعادل، موجودی
+birthday|n|تولد، سالروز تولد
+boss|n|رئیس
+connection|n|ارتباط، اتصال
+dress|n|لباس
+fellow|n|همکار، هم‌نوع
+horse|n|اسب
+magic|n|جادو
+managed|adj|مدیریت‌شده
+map|n|نقشه
+net|n|تور، شبکه
+request|n|درخواست
+stick|n|چوب، چوبدستی
+vehicle|n|وسیله نقلیه
+volume|n|حجم، جلد، صدا
+wake|v|بیدار شدن
+aid|n|کمک
+beauty|n|زیبایی
+billion|num|میلیارد
+busy|adj|مشغول، شلوغ
+concerned|adj|نگران، مربوط
+conversation|n|گفتگو
+corner|n|گوشه
+criminal|n|مجرم، جنایتکار
+cultural|adj|فرهنگی
+driver|n|راننده
+existing|adj|موجود
+farm|n|مزرعه
+file|n|پرونده، فایل
+fix|v|تعمیر کردن، درست کردن
+fly|v|پرواز کردن
+frank|adj|رک، صریح
+guide|n|راهنما
+investigation|n|تحقیق، بازرسی
+operate|v|کار کردن، عمل کردن
+responsibility|n|مسئولیت
+roll|v|غلتیدن، چرخیدن
+slightly|adv|کمی
+suggest|v|پیشنهاد کردن
+surprise|n|تعجب، غافلگیری
+technical|adj|فنی
+treat|v|رفتار کردن، درمان کردن
+unique|adj|منحصربه‌فرد
+variety|n|تنوع
+violence|n|خشونت
+weapon|n|سلاح
+yours|pron|مال تو، مال شما
+youth|n|جوانی، جوانان
+appreciate|v|قدردانی کردن
+discover|v|کشف کردن
+dry|adj|خشک
+edge|n|لبه
+evil|adj|شرور، بد
+excited|adj|هیجان‌زده
+forever|adv|برای همیشه
+funds|n|سرمایه، وجوه
+injury|n|آسیب، جراحت
+iron|n|آهن، اتو
+lovely|adj|دوست‌داشتنی، زیبا
+mad|adj|دیوانه، عصبانی
+magazine|n|مجله
+ordered|adj|منظم، مرتب
+parliament|n|مجلس، پارلمان
+prepared|adj|آماده
+reference|n|مرجع، ارجاع
+religion|n|دین، مذهب
+somewhere|adv|جایی
+strategy|n|راهبرد، استراتژی
+web|n|وب، تار
+wine|n|شراب
+audience|n|مخاطبان، تماشاگران
+bay|n|خلیج
+closer|adj|نزدیک‌تر
+core|n|هسته، مرکز
+democratic|adj|دموکراتیک، مردم‌سالار
+description|n|توصیف
+excellent|adj|عالی
+exist|v|وجود داشتن
+guard|n|نگهبان
+honest|adj|صادق
+medicine|n|دارو، پزشکی
+mountain|n|کوه
+nuclear|adj|هسته‌ای
+port|n|بندر
+presence|n|حضور
+reaction|n|واکنش
+reduce|v|کاهش دادن
+shoot|v|شلیک کردن
+solid|adj|جامد، محکم
+sport|n|ورزش
+stress|n|استرس، فشار
+taste|n|طعم، سلیقه
+tea|n|چای
+victory|n|پیروزی
+afternoon|n|بعدازظهر
+assistant|n|دستیار
+citizen|n|شهروند
+classic|adj|کلاسیک
+clothes|n|لباس‌ها
+electric|adj|برقی
+emergency|n|اورژانس، وضعیت اضطراری
+entirely|adv|کاملاً
+failure|n|شکست
+festival|n|جشنواره
+flat|adj|صاف، تخت
+fuel|n|سوخت
+hello|int|سلام
+initial|adj|اولیه
+introduce|v|معرفی کردن
+kick|v|لگد زدن
+mail|n|نامه، پست
+massive|adj|عظیم
+pair|n|جفت
+plane|n|هواپیما
+plenty|n|فراوانی، مقدار زیاد
+prince|n|شاهزاده
+proper|adj|مناسب، درست
+quarter|n|یک‌چهارم، ربع
+regional|adj|منطقه‌ای
+session|n|جلسه
+shape|n|شکل
+sky|n|آسمان
+teaching|n|تدریس
+transfer|n|انتقال
+upper|adj|بالایی
+useful|adj|مفید
+valley|n|دره
+willing|adj|مایل، راضی
+zone|n|منطقه
+accident|n|تصادف، حادثه
+advanced|adj|پیشرفته
+alternative|n|جایگزین
+anywhere|adv|هر جا
+bear|n|خرس
+boat|n|قایق
+capacity|n|ظرفیت
+cheap|adj|ارزان
+climate|n|آب و هوا، اقلیم
+discussion|n|بحث
+duty|n|وظیفه، عوارض
+fantastic|adj|فوق‌العاده
+feelings|n|احساسات
+flying|n|پرواز
+governor|n|فرماندار
+hundred|num|صد
+industrial|adj|صنعتی
+joint|n|مفصل، اتصال
+mix|v|مخلوط کردن
+museum|n|موزه
+path|n|مسیر، راه
+promise|n|قول، وعده
+propose|v|پیشنهاد دادن، خواستگاری کردن
+purchase|n|خرید
+rain|n|باران
+steel|n|فولاد
+terrible|adj|وحشتناک
+tired|adj|خسته
+turning|n|پیچ، چرخش
+vice|n|رذیلت، معاون
+warm|adj|گرم
+afraid|adj|ترسیده
+beer|n|آبجو
+border|n|مرز
+command|n|فرمان
+crew|n|خدمه
+crowd|n|جمعیت
+element|n|عنصر
+enemy|n|دشمن
+ensure|v|اطمینان حاصل کردن
+environmental|adj|محیط‌زیستی
+fill|v|پر کردن
+fixed|adj|ثابت
+forest|n|جنگل
+intelligence|n|هوش، اطلاعات
+intended|adj|مورد نظر
+labour|n|کار، کارگر
+limit|n|حد، محدودیت
+moon|n|ماه
+ocean|n|اقیانوس
+profit|n|سود
+proof|n|اثبات، مدرک
+republican|adj|جمهوری‌خواه
+soldier|n|سرباز
+suit|n|کت و شلوار، دعوی
+appearance|n|ظاهر، حضور
+attorney|n|وکیل
+behavior|n|رفتار
+chair|n|صندلی
+debt|n|بدهی
+domestic|adj|داخلی، خانگی
+expensive|adj|گران
+historical|adj|تاریخی
+honestly|adv|صادقانه
+honor|n|افتخار، شرافت
+jump|v|پریدن
+launch|v|راه‌اندازی کردن، پرتاب کردن
+minimum|n|حداقل
+native|adj|بومی
+noted|adj|مشهور
+originally|adv|در اصل
+ray|n|پرتو، اشعه
+suddenly|adv|ناگهان
+supreme|adj|عالی، برتر
+survey|n|نظرسنجی
+update|n|به‌روزرسانی
+writer|n|نویسنده
+yellow|adj|زرد
+ancient|adj|باستانی
+combine|v|ترکیب کردن
+communication|n|ارتباط
+connected|adj|متصل
+contain|v|شامل بودن
+download|v|دانلود کردن
+email|n|ایمیل، رایانامه
+ending|n|پایان
+exercise|n|ورزش، تمرین
+express|v|بیان کردن
+flow|n|جریان
+formed|adj|شکل‌گرفته
+girlfriend|n|دوست دختر
+hero|n|قهرمان
+illegal|adj|غیرقانونی
+increasing|adj|رو به افزایش
+joke|n|شوخی، لطیفه
+loan|n|وام
+perform|v|اجرا کردن
+planet|n|سیاره
+restaurant|n|رستوران
+select|v|انتخاب کردن
+shopping|n|خرید
+soft|adj|نرم
+stuck|adj|گیرکرده
+sugar|n|شکر
+teach|v|آموختن، درس دادن
+transport|n|حمل و نقل
+accepted|adj|پذیرفته‌شده
+affair|n|امر، ماجرا
+appeal|n|درخواست، جذابیت
+applied|adj|کاربردی
+appropriate|adj|مناسب
+confirm|v|تأیید کردن
+device|n|دستگاه، وسیله
+drama|n|درام، نمایش
+entry|n|ورود، مدخل
+era|n|دوره، عصر
+factor|n|عامل
+feed|v|غذا دادن
+golden|adj|طلایی
+grant|n|کمک‌هزینه
+lawyer|n|وکیل
+leg|n|پا
+measure|v|اندازه گرفتن
+mistake|n|اشتباه
+platform|n|سکو، بستر
+pool|n|استخر
+regard|v|در نظر گرفتن
+relations|n|روابط
+route|n|مسیر
+schedule|n|برنامه زمانی
+scientific|adj|علمی
+shoe|n|کفش
+smoke|n|دود
+squad|n|تیم، جوخه
+testing|n|آزمایش
+abuse|n|سوءاستفاده، آزار
+angry|adj|عصبانی
+candidate|n|نامزد، داوطلب
+comfortable|adj|راحت
+concern|n|نگرانی
+discuss|v|بحث کردن
+emotional|adj|احساسی
+everywhere|adv|همه جا
+facility|n|امکانات، تأسیسات
+fox|n|روباه
+hole|n|سوراخ
+holiday|n|تعطیلات
+internal|adj|داخلی
+jersey|n|پیراهن ورزشی
+laugh|v|خندیدن
+letters|n|نامه‌ها، ادبیات
+liberal|adj|لیبرال، آزادمنش
+lunch|n|ناهار
+milk|n|شیر
+pack|n|بسته
+payment|n|پرداخت
+relatively|adv|نسبتاً
+sector|n|بخش
+snow|n|برف
+storm|n|طوفان
+strike|n|اعتصاب، ضربه
+studio|n|استودیو
+weak|adj|ضعیف
+actor|n|بازیگر
+advance|n|پیشرفت، پیش‌پرداخت
+apartment|n|آپارتمان
+chain|n|زنجیر
+chapter|n|فصل
+committed|adj|متعهد
+confidence|n|اعتماد به نفس
+cook|v|آشپزی کردن
+cute|adj|ناز، بامزه
+equal|adj|برابر
+fake|adj|جعلی، تقلبی
+finance|n|امور مالی
+identity|n|هویت
+journey|n|سفر
+kitchen|n|آشپزخانه
+maintain|v|حفظ کردن، نگهداری کردن
+numerous|adj|متعدد
+quiet|adj|ساکت، آرام
+reveal|v|آشکار کردن
+specifically|adv|به طور خاص
+split|v|تقسیم کردن، شکافتن
+task|n|وظیفه، کار
+urban|adj|شهری
+affected|adj|تحت تأثیر
+aircraft|n|هواپیما
+approve|v|تصویب کردن، تأیید کردن
+approximately|adv|تقریباً
+argument|n|استدلال، بحث
+arrest|v|دستگیر کردن
+conflict|n|درگیری، تعارض
+corporate|adj|شرکتی
+debate|n|مناظره، بحث
+determined|adj|مصمم
+distribution|n|توزیع
+document|n|سند، مدرک
+escape|v|فرار کردن
+extended|adj|گسترده، تمدیدشده
+fault|n|تقصیر، عیب
+flower|n|گل
+friendly|adj|دوستانه
+lay|v|گذاشتن، تخم گذاشتن
+millions|n|میلیون‌ها
+mixed|adj|مخلوط
+phase|n|مرحله
+properly|adv|به درستی
+pure|adj|خالص، پاک
+requirement|n|نیاز، الزام
+resident|n|ساکن
+revenue|n|درآمد
+secure|adj|امن
+smile|n|لبخند
+strange|adj|عجیب
+talent|n|استعداد
+temperature|n|دما
+troops|n|نیروها، سربازان
+truck|n|کامیون
+ah|int|آه
+basically|adv|اساساً
+besides|adv|علاوه بر این
+bird|n|پرنده
+blame|v|سرزنش کردن
+bowl|n|کاسه
+chicken|n|مرغ
+collected|adj|خونسرد، جمع‌شده
+context|n|زمینه، بافت
+coverage|n|پوشش
+determine|v|تعیین کردن
+display|n|نمایش
+dying|adj|در حال مرگ
+elect|v|انتخاب کردن
+experienced|adj|باتجربه
+false|adj|نادرست، دروغ
+funding|n|تأمین مالی
+identify|v|شناسایی کردن
+incredible|adj|باورنکردنی
+inspire|v|الهام بخشیدن
+meat|n|گوشت
+ministry|n|وزارتخانه
+mode|n|حالت، شیوه
+neck|n|گردن
+novel|n|رمان
+obvious|adj|آشکار، بدیهی
+passing|adj|گذرا
+scored|adj|خط‌دار
+shirt|n|پیراهن
+slowly|adv|آهسته
+stadium|n|ورزشگاه
+surgery|n|جراحی
+vision|n|بینایی، چشم‌انداز
+whenever|conj|هر وقت
+worried|adj|نگران
+zero|num|صفر
+champion|n|قهرمان
+charged|adj|متهم، باردار (برق)
+cream|n|خامه، کرم
+crisis|n|بحران
+deliver|v|تحویل دادن
+editor|n|ویراستار، سردبیر
+estimate|n|برآورد، تخمین
+giant|adj|غول‌پیکر
+jail|n|زندان
+kingdom|n|پادشاهی
+literature|n|ادبیات
+mayor|n|شهردار
+minor|adj|جزئی، کوچک
+opposite|adj|مخالف، روبه‌رو
+orange|n|پرتقال، نارنجی
+ourselves|pron|خودمان
+selection|n|انتخاب
+serving|n|وعده غذا، سهم
+signal|n|علامت، سیگنال
+stream|n|جویبار، جریان
+struggle|n|تلاش، مبارزه
+suicide|n|خودکشی
+theme|n|موضوع، مضمون
+tiny|adj|ریز، کوچک
+typically|adv|معمولاً
+unfortunately|adv|متأسفانه
+usual|adj|معمول
+wave|n|موج
+alcohol|n|الکل
+assembly|n|مجمع، مونتاژ
+breakfast|n|صبحانه
+bright|adj|روشن، درخشان
+capable|adj|توانا
+combination|n|ترکیب
+conservative|adj|محافظه‌کار
+cutting|n|برش
+desire|n|میل، آرزو
+destroy|v|نابود کردن
+draft|n|پیش‌نویس
+drunk|adj|مست
+essential|adj|ضروری، اساسی
+familiar|adj|آشنا
+guilty|adj|گناهکار، مقصر
+largely|adv|عمدتاً
+medium|adj|متوسط
+perfectly|adv|کاملاً
+recommend|v|توصیه کردن
+refer|v|اشاره کردن، ارجاع دادن
+relevant|adj|مرتبط
+seek|v|جستجو کردن
+solo|adj|تک، انفرادی
+spoke|n|پره
+ticket|n|بلیط
+unable|adj|ناتوان
+upset|adj|ناراحت
+wing|n|بال
+bomb|n|بمب
+creative|adj|خلاق
+cycle|n|چرخه
+dealing|n|معامله، برخورد
+directed|adj|هدایت‌شده
+educational|adj|آموزشی
+entertainment|n|سرگرمی
+extreme|adj|شدید، افراطی
+goods|n|کالا
+hang|v|آویزان کردن
+mainly|adv|عمدتاً
+maximum|n|حداکثر
+newspaper|n|روزنامه
+offering|n|پیشکش، عرضه
+painting|n|نقاشی
+republic|n|جمهوری
+reserve|v|رزرو کردن
+row|n|ردیف
+salt|n|نمک
+scare|v|ترساندن
+statistics|n|آمار
+switch|n|کلید، تغییر
+territory|n|قلمرو
+threat|n|تهدید
+affect|v|تأثیر گذاشتن
+appoint|v|منصوب کردن
+armed|adj|مسلح
+aside|adv|کنار
+assistance|n|کمک، یاری
+bell|n|زنگ
+blow|v|دمیدن، وزیدن
+bond|n|پیوند، اوراق قرضه
+boyfriend|n|دوست پسر
+careful|adj|مراقب، دقیق
+circumstances|n|شرایط
+controlled|adj|کنترل‌شده
+corporation|n|شرکت
+cry|v|گریه کردن
+danger|n|خطر
+delivery|n|تحویل، زایمان
+deserve|v|سزاوار بودن
+empty|adj|خالی
+folks|n|مردم، خانواده
+gender|n|جنسیت
+instance|n|نمونه، مورد
+motion|n|حرکت، پیشنهاد
+prize|n|جایزه
+reasonable|adj|معقول
+register|v|ثبت‌نام کردن
+resolution|n|قطعنامه، وضوح
+rural|adj|روستایی
+sing|v|آواز خواندن
+tool|n|ابزار
+typical|adj|معمولی، نمونه
+universe|n|جهان، کیهان
+warning|n|هشدار
+admit|v|اعتراف کردن، پذیرفتن
+attitude|n|نگرش
+branch|n|شاخه، شعبه
+conduct|v|انجام دادن، هدایت کردن
+decade|n|دهه
+dedicated|adj|متعهد، اختصاصی
+definition|n|تعریف
+drawing|n|طراحی، نقاشی
+favor|n|لطف، طرفداری
+flag|n|پرچم
+frame|n|قاب، چارچوب
+guest|n|مهمان
+heaven|n|بهشت
+independence|n|استقلال
+institution|n|نهاد، مؤسسه
+kiss|n|بوسه
+load|n|بار
+plot|n|طرح داستان، توطئه
+possibility|n|امکان
+random|adj|تصادفی
+recovery|n|بهبود، بازیابی
+rent|n|اجاره
+replace|v|جایگزین کردن
+represent|v|نمایندگی کردن، نشان دادن
+senator|n|سناتور
+sentence|n|جمله، حکم
+tooth|n|دندان
+tip|n|نوک، انعام، نکته
+academic|adj|دانشگاهی
+academy|n|آکادمی، فرهنگستان
+accurate|adj|دقیق
+achieve|v|دست یافتن
+afford|v|استطاعت داشتن
+assume|v|فرض کردن
+bottle|n|بطری
+bunch|n|دسته، خوشه
+category|n|دسته، رده
+chat|v|گپ زدن
+cheese|n|پنیر
+chemical|adj|شیمیایی
+competitive|adj|رقابتی
+diet|n|رژیم غذایی
+favourite|adj|مورد علاقه
+fruit|n|میوه
+index|n|شاخص، فهرست
+lane|n|کوچه، خط
+mess|n|آشفتگی، بی‌نظمی
+navy|n|نیروی دریایی
+normally|adv|معمولاً
+occur|v|رخ دادن
+opposition|n|مخالفت، اپوزیسیون
+permanent|adj|دائمی
+personally|adv|شخصاً
+pleasure|n|لذت
+prefer|v|ترجیح دادن
+programme|n|برنامه
+representative|n|نماینده
+scheme|n|طرح، نقشه
+shift|n|تغییر، شیفت
+storage|n|انبار، ذخیره‌سازی
+tank|n|مخزن، تانک
+tend|v|تمایل داشتن
+tight|adj|تنگ، محکم
+transportation|n|حمل و نقل
+ultimately|adv|در نهایت
+unlike|prep|برخلاف
+weekly|adj|هفتگی
+yard|n|حیاط، یارد
+anybody|pron|هر کسی
+asset|n|دارایی
+basketball|n|بسکتبال
+button|n|دکمه
+combat|n|نبرد
+constitution|n|قانون اساسی
+consumer|n|مصرف‌کننده
+counter|n|پیشخوان، شمارنده
+creation|n|آفرینش، ایجاد
+crown|n|تاج
+define|v|تعریف کردن
+depend|v|بستگی داشتن
+depression|n|افسردگی، رکود
+employment|n|استخدام، اشتغال
+exclusive|adj|انحصاری
+excuse|n|بهانه
+expert|n|متخصص
+frequently|adv|اغلب
+golf|n|گلف
+grace|n|لطف، وقار
+hopefully|adv|امیدوارانه
+importance|n|اهمیت
+latter|adj|دومی، اخیر
+manufacture|v|تولید کردن
+object|n|شیء، مفعول
+pattern|n|الگو
+performing|adj|اجرایی
+personnel|n|کارکنان
+perspective|n|دیدگاه، چشم‌انداز
+pregnant|adj|باردار
+premier|n|نخست‌وزیر
+promote|v|ترویج کردن، ترفیع دادن
+revolution|n|انقلاب
+potato|n|سیب‌زمینی
+potter|n|کوزه‌گر، سفالگر
+preference|n|ترجیح، اولویت
+proportion|n|نسبت، تناسب
+rage|n|خشم، غضب
+restoration|n|بازسازی، مرمت، اعاده
+selfish|adj|خودخواه
+sergeant|n|گروهبان
+silk|n|ابریشم
+stamp|n|تمبر، مهر
+throne|n|تخت پادشاهی
+thy|pron|مال تو، ـت
+urge|v|اصرار کردن، ترغیب کردن
+witch|n|جادوگر، ساحره
+archives|n|بایگانی، آرشیو
+array|n|آرایه، مجموعه
+belly|n|شکم
+booth|n|غرفه، باجه، اتاقک
+breakdown|n|خرابی، فروپاشی، تفکیک
+brutal|adj|بی‌رحمانه، وحشیانه
+calculate|v|محاسبه کردن
+citizenship|n|شهروندی، تابعیت
+cliff|n|صخره، پرتگاه
+consensus|n|اجماع، توافق عمومی
+declaration|n|اعلامیه، اظهارنامه
+derby|n|مسابقه، دربی
+distinction|n|تمایز، امتیاز، برجستگی
+donation|n|اهدا، کمک مالی
+facial|adj|مربوط به صورت، چهره‌ای
+faithful|adj|وفادار، باایمان
+fatal|adj|مرگبار، کشنده
+fig|n|انجیر
+fitting|adj|مناسب، شایسته
+genuinely|adv|واقعاً، صادقانه
+hunger|n|گرسنگی
+hurricane|n|طوفان، تندباد
+implication|n|پیامد، دلالت، تلویح
+import|v|وارد کردن، واردات
+innovative|adj|نوآورانه، خلاق
+jurisdiction|n|صلاحیت قضایی، حوزه قضایی
+laughter|n|خنده
+lemon|n|لیمو ترش
+loading|n|بارگیری، بارگذاری
+lung|n|ریه، شُش
+matching|adj|همخوان، جور
+mighty|adj|توانا، نیرومند
+monetary|adj|پولی، مالی
+nutrition|n|تغذیه
+ore|n|سنگ معدن
+pine|n|کاج
+poorly|adv|بد، ضعیف
+pose|v|ژست گرفتن، مطرح کردن
+pour|v|ریختن
+purely|adv|صرفاً، کاملاً
+rental|n|اجاره
+seemingly|adv|ظاهراً
+severely|adv|به‌شدت
+shark|n|کوسه
+southwest|n|جنوب غربی
+technically|adv|از نظر فنی، در واقع
+titled|adj|با عنوان، دارای لقب
+unlimited|adj|نامحدود
+advise|v|توصیه کردن، نصیحت کردن
+anxious|adj|نگران، مضطرب
+appearances|n|ظاهر، حضور
+bee|n|زنبور عسل
+bombing|n|بمباران
+cigarette|n|سیگار
+cult|n|فرقه، کیش
+dairy|n|لبنیات
+darling|n|عزیزم، عزیز
+delight|n|لذت، خوشی
+diary|n|دفتر خاطرات
+disagree|v|مخالفت کردن، موافق نبودن
+drill|n|مته، تمرین
+evolve|v|تکامل یافتن
+forecast|n|پیش‌بینی
+governance|n|حکمرانی، اداره
+hug|v|بغل کردن، در آغوش گرفتن
+importantly|adv|مهم‌تر از همه، به‌طور مهمی
+indoor|adj|سرپوشیده، داخلی
+influential|adj|تأثیرگذار، بانفوذ
+intend|v|قصد داشتن
+invisible|adj|نامرئی
+jeans|n|شلوار جین
+lawsuit|n|دعوای حقوقی، شکایت
+leak|n|نشت، درز
+lighter|n|فندک
+musician|n|نوازنده، موسیقی‌دان
+olive|n|زیتون
+passionate|adj|پرشور، مشتاق
+receiver|n|گیرنده
+riot|n|شورش
+roster|n|فهرست، برنامه نوبت
+servant|n|خدمتکار
+setup|n|راه‌اندازی، ترتیب
+skull|n|جمجمه
+slot|n|شکاف، جایگاه، نوبت
+smash|v|خرد کردن، کوبیدن
+statue|n|مجسمه
+surprisingly|adv|به‌طور شگفت‌انگیزی
+surrender|v|تسلیم شدن
+suspicious|adj|مشکوک، بدگمان
+teenager|n|نوجوان
+tender|adj|لطیف، مهربان، حساس
+thoroughly|adv|کاملاً، به‌طور کامل
+vacuum|n|خلأ، جاروبرقی
+variation|n|تغییر، تنوع
+advances|n|پیشرفت‌ها
+allegation|n|ادعا، اتهام
+anticipate|v|پیش‌بینی کردن، انتظار داشتن
+architect|n|معمار
+basin|n|حوضه، لگن، کاسه
+beneficial|adj|سودمند، مفید
+bleeding|n|خونریزی
+breed|n|نژاد
+breeding|n|پرورش، تولید مثل
+bride|n|عروس
+bud|n|جوانه، غنچه
+butler|n|پیشخدمت، سرپیشخدمت
+cartoon|n|کارتون، کاریکاتور
+chick|n|جوجه
+comparable|adj|قابل مقایسه، مشابه
+confirmation|n|تأیید
+console|n|کنسول، میز کنترل
+contractor|n|پیمانکار
+diameter|n|قطر
+dump|v|ریختن، دور انداختن
+duo|n|زوج، گروه دونفره
+dynamics|n|پویایی، دینامیک
+elephant|n|فیل
+enhanced|adj|بهبودیافته، تقویت‌شده
+exhaust|v|خسته کردن، تمام کردن
+fabric|n|پارچه، ساختار
+fabulous|adj|فوق‌العاده، افسانه‌ای
+fairy|n|پری
+fold|v|تا کردن
+freak|n|آدم عجیب، دیوانه
+frustrated|adj|ناامید، کلافه
+gamble|v|قمار کردن، ریسک کردن
+gently|adv|به‌آرامی، با ملایمت
+glorious|adj|باشکوه، افتخارآمیز
+grief|n|غم، اندوه
+historically|adv|از نظر تاریخی
+hub|n|مرکز، قطب
+inevitable|adj|اجتناب‌ناپذیر
+layout|n|طرح، چیدمان
+lodge|n|کلبه، اقامتگاه
+merchant|n|بازرگان، تاجر
+merit|n|شایستگی، لیاقت
+myth|n|افسانه، اسطوره
+obsess|v|وسواس داشتن، ذهن را مشغول کردن
+organise|v|سازماندهی کردن
+overwhelming|adj|طاقت‌فرسا، چشمگیر، قاطع
+pale|adj|رنگ‌پریده، کم‌رنگ
+particle|n|ذره
+pastor|n|کشیش
+permanently|adv|به‌طور دائم
+poison|n|سم
+provincial|adj|استانی، شهرستانی
+rebel|n|شورشی
+rotation|n|چرخش، گردش
+separately|adv|جداگانه
+subtle|adj|ظریف، نامحسوس
+toll|n|عوارض، تلفات
+tragic|adj|غم‌انگیز، تراژیک
+trainer|n|مربی، کفش ورزشی
+transform|v|دگرگون کردن، تبدیل کردن
+unbelievable|adj|باورنکردنی
+underneath|prep|زیرِ، در زیر
+viral|adj|ویروسی، فراگیر
+warehouse|n|انبار
+widow|n|بیوه‌زن
+adjust|v|تنظیم کردن، تطبیق دادن
+administrator|n|مدیر، سرپرست
+affecting|adj|تأثیرگذار، تکان‌دهنده
+allied|adj|متحد، متفق
+altogether|adv|کلاً، روی‌هم‌رفته
+animate|v|جان بخشیدن، متحرک کردن
+assess|v|ارزیابی کردن
+assumption|n|فرض، فرضیه
+assured|adj|مطمئن، تضمین‌شده
+basket|n|سبد
+beard|n|ریش
+blanket|n|پتو
+bucket|n|سطل
+compute|v|محاسبه کردن
+concentrate|v|تمرکز کردن
+continent|n|قاره
+cookie|n|کلوچه، شیرینی
+curse|n|نفرین، لعنت
+drain|v|تخلیه کردن
+emission|n|انتشار، گسیل
+ethical|adj|اخلاقی
+excellence|n|برتری، تعالی
+flame|n|شعله
+freely|adv|آزادانه
+graduation|n|فارغ‌التحصیلی
+hint|n|اشاره، سرنخ
+horizon|n|افق
+hostile|adj|خصمانه، متخاصم
+inhabitant|n|ساکن
+ink|n|جوهر
+inn|n|مسافرخانه، کاروانسرا
+matrix|n|ماتریس
+miserable|adj|بدبخت، فلاکت‌بار
+momentum|n|تکانه، شتاب
+monkey|n|میمون
+motorcycle|n|موتورسیکلت
+nationwide|adj|سراسری، کشوری
+nest|n|لانه، آشیانه
+nicely|adv|به‌خوبی، به‌زیبایی
+ninth|num|نهم
+nomination|n|نامزدی، معرفی
+notable|adj|قابل توجه، برجسته
+obligation|n|تعهد، الزام
+optical|adj|نوری، بصری
+outlook|n|چشم‌انداز، دیدگاه
+penny|n|پنی، سکه
+petty|adj|جزئی، پیش‌پاافتاده
+prospects|n|چشم‌انداز، احتمالات
+quantity|n|مقدار، کمیت
+quantum|n|کوانتوم
+rainbow|n|رنگین‌کمان
+recognise|v|شناختن، به رسمیت شناختن
+reed|n|نی، نیزار
+reign|n|سلطنت، حکومت
+scan|v|اسکن کردن، مرور کردن
+span|n|بازه، دهانه، طول
+specialize|v|تخصص یافتن
+submission|n|ارائه، تسلیم
+sunny|adj|آفتابی
+testament|n|وصیت‌نامه، گواه
+toe|n|انگشت پا
+tremendous|adj|عظیم، فوق‌العاده
+valued|adj|ارزشمند، گرامی
+accommodation|n|محل اقامت، اسکان
+adorable|adj|دوست‌داشتنی، ناز
+allegedly|adv|ظاهراً، بنا بر ادعا
+ambulance|n|آمبولانس
+ashamed|adj|شرمنده
+assure|v|اطمینان دادن
+ballot|n|برگه رأی، رأی‌گیری
+blessing|n|برکت، نعمت
+cemetery|n|گورستان
+chambers|n|تالار، اتاق‌ها
+compact|adj|فشرده، جمع‌وجور
+consult|v|مشورت کردن
+deficit|n|کسری، کمبود
+demo|n|نمایش، نسخه نمایشی
+demon|n|دیو، اهریمن
+demonstration|n|تظاهرات، نمایش، اثبات
+detect|v|تشخیص دادن، کشف کردن
+detection|n|تشخیص، کشف
+doll|n|عروسک
+donate|v|اهدا کردن
+elaborate|adj|مفصل، پیچیده
+elder|n|بزرگ‌تر، ریش‌سفید
+expertise|n|تخصص، مهارت
+fiber|n|فیبر، الیاف
+fry|v|سرخ کردن
+grocery|n|خواربار، بقالی
+halfway|adv|نیمه‌راه
+heel|n|پاشنه
+hull|n|بدنه کشتی، پوسته
+independently|adv|به‌طور مستقل
+indication|n|نشانه، علامت
+insist|v|اصرار کردن
+intensive|adj|فشرده، شدید
+interactive|adj|تعاملی
+intimate|adj|صمیمی، خصوصی
+laundry|n|لباس‌شویی، رخت چرک
+martial|adj|رزمی، نظامی
+northeast|n|شمال شرقی
+packing|n|بسته‌بندی
+password|n|رمز عبور
+politically|adv|از نظر سیاسی
+presumably|adv|احتمالاً، ظاهراً
+pronounced|adj|مشخص، بارز
+prosecution|n|پیگرد قانونی، دادستانی
+pulse|n|نبض، ضربان
+rational|adj|منطقی، عقلانی
+realm|n|قلمرو، حوزه
+rope|n|طناب
+shout|v|فریاد زدن
+specify|v|مشخص کردن
+spectacular|adj|تماشایی، چشمگیر
+streak|n|رگه، دوره پیاپی
+subscription|n|اشتراک، حق عضویت
+switching|n|تعویض، سوئیچینگ
+technological|adj|فناورانه، فنی
+temporarily|adv|به‌طور موقت
+tolerance|n|تحمل، مدارا
+traditionally|adv|به‌طور سنتی
+unhappy|adj|ناراضی، ناخشنود
+yup|int|آره، بله
+accomplish|v|انجام دادن، به پایان رساندن
+adequate|adj|کافی، مناسب
+alter|v|تغییر دادن
+apology|n|عذرخواهی
+attribute|n|ویژگی، صفت
+beg|v|التماس کردن، گدایی کردن
+bout|n|دوره، حمله، مسابقه
+brass|n|برنج فلزی، سازهای برنجی
+buzz|n|وزوز، هیجان
+comeback|n|بازگشت
+diagnose|v|تشخیص دادن
+diesel|n|گازوئیل، دیزل
+dimensions|n|ابعاد
+dip|v|فرو بردن، زدن
+disturbing|adj|نگران‌کننده، آزاردهنده
+dot|n|نقطه
+effectiveness|n|اثربخشی
+embarrass|v|خجالت دادن، شرمنده کردن
+exceptional|adj|استثنایی
+filing|n|بایگانی، ثبت
+flee|v|فرار کردن، گریختن
+foul|n|خطا
+frankly|adv|راستش، صادقانه
+freezing|adj|یخ‌زده، بسیار سرد
+graph|n|نمودار
+hack|v|هک کردن، بریدن
+hatred|n|نفرت
+ignorant|adj|نادان، بی‌اطلاع
+interact|v|تعامل داشتن
+lamp|n|چراغ، لامپ
+limitation|n|محدودیت
+majesty|n|اعلی‌حضرت، شکوه
+measurement|n|اندازه‌گیری
+median|n|میانه
+medieval|adj|قرون وسطایی
+mobility|n|تحرک، جابه‌جایی
+orientation|n|جهت‌گیری، آشنایی
+oven|n|فر، اجاق
+passport|n|گذرنامه
+penis|n|آلت تناسلی مرد
+pill|n|قرص
+proceeds|n|عواید، درآمد
+rabbit|n|خرگوش
+retire|v|بازنشسته شدن
+rhythm|n|ریتم، آهنگ
+savage|adj|وحشی، بی‌رحم
+shooter|n|تیرانداز
+sibling|n|خواهر یا برادر
+slim|adj|لاغر، باریک
+someday|adv|روزی
+sophisticated|adj|پیچیده، پیشرفته
+spam|n|هرزنامه
+stack|n|پشته، دسته
+stance|n|موضع، حالت
+static|adj|ایستا، ثابت
+subway|n|مترو
+supportive|adj|حمایتگر
+surgical|adj|جراحی
+tablet|n|قرص، تبلت
+tent|n|چادر
+thesis|n|پایان‌نامه، تز
+tide|n|جزر و مد
+travels|n|سفرها
+warfare|n|جنگ، نبرد
+withdraw|v|برداشت کردن، عقب‌نشینی کردن
+withdrawal|n|برداشت، عقب‌نشینی
+aging|n|پیری، سالخوردگی
+audit|n|حسابرسی
+authentic|adj|اصیل، معتبر
+backwards|adv|به عقب، وارونه
+blonde|adj|بور، طلایی‌مو
+bolt|n|پیچ، چفت، صاعقه
+brook|n|جویبار
+bust|n|نیم‌تنه، مجسمه نیم‌تنه
+clearing|n|پاک‌سازی، فضای باز جنگل
+collar|n|یقه، قلاده
+comply|v|پیروی کردن، اطاعت کردن
+cope|v|کنار آمدن
+creepy|adj|ترسناک، چندش‌آور
+divorced|adj|طلاق‌گرفته
+dried|adj|خشک‌شده
+echo|n|پژواک، انعکاس
+emotionally|adv|از نظر عاطفی
+enhance|v|افزایش دادن، بهبود بخشیدن
+finale|n|پایان، قسمت پایانی
+flavor|n|طعم، مزه
+glove|n|دستکش
+ignorance|n|نادانی، جهل
+induce|v|القا کردن، وادار کردن
+intermediate|adj|متوسط، میانی
+invention|n|اختراع
+likewise|adv|همچنین، به همین ترتیب
+lineup|n|ترکیب، صف
+magnificent|adj|باشکوه، عالی
+mathematical|adj|ریاضی
+meantime|n|در این میان، در این فاصله
+nonetheless|adv|با این حال
+nut|n|آجیل، مهره
+oppose|v|مخالفت کردن
+pipeline|n|خط لوله
+placement|n|جایگذاری، تعیین سطح
+questioning|n|بازجویی، پرسش
+recreation|n|تفریح، سرگرمی
+renew|v|تمدید کردن، تجدید کردن
+resigned|adj|تسلیم، مستعفی
+shallow|adj|کم‌عمق، سطحی
+sketch|n|طرح، اسکیس
+soda|n|نوشابه، سودا
+spite|n|کینه، لج
+strengthen|v|تقویت کردن
+sunset|n|غروب آفتاب
+thanksgiving|n|شکرگزاری
+thee|pron|تو را، تو
+thermal|adj|حرارتی، گرمایی
+workplace|n|محل کار
+yell|v|فریاد زدن، داد زدن
+analyst|n|تحلیلگر
+arctic|adj|قطبی، شمالگان
+cannabis|n|شاهدانه، حشیش
+cease|v|متوقف کردن، دست کشیدن
+chapel|n|نمازخانه، کلیسای کوچک
+cloth|n|پارچه
+container|n|ظرف، کانتینر
+cowboy|n|گاوچران
+deploy|v|مستقر کردن، به کار گرفتن
+differ|v|متفاوت بودن
+dimensional|adj|بُعدی
+eager|adj|مشتاق
+elevate|v|بالا بردن، ارتقا دادن
+essence|n|جوهر، ماهیت، اسانس
+fork|n|چنگال، دوراهی
+fur|n|خز، پوست
+harvest|n|برداشت محصول
+headline|n|تیتر، سرخط خبر
+hype|n|تبلیغات اغراق‌آمیز، جنجال
+junk|n|آشغال، خرت‌وپرت
+kidney|n|کلیه
+ladder|n|نردبان
+lobby|n|سالن ورودی، لابی
+mineral|n|ماده معدنی
+mob|n|جمعیت، اوباش
+modest|adj|فروتن، متوسط
+navigation|n|ناوبری، جهت‌یابی
+orbit|n|مدار
+paragraph|n|بند، پاراگراف
+passive|adj|منفعل، مجهول
+peninsula|n|شبه‌جزیره
+pork|n|گوشت خوک
+profitable|adj|سودآور
+ranch|n|مزرعه دامداری
+reasonably|adv|نسبتاً، به‌طور معقول
+remainder|n|باقی‌مانده
+seize|v|توقیف کردن، گرفتن
+semester|n|نیمسال تحصیلی، ترم
+sentiment|n|احساس، عقیده
+sock|n|جوراب
+supplement|n|مکمل، ضمیمه
+thereby|adv|بدین وسیله، در نتیجه
+threshold|n|آستانه
+tin|n|قلع، قوطی
+tire|n|لاستیک، تایر
+tribal|adj|قبیله‌ای
+uncertainty|n|عدم قطعیت، تردید
+vampire|n|خون‌آشام
+varied|adj|متنوع
+verdict|n|حکم، رأی
+accommodate|v|جا دادن، اسکان دادن
+accordingly|adv|بر این اساس، متناسباً
+aesthetic|adj|زیبایی‌شناختی
+algorithm|n|الگوریتم
+altered|adj|تغییریافته
+anchor|n|لنگر، مجری
+arch|n|طاق، قوس
+axis|n|محور
+badge|n|نشان، مدال
+bizarre|adj|عجیب و غریب
+bounce|v|جهیدن، برگشتن
+broadcasting|n|پخش، رادیو و تلویزیون
+cannon|n|توپ جنگی
+carol|n|سرود کریسمس
+complexity|n|پیچیدگی
+confuse|v|گیج کردن، اشتباه گرفتن
+consultation|n|مشاوره، رایزنی
+continental|adj|قاره‌ای
+convenience|n|راحتی، سهولت
+deliberately|adv|عمداً
+dictionary|n|فرهنگ لغت، دیکشنری
+dignity|n|شأن، کرامت
+dimension|n|بُعد، اندازه
+disappointing|adj|ناامیدکننده
+ego|n|نفس، منیت
+enthusiasm|n|اشتیاق، شور
+equation|n|معادله
+extract|v|استخراج کردن
+ferry|n|کشتی مسافربری
+flexibility|n|انعطاف‌پذیری
+fusion|n|همجوشی، ادغام
+gauge|n|سنجه، درجه
+goat|n|بز
+gut|n|روده، شکم، شهود
+heck|int|ای بابا، لعنتی
+helmet|n|کلاه ایمنی
+ideology|n|ایدئولوژی، مسلک
+inclusion|n|گنجاندن، شمول
+innings|n|نوبت بازی
+insect|n|حشره
+instructor|n|مربی، مدرس
+isolation|n|انزوا، جداسازی
+justified|adj|موجه، توجیه‌شده
+keeper|n|نگهبان، دروازه‌بان
+lamb|n|بره
+liar|n|دروغگو
+machinery|n|ماشین‌آلات
+mansion|n|عمارت، کاخ
+mercury|n|جیوه
+namely|adv|یعنی، به عبارتی
+ordering|n|سفارش، ترتیب
+pending|adj|در انتظار، معلق
+platinum|n|پلاتین
+possess|v|داشتن، دارا بودن
+premise|n|فرض، مقدمه
+probability|n|احتمال
+resignation|n|استعفا
+rider|n|سوارکار، راکب
+ritual|n|آیین، مراسم
+ruins|n|ویرانه‌ها، خرابه
+shelf|n|قفسه، طاقچه
+slam|v|کوبیدن، محکم بستن
+starter|n|پیش‌غذا، استارت
+subscribe|v|مشترک شدن
+utterly|adv|کاملاً، مطلقاً
+voltage|n|ولتاژ
+width|n|عرض، پهنا
+workout|n|تمرین ورزشی
+activate|v|فعال کردن
+adaptation|n|سازگاری، اقتباس
+advisor|n|مشاور
+aluminum|n|آلومینیوم
+bail|n|وثیقه، ضمانت
+characterize|v|توصیف کردن، مشخص کردن
+civilization|n|تمدن
+creativity|n|خلاقیت
+delicate|adj|ظریف، حساس
+den|n|لانه، کنام
+disappointment|n|ناامیدی، دلسردی
+disk|n|دیسک، قرص
+evaluate|v|ارزیابی کردن
+formally|adv|به‌طور رسمی
+frames|n|قاب‌ها، فریم‌ها
+goddess|n|الهه
+harassment|n|آزار و اذیت
+insert|v|وارد کردن، درج کردن
+liquor|n|مشروب الکلی
+loser|n|بازنده
+massage|n|ماساژ، مالش
+nephew|n|برادرزاده، خواهرزاده
+notably|adv|به‌ویژه، به‌طور قابل توجه
+orchestra|n|ارکستر
+pad|n|پد، بالشتک، دفترچه
+precision|n|دقت
+preservation|n|حفظ، نگهداری
+privately|adv|به‌طور خصوصی
+relaxed|adj|آرام، راحت
+rumor|n|شایعه
+sail|v|دریانوردی کردن، بادبان
+salmon|n|ماهی آزاد، سالمون
+secretly|adv|مخفیانه
+seller|n|فروشنده
+sheer|adj|محض، خالص
+specially|adv|مخصوصاً
+stark|adj|آشکار، شدید، خشک
+sympathy|n|همدردی
+tan|n|برنزه، رنگ قهوه‌ای روشن
+theoretical|adj|نظری
+thumb|n|انگشت شست
+timber|n|الوار، چوب
+transparent|adj|شفاف
+upside|n|جنبه مثبت، رو
+vitamin|n|ویتامین
+void|n|خلأ، باطل
+voluntary|adj|داوطلبانه
+wheat|n|گندم
+whip|n|شلاق
+wipe|v|پاک کردن
+wrist|n|مچ دست
+acute|adj|حاد، شدید
+admiral|n|دریاسالار
+banana|n|موز
+behave|v|رفتار کردن
+borrow|v|قرض گرفتن
+capitol|n|ساختمان کنگره
+chin|n|چانه
+civic|adj|مدنی، شهری
+clerk|n|کارمند، منشی
+considerably|adv|به‌طور قابل ملاحظه‌ای
+cottage|n|کلبه، خانه روستایی
+coup|n|کودتا
+criticize|v|انتقاد کردن
+crude|adj|خام، زمخت
+dash|n|خط تیره، حرکت سریع
+disclosure|n|افشا
+disposal|n|دفع، اختیار
+distinctive|adj|متمایز، مشخص
+drone|n|پهپاد، وزوز
+escort|n|اسکورت، همراه
+firmly|adv|محکم، قاطعانه
+flour|n|آرد
+indirect|adj|غیرمستقیم
+institutional|adj|نهادی، سازمانی
+interim|adj|موقت
+jerk|n|آدم عوضی، تکان ناگهانی
+kindly|adv|با مهربانی، لطفاً
+kindness|n|مهربانی
+lottery|n|بخت‌آزمایی، قرعه‌کشی
+magnitude|n|بزرگی، اندازه
+minus|prep|منهای
+nude|adj|برهنه
+outlet|n|پریز، فروشگاه، مجرا
+parameter|n|پارامتر، مؤلفه
+pause|n|مکث
+pledge|n|تعهد، پیمان
+portal|n|درگاه، پورتال
+prescription|n|نسخه پزشکی
+protester|n|معترض
+proving|n|اثبات
+publicity|n|تبلیغات، شهرت
+punish|v|مجازات کردن
+puppy|n|توله سگ
+recruitment|n|استخدام، جذب نیرو
+silicon|n|سیلیکون
+slice|n|برش، تکه
+spelling|n|املا
+spur|n|انگیزه، مهمیز
+subscriber|n|مشترک
+telegraph|n|تلگراف
+vaccine|n|واکسن
+vinyl|n|وینیل
+accurately|adv|به‌طور دقیق
+affiliate|n|وابسته، شعبه
+asylum|n|پناهندگی، آسایشگاه
+barn|n|انبار غله، طویله
+bent|adj|خم، کج
+cathedral|n|کلیسای جامع
+centered|adj|متمرکز
+clause|n|بند، جمله‌واره
+cluster|n|خوشه، دسته
+consistency|n|ثبات، سازگاری
+cylinder|n|استوانه، سیلندر
+dancer|n|رقصنده
+deaf|adj|ناشنوا
+denial|n|انکار، رد
+dock|n|اسکله
+entrepreneur|n|کارآفرین
+evident|adj|آشکار، مشهود
+expectation|n|انتظار
+expedition|n|سفر اکتشافی
+facilitate|v|تسهیل کردن
+feat|n|شاهکار، دستاورد
+fossil|n|فسیل
+freight|n|بار، محموله
+honesty|n|صداقت
+inappropriate|adj|نامناسب
+infant|n|نوزاد
+initiate|v|آغاز کردن
+injection|n|تزریق
+instrumental|adj|مؤثر، سازی
+insult|n|توهین
+interference|n|دخالت، تداخل
+interstate|adj|بین‌ایالتی
+neat|adj|مرتب، تمیز
+negotiate|v|مذاکره کردن
+offset|v|جبران کردن
+outbreak|n|شیوع، بروز
+pal|n|رفیق
+perfection|n|کمال
+pirate|n|دزد دریایی
+probe|n|کاوشگر، تحقیق
+prohibit|v|ممنوع کردن
+quarterly|adj|فصلی، سه‌ماهه
+recruit|v|استخدام کردن، عضوگیری کردن
+rehabilitation|n|توانبخشی، بازپروری
+resistant|adj|مقاوم
+roller|n|غلتک
+sailing|n|قایقرانی، دریانوردی
+skinny|adj|لاغر، استخوانی
+sneak|v|یواشکی رفتن
+sore|adj|دردناک، زخم
+spark|n|جرقه
+speculation|n|گمانه‌زنی، سفته‌بازی
+steep|adj|شیب‌دار، تند
+straw|n|کاه، نی نوشابه
+successor|n|جانشین
+uncertain|adj|نامطمئن
+upload|v|بارگذاری کردن، آپلود کردن
+vector|n|بردار
+weigh|v|وزن کردن
+whatsoever|adv|به هیچ وجه، اصلاً
+wicked|adj|شرور، بدجنس
+absent|adj|غایب
+acoustic|adj|آکوستیک، صوتی
+adapt|v|سازگار شدن، اقتباس کردن
+ancestor|n|نیا، جد
+archive|n|بایگانی، آرشیو
+atomic|adj|اتمی
+bicycle|n|دوچرخه
+bump|n|برآمدگی، ضربه
+cart|n|گاری، سبد خرید
+circus|n|سیرک
+cocaine|n|کوکائین
+compelling|adj|قانع‌کننده، جذاب
+compile|v|گردآوری کردن، کامپایل کردن
+complication|n|عارضه، پیچیدگی
+cord|n|طناب، سیم
+crowded|adj|شلوغ
+defendant|n|متهم، خوانده
+dense|adj|متراکم، انبوه
+desperately|adv|ناامیدانه، شدیداً
+doctrine|n|آموزه، دکترین
+financially|adv|از نظر مالی
+freshman|n|دانشجوی سال اول
+furious|adj|خشمگین
+geography|n|جغرافیا
+gig|n|اجرا، کنسرت، کار موقت
+habitat|n|زیستگاه
+harbour|n|بندر، لنگرگاه
+hazard|n|خطر
+hydrogen|n|هیدروژن
+imply|v|دلالت داشتن، تلویحاً گفتن
+intact|adj|دست‌نخورده، سالم
+intake|n|مصرف، دریافت
+irrelevant|adj|نامربوط
+jaw|n|فک، آرواره
+kitty|n|پیشی، بچه گربه
+lawn|n|چمن
+mistaken|adj|اشتباه، در اشتباه
+needle|n|سوزن
+oval|adj|بیضی
+pity|n|ترحم، حیف
+pond|n|برکه، حوض
+porter|n|باربر، دربان
+prey|n|شکار، طعمه
+prophet|n|پیامبر
+referendum|n|همه‌پرسی
+regulate|v|تنظیم کردن، کنترل کردن
+rounded|adj|گرد، کامل
+ruby|n|یاقوت سرخ
+seasonal|adj|فصلی
+sequel|n|دنباله
+shifting|adj|متغیر، در حال تغییر
+teammate|n|هم‌تیمی
+township|n|شهرک، بخش
+twisted|adj|پیچ‌خورده، منحرف
+wade|v|از آب گذشتن، به‌زحمت پیش رفتن
+whale|n|نهنگ، وال
+writings|n|نوشته‌ها، آثار
+admire|v|تحسین کردن
+amber|n|کهربا
+ankle|n|مچ پا
+armor|n|زره
+autism|n|اوتیسم
+bachelor|n|مرد مجرد، لیسانس
+berry|n|توت
+billions|n|میلیاردها
+bully|n|قلدر
+capitalism|n|سرمایه‌داری
+caution|n|احتیاط
+certification|n|گواهی، صدور گواهینامه
+clan|n|قبیله، طایفه
+clash|n|درگیری، برخورد
+compatible|adj|سازگار
+condemn|v|محکوم کردن
+configuration|n|پیکربندی
+continuously|adv|به‌طور پیوسته
+convincing|adj|قانع‌کننده
+curiosity|n|کنجکاوی
+explosive|adj|انفجاری
+flooding|n|سیل، آب‌گرفتگی
+fortunate|adj|خوش‌شانس
+fortunately|adv|خوشبختانه
+frontier|n|مرز، سرحد
+frustrate|v|ناکام گذاشتن، کلافه کردن
+frustration|n|ناکامی، سرخوردگی
+geographic|adj|جغرافیایی
+grasp|v|درک کردن، چنگ زدن
+handy|adj|کاربردی، دم‌دست
+harmful|adj|مضر، زیان‌آور
+headache|n|سردرد
+hers|pron|مال او
+incentive|n|انگیزه، مشوق
+inclusive|adj|فراگیر، شامل
+licence|n|مجوز، گواهینامه
+madness|n|دیوانگی
+mandate|n|دستور، اختیار، قیمومیت
+memorable|adj|به‌یادماندنی
+merger|n|ادغام
+poker|n|پوکر، سیخ بخاری
+portable|adj|قابل حمل
+randomly|adv|به‌طور تصادفی
+resign|v|استعفا دادن
+revealing|adj|افشاگر، روشنگر
+robbery|n|سرقت، دزدی
+rub|v|مالیدن
+scattered|adj|پراکنده
+scout|n|پیشاهنگ، دیده‌بان
+sexuality|n|تمایلات جنسی، جنسیت
+slap|n|سیلی
+steak|n|استیک
+succession|n|جانشینی، توالی
+superintendent|n|سرپرست، ناظر
+suspicion|n|سوءظن، شک
+sweep|v|جارو کردن
+tactical|adj|تاکتیکی
+therapist|n|درمانگر
+thereafter|adv|پس از آن
+thorough|adj|کامل، دقیق
+tuition|n|شهریه، آموزش
+tumor|n|تومور
+wholesale|adj|عمده‌فروشی، کلی
+administer|v|اداره کردن، تجویز کردن
+architectural|adj|معماری
+artillery|n|توپخانه
+assemble|v|جمع کردن، سوار کردن
+canvas|n|بوم نقاشی، کرباس
+canyon|n|دره عمیق
+cheek|n|گونه
+circular|adj|دایره‌ای، دوری
+circulation|n|گردش، تیراژ
+clearance|n|مجوز، ترخیص، فاصله
+coincidence|n|تصادف، هم‌زمانی
+comedian|n|کمدین
+concentrated|adj|غلیظ، متمرکز
+conscience|n|وجدان
+cooler|n|خنک‌کننده، یخدان
+countless|adj|بی‌شمار
+curry|n|کاری، خوراک ادویه‌دار
+dame|n|بانو
+deceased|adj|متوفی، درگذشته
+dedication|n|تعهد، فداکاری، تقدیم
+detention|n|بازداشت
+enforce|v|اجرا کردن، به اجرا گذاشتن
+explicit|adj|صریح، آشکار
+explicitly|adv|به‌صراحت
+flu|n|آنفولانزا
+forbidden|adj|ممنوع
+fraction|n|کسر، بخش کوچک
+infantry|n|پیاده‌نظام
+integral|adj|جدایی‌ناپذیر، انتگرال
+kidnap|v|آدم‌ربایی کردن
+lightly|adv|به‌آرامی، سبک
+marble|n|سنگ مرمر، تیله
+maritime|adj|دریایی
+melt|v|ذوب شدن
+nominee|n|نامزد
+oath|n|سوگند
+offence|n|جرم، توهین
+packaging|n|بسته‌بندی
+patriot|n|میهن‌پرست
+pee|v|ادرار کردن، جیش کردن
+pillow|n|بالش
+polar|adj|قطبی
+prediction|n|پیش‌بینی
+preview|n|پیش‌نمایش
+puzzle|n|معما، پازل
+reconstruction|n|بازسازی
+renowned|adj|مشهور، نامدار
+revelation|n|افشا، وحی، مکاشفه
+skirt|n|دامن
+socially|adv|از نظر اجتماعی
+spa|n|چشمه آب معدنی، اسپا
+spike|n|میخ، جهش
+sprint|n|دوی سرعت
+stir|v|هم زدن
+substantially|adv|به‌طور قابل توجهی
+suburb|n|حومه شهر
+superb|adj|عالی، بی‌نظیر
+supposedly|adv|ظاهراً، فرضاً
+tendency|n|گرایش، تمایل
+theirs|pron|مال آن‌ها
+toast|n|نان تست، به سلامتی
+touchdown|n|فرود، تاچ‌داون
+trait|n|ویژگی، خصلت
+trek|n|سفر طولانی، کوه‌پیمایی
+tricky|adj|دشوار، فریبنده
+triumph|n|پیروزی
+underwear|n|لباس زیر
+viable|adj|عملی، ماندگار
+waist|n|کمر
+wit|n|هوش، شوخ‌طبعی
+wreck|n|لاشه، خرابه
+absurd|adj|مضحک، پوچ
+ambitious|adj|جاه‌طلب، بلندپروازانه
+appealing|adj|جذاب
+ballet|n|باله
+bargain|n|معامله، چانه‌زنی
+binary|adj|دودویی، باینری
+blend|v|مخلوط کردن
+brake|n|ترمز
+businessman|n|تاجر، بازرگان
+cab|n|تاکسی
+collision|n|برخورد، تصادف
+compassion|n|شفقت، دلسوزی
+consume|v|مصرف کردن
+correction|n|تصحیح، اصلاح
+cough|n|سرفه
+depot|n|انبار، پایانه
+distress|n|پریشانی، اضطرار
+documentation|n|مستندات، اسناد
+dramatically|adv|به‌طور چشمگیر
+elegant|adj|شیک، ظریف
+elevator|n|آسانسور
+feast|n|ضیافت، جشن
+frost|n|یخبندان، شبنم یخ‌زده
+herald|n|پیام‌آور، منادی
+hike|n|پیاده‌روی، افزایش
+hollow|adj|توخالی، پوچ
+homeland|n|میهن، سرزمین مادری
+internationally|adv|در سطح بین‌المللی
+lame|adj|لنگ، ضعیف
+lily|n|سوسن، زنبق
+limiting|adj|محدودکننده
+locker|n|کمد، قفسه
+mainland|n|سرزمین اصلی
+marking|n|علامت، نمره‌دهی
+meditation|n|مراقبه، تأمل
+messenger|n|پیام‌رسان
+pencil|n|مداد
+philosophical|adj|فلسفی
+plasma|n|پلاسما
+plea|n|درخواست، التماس، دفاعیه
+purse|n|کیف پول
+quarterback|n|بازیکن کوارتربک
+relieve|v|تسکین دادن، رهایی بخشیدن
+reservation|n|رزرو، تردید
+rhetoric|n|لفاظی، فن بیان
+salvation|n|رستگاری، نجات
+sanction|n|تحریم، مجوز</script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const fa=n=>String(n).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const lsGet=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let toastT;function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+function fmtSize(b){if(b<1024)return fa(b)+" بایت";if(b<1048576)return fa((b/1024).toFixed(0))+" کیلوبایت";return fa((b/1048576).toFixed(1))+" مگابایت"}
+function fmtTime(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+function fmtDate(t){try{return new Date(t).toLocaleDateString("fa-IR",{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})}catch(e){return ""}}
+
+/* ---------- tabs ---------- */
+function showTab(id){
+  for(const [t,p] of [["tab-lib","p-lib"],["tab-fc","p-fc"]]){const on=t===id;$("#"+t).setAttribute("aria-selected",on);$("#"+p).hidden=!on}
+  lsSet("qafase.tab",id);
+}
+$("#tab-lib").onclick=()=>showTab("tab-lib");$("#tab-fc").onclick=()=>showTab("tab-fc");
+if(location.hash==="#cards")showTab("tab-fc");else if(location.hash==="#library")showTab("tab-lib");else showTab(lsGet("qafase.tab","tab-lib"));
+
+/* ---------- storage: cloud (db + assets) with a local fallback ---------- */
+const C={mode:"wait",db:null,assets:null,downloads:null,uid:null,col:null};
+const DIRECT={"image/png":1,"image/jpeg":1,"image/gif":1,"image/webp":1,"video/mp4":1,"video/webm":1,"application/pdf":1};
+const AUDIO_AS={"audio/webm":"video/webm","audio/mp4":"video/mp4","audio/x-m4a":"video/mp4","audio/m4a":"video/mp4"};
+const MAX_DIRECT=20*1048576, MAX_WRAP=14*1048576;
+function kindOf(mime,name){
+  mime=(mime||"").split(";")[0];const ext=(name||"").split(".").pop().toLowerCase();
+  if(mime.startsWith("audio/")||["mp3","wav","m4a","ogg","oga","aac","flac","opus","weba"].includes(ext))return "audio";
+  if(mime.startsWith("image/"))return "image";
+  if(mime.startsWith("video/"))return "video";
+  if(mime==="application/pdf"||ext==="pdf")return "pdf";
+  if(mime.startsWith("text/")||["txt","md","csv","json"].includes(ext))return "text";
+  return "other";
+}
+const KIND_LABEL={all:"همه",audio:"صدا",image:"عکس",video:"ویدیو",pdf:"PDF",text:"متن",other:"سایر"};
+const KIND_TAG={audio:"AUD",image:"IMG",video:"VID",pdf:"PDF",text:"TXT",other:"FILE"};
+
+/* local fallback: IndexedDB in this browser, used only when the cloud store is not reachable */
+const IDB={db:null,
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open("qafase",1);r.onupgradeneeded=()=>r.result.createObjectStore("items",{keyPath:"id"});r.onsuccess=()=>{this.db=r.result;res()};r.onerror=()=>rej(r.error)})},
+  tx(m){return this.db.transaction("items",m).objectStore("items")},
+  all(){return new Promise((res,rej)=>{const r=this.tx("readonly").getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+  put(v){return new Promise((res,rej)=>{const r=this.tx("readwrite").put(v);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})},
+  del(id){return new Promise((res,rej)=>{const r=this.tx("readwrite").delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+};
+
+let items=[];
+function setStatus(s,text){const el=$("#status");el.dataset.s=s;el.textContent=text}
+
+async function initStorage(){
+  if(window.claude&&typeof window.claude.use==="function"){
+    try{
+      const [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
+      const uid=user?await user.id():null;
+      if(db&&uid){
+        C.db=db;C.uid=uid;C.col=db.collection("data/users/"+uid+"/library");
+        C.assets=await claude.use("assets");C.downloads=await claude.use("downloads");
+        C.mode="cloud";
+        setStatus("cloud",C.assets?"فضای ابری فعال":"فضای ابری (فقط خواندنی)");
+        C.col.orderBy("createdAt","desc").onSnapshot(snap=>{
+          items=snap.docs.map(d=>Object.assign({id:d.id},d.data()));renderItems();
+        },e=>{toast("اتصال به فضای ابری قطع شد؛ صفحه را دوباره باز کن.")});
+        refreshUsage();loadProgressCloud();
+        return;
+      }
+    }catch(e){}
+  }
+  C.mode="local";
+  setStatus("local","ذخیره در همین مرورگر");
+  try{await IDB.open();items=(await IDB.all()).sort((a,b)=>b.createdAt-a.createdAt)}catch(e){items=[]}
+  renderItems();
+}
+
+async function refreshUsage(){
+  if(!C.assets)return;
+  try{const {usage}=await C.assets.list();$("#usage").hidden=false;
+    $("#usageTxt").textContent=(usage.bytes/1048576).toFixed(1)+" / "+(usage.maxBytes/1048576).toFixed(0)+" MB";
+    $("#usageBar").style.width=Math.min(100,usage.bytes/usage.maxBytes*100)+"%";
+  }catch(e){}
+}
+
+function blobToB64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]||"");r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
+function b64ToBlob(b64,type){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type})}
+const ERR={too_large:"فایل از حد مجاز بزرگ‌تر است.",quota_or_state:"فضای ابری کتابخانه پر شده است. چند فایل قدیمی را حذف کن.",rate_limited:"خیلی سریع پشت هم فرستادی؛ چند ثانیه بعد دوباره امتحان کن.",unsupported_type:"این نوع فایل پذیرفته نشد.",upstream_auth:"دوباره وارد حسابت شو و صفحه را تازه کن.",not_granted:"اجازه ذخیره در فضای ابری داده نشد."};
+
+/* add one file (File or Blob with a name) to the library */
+async function addToLibrary(blob,name,extra={}){
+  const mime=(blob.type||"").split(";")[0]||"application/octet-stream";
+  const kind=kindOf(mime,name);
+  const base={name,kind,mime,size:blob.size,createdAt:Date.now(),...extra};
+  if(C.mode==="cloud"){
+    if(!C.assets)throw new Error("فقط صاحب کتابخانه می‌تواند فایل اضافه کند.");
+    let upType=DIRECT[mime]?mime:AUDIO_AS[mime];let wrapped=false;let body=blob;
+    if(!upType){
+      if(blob.size>MAX_WRAP)throw new Error("این نوع فایل حداکثر می‌تواند ۱۴ مگابایت باشد.");
+      body=new Blob([JSON.stringify({v:1,name,type:mime,data:await blobToB64(blob)})],{type:"application/json"});upType="application/json";wrapped=true;
+    }else if(blob.size>MAX_DIRECT)throw new Error("حداکثر حجم هر فایل ۲۰ مگابایت است.");
+    let r;
+    try{r=await C.assets.upload(body,{type:upType})}
+    catch(e){if(e&&e.code==="store_unavailable"){await new Promise(z=>setTimeout(z,1500));r=await C.assets.upload(body,{type:upType})}else throw new Error(ERR[e&&e.code]||"آپلود انجام نشد. دوباره امتحان کن.")}
+    await C.col.add({...base,assetId:r.id,wrapped});
+    refreshUsage();
+  }else{
+    const it={id:"l"+Date.now().toString(36)+Math.random().toString(36).slice(2,7),...base,blob};
+    await IDB.put(it);items.unshift(it);renderItems();
+  }
+}
+
+/* resolve a playable/viewable URL for an item */
+const urlCache=new Map();
+async function urlFor(it){
+  if(urlCache.has(it.id))return urlCache.get(it.id);
+  let u;
+  if(C.mode==="cloud"){
+    if(it.wrapped){const j=await (await fetch("/_blob/"+it.assetId)).json();u=URL.createObjectURL(b64ToBlob(j.data,j.type))}
+    else u="/_blob/"+it.assetId;
+  }else u=URL.createObjectURL(it.blob);
+  urlCache.set(it.id,u);return u;
+}
+async function blobFor(it){
+  if(C.mode!=="cloud")return it.blob;
+  const r=await fetch("/_blob/"+it.assetId);
+  if(it.wrapped){const j=await r.json();return b64ToBlob(j.data,j.type)}
+  return r.blob();
+}
+
+/* ---------- library UI ---------- */
+let kindFilter="all",openId=null,confirmId=null,renameId=null;
+function renderKinds(){
+  const counts={all:items.length};for(const it of items)counts[it.kind]=(counts[it.kind]||0)+1;
+  $("#kinds").innerHTML=Object.keys(KIND_LABEL).filter(k=>k==="all"||counts[k]).map(k=>
+    `<button class="chip" data-k="${k}" aria-pressed="${k===kindFilter}">${KIND_LABEL[k]} ${fa(counts[k]||0)}</button>`).join("");
+}
+$("#kinds").onclick=e=>{const b=e.target.closest("[data-k]");if(!b)return;kindFilter=b.dataset.k;renderItems()};
+$("#libQ").oninput=()=>renderItems();
+
+function renderItems(){
+  if(kindFilter!=="all"&&!items.some(i=>i.kind===kindFilter))kindFilter="all";
+  renderKinds();
+  const q=$("#libQ").value.trim().toLowerCase();
+  const list=items.filter(i=>(kindFilter==="all"||i.kind===kindFilter)&&(!q||String(i.name).toLowerCase().includes(q)));
+  const box=$("#items");
+  if(C.mode==="wait"){box.innerHTML=`<div class="empty">در حال باز کردن کتابخانه…</div>`;return}
+  if(!items.length){box.innerHTML=`<div class="empty"><b>قفسه‌ها هنوز خالی‌اند</b>اولین صدا را ضبط کن یا یک فایل اضافه کن تا اینجا بنشیند.</div>`;return}
+  if(!list.length){box.innerHTML=`<div class="empty">چیزی با این جستجو پیدا نشد.</div>`;return}
+  const canEdit=C.mode!=="cloud"||!!C.assets;
+  box.innerHTML=list.map(it=>{
+    const playLabel=it.kind==="audio"?"پخش":it.kind==="other"?"جزئیات":"نمایش";
+    return `<div class="item" data-id="${esc(it.id)}">
+      <div class="ic ${it.kind}">${KIND_TAG[it.kind]}</div>
+      <div class="meta"><div class="nm" title="${esc(it.name)}">${esc(it.name)}</div>
+        <div class="dt">${fmtSize(it.size||0)}${it.duration?" · "+fa(fmtTime(it.duration)):""} · ${fmtDate(it.createdAt)}${it.recorded?" · ضبط‌شده در برنامه":""}</div></div>
+      <div class="acts">
+        <button class="btn sm" data-a="open">${openId===it.id?"بستن":playLabel}</button>
+        ${canEdit?`<button class="btn sm" data-a="rename">تغییر نام</button>`:""}
+        <button class="btn sm" data-a="save" title="فقط وقتی خودت بخواهی روی دستگاه ذخیره می‌شود">دریافت</button>
+        ${canEdit?`<button class="btn sm danger" data-a="del">حذف</button>`:""}
+      </div>
+      ${renameId===it.id?`<div class="rename"><input type="text" id="rn-${esc(it.id)}" value="${esc(it.name)}" aria-label="نام جدید"><button class="btn sm primary" data-a="rename-ok">ثبت</button><button class="btn sm" data-a="rename-no">انصراف</button></div>`:""}
+      ${confirmId===it.id?`<div class="confirm">«${esc(it.name)}» برای همیشه از کتابخانه پاک شود؟<button class="btn sm danger solid" data-a="del-ok">بله، حذف کن</button><button class="btn sm" data-a="del-no">نه</button></div>`:""}
+      ${openId===it.id?`<div class="player" id="pl-${esc(it.id)}"><p class="note">در حال باز کردن…</p></div>`:""}
+    </div>`}).join("");
+  if(openId){const it=items.find(i=>i.id===openId);if(it)fillPlayer(it)}
+  if(renameId){const inp=document.getElementById("rn-"+renameId);if(inp){inp.focus();inp.select()}}
+}
+
+async function fillPlayer(it){
+  const el=document.getElementById("pl-"+it.id);if(!el)return;
+  try{
+    const u=await urlFor(it);
+    if(it.kind==="audio")el.innerHTML=`<audio controls autoplay src="${u}"></audio>`;
+    else if(it.kind==="video")el.innerHTML=`<video controls playsinline src="${u}"></video>`;
+    else if(it.kind==="image")el.innerHTML=`<img alt="${esc(it.name)}" src="${u}">`;
+    else if(it.kind==="pdf")el.innerHTML=`<a class="btn sm" href="${u}" target="_blank" rel="noopener">باز کردن PDF در زبانه جدید</a>`;
+    else if(it.kind==="text"){const b=await blobFor(it);const t=await b.text();el.innerHTML="<pre></pre>";el.firstChild.textContent=t.slice(0,200000)}
+    else el.innerHTML=`<p class="note">نوع فایل: ${esc(it.mime||"نامشخص")} · برای باز کردن با برنامه دیگر، «دریافت» را بزن.</p>`;
+  }catch(e){el.innerHTML=`<p class="note">این فایل باز نشد. شاید از کتابخانه حذف شده باشد.</p>`}
+}
+
+$("#items").onclick=async e=>{
+  const b=e.target.closest("[data-a]");if(!b)return;
+  const id=b.closest(".item").dataset.id;const it=items.find(i=>i.id===id);if(!it)return;
+  const a=b.dataset.a;
+  if(a==="open"){openId=openId===id?null:id;renderItems()}
+  else if(a==="del"){confirmId=id;renameId=null;renderItems()}
+  else if(a==="del-no"){confirmId=null;renderItems()}
+  else if(a==="del-ok"){
+    confirmId=null;if(openId===id)openId=null;
+    try{
+      if(C.mode==="cloud"){await C.col.doc(id).delete();try{await C.assets.delete(it.assetId)}catch(e){}refreshUsage()}
+      else{await IDB.del(id);items=items.filter(i=>i.id!==id);renderItems()}
+      const u=urlCache.get(id);if(u&&u.startsWith("blob:"))URL.revokeObjectURL(u);urlCache.delete(id);
+      toast("حذف شد");
+    }catch(err){toast("حذف انجام نشد. دوباره امتحان کن.");renderItems()}
+  }
+  else if(a==="rename"){renameId=id;confirmId=null;renderItems()}
+  else if(a==="rename-no"){renameId=null;renderItems()}
+  else if(a==="rename-ok"){
+    const v=document.getElementById("rn-"+id).value.trim();renameId=null;
+    if(v&&v!==it.name){
+      try{if(C.mode==="cloud")await C.col.doc(id).update({name:v});else{it.name=v;await IDB.put(it)}toast("نام عوض شد")}catch(err){toast("تغییر نام انجام نشد.")}
+    }
+    renderItems();
+  }
+  else if(a==="save"){
+    try{
+      const blob=await blobFor(it);
+      const ext={"audio/webm":"webm","audio/mp4":"m4a","video/mp4":"mp4","video/webm":"webm"}[it.mime];
+      const filename=(ext&&!/\.\w{2,4}$/.test(it.name))?it.name+"."+ext:it.name;
+      if(C.downloads){const r=await C.downloads.save({filename,data:blob});if(r&&r.status==="saved")toast("فایل تحویل داده شد")}
+      else{const u=URL.createObjectURL(blob);const l=document.createElement("a");l.href=u;l.download=filename;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+    }catch(err){if(!(err&&err.code==="declined"))toast(err&&err.code==="rejected_extension"?"این نوع فایل را نمی‌شود دریافت کرد؛ داخل کتابخانه بازش کن.":"دریافت انجام نشد.")}
+  }
+};
+$("#items").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id&&e.target.id.startsWith("rn-")){e.target.closest(".item").querySelector('[data-a="rename-ok"]').click()}});
+
+/* uploads */
+async function handleFiles(files){
+  const list=[...files];if(!list.length)return;
+  const msg=$("#upMsg");let ok=0;
+  for(const f of list){
+    msg.textContent=`در حال افزودن «${f.name}»…`;
+    try{await addToLibrary(f,f.name);ok++}catch(e){toast(`«${f.name}»: ${e.message}`)}
+  }
+  msg.textContent=ok?`${fa(ok)} فایل به کتابخانه اضافه شد.`:"";
+}
+$("#fileIn").onchange=e=>{handleFiles(e.target.files);e.target.value=""};
+const drop=$("#drop");
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>handleFiles(e.dataTransfer.files));
+
+/* ---------- recorder ---------- */
+const R={rec:null,stream:null,chunks:[],start:0,acc:0,timer:null,ctx:null,an:null,raf:null,blob:null,dur:0};
+const meter=$("#meter"),mctx=meter.getContext("2d");
+function drawIdle(){const w=meter.width,h=meter.height;mctx.clearRect(0,0,w,h);mctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--line");for(let x=4;x<w;x+=10)mctx.fillRect(x,h/2-1,5,2)}
+drawIdle();
+function drawLive(){
+  const w=meter.width,h=meter.height,buf=new Uint8Array(R.an.frequencyBinCount);R.an.getByteTimeDomainData(buf);
+  mctx.clearRect(0,0,w,h);mctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--rec");
+  const bars=Math.floor(w/10),step=Math.floor(buf.length/bars);
+  for(let i=0;i<bars;i++){let m=0;for(let j=0;j<step;j++)m=Math.max(m,Math.abs(buf[i*step+j]-128));const bh=Math.max(2,m/128*h*1.6);mctx.fillRect(i*10+4,(h-bh)/2,5,Math.min(h,bh))}
+  R.raf=requestAnimationFrame(drawLive);
+}
+function elapsed(){return R.acc+(R.rec&&R.rec.state==="recording"?(performance.now()-R.start)/1000:0)}
+function micBlocked(err){
+  const a=$("#micAlert");a.hidden=false;
+  const name=err&&err.name;
+  a.innerHTML=(name==="NotAllowedError"||name==="SecurityError"||!navigator.mediaDevices)
+    ?`اجازه میکروفون داده نشد یا این صفحه به میکروفون دسترسی ندارد. اگر اجازه را رد کرده‌ای، از تنظیمات مرورگر برای این صفحه دوباره اجازه بده. تا آن موقع می‌توانی یک فایل صوتی را از بخش «افزودن فایل» به کتابخانه بیاوری.`
+    :name==="NotFoundError"?"میکروفونی پیدا نشد. یک میکروفون یا هدفون وصل کن و دوباره امتحان کن.":"ضبط شروع نشد. صفحه را تازه کن و دوباره امتحان کن.";
+}
+async function startRec(){
+  $("#micAlert").hidden=true;$("#review").hidden=true;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==="undefined"){micBlocked(null);return}
+  try{R.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}catch(e){micBlocked(e);return}
+  const mime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m));
+  R.rec=new MediaRecorder(R.stream,mime?{mimeType:mime,audioBitsPerSecond:96000}:undefined);
+  R.chunks=[];R.acc=0;R.start=performance.now();
+  R.rec.ondataavailable=e=>{if(e.data&&e.data.size)R.chunks.push(e.data)};
+  R.rec.onstop=onRecStop;
+  R.rec.start(1000);
+  try{R.ctx=new (window.AudioContext||window.webkitAudioContext)();const src=R.ctx.createMediaStreamSource(R.stream);R.an=R.ctx.createAnalyser();R.an.fftSize=2048;src.connect(R.an);drawLive()}catch(e){}
+  R.timer=setInterval(()=>{$("#recTime").textContent=fmtTime(elapsed())},250);
+  $("#recBtn").classList.add("on");$("#recBtn").setAttribute("aria-label","پایان ضبط");
+  $("#recPause").hidden=false;$("#recPause").textContent="مکث";
+  $("#recState").textContent="در حال ضبط… برای پایان دوباره دکمه را بزن.";
+}
+function stopRec(){if(R.rec&&R.rec.state!=="inactive"){R.acc=elapsed();R.rec.stop()}}
+function onRecStop(){
+  clearInterval(R.timer);cancelAnimationFrame(R.raf);drawIdle();
+  R.stream.getTracks().forEach(t=>t.stop());try{R.ctx&&R.ctx.close()}catch(e){}
+  const type=(R.rec.mimeType||"audio/webm").split(";")[0];
+  R.blob=new Blob(R.chunks,{type});R.dur=R.acc;
+  $("#recBtn").classList.remove("on");$("#recBtn").setAttribute("aria-label","شروع ضبط");$("#recPause").hidden=true;
+  $("#recState").textContent="ضبط تمام شد. گوش کن، اسم بگذار و در کتابخانه ذخیره کن.";
+  const ra=$("#reviewAudio");if(ra.src.startsWith("blob:"))URL.revokeObjectURL(ra.src);ra.src=URL.createObjectURL(R.blob);
+  const d=new Date();$("#recName").value="ضبط "+d.toLocaleDateString("fa-IR")+" ساعت "+d.toLocaleTimeString("fa-IR",{hour:"2-digit",minute:"2-digit"});
+  $("#review").hidden=false;R.rec=null;
+}
+$("#recBtn").onclick=()=>{if(R.rec)stopRec();else startRec()};
+$("#recPause").onclick=()=>{
+  if(!R.rec)return;
+  if(R.rec.state==="recording"){R.acc=elapsed();R.rec.pause();$("#recPause").textContent="ادامه";$("#recState").textContent="مکث شده.";}
+  else{R.start=performance.now();R.rec.resume();$("#recPause").textContent="مکث";$("#recState").textContent="در حال ضبط… برای پایان دوباره دکمه را بزن."}
+};
+$("#recDiscard").onclick=()=>{R.blob=null;$("#review").hidden=true;$("#recTime").textContent="00:00";$("#recState").textContent="برای شروع، دکمه قرمز را بزن."};
+$("#recSave").onclick=async()=>{
+  if(!R.blob)return;const btn=$("#recSave");btn.disabled=true;btn.textContent="در حال ذخیره…";
+  const name=$("#recName").value.trim()||"ضبط بی‌نام";
+  try{await addToLibrary(R.blob,name,{recorded:true,duration:Math.round(R.dur)});R.blob=null;$("#review").hidden=true;$("#recTime").textContent="00:00";toast("در کتابخانه ذخیره شد")}
+  catch(e){toast(e.message||"ذخیره انجام نشد.")}
+  btn.disabled=false;btn.textContent="ذخیره در کتابخانه";
+};
+
+/* ---------- flashcards ---------- */
+const LEVELS=[
+  {k:"A1",fa:"مبتدی",from:0,to:600},{k:"A2",fa:"پایه",from:600,to:1500},{k:"B1",fa:"متوسط",from:1500,to:2700},
+  {k:"B2",fa:"بالاتر از متوسط",from:2700,to:4000},{k:"C1",fa:"پیشرفته",from:4000,to:5000},{k:"C2",fa:"حرفه‌ای",from:5000,to:6000}];
+const POS={n:"noun",v:"verb",adj:"adjective",adv:"adverb",prep:"preposition",pron:"pronoun",conj:"conjunction",det:"determiner",int:"interjection",num:"number"};
+const POS_FA={n:"اسم",v:"فعل",adj:"صفت",adv:"قید",prep:"حرف اضافه",pron:"ضمیر",conj:"حرف ربط",det:"صفت اشاره/تعیین",int:"صوت",num:"عدد"};
+const WORDS=$("#wordData").textContent.trim().split("\n").map((l,i)=>{const [en,p,f]=l.split("|");return {i,en,p,f,lv:LEVELS.find(L=>i>=L.from&&i<L.to)||LEVELS[5]}});
+const S=Object.assign({lv:"A1",dir:"en",order:"seq",onlyNew:false},lsGet("qafase.fc",{}));
+let known=new Set(lsGet("qafase.known",[]));
+let cardTok=0,deck=[],pos=lsGet("qafase.pos",{})[S.lv]||0,flipped=false;
+let saveT=null;
+function persist(){
+  lsSet("qafase.known",[...known]);
+  if(C.mode==="cloud"){clearTimeout(saveT);saveT=setTimeout(()=>{C.db.doc("data/users/"+C.uid+"/meta/flashcards").set({known:[...known],updatedAt:Date.now()}).catch(()=>{})},1500)}
+}
+async function loadProgressCloud(){
+  try{const s=await C.db.doc("data/users/"+C.uid+"/meta/flashcards").get();
+    if(s.exists){const k=(s.data()||{}).known||[];k.forEach(w=>known.add(w));renderLevels();renderCard();if(known.size>k.length)persist()}
+    else if(known.size)persist();
+  }catch(e){}
+}
+function renderLevels(){
+  $("#levels").innerHTML=LEVELS.map(L=>{const n=L.to-L.from;let k=0;for(let i=L.from;i<L.to&&i<WORDS.length;i++)if(known.has(WORDS[i].en))k++;
+    return `<button class="lv" data-lv="${L.k}" aria-pressed="${S.lv===L.k}"><b>${L.k}</b><small>${L.fa} · ${fa(k)}/${fa(Math.min(n,Math.max(0,WORDS.length-L.from)))}</small></button>`}).join("")+
+    `<button class="lv" data-lv="ALL" aria-pressed="${S.lv==="ALL"}"><b>ALL</b><small>همه · ${fa(known.size)}/${fa(WORDS.length)}</small></button>`;
+}
+function shuffle(a,seed){let s=seed||1;const r=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+let mixSeed=Math.floor(Math.random()*1e9)+1;
+function buildDeck(){
+  const q=$("#fcQ").value.trim().toLowerCase();
+  let d=q?WORDS.filter(w=>w.en.includes(q)||w.f.includes(q)):(S.lv==="ALL"?WORDS.slice():WORDS.filter(w=>w.lv.k===S.lv));
+  if(S.onlyNew)d=d.filter(w=>!known.has(w.en));
+  if(q)d.sort((a,b)=>(b.en===q)-(a.en===q)||(b.en.startsWith(q))-(a.en.startsWith(q))||a.i-b.i);
+  else if(S.order==="mix")d=shuffle(d,mixSeed);
+  deck=d;if(pos>=deck.length)pos=0;
+}
+function face(side,w){
+  const showEn=(S.dir==="en")===(side==="front");
+  return showEn?`<div class="en">${esc(w.en)}</div><div class="pos">${POS[w.p]||""}</div>`:`<div class="fa">${esc(w.f)}</div><div class="note">${POS_FA[w.p]||""}</div>`;
+}
+function renderCard(){
+  const c=$("#card");c.classList.remove("flipped");flipped=false;
+  if(!deck.length){
+    $("#cFront").innerHTML=`<div class="fa">${S.onlyNew?"همه لغت‌های این سطح را بلدی!":"لغتی پیدا نشد"}</div>`;$("#cBack").innerHTML="";
+    ["#cNo1","#cNo2","#cLv1","#cLv2"].forEach(s=>$(s).textContent="");$("#fcCount").textContent="";c.classList.remove("known");return;
+  }
+  const w=deck[pos];
+  $("#cFront").innerHTML=face("front",w);
+  const tok=++cardTok;setTimeout(()=>{if(tok===cardTok)$("#cBack").innerHTML=face("back",w)},150);
+  const no="No. "+String(w.i+1).padStart(4,"0");$("#cNo1").textContent=no;$("#cNo2").textContent=no;
+  $("#cLv1").textContent=w.lv.k;$("#cLv2").textContent=w.lv.k;
+  c.classList.toggle("known",known.has(w.en));
+  $("#fcCount").textContent=`کارت ${fa(pos+1)} از ${fa(deck.length)}`;
+  $("#fcKnow").textContent=known.has(w.en)?"دیگر بلد نیستم":"بلدم ✓";
+  const p=lsGet("qafase.pos",{});p[S.lv]=pos;lsSet("qafase.pos",p);
+}
+function saveS(){lsSet("qafase.fc",{lv:S.lv,dir:S.dir,order:S.order,onlyNew:S.onlyNew})}
+function syncControls(){
+  document.querySelectorAll("#dirSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.d===S.dir));
+  document.querySelectorAll("#orderSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.o===S.order));
+  $("#onlyNew").checked=S.onlyNew;
+}
+function go(n){if(!deck.length)return;pos=(pos+n+deck.length)%deck.length;renderCard()}
+function flip(){if(!deck.length)return;flipped=!flipped;$("#card").classList.toggle("flipped",flipped)}
+$("#card").onclick=flip;
+$("#fcNext").onclick=()=>go(1);$("#fcPrev").onclick=()=>go(-1);
+$("#fcKnow").onclick=()=>{if(!deck.length)return;const w=deck[pos];
+  if(known.has(w.en))known.delete(w.en);else known.add(w.en);persist();renderLevels();
+  if(S.onlyNew&&known.has(w.en)){buildDeck();renderCard()}else go(1)};
+$("#fcAgain").onclick=()=>{if(!deck.length)return;const w=deck[pos];known.delete(w.en);persist();renderLevels();
+  if(deck.length>1){deck.splice(pos,1);deck.splice(Math.min(deck.length,pos+5),0,w)}renderCard();toast("چند کارت بعد دوباره می‌آید")};
+$("#fcSpeak").onclick=()=>{if(!deck.length)return;try{const u=new SpeechSynthesisUtterance(deck[pos].en);u.lang="en-US";u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){toast("تلفظ در این مرورگر در دسترس نیست.")}};
+if(!("speechSynthesis" in window))$("#fcSpeak").hidden=true;
+$("#levels").onclick=e=>{const b=e.target.closest("[data-lv]");if(!b)return;S.lv=b.dataset.lv;$("#fcQ").value="";pos=lsGet("qafase.pos",{})[S.lv]||0;saveS();renderLevels();buildDeck();renderCard()};
+$("#dirSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.dir=b.dataset.d;saveS();syncControls();renderCard()};
+$("#orderSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.order=b.dataset.o;if(S.order==="mix")mixSeed=Math.floor(Math.random()*1e9)+1;pos=0;saveS();syncControls();buildDeck();renderCard()};
+$("#onlyNew").onchange=e=>{S.onlyNew=e.target.checked;pos=0;saveS();buildDeck();renderCard()};
+let qT;$("#fcQ").oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>{pos=0;buildDeck();renderCard()},200)};
+document.addEventListener("keydown",e=>{
+  const tag=document.activeElement.tagName;
+  if($("#p-fc").hidden||/INPUT|SELECT|TEXTAREA/.test(tag))return;
+  if(e.key===" "||e.key==="Enter"){if(tag==="BUTTON")return;e.preventDefault();flip()}
+  else if(e.key==="ArrowLeft"){e.preventDefault();go(1)}
+  else if(e.key==="ArrowRight"){e.preventDefault();go(-1)}
+});
+syncControls();renderLevels();buildDeck();renderCard();
+renderItems();
+initStorage();
+</script>
+
+</body>
+</html>
