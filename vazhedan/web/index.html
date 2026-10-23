@@ -330,13 +330,13 @@ service cloud.firestore {
       <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M10 8.5v4l3-2-3-2z" fill="currentColor"/></svg>
     </div>
     <h2>به واژه‌دان خوش آمدی</h2>
-    <p>با حساب گوگل خودت وارد شو. کتابخانه‌ات در فضای ابری همین حساب ذخیره می‌شود و روی هر دستگاهی که وارد شوی، همان را می‌بینی.</p>
+    <p>برای استفاده از برنامه باید با حساب گوگل خودت ثبت‌نام کنی. بار اول که وارد شوی، حسابت در برنامه ساخته می‌شود و دفعه‌های بعد فقط وارد می‌شوی. کتابخانه‌ات در فضای ابری همین حساب ذخیره می‌شود و روی هر دستگاهی که وارد شوی، همان را می‌بینی.</p>
     <button class="gbtn" id="googleBtn" type="button">
       <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      <span id="googleBtnText">ورود با گوگل</span>
+      <span id="googleBtnText">ثبت‌نام / ورود با گوگل</span>
     </button>
     <p class="hint bad" id="gateError" hidden></p>
-    <p class="hint" id="gateNote"></p>
+    <p class="hint" id="gateNote">پنجرهٔ ورود را خود گوگل از آدرس <span class="mono">accounts.google.com</span> باز می‌کند و فقط حساب‌های واقعی خودت را نشان می‌دهد. رمز عبورت را فقط گوگل می‌بیند و به این برنامه داده نمی‌شود.</p>
   </section>
 
   <!-- ============ App (after sign-in) ============ -->
@@ -462,6 +462,7 @@ service cloud.firestore {
       <div class="card">
         <h2>حساب من</h2>
         <div class="who"><img id="whoImg" alt="" referrerpolicy="no-referrer"><div style="min-width:0"><b id="whoName"></b><small id="whoEmail"></small></div></div>
+        <p class="hint" id="whoSince"></p>
         <p>کتابخانه‌ات در فضای ابری و به نام همین حساب گوگل ذخیره می‌شود. صفحه را ببندی، رفرش کنی یا سال‌ها بعد برگردی، کلمه‌ها سر جایشان هستند. روی هر گوشی یا کامپیوتری با همین حساب وارد شوی، همین کتابخانه را می‌بینی. اگر اینترنت قطع باشد، کلمه‌ها روی دستگاه می‌مانند و وقتی وصل شدی خودشان به ابر می‌روند.</p>
         <p class="hint" id="syncLine"></p>
         <div class="actions">
@@ -513,7 +514,7 @@ service cloud.firestore {
     "lang", "meaning", "langHint", "saveBtn", "previewBtn", "search", "langFilter", "list", "empty", "count", "toast",
     "msgs", "quick", "chatForm", "chatInput", "chatSend", "chatClear", "engineLine", "engineSeg", "geminiBox",
     "geminiSummary", "geminiKey", "geminiShow", "geminiModel", "geminiSave", "geminiDel", "geminiHint", "whoImg", "whoName",
-    "whoEmail", "syncLine", "signOutBtn", "cfgCard", "cfgProject", "cfgReset"]) els[id] = $(id);
+    "whoEmail", "whoSince", "syncLine", "signOutBtn", "cfgCard", "cfgProject", "cfgReset"]) els[id] = $(id);
 
   const faNum = (n) => Number(n).toLocaleString("fa-IR");
   let displayNames = null;
@@ -895,7 +896,7 @@ service cloud.firestore {
     let m;
     try { m = await loadFirebase(); }
     catch (e) {
-      els.googleBtnText.textContent = "ورود با گوگل";
+      els.googleBtnText.textContent = "ثبت‌نام / ورود با گوگل";
       gateError("بارگذاری سرویس ورود گوگل ممکن نشد. اینترنت را بررسی کن و صفحه را دوباره باز کن.");
       els.googleBtn.disabled = false;
       return;
@@ -917,7 +918,7 @@ service cloud.firestore {
     m.auth.getRedirectResult(fb.auth).catch((e) => gateError(authErrorText(e)));
     m.auth.onAuthStateChanged(fb.auth, (user) => { if (user) startSession(user); else endSession(); });
     els.googleBtn.disabled = false;
-    els.googleBtnText.textContent = "ورود با گوگل";
+    els.googleBtnText.textContent = "ثبت‌نام / ورود با گوگل";
   }
 
   async function signIn() {
@@ -955,6 +956,8 @@ service cloud.firestore {
     els.avatarName.textContent = (user.displayName || user.email || "").split(" ")[0];
     els.whoName.textContent = user.displayName || "";
     els.whoEmail.textContent = user.email || "";
+    const since = user.metadata && user.metadata.creationTime ? new Date(user.metadata.creationTime) : null;
+    els.whoSince.textContent = since && !isNaN(since) && dateFmt ? "ثبت‌نام با حساب گوگل در " + dateFmt.format(since) : "";
     els.cfgCard.hidden = !!EMBEDDED_FIREBASE_CONFIG;
     els.cfgProject.textContent = (readConfig() || {}).projectId || "";
     setupEngines();
