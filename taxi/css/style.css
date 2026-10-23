@@ -259,3 +259,15 @@ body:not(.touch) #pedals { display: none; }
   .mcard .logo { font-size: 38px; }
   .mcard .sub { font-size: 12px; margin-bottom: 8px; }
 }
+
+/* controls are laid out physically (left = steering, right = pedals) regardless of RTL text */
+#steerZone, #rightPad, #pedals { direction: ltr; }
+#gearbox .gtitle, #gearbox .hand { direction: rtl; }
+@media (max-height: 480px) {
+  #talk { max-height: 118px; overflow: hidden; }
+  #talk .who span { font-size: 18px; }
+  #talkGuide { padding: 4px 8px; font-size: 11px; }
+}
+@media (max-height: 480px) {
+  #buttons { display: grid; grid-template-columns: repeat(3, 36px); gap: 5px; }
+}

@@ -636,8 +636,8 @@ export class World {
     // intersection patches + crosswalks
     const patches = [], walks = [];
     for (const n of this.graph.nodes) {
-      if (!n.inter) continue;
-      if (n.city) {
+      if (!n.inter && n.edges.length !== 1) continue;
+      if (n.city && n.inter) {
         patches.push(quadXZ(n.x - 6.5, n.z - 6.5, n.x + 6.5, n.z + 6.5, 0.03));
         for (const e of n.edges) {
           const ed = this.graph.edges[e];
@@ -648,7 +648,7 @@ export class World {
           else walks.push(quadXZ(cx - 5.6, cz - 1.6, cx + 5.6, cz + 1.6, 0.035));
         }
       } else {
-        const g = new THREE.CircleGeometry(10, 20);
+        const g = new THREE.CircleGeometry(n.inter ? 10 : 13, 24);
         g.rotateX(-Math.PI / 2);
         g.translate(n.x, 0.03, n.z);
         patches.push(g.toNonIndexed());
