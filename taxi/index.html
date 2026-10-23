@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="تاکسی‌ران شهر — بازی سه‌بعدی رانندگی تاکسی با مسافر، بنزین، دنده دستی، پلیس و زندان">
+<title>تاکسی‌ران شهر</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./js/lib/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="hud" class="off">
+  <div id="topLeft">
+    <canvas id="minimap" width="300" height="300"></canvas>
+    <div id="region"></div>
+  </div>
+
+  <div id="topCenter">
+    <div id="guide" class="hidden">
+      <div id="guideArrow"><svg viewBox="0 0 40 40"><path d="M20 3 L35 24 H26 V37 H14 V24 H5 Z" fill="#35e07c" stroke="#0a3" stroke-width="2"/></svg></div>
+      <div class="gtext"><b id="guideTitle"></b><span id="guideDist"></span></div>
+    </div>
+    <div id="status" class="hidden"></div>
+    <div id="toasts"></div>
+  </div>
+
+  <div id="topRight">
+    <div class="pill money">💰 <b id="money">۰</b><small>تومان</small></div>
+    <div class="meter fuel"><span>⛽</span><div class="track"><i id="fuelBar"></i><i id="superBar" class="super"></i></div><em id="fuelText"></em></div>
+    <div class="meter health"><span>🔧</span><div class="track"><i id="healthBar"></i></div></div>
+    <div class="pill small"><span id="clock">۰۸:۰۰</span>&nbsp;• روز <b id="day">۱</b>&nbsp;• <span id="stars">★ ۵</span></div>
+    <div id="wanted" class="hidden">🚨 تحت تعقیب پلیس
+      <div class="wrow"><small>دستگیری</small><div class="wbar"><i id="arrestBar"></i></div></div>
+      <div class="wrow"><small>فرار</small><div class="wbar esc"><i id="escapeBar"></i></div></div>
+    </div>
+  </div>
+
+  <div id="buttons">
+    <button id="btnMenu" title="منو (P)">☰</button>
+    <button id="btnMap" title="نقشه (M)">🗺️</button>
+    <button id="btnCam" title="دوربین (C)">🎥</button>
+    <button id="btnGuide" title="فلش راهنما (G)">🧭</button>
+    <button id="btnLights" title="چراغ (L)">💡</button>
+    <button id="btnHorn" title="بوق (H)">📯</button>
+  </div>
+
+  <div id="steerZone">
+    <div id="steerWheel">
+      <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="9"/><circle cx="50" cy="50" r="11" fill="rgba(255,255,255,.85)"/><path d="M8 50 H39 M61 50 H92 M50 61 V92" stroke="rgba(255,255,255,.85)" stroke-width="8"/><rect x="46" y="4" width="8" height="10" rx="2" fill="#ffd21a"/></svg>
+    </div>
+    <div class="hint">◀ بکش ▶</div>
+  </div>
+
+  <div id="rightPad">
+    <div id="gearbox">
+      <div class="gtitle">دنده <button id="btnAuto">دستی</button></div>
+      <div class="hgrid">
+        <button data-g="1">1</button><button data-g="3">3</button><button data-g="5">5</button>
+        <span class="gate"></span><button data-g="0" class="n">N</button><span class="gate"></span>
+        <button data-g="2">2</button><button data-g="4">4</button><button data-g="-1" class="r">R</button>
+      </div>
+      <button id="btnHand" class="hand">ترمز دستی</button>
+    </div>
+    <div id="pedals">
+      <button id="btnBrake" class="pedal brake"><span>ترمز</span></button>
+      <button id="btnGas" class="pedal gas"><span>گاز</span></button>
+    </div>
+  </div>
+
+  <div id="speedo">
+    <div class="sp"><b id="speed">۰</b><small>km/h</small></div>
+    <div class="gearNow" id="gearNow">1</div>
+    <div class="rpm"><i id="rpmBar"></i></div>
+    <div id="shiftHint"></div>
+  </div>
+
+  <div id="talk" class="hidden">
+    <div class="who"><span id="talkFace">🙂</span><b id="talkName"></b></div>
+    <p id="talkText"></p>
+    <button id="talkGuide">متوجه نشدم، فلش نشونم بده 🧭</button>
+  </div>
+  <button id="zoneBtn" class="hidden"></button>
+  <div id="offer" class="hidden"></div>
+  <div id="result" class="hidden"></div>
+  <div id="incident" class="hidden"></div>
+</div>
+
+<div id="panel" class="hidden"></div>
+<div id="bigmap" class="hidden"><canvas id="bigmapCanvas" width="1024" height="1024"></canvas><span class="close">✕</span></div>
+
+<div id="jail" class="hidden">
+  <div class="jt">🔒 زندان</div>
+  <div id="jailDay">روز ۱ از ۱۰</div>
+  <div class="jbar"><i id="jailBar"></i></div>
+  <p>به خاطر ندادن خسارت و فرار از دست پلیس</p>
+  <button id="jailSkip">سریع‌تر ⏩</button>
+</div>
+
+<div id="cinema" class="hidden"><div class="cbar top"></div><div class="cbar bottom"><p id="cinemaText"></p></div></div>
+<div id="flash"></div>
+<div id="fade"></div>
+
+<div id="menu" class="hidden">
+  <div class="mcard">
+    <div class="logo">🚕</div>
+    <h1>تاکسی‌ران شهر</h1>
+    <p class="sub">مسافر سوار کن، از شهر و جنگل و کویر رد شو، بنزین بزن، ماشینتو ارتقا بده... و مواظب پلیس باش!</p>
+    <button id="menuContinue" class="hidden"><b>▶ ادامه بازی</b><small></small></button>
+    <button id="menuStart"><b>🚦 شروع بازی</b></button>
+    <div class="feat">
+      <span>🎥 دید اول‌شخص و سوم‌شخص</span><span>🕹️ دنده دستی با انیمیشن</span><span>🧭 فلش راهنما</span><span>⛽ بنزین معمولی و سوپر</span><span>🚓 پلیس و زندان</span><span>🌙 شب و روز</span>
+    </div>
+    <small class="tip">برای بهترین تجربه روی موبایل، گوشی رو افقی بگیر</small>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="logo">🚕</div>
+  <div id="loadText">در حال بارگذاری...</div>
+  <div class="lbar"><i id="loadBar"></i></div>
+</div>
+<div id="rotate"><div>📱↻</div>برای بازی، گوشی رو افقی بگیر</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
