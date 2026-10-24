@@ -28,10 +28,11 @@ export class UI {
     const g = this.g;
     const zone = $('steerZone');
     const wheel = $('steerWheel');
-    let sid = null, sx = 0, base = 0;
+    let sid = null, sx = 0, sy = 0, base = 0;
     zone.addEventListener('pointerdown', (e) => {
       sid = e.pointerId;
       sx = e.clientX;
+      sy = e.clientY;
       base = this.touch.steer;
       zone.setPointerCapture(sid);
       e.preventDefault();
@@ -40,11 +41,14 @@ export class UI {
       if (e.pointerId !== sid) return;
       const w = zone.clientWidth * 0.32 / (g.settings.sens || 1);
       this.touch.steer = clamp(base + (e.clientX - sx) / w, -1, 1);
+      this.touch.jx = clamp((e.clientX - sx) / 60, -1, 1);
+      this.touch.jy = clamp((sy - e.clientY) / 60, -1, 1);
     });
     const end = (e) => {
       if (e.pointerId !== sid) return;
       sid = null;
       this.touch.steer = 0;
+      this.touch.jx = this.touch.jy = 0;
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
@@ -78,6 +82,7 @@ export class UI {
     });
     $('btnAuto').addEventListener('click', () => this.toggleAuto());
     $('btnCam').addEventListener('click', () => g.cycleCamera());
+    $('btnDoor').addEventListener('click', () => g.onfoot.toggle());
     $('btnGuide').addEventListener('click', () => g.toggleGuide());
     $('btnLights').addEventListener('click', () => {
       g.player.lights = !g.player.lights;
@@ -151,9 +156,22 @@ export class UI {
       g.audio.init();
       const p = g.player;
       const map = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5, KeyR: -1, KeyN: 0, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4, Numpad5: 5 };
-      if (e.code in map && g.state === 'play') p.requestGear(map[e.code]);
-      if (e.code === 'KeyE' || e.code === 'ShiftLeft') this.gearStep(1);
-      if (e.code === 'KeyQ' || e.code === 'ControlLeft') this.gearStep(-1);
+      const dm = /^(Digit|Numpad)([0-9])$/.exec(e.code);
+      if (dm) {
+        const now = performance.now();
+        if (now - (this.codeT || 0) > 2500) this.codeBuf = '';
+        this.codeT = now;
+        this.codeBuf = ((this.codeBuf || '') + dm[2]).slice(-4);
+        if (this.codeBuf === '1818') {
+          this.codeBuf = '';
+          g.cheat('1818');
+        }
+      }
+      if (e.code === 'KeyV') g.onfoot.toggle();
+      const walking = g.onfoot.active || g.onfoot.busy;
+      if (e.code in map && g.state === 'play' && !walking) p.requestGear(map[e.code]);
+      if (!walking && (e.code === 'KeyE' || e.code === 'ShiftLeft')) this.gearStep(1);
+      if (!walking && (e.code === 'KeyQ' || e.code === 'ControlLeft')) this.gearStep(-1);
       if (e.code === 'KeyC') g.cycleCamera();
       if (e.code === 'KeyG') g.toggleGuide();
       if (e.code === 'KeyL') { p.lights = !p.lights; $('btnLights').classList.toggle('active', p.lights); }
@@ -186,7 +204,15 @@ export class UI {
     if (k.ArrowLeft || k.KeyA) steer -= 1;
     if (k.ArrowRight || k.KeyD) steer += 1;
     if (this.g.settings.tilt && this.coarse) steer = this.tilt;
+    let mx = t.jx || 0, my = t.jy || 0;
+    if (k.ArrowLeft || k.KeyA) mx -= 1;
+    if (k.ArrowRight || k.KeyD) mx += 1;
+    if (k.ArrowUp || k.KeyW) my += 1;
+    if (k.ArrowDown || k.KeyS) my -= 1;
     return {
+      moveX: clamp(mx, -1, 1),
+      moveY: clamp(my, -1, 1),
+      run: !!(k.ShiftLeft || k.ShiftRight),
       steer: clamp(steer, -1, 1),
       gas: Math.max(t.gas, k.ArrowUp || k.KeyW ? 1 : 0),
       brake: Math.max(t.brake, k.ArrowDown || k.KeyS ? 1 : 0),
@@ -233,8 +259,13 @@ export class UI {
       b.classList.toggle('tgt', !!p.shift && v === p.targetGear);
     });
     // steering wheel graphic
-    const st = this.coarse ? this.touch.steer : this.input().steer;
-    this.wheelEl.style.transform = `rotate(${st * 110}deg)`;
+    if (g.onfoot.active) {
+      this.wheelEl.style.transform = `translate(${(this.touch.jx || 0) * 30}px, ${-(this.touch.jy || 0) * 30}px)`;
+    } else {
+      const st = this.coarse ? this.touch.steer : this.input().steer;
+      this.wheelEl.style.transform = `rotate(${st * 110}deg)`;
+    }
+    $('btnDoor').classList.toggle('active', g.onfoot.active);
     // ride status
     $('status').textContent = g.rides.statusText();
     $('status').classList.toggle('hidden', !$('status').textContent);
@@ -262,7 +293,7 @@ export class UI {
 
   /* ---------------- minimap ---------------- */
   drawMinimap() {
-    const g = this.g, w = g.world, p = g.player;
+    const g = this.g, w = g.world, p = g.focus();
     const c = this.mm, ctx = this.mmCtx, S = c.width;
     const k = w.minimapScale;
     const R = 230 + Math.abs(p.speed) * 4;
@@ -364,7 +395,7 @@ export class UI {
     if (show) this.drawBigMap();
   }
   drawBigMap() {
-    const g = this.g, w = g.world, p = g.player;
+    const g = this.g, w = g.world, p = g.focus();
     const c = $('bigmapCanvas'), ctx = c.getContext('2d');
     const S = c.width;
     const k = (S / (HALF * 2));
@@ -670,9 +701,17 @@ export class UI {
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
         <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۵ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • F ورود به پمپ/تعمیرگاه</div>
+        <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۸۱۸" data-code><button data-a="code">ثبت</button></span></label>
         <button data-a="reset" class="danger">🗑️ شروع دوباره از اول</button>
       </div>`, (el) => {
       el.querySelector('[data-a=resume]').onclick = () => this.closePanel();
+      const codeIn = el.querySelector('[data-code]');
+      const submit = () => {
+        if (g.cheat(codeIn.value)) this.closePanel();
+        codeIn.value = '';
+      };
+      el.querySelector('[data-a=code]').onclick = submit;
+      codeIn.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') submit(); };
       el.querySelector('[data-a=reset]').onclick = () => {
         if (confirm('همه پیشرفتت پاک میشه. مطمئنی؟')) g.resetSave();
       };

@@ -271,3 +271,16 @@ body:not(.touch) #pedals { display: none; }
 @media (max-height: 480px) {
   #buttons { display: grid; grid-template-columns: repeat(3, 36px); gap: 5px; }
 }
+
+/* on foot: hide car controls, the wheel becomes a joystick */
+body.onfoot #rightPad, body.onfoot #speedo { display: none; }
+body.onfoot #steerWheel { border-radius: 50%; transition: transform .05s; }
+body.onfoot #steerWheel svg { opacity: .35; }
+body.onfoot #steerWheel::after { content: '🚶'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 46px; }
+#steerWheel { position: relative; }
+body.onfoot #steerZone .hint { visibility: hidden; }
+body.onfoot:not(.touch) #steerZone { display: none; }
+.menu .code { display: flex; gap: 6px; }
+.menu .code input { width: 110px; font-family: inherit; background: #222a36; color: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; text-align: center; font-size: 15px; user-select: text; -webkit-user-select: text; }
+.menu .code button { padding: 6px 12px; }
+#buttons button#btnDoor.active { background: rgba(53,224,124,.4); border-color: var(--green); }

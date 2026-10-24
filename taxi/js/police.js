@@ -127,7 +127,7 @@ export class Police {
     this.game.audio.siren(false);
   }
   chase(dt) {
-    const g = this.game, pl = g.player, u = this.unit, w = g.world;
+    const g = this.game, pl = g.focus(), u = this.unit, w = g.world;
     const dx = pl.pos.x - u.pos.x, dz = pl.pos.z - u.pos.z;
     const d = Math.hypot(dx, dz);
     this.repath -= dt;
@@ -195,7 +195,8 @@ export class Police {
     g.audio.siren(true, clamp(1 - d / 500, 0.15, 1));
     // arrest / escape
     const sp = Math.abs(pl.speed);
-    if ((d < 9 && sp < 2.5) || ((pl.health <= 0 || pl.fuelTotal() <= 0) && d < 60)) this.arrestT += dt;
+    const car = g.player;
+    if ((d < (pl.onFoot ? 6 : 9) && sp < (pl.onFoot ? 5 : 2.5)) || (!pl.onFoot && (car.health <= 0 || car.fuelTotal() <= 0) && d < 60)) this.arrestT += dt;
     else this.arrestT = Math.max(0, this.arrestT - dt * 0.5);
     if (d > 420) this.escapeT += dt;
     else this.escapeT = Math.max(0, this.escapeT - dt * 2);
@@ -268,7 +269,10 @@ export class Police {
     g.ui.toast('🚔 دستگیر شدی!', 'bad');
     if (g.rides.ride || g.rides.state === 'offer') g.rides.cancel('مسافر ترسید و پیاده شد...', true);
     this.step = -1;
-    g.fade(1, 0.45, () => this.setupArrest());
+    g.fade(1, 0.45, () => {
+      g.onfoot.instantIn();
+      this.setupArrest();
+    });
   }
   setupArrest() {
     const g = this.game, pl = g.player, u = this.unit;

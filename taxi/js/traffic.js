@@ -233,6 +233,7 @@ export class Traffic {
     obs.length = 0;
     for (const c of this.cars) if (c.active) obs.push(c);
     obs.push(this.game.player);
+    if (this.game.onfoot && this.game.onfoot.active) obs.push(this.game.onfoot.walker);
     if (this.game.police.unit && this.game.police.unit.active) obs.push(this.game.police.unit);
     const limit = this.limit ?? this.cars.length;
     let active = 0;

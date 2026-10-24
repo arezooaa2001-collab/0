@@ -10,6 +10,7 @@ import { AudioSys } from './audio.js';
 import { Particles } from './effects.js';
 import { UI } from './ui.js';
 import { buildArrow } from './models.js';
+import { OnFoot, normalizeCode } from './onfoot.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -103,6 +104,7 @@ class Game {
     this.police = new Police(this);
     this.rides = new Rides(this);
     this.peds = new Pedestrians(this, q === 'low' ? 8 : 14);
+    this.onfoot = new OnFoot(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -276,9 +278,54 @@ class Game {
     if (!silent) this.ui.toast(fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : '🎥 دید سوم شخص', 'info');
     this.saveSettings();
   }
+  /** what the player currently controls (the taxi, or the driver on foot) */
+  focus() {
+    const f = this.onfoot;
+    if (f && f.active) return { pos: f.walker.pos, heading: f.walker.heading, speed: f.speed, onFoot: true };
+    return this.player;
+  }
+  cheat(raw) {
+    const code = normalizeCode(raw);
+    if (code === '1818') {
+      const p = this.player;
+      p.health = 100;
+      if (p.fuelTotal() <= 0.01) p.fuel = 5;
+      this.audio.cash();
+      this.ui.flash();
+      this.ui.toast('🔧 کد ۱۸۱۸: ماشین کاملاً تعمیر شد! ✨', 'good');
+      this.save();
+      return true;
+    }
+    this.ui.toast('کد اشتباهه ❌', 'warn');
+    return false;
+  }
+  updateFootCamera(dt) {
+    const cam = this.camera, w = this.onfoot.walker;
+    const cy = this.onfoot.yaw + this.lookYaw;
+    const base = w.root.position;
+    if (this.camMode === 'first') {
+      cam.position.set(base.x + Math.sin(w.heading) * 0.1, base.y + 1.66, base.z + Math.cos(w.heading) * 0.1);
+      cam.rotation.set(this.lookPitch, cy + Math.PI, 0, 'YXZ');
+      cam.fov = damp(cam.fov, 72, 3, dt);
+    } else {
+      const far = this.camMode === 'far';
+      const d = far ? 8 : 4.2, hgt = far ? 4 : 1.9;
+      this.camYaw = this.camInit ? cy : dampAngle(this.camYaw ?? cy, cy, 8, dt);
+      const desired = new THREE.Vector3(base.x - Math.sin(this.camYaw) * d, base.y + hgt - this.lookPitch * 3, base.z - Math.cos(this.camYaw) * d);
+      const gy = this.world.heightAt(desired.x, desired.z) + 0.5;
+      if (desired.y < gy) desired.y = gy;
+      if (this.camInit) cam.position.copy(desired);
+      else cam.position.lerp(desired, 1 - Math.exp(-10 * dt));
+      cam.lookAt(base.x, base.y + 1.4, base.z);
+      cam.fov = damp(cam.fov, 62, 3, dt);
+    }
+    this.camInit = false;
+    cam.updateProjectionMatrix();
+  }
   updateCamera(dt) {
     const cam = this.camera, p = this.player;
-    if (!this.lookActive) {
+    if (this.onfoot.active) return this.updateFootCamera(dt);
+    if (!this.lookActive && !this.onfoot.active) {
       this.lookIdle += dt;
       if (this.lookIdle > 1.6) {
         this.lookYaw = damp(this.lookYaw, 0, 2.5, dt);
@@ -345,7 +392,7 @@ class Game {
     this.ui.toast(this.guideOn ? 'فلش راهنما روشن 🧭' : 'فلش راهنما خاموش', 'info');
   }
   updateGuide(dt) {
-    const p = this.player;
+    const p = this.focus();
     const a = this.arrow;
     if (!this.guide) {
       a.group.visible = false;
@@ -375,7 +422,7 @@ class Game {
     }
     const heading = Math.atan2(tgt.x - p.pos.x, tgt.z - p.pos.z);
     this.guideRel = wrapAngle(heading - p.heading);
-    a.group.visible = this.guideOn && this.state === 'play';
+    a.group.visible = this.guideOn && this.state === 'play' && !this.onfoot.active;
     a.group.rotation.y = this.guideRel;
     a.mat.opacity = 0.75 + Math.sin(this.time * 5) * 0.2;
     a.group.position.y = (this.camMode === 'first' ? 1.02 : 2.6) + Math.sin(this.time * 3) * (this.camMode === 'first' ? 0.005 : 0.08);
@@ -385,6 +432,7 @@ class Game {
   zoneAction() {
     const z = this.currentZone;
     if (!z || this.state !== 'play') return;
+    if (z.kind === 'enter') return this.onfoot.enter();
     if (z.kind === 'gas') this.ui.openStation(z);
     else if (z.kind === 'garage') this.ui.openGarage(z);
     else if (z.kind === 'police') this.ui.openPolice();
@@ -416,6 +464,11 @@ class Game {
     const p = this.player, w = this.world;
     const sp = Math.abs(p.speed);
     let zone = null;
+    if (this.onfoot.active || this.onfoot.busy) {
+      this.currentZone = this.onfoot.active && !this.onfoot.busy && this.onfoot.nearCar() ? { kind: 'enter' } : null;
+      this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
+      return;
+    }
     for (const s of [...w.stations, ...w.garages, w.police]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
@@ -592,7 +645,9 @@ class Game {
     this.updateEnv(dt);
     this.world.update(dt, this.env, this.time);
     const inp = this.ui.input();
-    if (st === 'play') {
+    const driving = st === 'play' && !this.onfoot.active && !this.onfoot.busy;
+    if (st === 'play') this.onfoot.update(dt, inp);
+    if (driving) {
       this.player.update(dt, inp, this.world, this.traffic.dynamics(), true);
       for (const e of this.player.events) {
         if (e.type === 'crash') {
