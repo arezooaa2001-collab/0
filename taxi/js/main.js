@@ -478,7 +478,8 @@ class Game {
     if (zone && !this.ui.panelOpen) {
       const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
       this.ui.zone(txt);
-      if (sp < 0.6 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {
+      this.stopT = sp < 0.6 && !this.ui.controlsHeld() ? (this.stopT || 0) + dt : 0;
+      if (this.stopT > 0.5 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {
         this.zoneAuto = zone;
         this.zoneAction();
       }

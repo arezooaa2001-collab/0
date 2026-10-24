@@ -277,8 +277,14 @@ export class PlayerCar {
     else this.speed -= Math.sign(this.speed) * dv;
     this.lastAccel = (this.speed - prevSpeed) / Math.max(dt, 1e-4);
 
-    // steering / yaw
-    let yawRate = (-this.speed * Math.tan(this.steer)) / 2.7;
+    // steering / yaw. When pushing against a wall/pump the speed is ~0, but the
+    // driven wheels still scrub the car around, so steering keeps working.
+    this.blocked = Math.max(0, (this.blocked || 0) - dt);
+    let steerSpeed = this.speed;
+    if (this.blocked > 0 && this.throttle > 0.1 && engaged && Math.abs(this.speed) < 2.5) {
+      steerSpeed = (g === -1 ? -1 : 1) * Math.max(Math.abs(this.speed), 2.5 * this.throttle);
+    }
+    let yawRate = (-steerSpeed * Math.tan(this.steer)) / 2.7;
     const grip = surf === 'sand' ? 0.85 : 1;
     if (inp.handbrake && absV > 7) {
       yawRate *= 1.55;
@@ -334,6 +340,7 @@ export class PlayerCar {
             continue;
           }
           const imp = this.resolve(_res.nx, _res.nz, _res.pen, fx, fz, 0.2);
+          this.blocked = 0.3;
           if (imp > worst) { worst = imp; worstObj = o; }
         }
         for (const d of dynamics) {
@@ -354,6 +361,7 @@ export class PlayerCar {
             const vn = rvx * nx + rvz * nz;
             this.pos.x += nx * pen * 0.6;
             this.pos.z += nz * pen * 0.6;
+            this.blocked = 0.3;
             d.push(-nx * pen * 0.4, -nz * pen * 0.4);
             if (vn < 0) {
               const impact = -vn;

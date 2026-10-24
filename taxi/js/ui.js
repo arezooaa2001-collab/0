@@ -52,7 +52,14 @@ export class UI {
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
+    zone.addEventListener('lostpointercapture', end);
     this.wheelEl = wheel;
+    this.steerHeld = () => sid !== null;
+    this.releaseSteer = () => {
+      sid = null;
+      this.touch.steer = 0;
+      this.touch.jx = this.touch.jy = 0;
+    };
 
     const hold = (id, key, on = 1) => {
       const el = $(id);
@@ -68,6 +75,7 @@ export class UI {
       });
       el.addEventListener('pointerup', set(false));
       el.addEventListener('pointercancel', set(false));
+      el.addEventListener('lostpointercapture', set(false));
       el.addEventListener('contextmenu', (e) => e.preventDefault());
     };
     hold('btnGas', 'gas');
@@ -562,17 +570,35 @@ export class UI {
   }
 
   /* ---------------- panels ---------------- */
+  /** true while a finger/key is on the driving controls */
+  controlsHeld() {
+    const t = this.touch, k = this.keys;
+    return this.steerHeld() || t.gas > 0 || t.brake > 0 || t.hand || Object.values(k).some(Boolean);
+  }
+  /** forget every held touch/key so nothing stays "stuck" after a dialog */
+  resetInputs() {
+    this.releaseSteer();
+    this.touch.gas = 0;
+    this.touch.brake = 0;
+    this.touch.hand = false;
+    this.keys = {};
+    for (const id of ['btnGas', 'btnBrake', 'btnHand']) $(id).classList.remove('on');
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
   panel(html, bind) {
     const el = $('panel');
+    if (!this.panelOpen) this.resetInputs();
     el.innerHTML = `<div class="pbox">${html}<button class="pclose">✕</button></div>`;
     el.classList.remove('hidden');
     el.querySelector('.pclose').onclick = () => this.closePanel();
+    el.onclick = (e) => { if (e.target === el) this.closePanel(); };
     if (bind) bind(el);
     this.panelOpen = true;
   }
   closePanel() {
     $('panel').classList.add('hidden');
     this.panelOpen = false;
+    this.resetInputs();
     if (this.onPanelClose) {
       const f = this.onPanelClose;
       this.onPanelClose = null;
