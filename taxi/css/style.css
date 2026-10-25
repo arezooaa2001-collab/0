@@ -284,3 +284,5 @@ body.onfoot:not(.touch) #steerZone { display: none; }
 .menu .code input { width: 110px; font-family: inherit; background: #222a36; color: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; text-align: center; font-size: 15px; user-select: text; -webkit-user-select: text; }
 .menu .code button { padding: 6px 12px; }
 #buttons button#btnDoor.active { background: rgba(53,224,124,.4); border-color: var(--green); }
+
+.pill.coins b { font-size: 16px; color: #ffcf40; }

@@ -16,12 +16,14 @@ import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js'
 const SAVE_KEY = 'taxiCity.save.v1';
 const SET_KEY = 'taxiCity.settings.v1';
 const DAY_SECONDS = 720;
+const COIN = 10000;
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
 class Game {
   constructor() {
     this.state = 'loading';
     this.money = 150000;
+    this.coins = 0;
     this.day = 1;
     this.hour = 8.5;
     this.stats = { trips: 0, ratingSum: 0, earned: 0 };
@@ -141,9 +143,10 @@ class Game {
 
   /* ---------------- persistence ---------------- */
   save() {
+    if (this.resetting) return;
     const p = this.player;
     const d = {
-      money: Math.round(this.money), day: this.day, hour: this.hour, stats: this.stats,
+      money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
       fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.health, engine: p.engineLevel,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
@@ -158,7 +161,7 @@ class Game {
     try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { d = null; }
     const p = this.player;
     if (d) {
-      this.money = d.money; this.day = d.day; this.hour = d.hour; this.stats = d.stats;
+      this.money = d.money; this.coins = d.coins || 0; this.day = d.day; this.hour = d.hour; this.stats = d.stats;
       p.fuel = d.fuel; p.superFuel = d.superFuel; p.tank = d.tank; p.health = d.health; p.engineLevel = d.engine;
       this.hasSave = true;
       if (this.world.roadDist(d.x, d.z) < 9) {
@@ -278,6 +281,17 @@ class Game {
     if (!silent) this.ui.toast(fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : '🎥 دید سوم شخص', 'info');
     this.saveSettings();
   }
+  /** total buying power: cash plus coins (1 coin = 10,000 tomans) */
+  wallet() {
+    return this.money + this.coins * COIN;
+  }
+  /** converts just enough coins into cash so that `cost` can be paid */
+  topUp(cost) {
+    if (this.money >= cost || this.coins <= 0) return;
+    const need = Math.min(this.coins, Math.ceil((cost - this.money) / COIN));
+    this.coins -= need;
+    this.money += need * COIN;
+  }
   /** what the player currently controls (the taxi, or the driver on foot) */
   focus() {
     const f = this.onfoot;
@@ -288,12 +302,24 @@ class Game {
     const code = normalizeCode(raw);
     if (code === '1818') {
       const p = this.player;
+      this.coins += 100;
       p.health = 100;
       if (p.fuelTotal() <= 0.01) p.fuel = 5;
       this.audio.cash();
       this.ui.flash();
-      this.ui.toast('🔧 کد ۱۸۱۸: ماشین کاملاً تعمیر شد! ✨', 'good');
+      this.ui.toast('🪙 کد ۱۸۱۸: ۱۰۰ سکه رایگان گرفتی! (و ماشین هم تعمیر شد ✨)', 'good');
+      setTimeout(() => this.ui.toast('هر سکه = ۱۰٬۰۰۰ تومان؛ هر وقت پولت کم بیاد خودکار خرج میشه', 'info'), 1500);
       this.save();
+      return true;
+    }
+    if (code === '1717') {
+      this.ui.toast('🔄 کد ۱۷۱۷: همه تغییرات پاک شد، بازی از اول شروع میشه...', 'warn');
+      this.resetting = true;
+      try {
+        localStorage.removeItem(SAVE_KEY);
+        localStorage.removeItem(SET_KEY);
+      } catch (e) { /* storage may be blocked */ }
+      this.fade(1, 1, () => location.reload());
       return true;
     }
     this.ui.toast('کد اشتباهه ❌', 'warn');
@@ -438,6 +464,7 @@ class Game {
     else if (z.kind === 'police') this.ui.openPolice();
     else if (z.kind === 'fuelHelp') {
       const cost = 80000;
+      this.topUp(cost);
       if (this.money >= cost) {
         this.money -= cost;
         this.ui.toast('امداد خودرو ۸ لیتر بنزین آورد ⛽', 'good');
@@ -446,6 +473,7 @@ class Game {
       this.audio.cash();
     } else if (z.kind === 'tow') {
       const cost = 150000;
+      this.topUp(cost);
       this.money = Math.max(0, this.money - cost);
       let best = this.world.garages[0], bd = Infinity;
       for (const gr of this.world.garages) {
@@ -515,6 +543,7 @@ class Game {
     return false;
   }
   fine(amount, msg) {
+    this.topUp(amount);
     this.money = Math.max(0, this.money - amount);
     this.ui.flash();
     this.audio.bad();

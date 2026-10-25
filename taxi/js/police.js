@@ -41,13 +41,14 @@ export class Police {
     w.setPos(car.pos.x + Math.cos(car.heading) * 1.5, car.pos.z - Math.sin(car.heading) * 1.5, car.heading);
     this.inc = { car, amount, walker: w, t: 0, spot: car.pos.clone(), shout: 0, phase: 'approach' };
     this.state = 'incident';
-    g.ui.showIncident(amount, g.money >= amount, () => this.pay(), () => this.refuse('refuse'));
+    g.ui.showIncident(amount, g.wallet() >= amount, () => this.pay(), () => this.refuse('refuse'));
     g.ui.say('راننده عصبانی', pick(ANGRY), { mood: 'grumpy' });
     g.audio.speak('هوی! چیکار کردی؟');
   }
   pay() {
     const g = this.game, inc = this.inc;
     if (!inc) return;
+    g.topUp(inc.amount);
     if (g.money < inc.amount) {
       g.ui.toast('پول کافی نداری! 😟', 'warn');
       g.audio.bad();
@@ -377,6 +378,7 @@ export class Police {
   }
   arrestDone() {
     const g = this.game;
+    g.topUp(this.fine);
     const paid = Math.min(g.money, this.fine);
     g.money -= paid;
     this.state = 'none';

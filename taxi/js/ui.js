@@ -170,9 +170,10 @@ export class UI {
         if (now - (this.codeT || 0) > 2500) this.codeBuf = '';
         this.codeT = now;
         this.codeBuf = ((this.codeBuf || '') + dm[2]).slice(-4);
-        if (this.codeBuf === '1818') {
+        if (this.codeBuf === '1818' || this.codeBuf === '1717') {
+          const c = this.codeBuf;
           this.codeBuf = '';
-          g.cheat('1818');
+          g.cheat(c);
         }
       }
       if (e.code === 'KeyV') g.onfoot.toggle();
@@ -235,6 +236,8 @@ export class UI {
   update(dt) {
     const g = this.g, p = g.player;
     $('money').textContent = faMoney(g.money);
+    $('coinPill').classList.toggle('hidden', !g.coins);
+    $('coins').textContent = fa(g.coins);
     const tank = p.tank;
     $('fuelBar').style.width = (p.fuel / tank) * 100 + '%';
     $('superBar').style.width = (p.superFuel / tank) * 100 + '%';
@@ -624,13 +627,14 @@ export class UI {
             <button data-a="sf">باک رو پر کن • ${faMoney(fullS)}</button></div>
         </div>
         <p class="note">بنزین سوپر تا وقتی توی باکه، سرعت ماشین رو تا ۲۰٪ و شتاب رو تا ۳۰٪ بیشتر می‌کنه. برای سفرهای خیلی دور عالیه!</p>
-        <p class="money">موجودی: ${faMoney(g.money)} تومان</p>`, (el) => {
+        <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
         el.querySelectorAll('[data-a]').forEach((b) => {
           b.onclick = () => {
             const a = b.dataset.a;
             const sup = a[0] === 's';
             const price = sup ? PS : PR;
             let L = a[1] === 'f' ? p.tank - p.fuelTotal() : Math.min(10, p.tank - p.fuelTotal());
+            g.topUp(Math.ceil(L * price));
             L = Math.floor(Math.min(L, g.money / price) * 10) / 10;
             if (L < 0.1) {
               this.toast(p.tank - p.fuelTotal() < 0.1 ? 'باک پره!' : 'پول کافی نداری', 'warn');
@@ -668,7 +672,7 @@ export class UI {
           <div class="card"><h3>باک بزرگ‌تر</h3><p>ظرفیت فعلی ${fa(p.tank)} لیتر</p>
             ${ti >= 0 ? `<button data-a="tank">${fa(TANK[ti][0])} لیتری • ${faMoney(TANK[ti][1])}</button>` : '<button disabled>بزرگ‌ترین باک ✔</button>'}</div>
         </div>
-        <p class="money">موجودی: ${faMoney(g.money)} تومان</p>`, (el) => {
+        <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
         el.querySelectorAll('[data-a]').forEach((b) => {
           b.onclick = () => {
             const a = b.dataset.a;
@@ -676,6 +680,7 @@ export class UI {
             if (a === 'rep') cost = rc;
             if (a === 'eng') cost = ENG[lvl];
             if (a === 'tank') cost = TANK[ti][1];
+            g.topUp(cost);
             if (g.money < cost) {
               this.toast('پول کافی نداری 😟', 'warn');
               g.audio.bad();
@@ -699,10 +704,11 @@ export class UI {
     const g = this.g;
     const wanted = g.police.state === 'chase';
     this.panel(`<h2>🚓 کلانتری مرکزی</h2>
-      ${wanted ? `<p>داری تعقیب میشی. اگه خودت رو معرفی کنی و جریمه رو بدی، زندان نمیری.</p><p class="money">جریمه: ${faMoney(g.police.fine)} تومان • موجودی: ${faMoney(g.money)}</p><button data-a="surrender" ${g.money >= g.police.fine ? '' : 'disabled'}>معرفی و پرداخت جریمه</button>`
+      ${wanted ? `<p>داری تعقیب میشی. اگه خودت رو معرفی کنی و جریمه رو بدی، زندان نمیری.</p><p class="money">جریمه: ${faMoney(g.police.fine)} تومان • موجودی: ${faMoney(g.money)}</p><button data-a="surrender" ${g.wallet() >= g.police.fine ? '' : 'disabled'}>معرفی و پرداخت جریمه</button>`
         : '<p>سلام! اینجا کلانتریه. اگه یه روز تحت تعقیب بودی می‌تونی بیای اینجا خودتو معرفی کنی و فقط جریمه بدی.</p>'}`, (el) => {
       const b = el.querySelector('[data-a=surrender]');
       if (b) b.onclick = () => {
+        g.topUp(g.police.fine);
         g.money -= g.police.fine;
         g.police.despawnUnit();
         g.police.state = 'none';
@@ -727,7 +733,7 @@ export class UI {
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
         <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۵ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • F ورود به پمپ/تعمیرگاه</div>
-        <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۸۱۸" data-code><button data-a="code">ثبت</button></span></label>
+        <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="۱۸۱۸ یا ۱۷۱۷" data-code><button data-a="code">ثبت</button></span></label>
         <button data-a="reset" class="danger">🗑️ شروع دوباره از اول</button>
       </div>`, (el) => {
       el.querySelector('[data-a=resume]').onclick = () => this.closePanel();
