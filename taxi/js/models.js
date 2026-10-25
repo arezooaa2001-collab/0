@@ -230,7 +230,7 @@ function dialTexture(kind) {
     g.strokeStyle = '#9aa';
     g.lineWidth = 4;
     g.stroke();
-    const max = kind === 'speed' ? 220 : 8;
+    const max = kind === 'speed' ? 280 : 8;
     const step = kind === 'speed' ? 20 : 1;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -262,14 +262,15 @@ function gearKnobTexture() {
     g.strokeStyle = '#ddd';
     g.lineWidth = 5;
     g.beginPath();
-    g.moveTo(24, 30); g.lineTo(24, 98); g.moveTo(64, 30); g.lineTo(64, 98); g.moveTo(104, 30); g.lineTo(104, 98);
-    g.moveTo(24, 64); g.lineTo(104, 64);
+    const xs = [19, 49, 79, 109];
+    for (const x of xs) { g.moveTo(x, 30); g.lineTo(x, 98); }
+    g.moveTo(19, 64); g.lineTo(109, 64);
     g.stroke();
     g.fillStyle = '#fff';
-    g.font = 'bold 20px sans-serif';
+    g.font = 'bold 18px sans-serif';
     g.textAlign = 'center';
-    g.fillText('1', 24, 20); g.fillText('3', 64, 20); g.fillText('5', 104, 20);
-    g.fillText('2', 24, 120); g.fillText('4', 64, 120); g.fillText('R', 104, 120);
+    ['1', '3', '5', '7'].forEach((t, i) => g.fillText(t, xs[i], 20));
+    ['2', '4', '6', 'R'].forEach((t, i) => g.fillText(t, xs[i], 120));
   });
 }
 

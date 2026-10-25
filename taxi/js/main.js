@@ -11,6 +11,7 @@ import { Particles } from './effects.js';
 import { UI } from './ui.js';
 import { buildArrow } from './models.js';
 import { OnFoot, normalizeCode } from './onfoot.js';
+import { PassengerChat } from './chat.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -107,6 +108,7 @@ class Game {
     this.rides = new Rides(this);
     this.peds = new Pedestrians(this, q === 'low' ? 8 : 14);
     this.onfoot = new OnFoot(this);
+    this.chat = new PassengerChat(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -309,6 +311,17 @@ class Game {
       this.ui.flash();
       this.ui.toast('🪙 کد ۱۸۱۸: ۱۰۰ سکه رایگان گرفتی! (و ماشین هم تعمیر شد ✨)', 'good');
       setTimeout(() => this.ui.toast('هر سکه = ۱۰٬۰۰۰ تومان؛ هر وقت پولت کم بیاد خودکار خرج میشه', 'info'), 1500);
+      this.save();
+      return true;
+    }
+    if (code === '1515') {
+      const p = this.player;
+      this.coins += 1100;
+      p.health = 100;
+      p.fuel = Math.max(0, p.tank - p.superFuel);
+      this.audio.cash();
+      this.ui.flash();
+      this.ui.toast('🪙 کد ۱۵۱۵: ۱۱۰۰ سکه گرفتی، باک پر شد ⛽ و ماشین تعمیر شد 🔧', 'good');
       this.save();
       return true;
     }
@@ -692,6 +705,7 @@ class Game {
     this.police.update(dt);
     if (this.state === 'jail') return;
     this.rides.update(dt);
+    this.chat.update(dt);
     this.peds.update(dt);
     if (st === 'play') this.updateZones(dt);
     this.updateGuide(dt);

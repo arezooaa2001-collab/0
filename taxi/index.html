@@ -47,6 +47,7 @@
   <div id="buttons">
     <button id="btnMenu" title="منو (P)">☰</button>
     <button id="btnMap" title="نقشه (M)">🗺️</button>
+    <button id="btnChat" class="hidden" title="حرف زدن با مسافر">💬</button>
     <button id="btnDoor" title="پیاده / سوار شدن (V)">🚪</button>
     <button id="btnCam" title="دوربین (C)">🎥</button>
     <button id="btnGuide" title="فلش راهنما (G)">🧭</button>
@@ -65,9 +66,9 @@
     <div id="gearbox">
       <div class="gtitle">دنده <button id="btnAuto">دستی</button></div>
       <div class="hgrid">
-        <button data-g="1">1</button><button data-g="3">3</button><button data-g="5">5</button>
+        <button data-g="1">1</button><button data-g="3">3</button><button data-g="5">5</button><button data-g="7">7</button>
         <span class="gate"></span><button data-g="0" class="n">N</button><span class="gate"></span>
-        <button data-g="2">2</button><button data-g="4">4</button><button data-g="-1" class="r">R</button>
+        <button data-g="2">2</button><button data-g="4">4</button><button data-g="6">6</button><button data-g="-1" class="r">R</button>
       </div>
       <button id="btnHand" class="hand">ترمز دستی</button>
     </div>
@@ -90,6 +91,19 @@
     <button id="talkGuide">متوجه نشدم، فلش نشونم بده 🧭</button>
   </div>
   <button id="zoneBtn" class="hidden"></button>
+  <div id="chat" class="hidden">
+    <div class="chead"><b id="chatWho">💬 گپ با مسافر</b><span id="chatMode"></span><button id="chatKey" type="button" title="کلید API جمنای">⚙️</button><button id="chatClose" type="button">✕</button></div>
+    <div id="chatKeyBox" class="hidden">
+      <p>با کلید API جمنای، مسافرها با هوش مصنوعی و کاملاً طبیعی جواب میدن. بدون کلید هم چت آفلاین کار می‌کنه.</p>
+      <input id="chatKeyInput" type="password" placeholder="کلید API جمنای (AIza...)" autocomplete="off" dir="ltr">
+      <input id="chatModelInput" type="text" placeholder="gemini-2.5-flash" autocomplete="off" dir="ltr">
+      <div class="krow"><button id="chatKeySave" type="button">ذخیره</button><button id="chatKeyDelete" type="button" class="del">پاک کردن کلید</button></div>
+      <small>کلید فقط روی همین دستگاه ذخیره میشه و فقط برای گوگل فرستاده میشه.</small>
+    </div>
+    <div id="chatLog"></div>
+    <div id="chatQuick"></div>
+    <form id="chatForm"><input id="chatInput" type="text" placeholder="یه چیزی به مسافر بگو..." autocomplete="off" enterkeyhint="send"><button type="submit">➤</button></form>
+  </div>
   <div id="offer" class="hidden"></div>
   <div id="result" class="hidden"></div>
   <div id="incident" class="hidden"></div>

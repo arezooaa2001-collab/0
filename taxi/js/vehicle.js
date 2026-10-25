@@ -3,10 +3,12 @@ import { buildCar, buildPerson, poseSit, armIK, sharedMats } from './models.js';
 import { clamp, lerp, damp, easeInOut, collideCircle } from './util.js';
 
 // H-pattern: [column, row]; column -1 = left gate (1/2), row +1 = forward
-export const GEAR_POS = { '-1': [1, -1], 0: [0, 0], 1: [-1, 1], 2: [-1, -1], 3: [0, 1], 4: [0, -1], 5: [1, 1] };
-const GEAR_MAX = { '-1': 7.5, 1: 8.5, 2: 14.5, 3: 21.5, 4: 29.5, 5: 38 };
-const GEAR_ACC = { '-1': 3.8, 1: 5.0, 2: 4.2, 3: 3.4, 4: 2.7, 5: 2.1 };
-export const GEAR_LABEL = { '-1': 'R', 0: 'N', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5' };
+// 7-speed gate: 1-2 | 3-4 | 5-6 | 7-R
+export const GEAR_POS = { '-1': [1.5, -1], 0: [0, 0], 1: [-1.5, 1], 2: [-1.5, -1], 3: [-0.5, 1], 4: [-0.5, -1], 5: [0.5, 1], 6: [0.5, -1], 7: [1.5, 1] };
+export const TOP_GEAR = 7;
+const GEAR_MAX = { '-1': 7.5, 1: 8.5, 2: 14, 3: 20.5, 4: 27, 5: 34, 6: 41, 7: 48 };
+const GEAR_ACC = { '-1': 3.8, 1: 5.0, 2: 4.3, 3: 3.6, 4: 3.0, 5: 2.5, 6: 2.1, 7: 1.8 };
+export const GEAR_LABEL = { '-1': 'R', 0: 'N', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' };
 const REACH = 0.21, SEG = 0.12, RET = 0.24;
 const OFFS = [-1.45, 0, 1.45];
 const CAR_R = 0.95;
@@ -103,7 +105,7 @@ export class PlayerCar {
     return (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1);
   }
   topSpeed() {
-    return GEAR_MAX[5] * this.speedMul();
+    return GEAR_MAX[TOP_GEAR] * this.speedMul();
   }
   placeAt(x, z, heading) {
     this.pos.set(x, 0, z);
@@ -184,7 +186,7 @@ export class PlayerCar {
   updateLever() {
     const gp = this.car.gearPivot;
     gp.rotation.x = this.lever.r * 0.3;
-    gp.rotation.z = this.lever.c * 0.22;
+    gp.rotation.z = this.lever.c * 0.17;
   }
   autoBox(dt, inp) {
     this.autoCooldown -= dt;
@@ -212,7 +214,7 @@ export class PlayerCar {
       return;
     }
     const r = Math.abs(v) / (GEAR_MAX[g] * this.speedMul());
-    if (r > 0.9 && g < 5 && inp.gas > 0.3) {
+    if (r > 0.9 && g < TOP_GEAR && inp.gas > 0.3) {
       this.requestGear(g + 1);
       this.autoCooldown = 0.9;
     } else if (r < 0.32 && g > 1) {
@@ -432,7 +434,7 @@ export class PlayerCar {
     c.steering.rotation.z = wheelRot;
     // needles
     const kmh = Math.abs(this.speed) * 3.6;
-    c.needles.speed.rotation.z = 0.75 * Math.PI - clamp(kmh / 220, 0, 1) * 1.5 * Math.PI;
+    c.needles.speed.rotation.z = 0.75 * Math.PI - clamp(kmh / 280, 0, 1) * 1.5 * Math.PI;
     c.needles.rpm.rotation.z = 0.75 * Math.PI - clamp(this.rpm / 8000, 0, 1) * 1.5 * Math.PI;
     const ff = clamp(this.fuelTotal() / this.tank, 0.001, 1);
     c.needles.fuel.scale.x = ff;

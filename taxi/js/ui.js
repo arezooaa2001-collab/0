@@ -1,5 +1,5 @@
 import { fa, faMoney, faDist, clamp } from './util.js';
-import { GEAR_LABEL } from './vehicle.js';
+import { GEAR_LABEL, TOP_GEAR } from './vehicle.js';
 import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
@@ -163,14 +163,14 @@ export class UI {
       if (e.repeat) return;
       g.audio.init();
       const p = g.player;
-      const map = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5, KeyR: -1, KeyN: 0, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4, Numpad5: 5 };
+      const map = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5, Digit6: 6, Digit7: 7, KeyR: -1, KeyN: 0, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4, Numpad5: 5, Numpad6: 6, Numpad7: 7 };
       const dm = /^(Digit|Numpad)([0-9])$/.exec(e.code);
       if (dm) {
         const now = performance.now();
         if (now - (this.codeT || 0) > 2500) this.codeBuf = '';
         this.codeT = now;
         this.codeBuf = ((this.codeBuf || '') + dm[2]).slice(-4);
-        if (this.codeBuf === '1818' || this.codeBuf === '1717') {
+        if (this.codeBuf === '1818' || this.codeBuf === '1717' || this.codeBuf === '1515') {
           const c = this.codeBuf;
           this.codeBuf = '';
           g.cheat(c);
@@ -203,7 +203,7 @@ export class UI {
     const p = this.g.player;
     const t = p.targetGear;
     let n;
-    if (dir > 0) n = t === -1 ? 0 : t === 0 ? 1 : Math.min(5, t + 1);
+    if (dir > 0) n = t === -1 ? 0 : t === 0 ? 1 : Math.min(TOP_GEAR, t + 1);
     else n = t === 1 ? 0 : t === 0 ? -1 : t === -1 ? -1 : t - 1;
     p.requestGear(n);
   }
@@ -259,7 +259,7 @@ export class UI {
     let hint = '';
     if (!p.auto && !p.shift) {
       if (p.gear === 0) hint = 'دنده خلاصه! یه دنده بزن';
-      else if (p.rpm > 6400 && p.gear > 0 && p.gear < 5) hint = '⬆ دنده رو بالا ببر';
+      else if (p.rpm > 6400 && p.gear > 0 && p.gear < TOP_GEAR) hint = '⬆ دنده رو بالا ببر';
       else if (p.gear > 2 && p.rpm < 1700 && p.throttle > 0.5) hint = '⬇ دنده سنگینه، کم کن';
     }
     if (p.superRatio() > 0.25) hint = hint || '🚀 بنزین سوپر فعاله';
@@ -733,7 +733,8 @@ export class UI {
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
         <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۵ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • F ورود به پمپ/تعمیرگاه</div>
-        <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="۱۸۱۸ یا ۱۷۱۷" data-code><button data-a="code">ثبت</button></span></label>
+        <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
+        <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
         <button data-a="reset" class="danger">🗑️ شروع دوباره از اول</button>
       </div>`, (el) => {
       el.querySelector('[data-a=resume]').onclick = () => this.closePanel();
@@ -743,6 +744,14 @@ export class UI {
         codeIn.value = '';
       };
       el.querySelector('[data-a=code]').onclick = submit;
+      const gk = el.querySelector('[data-gkey]');
+      gk.value = g.chat.cfg.key;
+      gk.onkeydown = (e) => e.stopPropagation();
+      el.querySelector('[data-a=gkey]').onclick = () => {
+        g.chat.cfg.key = gk.value.trim();
+        g.chat.saveCfg();
+        this.toast(g.chat.cfg.key ? '🤖 کلید جمنای ذخیره شد' : 'کلید پاک شد؛ چت آفلاین فعاله', 'good');
+      };
       codeIn.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') submit(); };
       el.querySelector('[data-a=reset]').onclick = () => {
         if (confirm('همه پیشرفتت پاک میشه. مطمئنی؟')) g.resetSave();
