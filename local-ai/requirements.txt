@@ -1,0 +1,12 @@
+gradio>=5.0,<6
+requests
+numpy
+scipy
+diffusers>=0.33
+transformers>=4.48
+accelerate
+safetensors
+sentencepiece
+ftfy
+imageio
+imageio-ffmpeg
