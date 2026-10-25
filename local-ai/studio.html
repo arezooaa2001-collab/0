@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d0b1a">
+<title>هوش مصنوعی من</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap">
+<style>
+:root {
+  --bg: #0d0b1a;
+  --panel: #16132a;
+  --panel-2: #1e1a38;
+  --line: #2c2750;
+  --text: #ece9ff;
+  --muted: #9d97c4;
+  --accent: #8b5cf6;
+  --accent-2: #c084fc;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --radius: 18px;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: radial-gradient(1200px 600px at 80% -10%, #2a1b5c 0%, transparent 60%) no-repeat, var(--bg);
+  color: var(--text);
+  font-family: Vazirmatn, Tahoma, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.8;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 40px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 8px 30px #8b5cf655;
+}
+.brand h1 { margin: 0; font-size: 20px; font-weight: 800; }
+.brand small { color: var(--muted); display: block; margin-top: -4px; }
+.status {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--line); font-size: 13px; color: var(--muted);
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); }
+.status.local .dot { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+.status.online .dot { background: #60a5fa; }
+
+nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 20px 0 16px; }
+nav button {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 14px; padding: 10px 6px;
+  cursor: pointer; font-weight: 700; transition: .15s;
+}
+nav button:hover { border-color: var(--accent); }
+nav button.active { background: linear-gradient(135deg, var(--accent), #6d28d9); border-color: transparent; }
+nav span { display: block; font-size: 20px; line-height: 1.3; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+section { display: none; }
+section.active { display: block; }
+
+/* chat */
+.chat { display: flex; flex-direction: column; height: min(68vh, 640px); padding: 0; overflow: hidden; }
+.messages { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 85%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user { align-self: flex-start; background: linear-gradient(135deg, var(--accent), #6d28d9); border-bottom-right-radius: 4px; }
+.msg.bot { align-self: flex-end; background: var(--panel-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.bot:empty::after { content: "در حال فکر کردن…"; color: var(--muted); }
+.empty-chat { margin: auto; text-align: center; color: var(--muted); }
+.empty-chat b { display: block; font-size: 40px; }
+.composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); background: #120f24; }
+.composer textarea { flex: 1; min-height: 46px; max-height: 160px; }
+
+textarea, input[type=number], select {
+  width: 100%; background: #0f0d20; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; resize: vertical;
+}
+textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+label { display: block; font-weight: 700; margin: 0 0 6px; }
+.field { margin-bottom: 14px; }
+.hint { color: var(--muted); font-size: 13px; font-weight: 400; }
+
+.btn {
+  border: 0; border-radius: 12px; padding: 10px 20px; font-weight: 800; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), #6d28d9); box-shadow: 0 6px 20px #8b5cf640;
+}
+.btn { color: var(--text); text-decoration: none; display: inline-block; }
+input[type=number] { direction: ltr; text-align: right; }
+.btn:disabled { opacity: .5; cursor: wait; }
+.btn.wide { width: 100%; padding: 13px; font-size: 16px; }
+.btn.ghost { background: var(--panel-2); border: 1px solid var(--line); box-shadow: none; font-weight: 500; }
+
+.gen { display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: 1px solid var(--line); background: #0f0d20; border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+.chips button.on { border-color: var(--accent); background: #8b5cf633; }
+.row { display: flex; gap: 10px; align-items: center; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row output { min-width: 44px; text-align: center; background: #0f0d20; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+
+.result {
+  min-height: 320px; border: 1px dashed var(--line); border-radius: var(--radius); display: grid; place-items: center;
+  overflow: hidden; background: #0f0d20; position: relative; text-align: center; padding: 10px;
+}
+.result img, .result video { max-width: 100%; max-height: 560px; border-radius: 12px; display: block; margin: 0 auto; }
+.result audio { width: 100%; }
+.placeholder { color: var(--muted); }
+.placeholder b { display: block; font-size: 44px; opacity: .6; }
+.spinner { width: 46px; height: 46px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; margin: 0 auto 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.used { margin-top: 10px; font-size: 13px; color: var(--muted); direction: ltr; text-align: left; }
+.actions { display: flex; gap: 8px; margin-top: 10px; justify-content: center; }
+.error { color: var(--bad); }
+.notice { border: 1px solid #fbbf2455; background: #fbbf2412; border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+.notice b { color: var(--warn); }
+footer { color: var(--muted); text-align: center; font-size: 13px; margin-top: 18px; }
+
+@media (max-width: 720px) {
+  .gen { grid-template-columns: 1fr; }
+  .msg { max-width: 92%; }
+  nav button { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">🤖</div>
+      <div><h1>هوش مصنوعی من</h1><small>چت • عکس • ویدیو • آهنگ</small></div>
+    </div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">در حال بررسی…</span></div>
+  </header>
+
+  <nav>
+    <button class="active" data-tab="chat"><span>💬</span>چت</button>
+    <button data-tab="image"><span>🖼️</span>عکس</button>
+    <button data-tab="video"><span>🎬</span>ویدیو</button>
+    <button data-tab="music"><span>🎵</span>آهنگ</button>
+  </nav>
+
+  <!-- چت -->
+  <section id="tab-chat" class="active">
+    <div class="panel chat">
+      <div class="messages" id="messages">
+        <div class="empty-chat" id="emptyChat"><b>👋</b>سلام! هر چی می‌خوای بپرس.</div>
+      </div>
+      <form class="composer" id="chatForm">
+        <textarea id="chatInput" rows="1" placeholder="پیامت را بنویس… (Enter = ارسال، Shift+Enter = خط جدید)"></textarea>
+        <button class="btn" id="chatSend">ارسال</button>
+      </form>
+    </div>
+    <div class="actions"><button class="btn ghost" id="chatClear">🗑️ گفتگوی جدید</button></div>
+  </section>
+
+  <!-- عکس -->
+  <section id="tab-image">
+    <div class="gen">
+      <div class="panel">
+        <div class="field">
+          <label for="imgPrompt">چه عکسی می‌خوای؟</label>
+          <textarea id="imgPrompt" rows="4" placeholder="مثلاً: یک پیرمرد خندان در بازار قدیمی تبریز، نور طبیعی عصر"></textarea>
+        </div>
+        <div class="field">
+          <label>اندازه</label>
+          <div class="chips" id="imgSize"></div>
+        </div>
+        <div class="field local-only">
+          <label>کیفیت <span class="hint">(تعداد مراحل؛ بیشتر = بهتر ولی کندتر)</span></label>
+          <div class="row"><input type="range" id="imgSteps" min="15" max="50" value="30"><output id="imgStepsOut">30</output></div>
+        </div>
+        <div class="field">
+          <label for="imgSeed">Seed <span class="hint">(‎-1 = تصادفی؛ برای ساخت دوباره همان عکس عددش را نگه دار)</span></label>
+          <input type="number" id="imgSeed" value="-1">
+        </div>
+        <button class="btn wide" id="imgBtn">✨ ساخت عکس</button>
+      </div>
+      <div><div class="result" id="imgResult"><div class="placeholder"><b>🖼️</b>عکست اینجا نمایش داده می‌شود</div></div></div>
+    </div>
+  </section>
+
+  <!-- ویدیو -->
+  <section id="tab-video">
+    <div class="notice online-only"><b>⚠️ ساخت ویدیو فقط با برنامهٔ نصب‌شده کار می‌کند.</b> فایل <code>start.bat</code> را اجرا کن تا این صفحه خودش باز شود.</div>
+    <div class="gen">
+      <div class="panel">
+        <div class="field">
+          <label for="vidPrompt">چه ویدیویی می‌خوای؟</label>
+          <textarea id="vidPrompt" rows="4" placeholder="مثلاً: موج‌های دریا در غروب آفتاب کنار ساحل شمال"></textarea>
+        </div>
+        <div class="field">
+          <label>طول ویدیو <span class="hint">(ثانیه)</span></label>
+          <div class="row"><input type="range" id="vidSecs" min="2" max="8" value="5"><output id="vidSecsOut">5</output></div>
+        </div>
+        <div class="field">
+          <label>کیفیت <span class="hint">(تعداد مراحل)</span></label>
+          <div class="row"><input type="range" id="vidSteps" min="20" max="50" value="30"><output id="vidStepsOut">30</output></div>
+        </div>
+        <div class="field">
+          <label for="vidSeed">Seed <span class="hint">(‎-1 = تصادفی)</span></label>
+          <input type="number" id="vidSeed" value="-1">
+        </div>
+        <button class="btn wide" id="vidBtn">🎬 ساخت ویدیو</button>
+      </div>
+      <div><div class="result" id="vidResult"><div class="placeholder"><b>🎬</b>ویدیوت اینجا پخش می‌شود<br><span class="hint">ساخت ویدیو چند دقیقه طول می‌کشد</span></div></div></div>
+    </div>
+  </section>
+
+  <!-- آهنگ -->
+  <section id="tab-music">
+    <div class="notice online-only"><b>⚠️ ساخت آهنگ فقط با برنامهٔ نصب‌شده کار می‌کند.</b> فایل <code>start.bat</code> را اجرا کن تا این صفحه خودش باز شود.</div>
+    <div class="gen">
+      <div class="panel">
+        <div class="field">
+          <label for="musPrompt">چه آهنگی می‌خوای؟</label>
+          <textarea id="musPrompt" rows="4" placeholder="مثلاً: موسیقی آرام سنتی ایرانی با تار و سنتور"></textarea>
+        </div>
+        <div class="field">
+          <label>طول آهنگ <span class="hint">(ثانیه)</span></label>
+          <div class="row"><input type="range" id="musSecs" min="5" max="30" value="15"><output id="musSecsOut">15</output></div>
+        </div>
+        <button class="btn wide" id="musBtn">🎵 ساخت آهنگ</button>
+        <p class="hint">آهنگ‌ها بی‌کلام هستند (فقط موسیقی، بدون خواننده).</p>
+      </div>
+      <div><div class="result" id="musResult"><div class="placeholder"><b>🎵</b>آهنگت اینجا پخش می‌شود</div></div></div>
+    </div>
+  </section>
+
+  <footer id="footer">بدون کلید API • بدون حساب کاربری • رایگان</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const GRADIO = location.origin + "/gradio";
+const SYSTEM = "You are a warm, natural and helpful assistant. Talk like a real person. Always answer in the same language the user writes in (fluent, natural Persian if they write Persian).";
+const SIZES = {
+  "مربع 1:1": [1024, 1024],
+  "عمودی 3:4": [896, 1152],
+  "افقی 4:3": [1152, 896],
+  "استوری 9:16": [768, 1344],
+  "عریض 16:9": [1344, 768],
+};
+let mode = "online"; // "local" = برنامه روی همین کامپیوتر، "online" = سرویس رایگان اینترنتی
+let imgSize = "مربع 1:1";
+const history = [];
+
+// ---------- حالت اجرا
+async function detectMode() {
+  if (location.protocol.startsWith("http")) {
+    try {
+      const r = await fetch(GRADIO + "/gradio_api/info");
+      if (r.ok) mode = "local";
+    } catch (e) { /* برنامه محلی در دسترس نیست */ }
+  }
+  const s = $("status");
+  s.className = "status " + mode;
+  $("statusText").textContent = mode === "local"
+    ? "روی کامپیوتر خودت (آفلاین)"
+    : "حالت آنلاین رایگان (فقط چت و عکس)";
+  document.querySelectorAll(".online-only").forEach((el) => (el.style.display = mode === "online" ? "" : "none"));
+  document.querySelectorAll(".local-only").forEach((el) => (el.style.display = mode === "local" ? "" : "none"));
+  $("vidBtn").disabled = $("musBtn").disabled = mode !== "local";
+}
+
+// ---------- تب‌ها
+document.querySelectorAll("nav button").forEach((b) =>
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("active", x === b));
+    document.querySelectorAll("section").forEach((s) => s.classList.toggle("active", s.id === "tab-" + b.dataset.tab));
+  })
+);
+
+// اسلایدرها
+for (const id of ["imgSteps", "vidSecs", "vidSteps", "musSecs"]) {
+  $(id).addEventListener("input", () => ($(id + "Out").textContent = $(id).value));
+}
+
+// اندازه عکس
+for (const name of Object.keys(SIZES)) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = name;
+  b.className = name === imgSize ? "on" : "";
+  b.onclick = () => {
+    imgSize = name;
+    $("imgSize").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+  };
+  $("imgSize").appendChild(b);
+}
+
+// ---------- چت
+function addMsg(role, text) {
+  $("emptyChat")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + (role === "user" ? "user" : "bot");
+  el.textContent = text;
+  $("messages").appendChild(el);
+  $("messages").scrollTop = $("messages").scrollHeight;
+  return el;
+}
+
+async function streamLocal(onText) {
+  const r = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: history }),
+  });
+  if (!r.ok) throw new Error("پاسخی از برنامه نیامد");
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let text = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+    onText(text);
+  }
+  return text;
+}
+
+async function askOnline() {
+  const r = await fetch("https://text.pollinations.ai/openai", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ model: "openai", messages: [{ role: "system", content: SYSTEM }, ...history] }),
+  });
+  if (!r.ok) throw new Error(r.status === 429 ? "سرویس آنلاین شلوغ است؛ چند ثانیه بعد دوباره بفرست." : "سرویس آنلاین در دسترس نیست.");
+  const j = await r.json();
+  return j.choices?.[0]?.message?.content || "";
+}
+
+async function sendChat(e) {
+  e?.preventDefault();
+  const text = $("chatInput").value.trim();
+  if (!text) return;
+  $("chatInput").value = "";
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  const bot = addMsg("bot", "");
+  $("chatSend").disabled = true;
+  try {
+    let reply;
+    if (mode === "local") {
+      reply = await streamLocal((t) => {
+        bot.textContent = t;
+        $("messages").scrollTop = $("messages").scrollHeight;
+      });
+    } else {
+      reply = await askOnline();
+      bot.textContent = reply;
+    }
+    history.push({ role: "assistant", content: reply });
+  } catch (err) {
+    bot.classList.add("error");
+    bot.textContent = "⚠️ " + err.message;
+    history.pop();
+  } finally {
+    $("chatSend").disabled = false;
+    $("messages").scrollTop = $("messages").scrollHeight;
+    $("chatInput").focus();
+  }
+}
+$("chatForm").addEventListener("submit", sendChat);
+$("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) sendChat(e);
+});
+$("chatClear").onclick = () => {
+  history.length = 0;
+  $("messages").innerHTML = '<div class="empty-chat" id="emptyChat"><b>👋</b>سلام! هر چی می‌خوای بپرس.</div>';
+};
+
+// ---------- ارتباط با برنامه محلی (Gradio API)
+async function gradioCall(name, data) {
+  const r = await fetch(`${GRADIO}/gradio_api/call/${name}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ data }),
+  });
+  if (!r.ok) throw new Error("ارتباط با برنامه برقرار نشد.");
+  const { event_id } = await r.json();
+  const s = await fetch(`${GRADIO}/gradio_api/call/${name}/${event_id}`);
+  const text = await s.text();
+  let event = null, result = null, error = null;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) {
+      const d = line.slice(5).trim();
+      if (event === "complete") result = JSON.parse(d);
+      if (event === "error") error = d;
+    }
+  }
+  if (result) return result;
+  let msg = "ساخت ناموفق بود. پنجرهٔ سیاه برنامه را برای جزئیات خطا ببین.";
+  try {
+    const parsed = JSON.parse(error);
+    if (typeof parsed === "string" && parsed) msg = parsed;
+  } catch (e) { /* پیام پیش‌فرض */ }
+  throw new Error(msg);
+}
+
+function fileUrl(f) {
+  if (f && f.video) f = f.video;
+  return f.url || `${GRADIO}/gradio_api/file=${f.path}`;
+}
+
+function loading(box, label) {
+  const start = Date.now();
+  box.innerHTML = `<div><div class="spinner"></div>${label}<br><span class="hint" data-timer>0 ثانیه</span></div>`;
+  const t = box.querySelector("[data-timer]");
+  const id = setInterval(() => (t.textContent = Math.round((Date.now() - start) / 1000) + " ثانیه"), 1000);
+  return () => clearInterval(id);
+}
+
+function showResult(box, tag, url, used, filename) {
+  box.innerHTML = "";
+  const media = document.createElement(tag);
+  media.src = url;
+  if (tag !== "img") media.controls = true;
+  if (tag === "video") { media.loop = true; media.autoplay = true; media.muted = true; media.playsInline = true; }
+  const wrap = document.createElement("div");
+  wrap.style.width = "100%";
+  wrap.appendChild(media);
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const dl = document.createElement("a");
+  dl.className = "btn ghost";
+  dl.href = url;
+  dl.download = filename;
+  dl.target = "_blank";
+  dl.textContent = "⬇️ دانلود";
+  actions.appendChild(dl);
+  wrap.appendChild(actions);
+  if (used) {
+    const u = document.createElement("div");
+    u.className = "used";
+    u.textContent = used;
+    wrap.appendChild(u);
+  }
+  box.appendChild(wrap);
+}
+
+function showError(box, err) {
+  box.innerHTML = "";
+  const p = document.createElement("div");
+  p.className = "error";
+  p.textContent = "⚠️ " + err.message;
+  box.appendChild(p);
+}
+
+async function generate(btn, box, label, run) {
+  btn.disabled = true;
+  const stop = loading(box, label);
+  try {
+    await run();
+  } catch (err) {
+    showError(box, err);
+  } finally {
+    stop();
+    btn.disabled = false;
+  }
+}
+
+// ---------- عکس
+$("imgBtn").onclick = () => {
+  const prompt = $("imgPrompt").value.trim();
+  if (!prompt) return $("imgPrompt").focus();
+  const seed = parseInt($("imgSeed").value, 10);
+  generate($("imgBtn"), $("imgResult"), "در حال ساخت عکس…", async () => {
+    if (mode === "local") {
+      const [file, used] = await gradioCall("make_image", [prompt, imgSize, +$("imgSteps").value, isNaN(seed) ? -1 : seed]);
+      showResult($("imgResult"), "img", fileUrl(file), used, "image.png");
+      return;
+    }
+    const [w, h] = SIZES[imgSize];
+    const s = isNaN(seed) || seed < 0 ? Math.floor(Math.random() * 1e9) : seed;
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ", photorealistic, natural lighting")}` +
+      `?width=${w}&height=${h}&seed=${s}&model=flux&enhance=true&nologo=true`;
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = () => reject(new Error("سرویس آنلاین جواب نداد؛ کمی بعد دوباره امتحان کن."));
+      img.src = url;
+    });
+    showResult($("imgResult"), "img", url, "seed: " + s, "image.jpg");
+  });
+};
+
+// ---------- ویدیو
+$("vidBtn").onclick = () => {
+  const prompt = $("vidPrompt").value.trim();
+  if (!prompt) return $("vidPrompt").focus();
+  const seed = parseInt($("vidSeed").value, 10);
+  generate($("vidBtn"), $("vidResult"), "در حال ساخت ویدیو… (چند دقیقه)", async () => {
+    const [file, used] = await gradioCall("make_video", [prompt, +$("vidSecs").value, +$("vidSteps").value, isNaN(seed) ? -1 : seed]);
+    showResult($("vidResult"), "video", fileUrl(file), used, "video.mp4");
+  });
+};
+
+// ---------- آهنگ
+$("musBtn").onclick = () => {
+  const prompt = $("musPrompt").value.trim();
+  if (!prompt) return $("musPrompt").focus();
+  generate($("musBtn"), $("musResult"), "در حال ساخت آهنگ…", async () => {
+    const [file, used] = await gradioCall("make_music", [prompt, +$("musSecs").value]);
+    showResult($("musResult"), "audio", fileUrl(file), used, "music.wav");
+  });
+};
+
+detectMode();
+</script>
+</body>
+</html>

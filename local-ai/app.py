@@ -112,14 +112,16 @@ def ollama_ok():
         return False
 
 
-def chat(message, history):
+OLLAMA_DOWN = "⚠️ Ollama روشن نیست. برنامه Ollama را باز کن (یا در ترمینال بنویس: ollama serve) و دوباره امتحان کن."
+
+
+def chat_stream(history):
+    """تکه‌های پاسخ را یکی‌یکی برمی‌گرداند. history = [{"role": ..., "content": ...}, ...]"""
     if not ollama_ok():
-        yield "⚠️ Ollama روشن نیست. برنامه Ollama را باز کن (یا در ترمینال بنویس: ollama serve) و دوباره امتحان کن."
+        yield OLLAMA_DOWN
         return
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages += [{"role": m["role"], "content": m["content"]} for m in history if isinstance(m.get("content"), str)]
-    messages.append({"role": "user", "content": message})
-    reply = ""
     with requests.post(
         f"{OLLAMA_URL}/api/chat",
         json={"model": CHAT_MODEL, "messages": messages, "stream": True},
@@ -134,10 +136,16 @@ def chat(message, history):
             if not line:
                 continue
             chunk = json.loads(line)
-            reply += chunk.get("message", {}).get("content", "")
-            yield reply
+            yield chunk.get("message", {}).get("content", "")
             if chunk.get("done"):
                 break
+
+
+def chat(message, history):
+    reply = ""
+    for piece in chat_stream(history + [{"role": "user", "content": message}]):
+        reply += piece
+        yield reply
 
 
 def to_english(prompt, kind):
@@ -313,7 +321,7 @@ with gr.Blocks(title="هوش مصنوعی من", css=CSS, theme=gr.themes.Soft(p
             with gr.Column():
                 img_out = gr.Image(label="نتیجه", type="filepath")
                 img_used = gr.Textbox(label="متن انگلیسی استفاده‌شده", interactive=False)
-        img_btn.click(make_image, [img_prompt, img_size, img_steps, img_seed], [img_out, img_used])
+        img_btn.click(make_image, [img_prompt, img_size, img_steps, img_seed], [img_out, img_used], api_name="make_image")
 
     with gr.Tab("🎬 ویدیو"):
         with gr.Row():
@@ -327,7 +335,7 @@ with gr.Blocks(title="هوش مصنوعی من", css=CSS, theme=gr.themes.Soft(p
             with gr.Column():
                 vid_out = gr.Video(label="نتیجه")
                 vid_used = gr.Textbox(label="متن انگلیسی استفاده‌شده", interactive=False)
-        vid_btn.click(make_video, [vid_prompt, vid_secs, vid_steps, vid_seed], [vid_out, vid_used])
+        vid_btn.click(make_video, [vid_prompt, vid_secs, vid_steps, vid_seed], [vid_out, vid_used], api_name="make_video")
 
     with gr.Tab("🎵 آهنگ"):
         with gr.Row():
@@ -339,10 +347,38 @@ with gr.Blocks(title="هوش مصنوعی من", css=CSS, theme=gr.themes.Soft(p
             with gr.Column():
                 mus_out = gr.Audio(label="نتیجه", type="filepath")
                 mus_used = gr.Textbox(label="متن انگلیسی استفاده‌شده", interactive=False)
-        mus_btn.click(make_music, [mus_prompt, mus_secs], [mus_out, mus_used])
+        mus_btn.click(make_music, [mus_prompt, mus_secs], [mus_out, mus_used], api_name="make_music")
 
     gr.Markdown(f"فایل‌های ساخته‌شده در پوشه `{OUTPUT_DIR}` ذخیره می‌شوند.", rtl=True)
 
 
+STUDIO_HTML = Path(__file__).parent / "studio.html"
+PORT = int(os.environ.get("PORT", "7860"))
+
+
+def create_server():
+    """صفحه studio.html روی آدرس اصلی؛ رابط Gradio و API آن زیر /gradio."""
+    from fastapi import FastAPI
+    from fastapi.responses import FileResponse, StreamingResponse
+
+    server = FastAPI()
+
+    @server.get("/")
+    def studio():
+        return FileResponse(STUDIO_HTML)
+
+    @server.post("/api/chat")
+    def api_chat(body: dict):
+        return StreamingResponse(chat_stream(body.get("messages", [])), media_type="text/plain; charset=utf-8")
+
+    return gr.mount_gradio_app(server, demo.queue(), path="/gradio")
+
+
 if __name__ == "__main__":
-    demo.queue().launch(inbrowser=True, server_name="127.0.0.1")
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    threading.Timer(3, webbrowser.open, [f"http://127.0.0.1:{PORT}/"]).start()
+    uvicorn.run(create_server(), host="127.0.0.1", port=PORT)
