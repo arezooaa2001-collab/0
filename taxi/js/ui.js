@@ -91,6 +91,7 @@ export class UI {
     $('btnAuto').addEventListener('click', () => this.toggleAuto());
     $('btnCam').addEventListener('click', () => g.cycleCamera());
     $('btnDoor').addEventListener('click', () => g.onfoot.toggle());
+    $('btnBag').addEventListener('click', () => this.openInventory());
     $('btnGuide').addEventListener('click', () => g.toggleGuide());
     $('btnLights').addEventListener('click', () => {
       g.player.lights = !g.player.lights;
@@ -177,6 +178,7 @@ export class UI {
         }
       }
       if (e.code === 'KeyV') g.onfoot.toggle();
+      if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
       const walking = g.onfoot.active || g.onfoot.busy;
       if (e.code in map && g.state === 'play' && !walking) p.requestGear(map[e.code]);
       if (!walking && (e.code === 'KeyE' || e.code === 'ShiftLeft')) this.gearStep(1);
@@ -270,7 +272,7 @@ export class UI {
       b.classList.toggle('tgt', !!p.shift && v === p.targetGear);
     });
     // steering wheel graphic
-    if (g.onfoot.active) {
+    if (document.body.classList.contains('onfoot')) {
       this.wheelEl.style.transform = `translate(${(this.touch.jx || 0) * 30}px, ${-(this.touch.jy || 0) * 30}px)`;
     } else {
       const st = this.coarse ? this.touch.steer : this.input().steer;
@@ -717,6 +719,25 @@ export class UI {
         g.audio.cash();
         this.closePanel();
         g.save();
+      };
+    });
+  }
+  openInventory() {
+    const g = this.g;
+    if (g.state !== 'play') return;
+    const empty = '<div class="slot empty"></div>'.repeat(6);
+    this.panel(`<h2>🎒 کوله‌پشتی</h2>
+      <div class="inv">
+        <div class="slot item"><span class="ic">🔥</span><b>کبریت برقی</b>
+          <small>فندک الکتریکی. باهاش می‌تونی تاکسی رو آتیش بزنی! ماشین ۴۰ ثانیه بعد خودش ترمیم میشه.</small>
+          <button data-use="lighter">⚡ روشن کن و آتیش بزن</button></div>
+        <div class="slot item"><span class="ic">🪙</span><b>سکه</b><small>${fa(g.coins)} سکه (هر سکه ۱۰٬۰۰۰ تومان)</small></div>
+        ${empty}
+      </div>
+      <p class="note">⚠️ اگه مسافر توی ماشین باشه می‌ترسه و فرار می‌کنه و بعد با مشت میاد دنبالت! اگه به موقع پیاده نشه می‌سوزه. اگه کسی ببینه به پلیس خبر میده.</p>`, (el) => {
+      el.querySelector('[data-use=lighter]').onclick = () => {
+        this.closePanel();
+        g.arson.useLighter();
       };
     });
   }

@@ -12,6 +12,7 @@ import { UI } from './ui.js';
 import { buildArrow } from './models.js';
 import { OnFoot, normalizeCode } from './onfoot.js';
 import { PassengerChat } from './chat.js';
+import { Arson } from './arson.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -109,6 +110,7 @@ class Game {
     this.peds = new Pedestrians(this, q === 'low' ? 8 : 14);
     this.onfoot = new OnFoot(this);
     this.chat = new PassengerChat(this);
+    this.arson = new Arson(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -247,6 +249,8 @@ class Game {
   releaseFromJail() {
     this.fade(1, 0.6, () => {
       const p = this.player, pol = this.world.police;
+      if (this.arson.burning) this.arson.restore();
+      this.arson.clearVictim();
       p.placeAt(pol.padX, pol.padZ, pol.rot);
       p.driver.root.visible = true;
       p.car.doors.fl.target = 0;
@@ -506,7 +510,7 @@ class Game {
     const sp = Math.abs(p.speed);
     let zone = null;
     if (this.onfoot.active || this.onfoot.busy) {
-      this.currentZone = this.onfoot.active && !this.onfoot.busy && this.onfoot.nearCar() ? { kind: 'enter' } : null;
+      this.currentZone = this.onfoot.active && !this.onfoot.busy && !this.player.burning && this.onfoot.nearCar() ? { kind: 'enter' } : null;
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
@@ -652,6 +656,7 @@ class Game {
     this.police.jail.camera.updateProjectionMatrix();
     const ph = h * this.renderer.getPixelRatio();
     for (const k in this.fx) this.fx[k].setScale(ph, 65);
+    this.arson.setScale(ph, 65);
   }
   frame() {
     const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1);
@@ -659,6 +664,7 @@ class Game {
     this.audio.update(dt);
     if (st === 'jail') {
       this.police.update(dt);
+      this.ui.update(dt);
       this.renderer.render(this.police.jail.scene, this.police.jail.camera);
       return;
     }
@@ -704,6 +710,7 @@ class Game {
     this.traffic.update(dt, this.time);
     this.police.update(dt);
     if (this.state === 'jail') return;
+    this.arson.update(dt);
     this.rides.update(dt);
     this.chat.update(dt);
     this.peds.update(dt);

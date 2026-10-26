@@ -31,6 +31,12 @@ export class OnFoot {
     if (this.active) this.enter();
     else this.exit();
   }
+  /** jump out immediately (fire!) */
+  forceExit() {
+    if (this.active || this.busy) return;
+    this.g.player.speed = 0;
+    this.doExit(0, 2.6);
+  }
   exit() {
     const g = this.g, p = g.player;
     if (this.active || this.busy || g.state !== 'play') return;
@@ -38,6 +44,10 @@ export class OnFoot {
       g.ui.toast('اول ماشین رو کامل نگه دار، بعد پیاده شو ✋', 'warn');
       return;
     }
+    this.doExit(450, 1.4);
+  }
+  doExit(delay, out) {
+    const g = this.g, p = g.player;
     this.busy = true;
     p.car.doors.fl.target = 1;
     g.audio.door();
@@ -50,7 +60,7 @@ export class OnFoot {
       w.handsUp = false;
       w.mode = 'idle';
       w.target = null;
-      const d = this.doorPoint(1.4);
+      const d = this.doorPoint(out);
       w.setPos(d.x, d.z, p.heading + Math.PI / 2);
       this.yaw = p.heading;
       this.speed = 0;
@@ -64,11 +74,15 @@ export class OnFoot {
         p.car.doors.fl.target = 0;
         g.audio.door();
       }, 700);
-    }, 450);
+    }, delay);
   }
   enter() {
     const g = this.g, p = g.player, w = this.walker;
     if (!this.active || this.busy) return;
+    if (p.burning) {
+      g.ui.toast('ماشین داره می‌سوزه! صبر کن خودش درست بشه 🔥', 'warn');
+      return;
+    }
     if (!this.nearCar()) {
       g.ui.toast('برو کنار در راننده تا سوار بشی 🚗', 'warn');
       return;

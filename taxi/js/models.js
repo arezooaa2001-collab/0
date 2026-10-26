@@ -1003,6 +1003,23 @@ export function poseHandsUp(p, t, walking = 0, dt = 0) {
   p.elL.rotation.set(0, 0, 0.6 + Math.sin(t * 2) * 0.05);
   p.elR.rotation.set(0, 0, -0.6);
 }
+/** alternating jabs */
+export function posePunch(p, t) {
+  resetPose(p);
+  const beat = t * 2.6;
+  const left = Math.floor(beat) % 2 === 0;
+  const ext = Math.sin((beat % 1) * Math.PI);
+  const [sh, el, osh, oel] = left ? [p.shL, p.elL, p.shR, p.elR] : [p.shR, p.elR, p.shL, p.elL];
+  sh.rotation.set(-1.55, 0, left ? -0.15 : 0.15);
+  el.rotation.set(-1.7 * (1 - ext), 0, 0);
+  osh.rotation.set(-1.15, 0, left ? 0.35 : -0.35);
+  oel.rotation.set(-2.0, 0, 0);
+  p.spine.rotation.set(0.12, (left ? -1 : 1) * 0.3 * ext, 0);
+  p.hpL.rotation.x = -0.25;
+  p.knL.rotation.x = 0.3;
+  p.hpR.rotation.x = 0.15;
+  p.head.rotation.x = 0.1;
+}
 export function posePhone(p, t) {
   poseIdle(p, t);
   p.shR.rotation.set(-0.3, 0, -0.35);

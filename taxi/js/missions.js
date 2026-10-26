@@ -332,6 +332,21 @@ export class Rides {
     this.state = 'idle';
     this.cooldown = 8;
   }
+  /** the seated passenger leaves the ride (e.g. the taxi is on fire) */
+  abandon() {
+    const r = this.ride;
+    if (!r || !(this.state === 'toDest' || (this.state === 'boarding' && r.walker.attached))) return null;
+    const g = this.game;
+    this.beacon.visible = false;
+    g.clearGuide();
+    g.player.occupied = false;
+    g.stats.trips++;
+    g.stats.ratingSum += 1;
+    this.ride = null;
+    this.state = 'idle';
+    this.cooldown = 45;
+    return { walker: r.walker, door: r.door || 'rr', o: r.o };
+  }
   statusText() {
     const r = this.ride;
     if (this.state === 'toPickup') return `🧍 برو دنبال ${r.o.name}`;

@@ -226,7 +226,7 @@ export class PlayerCar {
   /* ---------------- simulation ---------------- */
   update(dt, inp, world, dynamics, controllable = true) {
     this.events.length = 0;
-    const alive = this.health > 0 && this.fuelTotal() > 0;
+    const alive = this.health > 0 && this.fuelTotal() > 0 && !this.burning;
     if (!controllable) {
       inp = { steer: 0, gas: 0, brake: 1, handbrake: true };
     }

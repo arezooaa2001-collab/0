@@ -319,3 +319,21 @@ body.onfoot:not(.touch) #steerZone { display: none; }
   #chat { left: calc(128px + var(--safe-l)); top: 6px; width: min(44vw, 360px); max-height: calc(100vh - 12px); }
   .msg { font-size: 12px; padding: 4px 8px; }
 }
+
+/* inventory */
+.inv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.slot { background: var(--glass2); border: 1px solid var(--line); border-radius: 14px; padding: 8px; display: flex; flex-direction: column; gap: 4px; min-height: 70px; }
+.slot.empty { border-style: dashed; opacity: .4; }
+.slot .ic { font-size: 30px; }
+.slot small { font-size: 11px; opacity: .8; line-height: 1.6; }
+.slot button { margin-top: auto; padding: 8px; border-radius: 10px; background: linear-gradient(135deg, #f97316, #dc2626); font-weight: 800; font-size: 12px; }
+
+/* jail: only the joystick, camera button and the day counter */
+body.injail #topLeft, body.injail #topRight, body.injail #topCenter, body.injail #speedo, body.injail #rightPad,
+body.injail #talk, body.injail #zoneBtn, body.injail #offer, body.injail #result, body.injail #incident, body.injail #chat { display: none !important; }
+body.injail #buttons button:not(#btnCam) { display: none; }
+body.injail #jail { top: 8px; bottom: auto; padding: 6px 12px; width: min(60vw, 340px); background: rgba(10,10,12,.7); }
+body.injail #jail .jt { font-size: 15px; }
+body.injail #jail #jailDay { font-size: 20px; margin: 0; }
+body.injail #jail p { display: none; }
+body.injail #jailSkip { margin-top: 6px; padding: 4px 12px; font-size: 12px; }
