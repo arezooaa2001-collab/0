@@ -83,7 +83,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
 #hideInfo{position:absolute;bottom:calc(var(--sb) + 196px);right:calc(var(--sr) + 18px);font:600 12px var(--fb);background:var(--glass);border:1px solid var(--edge);padding:5px 10px;border-radius:12px;white-space:nowrap}
 #hideInfo b{color:var(--sun)}
 
-#speedChips{position:absolute;right:calc(var(--sr) + 12px);bottom:calc(var(--sb) + 226px);display:flex;flex-direction:column;gap:6px;align-items:stretch}
+#speedChips{position:absolute;right:calc(var(--sr) + 12px);bottom:calc(var(--sb) + 226px);display:grid;grid-template-columns:repeat(2,auto);gap:5px}
 .chip{pointer-events:auto;min-width:118px;padding:6px 10px;border-radius:14px;border:1px solid var(--edge);background:rgba(24,12,60,.55);color:#fff;font:800 12.5px var(--fb);display:flex;justify-content:space-between;gap:8px;align-items:center;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .chip small{font-weight:600;opacity:.75;font-size:10.5px}
 .chip.on{background:var(--rainbow);background-size:200% 100%;animation:flow 3s linear infinite;color:#1a0b3a;border-color:#fff;box-shadow:0 0 18px rgba(255,120,220,.55)}
@@ -104,6 +104,24 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
 #btnDecoy{bottom:4px}
 #btnGhost{bottom:76px;background:radial-gradient(circle at 35% 30%,#efe3ff,#8d5cff 75%);color:#fff}
 #hud.frozen #toast{top:auto;bottom:calc(var(--sb) + 104px);max-width:min(52vw,420px)}
+.chip.ultra{border-color:#ffd23f;background:rgba(80,20,90,.65)}
+#poseBtns{position:absolute;left:calc(var(--sl) + 14px);bottom:calc(var(--sb) + 150px);display:flex;gap:8px}
+.pose{pointer-events:auto;width:58px;height:58px;border-radius:18px;border:2px solid rgba(255,255,255,.55);background:rgba(30,14,70,.5);color:#fff;font:800 10px var(--fb);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
+.pose span{font-size:22px;line-height:1}
+.pose.on,.pose.press{background:linear-gradient(135deg,#ffe14d,#ff6fb5);color:#2a0a30}
+#btnBuild.on{background:linear-gradient(135deg,#ffe14d,#ff9f43);border-color:#fff}
+#buildBar{position:absolute;top:calc(var(--st) + 94px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(90,50,10,.75);border:1px solid #ffd23f;border-radius:18px;padding:6px 8px 6px 12px;font:800 13px var(--fb);white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#buildBar small{font:600 11px var(--fb);color:var(--ink-dim)}
+#buildBar button{pointer-events:auto;border:0;border-radius:12px;padding:8px 12px;font:800 13px var(--fb);cursor:pointer;background:#4dff88;color:#0b2a14}
+#buildHint{position:absolute;top:calc(var(--st) + 140px);left:50%;transform:translateX(-50%);max-width:min(60vw,460px);text-align:center;font:700 12.5px/1.6 var(--fb);background:rgba(20,8,50,.6);border-radius:12px;padding:5px 12px}
+#buildCat{position:absolute;bottom:calc(var(--sb) + 10px);left:calc(var(--sl) + 150px);right:calc(var(--sr) + 10px);display:flex;gap:6px;overflow-x:auto;pointer-events:auto;padding:4px;direction:rtl;scrollbar-width:thin}
+.cat{flex:0 0 auto;width:66px;height:62px;border-radius:16px;border:1px solid rgba(255,255,255,.4);background:rgba(30,14,70,.65);color:#fff;font:700 10px var(--fb);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer}
+.cat span{font-size:24px;line-height:1}
+#buildTools{position:absolute;right:calc(var(--sr) + 10px);top:calc(var(--st) + 64px);display:grid;grid-template-columns:repeat(3,56px);gap:5px;pointer-events:auto;max-height:calc(100% - var(--st) - var(--sb) - 150px);overflow-y:auto}
+#buildTools button{height:50px;border-radius:14px;border:1px solid rgba(255,255,255,.4);background:rgba(30,14,70,.7);color:#fff;font:700 9.5px var(--fb);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;touch-action:none}
+#buildTools button span{font-size:18px;line-height:1}
+#buildTools button.on{background:linear-gradient(135deg,#ffe14d,#ff6fb5);color:#2a0a30;border-color:#fff}
+#buildTools button.act{background:rgba(10,60,70,.75)}
 .pills{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:112px}
 #coinBox{font:800 13px var(--fb);background:linear-gradient(90deg,rgba(255,215,60,.9),rgba(255,160,40,.9));color:#2a1200;padding:2px 10px;border-radius:999px;direction:rtl}
 #btnFreeze.on{background:linear-gradient(135deg,#bff3ff,#6fb8ff);border-color:#fff}
@@ -185,6 +203,10 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
   #dangerBar{top:calc(var(--st) + 76px)}
   #toast{top:calc(var(--st) + 98px);font-size:13.5px;padding:6px 12px}
   #hideInfo{bottom:calc(var(--sb) + 166px)}
+  #speedChips{bottom:calc(var(--sb) + 172px)}
+  #poseBtns{bottom:calc(var(--sb) + 132px)}
+  .pose{width:50px;height:50px}
+  #buildHint{top:calc(var(--st) + 128px)}
   .card{padding:14px 16px;gap:9px;border-radius:22px}
   .endT{font-size:40px}
   .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
@@ -198,6 +220,10 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
   #timerBox{min-width:96px;padding:6px 10px}
 }
 @media (max-width:640px) and (orientation:portrait){
+  #buildCat{left:calc(var(--sl) + 10px)}
+  #buildHint{max-width:84vw;top:calc(var(--st) + 140px)}
+  #buildTools{top:calc(var(--st) + 190px)}
+  #buildBar span{display:none}
   #shop{left:calc(var(--sl) + 12px);right:calc(var(--sr) + 12px);width:auto;top:calc(var(--st) + 150px)}
   #freezeBar span{display:none}
   #spyTitle{bottom:auto;top:calc(var(--st) + 210px)}
@@ -232,7 +258,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
     <div id="topbar">
       <div id="radarWrap"><canvas id="radar" width="208" height="208"></canvas><div id="coords">در میدان شروع</div><div class="pills"><div id="starBox">⭐ <b id="starN">۰</b></div><div id="coinBox">🪙 <b id="coinN">۰</b></div></div></div>
       <div id="timerBox"><div id="timerLabel">زمان دوام</div><div id="timer">۰۰:۰۰</div><div id="status">۲۰ جستجوگر</div></div>
-      <div id="topBtns"><button class="ibtn" id="btnFreeze" aria-label="یخ زدن زمان و رفتن به فروشگاه">❄️</button><button class="ibtn" id="btnSound" aria-label="صدا">🔊</button><button class="ibtn" id="btnPause" aria-label="توقف">⏸</button></div>
+      <div id="topBtns"><button class="ibtn" id="btnBuild" aria-label="حالت ساختن">🛠️</button><button class="ibtn" id="btnFreeze" aria-label="یخ زدن زمان و رفتن به فروشگاه">❄️</button><button class="ibtn" id="btnSound" aria-label="صدا">🔊</button><button class="ibtn" id="btnPause" aria-label="توقف">⏸</button></div>
     </div>
     <div id="freezeBar" hidden><span>❄️ زمان یخ زده</span><button id="btnGoShop">🐭 برو پیش آقای موشک</button><button id="btnUnfreeze">▶ ادامه</button></div>
     <div id="shop" hidden><div class="shopCard">
@@ -241,6 +267,11 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
       <div class="shopNote">هر مرحله‌ی زمان‌دار که ببری ۱۰۰ سکه می‌گیری. خریدها برای بازی‌های بعدی هم می‌مانند.</div>
       <button class="big" id="btnShopResume">برگرد سر جایت و ادامه بده ▶</button>
     </div></div>
+    <div id="buildBar" hidden><span>🛠️ حالت ساختن · زمان یخ زده</span><small id="buildCount"></small><button id="btnBuildDone">✅ تمام</button></div>
+    <div id="buildHint" hidden></div>
+    <div id="buildCat" hidden></div>
+    <div id="buildTools" hidden></div>
+    <div id="poseBtns"><button class="pose" id="btnSit"><span>🧎</span>نشستن</button><button class="pose" id="btnLie"><span>🛌</span>دراز کشیدن</button><button class="pose" id="btnFlip"><span>🤸</span>ملق</button></div>
     <div id="dangerBar" hidden><i id="dangerFill"></i></div>
     <div id="toast"></div>
     <div id="hideInfo" hidden></div>
@@ -249,6 +280,8 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
       <button class="chip" data-l="1">توربو <small>۸۰ م/ث</small></button>
       <button class="chip" data-l="2">خیلی توربو <small>۴۲۰ م/ث</small></button>
       <button class="chip" data-l="3">بیش از حد توربو <small>۲۶۰۰ م/ث</small></button>
+      <button class="chip ultra" data-l="4">Ultra دویدن <small>۹۰۰۰ م/ث</small></button>
+      <button class="chip ultra" data-l="5">MAX Ultra <small>۲۵۰۰۰ م/ث</small></button>
     </div>
     <div id="actions">
       <button class="abtn pbtn" id="btnDecoy" hidden><span class="e">🎵</span>فریب <i id="decoyN">۱</i></button>
@@ -307,10 +340,12 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
         <li><b>⭐</b><span>در مه رنگین‌کمانی فقط ۱۰ متر جلوتر را می‌بینی؛ جستجوگرها هم همین‌طور. ستاره‌های چرخان را جمع کن. 🎵 جعبه‌ی موزیک را بینداز تا جستجوگرها دنبال صدایش بروند (حتی از توی مخفیگاه!) و با 👻 معجون نامرئی ۸ ثانیه دیده نمی‌شوی.</span></li>
         <li><b>🪙</b><span>در حالت زمان‌دار اگر تا آخر وقت پیدایت نکنند، به مرحله‌ی بعد می‌روی و ۱۰۰ سکه می‌گیری. هر مرحله کمی سخت‌تر است. در حالت «تا وقتی پیدام کنن» مرحله و سکه نیست.</span></li>
         <li><b>❄️</b><span>وسط بازی دکمه‌ی ❄️ را بزن تا زمان یخ بزند (بدون اینکه منو باز شود). بعد «برو پیش آقای موشک» را بزن یا خودت تا فروشگاهش کنار میدان شروع بدو. آنجا معجون نامرئی، نامرئی طولانی‌تر، طلسم فرار و جعبه‌ی موزیک بخر. «ادامه» تو را دقیقاً سر جای قبلی‌ات برمی‌گرداند.</span></li>
+        <li><b>🛠️</b><span>دکمه‌ی 🛠️ حالت ساختن را باز می‌کند (زمان یخ می‌زند). از نوار پایین هر وسیله‌ای خواستی بگذار، یا روی هر وسیله‌ی تالار بزن تا برش داری. بعد با ابزارها و کشیدن انگشت روی صفحه جابه‌جا کن، بالا و پایین ببر، بچرخان و کج کن، بزرگ و کوچک کن، دراز و پهن و بلندش کن، تکانش بده، رنگش را عوض کن، کپی یا حذفش کن. ساخته‌هایت ذخیره می‌مانند.</span></li>
+        <li><b>🤸</b><span>نشستن و دراز کشیدن تو را از پشت وسیله‌های کوتاه پنهان‌تر می‌کند. ملق هم بزن! سرعت‌های Ultra دویدن و MAX Ultra هم اضافه شده‌اند.</span></li>
         <li><b>🛋️</b><span>زیر کاناپه و تخت‌خواب هم می‌شود قایم شد؛ داخل خمره، کمد، ماشین، یخچال و بقیه هم جا هست.</span></li>
         <li><b>❗</b><span>اگر جستجوگری ببیند کجا قایم شدی مستقیم سراغت می‌آید. اول از دیدشان دور شو، بعد قایم شو.</span></li>
       </ul>
-      <div class="keys">صفحه‌کلید: حرکت W A S D یا جهت‌ها · Shift دویدن · ۱ تا ۴ سطح سرعت · Space پرش · E قایم شدن · V دید جاسوسی · X فریب · G نامرئی · B یخ زدن زمان و فروشگاه (Q و E چرخش، R و F ارتفاع) · Esc توقف · کشیدن موس برای چرخاندن دوربین</div>
+      <div class="keys">صفحه‌کلید: حرکت W A S D یا جهت‌ها · Shift دویدن · ۱ تا ۴ سطح سرعت · Space پرش · E قایم شدن · V دید جاسوسی · X فریب · G نامرئی · B یخ زدن زمان و فروشگاه · N ساختن · C نشستن · Z دراز کشیدن · T ملق · ۵ و ۶ سرعت‌های Ultra (Q و E چرخش، R و F ارتفاع) · Esc توقف · کشیدن موس برای چرخاندن دوربین</div>
       <button class="big" id="btnHelpClose">فهمیدم</button>
     </div>
   </div>
@@ -378,6 +413,8 @@ const LEVELS=[
   {name:'توربو',speed:80,noise:240,jump:6,fov:10,cam:2.5},
   {name:'خیلی توربو',speed:420,noise:1600,jump:20,fov:18,cam:5},
   {name:'بیش از حد توربو',speed:2600,noise:6500,jump:60,fov:28,cam:8},
+  {name:'Ultra دویدن',speed:9000,noise:15000,jump:120,fov:33,cam:9},
+  {name:'MAX Ultra دویدن',speed:25000,noise:40000,jump:250,fov:40,cam:10},
 ];
 const WALK=6.2, GRAV=24;
 const DIFFS={
@@ -784,10 +821,13 @@ function genChunk(cx,cz){
   if(rng()<0.22){for(let t=0;t<20;t++){const x=cx*CH+3+rng()*(CH-6),z=cz*CH+3+rng()*(CH-6);if(!free(x,z,1))continue;out.items.push({id:cid*8+7,kind:rng()<0.5?'decoy':'ghost',x,z,ph:rng()*TAU});break;}}
   return out;
 }
+/* objects the player built or moved (build mode); generated objects they picked up are listed in removed */
+const BUILD={removed:new Set(),byChunk:new Map(),objs:[],nextId:1,sel:null,tool:'move'};
+function chunkKey(cx,cz){return (cx+1000)*4000+(cz+1000);}
 function getChunk(cx,cz){
-  const k=(cx+1000)*4000+(cz+1000);
+  const k=chunkKey(cx,cz);
   let a=chunkCache.get(k);
-  if(!a){a=genChunk(cx,cz);chunkCache.set(k,a);if(chunkCache.size>1500){chunkCache.delete(chunkCache.keys().next().value);}}
+  if(!a){const g=genChunk(cx,cz);a=BUILD.removed.size?g.filter(o=>!BUILD.removed.has(o.id)):g;a.items=g.items;const ex=BUILD.byChunk.get(k);if(ex)for(const o of ex)a.push(o);chunkCache.set(k,a);if(chunkCache.size>1500){chunkCache.delete(chunkCache.keys().next().value);}}
   return a;
 }
 function forObjs(x,z,r,fn){
@@ -878,7 +918,7 @@ const visMap=new Map();
 const Q={R:1,shadow:2048,prMax:2,adaptive:true};
 function makeTypeMesh(gr,geo,n,near){
   const mesh=new THREE.InstancedMesh(geo,MAT[gr.mat],n);
-  mesh.cap=n;mesh.setColorAt(0,WHITE);mesh.count=0;
+  mesh.cap=n;mesh.owner=[];mesh.setColorAt(0,WHITE);mesh.count=0;
   mesh.frustumCulled=false;
   mesh.castShadow=near&&gr.sh&&gr.mat!=='glow'&&gr.mat!=='balloon';
   mesh.receiveShadow=near&&gr.mat!=='glow';
@@ -898,9 +938,14 @@ function setupTypeMeshes(){
   });
 }
 setupTypeMeshes();
+function objBase(o,tx,tz,hop){
+  if(o.custom){_e.set(o.rx+tx,o.rot,o.rz+tz,'YXZ');_v.set(o.x,o.y+hop,o.z);_s.set(o.sx,o.sy,o.sz);}
+  else{_e.set(tx,o.rot,tz,'YXZ');_v.set(o.x,hop,o.z);_s.setScalar(o.s);}
+  _q.setFromEuler(_e);_base.compose(_v,_q,_s);
+}
 function placeObj(o,far){
   const T=o.T;
-  _q.setFromAxisAngle(UP,o.rot);_v.set(o.x,0,o.z);_s.setScalar(o.s);_base.compose(_v,_q,_s);
+  objBase(o,0,0,0);
   const refs=[];
   for(let j=0;j<T.parts.length;j++){
     const p=T.parts[j],m=far?p.gr.far:p.gr.mesh,idx=m.count;
@@ -909,7 +954,7 @@ function placeObj(o,far){
     _m.multiplyMatrices(_base,p.m);m.setMatrixAt(idx,_m);
     _c.setRGB(o.cols[p.ci*3],o.cols[p.ci*3+1],o.cols[p.ci*3+2]);m.setColorAt(idx,_c);
     const ph=m.geometry.attributes.aPhase;if(ph)ph.array[idx]=o.ph;
-    refs.push(m,idx,j);
+    m.owner[idx]=o;refs.push(m,idx,j);
   }
   visMap.set(o.id,{o,refs});
 }
@@ -938,7 +983,7 @@ function updateFocus(fx,fz,force){
 const wobbles=new Map();
 function wobble(o,dur,amp){wobbles.set(o.id,{o,t:0,dur,amp});}
 function setObjMatrix(v,tx,tz,hop){
-  const o=v.o;_e.set(tx,o.rot,tz,'YXZ');_q.setFromEuler(_e);_v.set(o.x,hop,o.z);_s.setScalar(o.s);_base.compose(_v,_q,_s);
+  const o=v.o;objBase(o,tx,tz,hop);
   for(let i=0;i<v.refs.length;i+=3){const m=v.refs[i],idx=v.refs[i+1],p=o.T.parts[v.refs[i+2]];_m.multiplyMatrices(_base,p.m);m.setMatrixAt(idx,_m);m.instanceMatrix.needsUpdate=true;}
 }
 function updateWobbles(dt){
@@ -1073,6 +1118,11 @@ function animChar(c,dt,mode,speed,t){
     case 'scan':g.hy=Math.sin(t*2.6+c.phase)*0.9;g.aLz=0.2;g.aRz=-0.2;g.aR=-0.3;break;
     case 'celebrate':g.by=Math.abs(Math.sin(t*7+c.phase))*0.45;g.aL=-2.9;g.aR=-2.9;g.aLz=0.4+Math.sin(t*10)*0.3;g.aRz=-0.4-Math.sin(t*10)*0.3;k=1;break;
     case 'wave':g.aL=-2.7;g.aLz=0.5+Math.sin(t*8+c.phase)*0.4;g.by=Math.sin(t*2.2+c.phase)*0.015;g.hy=Math.sin(t*0.9+c.phase)*0.3;break;
+    case 'lie':g.aL=-2.85;g.aR=-2.85;g.aLz=0.35;g.aRz=-0.35;g.hx=-0.75;g.by=Math.sin(t*2)*0.01;g.lL=0.05;g.lR=-0.05;break;
+    case 'lieback':g.aLz=0.3;g.aRz=-0.3;g.hx=0.2;g.hy=Math.sin(t*0.6)*0.3;g.lL=-0.1;g.lR=0.08;g.by=Math.sin(t*1.6)*0.01;break;
+    case 'crouch':g.lL=-1.9;g.lR=-1.9;g.by=-0.5;g.aL=-1.25;g.aR=-1.25;g.aLz=-0.2;g.aRz=0.2;g.lean=0.45;g.hx=0.1;g.hy=Math.sin(t*0.8)*0.5;break;
+    case 'sit':g.lL=-1.5;g.lR=-1.45;g.by=-0.6;g.aL=-0.55;g.aR=-0.5;g.aLz=0.25;g.aRz=-0.25;g.lean=-0.12;g.hy=Math.sin(t*0.7)*0.4;break;
+    case 'flip':g.lL=-1.9;g.lR=-1.9;g.aL=-1.6;g.aR=-1.6;g.lean=0.5;g.hx=0.3;k=1-Math.exp(-dt*22);break;
     case 'sad':g.hx=0.55;g.lean=0.2;g.aLz=0.04;g.aRz=-0.04;g.by=-0.03;break;
   }
   const cu=c.cur;for(const key in g)cu[key]+= (g[key]-cu[key])*k;
@@ -1170,6 +1220,7 @@ const PL={x:0,y:0,z:0,vx:0,vz:0,vy:0,rot:0,onGround:true,running:false,level:0,h
   c:makeChar({shirt:hsl(0.13,1,0.55),sleeve:hsl(0.1,1,0.6),pants:hsl(0.75,0.75,0.5),shoe:hsl(0.95,0.9,0.6),skin:hsl(0.07,0.7,0.8),hat:hsl(0.14,1,0.55),hat2:hsl(0.55,1,0.6),
     scarf:hsl(0.9,0.9,0.6),belt:hsl(0.5,0.9,0.5),badge:hsl(0.0,1,0.6),badge2:hsl(0.33,1,0.55),cheek:hsl(0.95,0.9,0.75),mouth:hsl(0.97,0.7,0.35),nose:hsl(0.07,0.7,0.72),white:hsl(0.6,0.3,0.97),pupil:hsl(0.7,0.8,0.16)},3,CMAT.clone())};
 const PMAT=PL.c.meshes[0].material;
+PL.c.root.rotation.order='YXZ';PL.pose='stand';PL.flip=null;PL.hideYaw=0;
 scene.add(PL.c.root);
 
 const seekers=[];
@@ -1233,10 +1284,11 @@ function pickObj(s,cx,cz,r){
 function canSee(s){
   if(PL.hidden||S.ghostT>0)return false;
   const dx=PL.x-s.x,dz=PL.z-s.z,dy=PL.y-s.y,d2=dx*dx+dz*dz+dy*dy*0.3;
-  if(d2>D.sight*D.sight)return false;
+  const sm=PL.pose==='lie'?0.6:PL.pose==='sit'?0.8:1;
+  if(d2>D.sight*D.sight*sm*sm)return false;
   const d=Math.sqrt(dx*dx+dz*dz);
   if(d>4){const fx=Math.sin(s.rot),fz=Math.cos(s.rot);if((fx*dx+fz*dz)/d<Math.cos(D.fov/2))return false;}
-  return losClear(s.x,s.y+1.5,s.z,PL.x,PL.y+1.1,PL.z);
+  return losClear(s.x,s.y+1.5,s.z,PL.x,PL.y+(PL.pose==='lie'?0.25:PL.pose==='sit'?0.55:1.1),PL.z);
 }
 function moveSeeker(s,tx,tz,speed,dt,allowDash){
   const dx=tx-s.x,dz=tz-s.z,d=Math.hypot(dx,dz);
@@ -1310,6 +1362,16 @@ function updateSeekers(dt){
     if(s.sayT>0){s.sayT-=dt;if(s.sayT<=0)s.em.hidden=true;}
     if(S.phase==='play'&&!S.paused){
       s.visT-=dt;if(s.visT<=0){s.visT=0.12;s.sees=canSee(s);}
+      const ho=PL.hidden;
+      if(ho&&ho.T.hide.at==='under'&&S.ghostT<=0&&s.state!=='chase'&&s.state!=='inspect'&&s.state!=='celebrate'&&s.state!=='gather'&&!(s.knowHide&&s.knowHide.id===ho.id)){
+        const dx=ho.x-s.x,dz=ho.z-s.z,d=Math.hypot(dx,dz),near=ho.rad+3.2;
+        if(d<near&&d>0.1&&(Math.sin(s.rot)*dx+Math.cos(s.rot)*dz)/d>0.5&&rand()<dt*0.4*(1.2-(d-ho.rad)/3.2)){
+          if(s.obj&&s.obj!==ho&&S.claims.get(s.obj.id)===s.i)S.claims.delete(s.obj.id);
+          s.knowHide=ho;s.obj=ho;s.state='goto';S.claims.set(ho.id,s.i);
+          s.em.textContent='یکی زیر '+ho.T.name+'ه!';s.em.hidden=false;s.sayT=2.4;
+          toast('😱 جستجوگر '+fa(s.i+1)+' پاهایت را زیر '+ho.T.name+' دید! زود فرار کن!',3.2);sfx.alert();
+        }
+      }
       if(s.state!=='chase'&&s.state!=='celebrate'&&s.state!=='gather'){
         if(s.sees){s.spot+=dt;if(s.spot>=D.react)startChase(s);}else s.spot=Math.max(0,s.spot-dt*0.5);
       }
@@ -1349,7 +1411,7 @@ function heardNoise(radius,x,z){
     if(d<radius){const err=d*0.06+3,p=randInCircle(err);s.tx=x+p[0];s.tz=z+p[1];if(s.state!=='investigate')say(s,'heard');setState(s,'investigate');s.obj=null;heard++;}
   }
   if(radius>20)noiseRing(x,z,Math.min(radius,VIEW*0.9));
-  if(heard&&radius>60&&S.time-S.lastToastNoise>4){S.lastToastNoise=S.time;toast('🔊 '+fa(heard)+' جستجوگر صدای '+LEVELS[PL.level].name+'ات را شنیدند و دارند می‌آیند!');}
+  if(heard&&radius>60&&S.time-S.lastToastNoise>4){S.lastToastNoise=S.time;toast('🔊 '+fa(heard)+' جستجوگر صدای دویدنت ('+LEVELS[PL.level].name+') را شنیدند و دارند می‌آیند!');}
 }
 function issueHint(){
   const R=D.hintR*Math.max(0.3,1-S.elapsed/480),p=randInCircle(R*0.45);
@@ -1367,17 +1429,45 @@ const input={jx:0,jy:0,kx:0,ky:0,keys:{}};
 function doJump(){
   if(PL.hidden||S.phase==='over'||S.phase==='menu'||S.paused)return;
   if(!PL.onGround)return;
+  PL.pose='stand';
   const h=PL.running?LEVELS[PL.level].jump:LEVELS[0].jump;
   PL.vy=Math.sqrt(2*GRAV*h);PL.onGround=false;sfx.jump(PL.running?PL.level:0);
   burst(PL.x,PL.y+0.1,PL.z,8,3,0.25,0.5,4);
 }
+function poseHidden(dt){
+  const o=PL.hidden,c=PL.c,f=PL.hideYaw,y0=o.y||0;
+  c.root.visible=S.camMode!=='peek';
+  if(o.T.hide.at==='under'){
+    c.root.scale.setScalar(o.T.key==='sofa'?0.68:0.78);
+    const len=0.78*1.9;
+    c.root.rotation.set(R2,f,0);c.root.position.set(o.x-Math.sin(f)*len*0.5,y0+0.2,o.z-Math.cos(f)*len*0.5);
+    animChar(c,dt,'lie',0,S.time);
+  }else{
+    c.root.scale.setScalar(0.74);
+    c.root.rotation.set(0,f,0);c.root.position.set(o.x,y0+(o.T.key==='car'?0.4:0.05),o.z);
+    animChar(c,dt,'crouch',0,S.time);
+  }
+}
+function setPose(p){
+  if(PL.hidden||S.paused||S.phase==='over'||S.phase==='menu'||!PL.onGround)return;
+  PL.pose=PL.pose===p?'stand':p;PL.vx=PL.vz=0;sfx.ui();updateButtons();
+  if(PL.pose!=='stand')toast(PL.pose==='sit'?'🧎 نشستی: از پشت وسیله‌های کوتاه دیرتر دیده می‌شوی.':'🛌 دراز کشیدی: جستجوگرها خیلی سخت‌تر می‌بینندت.');
+}
+function doFlip(){
+  if(PL.hidden||S.paused||S.phase==='over'||S.phase==='menu'||PL.flip)return;
+  PL.pose='stand';
+  if(PL.onGround){const h=Math.max(2.2,(PL.running?LEVELS[PL.level].jump:0)*0.6);PL.vy=Math.sqrt(2*GRAV*h);PL.onGround=false;}
+  const air=Math.max(0.45,2*Math.max(PL.vy,0)/GRAV);
+  PL.flip={t:0,dur:clamp(air*0.92,0.55,1.6)};sfx.flip();updateButtons();
+}
 function updatePlayer(dt){
   const c=PL.c;
-  if(PL.hidden){c.root.visible=false;return;}
-  c.root.visible=true;
+  if(PL.hidden){poseHidden(dt);return;}
+  c.root.visible=true;c.root.scale.setScalar(0.82);c.root.rotation.x=0;
   if(S.phase==='menu'){c.root.position.set(0,0,0);c.root.rotation.y=0;animChar(c,dt,'wave',0,S.time);return;}
   if(S.phase==='over'){c.root.position.set(PL.x,PL.y,PL.z);c.root.rotation.y=PL.rot;animChar(c,dt,S.won?'celebrate':'sad',0,S.time);return;}
   let mx=input.jx+input.kx,my=input.jy+input.ky;const mag=Math.min(1,Math.hypot(mx,my));
+  if(mag>0.2&&PL.pose!=='stand'){PL.pose='stand';updateButtons();}
   if(mag>1e-3){const l=Math.hypot(mx,my);mx/=l;my/=l;}
   const lv=LEVELS[PL.level],maxSp=PL.running?lv.speed:WALK;
   const fx=Math.sin(S.yaw),fz=Math.cos(S.yaw),rx=-Math.cos(S.yaw),rz=Math.sin(S.yaw);
@@ -1398,17 +1488,31 @@ function updatePlayer(dt){
   PL.vy-=GRAV*dt;PL.y+=PL.vy*dt;
   if(PL.y<=ground){
     if(!PL.onGround&&PL.vy<-9){const r=Math.min(400,8+(-PL.vy)*2.2);heardNoise(r,PL.x,PL.z);burst(PL.x,ground+0.1,PL.z,Math.min(40,10+(-PL.vy)),5,0.3,0.7,6);sfx.land(-PL.vy);}
-    PL.y=ground;PL.vy=0;PL.onGround=true;
+    PL.y=ground;PL.vy=0;PL.onGround=true;if(PL.flip){PL.flip=null;burst(PL.x,ground+0.1,PL.z,16,4,0.3,0.6,5);updateButtons();}
   }else PL.onGround=PL.y-ground<0.03;
   // noise from moving
   PL.noiseT-=dt;
-  if(PL.noiseT<=0&&spd>1.2&&PL.onGround){PL.noiseT=0.5;const r=PL.running?lv.noise*clamp(spd/lv.speed,0.3,1):6;heardNoise(r,PL.x,PL.z);}
+  if(PL.noiseT<=0&&spd>1.2&&PL.onGround&&PL.pose==='stand'){PL.noiseT=0.5;const r=PL.running?lv.noise*clamp(spd/lv.speed,0.3,1):6;heardNoise(r,PL.x,PL.z);}
   // turbo trail
   if(PL.running&&PL.level>0&&spd>30){for(let i=0;i<2;i++)emit(PL.x-PL.vx*0.01+(rand()-0.5),PL.y+0.4+rand()*1.2,PL.z-PL.vz*0.01+(rand()-0.5),-PL.vx*0.02,rand(),-PL.vz*0.02,S.time*0.8+rand()*0.2,0.4,0.45,0);}
   // footsteps
   if(PL.onGround&&spd>1){const ph=Math.floor(c.phase/Math.PI);if(ph!==PL.stepPh){PL.stepPh=ph;sfx.step(spd);}}
-  c.root.position.set(PL.x,PL.y,PL.z);c.root.rotation.y=PL.rot;
-  animChar(c,dt,!PL.onGround&&PL.y-ground>0.3?'air':(spd>60?'dash':'move'),spd,S.time);
+  const fx2=Math.sin(PL.rot),fz2=Math.cos(PL.rot);
+  c.root.rotation.y=PL.rot;
+  if(PL.flip){
+    const F=PL.flip;F.t+=dt;const u=Math.min(1,F.t/F.dur),th=TAU*(u<0.5?2*u*u:1-2*(1-u)*(1-u)),h=0.9;
+    c.root.rotation.x=th;c.root.position.set(PL.x-fx2*h*Math.sin(th),PL.y+h-h*Math.cos(th),PL.z-fz2*h*Math.sin(th));
+    if(rand()<0.8)emit(PL.x,PL.y+0.9,PL.z,(rand()-0.5),rand(),(rand()-0.5),S.time+rand()*0.3,0.3,0.5,0);
+    animChar(c,dt,'flip',0,S.time);
+    if(F.t>=F.dur){PL.flip=null;updateButtons();}
+  }else if(PL.pose==='lie'){
+    c.root.rotation.x=-R2;c.root.position.set(PL.x+fx2*0.74,PL.y+0.27,PL.z+fz2*0.74);animChar(c,dt,'lieback',0,S.time);
+  }else if(PL.pose==='sit'){
+    c.root.position.set(PL.x,PL.y,PL.z);animChar(c,dt,'sit',0,S.time);
+  }else{
+    c.root.position.set(PL.x,PL.y,PL.z);
+    animChar(c,dt,!PL.onGround&&PL.y-ground>0.3?'air':(spd>60?'dash':'move'),spd,S.time);
+  }
 }
 function findHideCand(){
   if(PL.hidden||PL.y>2.5||S.phase==='over'||S.phase==='menu')return null;
@@ -1425,7 +1529,7 @@ function enterHide(o){
     if(S.phase!=='play')break;
     if(canSee(s)||s.state==='chase'&&s.sees){s.knowHide=o;if(s.obj&&s.obj!==o&&S.claims.get(s.obj.id)===s.i)S.claims.delete(s.obj.id);s.obj=o;s.state='goto';wit++;}
   }
-  PL.hidden=o;PL.vx=PL.vz=PL.vy=0;PL.x=o.x;PL.z=o.z;PL.y=0;
+  PL.hidden=o;PL.vx=PL.vz=PL.vy=0;PL.x=o.x;PL.z=o.z;PL.y=0;PL.hideYaw=S.yaw;PL.pose='stand';PL.flip=null;
   burst(o.x,1,o.z,26,5,0.35,0.8,5);wobble(o,0.7,0.09);sfx.hide();
   S.camMode='peek';S.pitch=o.T.hide.at==='under'?-0.02:0.05;
   $('peekTag').textContent=hideWord(o.T)+' '+o.T.name+' قایم شدی · امنیت '+stars(o.T.safe);
@@ -1460,10 +1564,10 @@ function toggleSpy(){
 function startGame(){
   D=stageDiff();
   applyQuality();
-  S.frozen=false;S.saved=null;$('shop').hidden=true;
+  S.frozen=false;S.saved=null;S.build=false;BUILD.sel=null;$('shop').hidden=true;
   S.phase='count';S.paused=false;S.count=10;S.elapsed=0;S.timeLeft=settings.minutes*60;S.searched.clear();S.claims.clear();
   S.hint={x:0,z:0,r:50};S.hintT=8;S.stats={dist:0,close:0,stars:0};S.got.clear();S.decoyN=1;S.ghostN=1;S.ghostT=0;S.decoys.length=0;decoyMeshes.forEach(m=>m.visible=false);setGhostLook(false);S.danger=0;S.won=false;S.caughtBy=null;S.lastCd=-1;S.lastSec=-1;
-  Object.assign(PL,{x:0,y:0,z:0,vx:0,vz:0,vy:0,rot:0,onGround:true,running:false,level:0,hidden:null,noiseT:0});
+  Object.assign(PL,{x:0,y:0,z:0,vx:0,vz:0,vy:0,rot:0,onGround:true,running:false,level:0,hidden:null,noiseT:0,pose:'stand',flip:null});
   input.jx=input.jy=0;
   placeSeekersCircle('in');
   for(const s of seekers){s.c.root.visible=true;}
@@ -1523,6 +1627,7 @@ function finish(survived){
   },2600);
 }
 function toMenu(){
+  S.build=false;BUILD.sel=null;
   S.frozen=false;S.saved=null;$('shop').hidden=true;
   S.phase='menu';S.paused=false;PL.hidden=null;S.camMode='menu';
   placeSeekersCircle('out');Object.assign(PL,{x:0,y:0,z:0,vx:0,vz:0,vy:0});
@@ -1694,6 +1799,7 @@ function unfreeze(){
   if(!S.frozen)return;
   const sv=S.saved;S.frozen=false;S.saved=null;
   Object.assign(PL,{x:sv.x,y:sv.y,z:sv.z,rot:sv.rot,vx:0,vz:0,vy:0});S.yaw=sv.yaw;S.pitch=sv.pitch;
+  if(sv.hidden&&!objAlive(sv.hidden)){sv.hidden=null;toast('🛠️ مخفیگاهت را جابه‌جا کردی، پس دیگر داخلش نیستی!');}
   if(sv.hidden){PL.hidden=sv.hidden;S.camMode='peek';$('peekTag').textContent=hideWord(sv.hidden.T)+' '+sv.hidden.T.name+' قایم شدی · امنیت '+stars(sv.hidden.T.safe);$('peek').classList.toggle('under',sv.hidden.T.hide.at==='under');}
   else S.camMode='third';
   burst(PL.x,1,PL.z,20,4,0.3,0.6,4);sfx.freeze(true);
@@ -1751,7 +1857,7 @@ function updateShop(dt){
   if(mouseSayT>0){mouseSayT-=dt;if(mouseSayT<=0)mouseEm.hidden=true;}
   const inGameNow=(S.phase==='play'||S.phase==='count')&&!S.paused;
   placeLabel(mouseLbl,SHOP.x,2.55,SHOP.z-0.95,inGameNow&&dCam<VIEW+3);
-  const want=inGameNow&&S.frozen&&dP<3.6&&!PL.hidden;
+  const want=inGameNow&&S.frozen&&!S.build&&dP<3.6&&!PL.hidden;
   if(want!==shopOpen){shopOpen=want;$('shop').hidden=!want;if(want){renderShop();if(mouseSayT<=0)mouseSay(MOUSE_HI[Math.floor(rand()*MOUSE_HI.length)]);}updateButtons();}
   nearShopToastT-=dt;
   if(inGameNow&&!S.frozen&&dP<3.6&&nearShopToastT<=0){nearShopToastT=8;toast('🐭 برای خرید، اول با دکمه‌ی ❄️ زمان را یخ بزن.');}
@@ -1771,6 +1877,180 @@ function useShield(s){
   S.ghostT=Math.max(S.ghostT,3);setGhostLook(true);
   sfx.power();toast('🧿 طلسم فرار نجاتت داد! زود یک جای تازه پیدا کن.',3.2);updateButtons();
   return true;
+}
+
+/* ================== build mode: place, move, rotate, stretch and resize any object ================== */
+S.build=false;
+const TYPE_ICON={jar:'🏺',crate:'📦',wardrobe:'🚪',car:'🚗',tent:'⛺',tree:'🌳',bush:'🌿',sofa:'🛋️',fridge:'🧊',bin:'🗑️',hay:'🌾',bed:'🛏️',house:'🏠',gift:'🎁',ball:'⚽',blocks:'🧱',lamp:'💡',mushroom:'🍄',balloons:'🎈'};
+const TOOLS=[
+  {k:'move',i:'✋',n:'جابه‌جا',h:'بکش تا وسیله روی زمین جابه‌جا شود'},
+  {k:'lift',i:'⏫',n:'بالا/پایین',h:'بالا و پایین بکش تا وسیله بالا برود یا پایین بیاید'},
+  {k:'rotate',i:'🔄',n:'چرخش',h:'چپ و راست بکش تا بچرخد، بالا و پایین تا کج شود'},
+  {k:'size',i:'🔍',n:'بزرگ/کوچک',h:'بالا بکش تا بزرگ شود، پایین تا کوچک'},
+  {k:'long',i:'↔️',n:'دراز',h:'چپ و راست بکش تا درازتر یا کوتاه‌تر شود'},
+  {k:'wide',i:'⬌',n:'پهن',h:'بالا و پایین بکش تا پهن‌تر یا باریک‌تر شود'},
+  {k:'tall',i:'📏',n:'بلند',h:'بالا بکش تا قدش بلندتر شود'},
+  {k:'look',i:'🎥',n:'دوربین',h:'بکش تا دوربین بچرخد'},
+];
+const TOOL_ACTIONS=[{k:'shake',i:'〰️',n:'تکان'},{k:'color',i:'🎨',n:'رنگ'},{k:'copy',i:'📄',n:'کپی'},{k:'del',i:'🗑️',n:'حذف'},{k:'done',i:'✔️',n:'رها کن'}];
+const BUILD_MAX=400;
+function makeCols(hue){
+  const cols=new Float32Array(18);
+  for(let k=0;k<6;k++){_c.setHSL(((hue+k*0.137+(rand()-0.5)*0.07)%1+1)%1,0.72+rand()*0.25,0.5+rand()*0.12).convertSRGBToLinear();cols[k*3]=_c.r;cols[k*3+1]=_c.g;cols[k*3+2]=_c.b;}
+  return cols;
+}
+function finishCustom(o){
+  const T=o.T,cs=Math.cos(o.rot),sn=Math.sin(o.rot);
+  o.colls=T.cols.map(c=>{
+    const ox=(c.ox||0)*o.sx,oz=(c.oz||0)*o.sz;
+    return {b:true,x:o.x+ox*cs+oz*sn,z:o.z-ox*sn+oz*cs,r:0,hx:(c.b?c.hx:c.r)*o.sx,hz:(c.b?c.hz:c.r)*o.sz,c:cs,s:sn,h:o.y+c.h*o.sy,flat:!!c.flat};
+  });
+  o.rad=T.rad*Math.max(o.sx,o.sz);o.top=o.y+T.top*o.sy;o.s=o.sy;
+}
+function makeCustom(d){
+  const o={custom:true,id:1e9+(BUILD.nextId++),ti:d.ti,T:TYPES[d.ti],x:d.x,y:d.y||0,z:d.z,rot:d.rot||0,rx:d.rx||0,rz:d.rz||0,sx:d.sx||1,sy:d.sy||1,sz:d.sz||1,
+    cols:d.cols?Float32Array.from(d.cols):makeCols(rand()),ph:rand()*TAU,ck:0};
+  finishCustom(o);return o;
+}
+function addCustom(o){
+  o.ck=chunkKey(Math.floor(o.x/CH),Math.floor(o.z/CH));
+  let l=BUILD.byChunk.get(o.ck);if(!l){l=[];BUILD.byChunk.set(o.ck,l);}l.push(o);
+  const a=chunkCache.get(o.ck);if(a)a.push(o);
+  if(!BUILD.objs.includes(o))BUILD.objs.push(o);
+}
+function unlinkCustom(o){
+  const l=BUILD.byChunk.get(o.ck);if(l){const i=l.indexOf(o);if(i>=0)l.splice(i,1);}
+  const a=chunkCache.get(o.ck);if(a){const i=a.indexOf(o);if(i>=0)a.splice(i,1);}
+}
+function deleteCustom(o){unlinkCustom(o);const i=BUILD.objs.indexOf(o);if(i>=0)BUILD.objs.splice(i,1);}
+function objAlive(o){return o.custom?BUILD.objs.includes(o):!BUILD.removed.has(o.id);}
+/* take a generated object out of the hall's random layout so it can be edited freely */
+function adopt(o){
+  if(o.custom)return o;
+  if(BUILD.objs.length>=BUILD_MAX){toast('🛠️ حداکثر '+fa(BUILD_MAX)+' وسیله‌ی ساختنی داری.');return null;}
+  BUILD.removed.add(o.id);
+  const a=chunkCache.get(chunkKey(Math.floor(o.x/CH),Math.floor(o.z/CH)));if(a){const i=a.indexOf(o);if(i>=0)a.splice(i,1);}
+  const c=makeCustom({ti:o.ti,x:o.x,y:0,z:o.z,rot:o.rot,sx:o.s,sy:o.s,sz:o.s,cols:o.cols});
+  addCustom(c);return c;
+}
+function refreshCustom(o,force){
+  finishCustom(o);
+  const ck=chunkKey(Math.floor(o.x/CH),Math.floor(o.z/CH));
+  if(ck!==o.ck){unlinkCustom(o);addCustom(o);force=true;}
+  const v=visMap.get(o.id);
+  if(force||!v){const f=focusPoint();updateFocus(f[0],f[1],true);return;}
+  setObjMatrix(v,0,0,0);
+}
+let saveT=0;
+function saveBuild(){
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{
+    const r=v=>Math.round(v*1000)/1000;
+    store.set('ghm_build',{removed:[...BUILD.removed],objs:BUILD.objs.map(o=>({ti:o.ti,x:r(o.x),y:r(o.y),z:r(o.z),rot:r(o.rot),rx:r(o.rx),rz:r(o.rz),sx:r(o.sx),sy:r(o.sy),sz:r(o.sz),cols:Array.from(o.cols,r)}))});
+  },300);
+}
+(function loadBuild(){
+  const d=store.get('ghm_build',null);if(!d)return;
+  try{
+    (d.removed||[]).forEach(id=>BUILD.removed.add(id));
+    (d.objs||[]).forEach(q=>{if(TYPES[q.ti])addCustom(makeCustom(q));});
+  }catch(e){}
+})();
+
+/* ---- entering / leaving ---- */
+function enterBuild(){
+  if(S.paused||(S.phase!=='play'&&S.phase!=='count'))return;
+  if(!S.frozen)freezeTime();
+  if(!S.frozen)return;
+  S.build=true;BUILD.sel=null;BUILD.tool='move';
+  $('toast').classList.remove('on');toastTimer=0;
+  toast('🛠️ حالت ساختن: یک وسیله از پایین انتخاب کن یا روی یک وسیله در تالار بزن.',3.5);sfx.build();
+  renderBuildUI();updateButtons();
+}
+function exitBuild(){
+  if(!S.build)return;
+  S.build=false;BUILD.sel=null;saveBuild();updateButtons();unfreeze();
+}
+function selectObj(o){
+  BUILD.sel=o;if(o){wobble(o,0.4,0.05);sfx.pop();}
+  renderBuildUI();updateButtons();
+}
+function spawnType(ti){
+  if(BUILD.objs.length>=BUILD_MAX){toast('🛠️ حداکثر '+fa(BUILD_MAX)+' وسیله‌ی ساختنی داری.');return;}
+  const T=TYPES[ti],d=T.rad+2.5;
+  const o=makeCustom({ti,x:clamp(PL.x+Math.sin(S.yaw)*d,-HALF+5,HALF-5),z:clamp(PL.z+Math.cos(S.yaw)*d,-HALF+5,HALF-5),rot:S.yaw+Math.PI});
+  addCustom(o);refreshCustom(o,true);burst(o.x,1,o.z,24,4,0.3,0.7,4);
+  BUILD.tool='move';selectObj(o);saveBuild();
+}
+function buildAction(k){
+  const o=BUILD.sel;if(!o)return;
+  if(k==='shake'){wobble(o,1.3,0.16);sfx.rattle(0.8);}
+  else if(k==='color'){o.cols=makeCols(rand());refreshCustom(o,true);burst(o.x,o.y+1,o.z,20,4,0.3,0.6,4);sfx.pop();}
+  else if(k==='copy'){
+    if(BUILD.objs.length>=BUILD_MAX)return;
+    const off=o.rad*2+0.6,rx=-Math.cos(S.yaw),rz=Math.sin(S.yaw);
+    const c=makeCustom({ti:o.ti,x:o.x+rx*off,y:o.y,z:o.z+rz*off,rot:o.rot,rx:o.rx,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,cols:o.cols});
+    addCustom(c);refreshCustom(c,true);selectObj(c);
+  }
+  else if(k==='del'){burst(o.x,o.y+1,o.z,30,5,0.35,0.8,4);deleteCustom(o);BUILD.sel=null;const f=focusPoint();updateFocus(f[0],f[1],true);sfx.pop();renderBuildUI();updateButtons();}
+  else if(k==='done'){selectObj(null);}
+  saveBuild();
+}
+/* drag on screen with the active tool */
+function applyTool(dx,dy){
+  const o=BUILD.sel;if(!o)return false;
+  const t=BUILD.tool;if(t==='look')return false;
+  const fx=Math.sin(S.yaw),fz=Math.cos(S.yaw),rx=-Math.cos(S.yaw),rz=Math.sin(S.yaw);
+  const cd=Math.hypot(camera.position.x-o.x,camera.position.z-o.z),m=0.006+cd*0.0028;
+  const mul=v=>Math.exp(v*0.006),lim=v=>clamp(v,0.15,12);
+  switch(t){
+    case 'move':o.x=clamp(o.x+(rx*dx-fx*dy)*m,-HALF+3,HALF-3);o.z=clamp(o.z+(rz*dx-fz*dy)*m,-HALF+3,HALF-3);break;
+    case 'lift':o.y=clamp(o.y-dy*m,0,40);break;
+    case 'rotate':o.rot-=dx*0.012;o.rx=clamp(o.rx+dy*0.012,-Math.PI,Math.PI);break;
+    case 'size':{const f=mul(-dy);o.sx=lim(o.sx*f);o.sy=lim(o.sy*f);o.sz=lim(o.sz*f);break;}
+    case 'long':o.sx=lim(o.sx*mul(dx));break;
+    case 'wide':o.sz=lim(o.sz*mul(-dy));break;
+    case 'tall':o.sy=lim(o.sy*mul(-dy));break;
+  }
+  refreshCustom(o,false);
+  return true;
+}
+const _ray=new THREE.Raycaster(),_ndc=new THREE.Vector2();
+function buildTap(px,py){
+  _ndc.set(px/window.innerWidth*2-1,-(py/window.innerHeight)*2+1);
+  _ray.setFromCamera(_ndc,camera);_ray.far=VIEW+14;
+  const hits=_ray.intersectObjects(meshList.filter(m=>m.count>0),false);
+  for(const h of hits){
+    const o=h.object.owner&&h.object.owner[h.instanceId];
+    if(!o)continue;
+    const c=adopt(o);if(!c)return;
+    if(c!==o)refreshCustom(c,true);
+    BUILD.tool=BUILD.tool==='look'?'move':BUILD.tool;selectObj(c);saveBuild();return;
+  }
+  if(BUILD.sel)selectObj(null);
+}
+
+/* ---- build UI ---- */
+(function makeCatalog(){
+  const cat=$('buildCat');
+  TYPES.forEach((T,ti)=>{
+    const b=document.createElement('button');b.className='cat';b.innerHTML='<span>'+(TYPE_ICON[T.key]||'🎲')+'</span>'+T.name;
+    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();auInit();spawnType(ti);});
+    cat.appendChild(b);
+  });
+  const tb=$('buildTools');
+  TOOLS.forEach(t=>{const b=document.createElement('button');b.dataset.tool=t.k;b.innerHTML='<span>'+t.i+'</span>'+t.n;
+    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();BUILD.tool=t.k;sfx.ui();renderBuildUI();});tb.appendChild(b);});
+  TOOL_ACTIONS.forEach(t=>{const b=document.createElement('button');b.className='act';b.innerHTML='<span>'+t.i+'</span>'+t.n;
+    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();buildAction(t.k);});tb.appendChild(b);});
+})();
+function renderBuildUI(){
+  const sel=BUILD.sel;
+  $('buildTools').hidden=!S.build||!sel;
+  $('buildTools').querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===BUILD.tool));
+  const t=TOOLS.find(q=>q.k===BUILD.tool);
+  $('buildHint').textContent=sel?(TYPE_ICON[sel.T.key]||'')+' '+sel.T.name+' · '+t.h:'یک وسیله از پایین انتخاب کن، یا روی هر وسیله‌ای در تالار بزن تا آن را برداری.';
+  $('buildCount').textContent=fa(BUILD.objs.length)+' وسیله‌ی ساخته‌شده';
 }
 
 /* ================== sound (synthesised, no files) ================== */
@@ -1821,6 +2101,9 @@ const sfx={
   caught(){[784,659,523,392,262].forEach((f,i)=>tone(f,0.3,'sawtooth',0.07,0,i*0.13));},
   win(){[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,0.35,'triangle',0.13,0,i*0.1));setTimeout(()=>[1047,1319,1568].forEach(f=>tone(f,0.8,'triangle',0.08)),700);},
   ui(){tone(990,0.06,'sine',0.06);},
+  flip(){tone(400,0.35,'sine',0.1,1200);nz(0.3,0.06,2500,1.5);},
+  build(){tone(660,0.08,'square',0.05);tone(990,0.1,'square',0.04,0,0.06);},
+  pop(){tone(880,0.12,'sine',0.09,300);},
   freeze(back){const a=back?[1568,1175,880,659]:[659,880,1175,1568];a.forEach((f,i)=>tone(f,0.25,'sine',0.07,0,i*0.07));nz(0.4,0.05,6000,0.5);},
   buy(){[1319,1568,2093].forEach((f,i)=>tone(f,0.18,'triangle',0.09,0,i*0.07));nz(0.15,0.06,5000,2,0.05);},
   nope(){tone(220,0.18,'square',0.06,160);},
@@ -1906,18 +2189,21 @@ function updateCamera(dt){
       S.camDist=lerp(S.camDist,dTarget,1-Math.exp(-dt*3));
       fovT=65+lv.fov*speedK;
       const cp=Math.cos(S.pitch),d=S.camDist;
-      _look.set(PL.x,PL.y+1.5,PL.z);
+      _look.set(PL.x,PL.y+(PL.pose==='lie'?0.6:PL.pose==='sit'?1.0:1.5),PL.z);
       let cx=_look.x-Math.sin(S.yaw)*cp*d,cy=_look.y+Math.sin(S.pitch)*d,cz=_look.z-Math.cos(S.yaw)*cp*d;
       const k=camCollide(_look.x,_look.y,_look.z,cx,cy,cz);
       S.camK=lerp(S.camK||1,k,k<(S.camK||1)?1:1-Math.exp(-dt*4));
       cx=_look.x+(cx-_look.x)*S.camK;cy=_look.y+(cy-_look.y)*S.camK;cz=_look.z+(cz-_look.z)*S.camK;
+      /* blocked right behind: lift the camera over the furniture instead of pushing it into the player's head */
+      if(S.camK*d<1.6){const u=1-S.camK*d/1.6;cx=lerp(cx,_look.x-Math.sin(S.yaw)*1.3,u);cz=lerp(cz,_look.z-Math.cos(S.yaw)*1.3,u);cy=lerp(cy,_look.y+2.8,u);}
       camera.position.set(cx,Math.max(cy,0.35),cz);
       camera.lookAt(_look);break;}
     case 'peek':{
       const o=PL.hidden;if(!o){S.camMode='third';break;}
-      const eh=o.T.hide.y*o.s;fovT=o.T.hide.at==='under'?80:75;
-      camera.position.set(o.x,eh,o.z);
-      _look.set(o.x+Math.sin(S.yaw)*Math.cos(S.pitch),eh-Math.sin(S.pitch),o.z+Math.cos(S.yaw)*Math.cos(S.pitch));
+      const under=o.T.hide.at==='under',eh=(o.y||0)+o.T.hide.y*o.s;fovT=under?80:75;
+      const hx=under?o.x+Math.sin(PL.hideYaw)*0.8:o.x,hz=under?o.z+Math.cos(PL.hideYaw)*0.8:o.z;
+      camera.position.set(hx,eh,hz);
+      _look.set(hx+Math.sin(S.yaw)*Math.cos(S.pitch),eh-Math.sin(S.pitch),hz+Math.cos(S.yaw)*Math.cos(S.pitch));
       camera.lookAt(_look);break;}
     case 'spy':{
       const s=S.spy,k=input.spy;
@@ -1967,7 +2253,8 @@ touchEl.addEventListener('pointerdown',e=>{
   let kind='look';
   if(S.camMode==='spy')kind='spy';
   else if(S.camMode==='third'&&e.pointerType!=='mouse'&&e.clientX<window.innerWidth*0.5&&joyId===null){kind='joy';joyId=e.pointerId;joyOX=e.clientX;joyOY=e.clientY;joyEl.style.left=joyOX+'px';joyEl.style.top=joyOY+'px';joyEl.hidden=false;knob.style.transform='';$('joyHint').hidden=true;}
-  ptrs.set(e.pointerId,{kind,x:e.clientX,y:e.clientY});
+  if(kind==='look'&&S.build)kind='build';
+  ptrs.set(e.pointerId,{kind,x:e.clientX,y:e.clientY,moved:0,t0:performance.now()});
   if(kind==='spy'){input.spy.drag=true;S.spy.vx=S.spy.vz=0;}
 });
 touchEl.addEventListener('pointermove',e=>{
@@ -1977,6 +2264,9 @@ touchEl.addEventListener('pointermove',e=>{
   if(p.kind==='joy'){
     let ox=e.clientX-joyOX,oy=e.clientY-joyOY;const L=Math.hypot(ox,oy),M=56;if(L>M){ox*=M/L;oy*=M/L;}
     knob.style.transform='translate('+ox+'px,'+oy+'px)';input.jx=ox/M;input.jy=oy/M;
+  }else if(p.kind==='build'){
+    p.moved+=Math.abs(dx)+Math.abs(dy);
+    if(!applyTool(dx,dy)){S.yaw-=dx*0.0055;S.pitch=clamp(S.pitch+dy*0.0045,-0.35,1.25);}
   }else if(p.kind==='look'){
     const k=e.pointerType==='mouse'?0.0045:0.0058;
     S.yaw-=dx*k;S.pitch=clamp(S.pitch+dy*k*0.8,S.camMode==='peek'?-0.7:-0.35,S.camMode==='peek'?0.9:1.25);
@@ -1992,6 +2282,7 @@ function endPtr(e){
   const p=ptrs.get(e.pointerId);if(!p)return;ptrs.delete(e.pointerId);
   if(p.kind==='joy'){joyId=null;input.jx=input.jy=0;joyEl.hidden=true;}
   if(p.kind==='spy'){input.spy.drag=false;}
+  if(p.kind==='build'&&S.build&&e.type==='pointerup'){if(p.moved<10&&performance.now()-p.t0<450)buildTap(p.x,p.y);else saveBuild();}
 }
 touchEl.addEventListener('pointerup',endPtr);touchEl.addEventListener('pointercancel',endPtr);touchEl.addEventListener('lostpointercapture',endPtr);
 touchEl.addEventListener('wheel',e=>{
@@ -2019,7 +2310,11 @@ window.addEventListener('keydown',e=>{
     case 'KeyX':useDecoy();break;
     case 'KeyG':useGhost();break;
     case 'ShiftLeft':case 'ShiftRight':if(!PL.running){PL.running=true;PL.shiftRun=true;updateButtons();}break;
-    case 'Digit1':case 'Digit2':case 'Digit3':case 'Digit4':setLevel(+e.code.slice(5)-1);break;
+    case 'Digit1':case 'Digit2':case 'Digit3':case 'Digit4':case 'Digit5':case 'Digit6':setLevel(+e.code.slice(5)-1);break;
+    case 'KeyC':setPose('sit');break;
+    case 'KeyZ':setPose('lie');break;
+    case 'KeyT':doFlip();break;
+    case 'KeyN':S.build?exitBuild():enterBuild();break;
     case 'Escape':pause();break;
     case 'KeyB':S.frozen?unfreeze():freezeTime();break;
   }
@@ -2058,6 +2353,11 @@ press('spyNear',()=>{
 });
 hold('spyRotL','rotL');hold('spyRotR','rotR');hold('spyUp','up');hold('spyDown','down');
 press('btnPause',()=>{if(inGame())pause();});
+press('btnBuild',()=>{if(!inGame())return;S.build?exitBuild():enterBuild();});
+press('btnBuildDone',exitBuild);
+press('btnSit',()=>setPose('sit'));
+press('btnLie',()=>setPose('lie'));
+press('btnFlip',doFlip);
 press('btnFreeze',()=>{if(!inGame())return;S.frozen?unfreeze():freezeTime();});
 press('btnGoShop',goToShop);
 press('btnUnfreeze',unfreeze);
@@ -2081,9 +2381,12 @@ function updateButtons(){
   $('btnSpy').hidden=!hid||spy;
   $('spyCtrls').hidden=!spy;$('spyHud').hidden=!spy;
   $('peek').hidden=!hid||spy;
-  $('actions').hidden=spy||shopOpen;$('speedChips').hidden=hid||shopOpen;
+  $('actions').hidden=spy||shopOpen||S.build;$('speedChips').hidden=hid||shopOpen||S.build;
   $('countdown').hidden=S.phase!=='count'||S.frozen;
-  $('freezeBar').hidden=!S.frozen;$('hud').classList.toggle('frozen',S.frozen);$('frost').hidden=!S.frozen;$('btnFreeze').classList.toggle('on',S.frozen);
+  const bd=S.build;
+  $('freezeBar').hidden=!S.frozen||bd;$('buildBar').hidden=!bd;$('buildCat').hidden=!bd;$('buildHint').hidden=!bd;
+  if(!bd)$('buildTools').hidden=true;$('btnBuild').classList.toggle('on',bd);
+  $('poseBtns').hidden=hid||spy||bd;$('btnSit').classList.toggle('on',PL.pose==='sit');$('btnLie').classList.toggle('on',PL.pose==='lie');$('hud').classList.toggle('frozen',S.frozen);$('frost').hidden=!S.frozen;$('btnFreeze').classList.toggle('on',S.frozen);
   $('coinN').textContent=fa(S.coins);
   if(hid)$('joyHint').hidden=true;
   const hb=$('btnHide');
@@ -2234,8 +2537,14 @@ function updateHud(dt){
     if(cand!==S.cand){S.cand=cand;updateButtons();}
   }
   // highlight ring
-  const o=S.cand;
-  if(o&&!PL.hidden&&(S.phase==='play'||S.phase==='count')){
+  const bs=S.build&&BUILD.sel;
+  if(bs){
+    hiRing.visible=true;hiArrow.visible=true;const r=bs.rad+0.4+Math.sin(S.time*6)*0.1;hiRing.position.set(bs.x,bs.y+0.06,bs.z);hiRing.scale.set(r,1,r);
+    hiArrow.position.set(bs.x,bs.top+1.2+Math.sin(S.time*4)*0.25,bs.z);hiArrow.rotation.y=S.time*2;hiArrow.material.color.setHSL((S.time*0.5)%1,1,0.6);
+  }else if(S.build){hiRing.visible=false;hiArrow.visible=false;}
+  const o=S.build?null:S.cand;
+  if(bs||S.build){}
+  else if(o&&!PL.hidden&&(S.phase==='play'||S.phase==='count')){
     hiRing.visible=true;hiArrow.visible=true;
     hiRing.position.set(o.x,0.06,o.z);const r=o.rad+0.35+Math.sin(S.time*5)*0.08;hiRing.scale.set(r,1,r);
     hiArrow.position.set(o.x,o.top+1.1+Math.sin(S.time*4)*0.25,o.z);hiArrow.rotation.y=S.time*2;
@@ -2297,7 +2606,7 @@ updateFocus(0,0,true);
 updateCamera(0.016);
 try{renderer.compile(scene,camera);}catch(e){}
 requestAnimationFrame(t=>{last=t;requestAnimationFrame(frame);setTimeout(()=>{$('loading').hidden=true;},150);});
-window.__ghm={freezeTime,unfreeze,goToShop,buy,SHOP_ITEMS,INV,forObjs,update,updateCamera,useDecoy,useGhost,renderer,scene,sun,meshList,S,PL,seekers,startGame,toggleHide,toggleSpy,setLevel,findHideCand,enterHide,caught,win,settings};
+window.__ghm={visMap,BUILD,enterBuild,exitBuild,spawnType,applyTool,buildAction,buildTap,setPose,doFlip,objAlive,freezeTime,unfreeze,goToShop,buy,SHOP_ITEMS,INV,forObjs,update,updateCamera,useDecoy,useGhost,renderer,scene,sun,meshList,S,PL,seekers,startGame,toggleHide,toggleSpy,setLevel,findHideCand,enterHide,caught,win,settings};
 })();
 
 </script>
