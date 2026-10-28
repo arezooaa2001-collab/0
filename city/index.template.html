@@ -209,6 +209,14 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 #bd-exit{position:fixed;right:50%;transform:translateX(50%);top:calc(env(safe-area-inset-top,0px) + 8px)}
 #fly-prev{width:100%;aspect-ratio:16/9;max-height:30vh;object-fit:contain;border-radius:12px;background:#000;display:block}
 @media (max-height:520px),(max-width:600px){ #topbar{gap:5px} #topbar .chip{padding:5px 9px;font-size:12px} #bd-pal,#bd-obj{width:min(240px,29vw)} #bd-cam button{min-width:42px;padding:7px 4px;font-size:11px} #bd-obj .bd-grid button{padding:6px 1px;font-size:11px} .rb-card{gap:7px;padding:12px} .rb-card h2{font-size:22px} .rb-card .gm-btn{padding:9px} }
+#nitro-row{display:flex;align-items:center;gap:6px;margin-top:4px;font:600 10px var(--body);color:#a8ecff}
+#nitro-wrap{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden}#nitro{height:100%;width:100%;background:#3a8cff}
+#mis-hud{position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:60px;pointer-events:none;max-width:calc(100vw - 32px)}
+#mis-t{background:rgba(10,14,22,.8);border:1px solid rgba(255,207,58,.5);border-radius:14px;padding:7px 16px;font:800 15px var(--body);text-align:center}
+.mis-card{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
+.mis-card div{flex:1;display:flex;flex-direction:column;gap:3px}.mis-card b{font:800 16px var(--body)}.mis-card small{font:600 12px/1.5 var(--body);color:var(--dim)}.mis-card .gm-btn{flex:none;padding:10px 14px}
+#btn-more{display:none}
+@media (max-width:600px),(max-height:520px){ #btn-more{display:inline-block} #topbar:not(.open) .more{display:none} #topbar.open{background:rgba(10,14,22,.82);border-radius:16px;padding:6px} }
 #fly-ud{position:fixed;z-index:6;left:calc(env(safe-area-inset-left,0px) + 112px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;flex-direction:column;gap:10px}
 @media (max-height:520px){ .card{gap:9px} .card h1{font-size:52px} .lede{font-size:14px;line-height:1.6} .ctrl{padding:8px 12px} .ctrl ul{font-size:12px;gap:1px} }
 @media (max-height:430px){ .lede{display:none} }
@@ -220,24 +228,26 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
 <canvas id="minimap" class="hud" width="272" height="272" hidden></canvas>
 <div id="topbar" class="hud" hidden>
-  <span id="street" class="chip">—</span>
+  <button id="btn-more" class="chip" type="button" aria-label="منو" style="font-size:18px;padding:3px 12px">☰</button>
+  <span id="street" class="chip more">—</span>
   <button id="btn-time" class="chip" type="button" title="تغییر زمان روز (T)"><span id="clock">۱۶:۳۰</span></button>
-  <button id="btn-sound" class="chip" type="button">صدا: روشن</button>
-  <button id="btn-weather" class="chip" type="button">هوا: خودکار</button>
-  <button id="btn-garage" class="chip" type="button" style="color:var(--amber)">تعمیرگاه</button>
-  <button id="btn-view" class="chip" type="button" title="دید اول شخص / سوم شخص (V)">دید: سوم شخص</button>
-  <button id="btn-bag" class="chip" type="button" title="کیف (I)">کیف</button>
+  <button id="btn-sound" class="chip more" type="button">صدا: روشن</button>
+  <button id="btn-weather" class="chip more" type="button">هوا: خودکار</button>
+  <button id="btn-garage" class="chip more" type="button" style="color:var(--amber)">تعمیرگاه</button>
+  <button id="btn-view" class="chip more" type="button" title="دید اول شخص / سوم شخص (V)">دید: سوم شخص</button>
+  <button id="btn-bag" class="chip more" type="button" title="کیف (I)">کیف</button>
   <span id="money" class="chip" style="color:var(--teal)">—</span>
   <span id="energy-chip" class="chip" title="انرژی">انرژی <span class="ebar"><span id="energy-bar"></span></span></span>
   <span id="cart" class="chip" hidden style="color:var(--amber)"></span>
-  <button id="btn-rb" class="chip" type="button" style="background:linear-gradient(90deg,#ff4d4d55,#ffe94d55,#4de26b55,#4db8ff55,#a66bff55)">ساختمان رنگین‌کمان</button>
-  <button id="btn-fly" class="chip" type="button" style="color:#7fd8ff">ماشین پرنده</button>
-  <button id="btn-code" class="chip" type="button" title="کد مخفی">کد</button>
-  <button id="btn-settings" class="chip" type="button">تنظیمات</button>
+  <button id="btn-rb" class="chip more" type="button" style="background:linear-gradient(90deg,#ff4d4d55,#ffe94d55,#4de26b55,#4db8ff55,#a66bff55)">ساختمان رنگین‌کمان</button>
+  <button id="btn-fly" class="chip more" type="button" style="color:#7fd8ff">ماشین پرنده</button>
+  <button id="btn-mis" class="chip more" type="button" style="color:#ffcf3a">ماموریت‌ها</button>
+  <button id="btn-code" class="chip more" type="button" title="کد مخفی">کد</button>
+  <button id="btn-settings" class="chip more" type="button">تنظیمات</button>
   <span id="wp" class="chip" hidden style="color:var(--amber)"></span>
   <span id="saved" class="chip" hidden style="color:var(--teal);transition:opacity .4s">ذخیره شد</span>
 </div>
-<div id="speedo" class="hud" hidden><span id="gear">D</span><span id="spd">۰</span><span id="spdunit">کیلومتر بر ساعت</span><div id="health-wrap"><div id="health"></div></div><div id="fuel-row"><span>بنزین</span><div id="fuel-wrap"><div id="fuel"></div></div></div></div>
+<div id="speedo" class="hud" hidden><span id="gear">D</span><span id="spd">۰</span><span id="spdunit">کیلومتر بر ساعت</span><div id="health-wrap"><div id="health"></div></div><div id="fuel-row"><span>بنزین</span><div id="fuel-wrap"><div id="fuel"></div></div></div><div id="nitro-row" hidden><span>نیترو</span><div id="nitro-wrap"><div id="nitro"></div></div></div></div>
 <div id="prompt" class="hud" hidden></div>
 <div id="banner" class="hud"><div class="t" id="banner-t"></div><div class="s" id="banner-s"></div></div>
 <div id="bubbles"></div>
@@ -262,6 +272,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 <div id="drive-x" hidden>
   <button id="b-hand" class="dbtn sbtn" type="button">ترمز دستی</button>
   <button id="b-horn" class="dbtn sbtn" type="button">بوق</button>
+  <button id="b-nitro" class="dbtn sbtn" type="button" hidden style="background:linear-gradient(135deg,#3a8cff,#a8ecff);color:#0a1430;font-weight:800">نیترو</button>
   <button id="b-eject" class="dbtn sbtn" type="button" hidden style="width:96px">بنداز پایین</button>
   <button id="b-exit" class="dbtn sbtn" type="button">پیاده شو</button>
 </div>
@@ -362,6 +373,15 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
     <p style="font-size:12px">کد <b>۱۸۱۸</b> = رفتن به همین محیط آزمایشی · کد <b>۱۷۱۷</b> = برگشت به شهر</p>
   </div>
 </div>
+<div id="mis-hud" hidden><div id="mis-t"></div></div>
+<div id="mis-panel" class="rb-wrap" hidden>
+  <div class="gm-card rb-card">
+    <h2 style="color:#ffcf3a">ماموریت‌ها</h2>
+    <p>پول دربیار، رکورد بزن. تو مسابقه‌ها روح بهترین دورت کنارت می‌رونه.</p>
+    <div id="mis-list"></div>
+    <button id="mis-close" type="button" class="gm-btn">بستن</button>
+  </div>
+</div>
 <div id="lift-panel" class="rb-wrap" hidden>
   <form id="lift-form" class="gm-card rb-card" autocomplete="off">
     <h2>آسانسور</h2>
@@ -445,7 +465,8 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
         <li>کشیدن انگشت سمت راست: چرخاندن دوربین</li>
         <li>دکمه‌ها: پرش، دویدن، سوار شو، حرف بزن</li>
         <li>در ماشین: گاز و ترمز گوشهٔ چپ، چپ و راست گوشهٔ راست</li>
-        <li>بالای صفحه: «دید» برای اول شخص، «کیف» برای خریدهایت</li>
+        <li>بالای صفحه: «دید» برای اول شخص، «کیف» برای خریدهایت (روی گوشی زیر منوی ☰)</li>
+        <li>«ماموریت‌ها»: تاکسی و مسابقه · در ماشین دکمهٔ «نیترو»</li>
       </ul></div>
       <div class="ctrl" id="ctrl-keys"><h2>کیبورد و موس</h2><ul>
         <li><kbd>W A S D</kbd> حرکت و رانندگی</li>
@@ -453,6 +474,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
         <li><kbd>E</kbd> سوار شدن، ورود، حرف زدن · <kbd>H</kbd> بوق</li>
         <li>کشیدن موس: دوربین · <kbd>T</kbd> زمان روز</li>
         <li><kbd>V</kbd> دید اول شخص · <kbd>I</kbd> کیف · <kbd>Q</kbd> استفاده از چیزی که دستته</li>
+        <li><kbd>N</kbd> نیترو · <kbd>X</kbd> توربو (رنگین‌کمان) · <kbd>Space</kbd> چتر نجات</li>
       </ul></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button id="play" type="button" disabled>ورود به شهر</button><button id="newgame" type="button" class="chip" hidden style="padding:12px 18px">بازی جدید</button></div>

@@ -1232,7 +1232,7 @@ function updateTimeOfDay() {
   const cl = smooth(0.3, 1.0, weather.cloud), wet = weather.wet;
   skyUniforms.uCloud.value = weather.cloud; skyUniforms.uFlash.value = weather.flash * (Math.random() < 0.7 ? 1 : 0.3);
   _c2.lerp(C(0x8a929c).multiplyScalar(0.25 + 0.75 * dayF), cl * 0.55); scene.fog.color.copy(_c2);
-  scene.fog.near = lerp(90, 20, weather.rain); scene.fog.far = lerp(520, 190, weather.rain);
+  const fogW = Math.max(weather.rain, weather.snow * 0.85); scene.fog.near = lerp(90, 20, fogW); scene.fog.far = lerp(520, 190, fogW);
   sun.intensity = (moon ? 0.35 * smooth(-0.06, -0.3, elev) : 3.1 * smooth(-0.04, 0.12, elev)) * (1 - 0.8 * cl);
   hemi.color.copy(_c1).lerp(C(0xffffff), 0.35).lerp(C(0xb8c0c8), cl * 0.6); hemi.groundColor.setRGB(0.32, 0.27, 0.21).multiplyScalar(0.4 + 0.6 * dayF);
   hemi.intensity = (0.28 + 0.75 * dayF) * (1 - 0.15 * cl) + weather.flash * 2.5;
@@ -1264,8 +1264,8 @@ function cycleTime() { const pre = [7, 12.5, 17.6, 21.5]; let next = pre.find(p 
 /* ============================================================
    Weather, particles, skid marks, birds
    ============================================================ */
-const weather = { state: 'clear', target: 'clear', cloud: 0.25, rain: 0, wet: 0, timer: 150 + Math.random() * 120, flash: 0, nextBolt: 8 };
-const WEATHER_LABEL = { auto: 'هوا: خودکار', clear: 'هوا: آفتابی', cloudy: 'هوا: ابری', rain: 'هوا: بارانی' };
+const weather = { state: 'clear', target: 'clear', cloud: 0.25, rain: 0, snow: 0, cover: 0, wet: 0, timer: 150 + Math.random() * 120, flash: 0, nextBolt: 8 };
+const WEATHER_LABEL = { auto: 'هوا: خودکار', clear: 'هوا: آفتابی', cloudy: 'هوا: ابری', rain: 'هوا: بارانی', snow: 'هوا: برفی' };
 function applyWeatherSetting() { if (settings.weather !== 'auto') weather.target = settings.weather; $('btn-weather').textContent = WEATHER_LABEL[settings.weather]; }
 let rainLines = null;
 function buildRain() {
@@ -1276,12 +1276,15 @@ function buildRain() {
   rainLines.frustumCulled = false; rainLines.userData.st = st; scene.add(rainLines);
 }
 function updateWeather(dt) {
-  if (settings.weather === 'auto') { weather.timer -= dt; if (weather.timer < 0) { const r = Math.random(); weather.target = r < 0.5 ? 'clear' : r < 0.75 ? 'cloudy' : 'rain'; weather.timer = 120 + Math.random() * 200; } }
-  const tc = { clear: 0.22, cloudy: 0.72, rain: 0.96 }[weather.target];
+  if (settings.weather === 'auto') { weather.timer -= dt; if (weather.timer < 0) { const r = Math.random(); weather.target = r < 0.44 ? 'clear' : r < 0.68 ? 'cloudy' : r < 0.88 ? 'rain' : 'snow'; weather.timer = 120 + Math.random() * 200; } }
+  const tc = { clear: 0.22, cloudy: 0.72, rain: 0.96, snow: 0.86 }[weather.target];
   weather.cloud = damp(weather.cloud, tc, 0.12, dt);
   weather.rain = damp(weather.rain, weather.target === 'rain' ? smooth(0.7, 0.92, weather.cloud) : 0, 0.25, dt);
-  weather.wet = clamp(weather.wet + (weather.rain > 0.2 ? dt * 0.06 : -dt * 0.01), 0, 1);
-  weather.state = weather.rain > 0.3 ? 'rain' : weather.cloud > 0.55 ? 'cloudy' : 'clear';
+  weather.snow = damp(weather.snow, weather.target === 'snow' ? smooth(0.6, 0.84, weather.cloud) : 0, 0.3, dt);
+  const melt = weather.snow < 0.2 && weather.cover > 0 ? dt * (weather.rain > 0.2 ? 0.03 : 0.007) : 0;
+  weather.cover = clamp(weather.cover + (weather.snow > 0.3 ? dt * 0.02 : 0) - melt, 0, 1);
+  weather.wet = clamp(weather.wet + (weather.rain > 0.2 ? dt * 0.06 : -dt * 0.01) + melt * 2, 0, 1);
+  weather.state = weather.rain > 0.3 ? 'rain' : weather.snow > 0.3 ? 'snow' : weather.cloud > 0.55 ? 'cloudy' : 'clear';
   if (weather.rain > 0.65) { weather.nextBolt -= dt; if (weather.nextBolt < 0) { weather.flash = 1; weather.nextBolt = 7 + Math.random() * 16; Audio.thunder(0.6 + Math.random() * 2.5); } }
   weather.flash = Math.max(0, weather.flash - dt * 2.5);
   Audio.rain(weather.rain * (player && player.where !== 'out' ? (player.where === 'in' ? 0.3 : 0) : 1));
@@ -1739,6 +1742,12 @@ function poseHuman(p, dt, t) {
       const sa = a.swingA || 0;
       Q.hipY = 0.5; Q.thLx = -1.5 - sa * 0.6; Q.thRx = -1.5 - sa * 0.6; Q.knL = 1.45 + sa * 0.9; Q.knR = 1.45 + sa * 0.9; Q.spX = -0.1 + sa * 0.25;
       Q.shLx = -2.75; Q.shRx = -2.75; Q.elL = -0.25; Q.elR = -0.25; Q.shLz = 0.05; Q.shRz = -0.05; Q.hdX = -sa * 0.2;
+    } else if (sp_ === 'hail') {
+      Q.shRz = -2.55 + Math.sin(t * 6) * 0.25; Q.shRx = -0.2; Q.elR = -0.25; Q.hdX = -0.1; Q.shLz = 0.12;
+    } else if (sp_ === 'sky') {
+      Q.shLz = 1.35; Q.shRz = -1.35; Q.shLx = -0.35; Q.shRx = -0.35; Q.elL = -0.55; Q.elR = -0.55; Q.thLx = 0.35; Q.thRx = 0.3; Q.knL = 0.7 + Math.sin(t * 9) * 0.08; Q.knR = 0.65; Q.hdX = -0.7; Q.spX = -0.15;
+    } else if (sp_ === 'chute') {
+      Q.shLz = 2.55; Q.shRz = -2.55; Q.elL = -0.45; Q.elR = -0.45; Q.knL = 0.12 + Math.sin(t * 1.4) * 0.1; Q.knR = 0.18 - Math.sin(t * 1.4) * 0.1; Q.thLx = -0.1 + Math.sin(t * 1.1) * 0.12; Q.thRx = -0.05 - Math.sin(t * 1.1) * 0.12; Q.hdX = 0.15;
     } else if (sp_ === 'count') {
       Q.shLx = -1.85; Q.shRx = -1.85; Q.elL = -2.25; Q.elR = -2.25; Q.shLz = 0.5; Q.shRz = -0.5; Q.shLy = -0.4; Q.shRy = 0.4; Q.hdX = 0.4; Q.spX = 0.18 + Math.sin(t * 2) * 0.02;
     } else if (sp_ === 'peek') {
@@ -1965,11 +1974,12 @@ class Car {
     let vf = this.vx * fx + this.vz * fz, vl = this.vx * rx + this.vz * rz;
     const power = this.valet ? 0.45 : this.health <= 0 || this.fuel <= 0 ? 0 : this.health < 25 ? 0.55 : 1; // a dead car is rolled into the bay by hand
     const thr = this.inThrottle; let acc = 0, braking = false;
-    if (thr > 0.02) { if (vf < -0.5) { acc = 13 * thr; braking = true; } else acc = power * t.engine * thr * Math.max(0, 1 - Math.max(0, vf) / t.vmax) * (vf < 10 ? 1.2 : 1); }
+    const boost = this.nitro && this.player ? 1 : 0;
+    if (thr > 0.02) { if (vf < -0.5) { acc = 13 * thr; braking = true; } else acc = power * t.engine * thr * Math.max(0, 1 - Math.max(0, vf) / (t.vmax * (1 + 0.55 * boost))) * (vf < 10 ? 1.2 : 1) + boost * 10 * thr; }
     else if (thr < -0.02) { if (vf > 0.5) { acc = 13 * thr; braking = true; } else acc = vf > -9 ? power * t.engine * 0.55 * thr : 0; }
     else acc = -Math.sign(vf) * Math.min(Math.abs(vf) / dt, 1.3);
     if (this.inHand) { acc += -Math.sign(vf) * Math.min(Math.abs(vf) / dt, 7.5); braking = true; }
-    const wetGrip = 1 - weather.wet * 0.25;
+    const wetGrip = 1 - weather.wet * 0.25 - weather.cover * 0.38;
     acc -= vf * Math.abs(vf) * 0.0021;
     const nvf = vf + acc * dt; vf = (braking && vf !== 0 && Math.sign(nvf) !== Math.sign(vf)) ? 0 : nvf;
     this.braking = braking && Math.abs(thr) > 0.02 || (this.inHand && this.hasDriver);
@@ -2107,6 +2117,7 @@ class CarAI {
       target = Math.min(target, Math.max(0, df - 0.6) * 0.55 + (df > 4 ? 1.5 : 0));
       if (df < 2.2) { this.arrived = true; target = 0; }
     }
+    if (this.arrived) target = 0;
     let blocked = false;
     if (this.ignore > 0) this.ignore -= dt;
     else for (const o of obstacles) {
@@ -4124,7 +4135,18 @@ function updateBus(dt) {
   const b = bus;
   if (b.phase === 'drive') {
     b.doorsOpen = false;
-    if (b.ai && b.ai.arrived && Math.abs(b.vf) < 0.5) { b.phase = 'stop'; b.t = 0; b.doorsOpen = true; b.inHand = true; Audio.burst(0.12 * Audio.vol(b.x, b.z), 500, 0.6, 'lowpass', 1); b.ai = null;
+    // watchdog: a bus standing still near its stop serves it there; wedged for long it backs out and re-routes, and as a last resort (out of sight) it is put back at its stop
+    const S = b.ai && b.ai.dest && b.ai.dest.S;
+    if (!b.lastPos || Math.hypot(b.x - b.lastPos[0], b.z - b.lastPos[1]) > 3) { b.lastPos = [b.x, b.z]; b.stillT = 0; } else b.stillT += dt;
+    if (S && b.ai) {
+      const dS = Math.hypot(S.x - b.x, S.z - b.z);
+      if (!b.ai.arrived && Math.abs(b.vf) < 1.5 && (dS < 12 || (dS < 30 && b.stillT > 4))) b.ai.arrived = true;
+      if (b.stillT > 20 && b.stillT - dt <= 20) { b.ai.resetFromPos(); b.ai.ignore = 3; b.ai.rev = 1.6; }
+      if (b.stillT > 50 && Math.hypot(b.x - camera.position.x, b.z - camera.position.z) > 70 && !(player.state === 'passenger' && player.car === b)) {
+        const dd = DIRS[b.ai.dest.d]; b.h = Math.atan2(dd[0], dd[1]); b.x = S.x - dd[0] * 6; b.z = S.z - dd[1] * 6; b.vx = b.vz = 0; b.av = 0; b.sync(0); b.ai.resetFromPos(); b.ai.arrived = false; b.stillT = 0; b.lastPos = null;
+      }
+    }
+    if (b.ai && b.ai.arrived && Math.abs(b.vf) < 0.5) { b.phase = 'stop'; b.t = 0; b.stillT = 0; b.lastPos = null; b.doorsOpen = true; b.inHand = true; Audio.burst(0.12 * Audio.vol(b.x, b.z), 500, 0.6, 'lowpass', 1); b.ai = null;
       // some riders get off, people waiting get on
       const [dx, dz] = busDoorPos(b);
       for (let k = busRiders.length - 1; k >= 0 && Math.random() < 0.6; k--) { const r = busRiders.splice(k, 1)[0]; const q = spawnNPC(dx, dz, r.look); q.persona = r.persona; q.mode = 'goto'; q.facing = b.h - Math.PI / 2; }
@@ -5174,7 +5196,8 @@ function spawnFlyer() {
 function boardFlyer() { const P = player; if (!fly.obj || fly.obj.where !== P.where) return; P.state = 'fly'; P.inCar = fly.obj; P.anim.special = 'drive'; P.anim.sw = 0; P.vel.set(0, 0, 0); Audio.door(); Audio.start(); cam.yaw = fly.obj.h; }
 function leaveFlyer() {
   const P = player, F = fly.obj, ground = F.where === 'out' ? groundH(F.x, F.z) : 0;
-  if (F.y - ground > 4 || Math.abs(F.v) > 12) { setPrompt('اول آروم کن و فرود بیا (دکمهٔ «پایین»)', 'پیاده شو', 1.5); return; }
+  if (F.y - ground > 4) { jumpFromFlyer(); return; }
+  if (Math.abs(F.v) > 12) { setPrompt('اول آروم کن', 'پیاده شو', 1.5); return; }
   const a = F.h - Math.PI / 2; P.pos.set(F.x + Math.sin(a) * 2.2, ground, F.z + Math.cos(a) * 2.2); P.state = 'foot'; P.inCar = null; P.anim.special = null; P.vel.set(0, 0, 0); P.facing = F.h; F.v = 0; Audio.door(); Audio.engine(false, 0, 0);
 }
 const _fq = new THREE.Quaternion(), _fe = new THREE.Euler();
@@ -5412,6 +5435,7 @@ function updatePlayerZone(dt) {
   if (P.where === 'rb') {
     const G = rb.game, sp = G && G.phase !== 'over' ? nearestSpot(1.8) : null, n = nearestNPC(rb.people.filter(p => !p.hidden), 2.6);
     if (rb.floor === 0 && P.pos.z > RB_L / 2 - 9 && Math.abs(P.pos.x) < 13 && P.pos.y < 2 && !rb.lift) { promptTxt = `${key}خروج به شهر`; actLabel = 'خروج'; if (input.actQ) { input.actQ = false; leaveRB(); return; } if (P.pos.z > RB_L / 2 - 2.2) { leaveRB(); return; } }
+    else if (dog && store.dog.adopted && dog.mesh.visible && Math.hypot(dog.pos.x - P.pos.x, dog.pos.z - P.pos.z) < 2.3 && !(G && G.phase !== 'over')) { promptTxt = `${key}نازش کن (${store.dog.name})`; actLabel = 'نازش کن'; if (input.actQ) { input.actQ = false; petDog(); } }
     else if (rbInLift(P) && !rb.build) { promptTxt = `${key}آسانسور — انتخاب طبقه`; actLabel = 'آسانسور'; if (input.actQ) { input.actQ = false; openLift(); } }
     else if (sp && !rb.build) { promptTxt = `${key}${sp.kind === 'in' ? 'برو داخلِ' : 'قایم شو پشتِ'} «${sp.name}»`; actLabel = 'قایم شو'; if (input.actQ) { input.actQ = false; rbHide(sp); } }
     else if (n && !(G && G.phase !== 'over')) { promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`; actLabel = 'حرف بزن'; if (input.actQ) { input.actQ = false; openChat(n); } }
@@ -5488,11 +5512,11 @@ function buildBalloons() {
     for (const [x, z] of [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 4.6, 4), ropeM); r.position.set(x * 1.05, -2.1, z * 1.05); r.rotation.set(z * 0.09, 0, -x * 0.09); grp.add(r); }
     const flame = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.3, 10), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, toneMapped: false })); flame.position.y = -2.9; grp.add(flame);
     const s = 1 + (i % 3) * 0.12; grp.scale.setScalar(s); scene.add(grp);
-    balloons.push({ grp, flame, a: i / sets.length * Math.PI * 2, r: 160 + (i * 53) % 140, y: 95 + (i * 37) % 90, w: (i % 2 ? 1 : -1) * (0.006 + i * 0.0012), seed: i * 1.7, burn: 0 });
+    balloons.push({ grp, flame, a: i / sets.length * Math.PI * 2 + 0.4, r: 240 + (i * 53) % 150, y: 125 + (i * 37) % 80, w: (i % 2 ? 1 : -1) * (0.006 + i * 0.0012), seed: i * 1.7, burn: 0 });
   });
 }
 function updateBalloons(dt) {
-  if (!balloons.length) return;
+  if (!balloons.length) return; if (!balloons.placed) { balloons.placed = true; dt = 0; }
   for (const b of balloons) {
     b.a += b.w * dt; b.burn = Math.max(0, b.burn - dt); if (Math.random() < dt * 0.15) b.burn = 1.2 + Math.random();
     const x = Math.cos(b.a) * b.r, z = Math.sin(b.a) * b.r * 0.8 - 40, y = b.y + Math.sin(simTime * 0.08 + b.seed) * 8 + (b.burn > 0 ? 1.5 : 0);
@@ -5537,6 +5561,333 @@ function updateFireworks(dt) {
     const t = Math.max(0, p.life) / p.max; P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z; S[i] = p.size * (0.5 + t * 0.6); A[i] = Math.min(1, t * 1.6) * (0.75 + Math.random() * 0.25); C[i * 3] = p.r; C[i * 3 + 1] = p.g; C[i * 3 + 2] = p.b;
   }
   if (any) { g.attributes.position.needsUpdate = g.attributes.aSize.needsUpdate = g.attributes.aAlpha.needsUpdate = g.attributes.aColor.needsUpdate = true; }
+}
+
+/* ============================================================
+   More to do: nitro, snow, a parachute, a dog of your own,
+   and missions (taxi fares, street races against your ghost)
+   ============================================================ */
+/* ---------- nitro: hold N (or the button) with the throttle down ---------- */
+const nitro = { v: 1, on: false, snd: 0 };
+function updateNitro(dt) {
+  const P = player, car = P.state === 'car' ? P.car : null;
+  const want = !!car && (keys.has('KeyN') || input.nitroBtn) && input.my > 0.1 && car.health > 0 && (car.isTow || car.fuel > 0);
+  nitro.on = want && nitro.v > 0.01;
+  for (const c of cars) if (c.nitro && c !== car) c.nitro = false;
+  if (car) car.nitro = nitro.on;
+  if (nitro.on) {
+    nitro.v = Math.max(0, nitro.v - dt / 4.5); nitro.snd -= dt; if (nitro.snd <= 0) { nitro.snd = 0.11; Audio.burst(0.07, 520, 0.14, 'bandpass', 0.7); }
+    const t = car.T, s = Math.sin(car.h), co = Math.cos(car.h), lz = -t.len / 2 - 0.1;
+    for (const lx of [-0.38, 0.38]) { const x = car.x + lx * co + lz * s, z = car.z - lx * s + lz * co; FX.emit(x, car.y + 0.32, z, -s * 7 + (Math.random() - 0.5), 0.15, -co * 7 + (Math.random() - 0.5), 0.15, 0.34, 0.04, Math.random() < 0.55 ? 0x6ab8ff : 0xffa43a, 0.95, 0); }
+    if (Math.random() < 0.3) cam.shake = Math.max(cam.shake, 0.04);
+  } else nitro.v = Math.min(1, nitro.v + dt / 16);
+  $('nitro-row').hidden = !car; $('nitro').style.width = (nitro.v * 100).toFixed(0) + '%'; $('nitro').style.background = nitro.on ? '#a8ecff' : '#3a8cff';
+}
+/* ---------- snow: flakes round the camera, and a white cover that settles on everything facing up ---------- */
+const snowU = { value: 0 };
+function snowify(m, k) {
+  const prev = m.onBeforeCompile, tag = 'snow' + k + (prev ? prev.toString().length : 0);
+  m.onBeforeCompile = (sh, r) => {
+    if (prev) prev(sh, r);
+    sh.uniforms.uSnow = snowU;
+    sh.vertexShader = 'varying float vSnowUp;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+      { vec3 sn = objectNormal;
+      #ifdef USE_INSTANCING
+      sn = mat3(instanceMatrix) * sn;
+      #endif
+      vSnowUp = normalize(mat3(modelMatrix) * sn).y; }`);
+    sh.fragmentShader = 'uniform float uSnow;\nvarying float vSnowUp;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.97), clamp(uSnow * ${k.toFixed(2)}, 0.0, 1.0) * smoothstep(0.45, 0.85, vSnowUp));`);
+  };
+  m.customProgramCacheKey = () => tag; m.needsUpdate = true;
+}
+let snowPts = null, snowmen = [];
+function buildSnow() {
+  for (const [k, w] of [['grass', 1], ['sidewalk', 0.92], ['asphalt', 0.55], ['roof', 1], ['hedge', 0.85], ['foliage', 0.8], ['leaves', 0.8], ['bark', 0.5]]) if (M[k]) snowify(M[k], w);
+  if (typeof grassMat !== 'undefined' && grassMat) snowify(grassMat, 0.85);
+  const n = LOW ? 900 : 1800, g = new THREE.BufferGeometry(), off = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { off[i * 3] = (Math.random() - 0.5) * 60; off[i * 3 + 1] = Math.random() * 28 - 6; off[i * 3 + 2] = (Math.random() - 0.5) * 60; }
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const c = mkCanvas(32, 32), cx = c.getContext('2d'), gr = cx.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = gr; cx.fillRect(0, 0, 32, 32);
+  snowPts = new THREE.Points(g, new THREE.PointsMaterial({ map: toTex(c), size: 0.16, transparent: true, depthWrite: false, opacity: 0.95, color: 0xffffff }));
+  snowPts.frustumCulled = false; snowPts.visible = false; snowPts.userData.off = off; scene.add(snowPts);
+  // snowmen in the parks once the snow is deep enough
+  const sm = new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 0.9 }), dark = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 }), orange = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.6 }), red = new THREE.MeshStandardMaterial({ color: 0xc8202a, roughness: 0.8 });
+  for (const [x0, z0, x1, z1] of world.parks.slice(0, 6)) {
+    const gp = new THREE.Group(), x = (x0 + x1) / 2 + (x1 - x0) * 0.28, z = (z0 + z1) / 2 - (z1 - z0) * 0.22;
+    for (const [r, y] of [[0.55, 0.5], [0.4, 1.25], [0.28, 1.8]]) { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), sm); b.position.y = y; b.castShadow = true; gp.add(b); }
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), dark); e.position.set(s * 0.09, 1.86, 0.25); gp.add(e); }
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.25, 8), orange); nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.8, 0.36); gp.add(nose);
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.07, 6, 16), red); scarf.rotation.x = Math.PI / 2; scarf.position.y = 1.55; gp.add(scarf);
+    for (const s of [-1, 1]) { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.02, 0.8, 5), new THREE.MeshStandardMaterial({ color: 0x5a3a20 })); a.position.set(s * 0.6, 1.4, 0); a.rotation.z = s * -1.0; gp.add(a); }
+    const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.3, 14), dark); hat.position.y = 2.15; gp.add(hat);
+    gp.position.set(x, CURB, z); gp.rotation.y = Math.random() * 6; gp.visible = false; scene.add(gp); snowmen.push(gp);
+  }
+}
+function updateSnow(dt) {
+  snowU.value = player && player.where === 'out' ? weather.cover : 0;
+  for (const s of snowmen) { const v = smooth(0.45, 0.8, weather.cover); s.visible = v > 0.02 && player.where === 'out'; s.scale.setScalar(Math.max(0.01, v)); }
+  if (!snowPts) return;
+  const show = weather.snow > 0.02 && player && player.where === 'out'; snowPts.visible = show; if (!show) return;
+  const off = snowPts.userData.off, p = snowPts.geometry.attributes.position.array, cp = camera.position, n = off.length / 3, act = Math.floor(n * weather.snow);
+  for (let i = 0; i < n; i++) {
+    let y = off[i * 3 + 1] - (0.9 + (i % 7) * 0.08) * dt; if (y < -6) { y += 28; off[i * 3] = (Math.random() - 0.5) * 60; off[i * 3 + 2] = (Math.random() - 0.5) * 60; }
+    off[i * 3 + 1] = y; off[i * 3] += Math.sin(simTime * 0.9 + i) * 0.35 * dt; off[i * 3 + 2] += Math.cos(simTime * 0.7 + i * 1.3) * 0.3 * dt;
+    if (i >= act) { p[i * 3 + 1] = -500; continue; }
+    p[i * 3] = cp.x + off[i * 3]; p[i * 3 + 1] = cp.y + y; p[i * 3 + 2] = cp.z + off[i * 3 + 2];
+  }
+  snowPts.geometry.attributes.position.needsUpdate = true;
+}
+/* ---------- jumping out of the flying car: free fall, then the parachute ---------- */
+let chute = null;
+function jumpFromFlyer() {
+  const P = player, F = fly.obj, a = F.h - Math.PI / 2, hv = clamp(F.v, -60, 60);
+  P.pos.set(F.x + Math.sin(a) * 2.4, F.y - 0.3, F.z + Math.cos(a) * 2.4); P.vel.set(Math.sin(F.h) * hv * 0.8, Math.min(0, F.vy), Math.cos(F.h) * hv * 0.8);
+  F.v = 0; F.vy = 0; P.state = 'sky'; P.inCar = null; P.sky = { chute: 0, open: false, t: 0 }; P.facing = F.h; P.onGround = false; P.anim.special = 'sky'; P.H.hideHead = false;
+  Audio.door(); Audio.engine(false, 0, 0); syncTouchUI(true);
+  banner('پریدی بیرون!', touchUI ? 'دکمهٔ «پرش» = باز کردن چتر نجات' : 'Space = باز کردن چتر نجات');
+}
+function skyGround(P) {
+  let g = P.where === 'out' ? groundH(P.pos.x, P.pos.z) : 0; const col = zoneCol(P.where);
+  col.query(P.pos.x - 0.4, P.pos.x + 0.4, P.pos.z - 0.4, P.pos.z + 0.4, _near); for (const c of _near) if (c.maxY <= P.pos.y + 0.6 && c.maxY > g && c.maxY < 900 && colOver(c, P.pos.x, P.pos.z, 0.15)) g = c.maxY; return g;
+}
+function makeChute() {
+  const g = new THREE.SphereGeometry(1, 24, 8, 0, Math.PI * 2, 0, Math.PI * 0.36).toNonIndexed(), p = g.attributes.position, ca = new Float32Array(p.count * 3), c = new THREE.Color();
+  for (let k = 0; k < p.count; k += 3) { const ax = (p.getX(k) + p.getX(k + 1) + p.getX(k + 2)) / 3, az = (p.getZ(k) + p.getZ(k + 1) + p.getZ(k + 2)) / 3; c.set(['#e8303a', '#ffffff', '#2a6ad8', '#ffd23a'][Math.floor(((Math.atan2(az, ax) / (Math.PI * 2) + 1) % 1) * 12) % 4]); for (let q = 0; q < 3; q++) ca.set([c.r, c.g, c.b], (k + q) * 3); }
+  g.setAttribute('color', new THREE.BufferAttribute(ca, 3)); g.computeVertexNormals();
+  const grp = new THREE.Group(), can = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, side: THREE.DoubleSide })); can.scale.set(4.4, 1.7, 2.8); can.position.y = -1.0; grp.add(can);
+  const pts = []; for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; pts.push(Math.cos(a) * 3.8, -0.4, Math.sin(a) * 2.4, (k % 2 ? 0.25 : -0.25), -4.6, 0); }
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3)); grp.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x222222 })));
+  return grp;
+}
+function updateSky(dt) {
+  const P = player, S = P.sky; S.t += dt; input.actQ = false;
+  const g0 = skyGround(P);
+  if (!S.open && (input.jumpQ || (P.pos.y - g0 < 38 && P.vel.y < -12))) { S.open = true; Audio.cloth(); Audio.burst(0.25, 260, 0.5); toast('چتر باز شد! با جهت‌ها هدایتش کن'); }
+  input.jumpQ = false;
+  const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw);
+  if (!S.open) {
+    P.vel.x += ((fx * input.my + rx * input.mx) * 9 - P.vel.x * 0.25) * dt; P.vel.z += ((fz * input.my + rz * input.mx) * 9 - P.vel.z * 0.25) * dt;
+    P.vel.y += (-9.8 - 0.0035 * P.vel.y * Math.abs(P.vel.y)) * dt;
+    if (Math.hypot(P.vel.x, P.vel.z) > 0.6) P.facing += angDiff(P.facing, Math.atan2(P.vel.x, P.vel.z)) * Math.min(1, 3 * dt);
+  } else {
+    S.chute = Math.min(1, S.chute + dt * 1.6); const k = S.chute;
+    P.facing -= input.mx * 1.0 * dt;
+    const sp = 6.5 + input.my * 3.5; P.vel.x = damp(P.vel.x, Math.sin(P.facing) * sp, 1.5 * k + 0.2, dt); P.vel.z = damp(P.vel.z, Math.cos(P.facing) * sp, 1.5 * k + 0.2, dt);
+    P.vel.y = damp(P.vel.y, -lerp(50, 4.3 + Math.abs(input.mx) * 1.2, k), 2.5, dt);
+    if (simTime - cam.lastLook > 1.2) cam.yaw += angDiff(cam.yaw, P.facing) * Math.min(1, dt * 1.4);
+  }
+  const hs = Math.hypot(P.vel.x, P.vel.z); if (hs > 80) { P.vel.x *= 80 / hs; P.vel.z *= 80 / hs; }
+  P.pos.addScaledVector(P.vel, dt);
+  if (P.where === 'out') { P.pos.x = clamp(P.pos.x, -1500, 1500); P.pos.z = clamp(P.pos.z, RB_DOOR_Z + 1, 1500); }
+  const col = zoneCol(P.where); col.query(P.pos.x - 0.5, P.pos.x + 0.5, P.pos.z - 0.5, P.pos.z + 0.5, _near);
+  for (const c of _near) if (c.minY < P.pos.y + 1.7 && c.maxY > P.pos.y + 0.5 && colPush(c, P.pos.x, P.pos.z, 0.35)) { P.pos.x += _push.nx * _push.pen; P.pos.z += _push.nz * _push.pen; const vn = P.vel.x * _push.nx + P.vel.z * _push.nz; if (vn < 0) { P.vel.x -= vn * _push.nx; P.vel.z -= vn * _push.nz; } }
+  const g = skyGround(P);
+  if (P.pos.y <= g) {
+    const imp = -P.vel.y; P.pos.y = g; P.vel.set(0, 0, 0); P.state = 'foot'; P.onGround = true; P.anim.special = null; P.anim.land = Math.min(1, imp / 14); P.sky = null; syncTouchUI(true);
+    if (imp > 16) { cam.shake = 0.6; Audio.thud(10, P.pos.x, P.pos.z); store.energy = Math.max(0, store.energy - 30); say(P, 'آخ! چه فرود سختی!', 2.4); }
+    else { toast('فرود عالی!'); Audio.step(true); }
+    if (chute) chute.userData.fold = 1; return;
+  }
+  P.anim.special = S.open ? 'chute' : 'sky';
+  setPrompt(`ارتفاع ${fa(Math.round(P.pos.y - g))} متر · ${S.open ? 'چتر بازه — با جهت‌ها هدایتش کن' : (touchUI ? '«پرش»' : '<b>Space</b>') + ' = باز کردن چتر'}`, '');
+}
+function syncChute(dt) {
+  const P = player, S = P.sky;
+  if (S && S.open) { if (!chute) chute = makeChute(); if (chute.parent !== zoneScene(P.where)) zoneScene(P.where).add(chute); chute.visible = true; chute.userData.fold = 0; const k = S.chute; chute.position.set(P.pos.x, P.pos.y + 1.7 + 4.6 * k, P.pos.z); chute.rotation.set(Math.sin(simTime * 1.3) * 0.05, P.facing, -input.mx * 0.25 * k); chute.scale.set(0.2 + 0.8 * k, k, 0.2 + 0.8 * k); }
+  else if (chute && chute.visible) { chute.userData.fold = (chute.userData.fold || 1) - dt * 1.5; chute.position.y -= dt * 2; chute.scale.y = Math.max(0.01, chute.userData.fold); if (chute.userData.fold <= 0) chute.visible = false; }
+  if (P.state === 'sky') { P.H.root.rotation.set(S.open ? 0 : 1.25, P.facing, 0, 'YXZ'); if (!S.open) P.H.root.position.y += 0.9; }
+}
+/* ---------- a dog of your own: waits in the central park until you take it home ---------- */
+const DOG_NAMES = ['پاپی', 'رکس', 'بیسکویت', 'فندق', 'جکی', 'لوسی', 'کوکو', 'هاپو'];
+let dog = null;
+function makeDogMesh(c1, c2) {
+  const m1 = new THREE.MeshStandardMaterial({ color: c1, roughness: 0.85 }), m2 = new THREE.MeshStandardMaterial({ color: c2, roughness: 0.85 }), dk = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.4 });
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); body.position.y = 0.42;
+  const add = (par, geo, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; par.add(m); return m; };
+  add(body, new THREE.CapsuleGeometry(0.16, 0.42, 4, 10), m1, 0, 0, 0, Math.PI / 2);
+  add(body, new THREE.SphereGeometry(0.15, 10, 8), m2, 0, -0.04, 0.2);
+  const head = new THREE.Group(); head.position.set(0, 0.17, 0.35); body.add(head);
+  add(head, new THREE.BoxGeometry(0.2, 0.19, 0.22), m1, 0, 0, 0); add(head, new THREE.BoxGeometry(0.12, 0.1, 0.14), m2, 0, -0.04, 0.16); add(head, new THREE.SphereGeometry(0.03, 6, 5), dk, 0, -0.01, 0.235);
+  for (const s of [-1, 1]) { add(head, new THREE.SphereGeometry(0.022, 6, 5), dk, s * 0.06, 0.04, 0.11); const ear = add(head, new THREE.BoxGeometry(0.05, 0.13, 0.08), m2, s * 0.1, 0.06, -0.03); ear.rotation.z = s * 0.35; }
+  const tail = new THREE.Group(); tail.position.set(0, 0.06, -0.34); body.add(tail); add(tail, new THREE.CylinderGeometry(0.025, 0.035, 0.26, 6), m1, 0, 0.11, -0.04, -0.6);
+  const legs = []; for (const [x, z] of [[-0.09, 0.2], [0.09, 0.2], [-0.09, -0.2], [0.09, -0.2]]) { const L = new THREE.Group(); L.position.set(x, -0.06, z); body.add(L); add(L, new THREE.BoxGeometry(0.07, 0.36, 0.08), z > 0 ? m2 : m1, 0, -0.17, 0); legs.push(L); }
+  root.userData = { body, head, tail, legs }; return root;
+}
+function dogParkSpot() { const pk = world.parks[0] || [-20, -20, 20, 20]; return [(pk[0] + pk[2]) / 2 + 9, (pk[1] + pk[3]) / 2 - 10]; }
+function buildDog() {
+  const sd = store.dog || (store.dog = { adopted: false, name: mpick(DOG_NAMES), c1: mpick(['#8a5a2a', '#d8b47a', '#2a2420', '#f4f0e8', '#b8742a']), c2: mpick(['#f4f0e8', '#3a2a1a', '#e8d8b8']) });
+  const [x, z] = dogParkSpot();
+  dog = { mesh: makeDogMesh(sd.c1, sd.c2), pos: new V3(x, CURB, z), vel: new V3(), facing: 2, radius: 0.24, height: 0.6, onGround: true, anim: { land: 0, phase: 0, knock: 0 }, mode: 'dog', where: 'out', sit: 1, idle: 0, barkT: 4, happy: 0, look: { h: 1 } };
+  scene.add(dog.mesh);
+  if (sd.adopted && player) { dog.pos.set(player.pos.x + 1.2, player.pos.y, player.pos.z - 1); }
+}
+function dogPlaceNear() { const P = player, a = P.facing + Math.PI * 0.75; dog.pos.set(P.pos.x + Math.sin(a) * 1.4, P.pos.y + 0.05, P.pos.z + Math.cos(a) * 1.4); dog.vel.set(0, 0, 0); if (P.where === 'rb' && typeof rbGrid !== 'undefined') rbFreeAt(dog.pos); }
+function petDog() { dog.happy = 3; dog.idle = 0; Audio.bark(dog.pos.x, dog.pos.z); for (let k = 0; k < 6; k++) FX.emit(dog.pos.x, dog.pos.y + 0.8, dog.pos.z, (Math.random() - 0.5) * 0.6, 0.9, (Math.random() - 0.5) * 0.6, 1.1, 0.12, 0.2, 0xff6aa8, 0.9, -0.5); setSpecial(player, 'repair', 1.2); toast(mpick([`${store.dog.name} دمش رو تکون می‌ده!`, `${store.dog.name} خیلی خوشحاله`, 'هاپ هاپ! 🐶'])); }
+function adoptDog() { const sd = store.dog; sd.adopted = true; dog.happy = 2; Audio.bark(dog.pos.x, dog.pos.z); banner(`${sd.name} حالا مال توئه!`, 'همه‌جا دنبالت میاد · نزدیکش برو و E بزن تا نازش کنی'); saveGame(); }
+function updateDog(dt) {
+  if (!dog) return; const D = dog, sd = store.dog, P = player, m = D.mesh;
+  if (!sd.adopted) {
+    m.visible = P.where === 'out'; D.sit = 1; D.barkT -= dt;
+    if (P.where === 'out' && D.barkT < 0 && Math.hypot(P.pos.x - D.pos.x, P.pos.z - D.pos.z) < 14) { D.barkT = 6 + Math.random() * 8; Audio.bark(D.pos.x, D.pos.z); D.happy = 0.8; }
+    D.facing += angDiff(D.facing, Math.atan2(P.pos.x - D.pos.x, P.pos.z - D.pos.z)) * Math.min(1, 2 * dt);
+    poseDog(dt, 0); return;
+  }
+  if (D.where !== P.where || (P.where === 'rb' && D.rbFloor !== rb.floor)) { D.where = P.where; D.rbFloor = rb.floor; zoneScene(P.where).add(m); dogPlaceNear(); }
+  const riding = P.inCar || P.state === 'car' || P.state === 'passenger' || P.state === 'fly' || P.state === 'sky' || P.state === 'entering' || P.state === 'exiting';
+  if (riding) { m.visible = false; D.riding = true; return; }
+  if (D.riding) { D.riding = false; dogPlaceNear(); D.happy = 1; Audio.bark(D.pos.x, D.pos.z); }
+  m.visible = true;
+  if (D.mode === 'down') { D.knock = (D.knock || 0) + dt; if (D.knock > 1.2) { D.mode = 'dog'; D.knock = 0; } }
+  const ps = Math.hypot(P.vel.x, P.vel.z), stay = P.state === 'hide' || P.state === 'use', a = P.facing + Math.PI * 0.8;
+  const tx = P.pos.x + Math.sin(a) * 1.5, tz = P.pos.z + Math.cos(a) * 1.5, dx = tx - D.pos.x, dz = tz - D.pos.z, d = Math.hypot(dx, dz);
+  if (d > 60 || Math.abs(P.pos.y - D.pos.y) > 4) { dogPlaceNear(); return; }
+  const want = stay || d < 0.6 ? 0 : d < 3 ? 1.6 : Math.min(Math.max(14, ps * 1.15), Math.max(3, d * 1.5));
+  const ux = d > 1e-3 ? dx / d : 0, uz = d > 1e-3 ? dz / d : 0, k = D.onGround ? 8 : 1;
+  D.vel.x = damp(D.vel.x, ux * want, k, dt); D.vel.z = damp(D.vel.z, uz * want, k, dt);
+  const sp = Math.hypot(D.vel.x, D.vel.z); if (sp > 0.3) D.facing += angDiff(D.facing, Math.atan2(D.vel.x, D.vel.z)) * Math.min(1, 10 * dt); else D.facing += angDiff(D.facing, Math.atan2(P.pos.x - D.pos.x, P.pos.z - D.pos.z)) * Math.min(1, 3 * dt);
+  const n = Math.min(24, Math.max(1, Math.ceil(sp * dt / 0.18))); for (let q = 0; q < n; q++) stepCharacter(D, zoneCol(P.where), dt / n, P.where === 'out');
+  D.idle = sp < 0.3 ? D.idle + dt : 0; D.sit = damp(D.sit, D.idle > 1.5 ? 1 : 0, 4, dt);
+  D.barkT -= dt; if (D.barkT < 0) { D.barkT = 18 + Math.random() * 30; if (Math.random() < 0.6) { Audio.bark(D.pos.x, D.pos.z); D.happy = 0.6; } }
+  poseDog(dt, sp);
+}
+function poseDog(dt, sp) {
+  const D = dog, u = D.mesh.userData, k = D.sit; D.anim.phase += sp * dt * 2.6; D.happy = Math.max(0, D.happy - dt);
+  D.mesh.position.copy(D.pos); D.mesh.rotation.set(0, D.facing, 0);
+  const run = clamp(sp / 6, 0, 1), sw = Math.sin(D.anim.phase), amp = clamp(sp / 2, 0, 1) * (0.5 + 0.35 * run);
+  u.body.position.y = 0.42 - k * 0.1 + Math.abs(Math.cos(D.anim.phase)) * 0.04 * run; u.body.rotation.x = -k * 0.42;
+  u.legs.forEach((L, i) => { const front = i < 2, ph = (i === 0 || i === 3) ? sw : -sw; L.rotation.x = k > 0.5 && !front ? -1.25 * k : ph * amp * (front ? 1 : 1.1) + (front ? k * 0.4 : 0); });
+  u.tail.rotation.y = Math.sin(simTime * (D.happy > 0 ? 16 : 6)) * (D.happy > 0 ? 0.7 : 0.25); u.tail.rotation.x = 0.4 - k * 0.3;
+  u.head.rotation.x = k * 0.35 + Math.sin(simTime * 1.3) * 0.05; u.head.rotation.y = Math.sin(simTime * 0.7) * 0.25;
+}
+/* ---------- missions ---------- */
+const mis = { kind: null };
+function misHud(txt) { const h = $('mis-hud'); if (!txt) { h.hidden = true; return; } h.hidden = false; if (h.dataset.t !== txt) { h.dataset.t = txt; $('mis-t').innerHTML = txt; } const tb = $('topbar').getBoundingClientRect(); h.style.top = Math.round(tb.bottom + 8) + 'px'; }
+const mmss = s => fa(Math.floor(Math.max(0, s) / 60)) + ':' + fa(String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0'));
+function stopMission(silent) {
+  const k = mis.kind; if (!k) return;
+  if (k === 'taxi') { const T = mis.taxi; if (T.fare && T.fare.taxiIn) taxiDrop(false); if (T.fare && !T.fare.taxiIn) { T.fare.anim.special = null; T.fare.mode = 'goto'; } if (!silent) banner('شیفت تاکسی تموم شد', `درآمد این شیفت: ${fmtT(T.earned)} · ${fa(T.n)} مسافر`); }
+  if (k === 'race') { for (const r of mis.race.rings) scene.remove(r); if (mis.race.ghost) scene.remove(mis.race.ghost); if (!silent) toast('مسابقه لغو شد'); }
+  mis.kind = null; waypoint = null; if (wpMesh) wpMesh.visible = false; misHud(null); renderMissions();
+}
+// taxi: someone waves at the kerb; pick them up, take them where they ask
+function startTaxi() {
+  const P = player; $('mis-panel').hidden = true;
+  if (P.where !== 'out') { toast('تاکسی فقط توی شهره'); return; }
+  if (P.state !== 'car' || P.car.service || P.car.isTow) { toast('اول سوار یه ماشین شو، بعد شیفت تاکسی رو شروع کن'); return; }
+  stopMission(true); mis.kind = 'taxi'; mis.taxi = { n: 0, earned: 0, phase: 'wait', t: 1 }; banner('شیفت تاکسی شروع شد', 'دنبال آدمی بگرد که دست تکون می‌ده (ستون نارنجی روی نقشه)'); renderMissions();
+}
+function taxiNewFare() {
+  const T = mis.taxi, P = player; let best = null;
+  for (let k = 0; k < 40; k++) { const p = ringPoint({ x: blockC(Math.floor(Math.random() * N)), z: blockC(Math.floor(Math.random() * N)) }, Math.random() * RING * 8, 0), d = Math.hypot(p.x - P.pos.x, p.z - P.pos.z); if (d > 60 && d < 260) { best = p; break; } if (!best) best = p; }
+  const n = spawnNPC(best.x, best.z); n.taxiFare = true; n.mode = 'stand'; n.anim.special = 'hail'; n.vel.set(0, 0, 0);
+  T.fare = n; T.phase = 'pickup'; T.t = 0; setWaypoint({ name: 'مسافر', x: best.x, z: best.z });
+}
+function taxiDrop(paid) {
+  const T = mis.taxi, n = T.fare, car = n.taxiIn; n.taxiIn = null; n.inCar = null;
+  const t = car.T, s = Math.sin(car.h), c = Math.cos(car.h), lx = -(t.wid / 2 + 0.7), lz = (t.cab[0] + t.cab[1]) / 2;
+  n.pos.set(car.x + lx * c + lz * s, CURB, car.z - lx * s + lz * c); n.anim.special = null; n.mode = 'goto'; n.timer = 0; n.H.visible = true; if (!npcs.includes(n)) npcs.push(n);
+}
+function updateTaxi(dt) {
+  const T = mis.taxi, P = player, car = P.state === 'car' ? P.car : null; T.t += dt;
+  if (T.phase === 'wait') { if (T.t > 2.5) taxiNewFare(); misHud('تاکسی · دنبال مسافر بعدی…'); return; }
+  const n = T.fare;
+  if (T.phase === 'pickup') {
+    if (!npcs.includes(n)) { T.phase = 'wait'; T.t = 0; return; }
+    n.anim.special = 'hail'; n.vel.set(0, 0, 0); if (car) n.facing += angDiff(n.facing, Math.atan2(car.x - n.pos.x, car.z - n.pos.z)) * Math.min(1, 3 * dt);
+    const d = car ? Math.hypot(car.x - n.pos.x, car.z - n.pos.z) : 999;
+    misHud(`🚕 تاکسی · مسافر منتظره — ${fa(Math.round(Math.hypot(P.pos.x - n.pos.x, P.pos.z - n.pos.z)))} متر · کنارش نگه دار`);
+    if (car && d < 9 && Math.abs(car.vf) < 2) { T.phase = 'board'; n.anim.special = null; say(n, mpick(['سلام! ممنون که وایسادی.', 'آقا/خانم دربست؟ عالیه!', 'سلام، عجله دارم!']), 2.4); }
+    if (T.t > 150) { say(n, 'ای بابا، دیر کردی! یه تاکسی دیگه می‌گیرم.', 2.5); n.anim.special = null; n.mode = 'goto'; T.phase = 'wait'; T.t = 0; }
+    return;
+  }
+  if (T.phase === 'board') {
+    if (!car) { T.phase = 'pickup'; return; }
+    const t = car.T, s = Math.sin(car.h), c = Math.cos(car.h), lx = -(t.wid / 2 + 0.6), lz = (t.cab[0] + t.cab[1]) / 2, dx = car.x + lx * c + lz * s, dz = car.z - lx * s + lz * c;
+    n.mode = 'task'; n.task = { x: dx, z: dz, run: true };
+    if (Math.hypot(n.pos.x - dx, n.pos.z - dz) < 2.0 || Math.hypot(n.pos.x - car.x, n.pos.z - car.z) < t.wid / 2 + 1.6 || T.t > 10) {
+      const i = npcs.indexOf(n); if (i >= 0) npcs.splice(i, 1); n.taxiIn = car; n.inCar = car; Audio.door();
+      const pl = places().filter(q => q.dist > 140 && q.dist < 480 && !q.keys.includes('تاکسی')); const dest = pl.length ? mpick(pl) : mpick(places());
+      const dist = Math.hypot(dest.x - car.x, dest.z - car.z); T.dest = dest; T.limit = dist / 7.5 + 25; T.left = T.limit; T.health = car.health; T.fareV = Math.round((45000 + dist * 950) / 1000) * 1000; T.phase = 'ride'; T.t = 0;
+      setWaypoint({ name: dest.name, x: dest.x, z: dest.z }); banner(`ببرش به «${dest.name}»`, `کرایه: ${fmtT(T.fareV)} · زود برسونی انعام می‌گیری`); say(n, `لطفاً منو ببر ${dest.name}. ممنون!`, 3);
+    }
+    misHud(`🚕 تاکسی · مسافر داره سوار می‌شه…`); return;
+  }
+  if (T.phase === 'ride') {
+    T.left -= dt; const d = Math.hypot(T.dest.x - P.pos.x, T.dest.z - P.pos.z);
+    if (!car || car !== n.taxiIn) { T.out = (T.out || 0) + dt; if (T.out > 25) { taxiDrop(false); say(n, 'من پیاده می‌شم! چه راننده‌ای!', 3); toast('مسافر پیاده شد و پولی نداد'); T.phase = 'wait'; T.t = 0; T.out = 0; } misHud('🚕 برگرد توی ماشین! مسافر منتظره'); return; }
+    T.out = 0;
+    if (T.left < 0 && !T.late) { T.late = true; say(n, 'دیر شد که! انعام بی‌انعام.', 2.5); }
+    if (Math.random() < dt * 0.04) say(n, mpick(['چه هوای خوبیه امروز.', 'یکم تندتر لطفاً!', 'شما همیشه تاکسی هستید؟', 'آروم‌تر، دلم ریخت!', 'آهنگ داری بذاری؟']), 2.5);
+    misHud(`🚕 مقصد: <b>${T.dest.name}</b> · ${fa(Math.round(d))} متر · زمان ${T.left > 0 ? mmss(T.left) : 'دیر شد!'}`);
+    if (d < 16 && Math.abs(car.vf) < 2) {
+      const dmg = Math.max(0, T.health - car.health), tip = T.left > 0 ? Math.round(T.fareV * 0.5 * (T.left / T.limit) * Math.max(0, 1 - dmg / 40) / 1000) * 1000 : 0, pay = T.late ? Math.round(T.fareV * 0.7 / 1000) * 1000 : T.fareV;
+      store.money += pay + tip; updateWalletHUD(); T.earned += pay + tip; T.n++; T.late = false;
+      taxiDrop(true); say(n, tip > 0 ? mpick(['عالی بود! بفرما انعامت.', 'چه سریع! مرسی.']) : mpick(['ممنون، خداحافظ.', 'مرسی.']), 2.6);
+      banner(`+${fmtT(pay + tip)}`, tip ? `کرایه ${fmtT(pay)} + انعام ${fmtT(tip)}` : `کرایه ${fmtT(pay)}`); Audio.arcade(); saveGame();
+      T.phase = 'wait'; T.t = 0; waypoint = null; if (wpMesh) wpMesh.visible = false;
+    }
+  }
+}
+function syncTaxi(dt) {
+  if (mis.kind !== 'taxi') return; const n = mis.taxi.fare; if (!n || !n.taxiIn) return; const car = n.taxiIn;
+  car.seatPose(n, true); n.H.visible = car.group.visible && player.where === 'out'; n.anim.special = 'sit'; if (n.H.visible) poseHuman(n, dt, simTime);
+}
+// street races: glowing gates through the city, a countdown, your best time and the ghost of your best run
+const RACES = [
+  { id: 'loop', n: 'دور شهر', d: 'دور تا دور شهر، ۲۰ دروازه', pts: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [5, 1], [5, 2], [5, 3], [5, 4], [5, 5], [4, 5], [3, 5], [2, 5], [1, 5], [0, 5], [0, 4], [0, 3], [0, 2], [0, 1], [0, 0]] },
+  { id: 'zig', n: 'زیگزاگ مرکز', d: 'پیچ‌وتاب از وسط شهر', pts: [[0, 1], [2, 1], [5, 1], [5, 2], [3, 2], [0, 2], [0, 3], [3, 3], [5, 3], [5, 4], [2, 4], [0, 4]] },
+  { id: 'sprint', n: 'اسپرینت', d: 'از گوشه تا گوشه، سریع و کوتاه', pts: [[0, 0], [0, 2], [0, 3], [2, 3], [2, 5], [4, 5], [5, 5]] }
+];
+const ringGeo = () => ringGeo.g || (ringGeo.g = new THREE.TorusGeometry(6.2, 0.62, 10, 44));
+function startRace(id) {
+  const R = RACES.find(r => r.id === id), P = player; $('mis-panel').hidden = true;
+  if (P.where !== 'out') { toast('مسابقه توی شهره — اول بیا بیرون'); return; }
+  if (P.state !== 'car' && P.state !== 'foot') { toast('اول پیاده شو یا پشت فرمون بشین'); return; }
+  stopMission(true);
+  const pts = R.pts.map(([i, j]) => [roadX(i), roadX(j)]), [x0, z0] = pts[0], [x1, z1] = pts[1], h = Math.atan2(x1 - x0, z1 - z0);
+  let car = P.state === 'car' ? P.car : null;
+  if (!car || car.service || car.isTow) { if (car) exitCar(); car = new Car('sedan', 0xd8102a, x0, z0, h); cars.push(car); P.pos.set(x0 + 3, CURB, z0); enterCar(car); }
+  const lo = laneOff(Math.round(((h / (Math.PI / 2)) % 4 + 4)) % 4); car.x = x0 - Math.sin(h) * 14 + lo.x; car.z = z0 - Math.cos(h) * 14 + lo.z; car.h = h; car.vx = car.vz = 0; car.av = 0; car.health = Math.max(car.health, 60); if (!car.isTow) car.fuel = Math.max(car.fuel, 60); car.sync(0);
+  cam.yaw = h;
+  const rings = pts.slice(1).map(([x, z], k) => { const m = new THREE.Mesh(ringGeo(), new THREE.MeshBasicMaterial({ color: k === pts.length - 2 ? 0xff4a8a : 0xffcf3a, transparent: true, opacity: 0.85, toneMapped: false })); const [px, pz] = pts[k]; m.position.set(x, 6.2, z); m.rotation.y = Math.atan2(x - px, z - pz); m.visible = false; const glow = new THREE.Mesh(new THREE.CircleGeometry(5.6, 40), new THREE.MeshBasicMaterial({ color: 0xffe68a, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false })); m.add(glow); const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 80, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffcf3a, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); beam.position.y = 40; m.add(beam); scene.add(m); return m; });
+  const best = (store.races || {})[id], gs = (store.raceGhost || {})[id];
+  let ghost = null; if (gs && gs.length) { ghost = new THREE.Group(); const gm = new THREE.MeshBasicMaterial({ color: 0x66e0ff, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }); const b = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 4.4), gm); b.position.y = 0.65; ghost.add(b); const c = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 2.2), gm); c.position.set(0, 1.25, -0.2); ghost.add(c); scene.add(ghost); }
+  mis.kind = 'race'; mis.race = { R, pts, rings, k: 0, t: -3.2, beep: 4, rec: [], recT: 0, best, ghost, gs, car };
+  banner(R.n, best ? `رکورد تو: ${fmtTime(best)} — روح بهترین دورت هم باهات میاد` : 'از دروازه‌های زرد رد شو، هرچی سریع‌تر!'); renderMissions();
+}
+const fmtTime = s => fa((s).toFixed(2)) + ' ثانیه';
+function updateRace(dt) {
+  const G = mis.race, P = player, car = G.car;
+  if (P.state !== 'car' || P.car !== car) { G.away = (G.away || 0) + dt; if (G.away > 6) { toast('از ماشین پیاده شدی — مسابقه لغو شد'); stopMission(true); return; } } else G.away = 0;
+  G.t += dt;
+  if (G.t < 0) { input.my = Math.min(input.my, 0); input.hand = true; const s = Math.ceil(-G.t); if (s !== G.beep) { G.beep = s; Audio.tone(s > 0 ? 520 : 1040, 0, 0.18, 0.08, 'square'); } misHud(`<span style="font-size:30px">${s > 0 ? fa(s) : 'برو!'}</span>`); }
+  else if (G.beep !== 0) { G.beep = 0; Audio.tone(1040, 0, 0.3, 0.09, 'square'); banner('برو!', ''); }
+  G.rings.forEach((r, k) => { r.visible = k >= G.k && k <= G.k + 1; r.material.opacity = k === G.k ? 0.9 : 0.3; if (k === G.k) r.rotation.z += dt * 1.5; });
+  if (G.t < 0) return;
+  // the ghost of your best run
+  G.recT += dt; if (G.recT >= 0.1) { G.recT = 0; G.rec.push([+car.x.toFixed(1), +car.z.toFixed(1), +car.h.toFixed(2)]); }
+  if (G.ghost) { const f = G.t / 0.1, i = Math.floor(f), a = G.gs[Math.min(i, G.gs.length - 1)], b = G.gs[Math.min(i + 1, G.gs.length - 1)], u = f - i; G.ghost.position.set(lerp(a[0], b[0], u), CURB, lerp(a[1], b[1], u)); G.ghost.rotation.y = a[2] + angDiff(a[2], b[2]) * u; }
+  const [cx, cz] = G.pts[G.k + 1];
+  if (Math.hypot(car.x - cx, car.z - cz) < 10) {
+    G.k++; Audio.tick(); FX.burst(cx, 4, cz, 14, 0xffe08a, 0.9);
+    if (G.k >= G.rings.length) {
+      const t = G.t, R = G.R; store.races = store.races || {}; store.raceGhost = store.raceGhost || {}; const rec = !G.best || t < G.best;
+      const prize = 150000 + (rec ? 250000 : 0); store.money += prize; updateWalletHUD();
+      if (rec) { store.races[R.id] = +t.toFixed(2); store.raceGhost[R.id] = G.rec; }
+      banner(rec ? 'رکورد جدید! 🏆' : 'رسیدی!', `${fmtTime(t)}${G.best ? ' · رکورد قبلی ' + fmtTime(G.best) : ''} · جایزه ${fmtT(prize)}`); Audio.arcade();
+      for (let q = 0; q < 40; q++) FX.emit(car.x, car.y + 2, car.z, (Math.random() - 0.5) * 8, 4 + Math.random() * 5, (Math.random() - 0.5) * 8, 1.5, 0.25, 0.1, mpick([0xff3a3a, 0xffd23a, 0x3ab8ff, 0x3aff6a]), 1, 9);
+      stopMission(true); saveGame(); return;
+    }
+  }
+  misHud(`🏁 ${G.R.n} · دروازهٔ ${fa(G.k + 1)} از ${fa(G.rings.length)} · ${fmtTime(G.t)}${G.best ? ' · رکورد ' + fmtTime(G.best) : ''}`);
+}
+function updateMissions(dt) { if (mis.kind === 'taxi') updateTaxi(dt); else if (mis.kind === 'race') updateRace(dt); else if (!$('mis-hud').hidden) misHud(null); }
+function renderMissions() {
+  const w = $('mis-list'); if (!w) return; w.textContent = ''; const races = store.races || {};
+  const card = (title, sub, btn, fn, on) => { const d = document.createElement('div'); d.className = 'mis-card'; d.innerHTML = '<div><b></b><small></small></div><button type="button" class="gm-btn"></button>'; d.querySelector('b').textContent = title; d.querySelector('small').textContent = sub; const b = d.querySelector('button'); b.textContent = btn; if (on) b.classList.add('primary'); b.addEventListener('click', fn); w.appendChild(d); };
+  card('🚕 تاکسی', mis.kind === 'taxi' ? `شیفت فعال · ${fa(mis.taxi.n)} مسافر · ${fmtT(mis.taxi.earned)}` : 'مسافر سوار کن و برسون. زود برسونی انعام می‌گیری.', mis.kind === 'taxi' ? 'پایان شیفت' : 'شروع', () => { if (mis.kind === 'taxi') { stopMission(); $('mis-panel').hidden = true; } else startTaxi(); }, mis.kind !== 'taxi');
+  for (const R of RACES) card('🏁 ' + R.n, `${R.d}${races[R.id] ? ' · رکورد: ' + fmtTime(races[R.id]) : ''}`, mis.kind === 'race' && mis.race.R === R ? 'لغو' : 'مسابقه', () => { if (mis.kind === 'race' && mis.race.R === R) { stopMission(); $('mis-panel').hidden = true; } else startRace(R.id); });
 }
 
 /* ============================================================
@@ -5608,6 +5959,7 @@ const Audio = {
     g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
   },
   crash(s, x, z) { const v = this.vol(x, z); this.burst(Math.min(0.9, s * 0.07) * v, 700, 0.5); this.burst(Math.min(0.5, s * 0.04) * v, 3200, 0.25, 'bandpass', 2); },
+  bark(x, z) { const v = 0.6 * this.vol(x, z); this.tone(560, 0, 0.08, 0.1 * v, 'sawtooth'); this.tone(430, 0.09, 0.11, 0.09 * v, 'sawtooth'); this.burst(0.06 * v, 800, 0.12, 'bandpass', 2); },
   thud(s, x, z) { this.burst(0.5 * this.vol(x, z), 260, 0.3); },
   step(run) { this.burst(run ? 0.07 : 0.04, 900, 0.07, 'bandpass', 1.5); },
   door() {
@@ -5671,7 +6023,7 @@ function syncTouchUI(force) {
   $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; updateUseBtn(); if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
   for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car' && mode !== 'fly';
   $('fly-ud').hidden = mode !== 'fly'; if (mode === 'build') { $('pad').hidden = true; $('joy-hint').hidden = true; }
-  $('drive-x').hidden = mode !== 'car' && mode !== 'pass' && mode !== 'bus' && mode !== 'fly'; $('b-hand').hidden = $('b-horn').hidden = mode !== 'car'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
+  $('drive-x').hidden = mode !== 'car' && mode !== 'pass' && mode !== 'bus' && mode !== 'fly'; $('b-hand').hidden = $('b-horn').hidden = $('b-nitro').hidden = mode !== 'car'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
   if (mode !== 'car') { input.cGas = input.cBrake = input.cLeft = input.cRight = false; input.hornBtn = input.handBtn = false; for (const b of document.querySelectorAll('.dbtn')) b.classList.remove('down'); }
 }
 cv.addEventListener('pointerdown', e => {
@@ -5746,7 +6098,7 @@ holdBtn('c-left', () => { input.cLeft = true; }, () => { input.cLeft = false; })
 holdBtn('c-right', () => { input.cRight = true; }, () => { input.cRight = false; });
 $('btn-time').addEventListener('click', () => cycleTime());
 $('btn-sound').addEventListener('click', () => { Audio.init(); Audio.setMute(Audio.on); $('btn-sound').textContent = Audio.on ? 'صدا: روشن' : 'صدا: خاموش'; });
-$('btn-weather').addEventListener('click', () => { const order = ['auto', 'clear', 'cloudy', 'rain']; settings.weather = order[(order.indexOf(settings.weather) + 1) % 4]; saveSettings(); applyWeatherSetting(); });
+$('btn-weather').addEventListener('click', () => { const order = ['auto', 'clear', 'cloudy', 'rain', 'snow']; settings.weather = order[(order.indexOf(settings.weather) + 1) % 5]; saveSettings(); applyWeatherSetting(); });
 $('btn-settings').addEventListener('click', () => openSettings());
 /* ---------- buttons and panels for the rainbow building, build mode, flying car and codes ---------- */
 $('btn-rb').addEventListener('click', () => { if (player.where === 'rb') { leaveRB(); return; } $('rb-go').hidden = false; });
@@ -5802,6 +6154,12 @@ $('fly-spawn').addEventListener('click', () => { closeFlyPanel(); if (player.sta
 $('fly-close').addEventListener('click', () => { closeFlyPanel(); saveGame(); });
 holdBtn('f-up', () => { input.fUp = true; }, () => { input.fUp = false; });
 $('b-turbo').addEventListener('click', () => toggleTurbo());
+holdBtn('b-nitro', () => { input.nitroBtn = true; }, () => { input.nitroBtn = false; });
+$('btn-mis').addEventListener('click', () => { renderMissions(); $('mis-panel').hidden = false; });
+$('btn-more').addEventListener('click', () => { $('topbar').classList.toggle('open'); requestAnimationFrame(() => { if (!$('rb-hud').hidden) placeRbHud(); }); });
+for (const b of document.querySelectorAll('#topbar .more')) b.addEventListener('click', () => $('topbar').classList.remove('open'));
+$('mis-close').addEventListener('click', () => { $('mis-panel').hidden = true; });
+for (const ev of ['pointerdown', 'touchstart', 'wheel']) $('mis-panel').addEventListener(ev, e => e.stopPropagation(), { passive: true });
 const liftNum = () => parseInt(String($('lift-in').value).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[^0-9]/g, ''), 10);
 document.querySelectorAll('#lift-panel [data-df]').forEach(b => b.addEventListener('click', () => { const v = isFinite(liftNum()) ? liftNum() : rb.floor; $('lift-in').value = clamp(v + (+b.dataset.df), 0, RB_FLOORS - 1); }));
 document.querySelectorAll('#lift-panel [data-fl]').forEach(b => b.addEventListener('click', () => { const f = b.dataset.fl; rbLiftGo(f === 'max' ? RB_FLOORS - 1 : f === 'rand' ? Math.floor(Math.random() * RB_FLOORS) : +f); }));
@@ -6162,7 +6520,7 @@ function snapshot() {
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
     cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
@@ -6177,7 +6535,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) 
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
   if (sv.shop) Object.assign(store, sv.shop);
-  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
+  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
   if (sv.player && sv.player.where === 'rb') resumeRB = true;
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
@@ -6241,6 +6599,7 @@ function setWaypoint(pl) {
 function updatePlayer(dt) {
   const P = player;
   if (P.state === 'fly') { updateFly(dt); return; }
+  if (P.state === 'sky') { updateSky(dt); return; }
   if (P.where === 'rb' || P.where === 'test') { updatePlayerZone(dt); return; }
   const outdoor = P.where === 'out', col = outdoor ? world.col : interior.col;
   if (waypoint && Math.hypot(waypoint.x - P.pos.x, waypoint.z - P.pos.z) < 7) { banner('رسیدی!', waypoint.name); waypoint = null; if (wpMesh) wpMesh.visible = false; }
@@ -6301,6 +6660,9 @@ function updatePlayer(dt) {
         else if (n && (!car || Math.hypot(n.pos.x - P.pos.x, n.pos.z - P.pos.z) < 1.8)) {
           actLabel = 'حرف بزن'; promptTxt = `${key}با <b>${n.persona.name}</b> حرف بزن`;
           if (input.actQ) { input.actQ = false; openChat(n); }
+        } else if (dog && dog.mesh.visible && P.state === 'foot' && Math.hypot(dog.pos.x - P.pos.x, dog.pos.z - P.pos.z) < 2.3) {
+          promptTxt = store.dog.adopted ? `${key}نازش کن (${store.dog.name})` : `${key}این سگ رو با خودت ببر (اسمش ${store.dog.name}ه)`; actLabel = store.dog.adopted ? 'نازش کن' : 'ببرش';
+          if (input.actQ) { input.actQ = false; if (!store.dog.adopted) adoptDog(); else petDog(); }
         } else if (fly.obj && fly.obj.where === 'out' && Math.hypot(fly.obj.x - P.pos.x, fly.obj.z - P.pos.z) < 3.4 && Math.abs(fly.obj.y - P.pos.y) < 3) {
           promptTxt = `${key}سوار ماشین پرنده شو`; actLabel = 'سوار شو'; if (input.actQ) { input.actQ = false; boardFlyer(); }
         } else if (rb.door && P.state === 'foot' && Math.abs(P.pos.x - rb.door.x) < 5 && P.pos.z < rb.door.z + 3.5 && P.pos.z > rb.door.z - 4.5) {
@@ -6516,8 +6878,8 @@ function updateCamera(dt) {
     if (P.state === 'use' && P.use.kind === 'lie') cam.pitch = damp(cam.pitch, 0.85, 2, dt);
     tx = P.pos.x; ty = P.pos.y + (P.state === 'use' && P.use.kind === 'lie' ? 0.45 : P.state === 'use' && P.use.kind === 'sit' ? 1.05 : 1.45) - P.anim.knock * 1.0; tz = P.pos.z;
     if (P.state === 'entering' || P.state === 'exiting') { tx = P.car.x; tz = P.car.z; ty = P.car.y + 1.4; }
-    desired = (outdoor || P.where === 'rb' || P.where === 'test' ? 4.6 : 3.1) * cam.zoom;
-    const kT = Math.max(18, Math.hypot(P.vel.x, P.vel.z) * 0.9); cam.target.x = damp(cam.target.x, tx, kT, dt); cam.target.z = damp(cam.target.z, tz, kT, dt); cam.target.y = damp(cam.target.y, ty, 9, dt);
+    desired = (P.state === 'sky' ? (P.sky && P.sky.open ? 10.5 : 6.5) : outdoor || P.where === 'rb' || P.where === 'test' ? 4.6 : 3.1) * cam.zoom; if (P.state === 'sky' && P.sky && P.sky.open) ty += 2.6 * P.sky.chute;
+    const kT = Math.max(18, Math.hypot(P.vel.x, P.vel.z) * 0.9); cam.target.x = damp(cam.target.x, tx, kT, dt); cam.target.z = damp(cam.target.z, tz, kT, dt); cam.target.y = damp(cam.target.y, ty, Math.max(9, Math.abs(P.vel.y) * 1.2), dt);
   }
   const cp = Math.cos(cam.pitch), dx = -Math.sin(cam.yaw) * cp, dy = Math.sin(cam.pitch), dz = -Math.cos(cam.yaw) * cp;
   const col = zoneCol(P.where);
@@ -6532,7 +6894,7 @@ function updateCamera(dt) {
   const off = chat.open && innerWidth > innerHeight * 1.25 ? innerWidth * 0.2 : 0;
   cam.voff = damp(cam.voff || 0, off, 5, dt);
   if (cam.voff > 1) camera.setViewOffset(innerWidth, innerHeight, cam.voff, 0, innerWidth, innerHeight); else if (camera.view && camera.view.enabled) camera.clearViewOffset();
-  const fovT = 60 + ((P.state === 'car' || P.state === 'passenger') ? clamp(Math.abs(P.car.vf) * 0.32, 0, 14) : 0) + (P.where === 'rb' && P.turbo ? clamp(Math.hypot(P.vel.x, P.vel.z) * (P.turbo === 2 ? 0.1 : 0.45), 0, 22) : 0);
+  const fovT = 60 + (nitro.on ? 9 : 0) + ((P.state === 'car' || P.state === 'passenger') ? clamp(Math.abs(P.car.vf) * 0.32, 0, 14) : 0) + (P.where === 'rb' && P.turbo ? clamp(Math.hypot(P.vel.x, P.vel.z) * (P.turbo === 2 ? 0.1 : 0.45), 0, 22) : 0);
   cam.fov = damp(cam.fov, fovT, 3, dt); if (Math.abs(camera.fov - cam.fov) > 0.05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
 }
 
@@ -6849,7 +7211,9 @@ addEventListener('resize', () => { if (composerAll && composer) { composerAll.se
 function updateWorld(dt) {
   simTime += dt; windUniform.value = simTime; skyUniforms.uTime.value = simTime;
   tod = (tod + dt * DAY_SPEED) % 24;
-  updateWeather(dt);
+  updateWeather(dt); updateSnow(dt);
+  if (player.where === 'out') updateMissions(dt); else if (mis.kind) stopMission(true);
+  updateNitro(dt); updateDog(dt);
   // obstacles for AI drivers
   _obs.length = 0;
   for (const c of cars) _obs.push({ x: c.x, z: c.z, r: c.T.len / 2 - 0.6, ref: c });
@@ -6926,7 +7290,7 @@ function syncVisuals(dt) {
   if (!seated) { P.H.root.position.copy(P.pos); P.H.root.rotation.set(0, P.facing, 0); }
   if (player.where === 'rb') for (const n of rb.people) showPeople(n, false);
   syncFlyer(dt);
-  P.H.visible = !(P.state === 'hide' && P.hideSpot && P.hideSpot.kind === 'in'); poseHuman(P, dt, simTime);
+  P.H.visible = !(P.state === 'hide' && P.hideSpot && P.hideSpot.kind === 'in'); poseHuman(P, dt, simTime); syncChute(dt); syncTaxi(dt);
   outdoorPool.update(); interiorPool.update(); if (rbPool && player.where === 'rb') rbPool.update(); if (testPool && player.where === 'test') testPool.update();
   updateBlobs(); updateAttachments(); updateCockpit(); updateHeadLights(); updateGuide(dt); updateStreaks(dt);
   // car glow sprites
@@ -7008,7 +7372,7 @@ function updateWorldDemo(dt) {
   for (let s = 0; s < 2; s++) { for (const c of cars) { c.integrate(dt / 2); carStatic(c); } for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) { const a = cars[i], b = cars[j]; const dx = a.x - b.x, dz = a.z - b.z, rs = (a.T.len + b.T.len) / 2; if (dx * dx + dz * dz > rs * rs) continue; const r = satCarCar(a, b); if (r) carCarResolve(a, b, r); } }
   for (const c of cars) c.sync(dt);
   for (const n of npcs) updateNPC(n, dt, true, world.col);
-  updateSignals(); updateFountain(dt); updateWeather(dt);
+  updateSignals(); updateFountain(dt); updateWeather(dt); updateBalloons(dt);
 }
 
 /* ============================================================
@@ -7019,13 +7383,13 @@ async function boot(data) {
   await new Promise(r => setTimeout(r, 30));
   makeTextures(); makeMaterials(); initGeo(); initHumanGeo(); initCarMats();
   outdoorPool = new HumanPool(scene, LOW ? 76 : 110); interiorPool = new HumanPool(interiorScene, 4);
-  buildCity(); buildMapBase();
+  buildCity(); buildMapBase(); buildSnow();
   FX.init(); Skids.init(); buildRain(); buildBirds(); buildBlobs();
   setupPlayer();
   const sv = loadSave();
   if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
   if (!restored) { spawnTraffic(); spawnPeople(); }
-  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); buildFireworks();
+  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); updateBalloons(0); buildFireworks(); buildDog();
   if (restored) rebuildPlayerLook();
   setView(settings.view === 'first'); updateWalletHUD();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
@@ -7033,7 +7397,15 @@ async function boot(data) {
   initFixedLights(); buildRainbow(); buildTest();
   applyWeatherSetting(); applyQuality(); bakeEnvironments();
   try { // warm up every shader now instead of stalling the first time something appears
+    // things that only appear later (snow, snowmen, a parachute, race gates and the ghost car, balloon burners) are shown for the warm-up too
+    const warm = [], tmp = [], show = o => { if (o && !o.visible) { o.visible = true; warm.push(o); } };
+    show(snowPts); for (const sm of snowmen) show(sm); for (const b of balloons) show(b.flame);
+    if (!chute) { chute = makeChute(); scene.add(chute); chute.visible = false; } show(chute);
+    { const r = new THREE.Mesh(ringGeo(), new THREE.MeshBasicMaterial({ color: 0xffcf3a, transparent: true, opacity: 0.85, toneMapped: false })); r.add(new THREE.Mesh(new THREE.CircleGeometry(5.6, 40), new THREE.MeshBasicMaterial({ color: 0xffe68a, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false })));
+      r.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 80, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffcf3a, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+      r.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0x66e0ff, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }))); r.position.copy(camera.position); scene.add(r); tmp.push(r); }
     const RT0 = composerAll ? composerAll.renderTarget1 : null; renderer.setRenderTarget(RT0); renderer.compile(scene, camera);
+    for (const o of warm) o.visible = false; for (const o of tmp) scene.remove(o);
     if (player.where !== 'in') { const dd = world.doors.find(d => d.kind === 'shop' && !d.dead), dh = world.doors.find(d => d.kind === 'house' && !d.dead);
       for (const d of [dd, dh]) if (d) { buildInterior(d); renderer.setRenderTarget(RT0); renderer.compile(interiorScene, camera); renderer.setRenderTarget(null);
         const cp0 = camera.position.clone(), cq0 = camera.quaternion.clone(); camera.position.set(0, 1.6, interior.D / 2 - 0.8); camera.lookAt(0, 1.2, 0); renderer.shadowMap.needsUpdate = true; if (composerAll) { renderPass.scene = interiorScene; composerAll.render(); renderPass.scene = scene; } else renderer.render(interiorScene, camera); camera.position.copy(cp0); camera.quaternion.copy(cq0); for (const n of interior.npcs) if (n.persona && n.persona.met > 0) n.persona.met--; }
@@ -7044,7 +7416,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
