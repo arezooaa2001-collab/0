@@ -75,6 +75,8 @@ export class PlayerCar {
     this.tank = 45;
     this.health = 100;
     this.engineLevel = 0;
+    this.nitro = 100;
+    this.nitroOn = false;
     this.pitch = 0;
     this.roll = 0;
     this.bodyPitch = 0;
@@ -99,10 +101,29 @@ export class PlayerCar {
     return t > 0 ? this.superFuel / t : 0;
   }
   speedMul() {
-    return (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1);
+    return (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
   }
   accelMul() {
-    return (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1);
+    return (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1);
+  }
+  setPaint(hex) {
+    this.paintHex = hex;
+    this.car.paint.color.setHex(hex);
+  }
+  /** nitro: hold the NOS button with throttle; slowly recharges */
+  updateNitro(dt, inp, alive) {
+    const want = !!inp.nitro && alive && this.nitro > 0 && this.gear > 0 && !this.shift;
+    if (want && !this.nitroOn) this.game.audio.burst(0.6, 1200, 'bandpass', 0.5);
+    this.nitroOn = want;
+    if (want) this.nitro = Math.max(0, this.nitro - dt * 28);
+    else this.nitro = Math.min(100, this.nitro + dt * 2.2);
+  }
+  /** wipers sweep across the windshield while it rains (or when switched on) */
+  updateWipers(dt) {
+    const on = this.wipersOn || (this.game.weather && this.game.weather.rain > 0.2);
+    this.wiperT = on ? (this.wiperT || 0) + dt * 2.6 : 0;
+    const a = on ? -1.55 * (0.5 - 0.5 * Math.cos(this.wiperT)) : 0;
+    for (const arm of this.car.wipers) arm.quaternion.setFromAxisAngle(this.car.wsN, a);
   }
   topSpeed() {
     return GEAR_MAX[TOP_GEAR] * this.speedMul();
@@ -232,6 +253,8 @@ export class PlayerCar {
     }
     if (this.auto && controllable) this.autoBox(dt, inp);
     this.updateShift(dt);
+    this.updateNitro(dt, inp, alive && controllable);
+    this.updateWipers(dt);
     let gas = inp.gas, brk = inp.brake;
     if (this.auto && this.gear === -1) {
       gas = inp.brake;
@@ -287,7 +310,7 @@ export class PlayerCar {
       steerSpeed = (g === -1 ? -1 : 1) * Math.max(Math.abs(this.speed), 2.5 * this.throttle);
     }
     let yawRate = (-steerSpeed * Math.tan(this.steer)) / 2.7;
-    const grip = surf === 'sand' ? 0.85 : 1;
+    const grip = (surf === 'sand' ? 0.85 : 1) * (this.game.weather ? this.game.weather.grip() : 1);
     if (inp.handbrake && absV > 7) {
       yawRate *= 1.55;
       this.ext.x += Math.cos(this.heading) * yawRate * absV * 0.05 * dt;

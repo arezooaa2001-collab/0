@@ -290,6 +290,9 @@ export class Rides {
     g.stats.trips++;
     g.stats.earned += total;
     g.stats.ratingSum += stars;
+    if (stars === 5) g.stats.fiveStars = (g.stats.fiveStars || 0) + 1;
+    if (g.env && g.env.night > 0.5) g.stats.nightRides = (g.stats.nightRides || 0) + 1;
+    if (g.weather && g.weather.rain > 0.3) g.stats.rainRides = (g.stats.rainRides || 0) + 1;
     g.player.occupied = false;
     const msg = stars >= 4 ? 'مرسی! عالی رانندگی کردید. 🌟' : stars >= 3 ? 'ممنون، رسیدیم.' : 'دیگه هیچ‌وقت با شما نمیام!';
     this.say(msg);

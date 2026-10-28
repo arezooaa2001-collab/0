@@ -50,12 +50,18 @@
     <button id="btnChat" class="hidden" title="حرف زدن با مسافر">💬</button>
     <button id="btnDoor" title="پیاده / سوار شدن (V)">🚪</button>
     <button id="btnBag" title="کوله‌پشتی (I)">🎒</button>
+    <button id="btnRadio" title="رادیو (K)">📻</button>
+    <button id="btnAch" title="افتخارات (O)">🏆</button>
     <button id="btnCam" title="دوربین (C)">🎥</button>
     <button id="btnGuide" title="فلش راهنما (G)">🧭</button>
     <button id="btnLights" title="چراغ (L)">💡</button>
     <button id="btnHorn" title="بوق (H)">📯</button>
   </div>
 
+  <div id="steerBtns">
+    <button id="btnLeft" aria-label="چپ"><span>◀</span></button>
+    <button id="btnRight" aria-label="راست"><span>▶</span></button>
+  </div>
   <div id="steerZone">
     <div id="steerWheel">
       <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="9"/><circle cx="50" cy="50" r="11" fill="rgba(255,255,255,.85)"/><path d="M8 50 H39 M61 50 H92 M50 61 V92" stroke="rgba(255,255,255,.85)" stroke-width="8"/><rect x="46" y="4" width="8" height="10" rx="2" fill="#ffd21a"/></svg>
@@ -65,7 +71,7 @@
 
   <div id="rightPad">
     <div id="gearbox">
-      <div class="gtitle">دنده <button id="btnAuto">دستی</button></div>
+      <div class="gtitle"><span class="glabel">دنده</span><b id="gearCur">1</b><button id="btnAuto">دستی</button></div>
       <div class="hgrid">
         <button data-g="1">1</button><button data-g="3">3</button><button data-g="5">5</button><button data-g="7">7</button>
         <span class="gate"></span><button data-g="0" class="n">N</button><span class="gate"></span>
@@ -75,7 +81,7 @@
     </div>
     <div id="pedals">
       <button id="btnBrake" class="pedal brake"><span>ترمز</span></button>
-      <button id="btnGas" class="pedal gas"><span>گاز</span></button>
+      <div class="gascol"><button id="btnNos" class="nosbtn"><span>🔥 NOS</span></button><button id="btnGas" class="pedal gas"><span>گاز</span></button></div>
     </div>
   </div>
 
@@ -83,6 +89,7 @@
     <div class="sp"><b id="speed">۰</b><small>km/h</small></div>
     <div class="gearNow" id="gearNow">1</div>
     <div class="rpm"><i id="rpmBar"></i></div>
+    <div class="nos"><i id="nosBar"></i></div>
     <div id="shiftHint"></div>
   </div>
 

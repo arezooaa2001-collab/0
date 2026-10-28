@@ -65,7 +65,8 @@ export class Arson {
     g.audio.crash(4);
     g.ui.flash();
     g.ui.toast('🔥 تاکسی آتیش گرفت! ۴۰ ثانیه دیگه خودش درست میشه', 'bad');
-    if (!this.origColor) this.origColor = p.car.paint.color.clone();
+    this.origColor = p.car.paint.color.clone();
+    g.stats.arsons = (g.stats.arsons || 0) + 1;
     // the driver jumps out
     if (!g.onfoot.active) g.onfoot.forceExit();
     // passenger reaction

@@ -4,6 +4,10 @@ import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
 const $ = (id) => document.getElementById(id);
+const PAINT_COST = 120000, NOS_COST = 60000;
+const PAINTS = [[0xf3c614, 'زرد تاکسی'], [0x1f8a4c, 'سبز تاکسی'], [0xf2f2f2, 'سفید'], [0x15171a, 'مشکی'], [0xc62828, 'قرمز'], [0x1f5fbf, 'آبی'], [0xff7a1a, 'نارنجی'], [0x8e44ad, 'بنفش'], [0xb8bcc2, 'نقره‌ای']];
+const STATIONS = [null, 'pop', 'sonati'];
+const STATION_NAME = { pop: '📻 رادیو پاپ ۹۸٫۵', sonati: '📻 رادیو سنتی (دستگاه شور) ۱۰۲٫۷' };
 const STAR = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
 export class UI {
@@ -21,6 +25,7 @@ export class UI {
     document.body.classList.toggle('touch', this.coarse);
     this.bindControls();
     this.bindKeys();
+    this.applySteerMode();
   }
 
   /* ---------------- input ---------------- */
@@ -78,6 +83,9 @@ export class UI {
       el.addEventListener('lostpointercapture', set(false));
       el.addEventListener('contextmenu', (e) => e.preventDefault());
     };
+    hold('btnLeft', 'left');
+    hold('btnNos', 'nitro');
+    hold('btnRight', 'right');
     hold('btnGas', 'gas');
     hold('btnBrake', 'brake');
     hold('btnHand', 'hand', true);
@@ -86,12 +94,23 @@ export class UI {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         g.player.requestGear(parseInt(b.dataset.g, 10));
+        // on phones the gate folds away again after shifting
+        clearTimeout(this.gearFold);
+        this.gearFold = setTimeout(() => $('gearbox').classList.remove('open'), 1400);
       });
+    });
+    $('gearCur').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      $('gearbox').classList.toggle('open');
+      clearTimeout(this.gearFold);
+      this.gearFold = setTimeout(() => $('gearbox').classList.remove('open'), 5000);
     });
     $('btnAuto').addEventListener('click', () => this.toggleAuto());
     $('btnCam').addEventListener('click', () => g.cycleCamera());
     $('btnDoor').addEventListener('click', () => g.onfoot.toggle());
     $('btnBag').addEventListener('click', () => this.openInventory());
+    $('btnRadio').addEventListener('click', () => this.cycleRadio());
+    $('btnAch').addEventListener('click', () => this.openAchievements());
     $('btnGuide').addEventListener('click', () => g.toggleGuide());
     $('btnLights').addEventListener('click', () => {
       g.player.lights = !g.player.lights;
@@ -147,6 +166,11 @@ export class UI {
       this.tilt = clamp(ang / 28, -1, 1);
     });
   }
+  applySteerMode() {
+    const m = this.g.settings.steer || 'buttons';
+    document.body.classList.remove('steer-buttons', 'steer-wheel', 'steer-tilt');
+    document.body.classList.add('steer-' + m);
+  }
   toggleAuto(v) {
     const p = this.g.player;
     p.auto = v === undefined ? !p.auto : v;
@@ -178,6 +202,8 @@ export class UI {
         }
       }
       if (e.code === 'KeyV') g.onfoot.toggle();
+      if (e.code === 'KeyK') this.cycleRadio();
+      if (e.code === 'KeyO' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openAchievements();
       if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
       const walking = g.onfoot.active || g.onfoot.busy;
       if (e.code in map && g.state === 'play' && !walking) p.requestGear(map[e.code]);
@@ -211,10 +237,11 @@ export class UI {
   }
   input() {
     const k = this.keys, t = this.touch;
-    let steer = t.steer;
+    let steer = t.steer + (t.right ? 1 : 0) - (t.left ? 1 : 0);
     if (k.ArrowLeft || k.KeyA) steer -= 1;
     if (k.ArrowRight || k.KeyD) steer += 1;
-    if (this.g.settings.tilt && this.coarse) steer = this.tilt;
+    // tilt only when nothing else is steering
+    if (this.g.settings.steer === 'tilt' && steer === 0) steer = this.tilt;
     let mx = t.jx || 0, my = t.jy || 0;
     if (k.ArrowLeft || k.KeyA) mx -= 1;
     if (k.ArrowRight || k.KeyD) mx += 1;
@@ -228,6 +255,7 @@ export class UI {
       gas: Math.max(t.gas, k.ArrowUp || k.KeyW ? 1 : 0),
       brake: Math.max(t.brake, k.ArrowDown || k.KeyS ? 1 : 0),
       handbrake: t.hand || !!k.Space,
+      nitro: !!(t.nitro || k.KeyB),
     };
   }
 
@@ -255,8 +283,12 @@ export class UI {
     const kmh = Math.round(Math.abs(p.speed) * 3.6);
     $('speed').textContent = fa(kmh);
     $('gearNow').textContent = GEAR_LABEL[p.gear] + (p.shift ? '…' : '');
+    $('gearCur').textContent = GEAR_LABEL[p.shift ? p.targetGear : p.gear];
     $('gearNow').classList.toggle('rev', p.gear === -1);
     $('rpmBar').style.width = clamp(p.rpm / 7000, 0, 1) * 100 + '%';
+    $('nosBar').style.width = p.nitro + '%';
+    $('btnNos').classList.toggle('empty', p.nitro < 3);
+    $('btnNos').classList.toggle('on', p.nitroOn);
     $('rpmBar').classList.toggle('red', p.rpm > 6300);
     let hint = '';
     if (!p.auto && !p.shift) {
@@ -355,6 +387,14 @@ export class UI {
       }
       ctx.restore();
     };
+    for (const it of g.pickups.items) {
+      if (Math.abs(it.x - p.pos.x) > R || Math.abs(it.z - p.pos.z) > R) continue;
+      const [X, Y] = P(it.x, it.z);
+      ctx.fillStyle = '#ffd23a';
+      ctx.beginPath();
+      ctx.arc(X, Y, 4 / sc, 0, 7);
+      ctx.fill();
+    }
     for (const s of w.stations) icon(s.padX, s.padZ, '#1f8a4c', 11, '⛽');
     for (const s of w.garages) icon(s.padX, s.padZ, '#d68910', 11, '🔧');
     icon(w.police.padX, w.police.padZ, '#1f4fa0', 11, '🚓');
@@ -578,16 +618,18 @@ export class UI {
   /** true while a finger/key is on the driving controls */
   controlsHeld() {
     const t = this.touch, k = this.keys;
-    return this.steerHeld() || t.gas > 0 || t.brake > 0 || t.hand || Object.values(k).some(Boolean);
+    return this.steerHeld() || t.gas > 0 || t.brake > 0 || t.hand || t.left || t.right || Object.values(k).some(Boolean);
   }
   /** forget every held touch/key so nothing stays "stuck" after a dialog */
   resetInputs() {
     this.releaseSteer();
     this.touch.gas = 0;
     this.touch.brake = 0;
+    this.touch.left = this.touch.right = 0;
+    this.touch.nitro = 0;
     this.touch.hand = false;
     this.keys = {};
-    for (const id of ['btnGas', 'btnBrake', 'btnHand']) $(id).classList.remove('on');
+    for (const id of ['btnGas', 'btnBrake', 'btnHand', 'btnLeft', 'btnRight']) $(id).classList.remove('on');
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
   panel(html, bind) {
@@ -671,10 +713,31 @@ export class UI {
             <button data-a="rep" ${p.health >= 99.5 ? 'disabled' : ''}>تعمیر کامل • ${faMoney(rc)}</button></div>
           <div class="card"><h3>ارتقای موتور (درجه سرعت)</h3><p>سطح ${fa(lvl)} از ۵ • حداکثر سرعت ${fa(Math.round(p.topSpeed() * 3.6))} km/h</p>
             ${lvl < 5 ? `<button data-a="eng">سطح ${fa(lvl + 1)} • ${faMoney(ENG[lvl])}</button>` : '<button disabled>حداکثر سطح ✔</button>'}</div>
+          <div class="card paint"><h3>🎨 رنگ ماشین</h3><p>هر رنگ ${faMoney(PAINT_COST)} تومان</p>
+            <div class="swatches">${PAINTS.map(([hex, name]) => `<button data-paint="${hex}" title="${name}" style="background:#${hex.toString(16).padStart(6, '0')}" class="${p.paintHex === hex || (!p.paintHex && hex === 0xf3c614) ? 'cur' : ''}"></button>`).join('')}</div></div>
+          <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
+            <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
           <div class="card"><h3>باک بزرگ‌تر</h3><p>ظرفیت فعلی ${fa(p.tank)} لیتر</p>
             ${ti >= 0 ? `<button data-a="tank">${fa(TANK[ti][0])} لیتری • ${faMoney(TANK[ti][1])}</button>` : '<button disabled>بزرگ‌ترین باک ✔</button>'}</div>
         </div>
         <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
+        el.querySelectorAll('[data-paint]').forEach((b) => {
+          b.onclick = () => {
+            const hex = parseInt(b.dataset.paint, 10);
+            if (p.paintHex === hex) return;
+            g.topUp(PAINT_COST);
+            if (g.money < PAINT_COST) {
+              this.toast('پول کافی نداری 😟', 'warn');
+              return;
+            }
+            g.money -= PAINT_COST;
+            p.setPaint(hex);
+            g.audio.cash();
+            this.toast('🎨 ماشین رنگ شد!', 'good');
+            g.save();
+            render();
+          };
+        });
         el.querySelectorAll('[data-a]').forEach((b) => {
           b.onclick = () => {
             const a = b.dataset.a;
@@ -682,6 +745,7 @@ export class UI {
             if (a === 'rep') cost = rc;
             if (a === 'eng') cost = ENG[lvl];
             if (a === 'tank') cost = TANK[ti][1];
+            if (a === 'nos') cost = NOS_COST;
             g.topUp(cost);
             if (g.money < cost) {
               this.toast('پول کافی نداری 😟', 'warn');
@@ -692,6 +756,7 @@ export class UI {
             if (a === 'rep') p.repair();
             if (a === 'eng') p.engineLevel++;
             if (a === 'tank') p.tank = TANK[ti][0];
+            if (a === 'nos') p.nitro = 100;
             g.audio.cash();
             this.toast(a === 'rep' ? 'ماشین مثل روز اولش شد ✨' : a === 'eng' ? 'موتور ارتقا پیدا کرد! 🏎️' : 'باک بزرگ‌تر نصب شد ⛽', 'good');
             g.save();
@@ -722,6 +787,32 @@ export class UI {
       };
     });
   }
+  cycleRadio() {
+    const g = this.g;
+    g.audio.init();
+    const i = (STATIONS.indexOf(g.radio || null) + 1) % STATIONS.length;
+    g.radio = STATIONS[i];
+    g.audio.setRadio(g.radio);
+    $('btnRadio').classList.toggle('active', !!g.radio);
+    this.toast(g.radio ? STATION_NAME[g.radio] : '📻 رادیو خاموش', 'info');
+  }
+  achievement(icon, title, reward) {
+    const el = document.createElement('div');
+    el.className = 'achpop';
+    el.innerHTML = `<span>${icon}</span><div><small>🏆 افتخار جدید!</small><b>${title}</b><em>+${fa(reward)} سکه 🪙</em></div>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add('out'), 3800);
+    setTimeout(() => el.remove(), 4500);
+  }
+  openAchievements() {
+    const g = this.g;
+    if (g.state !== 'play') return;
+    const n = g.ach.done().length, total = g.ach.list.length;
+    const s = g.stats;
+    this.panel(`<h2>🏆 افتخارات (${fa(n)} از ${fa(total)})</h2>
+      <div class="statrow"><span>🧳 ${fa(s.trips)} سفر</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
+      <div class="achs">${g.ach.html()}</div>`);
+  }
   openInventory() {
     const g = this.g;
     if (g.state !== 'play') return;
@@ -750,7 +841,7 @@ export class UI {
         <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option></select></label>
         <label>گیربکس <select data-s="auto"><option value="0">دستی</option><option value="1">خودکار</option></select></label>
         <label>حساسیت فرمان <input type="range" min="0.5" max="2" step="0.1" data-s="sens"></label>
-        <label><input type="checkbox" data-s="tilt"> فرمان با شیب گوشی</label>
+        <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
         <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۵ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • F ورود به پمپ/تعمیرگاه</div>
@@ -797,7 +888,10 @@ export class UI {
               location.reload();
             }
           }
-          if (k === 'tilt' && v && typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {});
+          if (k === 'steer') {
+            this.applySteerMode();
+            if (v === 'tilt' && typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {});
+          }
           g.saveSettings();
         };
       });

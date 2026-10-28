@@ -117,6 +117,7 @@ export class AudioSys {
     this.sGain.gain.setTargetAtTime(on ? 0.07 * vol : 0, this.ctx.currentTime, 0.1);
   }
   update(dt) {
+    this.updateRadio();
     if (!this.ctx || !this.sirenOn) return;
     this.sirenT += dt;
     const f = 700 + 420 * (0.5 + 0.5 * Math.sin(this.sirenT * Math.PI * 1.3));
@@ -176,6 +177,111 @@ export class AudioSys {
   bad() {
     this.tone(220, 0.25, 0.15, 'sawtooth');
     this.tone(180, 0.35, 0.15, 'sawtooth', 0.18);
+  }
+  /* ---------- weather ---------- */
+  setRain(level) {
+    if (!this.ctx) return;
+    if (!this.rainGain) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      src.loop = true;
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'highpass';
+      f.frequency.value = 1400;
+      this.rainGain = this.ctx.createGain();
+      this.rainGain.gain.value = 0;
+      src.connect(f).connect(this.rainGain).connect(this.master);
+      src.start();
+    }
+    this.rainGain.gain.setTargetAtTime(level * 0.12, this.ctx.currentTime, 0.5);
+  }
+  thunder() {
+    this.burst(2.8, 120, 'lowpass', 0.9);
+    this.burst(1.2, 400, 'lowpass', 0.4);
+  }
+
+  /* ---------- radio: procedurally generated music ---------- */
+  setRadio(station) {
+    this.station = station;
+    if (!this.ctx) return;
+    if (!this.radioGain) {
+      this.radioGain = this.ctx.createGain();
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 5200; // a bit "car speaker"
+      this.radioGain.connect(f).connect(this.master);
+    }
+    this.radioGain.gain.setTargetAtTime(station ? 0.5 : 0, this.ctx.currentTime, 0.1);
+    this.radioNext = this.ctx.currentTime + 0.1;
+    this.radioStep = 0;
+    this.melody = 0;
+  }
+  note(freq, t, dur, gain, type = 'triangle', attack = 0.005) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.radioGain);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+  drum(t, freq, dur, gain, type = 'lowpass') {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    const f = ctx.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.radioGain);
+    src.start(t, Math.random());
+    src.stop(t + dur + 0.05);
+  }
+  updateRadio() {
+    if (!this.ctx || !this.station || !this.enabled) return;
+    if (!this.radioGain) this.setRadio(this.station);
+    const ctx = this.ctx;
+    const hz = (semi, base = 220) => base * Math.pow(2, semi / 12);
+    while (this.radioNext < ctx.currentTime + 0.3) {
+      const t = this.radioNext, i = this.radioStep++;
+      if (this.station === 'pop') {
+        // Am - F - C - G at ~112 bpm, 8th-note grid
+        const step = 0.27;
+        const chords = [[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5]];
+        const ch = chords[Math.floor(i / 8) % 4];
+        if (i % 2 === 0) this.drum(t, 150, 0.25, 0.9); // kick
+        if (i % 4 === 2) this.drum(t, 1800, 0.18, 0.35, 'bandpass'); // snare
+        this.drum(t, 7000, 0.05, 0.12, 'highpass'); // hat
+        if (i % 2 === 0) this.note(hz(ch[0] - 12, 110), t, 0.45, 0.22, 'triangle'); // bass
+        this.note(hz(ch[i % 3] + 12), t, 0.22, 0.05, 'square'); // arpeggio
+        if (i % 8 === 0) for (const n of ch) this.note(hz(n), t, 2.0, 0.035, 'sawtooth', 0.08); // pad
+        if (Math.random() < 0.45) {
+          const scale = [0, 3, 5, 7, 10, 12, 15];
+          this.melody = Math.max(0, Math.min(6, this.melody + Math.floor(Math.random() * 3) - 1));
+          this.note(hz(scale[this.melody] + 12), t, 0.35, 0.08, 'sine');
+        }
+        this.radioNext += step;
+      } else {
+        // Persian "Shur" on D with quarter tones: santur tremolo + daf
+        const step = 0.17;
+        const shur = [0, 1.5, 3, 5, 6.5, 8, 10, 12, 13.5, 15];
+        if (i % 6 === 0) this.drum(t, 110, 0.35, 0.8);
+        if (i % 6 === 3) this.drum(t, 900, 0.15, 0.3, 'bandpass');
+        if (i % 6 === 5) this.drum(t, 2500, 0.08, 0.2, 'bandpass');
+        if (i % 3 === 0) this.melody = Math.max(0, Math.min(9, this.melody + Math.floor(Math.random() * 3) - 1 + (this.melody < 2 ? 1 : 0)));
+        const f = hz(shur[this.melody], 293.66);
+        this.note(f, t, 0.9, 0.09, 'triangle', 0.002);
+        this.note(f * 2, t, 0.4, 0.025, 'sine', 0.002);
+        if (i % 12 === 0) this.note(hz(-12, 293.66), t, 1.8, 0.08, 'triangle');
+        this.radioNext += step;
+      }
+    }
   }
   speak(text) {
     if (!this.voice || !this.enabled || !window.speechSynthesis) return;

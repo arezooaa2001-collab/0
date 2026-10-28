@@ -13,6 +13,9 @@ import { buildArrow } from './models.js';
 import { OnFoot, normalizeCode } from './onfoot.js';
 import { PassengerChat } from './chat.js';
 import { Arson } from './arson.js';
+import { Weather } from './weather.js';
+import { Pickups } from './pickups.js';
+import { Achievements } from './achievements.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -45,7 +48,7 @@ class Game {
     this.time = 0;
     this.driverLook = { female: false, shirt: 0x34495e, pants: 0x222831, mustache: true, skin: 0xe0ac86, hair: 0x1a1210 };
     this.settings = Object.assign(
-      { quality: matchMedia('(pointer: coarse)').matches ? 'medium' : 'high', sound: true, voice: true, sens: 1, tilt: false, auto: false, cam: 'third' },
+      { quality: matchMedia('(pointer: coarse)').matches ? 'medium' : 'high', sound: true, voice: true, sens: 1, steer: 'buttons', auto: false, cam: 'third' },
       JSON.parse(localStorage.getItem(SET_KEY) || '{}')
     );
   }
@@ -70,6 +73,7 @@ class Game {
     renderer.toneMappingExposure = 1.0;
     const scene = (this.scene = new THREE.Scene());
     scene.fog = new THREE.Fog(0xbcd2e6, 160, q === 'low' ? 800 : q === 'medium' ? 1050 : 1350);
+    this.fogFar = scene.fog.far;
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 3200);
     this.sky = new Sky();
     scene.add(this.sky.mesh);
@@ -111,6 +115,9 @@ class Game {
     this.onfoot = new OnFoot(this);
     this.chat = new PassengerChat(this);
     this.arson = new Arson(this);
+    this.weather = new Weather(this);
+    this.pickups = new Pickups(this);
+    this.ach = new Achievements(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -118,6 +125,7 @@ class Game {
       dust: new Particles(scene, { max: 260, color: 0xc9b08a }),
       exhaust: new Particles(scene, { max: 120, color: 0x9a9a9a }),
       spark: new Particles(scene, { max: 120, color: 0xffb040, additive: true }),
+      nitro: new Particles(scene, { max: 160, color: 0x5aa8ff, additive: true }),
     };
     // nav screen in the dashboard shows the minimap
     const tex = new THREE.CanvasTexture(this.ui.mm);
@@ -151,7 +159,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.health, engine: p.engineLevel,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.health, engine: p.engineLevel, paint: p.paintHex || null, nitro: p.nitro,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -167,6 +175,8 @@ class Game {
     if (d) {
       this.money = d.money; this.coins = d.coins || 0; this.day = d.day; this.hour = d.hour; this.stats = d.stats;
       p.fuel = d.fuel; p.superFuel = d.superFuel; p.tank = d.tank; p.health = d.health; p.engineLevel = d.engine;
+      if (d.paint) p.setPaint(d.paint);
+      if (d.nitro !== undefined) p.nitro = d.nitro;
       this.hasSave = true;
       if (this.world.roadDist(d.x, d.z) < 9) {
         p.placeAt(d.x, d.z, d.h);
@@ -256,6 +266,7 @@ class Game {
       p.car.doors.fl.target = 0;
       const paid = this.police.arrestDone();
       this.day += 10;
+      this.stats.jailed = (this.stats.jailed || 0) + 1;
       this.hour = 9;
       this.state = 'play';
       this.ui.setHud(true);
@@ -383,7 +394,7 @@ class Game {
       const e = new THREE.Euler(-0.19 + this.lookPitch, Math.PI + this.lookYaw - p.steer * 0.25, 0, 'YXZ');
       q.multiply(new THREE.Quaternion().setFromEuler(e));
       cam.quaternion.copy(q);
-      cam.fov = damp(cam.fov, 76 + spd * 0.12, 3, dt);
+      cam.fov = damp(cam.fov, 76 + spd * 0.12 + (p.nitroOn ? 10 : 0), 3, dt);
     } else {
       const far = this.camMode === 'far';
       const dist = far ? 13 : 7.4, hgt = far ? 5.2 : 2.7;
@@ -410,7 +421,7 @@ class Game {
       const look = base.clone().addScaledVector(fwd, 2.5);
       look.y += 1.3;
       cam.lookAt(look);
-      cam.fov = damp(cam.fov, 60 + spd * 0.25, 3, dt);
+      cam.fov = damp(cam.fov, 60 + spd * 0.25 + (p.nitroOn ? 14 : 0), 3, dt);
     }
     this.camInit = false;
     if (this.shake > 0) {
@@ -631,6 +642,13 @@ class Game {
     fx.dust.update(dt);
     fx.exhaust.update(dt);
     fx.spark.update(dt, 9.8);
+    if (p.nitroOn) {
+      for (const side of [0.5, 0.35]) {
+        const x = p.pos.x - s * 2.4 + c * side, z = p.pos.z - c * 2.4 - s * side;
+        fx.nitro.emit(x, p.y + 0.3, z, -s * 6 + (Math.random() - 0.5), 0.3, -c * 6 + (Math.random() - 0.5), 0.25, 0.45, -0.5, 0.9, 1);
+      }
+    }
+    fx.nitro.update(dt);
   }
   crashFx(e) {
     const p = this.player;
@@ -692,6 +710,7 @@ class Game {
       this.ui.toast(`🌅 روز ${fa(this.day)} شروع شد`, 'info');
     }
     this.updateEnv(dt);
+    this.weather.update(dt);
     this.world.update(dt, this.env, this.time);
     const inp = this.ui.input();
     const driving = st === 'play' && !this.onfoot.active && !this.onfoot.busy;
@@ -711,6 +730,10 @@ class Game {
     this.police.update(dt);
     if (this.state === 'jail') return;
     this.arson.update(dt);
+    if (st === 'play') {
+      this.pickups.update(dt);
+      this.ach.track(dt);
+    }
     this.rides.update(dt);
     this.chat.update(dt);
     this.peds.update(dt);

@@ -447,10 +447,22 @@ export function buildCar(opts = {}) {
   ws.renderOrder = 5;
   const rw = quad([W - 0.06, P.belt + 0.005, P.rwZ], [-(W - 0.06), P.belt + 0.005, P.rwZ], [-(W - 0.1), P.roof - 0.005, P.roofR], [W - 0.1, P.roof - 0.005, P.roofR], pname === 'van' ? paint : glass, body);
   rw.renderOrder = 5;
-  // wipers
-  for (const x of [0.35, -0.15]) {
-    const wp = box(0.55, 0.012, 0.02, mats.trim, x, P.belt + 0.02, P.wsZ - 0.03, body);
-    wp.rotation.z = 0.08;
+  // wipers (animated on the player's car)
+  const wipers = [];
+  const wsDir = new THREE.Vector3(0, P.roof - P.belt, P.roofF - P.wsZ).normalize();
+  const wsN = new THREE.Vector3(1, 0, 0).cross(wsDir).normalize();
+  for (const x of [0.66, 0.02]) {
+    const pv = new THREE.Group();
+    pv.position.set(x, P.belt + 0.035, P.wsZ - 0.045);
+    const arm = new THREE.Group();
+    pv.add(arm);
+    box(0.6, 0.014, 0.022, mats.trim, -0.3, 0, 0, arm);
+    box(0.56, 0.02, 0.012, mats.rubber, -0.3, -0.012, 0.004, arm);
+    if (interior) {
+      pv.userData.noMerge = true;
+      root.add(pv);
+    } else body.add(pv);
+    wipers.push(arm);
   }
 
   // --- face details
@@ -511,7 +523,7 @@ export function buildCar(opts = {}) {
     }
   }
 
-  const out = { root, body, wheels, doors, P, type, paint };
+  const out = { root, body, wheels, doors, P, type, paint, wipers, wsN };
 
   // --- type specific roof equipment
   if (type === 'taxi') {

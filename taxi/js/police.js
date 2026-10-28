@@ -224,6 +224,7 @@ export class Police {
       this.state = 'none';
       g.ui.setWanted(false);
       g.ui.toast('🎉 پلیس رو گم کردی! ولی حواست باشه...', 'good');
+      g.stats.escapes = (g.stats.escapes || 0) + 1;
     }
   }
 
