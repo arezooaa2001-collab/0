@@ -1,12 +1,14 @@
 'use strict';
-/* Game controller: HUD, input, progression, saving, travel between gym / island / places / arena */
+/* Game controller: HUD, input, progression, saving, travel between worlds and the arena.
+ * Shop, missions, medals, map, race and the boost code live in features.js. */
 
 const SAVE_KEY = 'zoor-gym-save-v1';
 
 const Game = {
   save: null,
   mode: 'menu', // menu | play | arena | transition
-  where: 'gym', // gym | island | place
+  where: 'gym', // gym | island | place | env
+  envId: null,
   keys: new Set(),
   joy: { x: 0, y: 0, id: null },
   camDrag: new Map(),
@@ -18,12 +20,17 @@ const Game = {
   pendingJump: false,
   errorShown: false,
   places: new Map(),
+  envs: new Map(),
   aiBusy: false,
+  customMoves: [],
+  race: null,
+  pet: null,
 
   loadSave() {
     const d = {
       level: 1, xp: 0, stage: 1, unlocked: false, muted: false, color: 0, wins: 0, losses: 0,
       name: '', npcs: null, mode: 'walk', runLevel: 1, runXp: 0, islandSeen: false,
+      coins: 0, music: false, tab: 'base', achievements: [], missions: [],
     };
     const s = Store.get(SAVE_KEY, null);
     this.save = Object.assign(d, s && typeof s === 'object' ? s : {});
@@ -33,8 +40,19 @@ const Game = {
     v.runLevel = Math.max(1, Math.floor(Number(v.runLevel) || 1));
     v.runXp = Math.max(0, Number(v.runXp) || 0);
     v.stage = Math.max(1, Math.floor(Number(v.stage) || 1));
+    v.coins = Math.max(0, Math.floor(Number(v.coins) || 0));
     v.color = clamp(Math.floor(Number(v.color) || 0), 0, PLAYER_COLORS.length - 1);
     if (!['walk', 'run', 'jumprun'].includes(v.mode)) v.mode = 'walk';
+    if (!['base', 'new', 'env', 'ai'].includes(v.tab)) v.tab = 'base';
+    const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+    v.shop = Object.assign({ owned: [], shirt: null, band: null, aura: null, pet: null }, obj(v.shop));
+    if (!Array.isArray(v.shop.owned)) v.shop.owned = [];
+    v.stats = Object.assign({ reps: 0, moves: {}, visited: [], raceWins: 0, coinsEarned: 0, maxCombo: 0, missionsDone: 0, equipReps: 0 }, obj(v.stats));
+    v.stats.moves = obj(v.stats.moves);
+    if (!Array.isArray(v.stats.visited)) v.stats.visited = [];
+    v.boost = Object.assign({ used: false, until: 0 }, obj(v.boost));
+    if (!Array.isArray(v.achievements)) v.achievements = [];
+    if (!Array.isArray(v.missions)) v.missions = [];
   },
 
   persist() {
@@ -44,7 +62,12 @@ const Game = {
   },
 
   playerName() { return this.save.name || 'قهرمان'; },
-  stats() { return { level: this.save.level, runLevel: this.save.runLevel }; },
+
+  /** Strength level including the temporary 1919 boost. */
+  lv() { return this.save.level + (this.boostActive() ? BOOST_LEVELS : 0); },
+  boostActive() { return Date.now() < (this.save.boost.until || 0); },
+  stats() { return { level: this.lv(), runLevel: this.save.runLevel, speedMult: this.owns('shoes') ? 1.15 : 1 }; },
+  envKey() { return this.where === 'env' ? this.envId : this.where; },
 
   /* ---------------- boot ---------------- */
 
@@ -72,16 +95,18 @@ const Game = {
     Sfx.setMuted(this.save.muted);
     this.gym = new GymWorld();
     this.gym.spawnNpcs(NPC_NAMES, this.save.npcs);
-    this.player = createPlayer({ shirt: PLAYER_COLORS[this.save.color] }, this.save.level);
+    this.player = createPlayer(this.outfit(), this.lv());
     this.player.mode = this.save.mode;
     this.gym.enter(this.player);
     this.world = this.gym;
     this.gym.onTowerDone = (lvl, rang) => this.towerResult(lvl, rang);
     this.arena = new Arena();
+    this.attachPet();
 
     this.buildMoves();
     this.bindUi();
     this.bindInput();
+    this.ensureMissions();
     Creations.onChange((items) => this.onCreations(items));
     Creations.init();
     this.refreshHud(true);
@@ -107,13 +132,14 @@ const Game = {
 
   /* ---------------- moves panel ---------------- */
 
-  isUnlocked(m) { return m.custom || this.save.unlocked || this.save.level >= m.level; },
+  isUnlocked(m) { return m.custom || this.save.unlocked || this.lv() >= m.level; },
 
   moveButton(m) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'mv-btn' + (m.toggle ? ' toggle' : '') + (m.equip ? ' equip' : '') + (m.custom ? ' custom' : '');
     b.dataset.id = m.id;
+    b.dataset.cat = m.custom ? 'ai' : m.cat;
     b.innerHTML = `<span class="mv-icon"></span><span class="mv-name"></span><span class="mv-sub"></span><span class="mv-lock">🔒 سطح ${fa(m.level || 1)}</span>`;
     b.querySelector('.mv-icon').textContent = m.icon;
     b.querySelector('.mv-name').textContent = m.name;
@@ -130,7 +156,14 @@ const Game = {
       grid.appendChild(b);
       this.moveBtns[m.id] = b;
     }
-    this.customMoves = [];
+    this.setTab(this.save.tab);
+  },
+
+  setTab(tab) {
+    this.save.tab = tab;
+    $('moveGrid').dataset.tab = tab;
+    document.querySelectorAll('.mv-tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === tab));
+    $('moveGrid').scrollTop = 0;
   },
 
   /** Exercises the AI made show up as extra buttons that work anywhere. */
@@ -145,19 +178,23 @@ const Game = {
       grid.appendChild(b);
       this.moveBtns[m.id] = b;
     }
+    $('tabAi').hidden = !this.customMoves.length;
     this.refreshMoves();
   },
 
   nearEquip(type) {
-    if (this.world !== this.gym) return null;
-    const r = this.gym.nearestStation((s) => s.equip === type);
+    if (EQUIP[type].env !== this.envKey()) return null;
+    const r = this.world.nearestStation((s) => s.equip === type);
     return r && r.d < 2.4 ? r.s : null;
   },
+
+  envName(env) { return env === 'gym' ? 'باشگاه' : (ENV_BY_ID[env] ? ENV_BY_ID[env].name : env); },
 
   refreshMoves() {
     const P = this.player;
     const busy = !this.world.canAct();
     const mult = xpMult(this.save.level);
+    const here = this.envKey();
     for (const m of [...MOVES, ...this.customMoves]) {
       const b = this.moveBtns[m.id];
       if (!b) continue;
@@ -169,9 +206,11 @@ const Game = {
       if (m.toggle) sub = P.mode === m.id ? 'روشن' : 'خاموش';
       else if (m.custom) sub = effectText(m.effect);
       else if (m.equip) {
-        const near = this.nearEquip(m.equip);
+        const env = EQUIP[m.equip].env;
+        const near = env === here ? this.nearEquip(m.equip) : null;
         b.classList.toggle('near', !!near);
-        sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : `📍 ${EQUIP[m.equip].name}`;
+        b.classList.toggle('here', env === here);
+        sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : env === here ? `📍 ${EQUIP[m.equip].name}` : `🗺️ ${this.envName(env)}`;
       } else sub = `${fa(Math.round(m.xp * mult))} زور`;
       const subEl = b.querySelector('.mv-sub');
       if (subEl.textContent !== sub) subEl.textContent = sub;
@@ -187,7 +226,7 @@ const Game = {
   },
 
   onMove(m) {
-    if (this.mode !== 'play' || this.modals.size) return;
+    if (this.mode !== 'play' || this.modals.size || this.race) return;
     Sfx.init();
     if (!this.isUnlocked(m)) {
       Sfx.play('error');
@@ -208,21 +247,24 @@ const Game = {
     const since = this.clock - this.lastExerciseEnd;
     let started;
     if (m.equip) {
-      if (this.world !== this.gym) {
+      const env = EQUIP[m.equip].env;
+      if (env !== this.envKey()) {
         Sfx.play('error');
-        this.toast(`«${m.name}» فقط با ${EQUIP[m.equip].name}ـِ باشگاه انجام می‌شه.`, 'warn');
+        const e = ENV_BY_ID[env];
+        const lock = e && this.lv() < e.level ? ` (از سطح ${fa(e.level)} باز می‌شه)` : '';
+        this.toast(`«${m.name}» با ${EQUIP[m.equip].name} انجام می‌شه. برو به «${this.envName(env)}»${lock}. از دکمه‌ی نقشه 🗺️`, 'warn');
         return;
       }
       const st = this.nearEquip(m.equip);
       if (!st) {
-        const r = this.gym.nearestStation((s) => s.equip === m.equip);
+        const r = this.world.nearestStation((s) => s.equip === m.equip);
         Sfx.play('error');
         this.shakeBtn(m.id);
-        this.toast(`برای «${m.name}» باید بری سراغ ${EQUIP[m.equip].name} (${EQUIP[m.equip].where}). دنبال فلش سبز برو!`, 'warn');
-        if (r) this.gym.guideTo(r.s);
+        this.toast(`برای «${m.name}» برو سراغ ${EQUIP[m.equip].name}. دنبال فلش سبز برو!`, 'warn');
+        if (r) this.world.guideTo(r.s);
         return;
       }
-      started = this.gym.useStation(st, m.id, () => this.exerciseDone(m));
+      started = this.world.useStation(st, m.id, () => this.exerciseDone(m));
     } else if (m.custom) {
       started = this.world.playerDo(m.anim, () => this.customDone(m.name, m.effect));
     } else {
@@ -231,6 +273,7 @@ const Game = {
     if (!started) return;
     Sfx.play('click');
     this.combo = since <= 1.6 ? Math.min(10, this.combo + 1) : 0;
+    this.noteCombo(this.combo);
     this.refreshMoves();
   },
 
@@ -239,6 +282,7 @@ const Game = {
     const mult = 1 + this.combo * 0.1;
     this.gainXp(Math.round(m.xp * mult * xpMult(this.save.level)));
     if (m.run) this.gainRun(Math.round(m.run * mult));
+    this.noteRep(m);
     this.refreshMoves();
   },
 
@@ -255,6 +299,7 @@ const Game = {
       if (effect.stat === 'run') { this.gainRun(effect.xp); this.floatText(`+${fa(effect.xp)}`, 'fl-run'); }
       else this.gainXp(effect.xp);
     }
+    this.noteRep({ id: 'ai', level: 10 });
     this.refreshMoves();
   },
 
@@ -264,6 +309,8 @@ const Game = {
   gainXp(amount, kind = 'exercise') {
     if (!(amount > 0)) return;
     const s = this.save;
+    if (kind !== 'reward' && this.drinkActive()) amount *= 2;
+    amount = Math.round(amount * 10) / 10;
     s.xp += amount;
     if (kind === 'run') {
       this.runXpShown += amount;
@@ -272,7 +319,7 @@ const Game = {
         this.runXpShown -= Math.floor(this.runXpShown);
       }
     } else if (kind === 'exercise') {
-      this.floatText(`+${fa(amount)}`, this.combo > 0 ? 'fl-combo' : '');
+      this.floatText(`+${fa(Math.round(amount))}`, this.combo > 0 || this.drinkActive() ? 'fl-combo' : '');
       Sfx.play('xp');
     }
     const from = s.level;
@@ -305,7 +352,7 @@ const Game = {
       s.runXp -= runNeed(s.runLevel);
       s.runLevel++;
     }
-    if (s.runLevel > from) this.toast(`🏃 سطح دویدن ${fa(s.runLevel)}! سریع‌تر شدی`, 'gold');
+    if (s.runLevel > from) { this.toast(`🏃 سطح دویدن ${fa(s.runLevel)}! سریع‌تر شدی`, 'gold'); this.checkAchievements(); }
     this.refreshHud();
   },
 
@@ -313,33 +360,38 @@ const Game = {
     this.save.runLevel += n;
     this.toast(`🏃 +${fa(n)} سطح دویدن! حالا سطح ${fa(this.save.runLevel)}`, 'gold');
     this.persist();
+    this.checkAchievements();
     this.refreshHud();
   },
 
   levelsGained(from, to) {
     Sfx.play('levelup');
     const b = $('levelBanner');
-    b.innerHTML = `<small>سطح زور</small><b>${fa(to)}</b>`;
+    b.innerHTML = `<small>سطح زور</small><b>${fa(to + (this.boostActive() ? BOOST_LEVELS : 0))}</b>`;
     b.classList.remove('show');
     void b.offsetWidth;
     b.classList.add('show');
-    setPlayerLevelLook(this.player, to);
+    setPlayerLevelLook(this.player, this.lv());
     this.refreshMoves();
     if (this.mode === 'play') {
       const p = this.player.ch.root.position;
       this.world.fx.ring({ x: p.x, y: 0.2, z: p.z }, { count: 70, color: '#ffc23d', radius: 0.5, speed: 6, life: 0.9 });
       this.world.fx.burst({ x: p.x, y: 1.4, z: p.z }, { count: 60, colors: ['#ffc23d', '#ffffff', '#ff7b00'], speed: 3, up: 4, life: 1.4 });
     }
-    if (!this.save.unlocked) {
+    if (!this.save.unlocked && !this.boostActive()) {
       const opened = MOVES.filter((m) => m.level > from && m.level <= to);
       if (opened.length === 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 «${opened[0].name}» باز شد!`, 'gold'); }, 700);
       else if (opened.length > 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 ${fa(opened.length)} حرکت جدید باز شد!`, 'gold'); }, 700);
+      const envs = ENVS.filter((e) => e.level > from && e.level <= to);
+      for (const e of envs) setTimeout(() => this.toast(`🗺️ «${e.name}» باز شد! از دکمه‌ی نقشه برو`, 'gold'), 1200);
     }
     if (from < ISLAND_LEVEL && to >= ISLAND_LEVEL) {
-      setTimeout(() => { Sfx.play('win'); this.toast('🌥️ جزیره‌ی ابرها باز شد! برو سراغ دروازه‌ی ابری کنار در سالن کشتی', 'gold'); }, 1500);
+      setTimeout(() => { Sfx.play('win'); this.toast('🌥️ جزیره‌ی ابرها باز شد! از نقشه یا دروازه‌ی ابری کنار در سالن کشتی برو', 'gold'); }, 1500);
     }
     const next = opponentFor(this.save.stage);
     if (from < next.level && to >= next.level) setTimeout(() => this.toast(`💪 هم‌زور «${next.name}» شدی! دکمه‌ی آماده‌ام رو بزن`, 'gold'), 2200);
+    this.missionProgress('levels', to - from);
+    this.checkAchievements();
     this.persist();
   },
 
@@ -347,26 +399,29 @@ const Game = {
     const s = this.save;
     const need = xpNeed(s.level);
     const frac = clamp(s.xp / need, 0, 1);
-    const key = `${s.level}|${Math.floor(s.xp)}|${s.stage}|${s.muted}|${s.runLevel}|${Math.floor(s.runXp)}`;
+    const boost = this.boostActive();
+    const key = `${s.level}|${Math.floor(s.xp)}|${s.stage}|${s.muted}|${s.runLevel}|${Math.floor(s.runXp)}|${s.coins}|${boost}`;
     if (force || key !== this.hudKey) {
       this.hudKey = key;
-      $('lvlNum').textContent = fa(s.level);
+      $('lvlNum').textContent = fa(this.lv());
+      $('lvlNum').classList.toggle('boosted', boost);
       $('xpFill').style.width = `${frac * 100}%`;
       $('xpText').textContent = `${fa(Math.floor(s.xp))} / ${fa(need)}`;
       $('runText').textContent = `🏃 سطح دویدن ${fa(s.runLevel)}`;
       $('runFill').style.width = `${clamp(s.runXp / runNeed(s.runLevel), 0, 1) * 100}%`;
+      $('coinText').textContent = fa(s.coins);
       const opp = opponentFor(s.stage);
       $('readySub').textContent = `مرحله‌ی ${fa(s.stage)} • حریف سطح ${fa(opp.level)}`;
-      $('readyBtn').classList.toggle('hot', s.level >= opp.level);
+      $('readyBtn').classList.toggle('hot', this.lv() >= opp.level);
       $('soundBtn').textContent = s.muted ? '🔇' : '🔊';
-      $('islandBtn').classList.toggle('locked', s.level < ISLAND_LEVEL);
+      this.renderMissionChip();
     }
     if (force || this.clock - (this.rankT || 0) > 1) {
       this.rankT = this.clock;
-      const rows = this.gym.leaderboard(this.playerName(), s.level, s.xp);
+      const rows = this.gym.leaderboard(this.playerName(), this.lv(), s.xp);
       const rank = rows.findIndex((r) => r.isPlayer) + 1;
       $('rankText').textContent = `رتبه ${fa(rank)} از ${fa(rows.length)}`;
-      this.gym.drawBoards({ level: s.level, frac, rank, total: rows.length }, rows);
+      this.gym.drawBoards({ level: this.lv(), frac, rank, total: rows.length }, rows);
     }
   },
 
@@ -388,7 +443,7 @@ const Game = {
     const ch = this.player.ch;
     const v = new THREE.Vector3();
     ch.root.getWorldPosition(v);
-    v.y += 2.1 + ch.airY;
+    v.y += 2.1 + ch.airY + (cls === 'fl-coin' ? 0.4 : 0);
     v.project(this.camera);
     if (v.z > 1) return;
     const el = document.createElement('div');
@@ -399,6 +454,19 @@ const Game = {
     el.style.top = `${(-v.y * 0.5 + 0.5) * 100}%`;
     $('floaters').appendChild(el);
     setTimeout(() => el.remove(), 1300);
+  },
+
+  showBanner(small, big) {
+    const b = $('levelBanner');
+    b.innerHTML = '';
+    const s = document.createElement('small');
+    s.textContent = small;
+    const g = document.createElement('b');
+    g.textContent = big;
+    b.append(s, g);
+    b.classList.remove('show');
+    void b.offsetWidth;
+    b.classList.add('show');
   },
 
   openModal(id) {
@@ -412,7 +480,30 @@ const Game = {
     this.modals.delete(id);
   },
 
-  /* ---------------- start / menus ---------------- */
+  /* ---------------- start ---------------- */
+
+  outfit() {
+    const sh = this.save.shop;
+    return {
+      shirt: sh.shirt && SHOP_BY_ID[sh.shirt] ? SHOP_BY_ID[sh.shirt].color : PLAYER_COLORS[this.save.color],
+      band: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+    };
+  },
+
+  /** Rebuild the player's character (new clothes) in place. */
+  rebuildPlayer() {
+    const old = this.player;
+    const pos = old.ch.root.position.clone();
+    const yaw = old.ch.root.rotation.y;
+    this.releasePlayer();
+    this.world.scene.remove(old.ch.root);
+    this.world.scene.remove(old.arrow);
+    this.player = createPlayer(this.outfit(), this.lv());
+    this.player.mode = old.mode;
+    const cam = Object.assign({}, this.world.cam);
+    this.world.enter(this.player, { x: pos.x, z: pos.z, yaw });
+    Object.assign(this.world.cam, cam);
+  },
 
   openStart() {
     this.mode = 'menu';
@@ -428,18 +519,14 @@ const Game = {
       b.setAttribute('aria-label', 'رنگ ' + fa(i + 1));
       b.addEventListener('click', () => {
         this.save.color = i;
+        this.save.shop.shirt = null;
         sw.querySelectorAll('.swatch').forEach((x, j) => x.classList.toggle('on', j === i));
-        this.gym.scene.remove(this.player.ch.root);
-        this.gym.scene.remove(this.player.arrow);
-        const mode = this.player.mode;
-        this.player = createPlayer({ shirt: c }, this.save.level);
-        this.player.mode = mode;
-        this.gym.enter(this.player);
+        this.rebuildPlayer();
       });
       sw.appendChild(b);
     });
     $('startStats').textContent = this.save.level > 1 || this.save.stage > 1
-      ? `ادامه‌ی بازی: سطح زور ${fa(this.save.level)} • مرحله‌ی کشتی ${fa(this.save.stage)}`
+      ? `ادامه‌ی بازی: سطح زور ${fa(this.save.level)} • مرحله‌ی کشتی ${fa(this.save.stage)} • 🪙 ${fa(this.save.coins)}`
       : '';
     this.openModal('startModal');
   },
@@ -451,109 +538,11 @@ const Game = {
     this.closeModal('startModal');
     $('hud').hidden = false;
     this.mode = 'play';
+    if (this.save.music) Sfx.music(true);
     this.persist();
     this.refreshHud(true);
     this.refreshMoves();
     this.toast(`سلام ${this.playerName()}! تمرین رو شروع کن 💪`, 'gold');
-  },
-
-  openCode() {
-    $('codeInput').value = '';
-    $('codeMsg').textContent = '';
-    $('codeMsg').className = 'code-msg';
-    this.openModal('codeModal');
-    setTimeout(() => $('codeInput').focus(), 50);
-  },
-
-  submitCode() {
-    const v = digitsOnly($('codeInput').value);
-    const msg = $('codeMsg');
-    if (v === UNLOCK_CODE) {
-      const already = this.save.unlocked;
-      this.save.unlocked = true;
-      this.persist();
-      Sfx.play('unlock');
-      msg.textContent = already ? 'همه‌ی حرکت‌ها از قبل باز بودند ✅' : '🔓 همه‌ی حرکت‌های ورزشی باز شد!';
-      msg.className = 'code-msg ok';
-      this.refreshMoves();
-      if (!already) {
-        const p = this.player.ch.root.position;
-        this.world.fx.burst({ x: p.x, y: 1.5, z: p.z }, { count: 120, colors: ['#ffc23d', '#2ecc71', '#2f6fed', '#e63946', '#ffffff'], speed: 5, up: 5, life: 1.6 });
-        setTimeout(() => { this.closeModal('codeModal'); this.toast('🔓 همه‌ی حرکت‌ها باز شد! امتحانشون کن', 'gold'); }, 900);
-      }
-    } else {
-      Sfx.play('error');
-      msg.textContent = v ? 'کد اشتباهه. دوباره امتحان کن.' : 'اول کد رو بنویس.';
-      msg.className = 'code-msg bad';
-      const card = $('codeModal').querySelector('.card');
-      card.classList.remove('shake');
-      void card.offsetWidth;
-      card.classList.add('shake');
-    }
-  },
-
-  openHelp() {
-    const list = $('unlockList');
-    list.innerHTML = '';
-    for (const m of [...MOVES].sort((a, b) => a.level - b.level)) {
-      const li = document.createElement('li');
-      const un = this.isUnlocked(m);
-      li.className = un ? 'open' : '';
-      const a = document.createElement('span');
-      a.textContent = `${m.icon} ${m.name}${m.equip ? ' 📍' : ''}`;
-      const b = document.createElement('span');
-      b.textContent = `${m.level <= 1 ? 'از اول باز' : 'سطح ' + fa(m.level)} ${un ? '✅' : '🔒'}`;
-      li.append(a, b);
-      list.appendChild(li);
-    }
-    this.openModal('helpModal');
-  },
-
-  openBoard() {
-    const rows = this.gym.leaderboard(this.playerName(), this.save.level, this.save.xp);
-    const tb = $('boardRows');
-    tb.innerHTML = '';
-    rows.forEach((r, i) => {
-      const tr = document.createElement('tr');
-      if (r.isPlayer) tr.className = 'me';
-      for (const t of [fa(i + 1), (r.isPlayer ? '⭐ ' : '') + r.name, fa(r.level)]) {
-        const td = document.createElement('td');
-        td.textContent = t;
-        tr.appendChild(td);
-      }
-      tb.appendChild(tr);
-    });
-    this.openModal('boardModal');
-    const me = tb.querySelector('.me');
-    if (me) setTimeout(() => me.scrollIntoView({ block: 'center' }), 30);
-  },
-
-  openReady() {
-    if (this.mode !== 'play' || this.where !== 'gym') return;
-    Sfx.init();
-    const s = this.save;
-    const opp = opponentFor(s.stage);
-    $('rdStage').textContent = s.stage <= MAIN_STAGES ? `مرحله‌ی ${fa(s.stage)} از ${fa(MAIN_STAGES)}` : `چالش بی‌پایان • مرحله‌ی ${fa(s.stage)}`;
-    $('rdOppName').textContent = opp.name;
-    $('rdOppTitle').textContent = opp.title;
-    $('rdOppLvl').textContent = fa(opp.level);
-    $('rdMeName').textContent = this.playerName();
-    $('rdMeLvl').textContent = fa(s.level);
-    const dots = $('rdDots');
-    dots.innerHTML = '';
-    for (let i = 1; i <= MAIN_STAGES; i++) {
-      const d = document.createElement('span');
-      d.className = 'dot' + (i < s.stage ? ' done' : '') + (i === s.stage ? ' now' : '');
-      d.textContent = fa(i);
-      dots.appendChild(d);
-    }
-    const adv = $('rdAdvice');
-    const diff = s.level - opp.level;
-    if (diff >= 3) { adv.textContent = '🔥 تو از حریف قوی‌تری. برو بخورش!'; adv.className = 'advice good'; }
-    else if (diff >= 0) { adv.textContent = '✅ زورت به حریف می‌رسه. با سرعت زور بزن و فن‌ها رو به‌موقع بزن!'; adv.className = 'advice good'; }
-    else if (diff >= -2) { adv.textContent = '⚠️ حریف یه کم از تو قوی‌تره. می‌تونی بری، ولی سخته!'; adv.className = 'advice warn'; }
-    else { adv.textContent = `⛔ حریف ${fa(-diff)} سطح از تو قوی‌تره. بهتره اول بیشتر تمرین کنی.`; adv.className = 'advice bad'; }
-    this.openModal('readyModal');
   },
 
   /* ---------------- travel ---------------- */
@@ -575,6 +564,7 @@ const Game = {
       P.anchor = null;
     }
     P.ch.stopAction();
+    P.ch.root.position.y = 0;
   },
 
   getIsland() {
@@ -590,24 +580,46 @@ const Game = {
     let w = this.places.get(item.id);
     if (!w) {
       w = new PlaceWorld(item);
-      const names = [...NPC_NAMES].sort(() => Math.random() - 0.5).slice(0, 6);
-      w.spawnNpcs(names, null, [5, 45]);
+      w.spawnNpcs([...NPC_NAMES].sort(() => Math.random() - 0.5).slice(0, 6), null, [5, 45]);
       this.places.set(item.id, w);
     }
     return w;
   },
 
+  getEnv(id) {
+    let w = this.envs.get(id);
+    if (!w) {
+      w = buildEnv(id);
+      const e = ENV_BY_ID[id];
+      w.spawnNpcs([...NPC_NAMES].sort(() => Math.random() - 0.5).slice(0, 8), null, [e.level, e.level + 25]);
+      this.envs.set(id, w);
+    }
+    return w;
+  },
+
+  /** target: 'gym' | 'island' | 'place' (item = creation) | 'env' (item = env id) */
   travel(target, item) {
-    if (this.mode !== 'play') return;
-    if (target === 'island' && this.save.level < ISLAND_LEVEL) {
+    if (this.mode !== 'play' || this.race) return;
+    if (target === 'island' && this.lv() < ISLAND_LEVEL) {
       Sfx.play('error');
-      this.toast(`🔒 جزیره‌ی ابرها در سطح ${fa(ISLAND_LEVEL)} باز می‌شه. الان سطح ${fa(this.save.level)} هستی؛ خیلی تمرین کن!`, 'warn');
+      this.toast(`🔒 جزیره‌ی ابرها در سطح ${fa(ISLAND_LEVEL)} باز می‌شه. الان سطح ${fa(this.lv())} هستی؛ خیلی تمرین کن!`, 'warn');
       return;
+    }
+    if (target === 'env') {
+      const e = ENV_BY_ID[item];
+      if (!e) return;
+      if (this.lv() < e.level) {
+        Sfx.play('error');
+        this.toast(`🔒 «${e.name}» در سطح ${fa(e.level)} باز می‌شه.`, 'warn');
+        return;
+      }
+      if (this.where === 'env' && this.envId === item) return;
     }
     Sfx.init();
     Sfx.play('whoosh');
     const from = this.where;
     const fromItem = this.placeItem;
+    this.closeModal('mapModal');
     this.releasePlayer();
     this.mode = 'transition';
     this.fadeTo(() => {
@@ -620,13 +632,17 @@ const Game = {
         w = this.getIsland();
         if (from === 'place' && fromItem) {
           const pp = w.placePortals.find((p) => p.item.id === fromItem.id);
-          if (pp) at = { x: pp.x * 0.85, z: pp.z * 0.85, yaw: Math.atan2(-pp.x, -pp.z) };
+          if (pp) at = { x: pp.x * 0.85, z: pp.z * 0.85, yaw: Math.atan2(-pp.x, -pp.z), camYaw: Math.atan2(pp.x, pp.z) + 0.6 };
         }
-      } else w = this.getPlace(item);
+      } else if (target === 'env') w = this.getEnv(item);
+      else w = this.getPlace(item);
+      if (this.pet) this.world.scene.remove(this.pet.root);
       w.enter(this.player, at);
       this.world = w;
       this.where = target;
+      this.envId = target === 'env' ? item : null;
       this.placeItem = target === 'place' ? item : null;
+      this.attachPet();
       this.mode = 'play';
       this.updateWorldHud();
       this.refreshMoves();
@@ -634,7 +650,14 @@ const Game = {
         this.toast(this.save.islandSeen ? 'به جزیره‌ی ابرها خوش اومدی! 🌥️' : '🌥️ به جزیره‌ی ابرها رسیدی! برو پیش ربات وسط جزیره و هر وسیله‌ی ورزشی که دلت می‌خواد بساز.', 'gold');
         this.save.islandSeen = true;
       } else if (target === 'place') this.toast(`${item.icon} به «${item.name}» خوش اومدی!`, 'gold');
-      else this.toast('برگشتی باشگاه 💪');
+      else if (target === 'env') {
+        const e = ENV_BY_ID[item];
+        this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «مکان‌ها» هستن.`, 'gold');
+        if (!this.save.stats.visited.includes(item)) this.save.stats.visited.push(item);
+        this.missionProgress('visit', 1, item);
+        this.checkAchievements();
+        this.setTab('env');
+      } else this.toast('برگشتی باشگاه 💪');
       this.persist();
     });
   },
@@ -642,9 +665,7 @@ const Game = {
   updateWorldHud() {
     const inGym = this.where === 'gym';
     $('readyBtn').hidden = !inGym;
-    $('aiBtn').hidden = inGym;
-    $('islandBtn').textContent = inGym ? '🌥️' : '🏋️';
-    $('islandBtn').setAttribute('aria-label', inGym ? 'جزیره‌ی ابرها' : 'برگشت به باشگاه');
+    $('aiBtn').hidden = !(this.where === 'island' || this.where === 'place');
   },
 
   /* ---------------- wrestling ---------------- */
@@ -661,8 +682,10 @@ const Game = {
       $('hud').hidden = true;
       this.mode = 'arena';
       this.arena.start({
-        opp, playerLevel: s.level, playerName: this.playerName(),
+        opp, playerLevel: this.lv(), playerName: this.playerName(),
         playerOutfit: this.player.ch.o,
+        xpMult: xpMult(s.level),
+        onZoor: (amt) => this.gainXp(amt, 'reward'),
         onEnd: (r) => this.matchEnded(r, opp),
       });
     });
@@ -675,26 +698,36 @@ const Game = {
       criteria: 'امتیاز آخر', golden: 'امتیاز طلایی در وقت اضافه', decision: 'رأی داور',
     };
     const reward = Math.round((r.win ? 50 + 40 * opp.stage : 15 + 5 * opp.stage) * xpMult(s.level));
+    const levels = r.win ? 1 + Math.floor(opp.stage / 2) : 0;
+    const coins = r.win ? 25 * opp.stage : 5 * opp.stage;
     const lastMain = r.win && opp.stage === MAIN_STAGES;
     if (r.win) {
       s.wins++;
       s.stage = Math.max(s.stage, opp.stage + 1);
+      this.missionProgress('win', 1);
     } else s.losses++;
     $('resTitle').textContent = r.win ? (lastMain ? '👑 قهرمان افسانه‌ای شدی!' : '🏆 بردی!') : '😓 باختی!';
     $('resTitle').className = r.win ? 'res-title win' : 'res-title lose';
     $('resReason').textContent = (r.win ? 'برد با ' : 'باخت با ') + reasons[r.reason];
     $('resScore').innerHTML = `<span class="red">${fa(r.score.p)}</span><span class="vs">–</span><span class="blue">${fa(r.score.o)}</span>`;
     $('resNames').textContent = `${this.playerName()} در برابر ${opp.name}`;
-    $('resXp').textContent = `جایزه: ${fa(reward)} زور`;
+    const parts = [];
+    if (levels) parts.push(`+${fa(levels)} سطح زور`);
+    parts.push(`+${fa(reward + (r.zoor || 0))} زور`);
+    parts.push(`🪙 ${fa(coins)}`);
+    $('resXp').textContent = 'جایزه: ' + parts.join(' • ');
     let tip;
     if (lastMain) tip = 'همه‌ی ۱۰ مرحله رو بردی! حالا چالش بی‌پایان شروع می‌شه.';
     else if (r.win) {
       const nx = opponentFor(s.stage);
       tip = `حریف بعدی قوی‌تره: ${nx.name} (${nx.title}) با سطح زور ${fa(nx.level)}`;
-    } else tip = 'برگرد باشگاه، زورت رو بیشتر کن و دوباره بیا!';
+    } else tip = 'زوری که توی همین کشتی گرفتی مال خودته. برگرد باشگاه، قوی‌تر شو و دوباره بیا!';
     $('resTip').textContent = tip;
     $('nextBtn').textContent = r.win ? '➡️ ادامه: مرحله‌ی بعد' : '🔁 دوباره کشتی بگیر';
     this.gainXp(reward, 'reward');
+    if (levels) this.addLevels(levels);
+    this.addCoins(coins);
+    this.checkAchievements();
     this.persist();
     this.openModal('resultModal');
   },
@@ -707,38 +740,65 @@ const Game = {
       this.arena.stop();
       this.mode = 'play';
       $('hud').hidden = false;
-      setPlayerLevelLook(this.player, this.save.level);
+      setPlayerLevelLook(this.player, this.lv());
       this.refreshHud(true);
       this.refreshMoves();
       this.toast('برگشتی باشگاه! زورت رو بیشتر کن 💪');
     });
   },
 
+  openReady() {
+    if (this.mode !== 'play' || this.where !== 'gym') return;
+    Sfx.init();
+    const s = this.save;
+    const opp = opponentFor(s.stage);
+    $('rdStage').textContent = s.stage <= MAIN_STAGES ? `مرحله‌ی ${fa(s.stage)} از ${fa(MAIN_STAGES)}` : `چالش بی‌پایان • مرحله‌ی ${fa(s.stage)}`;
+    $('rdOppName').textContent = opp.name;
+    $('rdOppTitle').textContent = opp.title;
+    $('rdOppLvl').textContent = fa(opp.level);
+    $('rdMeName').textContent = this.playerName();
+    $('rdMeLvl').textContent = fa(this.lv());
+    const dots = $('rdDots');
+    dots.innerHTML = '';
+    for (let i = 1; i <= MAIN_STAGES; i++) {
+      const d = document.createElement('span');
+      d.className = 'dot' + (i < s.stage ? ' done' : '') + (i === s.stage ? ' now' : '');
+      d.textContent = fa(i);
+      dots.appendChild(d);
+    }
+    const adv = $('rdAdvice');
+    const diff = this.lv() - opp.level;
+    if (diff >= 3) { adv.textContent = '🔥 تو از حریف قوی‌تری. برو بخورش!'; adv.className = 'advice good'; }
+    else if (diff >= 0) { adv.textContent = '✅ زورت به حریف می‌رسه. با سرعت زور بزن و فن‌ها رو به‌موقع بزن!'; adv.className = 'advice good'; }
+    else if (diff >= -2) { adv.textContent = '⚠️ حریف یه کم از تو قوی‌تره. می‌تونی بری، ولی سخته!'; adv.className = 'advice warn'; }
+    else { adv.textContent = `⛔ حریف ${fa(-diff)} سطح از تو قوی‌تره. بهتره اول بیشتر تمرین کنی.`; adv.className = 'advice bad'; }
+    this.openModal('readyModal');
+  },
+
   /* ---------------- context button (things you are standing next to) ---------------- */
 
   contextAction() {
     const w = this.world;
-    if (!w.canAct()) return null;
+    if (this.race || !w.canAct()) return null;
     if (w === this.gym) {
       if (w.nearTower() && w.tower.state === 'idle') return { label: '🔨 تست قدرت', run: () => this.strengthTest() };
       if (w.nearPortal()) {
-        const open = this.save.level >= ISLAND_LEVEL;
+        const open = this.lv() >= ISLAND_LEVEL;
         return { label: open ? '🌥️ برو به جزیره‌ی ابرها' : `🔒 جزیره‌ی ابرها • سطح ${fa(ISLAND_LEVEL)}`, run: () => this.travel('island') };
       }
-      const r = w.nearestStation((s) => !!s.equip);
-      if (r && r.d < 2.0) {
-        const m = MOVES.find((x) => x.equip === r.s.equip);
-        if (m) return { label: `${m.icon} ${m.name}`, run: () => this.onMove(m) };
-      }
-      return null;
-    }
-    if (w === this.island) {
+      if (this.nearRaceStart()) return { label: '🏁 مسابقه‌ی دو', run: () => this.startRace() };
+    } else if (w === this.island) {
       if (w.nearKiosk()) return { label: '🤖 با هوش مصنوعی حرف بزن', run: () => this.openAi() };
       if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
       const pp = w.nearPlace();
       if (pp) return { label: `${pp.item.icon} برو به ${pp.item.name}`, run: () => this.travel('place', pp.item) };
     } else if (w.nearHome && w.nearHome()) {
       return { label: '🌥️ برگشت به جزیره', run: () => this.travel('island') };
+    }
+    const eq = w.nearestStation((s) => !!s.equip);
+    if (eq && eq.d < 2.0) {
+      const m = MOVES.find((x) => x.equip === eq.s.equip);
+      if (m) return { label: `${m.icon} ${m.name}`, run: () => this.onMove(m) };
     }
     const r = w.nearestStation((s) => !!s.custom);
     if (r && r.d < 2.0) {
@@ -754,6 +814,7 @@ const Game = {
     if (this.world.useStation(st, item.anim, () => this.customDone(item.name, item.effect))) {
       Sfx.play('click');
       this.combo = since <= 1.6 ? Math.min(10, this.combo + 1) : 0;
+      this.noteCombo(this.combo);
     }
   },
 
@@ -767,142 +828,13 @@ const Game = {
   strengthTest() {
     if (this.mode !== 'play' || this.modals.size || this.world !== this.gym) return;
     Sfx.init();
-    if (this.gym.startStrengthTest(this.save.level)) Sfx.play('click');
+    if (this.gym.startStrengthTest(this.lv())) Sfx.play('click');
   },
 
   towerResult(level, rang) {
-    const rows = this.gym.leaderboard(this.playerName(), this.save.level, this.save.xp);
+    const rows = this.gym.leaderboard(this.playerName(), this.lv(), this.save.xp);
     const rank = rows.findIndex((r) => r.isPlayer) + 1;
     this.toast(rang ? `🔔 دینگ! قدرتت سطح ${fa(level)}ـه! تو یه هیولایی!` : `🔨 قدرت تو: سطح ${fa(level)} • رتبه ${fa(rank)} از ${fa(rows.length)}`, 'gold');
-  },
-
-  /* ---------------- AI builder ---------------- */
-
-  onCreations(items) {
-    if (this.island) this.island.setCreations(items);
-    this.setCustomMoves(items);
-    if (!$('aiModal').hidden) this.renderCreations();
-    if (this.where === 'place' && this.placeItem && !items.some((c) => c.id === this.placeItem.id)) {
-      // the place we are in was deleted: keep playing there, it just loses its portal
-    }
-  },
-
-  async openAi() {
-    if (this.save.level < ISLAND_LEVEL) {
-      this.toast(`🔒 سازنده‌ی هوش مصنوعی توی جزیره‌ی ابرهاست و در سطح ${fa(ISLAND_LEVEL)} باز می‌شه.`, 'warn');
-      return;
-    }
-    Sfx.init();
-    this.openModal('aiModal');
-    this.renderCreations();
-    const status = $('aiStatus');
-    status.textContent = 'در حال وصل شدن…';
-    const sample = await AI.connect();
-    const parts = [sample ? '🟢 هوش مصنوعی Claude وصله' : '⚪ حالت آفلاین: سازنده‌ی ساده (هوش مصنوعی واقعی وقتی کار می‌کنه که بازی داخل Claude باز شده باشه)'];
-    parts.push(Creations.db ? '🌐 ساخته‌ها بین همه‌ی بازیکن‌ها مشترکه' : '💾 ساخته‌ها روی همین دستگاه ذخیره می‌شه');
-    status.textContent = parts.join(' • ');
-    if (!$('aiLog').children.length) this.aiSay('bot', 'سلام! من سازنده‌ی جزیره‌ام 🤖 بگو چه وسیله‌ی ورزشی، چه ورزش جدیدی یا چه مکان ورزشی‌ای برات بسازم. هرچی بسازم بقیه‌ی ورزشکارها هم ازش استفاده می‌کنن!');
-    setTimeout(() => $('aiInput').focus(), 60);
-  },
-
-  aiSay(who, text, extra) {
-    const log = $('aiLog');
-    const el = document.createElement('div');
-    el.className = 'ai-msg ' + who;
-    const p = document.createElement('p');
-    p.textContent = text;
-    el.appendChild(p);
-    if (extra) el.appendChild(extra);
-    log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
-    return el;
-  },
-
-  async sendAi(textArg) {
-    const input = $('aiInput');
-    const text = (textArg || input.value).trim().slice(0, 400);
-    if (!text || this.aiBusy) return;
-    input.value = '';
-    this.aiSay('me', text);
-    this.aiBusy = true;
-    $('aiSend').disabled = true;
-    const wait = this.aiSay('bot wait', 'دارم می‌سازمش… 🛠️');
-    try {
-      const res = await AI.create(text);
-      wait.remove();
-      if (res.refuse) {
-        this.aiSay('bot', res.refuse);
-      } else {
-        const item = res.item;
-        item.author = this.playerName();
-        const shared = await Creations.add(item);
-        let extra = null;
-        if (item.kind === 'place') {
-          extra = document.createElement('button');
-          extra.type = 'button';
-          extra.className = 'chip-btn';
-          extra.textContent = `${item.icon} برو به ${item.name}`;
-          extra.addEventListener('click', () => { this.closeModal('aiModal'); this.travel('place', item); });
-        }
-        const where = item.kind === 'equipment' ? 'توی جزیره کنار بقیه‌ی وسیله‌ها گذاشتمش.' : item.kind === 'exercise' ? 'دکمه‌اش به حرکت‌های ورزشی اضافه شد.' : 'دروازه‌اش لب جزیره ساخته شد.';
-        const eff = item.effect ? ` (${effectText(item.effect)})` : '';
-        this.aiSay('bot', `${res.reply} ${item.icon} «${item.name}»${eff}. ${where} ${shared ? '🌐 بقیه‌ی بازیکن‌ها هم می‌بیننش.' : ''}`, extra);
-        Sfx.play('unlock');
-      }
-    } catch (e) {
-      wait.remove();
-      const code = e && e.code;
-      const msg = code === 'not_granted' ? 'اجازه‌ی استفاده از هوش مصنوعی داده نشد. می‌تونی از تنظیمات صفحه اجازه بدی.'
-        : code === 'rate_limited' ? 'یه کم زیاد درخواست دادی. چند لحظه صبر کن و دوباره بفرست.'
-          : 'این دفعه نتونستم بسازمش. یه جور دیگه بگو، مثلاً: «یه دستگاه پارو زدن قرمز بساز»';
-      this.aiSay('bot', msg);
-    }
-    this.aiBusy = false;
-    $('aiSend').disabled = false;
-  },
-
-  renderCreations() {
-    const list = $('aiList');
-    list.innerHTML = '';
-    const items = Creations.items;
-    $('aiCount').textContent = fa(items.length);
-    if (!items.length) {
-      const li = document.createElement('li');
-      li.className = 'empty';
-      li.textContent = 'هنوز چیزی ساخته نشده. اولین وسیله رو تو بساز!';
-      list.appendChild(li);
-      return;
-    }
-    const kinds = { equipment: 'وسیله', exercise: 'ورزش', place: 'مکان' };
-    for (const c of items) {
-      const li = document.createElement('li');
-      const t = document.createElement('span');
-      t.className = 'ai-item';
-      t.textContent = `${c.icon} ${c.name} • ${kinds[c.kind]} • ${c.author}`;
-      li.appendChild(t);
-      if (c.kind === 'place') {
-        const go = document.createElement('button');
-        go.type = 'button';
-        go.className = 'chip-btn';
-        go.textContent = 'برو';
-        go.addEventListener('click', () => { this.closeModal('aiModal'); this.travel('place', c); });
-        li.appendChild(go);
-      }
-      if (Creations.mine.has(c.id)) {
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'chip-btn del';
-        del.textContent = 'حذف';
-        del.setAttribute('aria-label', 'حذف ' + c.name);
-        del.addEventListener('click', () => {
-          if (this.where === 'place' && this.placeItem && this.placeItem.id === c.id) { this.toast('اول از این مکان برو بیرون، بعد حذفش کن.', 'warn'); return; }
-          this.places.delete(c.id);
-          Creations.remove(c.id);
-        });
-        li.appendChild(del);
-      }
-      list.appendChild(li);
-    }
   },
 
   /* ---------------- input ---------------- */
@@ -910,9 +842,7 @@ const Game = {
   bindUi() {
     const on = (id, fn) => $(id).addEventListener('click', fn);
     on('startBtn', () => this.startGame());
-    on('codeBtn', () => { Sfx.init(); this.openCode(); });
     $('codeForm').addEventListener('submit', (e) => { e.preventDefault(); this.submitCode(); });
-    on('helpBtn', () => { Sfx.init(); this.openHelp(); });
     on('rankBtn', () => { Sfx.init(); this.openBoard(); });
     on('soundBtn', () => {
       Sfx.init();
@@ -921,7 +851,11 @@ const Game = {
       this.refreshHud(true);
       this.persist();
     });
-    on('islandBtn', () => this.travel(this.where === 'gym' ? 'island' : 'gym'));
+    on('mapBtn', () => { Sfx.init(); this.openMap(); });
+    on('shopBtn', () => { Sfx.init(); this.openShop(); });
+    on('menuBtn', () => { Sfx.init(); this.openMenu(); });
+    on('coinChip', () => { Sfx.init(); this.openShop(); });
+    on('missionChip', () => { Sfx.init(); this.openMissions(); });
     on('aiBtn', () => this.openAi());
     on('readyBtn', () => this.openReady());
     on('fightBtn', () => this.startMatch());
@@ -934,9 +868,11 @@ const Game = {
       p.classList.toggle('collapsed');
       $('panelToggle').setAttribute('aria-expanded', String(!p.classList.contains('collapsed')));
     });
+    document.querySelectorAll('.mv-tab').forEach((t) => t.addEventListener('click', () => { Sfx.play('click'); this.setTab(t.dataset.tab); }));
     $('aiForm').addEventListener('submit', (e) => { e.preventDefault(); this.sendAi(); });
     document.querySelectorAll('.ai-example').forEach((b) => b.addEventListener('click', () => this.sendAi(b.textContent)));
     document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => this.closeModal(b.dataset.close)));
+    document.querySelectorAll('[data-menu]').forEach((b) => b.addEventListener('click', () => this.menuAction(b.dataset.menu)));
     $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.startGame(); });
   },
 
@@ -944,7 +880,7 @@ const Game = {
     window.addEventListener('keydown', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (e.code === 'Escape') {
-        for (const id of ['codeModal', 'helpModal', 'boardModal', 'readyModal', 'aiModal']) if (this.modals.has(id)) this.closeModal(id);
+        for (const id of ['codeModal', 'helpModal', 'boardModal', 'readyModal', 'aiModal', 'mapModal', 'shopModal', 'menuModal', 'missionModal', 'medalModal']) if (this.modals.has(id)) this.closeModal(id);
         return;
       }
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -960,13 +896,13 @@ const Game = {
       if (e.code === 'KeyE') this.runContext();
       if (e.code === 'KeyR') this.onMove(MOVE_BY_ID.run);
       if (e.code === 'KeyF') this.onMove(MOVE_BY_ID.jumprun);
+      if (e.code === 'KeyM') this.openMap();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.resetJoy(); this.camDrag.clear(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) { this.keys.clear(); this.resetJoy(); this.persist(); } });
     document.addEventListener('contextmenu', (e) => { if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'))) e.preventDefault(); });
 
-    // joystick
     const joy = $('joy');
     const knob = $('joyKnob');
     const R = 46;
@@ -994,7 +930,6 @@ const Game = {
     joy.addEventListener('pointercancel', end);
     joy.addEventListener('lostpointercapture', end);
 
-    // camera drag / pinch on the 3D view
     const cv = $('scene');
     cv.addEventListener('pointerdown', (e) => {
       if (this.mode !== 'play') return;
@@ -1041,7 +976,7 @@ const Game = {
     let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     let y = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
     if (this.joy.id != null) { x = this.joy.x; y = this.joy.y; }
-    const enabled = this.mode === 'play' && !this.modals.size;
+    const enabled = this.mode === 'play' && !this.modals.size && !(this.race && this.race.state === 'count');
     const jump = this.pendingJump && enabled;
     this.pendingJump = false;
     return { x, y, run: k.has('ShiftLeft') || k.has('ShiftRight'), jump, enabled };
@@ -1055,25 +990,35 @@ const Game = {
     this.last = now;
     if (!(dt > 0)) return;
     dt = Math.min(dt, 0.05);
+    this.step(dt);
+    this.watchFps(dt);
+  },
+
+  step(dt) {
     this.clock += dt;
     try {
       if (this.mode === 'arena') {
         this.arena.update(dt, this.camera);
         this.renderer.render(this.arena.scene, this.camera);
-      } else {
-        if (this.mode === 'menu') this.world.cam.yaw += dt * 0.12;
-        const gained = this.world.update(dt, this.input(), this.camera, this.stats());
-        if (gained > 0) {
-          this.gainXp(gained * xpMult(this.save.level), 'run');
-          this.gainRun(gained * 1.5);
-        }
-        if (this.mode === 'play') this.tickHud();
-        this.renderer.render(this.world.scene, this.camera);
+        return;
       }
+      if (this.mode === 'menu') this.world.cam.yaw += dt * 0.12;
+      const metersBefore = this.world.metersRun || 0;
+      const gained = this.world.update(dt, this.input(), this.camera, this.stats());
+      if (gained > 0) {
+        this.gainXp(gained * xpMult(this.save.level), 'run');
+        this.gainRun(gained * 1.5);
+      }
+      const ran = (this.world.metersRun || 0) - metersBefore;
+      if (ran > 0 && this.mode === 'play') this.noteRun(ran);
+      if (this.pet) this.pet.update(dt, this.player, this.clock);
+      this.tickAura(dt);
+      if (this.race) this.tickRace(dt);
+      if (this.mode === 'play') this.tickHud();
+      this.renderer.render(this.world.scene, this.camera);
     } catch (e) {
       if (!this.errorShown) { this.errorShown = true; console.error(e); }
     }
-    this.watchFps(dt);
   },
 
   tickHud() {
@@ -1089,6 +1034,7 @@ const Game = {
     const cb = $('comboBadge');
     cb.hidden = !comboOn;
     if (comboOn) cb.textContent = `کمبو ×${fa((1 + this.combo * 0.1).toFixed(1))}`;
+    this.tickTimers();
     this.refreshHud();
   },
 

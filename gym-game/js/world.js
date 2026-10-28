@@ -250,6 +250,10 @@ class WorldBase {
     else if (e === 'punch') Sfx.play('punch');
     else if (e === 'drop') { Sfx.play('clank'); this.shake = Math.max(this.shake, 0.12); }
     else if (e === 'impact' && this.onImpact) this.onImpact();
+    else if (e === 'splash') {
+      Sfx.play('splash');
+      this.fx.burst({ x: p.x, y: 0.2, z: p.z + 1 }, { count: 50, colors: ['#bfe9ff', '#ffffff'], speed: 2.5, up: 4, life: 1.0 });
+    } else if (e === 'snow') this.fx.burst({ x: p.x, y: 0.1, z: p.z }, { count: 18, colors: ['#ffffff'], speed: 2.5, up: 1.5, life: 0.7 });
   }
 
   npcChoose(n) {
@@ -282,6 +286,7 @@ class WorldBase {
     const s = n.station;
     if (!s) return;
     if (n.anchored) {
+      n.ch.stopAction();
       n.ch.root.position.set(s.ax, 0, s.az);
       n.anchored = false;
     }
@@ -316,7 +321,7 @@ class WorldBase {
         n.reps = n.station ? randi(1, 3) : randi(1, 2);
         n.faceT = n.station ? 0.4 : 0;
         if (n.station && (n.station.x !== n.station.ax || n.station.z !== n.station.az)) {
-          pos.set(n.station.x, 0, n.station.z);
+          pos.set(n.station.x, n.station.y || 0, n.station.z);
           n.anchored = true;
         }
       } else {
@@ -379,11 +384,7 @@ class WorldBase {
     if (!n.anchored) {
       pos.x += n.vel.x * dt;
       pos.z += n.vel.y * dt;
-      if (ch.rootSpeed) {
-        const yaw = ch.root.rotation.y;
-        pos.x += Math.sin(yaw) * ch.rootSpeed * dt;
-        pos.z += Math.cos(yaw) * ch.rootSpeed * dt;
-      }
+      this.rootMotion(ch, pos, dt);
       this.resolve(pos, 0.32);
     }
     ch.anchored = !!n.anchored;
@@ -450,7 +451,7 @@ class WorldBase {
     s.player = true;
     P.anchor = s;
     P.guide = null;
-    P.ch.root.position.set(s.x, 0, s.z);
+    P.ch.root.position.set(s.x, s.y || 0, s.z);
     P.ch.root.rotation.y = s.yaw;
     P.vel.set(0, 0);
     const ok = P.ch.play(anim, (name) => {
@@ -488,7 +489,7 @@ class WorldBase {
     }
     const mag = Math.min(1, Math.hypot(mx, mz));
     const running = P.mode !== 'walk' || input.run;
-    const maxSpeed = running ? runSpeedFor(stats.runLevel) : 2.5;
+    const maxSpeed = running ? runSpeedFor(stats.runLevel) * (stats.speedMult || 1) : 2.5;
     let gained = 0;
     if (ch.busy || P.anchor) {
       P.vel.multiplyScalar(Math.max(0, 1 - 12 * dt));
@@ -513,17 +514,15 @@ class WorldBase {
       if (moving && P.mode !== 'walk') gained += RUN_XP_PER_SEC[P.mode] * dt * Math.min(1, P.vel.length() / 5.4);
     }
     if (P.anchor) {
-      pos.set(P.anchor.x, 0, P.anchor.z);
+      pos.set(P.anchor.x, P.anchor.y || 0, P.anchor.z);
     } else {
       pos.x += P.vel.x * dt;
       pos.z += P.vel.y * dt;
-      if (ch.rootSpeed) {
-        const yaw = ch.root.rotation.y;
-        pos.x += Math.sin(yaw) * ch.rootSpeed * dt;
-        pos.z += Math.cos(yaw) * ch.rootSpeed * dt;
-      }
+      this.rootMotion(ch, pos, dt);
       this.resolve(pos, 0.34);
+      pos.y = 0;
     }
+    this.metersRun = (this.metersRun || 0) + (P.anchor ? 0 : P.vel.length() * dt);
     ch.anchored = !!P.anchor;
     ch.speed = P.anchor ? 0 : P.vel.length();
     ch.update(dt);
@@ -545,6 +544,19 @@ class WorldBase {
   }
 
   updateExtra() {}
+
+  /** Forward / sideways movement baked into an animation (flips, cartwheels). */
+  rootMotion(ch, pos, dt) {
+    const yaw = ch.root.rotation.y;
+    if (ch.rootSpeed) {
+      pos.x += Math.sin(yaw) * ch.rootSpeed * dt;
+      pos.z += Math.cos(yaw) * ch.rootSpeed * dt;
+    }
+    if (ch.rootSide) {
+      pos.x += Math.cos(yaw) * ch.rootSide * dt;
+      pos.z -= Math.sin(yaw) * ch.rootSide * dt;
+    }
+  }
 
   updateGuide(dt) {
     const P = this.player;

@@ -38,8 +38,68 @@ const EQUIP = {
 };
 
 /** Exercises the AI builder may assign to new equipment (every one has an animation). */
-const AI_ANIMS = ['treadmill', 'bike', 'curl', 'lift', 'bench', 'pullup', 'box', 'rope', 'jack', 'squat', 'pushup', 'situp', 'kick', 'backflip', 'frontflip', 'jumpspin', 'handstand', 'cheer'];
+const AI_ANIMS = ['treadmill', 'bike', 'curl', 'lift', 'bench', 'pullup', 'box', 'rope', 'jack', 'squat', 'pushup', 'situp', 'kick', 'backflip', 'frontflip', 'jumpspin', 'handstand', 'cheer',
+  'lunge', 'burpee', 'mountain', 'plank', 'bridge', 'highknees', 'superman', 'russian', 'starjump', 'skater', 'shadow', 'uppercut', 'frontkick', 'cartwheel', 'headspin', 'split', 'hoop', 'spin1080', 'dbackflip', 'swim', 'ski', 'skate', 'climb', 'trampoline'];
 const ISLAND_LEVEL = 100;
+for (const m of MOVES) m.cat = 'base';
+
+// 28 new bodyweight moves you can do anywhere, and 12 that need equipment in the new venues.
+const NEW_MOVES = [
+  ['toetouch', 'کشش همسترینگ', '🙇', 1, 10], ['lunge', 'لانژ', '🚶', 2, 14], ['buttkick', 'پاشنه به باسن', '👟', 2, 14],
+  ['highknees', 'زانو بلند', '⏫', 3, 18], ['plank', 'پلانک', '➖', 3, 18], ['catcow', 'گربه و گاو', '🐈', 4, 20],
+  ['bridge', 'پل باسن', '🌉', 4, 20], ['superman', 'سوپرمن', '🦸', 5, 22], ['mountain', 'کوهنورد', '⛰️', 5, 24],
+  ['tree', 'حرکت درخت', '🌳', 6, 26], ['legraise', 'بالا بردن پا', '⬆️', 6, 26], ['shadow', 'سایه‌زنی', '👊', 7, 30],
+  ['burpee', 'برپی', '💥', 8, 34], ['russian', 'چرخش روسی', '🔃', 9, 36], ['bikecrunch', 'کرانچ دوچرخه', '🚲', 10, 40],
+  ['diamond', 'شنای الماسی', '💎', 11, 44], ['skater', 'پرش اسکیت', '↔️', 12, 46], ['jumpsquat', 'اسکوات پرشی', '🐸', 13, 50],
+  ['frontkick', 'لگد جلو', '🥋', 14, 54], ['hoop', 'هولاهوپ', '⭕', 15, 56], ['uppercut', 'آپرکات', '🤜', 16, 60],
+  ['starjump', 'پرش ستاره', '🌟', 17, 62], ['split', 'اسپلیت', '✂️', 19, 68], ['clap', 'شنای کف‌زدنی', '👏', 21, 76],
+  ['cartwheel', 'چرخ و فلک', '🎡', 23, 82], ['headspin', 'چرخش روی سر', '🌀', 27, 95], ['dbackflip', 'پشتک دوبل', '🤸‍♂️', 32, 110],
+  ['spin1080', 'پرش ۱۰۸۰', '💫', 36, 120],
+].map(([id, name, icon, level, xp]) => ({ id, name, icon, level, xp, cat: 'new' }));
+
+const ENV_MOVES = [
+  { id: 'swim', name: 'شنای کرال', icon: '🏊', level: 5, xp: 30, run: 8, equip: 'swim' },
+  { id: 'dive', name: 'شیرجه', icon: '🤿', level: 5, xp: 40, equip: 'dive' },
+  { id: 'penalty', name: 'پنالتی', icon: '⚽', level: 8, xp: 42, equip: 'goal' },
+  { id: 'basket', name: 'پرتاب بسکتبال', icon: '🏀', level: 12, xp: 50, equip: 'hoop' },
+  { id: 'spike', name: 'اسپک والیبال', icon: '🏐', level: 15, xp: 58, equip: 'net' },
+  { id: 'giantswing', name: 'بارفیکس چرخشی', icon: '🎠', level: 20, xp: 80, equip: 'highbar' },
+  { id: 'rings', name: 'حلقه‌ها', icon: '💍', level: 20, xp: 70, equip: 'rings' },
+  { id: 'parallel', name: 'پارالل', icon: '🤸‍♀️', level: 20, xp: 66, equip: 'pbars' },
+  { id: 'trampoline', name: 'ترامپولین', icon: '🔝', level: 20, xp: 72, equip: 'tramp' },
+  { id: 'skate', name: 'اسکیت روی یخ', icon: '⛸️', level: 25, xp: 85, run: 12, equip: 'ice' },
+  { id: 'ski', name: 'اسکی', icon: '⛷️', level: 30, xp: 95, run: 15, equip: 'slope' },
+  { id: 'climb', name: 'صخره‌نوردی', icon: '🧗‍♂️', level: 30, xp: 100, equip: 'wall' },
+].map((m) => Object.assign(m, { cat: 'env' }));
+MOVES.push(...NEW_MOVES, ...ENV_MOVES);
+
+/** Sports venues you travel to from the map. */
+const ENVS = [
+  { id: 'pool', name: 'استخر المپیک', icon: '🏊', level: 5, desc: 'شنا و شیرجه' },
+  { id: 'stadium', name: 'ورزشگاه فوتبال', icon: '🏟️', level: 8, desc: 'پنالتی بزن' },
+  { id: 'court', name: 'زمین بسکتبال', icon: '🏀', level: 12, desc: 'پرتاب سه‌امتیازی' },
+  { id: 'beach', name: 'ساحل والیبال', icon: '🏖️', level: 15, desc: 'اسپک کنار دریا' },
+  { id: 'gymnastics', name: 'سالن ژیمناستیک', icon: '🤸', level: 20, desc: 'بارفیکس، حلقه، پارالل، ترامپولین' },
+  { id: 'ice', name: 'پیست یخ', icon: '⛸️', level: 25, desc: 'اسکیت روی یخ' },
+  { id: 'snow', name: 'کوهستان برفی', icon: '🏔️', level: 30, desc: 'اسکی و صخره‌نوردی' },
+];
+const ENV_BY_ID = Object.fromEntries(ENVS.map((e) => [e.id, e]));
+Object.assign(EQUIP, {
+  swim: { name: 'استخر', env: 'pool' },
+  dive: { name: 'سکوی شیرجه', env: 'pool' },
+  goal: { name: 'نقطه‌ی پنالتی', env: 'stadium' },
+  hoop: { name: 'حلقه‌ی بسکتبال', env: 'court' },
+  net: { name: 'تور والیبال', env: 'beach' },
+  highbar: { name: 'میله‌ی ژیمناستیک', env: 'gymnastics' },
+  rings: { name: 'حلقه‌های ژیمناستیک', env: 'gymnastics' },
+  pbars: { name: 'پارالل', env: 'gymnastics' },
+  tramp: { name: 'ترامپولین', env: 'gymnastics' },
+  ice: { name: 'پیست یخ', env: 'ice' },
+  slope: { name: 'پیست اسکی', env: 'snow' },
+  wall: { name: 'دیوار صخره', env: 'snow' },
+});
+for (const k of Object.keys(EQUIP)) if (!EQUIP[k].env) EQUIP[k].env = 'gym';
+
 const MOVE_BY_ID = Object.fromEntries(MOVES.map((m) => [m.id, m]));
 const EXERCISE_IDS = MOVES.filter((m) => !m.toggle).map((m) => m.id);
 
@@ -85,3 +145,66 @@ const NPC_NAMES = [
 const PLAYER_COLORS = ['#e63946', '#2f6fed', '#2ecc71', '#ff7b00', '#9b5de5', '#111111'];
 
 const ISLAND_NAMES = ['ابرنوش', 'آسمان', 'باران', 'تندر', 'رعد', 'مهتاب', 'نسیم', 'ستاره', 'افق', 'پرواز'];
+
+/* ---------------- boost code, coins, shop, missions, medals ---------------- */
+
+const BOOST_CODE = '1919';
+const BOOST_LEVELS = 100;
+const BOOST_MIN_LEVEL = 3;
+const BOOST_SECONDS = 120;
+
+const SHOP = [
+  { id: 'drink', cat: 'boost', name: 'نوشیدنی انرژی', icon: '🥤', price: 60, desc: '۹۰ ثانیه زور دوبرابر' },
+  { id: 'shake', cat: 'boost', name: 'شیک پروتئین', icon: '🥛', price: 150, desc: 'فوری +۱ سطح زور' },
+  { id: 'shoes', cat: 'gear', name: 'کفش سرعت', icon: '👟', price: 250, once: true, desc: 'برای همیشه ۱۵٪ سریع‌تر' },
+  { id: 'magnet', cat: 'gear', name: 'کیف پول طلایی', icon: '👛', price: 300, once: true, desc: 'سکه‌ها دوبرابر' },
+  { id: 'dog', cat: 'pet', name: 'سگ ورزشکار', icon: '🐕', price: 350, once: true, desc: 'همه‌جا دنبالت میاد' },
+  { id: 'cat', cat: 'pet', name: 'گربه‌ی تیزپا', icon: '🐈', price: 350, once: true, desc: 'همه‌جا دنبالت میاد' },
+  { id: 'aura_fire', cat: 'aura', name: 'هاله‌ی آتش', icon: '🔥', price: 400, once: true, color: '#ff6a00', desc: 'دورت جرقه‌ی آتش' },
+  { id: 'aura_ice', cat: 'aura', name: 'هاله‌ی یخ', icon: '❄️', price: 400, once: true, color: '#7fe0ff', desc: 'دورت دونه‌ی برف' },
+  { id: 'aura_gold', cat: 'aura', name: 'هاله‌ی طلا', icon: '✨', price: 600, once: true, color: '#ffd34d', desc: 'برق قهرمانی' },
+  { id: 'shirt_gold', cat: 'shirt', name: 'لباس طلایی', icon: '🥇', price: 200, once: true, color: '#d4af37', desc: 'لباس قهرمان‌ها' },
+  { id: 'shirt_neon', cat: 'shirt', name: 'لباس نئونی', icon: '💚', price: 150, once: true, color: '#39ff14', desc: 'از دور پیدایی' },
+  { id: 'shirt_pink', cat: 'shirt', name: 'لباس صورتی', icon: '🩷', price: 150, once: true, color: '#ff4da6', desc: 'خوش‌رنگ' },
+  { id: 'shirt_white', cat: 'shirt', name: 'لباس سفید', icon: '🤍', price: 120, once: true, color: '#f5f5f5', desc: 'ساده و شیک' },
+  { id: 'shirt_galaxy', cat: 'shirt', name: 'لباس کهکشانی', icon: '🌌', price: 300, once: true, color: '#4b2a8a', desc: 'بنفش تیره' },
+  { id: 'band_red', cat: 'band', name: 'هدبند قرمز', icon: '🔴', price: 50, once: true, color: '#e63946', desc: 'برای پیشونی' },
+  { id: 'band_blue', cat: 'band', name: 'هدبند آبی', icon: '🔵', price: 50, once: true, color: '#2f6fed', desc: 'برای پیشونی' },
+  { id: 'band_white', cat: 'band', name: 'هدبند سفید', icon: '⚪', price: 50, once: true, color: '#ffffff', desc: 'برای پیشونی' },
+];
+const SHOP_BY_ID = Object.fromEntries(SHOP.map((i) => [i.id, i]));
+
+/** Mission templates: each mission picks one and a target. */
+const MISSION_TYPES = [
+  { type: 'reps', targets: [10, 20, 30], text: (n) => `${fa(n)} بار ورزش کن` },
+  { type: 'move', targets: [3, 5, 8], text: (n, m) => `${fa(n)} بار «${m.name}» بزن` },
+  { type: 'equip', targets: [2, 4, 6], text: (n) => `${fa(n)} بار با وسیله ورزش کن` },
+  { type: 'win', targets: [1, 2], text: (n) => `${fa(n)} کشتی ببر` },
+  { type: 'visit', targets: [1], text: (n, m, env) => `برو به «${env.name}»` },
+  { type: 'combo', targets: [4, 6, 8], text: (n) => `کمبو ×${fa((1 + n / 10).toFixed(1))} بگیر` },
+  { type: 'run', targets: [150, 300, 500], text: (n) => `${fa(n)} متر بدو` },
+  { type: 'race', targets: [1], text: () => 'توی مسابقه‌ی دو شرکت کن' },
+  { type: 'levels', targets: [1, 2, 3], text: (n) => `${fa(n)} سطح زور بالا برو` },
+];
+
+const ACHIEVEMENTS = [
+  { id: 'first', name: 'اولین قدم', icon: '👣', desc: 'اولین تمرین', test: (s) => s.stats.reps >= 1 },
+  { id: 'reps100', name: 'پرتلاش', icon: '💪', desc: '۱۰۰ تمرین', test: (s) => s.stats.reps >= 100 },
+  { id: 'reps1000', name: 'ماشین تمرین', icon: '🤖', desc: '۱۰۰۰ تمرین', test: (s) => s.stats.reps >= 1000 },
+  { id: 'lv10', name: 'قوی', icon: '🥉', desc: 'سطح ۱۰', test: (s) => s.level >= 10 },
+  { id: 'lv25', name: 'خیلی قوی', icon: '🥈', desc: 'سطح ۲۵', test: (s) => s.level >= 25 },
+  { id: 'lv50', name: 'غول', icon: '🥇', desc: 'سطح ۵۰', test: (s) => s.level >= 50 },
+  { id: 'lv100', name: 'افسانه', icon: '👑', desc: 'سطح ۱۰۰', test: (s) => s.level >= 100 },
+  { id: 'win1', name: 'اولین برد', icon: '🤼', desc: 'یک کشتی ببر', test: (s) => s.wins >= 1 },
+  { id: 'stage5', name: 'قهرمان کشور', icon: '🏅', desc: 'مرحله‌ی ۵ رو ببر', test: (s) => s.stage > 5 },
+  { id: 'stage10', name: 'اسطوره‌ی کشتی', icon: '🏆', desc: 'هر ده مرحله رو ببر', test: (s) => s.stage > 10 },
+  { id: 'envs', name: 'جهانگرد', icon: '🗺️', desc: 'به همه‌ی ۷ مکان ورزشی برو', test: (s) => ENVS.every((e) => s.stats.visited.includes(e.id)) },
+  { id: 'run50', name: 'تندباد', icon: '🌬️', desc: 'سطح دویدن ۵۰', test: (s) => s.runLevel >= 50 },
+  { id: 'race', name: 'برنده‌ی مسابقه', icon: '🏁', desc: 'مسابقه‌ی دو رو اول شو', test: (s) => s.stats.raceWins >= 1 },
+  { id: 'pet', name: 'دوست چهارپا', icon: '🐾', desc: 'یه حیوون بخر', test: (s) => s.shop.owned.includes('dog') || s.shop.owned.includes('cat') },
+  { id: 'rich', name: 'پولدار', icon: '💰', desc: '۱۰۰۰ سکه جمع کن', test: (s) => s.stats.coinsEarned >= 1000 },
+  { id: 'combo', name: 'کمبوباز', icon: '🔥', desc: 'کمبو ×۲ بگیر', test: (s) => s.stats.maxCombo >= 10 },
+  { id: 'code', name: 'رمزگشا', icon: '⚡', desc: 'کد ۱۹۱۹ رو بزن', test: (s) => !!s.boost.used },
+  { id: 'variety', name: 'همه‌کاره', icon: '🎯', desc: '۳۰ ورزش مختلف انجام بده', test: (s) => Object.keys(s.stats.moves).length >= 30 },
+  { id: 'missions', name: 'مأمور ویژه', icon: '🎖️', desc: '۱۰ مأموریت انجام بده', test: (s) => s.stats.missionsDone >= 10 },
+];

@@ -113,9 +113,72 @@ const Sfx = (() => {
     win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.28, { type: 'triangle', vol: 0.16, delay: i * 0.13 })); },
     lose() { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.14, delay: i * 0.18 })); },
     tap() { tone(rand(300, 380), 0.05, { type: 'triangle', vol: 0.09 }); },
+    splash() { noise(0.6, { vol: 0.35, freq: 1800, to: 400, q: 0.6, type: 'bandpass', attack: 0.02 }); },
+    coin() { tone(1318, 0.08, { type: 'square', vol: 0.06 }); tone(1760, 0.18, { type: 'square', vol: 0.06, delay: 0.07 }); },
+    buy() { [880, 1108, 1318].forEach((f, i) => tone(f, 0.15, { type: 'triangle', vol: 0.14, delay: i * 0.06 })); },
+    medal() { [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.3, { type: 'sine', vol: 0.16, delay: i * 0.1 })); },
+    boost() { tone(220, 0.8, { type: 'sawtooth', vol: 0.12, to: 1760 }); noise(0.8, { vol: 0.15, freq: 400, to: 6000, type: 'bandpass' }); },
   };
 
+  /* simple upbeat loop: kick, hat, bass and a short melody, scheduled ahead of time */
+  let music = null;
+  function startMusic() {
+    if (!ctx || music) return;
+    const bpm = 112;
+    const step = 60 / bpm / 2;
+    const bass = [55, 55, 65.4, 49, 55, 55, 73.4, 65.4];
+    const lead = [440, 0, 523, 0, 659, 587, 523, 0, 440, 0, 392, 0, 440, 523, 587, 0];
+    let n = 0;
+    let next = ctx.currentTime + 0.1;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.35;
+    gain.connect(master);
+    const note = (f, t, d, type, v) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type;
+      o.frequency.value = f;
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(gain);
+      o.start(t);
+      o.stop(t + d + 0.02);
+    };
+    const tick = () => {
+      while (next < ctx.currentTime + 0.25) {
+        if (n % 4 === 0) note(110, next, 0.18, 'sine', 0.5);
+        if (n % 2 === 1) {
+          const s = ctx.createBufferSource();
+          s.buffer = noiseBuf;
+          const f = ctx.createBiquadFilter();
+          f.type = 'highpass';
+          f.frequency.value = 7000;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.12, next);
+          g.gain.exponentialRampToValueAtTime(0.0001, next + 0.05);
+          s.connect(f).connect(g).connect(gain);
+          s.start(next, Math.random());
+          s.stop(next + 0.06);
+        }
+        if (n % 2 === 0) note(bass[(n / 2) % 8], next, step * 1.8, 'triangle', 0.25);
+        const l = lead[n % 16];
+        if (l && Math.floor(n / 16) % 2 === 1) note(l, next, step * 0.9, 'square', 0.05);
+        next += step;
+        n++;
+      }
+    };
+    music = { id: setInterval(tick, 60), gain };
+    tick();
+  }
+  function stopMusic() {
+    if (!music) return;
+    clearInterval(music.id);
+    try { music.gain.disconnect(); } catch (e) { /* already gone */ }
+    music = null;
+  }
+
   return {
+    music(on) { try { if (on) { init(); startMusic(); } else stopMusic(); } catch (e) { /* ignore */ } },
     init,
     play(name) { try { if (sounds[name]) sounds[name](); } catch (e) { /* ignore audio failures */ } },
     setMuted(m) {

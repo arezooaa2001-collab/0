@@ -446,6 +446,9 @@ class Arena {
       this.stage.add(w.ch.root);
     }
     this.score = { p: 0, o: 0 };
+    this.zoorGained = 0;
+    this.tapZoor = 0;
+    $('aZoor').textContent = '💪 هر ضربه و هر امتیاز به زورت اضافه می‌شه';
     this.time = MATCH_TIME;
     this.b = 0;
     this.cx = 0;
@@ -547,6 +550,8 @@ class Arena {
   tap() {
     if (this.state !== 'struggle') return;
     this.b = Math.min(1.05, this.b + 0.09 * Math.pow(this.ratio, 0.9));
+    this.tapZoor = (this.tapZoor || 0) + 0.6 * (this.cfg.xpMult || 1);
+    if (this.tapZoor >= 5) { this.gainZoor(Math.floor(this.tapZoor)); this.tapZoor -= Math.floor(this.tapZoor); }
     this.pushPulse = 0.15;
     Sfx.play('tap');
     const btn = $('tapBtn');
@@ -634,7 +639,20 @@ class Arena {
     if (name !== 'sprawl') Sfx.play('whoosh');
   }
 
+  /** Wrestling makes you stronger too: every tap and every point you score adds strength. */
+  gainZoor(amount) {
+    if (!(amount > 0) || !this.cfg.onZoor) return;
+    this.zoorGained += amount;
+    this.cfg.onZoor(amount);
+    const el = $('aZoor');
+    el.textContent = `💪 زور از این کشتی: +${fa(Math.round(this.zoorGained))}`;
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+  }
+
   award(who, pts) {
+    if (who === 'p') this.gainZoor(pts * 12 * (this.cfg.xpMult || 1));
     this.score[who] += pts;
     this.lastScorer = who;
     this.pointPop(who, pts);
@@ -743,7 +761,7 @@ class Arena {
     }, 900 + delay * 1000);
     this.resultTimer = setTimeout(() => {
       if (this.state !== 'end') return;
-      this.cfg.onEnd({ win: who === 'p', reason, score: Object.assign({}, this.score) });
+      this.cfg.onEnd({ win: who === 'p', reason, score: Object.assign({}, this.score), zoor: Math.round(this.zoorGained) });
     }, 4200 + delay * 1000);
   }
 

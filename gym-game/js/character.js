@@ -802,6 +802,7 @@ class Character {
       }
       pr.spin = spin;
     }
+    else if (typeof EXTRA_PROPS !== 'undefined' && EXTRA_PROPS[name]) EXTRA_PROPS[name](this, pr);
     return pr;
   }
 
@@ -866,6 +867,7 @@ class Character {
     let snap = false;
     let finished = false;
     this.rootSpeed = 0;
+    this.rootSide = 0;
     if (this.manual) {
       copyPose(p, this.manualPose);
       snap = this.manualSnap;
@@ -875,6 +877,7 @@ class Character {
       const t = Math.min(1, this.actionT / A.dur);
       A.fn(p, t, this);
       if (A.move) this.rootSpeed = A.move(t);
+      if (A.side) this.rootSide = A.side(t);
       const evs = A.events || [];
       while (this.action.ev < evs.length && t >= evs[this.action.ev][0]) {
         if (this.onEvent) this.onEvent(evs[this.action.ev][1], this);
@@ -941,6 +944,10 @@ class Character {
   }
 
   updateProps(dt) {
+    for (const k in this.props) {
+      const pr = this.props[k];
+      if (pr.tick && pr.meshes[0] && pr.meshes[0].visible) pr.tick(this, dt);
+    }
     const rope = this.props.rope;
     if (rope && rope.spin.parent.visible) rope.spin.rotation.x = this.ropeAngle;
     const bb = this.props.barbell;

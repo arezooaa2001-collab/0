@@ -29,12 +29,17 @@
           <button id="rankBtn" class="chip" type="button">🏆 <span id="rankText"></span></button>
         </div>
         <div class="run-row"><span id="runText"></span><div class="runbar"><div id="runFill" class="runfill"></div></div></div>
+        <div class="st-row st-chips">
+          <button id="coinChip" class="chip coin" type="button">🪙 <span id="coinText">۰</span></button>
+          <span id="boostBadge" class="chip boost" hidden></span>
+          <span id="drinkBadge" class="chip drink" hidden></span>
+        </div>
       </div>
       <div class="tools">
         <button id="soundBtn" class="icon-btn" type="button" aria-label="صدا">🔊</button>
-        <button id="codeBtn" class="icon-btn" type="button" aria-label="کد مخفی">🔑</button>
-        <button id="helpBtn" class="icon-btn" type="button" aria-label="راهنما">؟</button>
-        <button id="islandBtn" class="icon-btn" type="button" aria-label="جزیره‌ی ابرها">🌥️</button>
+        <button id="mapBtn" class="icon-btn" type="button" aria-label="نقشه">🗺️</button>
+        <button id="shopBtn" class="icon-btn" type="button" aria-label="فروشگاه">🛒</button>
+        <button id="menuBtn" class="icon-btn" type="button" aria-label="منو: مأموریت‌ها، مدال‌ها، کد، راهنما">☰</button>
         <button id="aiBtn" class="icon-btn ai" type="button" aria-label="سازنده‌ی هوش مصنوعی" hidden>🤖</button>
       </div>
     </div>
@@ -42,7 +47,9 @@
       <span class="rb-main">🤼 آماده‌ام!</span>
       <span id="readySub" class="rb-sub"></span>
     </button>
+    <button id="missionChip" class="mission-chip" type="button"></button>
     <div id="comboBadge" class="combo" hidden></div>
+    <div id="raceHud" class="race-hud" hidden></div>
     <div id="toasts" class="toasts" aria-live="polite"></div>
     <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
     <div id="joy" class="joy" role="application" aria-label="دسته‌ی حرکت"><div id="joyKnob" class="joy-knob"></div></div>
@@ -50,6 +57,12 @@
       <button id="panelToggle" class="panel-head" type="button" aria-expanded="true">
         <span>🏋️ حرکت‌های ورزشی</span><span class="chev">▾</span>
       </button>
+      <div class="move-tabs" role="tablist">
+        <button class="mv-tab" type="button" data-tab="base">پایه</button>
+        <button class="mv-tab" type="button" data-tab="new">۲۸ حرکت جدید</button>
+        <button class="mv-tab" type="button" data-tab="env">مکان‌ها</button>
+        <button id="tabAi" class="mv-tab" type="button" data-tab="ai" hidden>ساخته‌ها</button>
+      </div>
       <div id="moveGrid" class="move-grid"></div>
     </section>
   </div>
@@ -79,6 +92,7 @@
     </div>
     <div id="aMsg" class="a-msg"></div>
     <div id="pointPop" class="point-pop" dir="ltr"></div>
+    <div id="aZoor" class="a-zoor"></div>
     <div class="a-bottom">
       <div id="struggle" class="a-panel" hidden>
         <div class="power">
@@ -136,7 +150,7 @@
     <form id="codeForm" class="card small-card" autocomplete="off">
       <button class="x" type="button" data-close="codeModal" aria-label="بستن">✕</button>
       <h2>🔑 کد مخفی</h2>
-      <p class="muted">اگه کد رو داری بنویس تا همه‌ی حرکت‌های ورزشی یک‌جا باز بشن.</p>
+      <p class="muted">کد ۱۸۱۸ همه‌ی حرکت‌ها رو باز می‌کنه. کد ۱۹۱۹ (از سطح ۳ به بعد، فقط یک بار) برای ۲ دقیقه ۱۰۰ سطح زور بهت می‌ده.</p>
       <input id="codeInput" class="code-input" inputmode="numeric" maxlength="12" placeholder="کد" dir="ltr" aria-label="کد مخفی">
       <div id="codeMsg" class="code-msg"></div>
       <button id="codeSubmit" class="big-btn gold" type="submit">باز کن</button>
@@ -161,6 +175,14 @@
         <li>اگه دور باشی و دکمه‌اش رو بزنی، یه فلش سبز راه رو نشونت می‌ده. کنار وسیله که رسیدی دکمه‌ی پایین صفحه رو بزن.</li>
         <li>🏃 دویدن، تردمیل و دوچرخه «سطح دویدن» رو بالا می‌برن و سریع‌ترت می‌کنن.</li>
       </ul>
+      <h3>مکان‌ها، سکه و بیشتر</h3>
+      <ul class="help-list">
+        <li>🗺️ از دکمه‌ی نقشه به ۷ مکان ورزشی برو: استخر، ورزشگاه فوتبال، زمین بسکتبال، ساحل والیبال، سالن ژیمناستیک، پیست یخ و کوهستان برفی. هر کدوم ورزش‌های مخصوص خودش رو داره.</li>
+        <li>🪙 با تمرین، مأموریت، کشتی و مسابقه‌ی دو سکه می‌گیری و توی 🛒 فروشگاه لباس، هاله، حیوون خونگی، کفش سرعت و نوشیدنی انرژی می‌خری.</li>
+        <li>🏁 کنار خط شروع پیست قرمز باشگاه، مسابقه‌ی دو با سه دونده رو شروع کن.</li>
+        <li>🤼 کشتی هم زورت رو زیاد می‌کنه: هر ضربه و هر امتیاز زور می‌ده و برد، سطح زور جایزه داره.</li>
+        <li>⚡ کد ۱۹۱۹: از سطح ۳ به بعد، فقط یک بار، برای ۲ دقیقه ۱۰۰ سطح زور اضافه.</li>
+      </ul>
       <h3>جزیره‌ی ابرها (سطح ۱۰۰)</h3>
       <ul class="help-list">
         <li>دروازه‌ی ابری کنار در سالن کشتیه. توی جزیره برو پیش ربات وسطش و بگو چی می‌خوای: یه وسیله‌ی ورزشی، یه ورزش جدید یا یه مکان ورزشی تازه (به جز باشگاه و سالن کشتی).</li>
@@ -176,6 +198,61 @@
         <li>🏆 ضربه فنی، ۱۰ امتیاز اختلاف یا امتیاز بیشتر در پایان وقت یعنی برد. هر چی زورت بیشتر باشه، همه‌چیز آسون‌تره.</li>
       </ul>
       <p class="muted">قدرت‌سنج کنار دیوار شمالی باشگاهه. برو جلوش و «تست قدرت» رو بزن.</p>
+    </div>
+  </div>
+
+  <!-- ===== Map ===== -->
+  <div id="mapModal" class="modal" hidden>
+    <div class="card wide-card">
+      <button class="x" type="button" data-close="mapModal" aria-label="بستن">✕</button>
+      <h2>🗺️ نقشه</h2>
+      <p class="muted">هر مکان ورزش‌های مخصوص خودش رو داره. با بالا رفتن سطح زورت جاهای بیشتری باز می‌شه.</p>
+      <div id="mapGrid" class="map-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== Shop ===== -->
+  <div id="shopModal" class="modal" hidden>
+    <div class="card wide-card">
+      <button class="x" type="button" data-close="shopModal" aria-label="بستن">✕</button>
+      <h2>🛒 فروشگاه</h2>
+      <p class="muted">سکه داری: 🪙 <b id="shopCoins">۰</b> • با تمرین، مأموریت، کشتی و مسابقه سکه جمع کن.</p>
+      <div id="shopGrid" class="shop-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== Menu ===== -->
+  <div id="menuModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="menuModal" aria-label="بستن">✕</button>
+      <h2>منو</h2>
+      <div class="menu-list">
+        <button class="menu-btn" type="button" data-menu="missions">🎯 مأموریت‌ها</button>
+        <button class="menu-btn" type="button" data-menu="medals">🏅 مدال‌ها</button>
+        <button class="menu-btn" type="button" data-menu="board">🏆 قوی‌ترین‌های باشگاه</button>
+        <button class="menu-btn" type="button" data-menu="code">🔑 وارد کردن کد</button>
+        <button class="menu-btn" type="button" data-menu="music">🎵 موسیقی: <span id="musicState">خاموش</span></button>
+        <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Missions ===== -->
+  <div id="missionModal" class="modal" hidden>
+    <div class="card">
+      <button class="x" type="button" data-close="missionModal" aria-label="بستن">✕</button>
+      <h2>🎯 مأموریت‌ها</h2>
+      <p class="muted">هر مأموریت که تموم بشه سکه و زور می‌گیری و یه مأموریت تازه میاد.</p>
+      <ul id="missionList" class="mission-list"></ul>
+    </div>
+  </div>
+
+  <!-- ===== Medals ===== -->
+  <div id="medalModal" class="modal" hidden>
+    <div class="card wide-card">
+      <button class="x" type="button" data-close="medalModal" aria-label="بستن">✕</button>
+      <h2>🏅 مدال‌ها <small id="medalCount" class="muted"></small></h2>
+      <div id="medalGrid" class="medal-grid"></div>
     </div>
   </div>
 
@@ -272,12 +349,16 @@
 <script src="js/audio.js"></script>
 <script src="js/data.js"></script>
 <script src="js/character.js"></script>
+<script src="js/anims2.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/world.js"></script>
 <script src="js/gym.js"></script>
 <script src="js/creator.js"></script>
 <script src="js/island.js"></script>
+<script src="js/envs.js"></script>
+<script src="js/extras.js"></script>
 <script src="js/arena.js"></script>
 <script src="js/main.js"></script>
+<script src="js/features.js"></script>
 </body>
 </html>

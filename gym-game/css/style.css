@@ -113,7 +113,7 @@ kbd {
 
 .combo {
   position: absolute;
-  top: calc(var(--safe-t) + 112px);
+  top: calc(var(--safe-t) + 190px);
   right: max(12px, var(--safe-r));
   padding: 4px 14px; border-radius: 99px;
   background: linear-gradient(90deg, #ff7b00, var(--gold)); color: #2b1600;
@@ -289,6 +289,79 @@ kbd {
 .ai-list li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); font-size: 13px; }
 .ai-list li.empty { color: var(--muted); }
 .ai-item { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+
+/* ---------- round 3: coins, tabs, map, shop, missions, medals ---------- */
+.st-chips { justify-content: flex-start; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip.coin { background: rgba(255, 194, 61, 0.18); color: #ffe09a; }
+.chip.boost { background: linear-gradient(90deg, #1b6fd1, #7fe0ff); color: #04152c; border: 0; font-weight: 800; animation: pulse 1s ease-in-out infinite; }
+.chip.drink { background: rgba(46, 204, 113, 0.22); color: #a5f5c3; }
+.st-num.boosted { color: #9fe8ff; text-shadow: 0 2px 0 #0b4a8a, 0 0 18px rgba(127, 224, 255, 0.9); }
+.mission-chip {
+  position: absolute; top: calc(var(--safe-t) + 62px); left: max(12px, var(--safe-l));
+  max-width: min(300px, 44vw); padding: 5px 12px; border-radius: 12px;
+  border: 1px solid rgba(255, 194, 61, 0.45); background: var(--glass); color: #ffe09a;
+  font: 600 12px/1.5 var(--body); text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.race-hud {
+  position: absolute; top: calc(var(--safe-t) + 100px); left: max(12px, var(--safe-l));
+  padding: 6px 14px; border-radius: 12px; background: linear-gradient(90deg, #b81f2d, #e63946);
+  font: 400 18px/1.4 var(--display); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); pointer-events: none !important;
+}
+.move-tabs { display: flex; gap: 4px; padding: 6px 8px 0; overflow-x: auto; scrollbar-width: none; }
+.mv-tab { flex: none; border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; background: rgba(255, 255, 255, 0.05); font: 600 12px/1.6 var(--body); color: var(--muted); }
+.mv-tab.on { background: var(--gold); color: #2b1d00; border-color: var(--gold); }
+.panel.collapsed .move-tabs { display: none; }
+.move-grid[data-tab="base"] .mv-btn:not([data-cat="base"]),
+.move-grid[data-tab="new"] .mv-btn:not([data-cat="new"]),
+.move-grid[data-tab="env"] .mv-btn:not([data-cat="env"]),
+.move-grid[data-tab="ai"] .mv-btn:not([data-cat="ai"]) { display: none; }
+.mv-btn.equip.here:not(.near) { box-shadow: 0 4px 0 #0a1230, 0 0 0 2px rgba(127, 224, 255, 0.45); }
+.floater.fl-coin { color: #ffe09a; font-size: 18px; text-shadow: 0 2px 0 #6b4400; }
+.a-zoor {
+  position: absolute; top: calc(var(--safe-t) + 92px); left: 50%; transform: translateX(-50%);
+  padding: 4px 14px; border-radius: 99px; background: rgba(10, 16, 34, 0.75); color: #ffe09a;
+  font: 600 13px/1.6 var(--body); white-space: nowrap;
+}
+.a-zoor.bump { animation: pop 0.3s ease-out; }
+.wide-card { width: min(720px, 100%); }
+.map-grid, .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+.map-card, .shop-card {
+  display: grid; justify-items: center; gap: 4px; padding: 12px 8px; border-radius: 16px; text-align: center;
+  border: 1px solid var(--line); background: linear-gradient(180deg, #22305c, #151e3c);
+}
+.map-card { box-shadow: 0 4px 0 #0a1230; }
+.map-card:active { transform: translateY(3px); box-shadow: none; }
+.map-card.locked { filter: grayscale(0.9) brightness(0.65); }
+.map-card.here { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255, 194, 61, 0.5); }
+.map-icon, .shop-icon { font-size: 34px; line-height: 1.2; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 50%; }
+.map-card b, .shop-card b { font: 400 18px/1.3 var(--display); }
+.map-card small, .shop-card small { color: var(--muted); font-size: 11.5px; }
+.shop-card.on { border-color: var(--gold); box-shadow: 0 0 16px rgba(255, 194, 61, 0.35); }
+.shop-btn { margin-top: 4px; width: 100%; border: 0; border-radius: 12px; padding: 6px 8px; background: linear-gradient(180deg, #ffd25e, #e09f00); color: #2b1d00; font: 400 16px/1.4 var(--display); box-shadow: 0 3px 0 var(--gold-deep); }
+.shop-btn:disabled { opacity: 0.45; box-shadow: none; }
+.menu-list { display: grid; gap: 8px; }
+.menu-btn { text-align: start; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); font: 400 19px/1.3 var(--display); box-shadow: 0 3px 0 #070b18; }
+.menu-btn:active { transform: translateY(2px); box-shadow: none; }
+.mission-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.mission-list li { padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); display: grid; gap: 6px; }
+.mission-list li.done { background: rgba(46, 204, 113, 0.14); }
+.mi-text { font: 400 18px/1.35 var(--display); }
+.mi-bar { height: 8px; border-radius: 99px; background: #1b2546; overflow: hidden; }
+.mi-bar div { height: 100%; background: linear-gradient(90deg, #ffd25e, #ff7b00); }
+.mi-reward { font-size: 12px; color: var(--muted); }
+.medal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+.medal { display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); text-align: center; opacity: 0.6; }
+.medal.got { opacity: 1; background: linear-gradient(180deg, rgba(255, 194, 61, 0.22), rgba(255, 194, 61, 0.06)); border: 1px solid rgba(255, 194, 61, 0.4); }
+.medal-icon { font-size: 30px; }
+.medal b { font: 400 15px/1.3 var(--display); }
+.medal small { font-size: 11px; color: var(--muted); }
+@media (max-width: 720px) {
+  .mission-chip { top: calc(var(--safe-t) + 56px); max-width: 42vw; font-size: 11px; }
+  .race-hud { top: calc(var(--safe-t) + 92px); font-size: 15px; }
+  .map-grid, .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .a-zoor { top: calc(var(--safe-t) + 80px); font-size: 11.5px; }
+}
 
 /* ---------- arena HUD ---------- */
 .ahud { position: absolute; inset: 0; pointer-events: none; }
@@ -540,7 +613,7 @@ kbd {
   .ready-btn { top: calc(var(--safe-t) + 92px); padding: 6px 18px 7px; }
   .rb-main { font-size: 21px; }
   .toasts { top: calc(var(--safe-t) + 152px); }
-  .combo { top: calc(var(--safe-t) + 96px); font-size: 17px; }
+  .combo { top: calc(var(--safe-t) + 190px); font-size: 17px; }
   .strength { min-width: 0; width: 176px; padding: 7px 10px 8px; }
   .st-num { font-size: 30px; }
   .icon-btn { width: 38px; height: 38px; font-size: 18px; }
