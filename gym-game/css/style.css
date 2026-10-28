@@ -255,6 +255,41 @@ kbd {
   100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
 }
 
+/* ---------- equipment, run level, island ---------- */
+.run-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; font: 600 11.5px/1.4 var(--body); color: #9fe8ff; }
+.runbar { flex: 1; height: 6px; border-radius: 99px; background: #1b2546; overflow: hidden; }
+.runfill { height: 100%; width: 0; background: linear-gradient(90deg, #39c0ff, #9fe8ff); transition: width 0.25s; }
+.mv-btn.equip { background: linear-gradient(180deg, #3a2f6a, #211a46); }
+.mv-btn.equip.near { background: linear-gradient(180deg, #2f7a55, #17452f); box-shadow: 0 4px 0 #0b2a1b, 0 0 14px rgba(46, 204, 113, 0.5); }
+.mv-btn.custom { background: linear-gradient(180deg, #2a5a8a, #163454); }
+.mv-btn.custom .mv-sub { color: #9fe8ff; }
+.icon-btn.locked { opacity: 0.6; }
+.icon-btn.ai { background: linear-gradient(180deg, #2a5a8a, #163454); }
+.ai-card { width: min(560px, 100%); display: grid; gap: 10px; }
+.ai-status { font-size: 12px; color: var(--muted); }
+.ai-log { display: grid; gap: 8px; max-height: 32vh; min-height: 90px; overflow-y: auto; padding: 8px; border-radius: 14px; background: rgba(0, 0, 0, 0.25); }
+.ai-msg { max-width: 88%; padding: 8px 12px; border-radius: 14px; display: grid; gap: 6px; justify-items: start; }
+.ai-msg p { margin: 0; }
+.ai-msg.me { justify-self: start; background: rgba(255, 194, 61, 0.16); border: 1px solid rgba(255, 194, 61, 0.35); }
+.ai-msg.bot { justify-self: end; background: rgba(127, 224, 255, 0.12); border: 1px solid rgba(127, 224, 255, 0.3); }
+.ai-msg.wait { opacity: 0.8; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+.ai-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-example, .chip-btn {
+  border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.06); font: 600 12px/1.6 var(--body); color: #dfe6ff;
+}
+.chip-btn { background: rgba(127, 224, 255, 0.16); color: #bff0ff; }
+.chip-btn.del { background: rgba(230, 57, 70, 0.18); color: #ffc0c5; }
+.ai-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.ai-form input { width: 100%; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line); background: #0a1028; color: var(--text); font: 600 15px/1.4 var(--body); user-select: text; -webkit-user-select: text; }
+.ai-form .big-btn { width: auto; min-height: 46px; padding: 6px 20px; }
+.ai-form .big-btn:disabled { opacity: 0.5; }
+.ai-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; max-height: 24vh; overflow-y: auto; }
+.ai-list li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); font-size: 13px; }
+.ai-list li.empty { color: var(--muted); }
+.ai-item { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
 /* ---------- arena HUD ---------- */
 .ahud { position: absolute; inset: 0; pointer-events: none; }
 .ahud button { pointer-events: auto; }

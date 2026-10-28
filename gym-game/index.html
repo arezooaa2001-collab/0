@@ -28,11 +28,14 @@
           <span id="xpText" class="xp-text"></span>
           <button id="rankBtn" class="chip" type="button">🏆 <span id="rankText"></span></button>
         </div>
+        <div class="run-row"><span id="runText"></span><div class="runbar"><div id="runFill" class="runfill"></div></div></div>
       </div>
       <div class="tools">
         <button id="soundBtn" class="icon-btn" type="button" aria-label="صدا">🔊</button>
         <button id="codeBtn" class="icon-btn" type="button" aria-label="کد مخفی">🔑</button>
         <button id="helpBtn" class="icon-btn" type="button" aria-label="راهنما">؟</button>
+        <button id="islandBtn" class="icon-btn" type="button" aria-label="جزیره‌ی ابرها">🌥️</button>
+        <button id="aiBtn" class="icon-btn ai" type="button" aria-label="سازنده‌ی هوش مصنوعی" hidden>🤖</button>
       </div>
     </div>
     <button id="readyBtn" class="ready-btn" type="button">
@@ -119,7 +122,9 @@
         <li><b>🕹️ حرکت:</b> با دسته‌ی پایین (یا کلیدهای WASD و جهت‌ها) راه برو. برای چرخوندن دوربین، صفحه رو بکش.</li>
         <li><b>💪 تمرین:</b> دکمه‌های ورزشی بهت «زور» می‌دن. پشت سر هم تمرین کنی کمبو می‌گیری.</li>
         <li><b>🔒 قفل‌ها:</b> پشتک سطح ۵، پرش و چرخش سطح ۷، ملق سطح ۱۰. بقیه‌ی حرکت‌ها هم سطح خودشون رو دارن.</li>
-        <li><b>🤼 کشتی:</b> قوی که شدی دکمه‌ی «آماده‌ام» رو بزن. ده مرحله حریف منتظرته!</li>
+        <li><b>📍 وسیله‌ها:</b> بعضی ورزش‌ها مثل تردمیل، دمبل، کیسه بوکس و بارفیکس فقط با وسیله‌ی خودشون انجام می‌شن. برو کنارش!</li>
+        <li><b>🤼 کشتی:</b> قوی که شدی دکمه‌ی «آماده‌ام» رو بزن. هر مرحله حریف قوی‌تر می‌شه!</li>
+        <li><b>🌥️ سطح ۱۰۰:</b> جزیره‌ی ابرها باز می‌شه؛ اونجا با هوش مصنوعی هر وسیله و مکان ورزشی که بخوای می‌سازی.</li>
       </ul>
       <p id="startStats" class="start-stats"></p>
       <button id="startBtn" class="big-btn gold" type="button">شروع بازی</button>
@@ -148,7 +153,18 @@
         <li>راه رفتن: دسته‌ی حرکت یا <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / جهت‌ها</li>
         <li>دوربین: کشیدن صفحه • زوم: چرخ موس یا دو انگشت</li>
         <li>پرش: <kbd>Space</kbd> • دویدن موقت: نگه داشتن <kbd>Shift</kbd></li>
-        <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • تست قدرت: <kbd>E</kbd></li>
+        <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
+      </ul>
+      <h3>وسیله‌ها</h3>
+      <ul class="help-list">
+        <li>📍 ورزش‌هایی که این علامت رو دارن فقط با وسیله‌ی خودشون انجام می‌شن: تردمیل و دوچرخه (سمت راست باشگاه)، دمبل، هالتر و پرس سینه (سمت چپ)، کیسه بوکس (گوشه‌ی جنوب شرقی) و بارفیکس (دو طرف قدرت‌سنج).</li>
+        <li>اگه دور باشی و دکمه‌اش رو بزنی، یه فلش سبز راه رو نشونت می‌ده. کنار وسیله که رسیدی دکمه‌ی پایین صفحه رو بزن.</li>
+        <li>🏃 دویدن، تردمیل و دوچرخه «سطح دویدن» رو بالا می‌برن و سریع‌ترت می‌کنن.</li>
+      </ul>
+      <h3>جزیره‌ی ابرها (سطح ۱۰۰)</h3>
+      <ul class="help-list">
+        <li>دروازه‌ی ابری کنار در سالن کشتیه. توی جزیره برو پیش ربات وسطش و بگو چی می‌خوای: یه وسیله‌ی ورزشی، یه ورزش جدید یا یه مکان ورزشی تازه (به جز باشگاه و سالن کشتی).</li>
+        <li>مثلاً: «یه وسیله بساز که هر بار ازش استفاده کنم ۱۰۰ سطح دویدن بده». بقیه‌ی ورزشکارها هم از ساخته‌هات استفاده می‌کنن.</li>
       </ul>
       <h3>کِی هر حرکت باز می‌شه؟</h3>
       <ul id="unlockList" class="unlock-list"></ul>
@@ -160,6 +176,28 @@
         <li>🏆 ضربه فنی، ۱۰ امتیاز اختلاف یا امتیاز بیشتر در پایان وقت یعنی برد. هر چی زورت بیشتر باشه، همه‌چیز آسون‌تره.</li>
       </ul>
       <p class="muted">قدرت‌سنج کنار دیوار شمالی باشگاهه. برو جلوش و «تست قدرت» رو بزن.</p>
+    </div>
+  </div>
+
+  <!-- ===== AI builder ===== -->
+  <div id="aiModal" class="modal" hidden>
+    <div class="card ai-card">
+      <button class="x" type="button" data-close="aiModal" aria-label="بستن">✕</button>
+      <h2>🤖 سازنده‌ی هوش مصنوعی</h2>
+      <p id="aiStatus" class="ai-status"></p>
+      <div id="aiLog" class="ai-log" aria-live="polite"></div>
+      <div class="ai-examples">
+        <button class="ai-example" type="button">یه وسیله بساز که هر بار ازش استفاده کنم ۱۰۰ سطح دویدن بده</button>
+        <button class="ai-example" type="button">یه دستگاه پارو زدن قرمز بساز</button>
+        <button class="ai-example" type="button">یه زمین فوتبال بساز</button>
+        <button class="ai-example" type="button">یه ورزش جدید به اسم پرش ستاره بساز</button>
+      </div>
+      <form id="aiForm" class="ai-form" autocomplete="off">
+        <input id="aiInput" maxlength="400" placeholder="چی برات بسازم؟" aria-label="درخواست از هوش مصنوعی">
+        <button id="aiSend" class="big-btn gold" type="submit">بساز</button>
+      </form>
+      <h3>ساخته‌ها (<span id="aiCount">۰</span>)</h3>
+      <ul id="aiList" class="ai-list"></ul>
     </div>
   </div>
 
@@ -235,7 +273,10 @@
 <script src="js/data.js"></script>
 <script src="js/character.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/world.js"></script>
 <script src="js/gym.js"></script>
+<script src="js/creator.js"></script>
+<script src="js/island.js"></script>
 <script src="js/arena.js"></script>
 <script src="js/main.js"></script>
 </body>

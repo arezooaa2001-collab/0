@@ -330,6 +330,7 @@ const ANIMS = {
   lift: {
     dur: 3.4,
     props: ['barbell'],
+    barbellDrop: 0.8,
     events: [[0.8, 'drop']],
     fn(p, t) {
       if (t < 0.14) {
@@ -422,6 +423,62 @@ const ANIMS = {
     dur: 3.2,
     fn(p, t) {
       gait(p, t * 3.2 * 10, 0.75);
+    },
+  },
+  bike: {
+    dur: 3.0,
+    fn(p, t) {
+      const k = smooth(seg(t, 0, 0.12)) * (1 - smooth(seg(t, 0.88, 1)));
+      const ph = t * 3.0 * 9;
+      const q = makePose();
+      q.y = 0.02;
+      q.spX = 0.55; q.nkX = -0.45;
+      q.shLX = q.shRX = -1.15; q.elL = q.elR = -0.35;
+      q.shLZ = 0.2; q.shRZ = -0.2;
+      q.hpLX = -1.2 + 0.35 * Math.sin(ph); q.hpRX = -1.2 - 0.35 * Math.sin(ph);
+      q.knL = 1.35 - 0.55 * Math.cos(ph); q.knR = 1.35 + 0.55 * Math.cos(ph);
+      q.hpLZ = 0.06; q.hpRZ = -0.06;
+      mixInto(p, q, k);
+    },
+  },
+  pullup: {
+    dur: 3.2,
+    events: [[0.08, 'jump'], [0.92, 'hop']],
+    fn(p, t) {
+      const grab = smooth(seg(t, 0, 0.12));
+      const drop = smooth(seg(t, 0.88, 1));
+      const hang = grab * (1 - drop);
+      const reps = (1 - Math.cos(seg(t, 0.16, 0.84) * 3 * TAU)) / 2;
+      p.shLX = p.shRX = lerp(0.05, lerp(-3.05, -2.2, reps), hang);
+      p.shLZ = lerp(0.12, 0.28 + 0.15 * reps, hang); p.shRZ = -p.shLZ;
+      p.elL = p.elR = lerp(-0.18, -0.05 - 1.75 * reps, hang);
+      p.y = hang * (0.42 + 0.48 * reps);
+      p.hpLX = p.hpRX = -0.25 * hang;
+      p.knL = p.knR = 0.9 * hang;
+      p.hpLZ = 0.0; p.hpRZ = 0.0;
+      p.nkX = -0.25 * hang * reps;
+      p.autoAnkle = false;
+      p.anL = p.anR = 0.6 * hang;
+    },
+  },
+  bench: {
+    dur: 3.4,
+    props: ['barbell'],
+    fn(p, t) {
+      const k = smooth(seg(t, 0, 0.14)) * (1 - smooth(seg(t, 0.86, 1)));
+      const d = (1 - Math.cos(seg(t, 0.18, 0.82) * 3 * TAU)) / 2;
+      const q = makePose();
+      q.bx = -Math.PI / 2;
+      q.y = 0.66 - HIP_H;
+      q.hpLX = q.hpRX = 0.2; q.knL = q.knR = 1.4;
+      q.hpLZ = 0.28; q.hpRZ = -0.28;
+      q.shLX = q.shRX = lerp(-1.57, -0.55, d);
+      q.elL = q.elR = lerp(-0.05, -1.95, d);
+      q.shLZ = 0.42; q.shRZ = -0.42;
+      q.nkX = 0.15;
+      mixInto(p, q, k);
+      const mid = Math.sin(Math.PI * k);
+      p.knL += 0.6 * mid; p.knR += 0.6 * mid;
     },
   },
   cheer: {
@@ -888,8 +945,10 @@ class Character {
     if (rope && rope.spin.parent.visible) rope.spin.rotation.x = this.ropeAngle;
     const bb = this.props.barbell;
     if (bb && bb.bar.visible) {
-      const t = this.action && this.action.name === 'lift' ? this.actionT / this.action.def.dur : 1;
-      if (t < 0.8) {
+      const A = this.action && this.action.def;
+      const t = A ? this.actionT / A.dur : 1;
+      const dropAt = A && A.barbellDrop ? A.barbellDrop : 2;
+      if (t < dropAt) {
         this.root.updateMatrixWorld(true);
         this.B.haL.getWorldPosition(_hand1);
         this.B.haR.getWorldPosition(_hand2);
