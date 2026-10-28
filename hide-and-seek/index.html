@@ -122,6 +122,35 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
 #buildTools button span{font-size:18px;line-height:1}
 #buildTools button.on{background:linear-gradient(135deg,#ffe14d,#ff6fb5);color:#2a0a30;border-color:#fff}
 #buildTools button.act{background:rgba(10,60,70,.75)}
+#flash{background:radial-gradient(circle,rgba(255,255,255,.95),rgba(200,140,255,.6));opacity:0}
+#flash.go{animation:flash .7s ease-out}
+@keyframes flash{0%{opacity:1}100%{opacity:0}}
+#evBanner{position:absolute;top:calc(var(--st) + 150px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;background:linear-gradient(135deg,rgba(60,20,120,.88),rgba(150,30,110,.88));border:2px solid #ffd23f;border-radius:22px;padding:8px 16px;text-align:center;max-width:min(52vw,380px);box-shadow:0 12px 40px rgba(20,0,50,.5)}
+#evBanner span{font-size:34px;line-height:1}
+#evBanner b{font:28px/1.2 var(--fd);color:#ffe14d}
+#evBanner small{font:600 12.5px/1.6 var(--fb)}
+#evBanner.go{animation:evIn .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes evIn{0%{transform:translateX(-50%) scale(.3);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+#btnMiss{pointer-events:auto;font:800 12px var(--fb);background:linear-gradient(90deg,rgba(120,255,200,.9),rgba(80,200,255,.9));color:#06283a;border:0;padding:3px 9px;border-radius:999px;cursor:pointer;direction:rtl}
+#missPanel{position:absolute;top:calc(var(--st) + 94px);left:calc(var(--sl) + 128px);width:min(60vw,330px);pointer-events:auto;background:rgba(20,8,50,.82);border:1px solid rgba(120,255,200,.7);border-radius:18px;padding:10px 12px;direction:rtl;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.mHead{display:flex;justify-content:space-between;align-items:center;font:800 13.5px var(--fb);margin-bottom:6px}
+.mHead button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:10px;width:28px;height:28px;cursor:pointer}
+#missList,.endMiss{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+#missList li{display:flex;align-items:center;gap:6px;font:600 12.5px/1.5 var(--fb)}
+#missList li i{font-style:normal}
+#missList li span{flex:1;min-width:0}
+#missList li b{font:800 11.5px var(--fb);color:var(--sun);white-space:nowrap}
+#missList li.ok span{text-decoration:line-through;opacity:.7}
+#missList li.note{font-size:11px;color:var(--ink-dim)}
+.endMiss li{font:600 13px var(--fb);background:var(--glass-soft);border-radius:12px;padding:5px 10px}
+.endMiss li.ok{background:rgba(77,255,136,.18)}
+.sSec{font:800 13px var(--fb);color:var(--sun);margin-top:4px}
+.sItem .si.sw{width:26px;height:26px;border-radius:50%;border:2px solid #fff}
+.lbl.dog{border-style:dashed}
+.lbl.dog b::before{content:"🐶"}
+input[type=range]{width:100%;accent-color:#ff6fb5}
+.chk{display:flex;gap:8px;align-items:center;font:600 14px var(--fb)}
+.chk input{width:20px;height:20px;accent-color:#4dff88}
 .pills{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:112px}
 #coinBox{font:800 13px var(--fb);background:linear-gradient(90deg,rgba(255,215,60,.9),rgba(255,160,40,.9));color:#2a1200;padding:2px 10px;border-radius:999px;direction:rtl}
 #btnFreeze.on{background:linear-gradient(135deg,#bff3ff,#6fb8ff);border-color:#fff}
@@ -203,6 +232,9 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
   #dangerBar{top:calc(var(--st) + 76px)}
   #toast{top:calc(var(--st) + 98px);font-size:13.5px;padding:6px 12px}
   #hideInfo{bottom:calc(var(--sb) + 166px)}
+  #evBanner{top:calc(var(--st) + 96px);padding:6px 12px}
+  #evBanner b{font-size:22px}
+  #evBanner span{font-size:26px}
   #speedChips{bottom:calc(var(--sb) + 172px)}
   #poseBtns{bottom:calc(var(--sb) + 132px)}
   .pose{width:50px;height:50px}
@@ -249,6 +281,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
     <div id="spyHint">انگشتت را روی صفحه بکش: بالا = جلو، پایین = عقب، چپ و راست = کنار</div>
   </div>
   <div id="frost" class="ov" hidden></div>
+  <div id="flash" class="ov"></div>
   <div id="touch"></div>
   <div id="labels"></div>
   <div id="joy" hidden><div id="joyKnob"></div></div>
@@ -256,7 +289,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
   <div id="hud" hidden>
     <div id="joyHint">اینجا را بکش<br>برای حرکت</div>
     <div id="topbar">
-      <div id="radarWrap"><canvas id="radar" width="208" height="208"></canvas><div id="coords">در میدان شروع</div><div class="pills"><div id="starBox">⭐ <b id="starN">۰</b></div><div id="coinBox">🪙 <b id="coinN">۰</b></div></div></div>
+      <div id="radarWrap"><canvas id="radar" width="208" height="208"></canvas><div id="coords">در میدان شروع</div><div class="pills"><button id="btnMiss" aria-label="مأموریت‌ها">📜 <b id="missN">۰/۳</b></button><div id="starBox">⭐ <b id="starN">۰</b></div><div id="coinBox">🪙 <b id="coinN">۰</b></div></div></div>
       <div id="timerBox"><div id="timerLabel">زمان دوام</div><div id="timer">۰۰:۰۰</div><div id="status">۲۰ جستجوگر</div></div>
       <div id="topBtns"><button class="ibtn" id="btnBuild" aria-label="حالت ساختن">🛠️</button><button class="ibtn" id="btnFreeze" aria-label="یخ زدن زمان و رفتن به فروشگاه">❄️</button><button class="ibtn" id="btnSound" aria-label="صدا">🔊</button><button class="ibtn" id="btnPause" aria-label="توقف">⏸</button></div>
     </div>
@@ -274,6 +307,8 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
     <div id="poseBtns"><button class="pose" id="btnSit"><span>🧎</span>نشستن</button><button class="pose" id="btnLie"><span>🛌</span>دراز کشیدن</button><button class="pose" id="btnFlip"><span>🤸</span>ملق</button></div>
     <div id="dangerBar" hidden><i id="dangerFill"></i></div>
     <div id="toast"></div>
+    <div id="evBanner" hidden></div>
+    <div id="missPanel" hidden><div class="mHead"><b>📜 مأموریت‌های این دور</b><button id="btnMissClose" aria-label="بستن">✕</button></div><ul id="missList"></ul></div>
     <div id="hideInfo" hidden></div>
     <div id="speedChips">
       <button class="chip on" data-l="0">عادی <small>۱۱ م/ث</small></button>
@@ -322,7 +357,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
         <div class="seg" data-key="quality"><button data-v="auto">خودکار</button><button data-v="high">بالا</button><button data-v="medium">متوسط</button><button data-v="low">کم</button></div>
       </div>
       <button class="big" id="btnStart">شروع قایم‌موشک</button>
-      <div class="btnrow"><button class="ghost" id="btnHelp">راهنمای بازی</button></div>
+      <div class="btnrow"><button class="ghost" id="btnHelp">راهنمای بازی</button><button class="ghost" id="btnSettings">⚙️ تنظیمات</button></div>
       <div class="best" id="bestLine"></div>
       <div id="rotateHint">برای تجربه‌ی بهتر، گوشی را افقی بگیر</div>
     </div>
@@ -354,6 +389,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
     <div class="card">
       <h2 class="title" style="font-size:52px">توقف</h2>
       <button class="big" id="btnResume">ادامه‌ی بازی</button>
+      <div class="btnrow"><button class="ghost" id="btnPauseSettings">⚙️ تنظیمات</button><button class="ghost" id="btnFull2">⛶ تمام‌صفحه</button></div>
       <div class="btnrow"><button class="ghost" id="btnRestart">شروع دوباره</button><button class="ghost" id="btnMenu">منوی اصلی</button></div>
     </div>
   </div>
@@ -362,6 +398,7 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
     <div class="card">
       <h2 class="endT" id="endTitle">پیدات کردن!</h2>
       <p class="sub" id="endSub"></p>
+      <ul class="endMiss" id="endMiss"></ul>
       <div class="stats">
         <div><small>زمان دوام</small><b id="stTime">۰۰:۰۰</b></div>
         <div><small>مسافت طی‌شده</small><b id="stDist">۰</b></div>
@@ -371,6 +408,17 @@ body{font-family:var(--fb);color:var(--ink);-webkit-user-select:none;user-select
         <div><small>بیشترین ستاره</small><b id="stBStars">۰</b></div>
       </div>
       <div class="btnrow"><button class="big" id="btnAgain">دوباره بازی کن</button><button class="ghost" id="btnEndMenu">منوی اصلی</button></div>
+    </div>
+  </div>
+
+  <div id="settings" class="panel" hidden>
+    <div class="card">
+      <h2 class="title" style="font-size:44px">تنظیمات</h2>
+      <div class="row"><label for="setSens">حساسیت چرخاندن دوربین <span id="sensVal"></span></label><input type="range" id="setSens" min="0.4" max="2.2" step="0.1"></div>
+      <div class="row"><label for="setMusic">صدای موسیقی <span id="musicVal"></span></label><input type="range" id="setMusic" min="0" max="1" step="0.05"></div>
+      <label class="chk"><input type="checkbox" id="setVib"> لرزش گوشی در لحظه‌های مهم</label>
+      <div class="btnrow"><button class="ghost" id="btnFull">⛶ تمام‌صفحه</button></div>
+      <button class="big" id="btnSettingsClose">ذخیره و برگشت</button>
     </div>
   </div>
 
@@ -450,7 +498,7 @@ const scene=new THREE.Scene();
 scene.fog=new THREE.Fog(FOG_HEX,1.5,VIEW);
 const camera=new THREE.PerspectiveCamera(65,1,0.08,90);
 const U={time:{value:0},pscale:{value:600},fog:{value:new THREE.Vector3(FOG.r,FOG.g,FOG.b)},cam:{value:new THREE.Vector3()},fogNear:{value:1.5},fogFar:{value:VIEW}};
-function setFogColor(h){FOG.setHSL(h,0.62,0.83);scene.fog.color.copy(FOG);U.fog.value.set(FOG.r,FOG.g,FOG.b);}
+function setFogColor(h,l){FOG.setHSL(h,0.62,l===undefined?0.83:l);scene.fog.color.copy(FOG);U.fog.value.set(FOG.r,FOG.g,FOG.b);}
 function setFogRange(n,f){scene.fog.near=n;scene.fog.far=f;U.fogNear.value=n;U.fogFar.value=f;}
 
 const HSV_GLSL='vec3 hsv2rgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.,2./3.,1./3.))*6.-3.);return c.z*mix(vec3(1.),clamp(p-1.,0.,1.),c.y);}\n';
@@ -818,16 +866,23 @@ function genChunk(cx,cz){
   const free=(x,z,r)=>{if(x*x+z*z<PLAZA*PLAZA*0.5)return false;if(Math.hypot(x-SHOP.x,z-SHOP.z)<6)return false;for(const o of out){const dx=o.x-x,dz=o.z-z,m=o.rad+r;if(dx*dx+dz*dz<m*m)return false;}return true;};
   const ns=1+Math.floor(rng()*3);
   for(let k=0,t=0;k<ns&&t<20;t++){const x=cx*CH+2+rng()*(CH-4),z=cz*CH+2+rng()*(CH-4);if(!free(x,z,0.8))continue;out.items.push({id:cid*8+k,kind:'star',x,z,ph:rng()*TAU});k++;}
+  /* jump pads and magic portals (permanent, never collected) */
+  const special=()=>{
+    if(rng()<0.2){for(let t=0;t<20;t++){const x=cx*CH+3+rng()*(CH-6),z=cz*CH+3+rng()*(CH-6);if(!free(x,z,1.3))continue;out.items.push({id:cid*8+5,kind:'pad',x,z,ph:rng()*TAU,perm:true});break;}}
+    if(rng()<0.07){for(let t=0;t<20;t++){const x=cx*CH+3+rng()*(CH-6),z=cz*CH+3+rng()*(CH-6);if(!free(x,z,1.6))continue;out.items.push({id:cid*8+6,kind:'portal',x,z,ph:rng()*TAU,perm:true,ta:rng()*TAU,td:250+rng()*450});break;}}
+  };
   if(rng()<0.22){for(let t=0;t<20;t++){const x=cx*CH+3+rng()*(CH-6),z=cz*CH+3+rng()*(CH-6);if(!free(x,z,1))continue;out.items.push({id:cid*8+7,kind:rng()<0.5?'decoy':'ghost',x,z,ph:rng()*TAU});break;}}
+  special();
   return out;
 }
 /* objects the player built or moved (build mode); generated objects they picked up are listed in removed */
-const BUILD={removed:new Set(),byChunk:new Map(),objs:[],nextId:1,sel:null,tool:'move'};
+const BUILD={removed:new Set(),byChunk:new Map(),objs:[],nextId:1,sel:null,tool:'move',big:0};
 function chunkKey(cx,cz){return (cx+1000)*4000+(cz+1000);}
 function getChunk(cx,cz){
   const k=chunkKey(cx,cz);
   let a=chunkCache.get(k);
-  if(!a){const g=genChunk(cx,cz);a=BUILD.removed.size?g.filter(o=>!BUILD.removed.has(o.id)):g;a.items=g.items;const ex=BUILD.byChunk.get(k);if(ex)for(const o of ex)a.push(o);chunkCache.set(k,a);if(chunkCache.size>1500){chunkCache.delete(chunkCache.keys().next().value);}}
+  if(a){if(chunkCache.size>1200){chunkCache.delete(k);chunkCache.set(k,a);}}
+  else{const g=genChunk(cx,cz);a=BUILD.removed.size?g.filter(o=>!BUILD.removed.has(o.id)):g;a.items=g.items;const ex=BUILD.byChunk.get(k);if(ex)for(const o of ex)a.push(o);chunkCache.set(k,a);if(chunkCache.size>1500){chunkCache.delete(chunkCache.keys().next().value);}}
   return a;
 }
 function forObjs(x,z,r,fn){
@@ -859,7 +914,8 @@ function collideEntity(e,r,stand,skipObjects){
     for(const c of EXTRA_COLLS){if(!penetrate(e.x,e.z,r,c))continue;if(stand&&c.flat&&e.y>=c.h-0.4){if(c.h>ground)ground=c.h;}else if(e.y<c.h-0.05){e.x+=PEN.x;e.z+=PEN.z;}}
   }
   if(!skipObjects){
-    const x0=Math.floor((e.x-r-3)/CH),x1=Math.floor((e.x+r+3)/CH),z0=Math.floor((e.z-r-3)/CH),z1=Math.floor((e.z+r+3)/CH);
+    const mg=r+3+BUILD.big;
+    const x0=Math.floor((e.x-mg)/CH),x1=Math.floor((e.x+mg)/CH),z0=Math.floor((e.z-mg)/CH),z1=Math.floor((e.z+mg)/CH);
     for(let cx=x0;cx<=x1;cx++)for(let cz=z0;cz<=z1;cz++){
       const a=getChunk(cx,cz);
       for(let i=0;i<a.length;i++){
@@ -867,6 +923,7 @@ function collideEntity(e,r,stand,skipObjects){
         if(dx*dx+dz*dz>m*m||!o.colls.length)continue;
         for(let j=0;j<o.colls.length;j++){
           const c=o.colls[j];
+          if(c.y0&&e.y+1.8<c.y0)continue;
           if(!penetrate(e.x,e.z,r,c))continue;
           if(stand&&c.flat&&e.y>=c.h-0.4){if(c.h>ground)ground=c.h;}
           else if(e.y<c.h-0.05){e.x+=PEN.x;e.z+=PEN.z;}
@@ -896,7 +953,8 @@ function segHits(ax,az,bx,bz,c){
 }
 function losClear(ax,ay,az,bx,by,bz){
   const minY=Math.min(ay,by);
-  const x0=Math.floor(Math.min(ax,bx)/CH),x1=Math.floor(Math.max(ax,bx)/CH),z0=Math.floor(Math.min(az,bz)/CH),z1=Math.floor(Math.max(az,bz)/CH);
+  const bg=BUILD.big,maxY=Math.max(ay,by);
+  const x0=Math.floor((Math.min(ax,bx)-bg)/CH),x1=Math.floor((Math.max(ax,bx)+bg)/CH),z0=Math.floor((Math.min(az,bz)-bg)/CH),z1=Math.floor((Math.max(az,bz)+bg)/CH);
   const vx=bx-ax,vz=bz-az,L2=vx*vx+vz*vz||1e-9;
   for(let cx=x0;cx<=x1;cx++)for(let cz=z0;cz<=z1;cz++){
     const a=getChunk(cx,cz);
@@ -904,7 +962,7 @@ function losClear(ax,ay,az,bx,by,bz){
       const o=a[i];if(o.top<minY)continue;
       const t=clamp(((o.x-ax)*vx+(o.z-az)*vz)/L2,0,1),qx=ax+vx*t-o.x,qz=az+vz*t-o.z;
       if(qx*qx+qz*qz>o.rad*o.rad)continue;
-      for(let j=0;j<o.colls.length;j++){const c=o.colls[j];if(c.h<minY)continue;if(segHits(ax,az,bx,bz,c))return false;}
+      for(let j=0;j<o.colls.length;j++){const c=o.colls[j];if(c.h<minY||(c.y0&&c.y0>maxY))continue;if(segHits(ax,az,bx,bz,c))return false;}
     }
   }
   const mx=(ax+bx)/2,mz=(az+bz)/2,pc={b:false,x:pillarCoord(mx),z:pillarCoord(mz),r:PILLAR_R};
@@ -918,7 +976,7 @@ const visMap=new Map();
 const Q={R:1,shadow:2048,prMax:2,adaptive:true};
 function makeTypeMesh(gr,geo,n,near){
   const mesh=new THREE.InstancedMesh(geo,MAT[gr.mat],n);
-  mesh.cap=n;mesh.owner=[];mesh.setColorAt(0,WHITE);mesh.count=0;
+  mesh.cap=n;mesh.owner=[];mesh.gr=gr;mesh.setColorAt(0,WHITE);mesh.count=0;
   mesh.frustumCulled=false;
   mesh.castShadow=near&&gr.sh&&gr.mat!=='glow'&&gr.mat!=='balloon';
   mesh.receiveShadow=near&&gr.mat!=='glow';
@@ -949,7 +1007,7 @@ function placeObj(o,far){
   const refs=[];
   for(let j=0;j<T.parts.length;j++){
     const p=T.parts[j],m=far?p.gr.far:p.gr.mesh,idx=m.count;
-    if(idx>=m.cap)continue;
+    if(idx>=m.cap){growQueue.add(m);continue;}
     m.count++;
     _m.multiplyMatrices(_base,p.m);m.setMatrixAt(idx,_m);
     _c.setRGB(o.cols[p.ci*3],o.cols[p.ci*3+1],o.cols[p.ci*3+2]);m.setColorAt(idx,_c);
@@ -969,11 +1027,23 @@ function rebuildInstances(fcx,fcz){
     const far=Math.abs(dx)>1||Math.abs(dz)>1;
     for(let i=0;i<a.length;i++)placeObj(a[i],far);
   }
+  /* large built objects whose centre is outside the 3x3 chunks can still reach into view */
+  if(BUILD.big>0){const fx=(fcx+0.5)*CH,fz=(fcz+0.5)*CH;for(const o of BUILD.objs)if(!visMap.has(o.id)&&Math.hypot(o.x-fx,o.z-fz)<CH*1.6+o.rad)placeObj(o,false);}
+  if(growQueue.size){for(const m of growQueue)growMesh(m);growQueue.clear();rebuildInstances(fcx,fcz);return;}
   for(const m of meshList){
+    m.visible=m.count>0;
+    if(!m.count)continue;
     m.instanceMatrix.needsUpdate=true;
     if(m.instanceColor)m.instanceColor.needsUpdate=true;
     const ph=m.geometry.attributes.aPhase;if(ph)ph.needsUpdate=true;
   }
+}
+const growQueue=new Set();
+function growMesh(m){
+  const gr=m.gr,near=gr.mesh===m;
+  const nm=makeTypeMesh(gr,m.geometry,m.cap*2,near);
+  scene.remove(m);const i=meshList.indexOf(m);if(i>=0)meshList.splice(i,1);
+  if(near)gr.mesh=nm;else gr.far=nm;
 }
 function updateFocus(fx,fz,force){
   const cx=Math.floor(fx/CH),cz=Math.floor(fz/CH),k=cx+','+cz;
@@ -1000,24 +1070,34 @@ const ITEM_GEO={
     const g=new THREE.ExtrudeGeometry(sh,{depth:0.1,bevelEnabled:true,bevelThickness:0.04,bevelSize:0.035,bevelSegments:2});g.center();return g;})(),
   decoy:new THREE.IcosahedronGeometry(0.34,0),
   ghost:new THREE.OctahedronGeometry(0.38,0),
+  pad:new THREE.CylinderGeometry(0.85,0.95,0.12,32),
+  padArrow:new THREE.ConeGeometry(0.28,0.45,4),
+  portal:new THREE.TorusGeometry(1.0,0.13,12,48),
+  portalCore:new THREE.CircleGeometry(0.88,40),
 };
 const itemMat=patMat(new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}),6);
-const ITEM_MESH={},ITEM_COL={star:new THREE.Color(1,0.75,0.08),decoy:new THREE.Color(0.15,1,0.65),ghost:new THREE.Color(0.85,0.55,1)};
-for(const k in ITEM_GEO){const m=new THREE.InstancedMesh(ITEM_GEO[k],itemMat,k==='star'?60:16);m.setColorAt(0,WHITE);m.count=0;m.frustumCulled=false;scene.add(m);ITEM_MESH[k]=m;}
+const itemMat2=patMat(new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,side:THREE.DoubleSide,transparent:true,opacity:0.55,depthWrite:false}),6);
+const ITEM_MESH={},ITEM_COL={star:new THREE.Color(1,0.75,0.08),decoy:new THREE.Color(0.15,1,0.65),ghost:new THREE.Color(0.85,0.55,1),pad:new THREE.Color(0.2,0.9,1),padArrow:new THREE.Color(1,0.9,0.2),portal:new THREE.Color(0.75,0.3,1),portalCore:new THREE.Color(0.6,0.4,1)};
+for(const k in ITEM_GEO){const m=new THREE.InstancedMesh(ITEM_GEO[k],k==='portalCore'?itemMat2:itemMat,k==='star'?90:16);m.setColorAt(0,WHITE);m.count=0;m.frustumCulled=false;scene.add(m);ITEM_MESH[k]=m;}
 function forItemsNear(x,z,fn){
   const cx=Math.floor(x/CH),cz=Math.floor(z/CH);
   for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const a=getChunk(cx+dx,cz+dz).items;if(a)for(let i=0;i<a.length;i++)fn(a[i]);}
 }
-function renderItems(fx,fz,t,got){
+function itemInst(k,x,y,z,ex,ey,ez,sc){const m=ITEM_MESH[k];if(m.count>=m.instanceMatrix.count)return;const i=m.count++;_e.set(ex,ey,ez);_q.setFromEuler(_e);_m.compose(_v.set(x,y,z),_q,_s.setScalar(sc));m.setMatrixAt(i,_m);m.setColorAt(i,ITEM_COL[k]);}
+function renderItems(fx,fz,t,got,temp){
   for(const k in ITEM_MESH)ITEM_MESH[k].count=0;
-  forItemsNear(fx,fz,it=>{
+  const draw=it=>{
+    if(it.kind==='pad'){itemInst('pad',it.x,0.06,it.z,0,t*1.5,0,1+0.05*Math.sin(t*6+it.ph));itemInst('padArrow',it.x,0.65+Math.abs(Math.sin(t*4+it.ph))*0.5,it.z,0,t*2,0,1);return;}
+    if(it.kind==='portal'){itemInst('portal',it.x,1.35,it.z,0,it.ph,t*1.2,1);itemInst('portalCore',it.x,1.35,it.z,0,it.ph,-t*2,1+0.04*Math.sin(t*5));return;}
     if(got.has(it.id))return;
     const m=ITEM_MESH[it.kind];if(m.count>=m.instanceMatrix.count)return;
     const i=m.count++,sc=it.kind==='star'?1:1+0.12*Math.sin(t*5+it.ph);
     _e.set(it.kind==='star'?0:t*1.3,t*2+it.ph,0);_q.setFromEuler(_e);
     _m.compose(_v.set(it.x,1.0+Math.sin(t*2.2+it.ph)*0.18,it.z),_q,_s.setScalar(sc));
     m.setMatrixAt(i,_m);m.setColorAt(i,ITEM_COL[it.kind]);
-  });
+  };
+  forItemsNear(fx,fz,draw);
+  if(temp)for(const it of temp)if(Math.abs(it.x-fx)<40&&Math.abs(it.z-fz)<40)draw(it);
   for(const k in ITEM_MESH){ITEM_MESH[k].instanceMatrix.needsUpdate=true;ITEM_MESH[k].instanceColor.needsUpdate=true;}
 }
 /* decoy music boxes thrown by the player */
@@ -1239,7 +1319,7 @@ const meLbl=document.createElement('div');meLbl.className='lbl me';meLbl.innerHT
 function placeSeekersCircle(face){
   seekers.forEach((s,i)=>{
     const a=i/20*TAU;s.x=Math.sin(a)*7.5;s.z=Math.cos(a)*7.5;s.y=0;s.vy=0;
-    s.rot=s.rotT=face==='in'?a+Math.PI:a;s.state=face==='in'?'count':'idle';s.obj=null;s.knowHide=null;s.spot=0;s.sees=false;s.dash=false;s.spd=0;
+    s.rot=s.rotT=face==='in'?a+Math.PI:a;s.state=face==='in'?'count':'idle';s.obj=null;s.knowHide=null;s.spot=0;s.sees=false;s.dash=false;s.spd=0;s.ground=0;s.onGround=true;s.sayT=0;s.em.hidden=true;s.decoy=null;
   });
 }
 placeSeekersCircle('out');
@@ -1257,7 +1337,7 @@ const LINES={
   decoy:['آهنگ از کجا میاد؟','این دیگه چیه؟'],
 };
 function say(s,kind){if(rand()<0.55||kind==='chase'){const a=LINES[kind];s.em.textContent=a[Math.floor(rand()*a.length)];s.em.hidden=false;s.sayT=2.2;}}
-const ICON={idle:'👋',count:'🙈',roam:'🔍',scan:'👀',goto:'🔎',inspect:'🫣',investigate:'❓',chase:'❗',celebrate:'🎉',gather:'🏃',sad:'😢'};
+const ICON={idle:'👋',count:'🙈',roam:'🔍',scan:'👀',goto:'🔎',inspect:'🫣',investigate:'❓',chase:'❗',sniff:'🐾',celebrate:'🎉',gather:'🏃',sad:'😢'};
 function setState(s,st){
   if((s.state==='goto'||s.state==='inspect')&&st!=='inspect'&&s.obj){if(S.claims.get(s.obj.id)===s.i)S.claims.delete(s.obj.id);}
   s.state=st;
@@ -1284,7 +1364,7 @@ function pickObj(s,cx,cz,r){
 function canSee(s){
   if(PL.hidden||S.ghostT>0)return false;
   const dx=PL.x-s.x,dz=PL.z-s.z,dy=PL.y-s.y,d2=dx*dx+dz*dz+dy*dy*0.3;
-  const sm=PL.pose==='lie'?0.6:PL.pose==='sit'?0.8:1;
+  const sm=(PL.pose==='lie'?0.6:PL.pose==='sit'?0.8:1)*S.evSight;
   if(d2>D.sight*D.sight*sm*sm)return false;
   const d=Math.sqrt(dx*dx+dz*dz);
   if(d>4){const fx=Math.sin(s.rot),fz=Math.cos(s.rot);if((fx*dx+fz*dz)/d<Math.cos(D.fov/2))return false;}
@@ -1294,7 +1374,7 @@ function moveSeeker(s,tx,tz,speed,dt,allowDash){
   const dx=tx-s.x,dz=tz-s.z,d=Math.hypot(dx,dz);
   s.dash=false;s.spd=0;
   if(d<0.05)return d;
-  let sp=speed;
+  let sp=speed*S.evSpeed;
   if(allowDash&&d>140){sp=Math.max(D.dash,d*D.dashK);s.dash=true;}
   let ux=dx/d,uz=dz/d;
   if(!s.dash&&s.avoidT>0){s.avoidT-=dt;const a=s.avoidSign*1.05,c=Math.cos(a),sn=Math.sin(a),nx=ux*c-uz*sn,nz=ux*sn+uz*c;ux=nx;uz=nz;}
@@ -1324,12 +1404,13 @@ function resolveInspect(s){
   if(PL.hidden&&PL.hidden.id===o.id&&S.phase==='play'){
     const chance=(s.knowHide&&s.knowHide.id===o.id)?1:FIND[o.T.safe];
     if(rand()<chance){caught(s);return;}
-    S.stats.close++;say(s,'miss');toast('😮‍💨 جستجوگر '+fa(s.i+1)+' داخل '+o.T.name+' را گشت ولی تو را ندید!');sfx.relief();
+    S.stats.close++;mission('close',1);say(s,'miss');toast('😮‍💨 جستجوگر '+fa(s.i+1)+' داخل '+o.T.name+' را گشت ولی تو را ندید!');sfx.relief();
   }
   s.knowHide=null;s.obj=null;s.searchLeft--;
   if(s.searchLeft>0){setState(s,'scan');s.t=0.3+rand()*0.4;s.tx=s.x;s.tz=s.z;}else newTarget(s);
 }
 function seekerThink(s,dt){
+  if(s.sniff&&sniffThink(s,dt))return;
   switch(s.state){
     case 'roam':{const d=moveSeeker(s,s.tx,s.tz,D.walk,dt,true);if(d<2.5){setState(s,'scan');s.t=0.5+rand()*0.8;}break;}
     case 'scan':{s.t-=dt;if(s.t<=0){const o=pickObj(s,s.tx,s.tz,s.searchR);if(o){s.obj=o;setState(s,'goto');}else newTarget(s);}break;}
@@ -1348,7 +1429,7 @@ function seekerThink(s,dt){
       const d=moveSeeker(s,s.sees?PL.x:s.lx,s.sees?PL.z:s.lz,D.chase,dt,!s.sees);
       if(s.sees&&!PL.hidden&&d<1.5&&Math.abs(PL.y-s.y)<2.4&&S.phase==='play'){caught(s);return;}
       if(s.sees&&PL.y>s.y+0.8&&d<3.5&&s.onGround)s.vy=Math.sqrt(2*GRAV*Math.min(PL.y-s.y+0.7,4.6));
-      if(!s.sees&&(s.lost>4||d<1.5)){setState(s,'scan');s.tx=s.lx;s.tz=s.lz;s.searchR=12;s.searchLeft=5;s.t=0.8;}
+      if(!s.sees&&(s.lost>4||d<1.5)){if(!seekers.some(o=>o!==s&&o.state==='chase'))mission('escape',1);setState(s,'scan');s.tx=s.lx;s.tz=s.lz;s.searchR=12;s.searchLeft=5;s.t=0.8;}
       break;}
     case 'gather':{const d=moveSeeker(s,PL.x+Math.sin(s.i)*2.5,PL.z+Math.cos(s.i)*2.5,D.chase,dt,true);if(d<1)setState(s,'celebrate');break;}
     case 'celebrate':s.rotT=Math.atan2(PL.x-s.x,PL.z-s.z);break;
@@ -1379,6 +1460,12 @@ function updateSeekers(dt){
     if(S.phase==='play'||S.phase==='over')seekerThink(s,dt);
     else{s.spd=0;s.dash=false;}
     if(s.state==='chase')chasing++;
+    if(s.state!==s.lastState){s.lastState=s.state;s.stT=0;}else s.stT=(s.stT||0)+dt;
+    if(S.phase==='play'&&!s.dash&&s.stT>(s.state==='goto'?16:22)&&(s.state==='roam'||s.state==='investigate'||s.state==='goto'||s.state==='sniff')){
+      if(s.state==='goto'&&s.obj&&Math.hypot(s.obj.x-s.x,s.obj.z-s.z)<s.obj.rad+3){setState(s,'inspect');s.t=1.5;wobble(s.obj,1.5,0.06);}
+      else{if(s.state==='goto'){s.knowHide=null;}newTarget(s);}
+      s.stT=0;
+    }
     s.rot+=wrapA(s.rotT-s.rot)*Math.min(1,dt*(s.dash?20:9));
     s.vy-=GRAV*dt;s.y+=s.vy*dt;
     if(s.y<=s.ground){s.y=s.ground;s.vy=0;s.onGround=true;}else s.onGround=s.y-s.ground<0.03;
@@ -1403,7 +1490,7 @@ function updateSeekers(dt){
   S.chasing=chasing;
 }
 function heardNoise(radius,x,z){
-  if(S.phase!=='play')return;
+  if(S.phase!=='play'||S.frozen)return;
   let heard=0;
   for(const s of seekers){
     if(s.state==='chase'||s.state==='inspect'||s.state==='celebrate'||s.state==='gather')continue;
@@ -1414,12 +1501,13 @@ function heardNoise(radius,x,z){
   if(heard&&radius>60&&S.time-S.lastToastNoise>4){S.lastToastNoise=S.time;toast('🔊 '+fa(heard)+' جستجوگر صدای دویدنت ('+LEVELS[PL.level].name+') را شنیدند و دارند می‌آیند!');}
 }
 function issueHint(){
+  for(const [id,t] of S.searched)if(S.time-t>100)S.searched.delete(id);
   const R=D.hintR*Math.max(0.3,1-S.elapsed/480),p=randInCircle(R*0.45);
   S.hint={x:PL.x+p[0],z:PL.z+p[1],r:R};
   let n=0;
   for(const s of seekers){
     const far=Math.hypot(s.x-S.hint.x,s.z-S.hint.z)>R*1.4;
-    if(s.state==='roam'||s.state==='scan'||(far&&(s.state==='goto'||s.state==='investigate'))){newTarget(s);n++;}
+    if(s.state==='roam'||s.state==='scan'||(s.state==='investigate'&&(s.stT||0)>12)||(far&&(s.state==='goto'||s.state==='investigate'))){newTarget(s);n++;}
   }
   if(n>=6)toast('📡 جستجوگرها حدس زدند کدام طرف هستی… دارند نزدیک‌تر می‌شوند.');
 }
@@ -1458,14 +1546,14 @@ function doFlip(){
   PL.pose='stand';
   if(PL.onGround){const h=Math.max(2.2,(PL.running?LEVELS[PL.level].jump:0)*0.6);PL.vy=Math.sqrt(2*GRAV*h);PL.onGround=false;}
   const air=Math.max(0.45,2*Math.max(PL.vy,0)/GRAV);
-  PL.flip={t:0,dur:clamp(air*0.92,0.55,1.6)};sfx.flip();updateButtons();
+  PL.flip={t:0,dur:clamp(air*0.92,0.55,1.6)};sfx.flip();mission('flips',1);updateButtons();
 }
 function updatePlayer(dt){
   const c=PL.c;
   if(PL.hidden){poseHidden(dt);return;}
   c.root.visible=true;c.root.scale.setScalar(0.82);c.root.rotation.x=0;
   if(S.phase==='menu'){c.root.position.set(0,0,0);c.root.rotation.y=0;animChar(c,dt,'wave',0,S.time);return;}
-  if(S.phase==='over'){c.root.position.set(PL.x,PL.y,PL.z);c.root.rotation.y=PL.rot;animChar(c,dt,S.won?'celebrate':'sad',0,S.time);return;}
+  if(S.phase==='over'){if(PL.y>0||PL.vy){const g=collideEntity(PL,0.38,true,false);PL.vy-=GRAV*dt;PL.y+=PL.vy*dt;if(PL.y<=g){PL.y=g;PL.vy=0;}}PL.flip=null;PL.pose='stand';c.root.position.set(PL.x,PL.y,PL.z);c.root.rotation.y=PL.rot;animChar(c,dt,S.won?'celebrate':'sad',0,S.time);return;}
   let mx=input.jx+input.kx,my=input.jy+input.ky;const mag=Math.min(1,Math.hypot(mx,my));
   if(mag>0.2&&PL.pose!=='stand'){PL.pose='stand';updateButtons();}
   if(mag>1e-3){const l=Math.hypot(mx,my);mx/=l;my/=l;}
@@ -1483,7 +1571,7 @@ function updatePlayer(dt){
     const steps=clamp(Math.ceil(spd*dt/0.45),1,8);
     for(let i=0;i<steps;i++){PL.x+=PL.vx*dt/steps;PL.z+=PL.vz*dt/steps;ground=collideEntity(PL,0.38,true,false);}
   }else{PL.x+=PL.vx*dt;PL.z+=PL.vz*dt;ground=collideEntity(PL,0.38,true,false);}
-  const moved=Math.hypot(PL.x-ox,PL.z-oz);S.stats.dist+=moved;
+  const moved=Math.hypot(PL.x-ox,PL.z-oz);if(!S.frozen)S.stats.dist+=moved;
   if(dt>0&&moved<spd*dt*0.3&&spd>2){PL.vx*=0.6;PL.vz*=0.6;}
   PL.vy-=GRAV*dt;PL.y+=PL.vy*dt;
   if(PL.y<=ground){
@@ -1530,6 +1618,7 @@ function enterHide(o){
     if(canSee(s)||s.state==='chase'&&s.sees){s.knowHide=o;if(s.obj&&s.obj!==o&&S.claims.get(s.obj.id)===s.i)S.claims.delete(s.obj.id);s.obj=o;s.state='goto';wit++;}
   }
   PL.hidden=o;PL.vx=PL.vz=PL.vy=0;PL.x=o.x;PL.z=o.z;PL.y=0;PL.hideYaw=S.yaw;PL.pose='stand';PL.flip=null;
+  if(o.T.hide.at==='under')mission('under',1);
   burst(o.x,1,o.z,26,5,0.35,0.8,5);wobble(o,0.7,0.09);sfx.hide();
   S.camMode='peek';S.pitch=o.T.hide.at==='under'?-0.02:0.05;
   $('peekTag').textContent=hideWord(o.T)+' '+o.T.name+' قایم شدی · امنیت '+stars(o.T.safe);
@@ -1551,7 +1640,7 @@ function exitHide(){
 function toggleHide(){
   if(S.paused||(S.phase!=='play'&&S.phase!=='count'))return;
   if(PL.hidden){exitHide();return;}
-  if(S.cand)enterHide(S.cand);
+  const c=findHideCand();if(c)enterHide(c);
 }
 function toggleSpy(){
   if(!PL.hidden||S.paused)return;
@@ -1576,12 +1665,15 @@ function startGame(){
   showPanel(null);$('hud').hidden=false;$('countdown').hidden=false;
   $('timerLabel').textContent=settings.mode==='timed'?'مرحله‌ی '+fa(S.stage)+' · زمان باقی‌مانده':'زمان دوام';
   $('timer').textContent=settings.mode==='timed'?fmtTime(S.timeLeft):fmtTime(0);
+  funReset();
   updateButtons();updateChips();
   $('toast').classList.remove('on');toastTimer=0;
+  $('missPanel').hidden=false;
   sfx.start();
+  tutorial();
 }
 function beginHunt(){
-  S.phase='play';$('countdown').hidden=true;
+  S.phase='play';$('countdown').hidden=true;$('missPanel').hidden=true;
   for(const s of seekers)newTarget(s);
   toast('🔔 آماده باشی یا نه، ما آمدیم!');sfx.whistle();
 }
@@ -1611,6 +1703,7 @@ function win(){
   finish(settings.minutes*60);
 }
 function finish(survived){
+  S.ev=null;S.evSpeed=1;S.evSight=1;S.temp.length=0;$('evBanner').hidden=true;$('missPanel').hidden=true;
   S.survived=survived;if(S.ghostT>0){S.ghostT=0;setGhostLook(false);}PL.vx=PL.vz=0;updateButtons();
   if(S.stats.stars>S.bestStars){S.bestStars=S.stats.stars;store.set('ghm_bstars',S.bestStars);}
   if(survived>=1&&survived>S.best){S.best=survived;store.set('ghm_best',S.best);S.newBest=true;}else S.newBest=false;
@@ -1623,6 +1716,7 @@ function finish(survived){
     $('endSub').textContent=S.endSub+(S.newBest?' رکورد جدید ثبت شد!':'');
     $('stTime').textContent=fmtTime(survived);$('stDist').textContent=fmtDist(S.stats.dist);
     $('stClose').textContent=fa(S.stats.close)+' بار';$('stBest').textContent=fmtTime(S.best);$('stStars').textContent=fa(S.stats.stars);$('stBStars').textContent=fa(S.bestStars);
+    $('endMiss').innerHTML=S.missions.map(m=>'<li class="'+(m.done?'ok':'')+'">'+(m.done?'✅ ':'⬜ ')+m.txt+'</li>').join('');
     $('hud').hidden=true;showPanel('end');
   },2600);
 }
@@ -1630,7 +1724,10 @@ function toMenu(){
   S.build=false;BUILD.sel=null;
   S.frozen=false;S.saved=null;$('shop').hidden=true;
   S.phase='menu';S.paused=false;PL.hidden=null;S.camMode='menu';
-  placeSeekersCircle('out');Object.assign(PL,{x:0,y:0,z:0,vx:0,vz:0,vy:0});
+  placeSeekersCircle('out');Object.assign(PL,{x:0,y:0,z:0,vx:0,vz:0,vy:0,pose:'stand',flip:null});
+  S.ghostT=0;setGhostLook(false);S.decoys.length=0;decoyMeshes.forEach(m=>m.visible=false);
+  S.ev=null;S.evSpeed=1;S.evSight=1;S.temp.length=0;$('evBanner').hidden=true;$('missPanel').hidden=true;
+  updateButtons();
   $('hud').hidden=true;$('countdown').hidden=true;showPanel('menu');refreshMenu();
 }
 
@@ -1642,18 +1739,19 @@ function setGhostLook(on){
 function updateItems(dt){
   if((S.phase!=='play'&&S.phase!=='count')||S.frozen)return;
   if(!PL.hidden&&PL.y<2.6){
-    forItemsNear(PL.x,PL.z,it=>{
-      if(S.got.has(it.id))return;
+    const grab=it=>{
+      if(it.perm||it.dead||S.got.has(it.id))return;
       const dx=it.x-PL.x,dz=it.z-PL.z;if(dx*dx+dz*dz>1.6)return;
-      S.got.add(it.id);burst(it.x,1,it.z,it.kind==='star'?16:30,4,0.28,0.7,3);
-      if(it.kind==='star'){S.stats.stars++;sfx.star(S.stats.stars);if(S.stats.stars%10===0)toast('🌟 '+fa(S.stats.stars)+' ستاره جمع کردی!');}
+      if(it.life!==undefined)it.dead=true;else S.got.add(it.id);burst(it.x,1,it.z,it.kind==='star'?16:30,4,0.28,0.7,3);
+      if(it.kind==='star'){S.stats.stars++;sfx.star(S.stats.stars);mission('stars',1);if(S.stats.stars%10===0)toast('🌟 '+fa(S.stats.stars)+' ستاره جمع کردی!');}
       else if(it.kind==='decoy'){S.decoyN++;sfx.power();toast('🎵 جعبه‌ی موزیک گرفتی! «فریب» را بزن تا جستجوگرها دنبال صدایش بروند.',3.5);}
-      else{S.ghostN++;sfx.power();toast('👻 معجون نامرئی گرفتی! با «نامرئی» ۸ ثانیه کسی تو را نمی‌بیند.',3.5);}
+      else{S.ghostN++;sfx.power();toast('👻 معجون نامرئی گرفتی! با «نامرئی» '+fa(ghostDur())+' ثانیه کسی تو را نمی‌بیند.',3.5);}
       updateButtons();
-    });
+    };
+    forItemsNear(PL.x,PL.z,grab);for(const it of S.temp)grab(it);
   }
   // star sparkle
-  if(rand()<0.25)forItemsNear(PL.x,PL.z,it=>{if(!S.got.has(it.id)&&rand()<0.08&&Math.hypot(it.x-PL.x,it.z-PL.z)<VIEW)emit(it.x+(rand()-0.5)*0.6,1+rand()*0.5,it.z+(rand()-0.5)*0.6,0,0.6,0,rand(),0.12,0.8,-0.3);});
+  if(rand()<0.25)forItemsNear(PL.x,PL.z,it=>{if(!it.perm&&!S.got.has(it.id)&&rand()<0.08&&Math.hypot(it.x-PL.x,it.z-PL.z)<VIEW)emit(it.x+(rand()-0.5)*0.6,1+rand()*0.5,it.z+(rand()-0.5)*0.6,0,0.6,0,rand(),0.12,0.8,-0.3);});
   // ghost timer
   if(S.ghostT>0){S.ghostT-=dt;if(rand()<0.5)emit(PL.x+(rand()-0.5),PL.y+0.3+rand()*1.6,PL.z+(rand()-0.5),0,0.5,0,0.75+rand()*0.15,0.18,0.7,-0.5);if(S.ghostT<=0){S.ghostT=0;setGhostLook(false);toast('👀 دوباره دیده می‌شوی!');}}
   // active decoys
@@ -1672,14 +1770,15 @@ function updateItems(dt){
   }
 }
 function useDecoy(){
-  if(S.paused||S.frozen||(S.phase!=='play'&&S.phase!=='count')||decoyTotal()<=0||S.decoys.length>=3)return;
+  if(S.phase==='count'&&decoyTotal()>0){toast('🎵 صبر کن تا جستجوگرها شمردن را تمام کنند!');return;}
+  if(S.paused||S.frozen||S.phase!=='play'||decoyTotal()<=0||S.decoys.length>=3)return;
   if(S.decoyN>0)S.decoyN--;else{INV.decoy--;saveInv();}
   const base=PL.hidden||PL,a=S.yaw,dist=PL.hidden?9:14;
   const d={x:base.x+Math.sin(a)*dist,z:base.z+Math.cos(a)*dist,t:9,pulse:0,slot:0};
   const e={x:d.x,z:d.z,y:0};collideEntity(e,0.4,false,false);d.x=e.x;d.z=e.z;
   const used=new Set(S.decoys.map(q=>q.slot));for(let k=0;k<3;k++)if(!used.has(k)){d.slot=k;break;}
   const m=decoyMeshes[d.slot];m.position.set(d.x,0,d.z);m.visible=true;
-  S.decoys.push(d);burst(d.x,0.8,d.z,24,4,0.3,0.7,4);sfx.power();
+  S.decoys.push(d);burst(d.x,0.8,d.z,24,4,0.3,0.7,4);sfx.power();mission('decoy',1);
   toast('🎵 جعبه‌ی موزیک افتاد! جستجوگرهای نزدیک دنبال صدایش می‌روند.');updateButtons();
 }
 function useGhost(){
@@ -1797,10 +1896,11 @@ function freezeTime(){
 }
 function unfreeze(){
   if(!S.frozen)return;
+  if(S.build){S.build=false;BUILD.sel=null;saveBuild();}
   const sv=S.saved;S.frozen=false;S.saved=null;
   Object.assign(PL,{x:sv.x,y:sv.y,z:sv.z,rot:sv.rot,vx:0,vz:0,vy:0});S.yaw=sv.yaw;S.pitch=sv.pitch;
   if(sv.hidden&&!objAlive(sv.hidden)){sv.hidden=null;toast('🛠️ مخفیگاهت را جابه‌جا کردی، پس دیگر داخلش نیستی!');}
-  if(sv.hidden){PL.hidden=sv.hidden;S.camMode='peek';$('peekTag').textContent=hideWord(sv.hidden.T)+' '+sv.hidden.T.name+' قایم شدی · امنیت '+stars(sv.hidden.T.safe);$('peek').classList.toggle('under',sv.hidden.T.hide.at==='under');}
+  if(sv.hidden){PL.hidden=sv.hidden;PL.x=sv.hidden.x;PL.z=sv.hidden.z;PL.y=0;S.camMode='peek';$('peekTag').textContent=hideWord(sv.hidden.T)+' '+sv.hidden.T.name+' قایم شدی · امنیت '+stars(sv.hidden.T.safe);$('peek').classList.toggle('under',sv.hidden.T.hide.at==='under');}
   else S.camMode='third';
   burst(PL.x,1,PL.z,20,4,0.3,0.6,4);sfx.freeze(true);
   $('shop').hidden=true;
@@ -1833,6 +1933,7 @@ function renderShop(){
     b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();buy(it);});
     row.appendChild(b);box.appendChild(row);
   }
+  renderLookRows(box);
 }
 function buy(it){
   const price=it.price();
@@ -1903,9 +2004,10 @@ function finishCustom(o){
   const T=o.T,cs=Math.cos(o.rot),sn=Math.sin(o.rot);
   o.colls=T.cols.map(c=>{
     const ox=(c.ox||0)*o.sx,oz=(c.oz||0)*o.sz;
-    return {b:true,x:o.x+ox*cs+oz*sn,z:o.z-ox*sn+oz*cs,r:0,hx:(c.b?c.hx:c.r)*o.sx,hz:(c.b?c.hz:c.r)*o.sz,c:cs,s:sn,h:o.y+c.h*o.sy,flat:!!c.flat};
+    return {b:!!c.b,x:o.x+ox*cs+oz*sn,z:o.z-ox*sn+oz*cs,r:(c.r||0)*Math.max(o.sx,o.sz),hx:(c.hx||0)*o.sx,hz:(c.hz||0)*o.sz,c:cs,s:sn,h:o.y+c.h*o.sy,y0:o.y>0.3?o.y:0,flat:!!c.flat};
   });
   o.rad=T.rad*Math.max(o.sx,o.sz);o.top=o.y+T.top*o.sy;o.s=o.sy;
+  if(o.rad>CH*0.4)BUILD.big=Math.max(BUILD.big,o.rad);
 }
 function makeCustom(d){
   const o={custom:true,id:1e9+(BUILD.nextId++),ti:d.ti,T:TYPES[d.ti],x:d.x,y:d.y||0,z:d.z,rot:d.rot||0,rx:d.rx||0,rz:d.rz||0,sx:d.sx||1,sy:d.sy||1,sz:d.sz||1,
@@ -1929,9 +2031,15 @@ function adopt(o){
   if(o.custom)return o;
   if(BUILD.objs.length>=BUILD_MAX){toast('🛠️ حداکثر '+fa(BUILD_MAX)+' وسیله‌ی ساختنی داری.');return null;}
   BUILD.removed.add(o.id);
-  const a=chunkCache.get(chunkKey(Math.floor(o.x/CH),Math.floor(o.z/CH)));if(a){const i=a.indexOf(o);if(i>=0)a.splice(i,1);}
+  const a=chunkCache.get(chunkKey(Math.floor(o.x/CH),Math.floor(o.z/CH)));if(a){const i=a.findIndex(q=>q.id===o.id);if(i>=0)a.splice(i,1);}
   const c=makeCustom({ti:o.ti,x:o.x,y:0,z:o.z,rot:o.rot,sx:o.s,sy:o.s,sz:o.s,cols:o.cols});
-  addCustom(c);return c;
+  addCustom(c);
+  for(const s of seekers){if(s.obj&&s.obj.id===o.id)s.obj=c;if(s.knowHide&&s.knowHide.id===o.id)s.knowHide=c;}
+  if(S.claims.has(o.id)){S.claims.set(c.id,S.claims.get(o.id));S.claims.delete(o.id);}
+  if(S.searched.has(o.id)){S.searched.set(c.id,S.searched.get(o.id));S.searched.delete(o.id);}
+  if(S.saved&&S.saved.hidden&&S.saved.hidden.id===o.id)S.saved.hidden=c;
+  if(PL.hidden&&PL.hidden.id===o.id)PL.hidden=c;
+  return c;
 }
 function refreshCustom(o,force){
   finishCustom(o);
@@ -1953,7 +2061,7 @@ function saveBuild(){
   const d=store.get('ghm_build',null);if(!d)return;
   try{
     (d.removed||[]).forEach(id=>BUILD.removed.add(id));
-    (d.objs||[]).forEach(q=>{if(TYPES[q.ti])addCustom(makeCustom(q));});
+    (d.objs||[]).forEach(q=>{try{if(q&&TYPES[q.ti]&&isFinite(q.x)&&isFinite(q.z))addCustom(makeCustom(q));}catch(e){}});
   }catch(e){}
 })();
 
@@ -2053,10 +2161,264 @@ function renderBuildUI(){
   $('buildCount').textContent=fa(BUILD.objs.length)+' وسیله‌ی ساخته‌شده';
 }
 
+/* ================== preferences: camera sensitivity, music volume, vibration ================== */
+const PREF=Object.assign({sens:1,music:0.7,vib:true},store.get('ghm_prefs',{}));
+function savePrefs(){store.set('ghm_prefs',PREF);}
+function buzz(p){if(!PREF.vib||!navigator.vibrate)return;try{navigator.vibrate(p);}catch(e){}}
+
+/* ================== hall events ================== */
+S.temp=[];S.ev=null;S.evT=40;S.evSpeed=1;S.evSight=1;S.evFog=1;S.evDark=0;S.tempSeq=0;
+const EVENTS=[
+  {k:'blackout',icon:'🌑',name:'خاموشی',dur:18,txt:'چراغ‌های تالار خاموش شد! جستجوگرها نصف همیشه می‌بینند.'},
+  {k:'starRain',icon:'🌠',name:'باران ستاره',dur:15,txt:'دور و برت ستاره بارید! تا تمام نشده جمعشان کن.'},
+  {k:'sleepy',icon:'💤',name:'جستجوگرهای خواب‌آلود',dur:15,txt:'جستجوگرها خوابشان گرفته و آهسته راه می‌روند.'},
+  {k:'hyper',icon:'⚡',name:'جستجوگرهای پرانرژی',dur:12,txt:'مراقب باش! جستجوگرها تند و تیز شده‌اند.'},
+  {k:'gift',icon:'🎁',name:'هدیه‌ی آسمانی',dur:6,txt:'یک هدیه‌ی جادویی کنارت افتاد!'},
+];
+function addTemp(kind,x,z,life){const e={x,z,y:0};collideEntity(e,0.6,false,false);S.temp.push({id:'t'+(S.tempSeq++),kind,x:e.x,z:e.z,ph:rand()*TAU,life:life||25});}
+function startEvent(){
+  const pool=EVENTS.filter(e=>!(e.k==='gift'&&S.temp.some(t=>t.kind!=='star')));
+  const ev=pool[Math.floor(rand()*pool.length)];
+  S.ev={k:ev.k,t:ev.dur,def:ev};
+  if(ev.k==='blackout'){S.evSight=0.5;}
+  else if(ev.k==='sleepy')S.evSpeed=0.5;
+  else if(ev.k==='hyper')S.evSpeed=1.4;
+  else if(ev.k==='starRain'){for(let i=0;i<14;i++){const a=rand()*TAU,r=4+rand()*10;addTemp('star',PL.x+Math.cos(a)*r,PL.z+Math.sin(a)*r,ev.dur+2);}}
+  else if(ev.k==='gift'){addTemp(rand()<0.5?'decoy':'ghost',PL.x+Math.sin(S.yaw)*3,PL.z+Math.cos(S.yaw)*3,30);}
+  const b=$('evBanner');b.innerHTML='<span>'+ev.icon+'</span><b>'+ev.name+'</b><small>'+ev.txt+'</small>';b.hidden=false;b.classList.remove('go');void b.offsetWidth;b.classList.add('go');
+  S.evBannerT=3.4;sfx.event(ev.k);buzz(50);
+}
+function endEvent(){S.ev=null;S.evSpeed=1;S.evSight=1;S.evT=45+rand()*35;}
+
+/* ================== footprints & sniffer seekers ================== */
+S.trail=[];S.trailSeq=0;
+const SNIFF=new Set([3,10,17]);
+(function makeSniffers(){
+  const ear=new THREE.SphereGeometry(0.16,14,10);
+  for(const s of seekers){
+    if(!SNIFF.has(s.i))continue;
+    s.sniff=true;s.sniffT=rand();s.sseq=-1;
+    const pal=seekerPal(s.i),brown=hsl(s.i/20+0.08,0.6,0.45);
+    const m=new THREE.Mesh(mergeG([cpart(ear,brown,[0.31,0.32,0],[0.6,1.5,0.9],[0,0,-0.35]),cpart(ear,brown,[-0.31,0.32,0],[0.6,1.5,0.9],[0,0,0.35]),
+      cpart(CG.nose,hsl(0.75,0.6,0.25),[0,0.27,0.37],[1.6,1.3,1.3]),cpart(CG.pom,pal.badge,[0,0.12,0.3],[1,0.6,0.4])]),CMAT);
+    m.castShadow=true;s.c.head.add(m);s.c.meshes.push(m);
+    s.el.classList.add('dog');
+  }
+})();
+const FOOT_MAX=160;
+const footMesh=new THREE.InstancedMesh(new THREE.CircleGeometry(0.11,12).rotateX(-R2),patMat(new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,transparent:true,opacity:0.75,depthWrite:false}),6),FOOT_MAX*2);
+footMesh.count=0;footMesh.frustumCulled=false;footMesh.renderOrder=3;footMesh.setColorAt(0,WHITE);scene.add(footMesh);
+let footT=0;
+function stepTrail(dt){
+  const now=S.time;
+  while(S.trail.length&&(now-S.trail[0].t>28||S.trail.length>FOOT_MAX))S.trail.shift();
+  const live=(S.phase==='play'||S.phase==='count')&&!S.frozen&&!PL.hidden&&PL.onGround&&S.ghostT<=0&&PL.pose==='stand'&&PL.y<0.3;
+  if(live){
+    const l=S.trail[S.trail.length-1];
+    if(!l||Math.hypot(PL.x-l.x,PL.z-l.z)>1.5)S.trail.push({x:PL.x,z:PL.z,t:now,seq:S.trailSeq++,a:PL.rot});
+  }
+  footT-=dt;if(footT>0)return;footT=0.2;
+  let n=0;
+  for(const p of S.trail){
+    const age=(now-p.t)/28,sc=1-age*0.75,cx=Math.cos(p.a),sx=Math.sin(p.a);
+    for(const sd of [-1,1]){
+      _m.compose(_v.set(p.x+cx*0.14*sd,0.03,p.z-sx*0.14*sd),_q.setFromAxisAngle(UP,p.a),_s.set(sc,1,sc*1.6));
+      footMesh.setMatrixAt(n,_m);_c.setHSL((p.seq*0.07)%1,1,0.6-age*0.3);footMesh.setColorAt(n,_c);n++;
+    }
+  }
+  footMesh.count=n;footMesh.instanceMatrix.needsUpdate=true;if(footMesh.instanceColor)footMesh.instanceColor.needsUpdate=true;
+}
+/* returns true when this seeker is busy following footprints */
+function sniffThink(s,dt){
+  if(s.state==='sniff'){
+    let nx=null;for(const p of S.trail){if(p.seq>s.sseq){nx=p;break;}}
+    const end=()=>{setState(s,'scan');s.tx=s.x;s.tz=s.z;s.searchR=7;s.searchLeft=4;s.t=0.6;};
+    if(!nx){end();return true;}
+    const d=Math.hypot(nx.x-s.x,nx.z-s.z);
+    if(d>9){end();return true;}
+    moveSeeker(s,nx.x,nx.z,D.walk*1.25*S.evSpeed,dt,false);
+    if(d<1)s.sseq=nx.seq;
+    return true;
+  }
+  if((s.state==='roam'||s.state==='scan')&&S.phase==='play'){
+    s.sniffT-=dt;
+    if(s.sniffT<=0){
+      s.sniffT=0.5;let best=null,bd=49;
+      for(const p of S.trail){const dd=(p.x-s.x)*(p.x-s.x)+(p.z-s.z)*(p.z-s.z);if(dd<bd&&S.time-p.t<25){bd=dd;best=p;}}
+      if(best){setState(s,'sniff');s.obj=null;s.sseq=best.seq-1;s.em.textContent='بوی ردپا میاد! 🐾';s.em.hidden=false;s.sayT=2.2;return true;}
+    }
+  }
+  return false;
+}
+
+/* ================== jump pads & portals ================== */
+let padCool=0;
+function touchPads(dt){
+  padCool-=dt;
+  if(padCool>0||PL.hidden||S.frozen||(S.phase!=='play'&&S.phase!=='count')||PL.y>0.6)return;
+  forItemsNear(PL.x,PL.z,it=>{
+    if(padCool>0||(it.kind!=='pad'&&it.kind!=='portal'))return;
+    const dx=it.x-PL.x,dz=it.z-PL.z;if(dx*dx+dz*dz>1.3)return;
+    padCool=1.2;PL.pose='stand';
+    if(it.kind==='pad'){
+      PL.vy=Math.sqrt(2*GRAV*16);PL.onGround=false;PL.vx+=Math.sin(PL.rot)*6;PL.vz+=Math.cos(PL.rot)*6;
+      burst(it.x,0.3,it.z,30,7,0.35,0.9,6);sfx.pad();buzz(40);mission('pad',1);
+      if(rand()<0.5)toast('🚀 سکوی پرش!');
+    }else{
+      const tx=clamp(it.x+Math.cos(it.ta)*it.td,-HALF+20,HALF-20),tz=clamp(it.z+Math.sin(it.ta)*it.td,-HALF+20,HALF-20);
+      burst(PL.x,1,PL.z,40,6,0.35,0.8,3);
+      PL.x=tx;PL.z=tz;PL.y=0;PL.vx=PL.vz=PL.vy=0;for(let i=0;i<6;i++)collideEntity(PL,0.38,false,false);
+      burst(PL.x,1,PL.z,40,6,0.35,0.8,3);padCool=2.5;
+      const f=$('flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');
+      sfx.portal();buzz([30,40,30]);mission('portal',1);
+      toast('🌀 دروازه‌ی جادویی تو را '+fmtDist(it.td)+' دورتر برد!');
+    }
+    updateButtons();
+  });
+}
+
+/* ================== missions ================== */
+const MISSIONS=[
+  {k:'stars',n:[5,8],txt:n=>fa(n)+' ستاره جمع کن'},
+  {k:'flips',n:[3,5],txt:n=>fa(n)+' بار ملق بزن'},
+  {k:'under',n:[1],txt:()=>'زیر تخت یا کاناپه قایم شو'},
+  {k:'close',n:[1],txt:()=>'وقتی مخفیگاهت را می‌گردند لو نرو'},
+  {k:'hidden',n:[45,90],txt:n=>fa(n)+' ثانیه قایم بمان'},
+  {k:'escape',n:[1],txt:()=>'از دست جستجوگری که دنبالت کرده فرار کن'},
+  {k:'decoy',n:[1],txt:()=>'با جعبه‌ی موزیک جستجوگرها را گول بزن'},
+  {k:'dist',n:[800,2000],txt:n=>fmtDist(n)+' راه برو یا بدو'},
+  {k:'pad',n:[2],txt:n=>fa(n)+' بار روی سکوی پرش بپر'},
+  {k:'portal',n:[1],txt:()=>'از یک دروازه‌ی جادویی رد شو'},
+];
+S.missions=[];
+function pickMissions(){
+  const pool=MISSIONS.slice();S.missions=[];
+  for(let i=0;i<3&&pool.length;i++){const m=pool.splice(Math.floor(rand()*pool.length),1)[0];const need=m.n[Math.floor(rand()*m.n.length)];S.missions.push({k:m.k,need,have:0,done:false,txt:m.txt(need)});}
+  renderMissions();
+}
+function mission(k,v,abs){
+  if(S.phase!=='play'&&S.phase!=='count')return;
+  for(const m of S.missions){
+    if(m.k!==k||m.done)continue;
+    m.have=abs?Math.max(m.have,v):m.have+v;
+    if(m.have>=m.need){
+      m.done=true;m.have=m.need;
+      const coins=settings.mode==='timed'?30:0;
+      if(coins){S.coins+=coins;saveCoins();}
+      toast('✅ مأموریت انجام شد: '+m.txt+(coins?' · 🪙 +'+fa(coins):''),3);sfx.mission();buzz([30,30,60]);
+      burst(PL.x,1.5,PL.z,30,5,0.3,0.9,4);renderMissions();
+    }
+    S.missDirty=true;
+  }
+}
+function renderMissions(){
+  const done=S.missions.filter(m=>m.done).length;
+  $('missN').textContent=fa(done)+'/'+fa(S.missions.length);
+  $('missList').innerHTML=S.missions.map(m=>'<li class="'+(m.done?'ok':'')+'"><i>'+(m.done?'✅':'⬜')+'</i><span>'+m.txt+'</span><b>'+(m.k==='dist'?fmtDist(m.have):fa(Math.floor(m.have)))+'/'+(m.k==='dist'?fmtDist(m.need):fa(m.need))+'</b></li>').join('')+
+    '<li class="note">'+(settings.mode==='timed'?'هر مأموریت ۳۰ سکه جایزه دارد.':'در حالت زمان‌دار هر مأموریت ۳۰ سکه می‌دهد.')+'</li>';
+}
+
+/* ================== character looks (sold by Mr. Mouse) ================== */
+const LOOK=Object.assign({hats:[3],outfits:[0],hat:3,outfit:0},store.get('ghm_look',{}));
+function saveLook(){store.set('ghm_look',LOOK);}
+const HATS=[{id:3,n:'تاج طلایی',p:0},{id:0,n:'کلاه بوقی',p:60},{id:1,n:'کلاه کپ',p:60},{id:2,n:'کلاه بافتنی',p:60},{id:4,n:'کلاه ملخی',p:90},{id:5,n:'پاپیون',p:60}];
+const OUTFITS=[{id:0,n:'طلایی',h:[0.13,0.75],p:0},{id:1,n:'نئونی',h:[0.85,0.33],p:80},{id:2,n:'اقیانوسی',h:[0.55,0.62],p:80},{id:3,n:'آتشین',h:[0.02,0.1],p:80},{id:4,n:'جنگلی',h:[0.3,0.4],p:80},{id:5,n:'کهکشانی',h:[0.72,0.8],p:120}];
+function playerPal(oid){
+  const o=OUTFITS.find(q=>q.id===oid)||OUTFITS[0],a=o.h[0],b=o.h[1];
+  return {shirt:hsl(a,1,0.55),sleeve:hsl(a-0.03,1,0.6),pants:hsl(b,0.75,0.5),shoe:hsl(a+0.8,0.9,0.6),skin:hsl(0.07,0.7,0.8),hat:hsl(a+0.01,1,0.55),hat2:hsl(b+0.2,1,0.6),
+    scarf:hsl(a+0.77,0.9,0.6),belt:hsl(b+0.5,0.9,0.5),badge:hsl(a+0.5,1,0.6),badge2:hsl(b+0.6,1,0.55),cheek:hsl(0.95,0.9,0.75),mouth:hsl(0.97,0.7,0.35),nose:hsl(0.07,0.7,0.72),white:hsl(0.6,0.3,0.97),pupil:hsl(b+0.3,0.8,0.16)};
+}
+function applyLook(){
+  const old=PL.c;
+  const c=makeChar(playerPal(LOOK.outfit),LOOK.hat,PMAT);
+  c.root.rotation.order='YXZ';c.root.position.copy(old.root.position);c.root.rotation.copy(old.root.rotation);c.root.scale.copy(old.root.scale);
+  scene.remove(old.root);old.meshes.forEach(m=>{if(m.geometry)m.geometry.dispose();});
+  scene.add(c.root);PL.c=c;
+  if(S.ghostT>0)c.meshes.forEach(m=>m.castShadow=false);
+}
+if(LOOK.hat!==3||LOOK.outfit!==0)applyLook();
+function renderLookRows(box){
+  const head=document.createElement('div');head.className='sSec';head.textContent='🎩 ظاهر تو';box.appendChild(head);
+  const row=(kind,it)=>{
+    const own=(kind==='hat'?LOOK.hats:LOOK.outfits).includes(it.id),worn=(kind==='hat'?LOOK.hat:LOOK.outfit)===it.id;
+    const r=document.createElement('div');r.className='sItem';
+    const sw=kind==='outfit'?'<span class="si sw" style="background:linear-gradient(135deg,hsl('+(it.h[0]*360)+',100%,58%),hsl('+(it.h[1]*360)+',90%,55%))"></span>':'<span class="si">'+['🥳','🧢','🧶','👑','🚁','🎀'][it.id]+'</span>';
+    r.innerHTML=sw+'<div class="st"><b>'+it.n+'</b><small>'+(kind==='hat'?'کلاه':'رنگ لباس')+'</small></div>';
+    const b=document.createElement('button');b.className='buy';
+    if(worn){b.textContent='پوشیده';b.disabled=true;}
+    else if(own)b.textContent='بپوش';
+    else{b.textContent='🪙 '+fa(it.p);if(S.coins<it.p)b.classList.add('poor');}
+    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();
+      if(worn)return;
+      if(!own){if(S.coins<it.p){mouseSay('سکه‌ات کمه!');sfx.nope();return;}S.coins-=it.p;saveCoins();(kind==='hat'?LOOK.hats:LOOK.outfits).push(it.id);sfx.buy();mouseSay('بهت میاد!');shop.cheer=1.2;}
+      if(kind==='hat')LOOK.hat=it.id;else LOOK.outfit=it.id;saveLook();applyLook();burst(PL.x,1.5,PL.z,24,4,0.3,0.7,3);renderShop();updateButtons();});
+    r.appendChild(b);box.appendChild(r);
+  };
+  HATS.forEach(h=>row('hat',h));OUTFITS.forEach(o=>row('outfit',o));
+}
+
+/* ================== per-frame + round setup ================== */
+function funReset(){
+  S.temp.length=0;S.ev=null;S.evT=40+rand()*20;S.evSpeed=1;S.evSight=1;S.evDark=0;S.trail.length=0;S.hiddenTime=0;S.missOpenT=0;
+  $('evBanner').hidden=true;
+  for(const s of seekers){if(s.sniff){s.sseq=-1;s.sniffT=rand();}}
+  pickMissions();
+}
+function updateFun(dt){
+  // banner timer and lights run even while frozen
+  if(S.evBannerT>0){S.evBannerT-=dt;if(S.evBannerT<=0)$('evBanner').hidden=true;}
+  const darkT=S.ev&&S.ev.k==='blackout'?1:0;S.evDark=lerp(S.evDark,darkT,1-Math.exp(-dt*2));
+  hemi.intensity=0.55*(1-0.7*S.evDark);sun.intensity=1.55*(1-0.65*S.evDark);
+  stepTrail(dt);
+  if(S.frozen||S.paused)return;
+  touchPads(dt);
+  if(S.phase==='play'){
+    if(S.ev){S.ev.t-=dt;if(S.ev.t<=0)endEvent();}
+    else{S.evT-=dt;if(S.evT<=0)startEvent();}
+    if(PL.hidden){S.hiddenTime+=dt;mission('hidden',dt);}
+    mission('dist',S.stats.dist,true);
+  }
+  S.missRT=(S.missRT||0)-dt;if(S.missDirty&&S.missRT<=0){S.missRT=0.5;S.missDirty=false;renderMissions();}
+  for(let i=S.temp.length-1;i>=0;i--){const t=S.temp[i];t.life-=dt;if(t.life<=0||t.dead)S.temp.splice(i,1);}
+}
+
+/* ================== first-play tutorial ================== */
+function tutorial(){
+  if(store.get('ghm_tut',false))return;
+  store.set('ghm_tut',true);
+  const tips=['👈 نیمه‌ی چپ صفحه را بکش تا راه بروی؛ نیمه‌ی راست برای چرخاندن دوربین است.','🙈 کنار وسیله‌ها که حلقه‌ی رنگی افتاد، «قایم شو» را بزن.','📜 مأموریت‌های این دور بالای صفحه‌اند. ❄️ و 🛠️ هم برای فروشگاه و ساختن.'];
+  tips.forEach((t,i)=>setTimeout(()=>{if(S.phase==='count'||S.phase==='play')toast(t,3);},600+i*3200));
+}
+
+/* ================== settings panel ================== */
+function refreshSettings(){
+  $('setSens').value=PREF.sens;$('setMusic').value=PREF.music;$('setVib').checked=!!PREF.vib;
+  $('sensVal').textContent=fa(Math.round(PREF.sens*100))+'٪';$('musicVal').textContent=fa(Math.round(PREF.music*100))+'٪';
+}
+$('setSens').addEventListener('input',e=>{PREF.sens=+e.target.value;savePrefs();refreshSettings();});
+$('setMusic').addEventListener('input',e=>{PREF.music=+e.target.value;savePrefs();refreshSettings();});
+$('setVib').addEventListener('change',e=>{PREF.vib=e.target.checked;savePrefs();if(PREF.vib)buzz(40);});
+function toggleFullscreen(){
+  try{
+    const d=document,el=d.documentElement;
+    if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d);}
+    else{const r=(el.requestFullscreen||el.webkitRequestFullscreen);if(r){const p=r.call(el);if(p&&p.catch)p.catch(()=>toast('مرورگرت اجازه‌ی تمام‌صفحه نداد.'));}else toast('مرورگرت تمام‌صفحه را پشتیبانی نمی‌کند.');}
+  }catch(e){toast('مرورگرت اجازه‌ی تمام‌صفحه نداد.');}
+}
+let settingsBack='menu';
+function openSettings(from){settingsBack=from;refreshSettings();showPanel('settings');}
+$('btnSettings').addEventListener('click',()=>openSettings('menu'));
+$('btnPauseSettings').addEventListener('click',()=>openSettings('pause'));
+$('btnSettingsClose').addEventListener('click',()=>showPanel(settingsBack));
+$('btnFull').addEventListener('click',toggleFullscreen);
+$('btnFull2').addEventListener('click',toggleFullscreen);
+$('btnMiss').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();renderMissions();$('missPanel').hidden=!$('missPanel').hidden;});
+$('btnMissClose').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();$('missPanel').hidden=true;});
+
 /* ================== sound (synthesised, no files) ================== */
 const AU={ctx:null,on:store.get('ghm_snd',true),master:null,buf:null,wg:null,wf:null,musicT:0,step:0,note:3};
 function auInit(){
-  if(AU.ctx){if(AU.ctx.state==='suspended')AU.ctx.resume().catch(()=>{});return;}
+  if(AU.ctx){if(AU.ctx.state!=='running')AU.ctx.resume().catch(()=>{});return;}
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
   try{
     const ctx=new AC();AU.ctx=ctx;
@@ -2101,6 +2463,10 @@ const sfx={
   caught(){[784,659,523,392,262].forEach((f,i)=>tone(f,0.3,'sawtooth',0.07,0,i*0.13));},
   win(){[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,0.35,'triangle',0.13,0,i*0.1));setTimeout(()=>[1047,1319,1568].forEach(f=>tone(f,0.8,'triangle',0.08)),700);},
   ui(){tone(990,0.06,'sine',0.06);},
+  event(k){if(k==='blackout'){tone(300,0.6,'sawtooth',0.07,80);nz(0.5,0.08,200,0.7);}else if(k==='hyper'){[440,660,880,1320].forEach((f,i)=>tone(f,0.12,'square',0.05,0,i*0.05));}else if(k==='sleepy'){tone(500,0.8,'sine',0.08,250);}else{[1047,1319,1568,2093,2637].forEach((f,i)=>tone(f,0.25,'triangle',0.06,0,i*0.08));}},
+  pad(){tone(220,0.4,'sine',0.14,1400);nz(0.25,0.08,1800,1);},
+  portal(){tone(1600,0.6,'sine',0.08,200);tone(400,0.6,'triangle',0.06,1600,0.1);nz(0.6,0.06,3000,0.6);},
+  mission(){[784,988,1175,1568].forEach((f,i)=>tone(f,0.22,'triangle',0.1,0,i*0.09));},
   flip(){tone(400,0.35,'sine',0.1,1200);nz(0.3,0.06,2500,1.5);},
   build(){tone(660,0.08,'square',0.05);tone(990,0.1,'square',0.04,0,0.06);},
   pop(){tone(880,0.12,'sine',0.09,300);},
@@ -2122,10 +2488,15 @@ function stepAudio(dt,speed){
   if(AU.musicT<=0){
     const tense=S.danger>0.5;AU.musicT=tense?0.22:0.34;AU.step++;
     AU.note=clamp(AU.note+[-2,-1,1,2,0][Math.floor(Math.random()*5)],0,PENTA.length-1);
-    if(AU.step%2===0||tense)tone(PENTA[AU.note],0.45,'triangle',0.028);
-    if(AU.step%8===0)tone(PENTA[[0,2,1,3][(AU.step/8)%4]]/4,1.6,'sine',0.05);
+    const mv=PREF.music;
+    if(mv>0.01&&(AU.step%2===0||tense))tone(PENTA[AU.note],0.45,'triangle',0.04*mv);
+    if(mv>0.01&&AU.step%8===0)tone(PENTA[[0,2,1,3][(AU.step/8)%4]]/4,1.6,'sine',0.07*mv);
   }
 }
+
+/* vibration feedback on phones for the big moments */
+const HAPTIC={caught:[120,60,220],alert:70,heart:15,power:30,buy:25,coin:[40,30,40],win:[60,40,60,40,120]};
+for(const k in HAPTIC){const f=sfx[k];sfx[k]=function(){buzz(HAPTIC[k]);return f.apply(sfx,arguments);};}
 /* ================== quality ================== */
 const dpr=window.devicePixelRatio||1;
 let pr=1,frames=0,fpsT=0,lowStreak=0;
@@ -2181,7 +2552,7 @@ function updateCamera(dt){
   const sp=Math.hypot(PL.vx,PL.vz);
   const lv=PL.running?LEVELS[PL.level]:LEVELS[0];
   speedK=lerp(speedK,PL.hidden?0:clamp(sp/Math.max(lv.speed,11),0,1)*(PL.running&&PL.level>0?1:0),1-Math.exp(-dt*4));
-  let fogT=VIEW;
+  let fogT=VIEW*(1-0.45*S.evDark);
   switch(S.camMode){
     case 'menu':{fogT=30;const a=S.time*0.12;camera.position.set(Math.sin(a)*12.5,4.2+Math.sin(S.time*0.3)*0.6,Math.cos(a)*12.5);camera.lookAt(0,1.6,0);break;}
     case 'third':{
@@ -2227,7 +2598,7 @@ function updateCamera(dt){
   /* the mist slowly changes colour from region to region of the hall */
   const cp=camera.position;
   const ht=(((0.74+cp.x*0.0004+cp.z*0.00031+Math.sin(cp.x*0.011)*0.03+Math.cos(cp.z*0.013)*0.03+S.time*0.004)%1)+1)%1;
-  fogHue=ht;setFogColor(ht);
+  fogHue=ht;setFogColor(ht,0.83-0.55*S.evDark);
   S.fov=lerp(S.fov,fovT,1-Math.exp(-dt*5));
   if(Math.abs(camera.fov-S.fov)>0.01){camera.fov=S.fov;camera.updateProjectionMatrix();}
   U.cam.value.copy(camera.position);
@@ -2266,9 +2637,9 @@ touchEl.addEventListener('pointermove',e=>{
     knob.style.transform='translate('+ox+'px,'+oy+'px)';input.jx=ox/M;input.jy=oy/M;
   }else if(p.kind==='build'){
     p.moved+=Math.abs(dx)+Math.abs(dy);
-    if(!applyTool(dx,dy)){S.yaw-=dx*0.0055;S.pitch=clamp(S.pitch+dy*0.0045,-0.35,1.25);}
+    if(!applyTool(dx,dy)){S.yaw-=dx*0.0055*PREF.sens;S.pitch=clamp(S.pitch+dy*0.0045,-0.35,1.25);}
   }else if(p.kind==='look'){
-    const k=e.pointerType==='mouse'?0.0045:0.0058;
+    const k=(e.pointerType==='mouse'?0.0045:0.0058)*PREF.sens;
     S.yaw-=dx*k;S.pitch=clamp(S.pitch+dy*k*0.8,S.camMode==='peek'?-0.7:-0.35,S.camMode==='peek'?0.9:1.25);
   }else if(p.kind==='spy'&&S.camMode==='spy'){
     const s=S.spy,k=0.04;
@@ -2281,6 +2652,8 @@ touchEl.addEventListener('pointermove',e=>{
 function endPtr(e){
   const p=ptrs.get(e.pointerId);if(!p)return;ptrs.delete(e.pointerId);
   if(p.kind==='joy'){joyId=null;input.jx=input.jy=0;joyEl.hidden=true;}
+  /* in build mode a quick tap on the left half still selects objects */
+  if(p.kind==='joy'&&S.build&&e.type==='pointerup'&&Math.hypot(p.x-joyOX,p.y-joyOY)<10&&performance.now()-p.t0<450)buildTap(p.x,p.y);
   if(p.kind==='spy'){input.spy.drag=false;}
   if(p.kind==='build'&&S.build&&e.type==='pointerup'){if(p.moved<10&&performance.now()-p.t0<450)buildTap(p.x,p.y);else saveBuild();}
 }
@@ -2316,14 +2689,14 @@ window.addEventListener('keydown',e=>{
     case 'KeyT':doFlip();break;
     case 'KeyN':S.build?exitBuild():enterBuild();break;
     case 'Escape':pause();break;
-    case 'KeyB':S.frozen?unfreeze():freezeTime();break;
+    case 'KeyB':S.build?exitBuild():S.frozen?unfreeze():freezeTime();break;
   }
 });
 window.addEventListener('keyup',e=>{
   input.keys[e.code]=false;keyAxis();
   if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&PL.shiftRun){PL.running=false;PL.shiftRun=false;updateButtons();}
 });
-window.addEventListener('blur',()=>{input.keys={};keyAxis();});
+window.addEventListener('blur',()=>{input.keys={};keyAxis();if(PL.shiftRun){PL.running=false;PL.shiftRun=false;updateButtons();}});
 
 function press(id,fn){
   const el=$(id);
@@ -2358,7 +2731,7 @@ press('btnBuildDone',exitBuild);
 press('btnSit',()=>setPose('sit'));
 press('btnLie',()=>setPose('lie'));
 press('btnFlip',doFlip);
-press('btnFreeze',()=>{if(!inGame())return;S.frozen?unfreeze():freezeTime();});
+press('btnFreeze',()=>{if(!inGame())return;S.build?exitBuild():S.frozen?unfreeze():freezeTime();});
 press('btnGoShop',goToShop);
 press('btnUnfreeze',unfreeze);
 press('btnShopResume',unfreeze);
@@ -2401,8 +2774,8 @@ function updateButtons(){
 }
 
 /* ================== panels & menu ================== */
-function showPanel(id){['menu','help','pause','end'].forEach(p=>$(p).hidden=p!==id);}
-function pause(){if(!inGame())return;S.paused=true;showPanel('pause');input.jx=input.jy=0;joyEl.hidden=true;ptrs.clear();joyId=null;}
+function showPanel(id){['menu','help','pause','end','settings'].forEach(p=>$(p).hidden=p!==id);}
+function pause(){if(!inGame())return;if(S.build)saveBuild();S.paused=true;showPanel('pause');input.jx=input.jy=0;joyEl.hidden=true;ptrs.clear();joyId=null;}
 function resume(){S.paused=false;showPanel(null);}
 function refreshMenu(){
   document.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.key;seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(settings[k])===b.dataset.v));});
@@ -2451,6 +2824,12 @@ function drawRadar(){
     rctx.beginPath();rctx.arc(x,y,chase?7+Math.sin(S.time*10)*2:5.5,0,TAU);rctx.fill();
     rctx.strokeStyle='#fff';rctx.lineWidth=1.5;rctx.stroke();
   }
+  /* stars, power-ups, pads and portals you could reach; the shop direction at the edge */
+  forItemsNear(ox,oz,it=>{if(!it.perm&&S.got.has(it.id))return;const [x,y,d]=proj(it.x,it.z);if(d>R)return;
+    rctx.fillStyle=it.kind==='star'?'#ffd23f':it.kind==='pad'?'#4de8ff':it.kind==='portal'?'#c77dff':'#7dffb0';rctx.beginPath();
+    if(it.kind==='pad'||it.kind==='portal'){rctx.lineWidth=3;rctx.strokeStyle=rctx.fillStyle;rctx.arc(x,y,6,0,TAU);rctx.stroke();}else{rctx.arc(x,y,3.5,0,TAU);rctx.fill();}});
+  for(const it of S.temp){const [x,y,d]=proj(it.x,it.z);if(d>R)continue;rctx.fillStyle='#ffd23f';rctx.beginPath();rctx.arc(x,y,3.5,0,TAU);rctx.fill();}
+  {let [x,y,d]=proj(SHOP.x,SHOP.z);if(d>R*0.85){const k=R*0.85/d;x=c+(x-c)*k;y=c+(y-c)*k;}rctx.font='18px sans-serif';rctx.textAlign='center';rctx.textBaseline='middle';rctx.fillText('🐭',x,y);}
   if(spy&&PL.hidden){const [x,y]=proj(PL.x,PL.z);rctx.fillStyle='#ffd23f';rctx.font='bold 22px sans-serif';rctx.textAlign='center';rctx.textBaseline='middle';rctx.fillText('★',x,y);}
   rctx.restore();
   rctx.fillStyle=spy?'#7dffe0':'#ffd23f';rctx.beginPath();rctx.moveTo(c,c-11);rctx.lineTo(c+8,c+8);rctx.lineTo(c,c+4);rctx.lineTo(c-8,c+8);rctx.closePath();rctx.fill();
@@ -2527,7 +2906,7 @@ function updateHud(dt){
     hudT=0.25;
     if(S.phase==='play'||S.phase==='count'){
       const ch=S.chasing||0,ins=seekers.filter(s=>s.state==='inspect').length;
-      $('status').textContent=S.phase==='count'?'🙈 ۲۰ جستجوگر در حال شمردن':('🔍 ۲۰ جستجوگر'+(ch?' · ❗ '+fa(ch)+' در تعقیب':'')+(ins?' · 🫣 '+fa(ins)+' در حال گشتن':'')+(S.ghostT>0?' · 👻 '+fa(Math.ceil(S.ghostT)):''));
+      $('status').textContent=S.phase==='count'?'🙈 ۲۰ جستجوگر در حال شمردن':('🔍 ۲۰ جستجوگر'+(ch?' · ❗ '+fa(ch)+' در تعقیب':'')+(ins?' · 🫣 '+fa(ins)+' در حال گشتن':'')+(S.ghostT>0?' · 👻 '+fa(Math.ceil(S.ghostT)):'')+(S.ev?' · '+S.ev.def.icon+' '+fa(Math.ceil(S.ev.t)):''));
       $('starN').textContent=fa(S.stats.stars);
       const ref=S.camMode==='spy'?S.spy:PL;const dc=Math.hypot(ref.x,ref.z);
       $('coords').textContent=(S.camMode==='spy'?'پهپاد: ':'')+(dc<PLAZA?'در میدان شروع':fmtDist(dc)+' از شروع')+(ref.y>3?' · ارتفاع '+fmtDist(ref.y):'');
@@ -2557,7 +2936,8 @@ function updateHud(dt){
 /* ================== main loop ================== */
 let last=performance.now();
 function update(dt){
-  if(S.frozen){updatePlayer(dt);return;}
+  updateFun(dt);
+  if(S.frozen){updatePlayer(dt);updateWobbles(dt);return;}
   if(S.phase==='count'){S.count-=dt;if(S.count<=0)beginHunt();}
   else if(S.phase==='play'){
     S.elapsed+=dt;
@@ -2593,7 +2973,7 @@ function frame(now){
   if((S.phase==='play'||S.phase==='count')&&!S.paused)drawRadar();
   drawSpeedLines();
   stepAudio(dt,PL.hidden?0:Math.hypot(PL.vx,PL.vz));
-  renderItems(f[0],f[1],S.time,S.got);
+  renderItems(f[0],f[1],S.time,S.got,S.temp);
   renderer.setClearColor(FOG,1);renderer.clear();
   renderer.render(scene,camera);
   adaptQuality(dt);
@@ -2606,7 +2986,7 @@ updateFocus(0,0,true);
 updateCamera(0.016);
 try{renderer.compile(scene,camera);}catch(e){}
 requestAnimationFrame(t=>{last=t;requestAnimationFrame(frame);setTimeout(()=>{$('loading').hidden=true;},150);});
-window.__ghm={visMap,BUILD,enterBuild,exitBuild,spawnType,applyTool,buildAction,buildTap,setPose,doFlip,objAlive,freezeTime,unfreeze,goToShop,buy,SHOP_ITEMS,INV,forObjs,update,updateCamera,useDecoy,useGhost,renderer,scene,sun,meshList,S,PL,seekers,startGame,toggleHide,toggleSpy,setLevel,findHideCand,enterHide,caught,win,settings};
+window.__ghm={startEvent,mission,touchPads,forItemsNear,PREF,LOOK,applyLook,visMap,BUILD,enterBuild,exitBuild,spawnType,applyTool,buildAction,buildTap,setPose,doFlip,objAlive,freezeTime,unfreeze,goToShop,buy,SHOP_ITEMS,INV,forObjs,update,updateCamera,useDecoy,useGhost,renderer,scene,sun,meshList,S,PL,seekers,startGame,toggleHide,toggleSpy,setLevel,findHideCand,enterHide,caught,win,settings};
 })();
 
 </script>
