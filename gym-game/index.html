@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="بازی سه‌بعدی باشگاه: ورزش کن، زورت رو بالا ببر، حرکت‌های خفن رو باز کن و برو کشتی بگیر.">
+<title>باشگاه قهرمان</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+
+  <!-- ===== Gym HUD ===== -->
+  <div id="hud" class="hud" hidden>
+    <div class="topbar">
+      <div class="strength">
+        <div class="st-row">
+          <span class="st-label">💪 سطح زور</span>
+          <b id="lvlNum" class="st-num">۱</b>
+        </div>
+        <div class="xpbar"><div id="xpFill" class="xpfill"></div></div>
+        <div class="st-row st-meta">
+          <span id="xpText" class="xp-text"></span>
+          <button id="rankBtn" class="chip" type="button">🏆 <span id="rankText"></span></button>
+        </div>
+      </div>
+      <div class="tools">
+        <button id="soundBtn" class="icon-btn" type="button" aria-label="صدا">🔊</button>
+        <button id="codeBtn" class="icon-btn" type="button" aria-label="کد مخفی">🔑</button>
+        <button id="helpBtn" class="icon-btn" type="button" aria-label="راهنما">؟</button>
+      </div>
+    </div>
+    <button id="readyBtn" class="ready-btn" type="button">
+      <span class="rb-main">🤼 آماده‌ام!</span>
+      <span id="readySub" class="rb-sub"></span>
+    </button>
+    <div id="comboBadge" class="combo" hidden></div>
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
+    <div id="joy" class="joy" role="application" aria-label="دسته‌ی حرکت"><div id="joyKnob" class="joy-knob"></div></div>
+    <section id="panel" class="panel">
+      <button id="panelToggle" class="panel-head" type="button" aria-expanded="true">
+        <span>🏋️ حرکت‌های ورزشی</span><span class="chev">▾</span>
+      </button>
+      <div id="moveGrid" class="move-grid"></div>
+    </section>
+  </div>
+  <div id="floaters" class="floaters"></div>
+  <div id="levelBanner" class="level-banner"></div>
+
+  <!-- ===== Wrestling HUD ===== -->
+  <div id="ahud" class="ahud" hidden>
+    <div class="scoreboard">
+      <div class="sb-side red">
+        <div id="scoreP" class="sb-score">۰</div>
+        <div class="sb-info"><b>تو</b><span id="lvlP"></span></div>
+      </div>
+      <div class="sb-mid">
+        <div id="timer" class="sb-timer">۱:۰۰</div>
+        <div id="stageLbl" class="sb-stage"></div>
+      </div>
+      <div class="sb-side blue">
+        <div class="sb-info"><b id="nameO"></b><span id="lvlO"></span></div>
+        <div id="scoreO" class="sb-score">۰</div>
+      </div>
+    </div>
+    <div id="vsCard" class="vs-card" hidden>
+      <div class="vs-side red"><b id="vsP"></b><span id="vsPl"></span></div>
+      <div class="vs-mid">⚔</div>
+      <div class="vs-side blue"><b id="vsO"></b><span id="vsOl"></span></div>
+    </div>
+    <div id="aMsg" class="a-msg"></div>
+    <div id="pointPop" class="point-pop" dir="ltr"></div>
+    <div class="a-bottom">
+      <div id="struggle" class="a-panel" hidden>
+        <div class="power">
+          <div id="powerRed" class="power-red"></div>
+          <div id="powerKnob" class="power-knob"></div>
+          <span class="pw-tag pw-l">تو</span><span class="pw-tag pw-r">حریف</span>
+        </div>
+        <button id="tapBtn" class="tap-btn" type="button">💪 زور بزن!</button>
+        <div class="a-hint">پشت سر هم و سریع بزن (یا کلید Space) تا حریف رو عقب ببری</div>
+      </div>
+      <div id="choosePanel" class="a-panel" hidden>
+        <div class="a-title">حمله کن! یه فن انتخاب کن</div>
+        <div id="chooseGrid" class="choose-grid"></div>
+        <div class="choose-timer"><div id="chooseFill"></div></div>
+      </div>
+      <div id="timingPanel" class="a-panel" hidden>
+        <div id="timingTitle" class="a-title"></div>
+        <div class="timing-track"><div id="timingZone" class="timing-zone"></div><div id="timingNeedle" class="timing-needle"></div></div>
+        <button id="timingBtn" class="tap-btn" type="button">الان!</button>
+      </div>
+      <div id="pinPanel" class="a-panel" hidden>
+        <div id="pinTitle" class="a-title"></div>
+        <div class="pin-bar"><div id="pinFill"></div></div>
+        <div id="pinInfo" class="a-hint"></div>
+        <button id="pinBtn" class="tap-btn" type="button">بزن! بزن!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Start ===== -->
+  <div id="startModal" class="modal" hidden>
+    <div class="card start-card">
+      <div class="kicker">ورزش کن • قوی شو • کشتی بگیر</div>
+      <h1 class="game-title">باشگاه قهرمان</h1>
+      <p class="lead">توی یه باشگاه بزرگ با ۴۰ ورزشکار دیگه تمرین می‌کنی. سطح زورت رو بالا ببر، حرکت‌های خفن رو باز کن و هر وقت آماده شدی برو توی سالن کشتی.</p>
+      <label class="field" for="nameInput">اسم قهرمان
+        <input id="nameInput" maxlength="14" placeholder="مثلاً: آرش" autocomplete="off">
+      </label>
+      <div class="field">رنگ لباس ورزشی<div id="swatches" class="swatches"></div></div>
+      <ul class="howto">
+        <li><b>🕹️ حرکت:</b> با دسته‌ی پایین (یا کلیدهای WASD و جهت‌ها) راه برو. برای چرخوندن دوربین، صفحه رو بکش.</li>
+        <li><b>💪 تمرین:</b> دکمه‌های ورزشی بهت «زور» می‌دن. پشت سر هم تمرین کنی کمبو می‌گیری.</li>
+        <li><b>🔒 قفل‌ها:</b> پشتک سطح ۵، پرش و چرخش سطح ۷، ملق سطح ۱۰. بقیه‌ی حرکت‌ها هم سطح خودشون رو دارن.</li>
+        <li><b>🤼 کشتی:</b> قوی که شدی دکمه‌ی «آماده‌ام» رو بزن. ده مرحله حریف منتظرته!</li>
+      </ul>
+      <p id="startStats" class="start-stats"></p>
+      <button id="startBtn" class="big-btn gold" type="button">شروع بازی</button>
+    </div>
+  </div>
+
+  <!-- ===== Code ===== -->
+  <div id="codeModal" class="modal" hidden>
+    <form id="codeForm" class="card small-card" autocomplete="off">
+      <button class="x" type="button" data-close="codeModal" aria-label="بستن">✕</button>
+      <h2>🔑 کد مخفی</h2>
+      <p class="muted">اگه کد رو داری بنویس تا همه‌ی حرکت‌های ورزشی یک‌جا باز بشن.</p>
+      <input id="codeInput" class="code-input" inputmode="numeric" maxlength="12" placeholder="کد" dir="ltr" aria-label="کد مخفی">
+      <div id="codeMsg" class="code-msg"></div>
+      <button id="codeSubmit" class="big-btn gold" type="submit">باز کن</button>
+    </form>
+  </div>
+
+  <!-- ===== Help ===== -->
+  <div id="helpModal" class="modal" hidden>
+    <div class="card">
+      <button class="x" type="button" data-close="helpModal" aria-label="بستن">✕</button>
+      <h2>راهنما</h2>
+      <h3>کنترل‌ها</h3>
+      <ul class="help-list">
+        <li>راه رفتن: دسته‌ی حرکت یا <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / جهت‌ها</li>
+        <li>دوربین: کشیدن صفحه • زوم: چرخ موس یا دو انگشت</li>
+        <li>پرش: <kbd>Space</kbd> • دویدن موقت: نگه داشتن <kbd>Shift</kbd></li>
+        <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • تست قدرت: <kbd>E</kbd></li>
+      </ul>
+      <h3>کِی هر حرکت باز می‌شه؟</h3>
+      <ul id="unlockList" class="unlock-list"></ul>
+      <h3>کشتی</h3>
+      <ul class="help-list">
+        <li>💪 <b>زور بزن</b> رو سریع بزن تا حریف رو هل بدی. نوار که به آخر رسید نوبت حمله‌ی توئه.</li>
+        <li>🎯 یه فن انتخاب کن و وقتی نشانگر توی ناحیه‌ی سبز بود بزن. فن سخت‌تر امتیاز بیشتری داره.</li>
+        <li>🛡️ اگه حریف زورش بیشتر باشه حمله می‌کنه. به‌موقع دفاع کن تا یک امتیاز بگیری.</li>
+        <li>🏆 ضربه فنی، ۱۰ امتیاز اختلاف یا امتیاز بیشتر در پایان وقت یعنی برد. هر چی زورت بیشتر باشه، همه‌چیز آسون‌تره.</li>
+      </ul>
+      <p class="muted">قدرت‌سنج کنار دیوار شمالی باشگاهه. برو جلوش و «تست قدرت» رو بزن.</p>
+    </div>
+  </div>
+
+  <!-- ===== Leaderboard ===== -->
+  <div id="boardModal" class="modal" hidden>
+    <div class="card">
+      <button class="x" type="button" data-close="boardModal" aria-label="بستن">✕</button>
+      <h2>🏆 قوی‌ترین‌های باشگاه</h2>
+      <div class="board-wrap">
+        <table class="board">
+          <thead><tr><th>رتبه</th><th>ورزشکار</th><th>سطح زور</th></tr></thead>
+          <tbody id="boardRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Ready ===== -->
+  <div id="readyModal" class="modal" hidden>
+    <div class="card ready-card">
+      <button class="x" type="button" data-close="readyModal" aria-label="بستن">✕</button>
+      <div id="rdStage" class="kicker"></div>
+      <div id="rdDots" class="dots"></div>
+      <div class="versus">
+        <div class="fighter red">
+          <div class="f-corner">گوشه‌ی قرمز</div>
+          <div id="rdMeName" class="f-name"></div>
+          <div class="f-lvl"><small>سطح زور</small><b id="rdMeLvl"></b></div>
+        </div>
+        <div class="vs-x">⚔</div>
+        <div class="fighter blue">
+          <div class="f-corner">گوشه‌ی آبی</div>
+          <div id="rdOppName" class="f-name"></div>
+          <div id="rdOppTitle" class="f-title"></div>
+          <div class="f-lvl"><small>سطح زور</small><b id="rdOppLvl"></b></div>
+        </div>
+      </div>
+      <p id="rdAdvice" class="advice"></p>
+      <div class="btn-row">
+        <button id="fightBtn" class="big-btn red" type="button">🤼 بزن بریم!</button>
+        <button id="trainBtn" class="big-btn ghost" type="button">🏋️ تمرین بیشتر</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Result ===== -->
+  <div id="resultModal" class="modal" hidden>
+    <div class="card result-card">
+      <div id="resTitle" class="res-title"></div>
+      <div id="resNames" class="res-names"></div>
+      <div id="resScore" class="res-score"></div>
+      <div id="resReason" class="res-reason"></div>
+      <div id="resXp" class="res-xp"></div>
+      <p id="resTip" class="res-tip"></p>
+      <div class="btn-row">
+        <button id="nextBtn" class="big-btn red" type="button"></button>
+        <button id="gymBtn" class="big-btn gold" type="button">🏋️ برگرد باشگاه و قوی‌تر شو</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fade" class="fade"></div>
+  <div id="noGl" class="nogl" hidden>
+    <div class="card small-card">
+      <h2>مرورگرت از سه‌بعدی پشتیبانی نمی‌کنه</h2>
+      <p class="muted">این بازی به WebGL نیاز داره. با یه مرورگر به‌روز مثل کروم یا فایرفاکس امتحان کن.</p>
+    </div>
+  </div>
+</div>
+<script src="lib/three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/character.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/gym.js"></script>
+<script src="js/arena.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
