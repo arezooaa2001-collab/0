@@ -158,7 +158,7 @@ input[type=range]{width:100%;accent-color:#ff6fb5}
 #btn_smoke{background:radial-gradient(circle at 35% 30%,#e3f6ff,#55b8ff 80%)}
 #btn_magnet{background:radial-gradient(circle at 35% 30%,#ffe0d6,#ff5a3d 80%)}
 #petWarn{position:absolute;bottom:calc(var(--sb) + 214px);left:calc(var(--sl) + 14px);font:800 13px var(--fb);background:rgba(255,60,90,.88);border-radius:14px;padding:6px 12px;animation:blink .6s 3}
-#achPop{position:absolute;top:calc(var(--st) + 200px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#ffe14d,#ff9f43);color:#2a1200;border-radius:18px;padding:8px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);direction:rtl}
+#achPop{z-index:40;pointer-events:none;position:absolute;top:calc(var(--st) + 200px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#ffe14d,#ff9f43);color:#2a1200;border-radius:18px;padding:8px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);direction:rtl}
 #achPop span{font-size:30px}
 #achPop small{display:block;font:700 11px var(--fb)}
 #achPop b{font:22px var(--fd)}
@@ -349,7 +349,6 @@ input[type=range]{width:100%;accent-color:#ff6fb5}
       <button class="gbtn" id="btn_magnet" hidden><span>🧲</span>آهنربا<i id="n_magnet">۰</i></button>
     </div>
     <div id="petWarn" hidden></div>
-    <div id="achPop" hidden></div>
     <div id="poseBtns"><button class="pose" id="btnSit"><span>🧎</span>نشستن</button><button class="pose" id="btnLie"><span>🛌</span>دراز کشیدن</button><button class="pose" id="btnFlip"><span>🤸</span>ملق</button><button class="pose" id="btnDance"><span>💃</span>رقص</button></div>
     <div id="dangerBar" hidden><i id="dangerFill"></i></div>
     <div id="toast"></div>
@@ -381,6 +380,7 @@ input[type=range]{width:100%;accent-color:#ff6fb5}
     </div>
   </div>
 
+  <div id="achPop" hidden></div>
   <div id="countdown" hidden><div id="cdNum">۱۰</div><div id="cdTxt">جستجوگرها چشم‌هایشان را بسته‌اند… فرار کن و قایم شو!</div></div>
 
   <div id="menu" class="panel">
@@ -1024,7 +1024,7 @@ function losClear(ax,ay,az,bx,by,bz){
   }
   const mx=(ax+bx)/2,mz=(az+bz)/2,pc={b:false,x:pillarCoord(mx),z:pillarCoord(mz),r:PILLAR_R};
   if(segHits(ax,az,bx,bz,pc))return false;
-  if(S.smokes.length&&smokeBlocks(ax,az,bx,bz))return false;
+  if(S.smokes.length&&smokeBlocks(ax,az,bx,bz,ay,by))return false;
   return true;
 }
 
@@ -1510,11 +1510,11 @@ function updateSeekers(dt){
     s.near=Math.hypot(s.x-PL.x,s.z-PL.z)<160||Math.hypot(s.x-cx,s.z-cz)<160;
     if(s.sayT>0){s.sayT-=dt;if(s.sayT<=0)s.em.hidden=true;}
     if(S.phase==='play'&&!S.paused){
-      s.visT-=dt;if(s.visT<=0){s.visT=0.12;s.sees=canSee(s);}
+      s.visT-=dt;if(s.visT<=0){s.visT=0.12;s.sees=s.stuckT>0?false:canSee(s);}
       const ho=PL.hidden;
       if(ho&&ho.T.hide.at==='under'&&S.ghostT<=0&&s.state!=='chase'&&s.state!=='inspect'&&s.state!=='celebrate'&&s.state!=='gather'&&!(s.knowHide&&s.knowHide.id===ho.id)){
         const dx=ho.x-s.x,dz=ho.z-s.z,d=Math.hypot(dx,dz),near=ho.rad+3.2;
-        if(d<near&&d>0.1&&(Math.sin(s.rot)*dx+Math.cos(s.rot)*dz)/d>0.5&&rand()<dt*0.4*(1.2-(d-ho.rad)/3.2)){
+        if(d<near&&d>0.1&&!(S.smokes.length&&smokeBlocks(s.x,s.z,ho.x,ho.z,1.5,0.3))&&!(s.stuckT>0)&&(Math.sin(s.rot)*dx+Math.cos(s.rot)*dz)/d>0.5&&rand()<dt*0.4*(1.2-(d-ho.rad)/3.2)){
           if(s.obj&&s.obj!==ho&&S.claims.get(s.obj.id)===s.i)S.claims.delete(s.obj.id);
           s.knowHide=ho;s.obj=ho;s.state='goto';S.claims.set(ho.id,s.i);
           s.em.textContent='یکی زیر '+ho.T.name+'ه!';s.em.hidden=false;s.sayT=2.4;
@@ -1586,7 +1586,7 @@ const input={jx:0,jy:0,kx:0,ky:0,keys:{}};
 function doJump(){
   if(PL.hidden||S.phase==='over'||S.phase==='menu'||S.paused)return;
   if(!PL.onGround)return;
-  PL.pose='stand';
+  if(PL.pose!=='stand'){PL.pose='stand';updateButtons();}
   const h=PL.running?LEVELS[PL.level].jump:LEVELS[0].jump;
   PL.vy=Math.sqrt(2*GRAV*h);PL.onGround=false;sfx.jump(PL.running?PL.level:0);
   burst(PL.x,PL.y+0.1,PL.z,8,3,0.25,0.5,4);
@@ -1755,7 +1755,7 @@ function beginHunt(){
 function caught(s){
   if(S.phase!=='play')return;
   if(INV.shield>0&&useShield(s))return;
-  S.slowT=1.3;
+  S.slowT=1.3;for(const k of seekers){k.stuckT=0;k.stuckKind='';}
   S.phase='over';S.won=false;S.caughtBy=s;S.overT=0;
   const hidIn=PL.hidden;
   if(PL.hidden){const o=PL.hidden;PL.hidden=null;PL.x=o.x+Math.sin(Math.atan2(s.x-o.x,s.z-o.z))*(o.rad+0.5);PL.z=o.z+Math.cos(Math.atan2(s.x-o.x,s.z-o.z))*(o.rad+0.5);PL.y=0;burst(o.x,1.2,o.z,40,6,0.4,1,5);wobble(o,1,0.15);}
@@ -1768,6 +1768,7 @@ function caught(s){
   finish(survived);
 }
 function win(){
+  for(const k of seekers){k.stuckT=0;k.stuckKind='';}
   S.phase='over';S.won=true;S.overT=0;
   if(PL.hidden){const o=PL.hidden;exitHide();wobble(o,1,0.1);}
   for(const s of seekers)setState(s,'sad');
@@ -1821,7 +1822,7 @@ function updateItems(dt){
   if(!PL.hidden&&PL.y<2.6){
     const grab=it=>{
       if(it.perm||it.dead||it.fall>0||S.got.has(it.id))return;
-      const dx=it.x-PL.x,dz=it.z-PL.z;if(dx*dx+dz*dz>1.6)return;
+      const dx=it.x-PL.x,dz=it.z-PL.z;if(dx*dx+dz*dz>((S.magT>0&&it.kind==='star')?81:1.6))return;
       if(it.life!==undefined)it.dead=true;else S.got.add(it.id);burst(it.x,1,it.z,it.kind==='star'?16:30,4,0.28,0.7,3);
       if(it.kind==='comet'){S.stats.stars+=10;sfx.achieve();mission('stars',10);mission('comet',1);tally('stars',10,100,'stars100');ach('comet');toast('☄️ ستاره‌ی دنباله‌دار! ۱۰ ستاره یکجا!',3);burst(it.x,1.2,it.z,60,7,0.35,1,3);}
       else if(it.kind==='star'){S.stats.stars++;sfx.star(S.stats.stars);mission('stars',1);tally('stars',1,100,'stars100');if(S.stats.stars%10===0)toast('🌟 '+fa(S.stats.stars)+' ستاره جمع کردی!');}
@@ -2525,7 +2526,8 @@ function useTrap(){
   if(S.traps.length>=4){toast('🪤 حداکثر ۴ چسب می‌توانی بگذاری.');return;}
   gadTake('trap');
   const base=PL.hidden||PL,a=S.yaw+Math.PI,dd=PL.hidden?PL.hidden.rad+1.6:1.6;
-  const t={x:base.x+Math.sin(a)*dd,z:base.z+Math.cos(a)*dd,life:60};
+  const e={x:base.x+Math.sin(a)*dd,z:base.z+Math.cos(a)*dd,y:0};for(let i=0;i<4;i++)collideEntity(e,1.0,false,false);
+  const t={x:e.x,z:e.z,life:60};
   const used=new Set(S.traps.map(q=>q.m));t.m=trapMeshes.find(m=>!used.has(m));
   t.m.position.set(t.x,0.035,t.z);t.m.visible=true;t.m.scale.setScalar(0.1);S.traps.push(t);
   burst(t.x,0.3,t.z,20,3,0.3,0.6,4);sfx.pop();toast('🪤 چسب رنگین‌کمانی پهن شد! هر کس رویش برود می‌چسبد.');updateButtons();
@@ -2534,17 +2536,20 @@ function useSmoke(){
   if(!inGameNow()||gadTotal('smoke')<=0)return;
   gadTake('smoke');
   const base=PL.hidden||PL;
-  S.smokes.push({x:base.x,z:base.z,r:0.5,life:11});
+  S.smokes.push({x:base.x,z:base.z,y:PL.hidden?0:PL.y,r:0.5,life:11});
   for(const s of seekers){if(Math.hypot(s.x-base.x,s.z-base.z)<7){s.sees=false;s.spot=0;if(s.state==='chase'){s.lost=3;}}}
   sfx.smoke();buzz(40);toast('🌫️ بمب دود رنگی! کسی از پشت این ابر نمی‌بیند.');updateButtons();
 }
 function useMagnet(){
-  if(!inGameNow()||gadTotal('magnet')<=0||S.magT>0)return;
+  if(!inGameNow()||PL.hidden||gadTotal('magnet')<=0||S.magT>0)return;
   gadTake('magnet');S.magT=20;sfx.power();toast('🧲 آهنربای ستاره روشن شد! ۲۰ ثانیه.');updateButtons();
 }
 /* smoke clouds block line of sight */
-function smokeBlocks(ax,az,bx,bz){
+function smokeBlocks(ax,az,bx,bz,ay,by){
   for(const c of S.smokes){
+    if(ay!==undefined&&Math.min(ay,by)>c.y+3.2)continue;
+    const inA=(ax-c.x)*(ax-c.x)+(az-c.z)*(az-c.z)<c.r*c.r,inB=(bx-c.x)*(bx-c.x)+(bz-c.z)*(bz-c.z)<c.r*c.r;
+    if((inA||inB)&&Math.hypot(bx-ax,bz-az)<2.5)continue;
     const vx=bx-ax,vz=bz-az,L2=vx*vx+vz*vz||1e-9,t=clamp(((c.x-ax)*vx+(c.z-az)*vz)/L2,0,1),qx=ax+vx*t-c.x,qz=az+vz*t-c.z;
     if(qx*qx+qz*qz<c.r*c.r)return true;
   }
@@ -2571,7 +2576,7 @@ function stepGadgets(dt){
   if(S.magT>0&&S.phase!=='over'){
     S.magT-=dt;
     if(!PL.hidden){
-      const pull=it=>{if(it.kind!=='star'||it.dead||S.got.has(it.id))return;const dx=PL.x-it.x,dz=PL.z-it.z,d=Math.hypot(dx,dz);if(d>9||d<0.05)return;const k=Math.min(1,dt*6/Math.max(d,0.5))*2.5;it.x+=dx*k*0.4;it.z+=dz*k*0.4;if(rand()<0.3)emit(it.x,1,it.z,dx*0.5,0.3,dz*0.5,0.12,0.2,0.4,0);};
+      const pull=it=>{if(it.kind!=='star'||it.dead||S.got.has(it.id))return;const dx=PL.x-it.x,dz=PL.z-it.z,d=Math.hypot(dx,dz);if(d>9)return;if(rand()<0.4)emit(it.x,1,it.z,dx*1.5,0.3,dz*1.5,0.12,0.2,0.5,0);};
       forItemsNear(PL.x,PL.z,pull);for(const it of S.temp)pull(it);
     }
     if(S.magT<=0){S.magT=0;toast('🧲 آهنربا خاموش شد.');}
@@ -2599,18 +2604,18 @@ function makePet(id){
   return {id,g,warn,x:PL.x,z:PL.z,y:0,vy:0,rot:0,hop:0,warnT:0,meowT:0};
 }
 function applyPet(){
-  if(pet){scene.remove(pet.g);pet.g.children[0].geometry.dispose();pet=null;}
+  if(pet){scene.remove(pet.g);pet.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==CMAT)o.material.dispose();});pet=null;}
   if(LOOK.pet)pet=makePet(LOOK.pet);
 }
 applyPet();
 function stepPet(dt){
   if(!pet)return;
   const g=pet.g;
-  if(S.phase==='menu'){g.visible=true;pet.x=lerp(pet.x,1.4,dt*3);pet.z=lerp(pet.z,1.2,dt*3);pet.y=Math.abs(Math.sin(S.time*4))*0.2;g.position.set(pet.x,pet.y,pet.z);g.rotation.y=S.time*0.8;return;}
+  if(S.phase==='menu'){g.visible=true;pet.warn.visible=false;pet.x=lerp(pet.x,1.4,dt*3);pet.z=lerp(pet.z,1.2,dt*3);pet.y=Math.abs(Math.sin(S.time*4))*0.2;g.position.set(pet.x,pet.y,pet.z);g.rotation.y=S.time*0.8;return;}
   g.visible=!PL.hidden||S.camMode==='spy';
   const t=S.time;
   let tx,tz;
-  if(PL.hidden){const o=PL.hidden;tx=o.x+Math.sin(PL.hideYaw+2.3)*(o.rad+0.4);tz=o.z+Math.cos(PL.hideYaw+2.3)*(o.rad+0.4);g.visible=false;}
+  if(PL.hidden){const o=PL.hidden;tx=o.x+Math.sin(PL.hideYaw+2.3)*(o.rad+0.4);tz=o.z+Math.cos(PL.hideYaw+2.3)*(o.rad+0.4);}
   else{tx=PL.x-Math.sin(PL.rot+0.6)*1.3;tz=PL.z-Math.cos(PL.rot+0.6)*1.3;}
   const dx=tx-pet.x,dz=tz-pet.z,d=Math.hypot(dx,dz);
   if(d>25){pet.x=tx;pet.z=tz;}
@@ -2669,7 +2674,7 @@ function ach(k){
   ACH.add(k);store.set('ghm_ach',[...ACH]);
   S.coins+=50;saveCoins();
   const b=$('achPop');b.innerHTML='<span>'+a.i+'</span><div><small>دستاورد جدید! 🪙 +۵۰</small><b>'+a.n+'</b></div>';b.hidden=false;b.classList.remove('go');void b.offsetWidth;b.classList.add('go');
-  S.achT=3.5;sfx.achieve();buzz([40,40,80]);updateButtons();
+  S.achT=3.5;sfx.achieve();buzz([40,40,80]);updateButtons();if(S.phase==='menu')refreshMenu();
 }
 function tally(k,v,goal,ak){TOT[k]+=v;saveTot();if(TOT[k]>=goal)ach(ak);}
 function renderAch(){
@@ -2701,7 +2706,7 @@ function resetMore(){
   S.gad={trap:0,smoke:0,magnet:0};S.magT=0;S.smokes.length=0;
   for(const t of S.traps)t.m.visible=false;S.traps.length=0;
   for(const s of seekers)s.stuckT=0;
-  $('petWarn').hidden=true;
+  $('petWarn').hidden=true;if(pet)pet.warn.visible=false;
 }
 
 /* ================== shop rows for gadgets and pets ================== */
@@ -3463,6 +3468,7 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt=(now-last)/1000;last=now;
   if(!(dt>0))dt=0.001;if(dt>0.05)dt=0.05;
+  const rawDt=dt;
   if(S.slowT>0){S.slowT-=dt;dt*=0.3;}
   S.time+=dt;U.time.value=S.time;
   if(!S.paused)update(dt);
@@ -3487,7 +3493,7 @@ function frame(now){
   renderItems(f[0],f[1],S.time,S.got,S.temp);
   renderer.setClearColor(FOG,1);renderer.clear();
   renderer.render(scene,camera);
-  adaptQuality(dt);
+  adaptQuality(rawDt);
 }
 
 /* ================== boot ================== */
