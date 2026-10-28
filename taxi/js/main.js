@@ -49,7 +49,13 @@ class Game {
     this.driverLook = { female: false, shirt: 0x34495e, pants: 0x222831, mustache: true, skin: 0xe0ac86, hair: 0x1a1210 };
     this.settings = Object.assign(
       { quality: matchMedia('(pointer: coarse)').matches ? 'medium' : 'high', sound: true, voice: true, sens: 1, steer: 'buttons', auto: false, cam: 'third' },
-      JSON.parse(localStorage.getItem(SET_KEY) || '{}')
+      (() => {
+        try {
+          return JSON.parse(localStorage.getItem(SET_KEY) || '{}') || {};
+        } catch (e) {
+          return {};
+        }
+      })()
     );
   }
 
@@ -159,7 +165,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.health, engine: p.engineLevel, paint: p.paintHex || null, nitro: p.nitro,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex || null, nitro: p.nitro,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -235,6 +241,7 @@ class Game {
       this.state = 'pause';
       this.ui.openMenu();
       this.audio.setEngine(0, 0, false);
+      this.audio.siren(false);
     } else if (!on && this.state === 'pause') {
       this.state = 'play';
       if (this.ui.panelOpen) {
@@ -500,6 +507,8 @@ class Game {
       this.player.fuel += 8;
       this.audio.cash();
     } else if (z.kind === 'tow') {
+      if (this.towing) return;
+      this.towing = true;
       const cost = 150000;
       this.topUp(cost);
       this.money = Math.max(0, this.money - cost);
@@ -511,6 +520,7 @@ class Game {
       this.fade(1, 0.4, () => {
         this.player.placeAt(best.padX, best.padZ, best.rot);
         this.player.health = 25;
+        this.towing = false;
         this.fade(0, 0.6);
         this.ui.toast('یدک‌کش ماشین رو آورد تعمیرگاه 🛻', 'info');
       });

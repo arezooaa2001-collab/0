@@ -41,6 +41,10 @@ export class Arson {
       return false;
     }
     const f = g.onfoot;
+    if (f.busy) {
+      g.ui.toast('یه لحظه صبر کن...', 'warn');
+      return false;
+    }
     if (f.active) {
       const d = Math.hypot(f.walker.pos.x - p.pos.x, f.walker.pos.z - p.pos.z);
       if (d > 5) {
@@ -71,6 +75,7 @@ export class Arson {
     if (!g.onfoot.active) g.onfoot.forceExit();
     // passenger reaction
     const v = g.rides.abandon();
+    this.clearVictim();
     if (v) {
       const reaction = 0.8 + Math.random() * 4.0; // some freeze in panic
       this.victim = { ...v, phase: 'panic', t: 0, reaction, escapes: reaction < BLAZE_AT };

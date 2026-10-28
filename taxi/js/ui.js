@@ -117,7 +117,8 @@ export class UI {
       $('btnLights').classList.toggle('active', g.player.lights);
     });
     const horn = $('btnHorn');
-    horn.addEventListener('pointerdown', (e) => { e.preventDefault(); g.audio.init(); g.audio.horn(true); g.honk(); });
+    horn.addEventListener('pointerdown', (e) => { e.preventDefault(); horn.setPointerCapture(e.pointerId); g.audio.init(); g.audio.horn(true); g.honk(); });
+    horn.addEventListener('lostpointercapture', () => g.audio.horn(false));
     horn.addEventListener('pointerup', () => g.audio.horn(false));
     horn.addEventListener('pointercancel', () => g.audio.horn(false));
     $('btnMap').addEventListener('click', () => this.toggleBigMap());
@@ -225,7 +226,10 @@ export class UI {
       this.keys[e.code] = false;
       if (e.code === 'KeyH') g.audio.horn(false);
     });
-    window.addEventListener('blur', () => (this.keys = {}));
+    window.addEventListener('blur', () => {
+      this.keys = {};
+      g.audio.horn(false);
+    });
   }
   gearStep(dir) {
     const p = this.g.player;
@@ -537,13 +541,14 @@ export class UI {
     const el = $('offer');
     const md = MOODS[o.mood];
     el.innerHTML = `
-      <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
+      <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.vip ? '⭐ VIP • ' : ''}${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}${o.vip ? ' • کرایه ۳ برابر، ولی باید سریع برسی!' : ''}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
       <div class="orow"><i>🧍</i><div><small>مبدا (${faDist(o.toPick)} از تو)</small><b>${o.pickupAddr}</b></div></div>
       <div class="orow"><i>🏁</i><div><small>مقصد • ${faDist(o.len)}</small><b>${o.destAddr}</b></div></div>
       <div class="ometa">⛽ حدود ${fa(o.fuelNeed)} لیتر بنزین لازمه ${o.fuelNeed > this.g.player.fuelTotal() ? '<em>— بنزینت کمه!</em>' : ''}</div>
       <div class="obtns"><button class="ok">✅ قبول</button><button class="guide">🧭 قبول + فلش</button><button class="no">❌ رد</button></div>
       <div class="otimer"><i id="offerTimer"></i></div>`;
     el.classList.remove('hidden');
+    el.classList.toggle('vip', !!o.vip);
     this.offerCb = { accept, decline, guide };
     el.querySelector('.ok').onclick = accept;
     el.querySelector('.no').onclick = decline;
@@ -775,6 +780,10 @@ export class UI {
         : '<p>سلام! اینجا کلانتریه. اگه یه روز تحت تعقیب بودی می‌تونی بیای اینجا خودتو معرفی کنی و فقط جریمه بدی.</p>'}`, (el) => {
       const b = el.querySelector('[data-a=surrender]');
       if (b) b.onclick = () => {
+        if (g.state !== 'play' || g.police.state !== 'chase' || g.wallet() < g.police.fine) {
+          this.closePanel();
+          return;
+        }
         g.topUp(g.police.fine);
         g.money -= g.police.fine;
         g.police.despawnUnit();

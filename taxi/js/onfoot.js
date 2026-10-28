@@ -90,10 +90,19 @@ export class OnFoot {
     this.busy = true;
     const d = this.doorPoint(1.3);
     w.walkTo(d.x, d.z, 2, () => {
+      if (p.burning || !this.active) {
+        this.busy = false;
+        return;
+      }
       w.lookAt(p.pos.x, p.pos.z);
       p.car.doors.fl.target = 1;
       g.audio.door();
       setTimeout(() => {
+        if (p.burning || !this.active) {
+          this.busy = false;
+          p.car.doors.fl.target = 0;
+          return;
+        }
         this.instantIn();
         setTimeout(() => {
           p.car.doors.fl.target = 0;

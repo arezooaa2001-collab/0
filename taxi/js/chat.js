@@ -186,21 +186,27 @@ export class PassengerChat {
     this.push('me', text);
     this.busy = true;
     this.renderLog();
-    let reply = null;
-    if (this.cfg.key) {
-      try {
-        reply = await this.askGemini();
-      } catch (e) {
-        this.push('sys', '⚠️ جمنای جواب نداد (' + e.message + '). مسافر خودش جواب میده:');
+    const ride = this.ride;
+    try {
+      let reply = null;
+      if (this.cfg.key) {
+        try {
+          reply = await this.askGemini();
+        } catch (e) {
+          if (this.ride === ride) this.push('sys', '⚠️ جمنای جواب نداد (' + e.message + '). مسافر خودش جواب میده:');
+        }
+      } else {
+        await new Promise((res) => setTimeout(res, 500 + Math.random() * 900));
       }
-    } else {
-      await new Promise((res) => setTimeout(res, 500 + Math.random() * 900));
+      // the passenger may have left meanwhile
+      if (this.ride !== ride || !this.available()) return;
+      if (!reply) reply = this.offlineReply(text);
+      this.push('them', reply);
+      this.g.audio.speak(reply);
+    } finally {
+      this.busy = false;
+      this.renderLog();
     }
-    if (!reply) reply = this.offlineReply(text);
-    this.busy = false;
-    if (!this.available()) return;
-    this.push('them', reply);
-    this.g.audio.speak(reply);
   }
 
   context() {

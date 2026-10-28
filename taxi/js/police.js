@@ -28,6 +28,7 @@ export class Police {
     this.path = [];
     this.inc = null;
     this.fine = 0;
+    this.leaving = [];
     this.jail = new Jail(game);
   }
 
@@ -72,8 +73,9 @@ export class Police {
     w.walkTo(car.pos.x + Math.cos(car.heading) * 1.5, car.pos.z - Math.sin(car.heading) * 1.5, 1.3, () => {
       w.dispose();
       car.state = 'drive';
+      this.leaving = this.leaving.filter((x) => x !== w);
     });
-    this.leaving = w;
+    this.leaving.push(w);
     this.inc = null;
   }
   refuse(reason) {
@@ -119,6 +121,11 @@ export class Police {
       const behind = (rs.roadX - p.x) * Math.sin(g.player.heading) + (rs.roadZ - p.z) * Math.cos(g.player.heading);
       if (!best || behind < best.behind) best = { rs, behind };
       if (behind < -50) break;
+    }
+    if (!best) {
+      // far from every road: come from the nearest road instead
+      const ne = w.nearestEdge(p.x, p.z);
+      best = { rs: { roadX: ne.x, roadZ: ne.z } };
     }
     const rs = best.rs;
     u.pos.set(rs.roadX, 0, rs.roadZ);
@@ -230,9 +237,8 @@ export class Police {
 
   update(dt) {
     const g = this.game;
-    if (this.leaving) {
-      this.leaving.update(dt, g.world);
-      if (!this.leaving.root.parent) this.leaving = null;
+    for (const lw of this.leaving.slice()) {
+      lw.update(dt, g.world);
     }
     if (this.state === 'incident') {
       const inc = this.inc, w = inc.walker, pl = g.player;
@@ -279,6 +285,7 @@ export class Police {
   /* ---------------- arrest cutscene ---------------- */
   startArrest() {
     const g = this.game;
+    if (g.ui.panelOpen) g.ui.closePanel();
     this.state = 'arrest';
     g.state = 'cutscene';
     g.ui.setWanted(false);

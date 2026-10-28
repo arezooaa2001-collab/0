@@ -56,8 +56,10 @@ export class Rides {
     const toPick = w.routeLength(w.route(p.x, p.z, pickup.x, pickup.z));
     const female = Math.random() < 0.5;
     const moodKey = pick(['normal', 'normal', 'hurry', 'scared', 'chatty', 'grumpy']);
+    const vip = Math.random() < 0.15;
     let fare = 35000 + len * 78;
     if (moodKey === 'hurry') fare *= 1.3;
+    if (vip) fare *= 3;
     fare = Math.round(fare / 1000) * 1000;
     const name = (female ? pick(FEMALE) : pick(MALE)) + ' ' + pick(FAMILY);
     return {
@@ -73,7 +75,8 @@ export class Rides {
       destAddr: `${dest.name} (${REGION_NAMES[dest.region]}) — ${dest.road}`,
       fuelNeed: Math.ceil((len + toPick) / 120),
       rating: (3.6 + Math.random() * 1.4).toFixed(1),
-      expected: len / 14 + 25,
+      expected: vip ? len / 17 + 20 : len / 14 + 25,
+      vip,
     };
   }
   update(dt) {
@@ -265,6 +268,7 @@ export class Rides {
     car.car.doors[r.door].target = 1;
     g.audio.door();
     setTimeout(() => {
+      if (this.ride !== r) return;
       const dp = this.doorWorld(r.door, 1.4);
       r.walker.standOut(dp.x, dp.z, car.heading);
       r.walker.walkTo(r.o.dest.x + r.o.dest.nx * 6, r.o.dest.z + r.o.dest.nz * 6, 1.4);
@@ -284,6 +288,10 @@ export class Rides {
     stars = clamp(Math.round(stars), 1, 5);
     let fare = r.o.fare;
     if (stars <= 1) fare *= 0.6;
+    if (r.o.vip && r.t > r.o.expected) {
+      fare *= 0.5;
+      g.ui.toast('⭐ مسافر VIP دیر رسید؛ نصف کرایه رو داد', 'warn');
+    } else if (r.o.vip) g.ui.toast('⭐ مسافر VIP راضی بود! کرایه سه‌برابر 💰', 'good');
     const tip = stars >= 4 ? Math.round((r.o.fare * (stars - 3) * 0.08) / 1000) * 1000 : 0;
     const total = Math.round(fare / 1000) * 1000 + tip;
     g.money += total;
@@ -356,7 +364,8 @@ export class Rides {
     if (this.state === 'boarding') return '🚪 مسافر داره سوار میشه...';
     if (this.state === 'toDest') {
       let s = `🧳 ${r.o.name} ← ${r.o.dest.name}`;
-      if (r.o.mood === 'hurry') s += ` • ⏱️ ${fa(Math.max(0, Math.ceil(r.o.expected - r.t)))} ثانیه`;
+      if (r.o.mood === 'hurry' || r.o.vip) s += ` • ⏱️ ${fa(Math.max(0, Math.ceil(r.o.expected - r.t)))} ثانیه`;
+      if (r.o.vip) s = '⭐ VIP • ' + s;
       return s;
     }
     if (this.state === 'alighting') return '💰 مسافر پیاده شد';

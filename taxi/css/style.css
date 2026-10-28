@@ -388,3 +388,5 @@ body.onfoot #steerZone { display: flex !important; }
   #gearbox.open { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 5; }
   #rightPad { position: absolute; }
 }
+
+#offer.vip { border: 2px solid var(--yellow); box-shadow: 0 0 30px rgba(255,210,26,.45), 0 20px 60px rgba(0,0,0,.6); }
