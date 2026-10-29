@@ -117,6 +117,7 @@ Object.assign(Game, {
     if (m.equip) st.equipReps++;
     this.addCoins(1 + Math.floor((m.level || 1) / 8), true);
     this.missionProgress('reps', 1);
+    this.noteEventRep();
     this.missionProgress('move', 1, m.id);
     if (m.equip) this.missionProgress('equip', 1);
     this.checkAchievements();
@@ -142,13 +143,13 @@ Object.assign(Game, {
     const tpl = pick(MISSION_TYPES.filter((t) => {
       if (t.type === 'win') return lv >= opponentFor(this.save.stage).level - 3;
       if (t.type === 'visit') return ENVS.some((e) => lv >= e.level);
-      if (t.type === 'race') return true;
+      if (t.type === 'power') return this.powerUnlocked(POWERS[0]);
       return true;
     }));
     const n = pick(tpl.targets);
     const m = { type: tpl.type, n, p: 0 };
     if (tpl.type === 'move') {
-      const opts = MOVES.filter((x) => !x.toggle && !x.equip && this.isUnlocked(x));
+      const opts = MOVES.filter((x) => !x.toggle && !x.equip && !x.emote && this.isUnlocked(x));
       m.key = pick(opts).id;
     }
     if (tpl.type === 'visit') {
@@ -163,7 +164,7 @@ Object.assign(Game, {
     const ms = this.save.missions;
     for (let i = ms.length - 1; i >= 0; i--) {
       const m = ms[i];
-      if (!m || !MISSION_TYPES.some((t) => t.type === m.type) || (m.type === 'move' && !MOVE_BY_ID[m.key]) || (m.type === 'visit' && !ENV_BY_ID[m.key])) ms.splice(i, 1);
+      if (!m || !MISSION_TYPES.some((t) => t.type === m.type) || (m.type === 'move' && (!MOVE_BY_ID[m.key] || MOVE_BY_ID[m.key].emote)) || (m.type === 'visit' && !ENV_BY_ID[m.key])) ms.splice(i, 1);
     }
     while (ms.length < 3) ms.push(this.newMission());
   },
@@ -285,10 +286,10 @@ Object.assign(Game, {
     const g = $('shopGrid');
     g.innerHTML = '';
     const sh = this.save.shop;
-    const cats = { boost: 'نوشیدنی', gear: 'وسیله', pet: 'حیوون', aura: 'هاله', shirt: 'لباس', band: 'هدبند' };
+    const cats = { boost: 'نوشیدنی', gear: 'وسیله', pet: 'حیوون', aura: 'هاله', shirt: 'لباس', band: 'هدبند', trail: 'رد پا' };
     for (const it of SHOP) {
       const owned = it.once && this.owns(it.id);
-      const equipped = (it.cat === 'shirt' && sh.shirt === it.id) || (it.cat === 'band' && sh.band === it.id) || (it.cat === 'aura' && sh.aura === it.id) || (it.cat === 'pet' && sh.pet === it.id);
+      const equipped = ['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat) && sh[it.cat] === it.id;
       const card = document.createElement('div');
       card.className = 'shop-card' + (equipped ? ' on' : '');
       const ic = document.createElement('div');
@@ -302,7 +303,7 @@ Object.assign(Game, {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'shop-btn';
-      const equipable = ['shirt', 'band', 'aura', 'pet'].includes(it.cat);
+      const equipable = ['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat);
       if (owned && equipable) {
         btn.textContent = equipped ? 'برش دار' : 'بپوش / استفاده کن';
         btn.addEventListener('click', () => this.equipItem(it, !equipped));
@@ -333,7 +334,7 @@ Object.assign(Game, {
       this.toast('🥛 +۱ سطح زور!', 'gold');
     } else if (it.id === 'shoes') this.toast('👟 کفش سرعت رو پوشیدی! سریع‌تر می‌دوی.', 'gold');
     else if (it.id === 'magnet') this.toast('👛 از این به بعد سکه‌ها دوبرابرن!', 'gold');
-    if (['shirt', 'band', 'aura', 'pet'].includes(it.cat)) this.equipItem(it, true);
+    if (['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat)) this.equipItem(it, true);
     this.checkAchievements();
     this.persist();
     this.refreshHud(true);
@@ -476,6 +477,9 @@ Object.assign(Game, {
     else if (a === 'medals') this.openMedals();
     else if (a === 'code') { this.closeModal('menuModal'); this.openCode(); }
     else if (a === 'help') { this.closeModal('menuModal'); this.openHelp(); }
+    else if (a === 'wheel') this.openWheel();
+    else if (a === 'photo') this.enterPhoto();
+    else if (a === 'settings') this.openSettings();
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }
     else if (a === 'music') {
       this.save.music = !this.save.music;

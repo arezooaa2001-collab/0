@@ -86,6 +86,7 @@ class GymWorld extends WorldBase {
     this.buildPortal();
     this.buildTower();
     this.buildBoards();
+    this.buildArmTable();
     this.finishBatches();
     this.onImpact = () => this.strikeTower();
   }
@@ -629,6 +630,33 @@ class GymWorld extends WorldBase {
     P.ring.material.color.set(open ? '#7fe0ff' : '#5d6b8a');
     P.glow.material.opacity = open ? 0.45 + 0.2 * Math.sin(this.time * 3) : 0.12;
     P.clouds.rotation.y += dt * 0.3;
+  }
+
+  buildArmTable() {
+    const { x, z } = ARM_TABLE;
+    const m = this.matte;
+    const mt = this.metal;
+    m.cyl(0.9, 0.03, x, 0.015, z, '#7a2630');
+    mt.cyl(0.07, 0.98, x, 0.49, z, '#2c3140');
+    mt.box(0.6, 0.04, 0.5, x, 0.04, z, '#2c3140');
+    m.box(0.72, 0.07, 0.56, x, 1.0, z, '#1d2433');
+    m.box(0.74, 0.012, 0.58, x, 1.04, z, '#e63946');
+    for (const [dx, dz] of [[0.22, -0.18], [-0.22, 0.18]]) mt.cyl(0.025, 0.16, x + dx, 1.12, z + dz, '#c9ced6');
+    this.addCollider(x - 0.36, z - 0.28, x + 0.36, z + 0.28);
+    mt.box(0.08, 3.1, 0.08, x + 0.95, 1.55, z, '#2c3140');
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.6), new THREE.MeshBasicMaterial({
+      map: signTexture([{ text: 'مچ‌اندازی', size: 120, display: true, color: '#ffc23d' }], { w: 1024, h: 280, border: '#ffc23d' }),
+      toneMapped: false, side: THREE.DoubleSide,
+    }));
+    sign.position.set(x + 0.95, 3.25, z);
+    sign.rotation.y = -Math.PI / 2;
+    this.scene.add(sign);
+    this.addCollider(x + 0.88, z - 0.07, x + 1.02, z + 0.07);
+  }
+
+  nearArm() {
+    const p = this.player.ch.root.position;
+    return Math.hypot(p.x - ARM_TABLE.x, p.z - ARM_TABLE.z) < 2.0;
   }
 
   nearPortal() {

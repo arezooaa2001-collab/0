@@ -23,6 +23,7 @@
           <span class="st-label">💪 سطح زور</span>
           <b id="lvlNum" class="st-num">۱</b>
         </div>
+        <div id="titleText" class="st-title"></div>
         <div class="xpbar"><div id="xpFill" class="xpfill"></div></div>
         <div class="st-row st-meta">
           <span id="xpText" class="xp-text"></span>
@@ -33,6 +34,8 @@
           <button id="coinChip" class="chip coin" type="button">🪙 <span id="coinText">۰</span></button>
           <span id="boostBadge" class="chip boost" hidden></span>
           <span id="drinkBadge" class="chip drink" hidden></span>
+          <span id="starBadge" class="chip star" hidden></span>
+          <span id="eventBadge" class="chip event" hidden></span>
         </div>
       </div>
       <div class="tools">
@@ -48,10 +51,19 @@
       <span id="readySub" class="rb-sub"></span>
     </button>
     <button id="missionChip" class="mission-chip" type="button"></button>
+    <button id="wheelChip" class="wheel-chip" type="button" aria-label="گردونه‌ی شانس: چرخش رایگان" hidden>🎡</button>
     <div id="comboBadge" class="combo" hidden></div>
     <div id="raceHud" class="race-hud" hidden></div>
     <div id="toasts" class="toasts" aria-live="polite"></div>
     <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
+    <div id="powers" class="powers"></div>
+    <div id="armHud" class="arm-hud" hidden>
+      <div id="armTitle" class="a-title"></div>
+      <div class="arm-bar"><div id="armFill" class="arm-fill"></div><div class="arm-mid"></div><span class="pw-tag pw-l">تو</span><span class="pw-tag pw-r">حریف</span></div>
+      <div id="armMsg" class="arm-msg"></div>
+      <button id="armTap" class="tap-btn" type="button">💪 فشار بده!</button>
+      <div class="a-hint">تند تند بزن (یا Space). وقتی حریف زور زد، سریع‌تر بزن!</div>
+    </div>
     <div id="joy" class="joy" role="application" aria-label="دسته‌ی حرکت"><div id="joyKnob" class="joy-knob"></div></div>
     <section id="panel" class="panel">
       <button id="panelToggle" class="panel-head" type="button" aria-expanded="true">
@@ -59,14 +71,21 @@
       </button>
       <div class="move-tabs" role="tablist">
         <button class="mv-tab" type="button" data-tab="base">پایه</button>
-        <button class="mv-tab" type="button" data-tab="new">۲۸ حرکت جدید</button>
+        <button class="mv-tab" type="button" data-tab="new">حرکت‌های جدید</button>
         <button class="mv-tab" type="button" data-tab="env">مکان‌ها</button>
+        <button class="mv-tab" type="button" data-tab="fun">نمایشی 💃</button>
         <button id="tabAi" class="mv-tab" type="button" data-tab="ai" hidden>ساخته‌ها</button>
       </div>
       <div id="moveGrid" class="move-grid"></div>
     </section>
   </div>
   <div id="floaters" class="floaters"></div>
+  <div id="photoBar" class="photo-bar" hidden>
+    <button id="photoShot" class="big-btn gold" type="button">📸 عکس بگیر</button>
+    <button id="photoExit" class="big-btn ghost" type="button">✕ خروج</button>
+    <div class="photo-hint">صفحه رو بکش تا دوربین بچرخه</div>
+  </div>
+  <div id="flash" class="flash"></div>
   <div id="levelBanner" class="level-banner"></div>
 
   <!-- ===== Wrestling HUD ===== -->
@@ -138,6 +157,8 @@
         <li><b>🔒 قفل‌ها:</b> پشتک سطح ۵، پرش و چرخش سطح ۷، ملق سطح ۱۰. بقیه‌ی حرکت‌ها هم سطح خودشون رو دارن.</li>
         <li><b>📍 وسیله‌ها:</b> بعضی ورزش‌ها مثل تردمیل، دمبل، کیسه بوکس و بارفیکس فقط با وسیله‌ی خودشون انجام می‌شن. برو کنارش!</li>
         <li><b>🤼 کشتی:</b> قوی که شدی دکمه‌ی «آماده‌ام» رو بزن. هر مرحله حریف قوی‌تر می‌شه!</li>
+        <li><b>🚀 قدرت‌های ویژه:</b> پرش غول (سطح ۱۰)، دش برق (سطح ۱۸) و کوبش زمین (سطح ۳۰) با دکمه‌های گرد کنار دسته.</li>
+        <li><b>🎁 سکه و گنج:</b> سکه، الماس، ستاره‌ی طلایی و صندوق گنج روی زمین پیدا می‌شن. هر روز هم گردونه‌ی شانس رایگانه!</li>
         <li><b>🌥️ سطح ۱۰۰:</b> جزیره‌ی ابرها باز می‌شه؛ اونجا با هوش مصنوعی هر وسیله و مکان ورزشی که بخوای می‌سازی.</li>
       </ul>
       <p id="startStats" class="start-stats"></p>
@@ -168,6 +189,7 @@
         <li>دوربین: کشیدن صفحه • زوم: چرخ موس یا دو انگشت</li>
         <li>پرش: <kbd>Space</kbd> • دویدن موقت: نگه داشتن <kbd>Shift</kbd></li>
         <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
+        <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین</li>
       </ul>
       <h3>وسیله‌ها</h3>
       <ul class="help-list">
@@ -182,6 +204,18 @@
         <li>🏁 کنار خط شروع پیست قرمز باشگاه، مسابقه‌ی دو با سه دونده رو شروع کن.</li>
         <li>🤼 کشتی هم زورت رو زیاد می‌کنه: هر ضربه و هر امتیاز زور می‌ده و برد، سطح زور جایزه داره.</li>
         <li>⚡ کد ۱۹۱۹: از سطح ۳ به بعد، فقط یک بار، برای ۲ دقیقه ۱۰۰ سطح زور اضافه.</li>
+      </ul>
+      <h3>چیزهای باحال</h3>
+      <ul class="help-list">
+        <li>🚀 قدرت‌های ویژه: پرش غول (سطح ۱۰) تو هوا ملق می‌زنه، دش برق (سطح ۱۸) مثل برق جلو می‌ره و کوبش زمین (سطح ۳۰) همه‌ی اطرافت رو می‌ندازه زمین. کد ۱۸۱۸ اینا رو هم باز می‌کنه.</li>
+        <li>💪 مچ‌اندازی: وسط پیست باشگاه یه میز مچ‌اندازی هست. با حریف آسون، هم‌زور یا قهرمان مچ مسابقه بده و تند تند دکمه رو بزن.</li>
+        <li>🪙 سکه‌ها و 💎 الماس‌های روی زمین رو جمع کن. ⭐ ستاره‌ی طلایی ۱۵ ثانیه سریع‌ترت می‌کنه، سکه‌ها رو به سمتت می‌کشه و هر کی بهت بخوره می‌افته.</li>
+        <li>🎁 هر چند دقیقه یه صندوق گنج با ستون نور طلایی یه جایی پیدا می‌شه. برو بازش کن!</li>
+        <li>⚡ رویدادهای ویژه: ساعت طلایی (زور دوبرابر)، باران سکه و چالش سرعت یهو شروع می‌شن.</li>
+        <li>🎡 گردونه‌ی شانس: هر روز یه چرخش رایگان. هر روز که بیای جایزه‌ی ورودت بیشتر می‌شه.</li>
+        <li>💃 زبانه‌ی «نمایشی»: رقص، ژست بازو، مون‌واک و … ورزشکارهای اطراف برات دست می‌زنن و سکه می‌دن.</li>
+        <li>🎖️ با بالا رفتن سطح، عنوانت عوض می‌شه. با بردن مرحله‌ی ۵ و ۱۰ کشتی، کمربند نقره‌ای و طلایی قهرمانی می‌گیری.</li>
+        <li>📸 حالت عکس و ⚙️ تنظیمات (کیفیت تصویر، سرعت دوربین، اسم‌ها) توی منوی ☰ هستن.</li>
       </ul>
       <h3>جزیره‌ی ابرها (سطح ۱۰۰)</h3>
       <ul class="help-list">
@@ -227,13 +261,68 @@
       <button class="x" type="button" data-close="menuModal" aria-label="بستن">✕</button>
       <h2>منو</h2>
       <div class="menu-list">
+        <button class="menu-btn hot" type="button" data-menu="wheel">🎡 گردونه‌ی شانس</button>
         <button class="menu-btn" type="button" data-menu="missions">🎯 مأموریت‌ها</button>
         <button class="menu-btn" type="button" data-menu="medals">🏅 مدال‌ها</button>
         <button class="menu-btn" type="button" data-menu="board">🏆 قوی‌ترین‌های باشگاه</button>
         <button class="menu-btn" type="button" data-menu="code">🔑 وارد کردن کد</button>
         <button class="menu-btn" type="button" data-menu="music">🎵 موسیقی: <span id="musicState">خاموش</span></button>
+        <button class="menu-btn" type="button" data-menu="photo">📸 حالت عکس</button>
+        <button class="menu-btn" type="button" data-menu="settings">⚙️ تنظیمات</button>
         <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== Wheel of fortune ===== -->
+  <div id="wheelModal" class="modal" hidden>
+    <div class="card wheel-card">
+      <button class="x" type="button" data-close="wheelModal" aria-label="بستن">✕</button>
+      <h2>🎡 گردونه‌ی شانس</h2>
+      <p id="wheelStreak" class="muted"></p>
+      <div class="wheel-wrap">
+        <div class="wheel-pointer">▼</div>
+        <canvas id="wheelCanvas" class="wheel" width="560" height="560"></canvas>
+      </div>
+      <div id="wheelMsg" class="wheel-msg"></div>
+      <button id="wheelSpin" class="big-btn gold" type="button">بچرخون!</button>
+    </div>
+  </div>
+
+  <!-- ===== Arm wrestling ===== -->
+  <div id="armModal" class="modal" hidden>
+    <div class="card">
+      <button class="x" type="button" data-close="armModal" aria-label="بستن">✕</button>
+      <h2>💪 مچ‌اندازی</h2>
+      <p class="muted">یه حریف انتخاب کن. هر چی قوی‌تر، جایزه بیشتر! با برد مچ‌اندازی زور و سکه می‌گیری.</p>
+      <div id="armList" class="arm-list"></div>
+    </div>
+  </div>
+
+  <!-- ===== Photo ===== -->
+  <div id="photoModal" class="modal" hidden>
+    <div class="card">
+      <button class="x" type="button" data-close="photoModal" aria-label="بستن">✕</button>
+      <h2>📸 عکس تو</h2>
+      <img id="photoImg" class="photo-img" alt="عکس از بازی">
+      <p class="muted">برای ذخیره، دکمه‌ی پایین رو بزن یا روی عکس انگشتت رو نگه دار.</p>
+      <a id="photoSave" class="big-btn gold" download="champion-gym.jpg">💾 ذخیره‌ی عکس</a>
+    </div>
+  </div>
+
+  <!-- ===== Settings ===== -->
+  <div id="settingsModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="settingsModal" aria-label="بستن">✕</button>
+      <h2>⚙️ تنظیمات</h2>
+      <div class="set-row"><span>کیفیت تصویر</span>
+        <div class="seg" id="qualitySeg">
+          <button type="button" data-q="low">کم</button><button type="button" data-q="auto">خودکار</button><button type="button" data-q="high">زیاد</button>
+        </div>
+      </div>
+      <label class="set-row" for="sensInput"><span>سرعت چرخش دوربین</span><input id="sensInput" type="range" min="0.4" max="2" step="0.1"></label>
+      <label class="set-row" for="namesInput"><span>اسم ورزشکارها</span><input id="namesInput" type="checkbox"></label>
+      <label class="set-row" for="shakeInput"><span>لرزش دوربین</span><input id="shakeInput" type="checkbox"></label>
     </div>
   </div>
 
@@ -350,6 +439,7 @@
 <script src="js/data.js"></script>
 <script src="js/character.js"></script>
 <script src="js/anims2.js"></script>
+<script src="js/anims3.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/world.js"></script>
 <script src="js/gym.js"></script>
@@ -357,8 +447,11 @@
 <script src="js/island.js"></script>
 <script src="js/envs.js"></script>
 <script src="js/extras.js"></script>
+<script src="js/pickups.js"></script>
+<script src="js/armwrestle.js"></script>
 <script src="js/arena.js"></script>
 <script src="js/main.js"></script>
 <script src="js/features.js"></script>
+<script src="js/fun.js"></script>
 </body>
 </html>

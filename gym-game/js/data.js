@@ -208,3 +208,64 @@ const ACHIEVEMENTS = [
   { id: 'variety', name: 'همه‌کاره', icon: '🎯', desc: '۳۰ ورزش مختلف انجام بده', test: (s) => Object.keys(s.stats.moves).length >= 30 },
   { id: 'missions', name: 'مأمور ویژه', icon: '🎖️', desc: '۱۰ مأموریت انجام بده', test: (s) => s.stats.missionsDone >= 10 },
 ];
+
+/* ---------------- super powers, titles, wheel, treasure, arm wrestling ---------------- */
+
+const POWERS = [
+  { id: 'superjump', name: 'پرش غول', icon: '🚀', level: 10, cd: 5, xp: 30, key: '1' },
+  { id: 'dash', name: 'دش برق', icon: '⚡', level: 18, cd: 4, xp: 25, key: '2' },
+  { id: 'slam', name: 'کوبش زمین', icon: '💥', level: 30, cd: 8, xp: 60, key: '3' },
+];
+const POWER_BY_ID = Object.fromEntries(POWERS.map((p) => [p.id, p]));
+
+const TITLES = [
+  [1, 'تازه‌کار'], [5, 'ورزشکار'], [10, 'پرتلاش'], [18, 'قوی'], [28, 'پهلوان'], [40, 'قهرمان'],
+  [55, 'ابرقهرمان'], [75, 'اسطوره'], [100, 'خدای زور'], [150, 'افسانه‌ی جاودان'],
+];
+function titleFor(level) {
+  let t = TITLES[0][1];
+  for (const [l, name] of TITLES) if (level >= l) t = name;
+  return t;
+}
+
+/** Wheel of fortune slices; w is the chance weight. */
+const WHEEL = [
+  { id: 'c50', label: '🪙 ۵۰', color: '#2f6fed', w: 22 },
+  { id: 'drink', label: '🥤 نوشیدنی', color: '#00b4d8', w: 14 },
+  { id: 'c100', label: '🪙 ۱۰۰', color: '#9b5de5', w: 18 },
+  { id: 'lv1', label: '💪 +۱ سطح', color: '#e63946', w: 12 },
+  { id: 'star', label: '⭐ ستاره', color: '#ff7b00', w: 12 },
+  { id: 'c250', label: '🪙 ۲۵۰', color: '#2ecc71', w: 10 },
+  { id: 'lv3', label: '💪 +۳ سطح', color: '#ff006e', w: 7 },
+  { id: 'c1000', label: '💎 ۱۰۰۰', color: '#d4a017', w: 5 },
+];
+const WHEEL_PRICE = 100;
+
+const ARM_TABLE = { x: 7.5, z: 2 };
+
+SHOP.push(
+  { id: 'trail_fire', cat: 'trail', name: 'رد آتش', icon: '☄️', price: 350, once: true, color: '#ff5a1f', desc: 'وقتی می‌دوی پشتت آتیش' },
+  { id: 'trail_rainbow', cat: 'trail', name: 'رد رنگین‌کمان', icon: '🌈', price: 500, once: true, color: '#ff4da6', desc: 'رد پای رنگی' },
+  { id: 'trail_bolt', cat: 'trail', name: 'رد برق', icon: '🌩️', price: 450, once: true, color: '#7fe0ff', desc: 'جرقه‌ی برق پشت سرت' },
+);
+for (const it of SHOP) SHOP_BY_ID[it.id] = it;
+
+MISSION_TYPES.push(
+  { type: 'pickup', targets: [10, 20, 40], text: (n) => `${fa(n)} سکه از زمین جمع کن` },
+  { type: 'power', targets: [3, 6, 10], text: (n) => `${fa(n)} بار از قدرت ویژه استفاده کن` },
+  { type: 'emote', targets: [3, 5], text: (n) => `${fa(n)} بار حرکت نمایشی بزن` },
+  { type: 'arm', targets: [1, 2], text: (n) => `${fa(n)} بار مچ‌اندازی ببر` },
+);
+
+ACHIEVEMENTS.push(
+  { id: 'power', name: 'ابرقدرت', icon: '🚀', desc: 'اولین قدرت ویژه', test: (s) => s.stats.powers >= 1 },
+  { id: 'quake', name: 'زلزله', icon: '🌋', desc: 'با یه ضربه ۶ نفر رو بنداز', test: (s) => s.stats.maxKnock >= 6 },
+  { id: 'arm1', name: 'مچ آهنین', icon: '🦾', desc: 'یه مچ‌اندازی ببر', test: (s) => s.stats.armWins >= 1 },
+  { id: 'arm10', name: 'سلطان مچ', icon: '🤜', desc: '۱۰ مچ‌اندازی ببر', test: (s) => s.stats.armWins >= 10 },
+  { id: 'chest', name: 'گنج‌یاب', icon: '🎁', desc: '۵ صندوق گنج باز کن', test: (s) => s.stats.chests >= 5 },
+  { id: 'gems', name: 'جواهرشناس', icon: '💎', desc: '۱۰ الماس جمع کن', test: (s) => s.stats.gems >= 10 },
+  { id: 'dancer', name: 'ستاره‌ی صحنه', icon: '💃', desc: '۱۵ حرکت نمایشی', test: (s) => s.stats.emotes >= 15 },
+  { id: 'belt', name: 'کمربند طلا', icon: '🥇', desc: 'کمربند طلایی قهرمانی', test: (s) => s.stage > 10 },
+  { id: 'streak', name: 'وفادار', icon: '📅', desc: '۵ روز پشت سر هم بیا', test: (s) => s.fun.streak >= 5 },
+  { id: 'jackpot', name: 'خوش‌شانس', icon: '🍀', desc: 'جایزه‌ی بزرگ گردونه', test: (s) => s.stats.jackpots >= 1 },
+);

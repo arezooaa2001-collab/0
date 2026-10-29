@@ -248,6 +248,7 @@ class WorldBase {
       return;
     } else if (e === 'jump' || e === 'whoosh') Sfx.play('whoosh');
     else if (e === 'punch') Sfx.play('punch');
+    else if (e === 'clap') Sfx.play('clap');
     else if (e === 'drop') { Sfx.play('clank'); this.shake = Math.max(this.shake, 0.12); }
     else if (e === 'impact' && this.onImpact) this.onImpact();
     else if (e === 'splash') {
@@ -356,6 +357,14 @@ class WorldBase {
       }
       n.timer -= dt;
       if (n.timer <= 0) { n.state = 'idle'; n.timer = rand(0.5, 2); }
+    } else if (n.state === 'fan') {
+      const f = n.fan;
+      ch.root.rotation.y = angleLerp(ch.root.rotation.y, Math.atan2(f.x - pos.x, f.z - pos.z), damp(6, dt));
+      f.t -= dt;
+      if (!ch.busy && ch.grounded) {
+        if (f.t > 0) ch.play('fanclap');
+        else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
+      }
     } else if (n.state === 'exercise') {
       if (n.faceT > 0 && n.station) {
         n.faceT -= dt;
@@ -390,6 +399,55 @@ class WorldBase {
     ch.anchored = !!n.anchored;
     ch.speed = n.vel.length();
     ch.update(dt);
+  }
+
+  /** NPCs that are free to watch: not on a machine, not mid-move, not already knocked down. */
+  freeNpcs(x, z, r) {
+    return this.npcs.filter((n) => (n.state === 'idle' || n.state === 'walk' || n.state === 'jog' || n.state === 'fan')
+      && !n.anchored && Math.hypot(n.ch.root.position.x - x, n.ch.root.position.z - z) < r);
+  }
+
+  /** A few people nearby turn to watch and clap for a while. */
+  gatherFans(x, z, r, max, secs) {
+    const fans = this.freeNpcs(x, z, r).sort(() => Math.random() - 0.5).slice(0, max);
+    for (const n of fans) {
+      if (n.ch.busy) n.ch.stopAction();
+      this.leaveStation(n);
+      n.state = 'fan';
+      n.fan = { x, z, t: secs };
+      n.vel.set(0, 0);
+    }
+    return fans.length;
+  }
+
+  /** Shockwave: everyone within r of (x, z) falls over and gets back up. Returns how many. */
+  knockAround(x, z, r, skip) {
+    let count = 0;
+    for (const n of this.npcs) {
+      if (n === skip || n.state === 'knocked') continue;
+      const p = n.ch.root.position;
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (d > r || !n.ch.grounded) continue;
+      this.knockNpc(n, x, z);
+      count++;
+    }
+    return count;
+  }
+
+  knockNpc(n, x, z) {
+    const ch = n.ch;
+    const p = ch.root.position;
+    this.leaveStation(n);
+    ch.stopAction();
+    n.state = 'knocked';
+    n.vel.set(0, 0);
+    ch.root.rotation.y = Math.atan2(x - p.x, z - p.z);
+    ch.setLabel(n.name, '😵 اوخ!', '#ff9aa2');
+    ch.play('knock', () => {
+      n.state = 'idle';
+      n.timer = rand(0.3, 1.2);
+      ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
+    });
   }
 
   npcGain(n, act) {
@@ -535,7 +593,7 @@ class WorldBase {
     this.separate();
     for (const n of this.npcs) {
       const d = n.ch.root.position.distanceTo(camera.position);
-      if (n.ch.label) n.ch.label.visible = d > 3.2 && d < 19;
+      if (n.ch.label) n.ch.label.visible = !WorldBase.hideNames && d > 3.2 && d < 19;
     }
     this.updateExtra(dt, stats);
     this.fx.update(dt);
@@ -635,10 +693,13 @@ class WorldBase {
     );
     camera.position.set(x, y, z);
     if (this.shake > 0) {
-      camera.position.x += rand(-1, 1) * this.shake * 0.3;
-      camera.position.y += rand(-1, 1) * this.shake * 0.3;
+      camera.position.x += rand(-1, 1) * this.shake * 0.3 * WorldBase.shakeScale;
+      camera.position.y += rand(-1, 1) * this.shake * 0.3 * WorldBase.shakeScale;
       this.shake = Math.max(0, this.shake - dt * 1.2);
     }
     camera.lookAt(c.tx, c.ty, c.tz);
   }
 }
+
+WorldBase.hideNames = false;
+WorldBase.shakeScale = 1;

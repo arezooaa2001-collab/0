@@ -117,6 +117,14 @@ const Sfx = (() => {
     coin() { tone(1318, 0.08, { type: 'square', vol: 0.06 }); tone(1760, 0.18, { type: 'square', vol: 0.06, delay: 0.07 }); },
     buy() { [880, 1108, 1318].forEach((f, i) => tone(f, 0.15, { type: 'triangle', vol: 0.14, delay: i * 0.06 })); },
     medal() { [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.3, { type: 'sine', vol: 0.16, delay: i * 0.1 })); },
+    clap() { noise(0.06, { vol: 0.22, freq: 2400, q: 1.2, type: 'bandpass' }); },
+    zap() { tone(1400, 0.25, { type: 'sawtooth', vol: 0.07, to: 200 }); noise(0.3, { vol: 0.2, freq: 3000, to: 600, type: 'bandpass', q: 1.5 }); },
+    boom() { tone(80, 0.6, { type: 'sine', vol: 0.55, to: 30 }); noise(0.5, { vol: 0.35, freq: 900, to: 120 }); },
+    charge() { tone(200, 0.35, { type: 'sawtooth', vol: 0.06, to: 900 }); },
+    gem() { [1568, 2093, 2637].forEach((f, i) => tone(f, 0.16, { type: 'sine', vol: 0.12, delay: i * 0.05 })); },
+    chest() { tone(330, 0.15, { type: 'triangle', vol: 0.15 }); [659, 880, 1108, 1318, 1760].forEach((f, i) => tone(f, 0.25, { type: 'sine', vol: 0.13, delay: 0.15 + i * 0.07 })); },
+    spin() { tone(1800, 0.03, { type: 'square', vol: 0.05 }); },
+    jackpot() { [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.3, { type: 'triangle', vol: 0.15, delay: i * 0.08 })); },
     boost() { tone(220, 0.8, { type: 'sawtooth', vol: 0.12, to: 1760 }); noise(0.8, { vol: 0.15, freq: 400, to: 6000, type: 'bandpass' }); },
   };
 

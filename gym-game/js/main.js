@@ -43,11 +43,22 @@ const Game = {
     v.coins = Math.max(0, Math.floor(Number(v.coins) || 0));
     v.color = clamp(Math.floor(Number(v.color) || 0), 0, PLAYER_COLORS.length - 1);
     if (!['walk', 'run', 'jumprun'].includes(v.mode)) v.mode = 'walk';
-    if (!['base', 'new', 'env', 'ai'].includes(v.tab)) v.tab = 'base';
+    if (!['base', 'new', 'env', 'fun', 'ai'].includes(v.tab)) v.tab = 'base';
     const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
-    v.shop = Object.assign({ owned: [], shirt: null, band: null, aura: null, pet: null }, obj(v.shop));
+    v.shop = Object.assign({ owned: [], shirt: null, band: null, aura: null, pet: null, trail: null }, obj(v.shop));
     if (!Array.isArray(v.shop.owned)) v.shop.owned = [];
-    v.stats = Object.assign({ reps: 0, moves: {}, visited: [], raceWins: 0, coinsEarned: 0, maxCombo: 0, missionsDone: 0, equipReps: 0 }, obj(v.stats));
+    v.stats = Object.assign({
+      reps: 0, moves: {}, visited: [], raceWins: 0, coinsEarned: 0, maxCombo: 0, missionsDone: 0, equipReps: 0,
+      powers: 0, maxKnock: 0, armWins: 0, chests: 0, gems: 0, emotes: 0, jackpots: 0, picked: 0,
+    }, obj(v.stats));
+    for (const k of ['powers', 'maxKnock', 'armWins', 'chests', 'gems', 'emotes', 'jackpots', 'picked']) v.stats[k] = Math.max(0, Number(v.stats[k]) || 0);
+    v.fun = Object.assign({ wheelDay: '', lastDay: '', streak: 0 }, obj(v.fun));
+    v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
+    v.settings = Object.assign({ quality: 'auto', sens: 1, names: true, shake: true }, obj(v.settings));
+    if (!['low', 'auto', 'high'].includes(v.settings.quality)) v.settings.quality = 'auto';
+    v.settings.sens = clamp(Number(v.settings.sens) || 1, 0.4, 2);
+    v.settings.names = v.settings.names !== false;
+    v.settings.shake = v.settings.shake !== false;
     v.stats.moves = obj(v.stats.moves);
     if (!Array.isArray(v.stats.visited)) v.stats.visited = [];
     v.boost = Object.assign({ used: false, until: 0 }, obj(v.boost));
@@ -66,7 +77,7 @@ const Game = {
   /** Strength level including the temporary 1919 boost. */
   lv() { return this.save.level + (this.boostActive() ? BOOST_LEVELS : 0); },
   boostActive() { return Date.now() < (this.save.boost.until || 0); },
-  stats() { return { level: this.lv(), runLevel: this.save.runLevel, speedMult: this.owns('shoes') ? 1.15 : 1 }; },
+  stats() { return { level: this.lv(), runLevel: this.save.runLevel, speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) }; },
   envKey() { return this.where === 'env' ? this.envId : this.where; },
 
   /* ---------------- boot ---------------- */
@@ -106,6 +117,8 @@ const Game = {
     this.buildMoves();
     this.bindUi();
     this.bindInput();
+    this.initFun();
+    this.labelPlayer();
     this.ensureMissions();
     Creations.onChange((items) => this.onCreations(items));
     Creations.init();
@@ -205,6 +218,7 @@ const Game = {
       let sub;
       if (m.toggle) sub = P.mode === m.id ? 'روشن' : 'خاموش';
       else if (m.custom) sub = effectText(m.effect);
+      else if (m.emote) sub = '👏 نمایشی';
       else if (m.equip) {
         const env = EQUIP[m.equip].env;
         const near = env === here ? this.nearEquip(m.equip) : null;
@@ -226,8 +240,9 @@ const Game = {
   },
 
   onMove(m) {
-    if (this.mode !== 'play' || this.modals.size || this.race) return;
+    if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo) return;
     Sfx.init();
+    if (m.emote) { this.doEmote(m); return; }
     if (!this.isUnlocked(m)) {
       Sfx.play('error');
       this.toast(`🔒 «${m.name}» در سطح ${fa(m.level)} باز می‌شه. تمرین کن!`, 'warn');
@@ -309,7 +324,7 @@ const Game = {
   gainXp(amount, kind = 'exercise') {
     if (!(amount > 0)) return;
     const s = this.save;
-    if (kind !== 'reward' && this.drinkActive()) amount *= 2;
+    if (kind !== 'reward') amount *= this.xpBoost();
     amount = Math.round(amount * 10) / 10;
     s.xp += amount;
     if (kind === 'run') {
@@ -319,7 +334,7 @@ const Game = {
         this.runXpShown -= Math.floor(this.runXpShown);
       }
     } else if (kind === 'exercise') {
-      this.floatText(`+${fa(Math.round(amount))}`, this.combo > 0 || this.drinkActive() ? 'fl-combo' : '');
+      this.floatText(`+${fa(Math.round(amount))}`, this.combo > 0 || this.xpBoost() > 1 ? 'fl-combo' : '');
       Sfx.play('xp');
     }
     const from = s.level;
@@ -391,6 +406,7 @@ const Game = {
     const next = opponentFor(this.save.stage);
     if (from < next.level && to >= next.level) setTimeout(() => this.toast(`💪 هم‌زور «${next.name}» شدی! دکمه‌ی آماده‌ام رو بزن`, 'gold'), 2200);
     this.missionProgress('levels', to - from);
+    this.onLevelsFun(from, to);
     this.checkAchievements();
     this.persist();
   },
@@ -405,6 +421,7 @@ const Game = {
       this.hudKey = key;
       $('lvlNum').textContent = fa(this.lv());
       $('lvlNum').classList.toggle('boosted', boost);
+      $('titleText').textContent = '🎖️ ' + titleFor(this.lv());
       $('xpFill').style.width = `${frac * 100}%`;
       $('xpText').textContent = `${fa(Math.floor(s.xp))} / ${fa(need)}`;
       $('runText').textContent = `🏃 سطح دویدن ${fa(s.runLevel)}`;
@@ -487,6 +504,7 @@ const Game = {
     return {
       shirt: sh.shirt && SHOP_BY_ID[sh.shirt] ? SHOP_BY_ID[sh.shirt].color : PLAYER_COLORS[this.save.color],
       band: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+      belt: this.save.stage > MAIN_STAGES ? 'gold' : this.save.stage > 5 ? 'silver' : null,
     };
   },
 
@@ -503,6 +521,7 @@ const Game = {
     const cam = Object.assign({}, this.world.cam);
     this.world.enter(this.player, { x: pos.x, z: pos.z, yaw });
     Object.assign(this.world.cam, cam);
+    this.labelPlayer();
   },
 
   openStart() {
@@ -543,6 +562,8 @@ const Game = {
     this.refreshHud(true);
     this.refreshMoves();
     this.toast(`سلام ${this.playerName()}! تمرین رو شروع کن 💪`, 'gold');
+    this.labelPlayer();
+    this.dailyLogin();
   },
 
   /* ---------------- travel ---------------- */
@@ -599,7 +620,8 @@ const Game = {
 
   /** target: 'gym' | 'island' | 'place' (item = creation) | 'env' (item = env id) */
   travel(target, item) {
-    if (this.mode !== 'play' || this.race) return;
+    if (this.mode !== 'play' || this.race || this.arm) return;
+    if (this.photo) this.exitPhoto();
     if (target === 'island' && this.lv() < ISLAND_LEVEL) {
       Sfx.play('error');
       this.toast(`🔒 جزیره‌ی ابرها در سطح ${fa(ISLAND_LEVEL)} باز می‌شه. الان سطح ${fa(this.lv())} هستی؛ خیلی تمرین کن!`, 'warn');
@@ -621,6 +643,8 @@ const Game = {
     const fromItem = this.placeItem;
     this.closeModal('mapModal');
     this.releasePlayer();
+    this.dash = null;
+    this.powerAir = null;
     this.mode = 'transition';
     this.fadeTo(() => {
       let w;
@@ -671,7 +695,10 @@ const Game = {
   /* ---------------- wrestling ---------------- */
 
   startMatch() {
-    if (this.mode === 'transition') return;
+    if (this.mode === 'transition' || this.arm) return;
+    if (this.photo) this.exitPhoto();
+    this.dash = null;
+    this.powerAir = null;
     const s = this.save;
     const opp = opponentFor(s.stage);
     this.closeModal('readyModal');
@@ -703,7 +730,10 @@ const Game = {
     const lastMain = r.win && opp.stage === MAIN_STAGES;
     if (r.win) {
       s.wins++;
+      if (opp.stage === 5 && s.stage <= 5) setTimeout(() => this.toast('🥈 کمربند نقره‌ای قهرمانی مال تو شد! به کمرت نگاه کن', 'gold'), 600);
+      if (opp.stage === MAIN_STAGES && s.stage <= MAIN_STAGES) setTimeout(() => this.toast('🥇 کمربند طلایی قهرمانی مال تو شد!', 'gold'), 600);
       s.stage = Math.max(s.stage, opp.stage + 1);
+      this.confetti();
       this.missionProgress('win', 1);
     } else s.losses++;
     $('resTitle').textContent = r.win ? (lastMain ? '👑 قهرمان افسانه‌ای شدی!' : '🏆 بردی!') : '😓 باختی!';
@@ -741,6 +771,7 @@ const Game = {
       this.mode = 'play';
       $('hud').hidden = false;
       setPlayerLevelLook(this.player, this.lv());
+      if (this.player.ch.o.belt !== this.outfit().belt) this.rebuildPlayer();
       this.refreshHud(true);
       this.refreshMoves();
       this.toast('برگشتی باشگاه! زورت رو بیشتر کن 💪');
@@ -748,7 +779,7 @@ const Game = {
   },
 
   openReady() {
-    if (this.mode !== 'play' || this.where !== 'gym') return;
+    if (this.mode !== 'play' || this.where !== 'gym' || this.arm || this.race) return;
     Sfx.init();
     const s = this.save;
     const opp = opponentFor(s.stage);
@@ -779,9 +810,11 @@ const Game = {
 
   contextAction() {
     const w = this.world;
-    if (this.race || !w.canAct()) return null;
+    if (this.race || this.arm || this.photo || !w.canAct() || this.player.anchor) return null;
+    if (w.pickups && w.pickups.nearChest(this.player.ch.root.position)) return { label: '🎁 صندوق گنج رو باز کن', run: () => this.openChest() };
     if (w === this.gym) {
       if (w.nearTower() && w.tower.state === 'idle') return { label: '🔨 تست قدرت', run: () => this.strengthTest() };
+      if (w.nearArm()) return { label: '💪 مچ‌اندازی', run: () => this.openArm() };
       if (w.nearPortal()) {
         const open = this.lv() >= ISLAND_LEVEL;
         return { label: open ? '🌥️ برو به جزیره‌ی ابرها' : `🔒 جزیره‌ی ابرها • سطح ${fa(ISLAND_LEVEL)}`, run: () => this.travel('island') };
@@ -880,7 +913,9 @@ const Game = {
     window.addEventListener('keydown', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       if (e.code === 'Escape') {
-        for (const id of ['codeModal', 'helpModal', 'boardModal', 'readyModal', 'aiModal', 'mapModal', 'shopModal', 'menuModal', 'missionModal', 'medalModal']) if (this.modals.has(id)) this.closeModal(id);
+        const open = [...this.modals].filter((id) => id !== 'startModal' && id !== 'resultModal');
+        if (open.length) open.forEach((id) => this.closeModal(id));
+        else if (this.photo) this.exitPhoto();
         return;
       }
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -890,8 +925,15 @@ const Game = {
         return;
       }
       if (this.mode !== 'play') return;
+      if (this.arm) {
+        if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) this.armTap();
+        return;
+      }
       this.keys.add(e.code);
       if (e.repeat) return;
+      if (e.code === 'Digit1' || e.code === 'Numpad1') this.usePower('superjump');
+      if (e.code === 'Digit2' || e.code === 'Numpad2') this.usePower('dash');
+      if (e.code === 'Digit3' || e.code === 'Numpad3') this.usePower('slam');
       if (e.code === 'Space') this.pendingJump = true;
       if (e.code === 'KeyE') this.runContext();
       if (e.code === 'KeyR') this.onMove(MOVE_BY_ID.run);
@@ -949,8 +991,9 @@ const Game = {
         cam.dist = clamp(cam.dist * (before / Math.max(1, after)), 3.5, 14);
         return;
       }
-      cam.yaw -= (e.clientX - p.x) * 0.0065;
-      cam.pitch = clamp(cam.pitch + (e.clientY - p.y) * 0.004, 0.02, 1.15);
+      const sens = this.save.settings.sens;
+      cam.yaw -= (e.clientX - p.x) * 0.0065 * sens;
+      cam.pitch = clamp(cam.pitch + (e.clientY - p.y) * 0.004 * sens, 0.02, 1.15);
       p.x = e.clientX; p.y = e.clientY;
     });
     const up = (e) => this.camDrag.delete(e.pointerId);
@@ -976,7 +1019,7 @@ const Game = {
     let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     let y = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
     if (this.joy.id != null) { x = this.joy.x; y = this.joy.y; }
-    const enabled = this.mode === 'play' && !this.modals.size && !(this.race && this.race.state === 'count');
+    const enabled = this.mode === 'play' && !this.modals.size && !this.arm && !(this.race && this.race.state === 'count');
     const jump = this.pendingJump && enabled;
     this.pendingJump = false;
     return { x, y, run: k.has('ShiftLeft') || k.has('ShiftRight'), jump, enabled };
@@ -1003,6 +1046,8 @@ const Game = {
         return;
       }
       if (this.mode === 'menu') this.world.cam.yaw += dt * 0.12;
+      this.tickPowers(dt);
+      if (this.arm) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());
       if (gained > 0) {
@@ -1013,11 +1058,18 @@ const Game = {
       if (ran > 0 && this.mode === 'play') this.noteRun(ran);
       if (this.pet) this.pet.update(dt, this.player, this.clock);
       this.tickAura(dt);
+      this.tickTrail(dt);
+      this.tickPickups(dt);
+      this.tickEvents(dt);
       if (this.race) this.tickRace(dt);
       if (this.mode === 'play') this.tickHud();
       this.renderer.render(this.world.scene, this.camera);
     } catch (e) {
-      if (!this.errorShown) { this.errorShown = true; console.error(e); }
+      // keep the game drawing even if one system fails; report each distinct error once
+      this.errors = this.errors || new Set();
+      const key = String(e && e.message);
+      if (!this.errors.has(key) && this.errors.size < 8) { this.errors.add(key); console.error(e); }
+      try { this.renderer.render(this.mode === 'arena' ? this.arena.scene : this.world.scene, this.camera); } catch (e2) { /* ignore */ }
     }
   },
 
@@ -1035,6 +1087,8 @@ const Game = {
     cb.hidden = !comboOn;
     if (comboOn) cb.textContent = `کمبو ×${fa((1 + this.combo * 0.1).toFixed(1))}`;
     this.tickTimers();
+    this.tickBadges();
+    this.refreshPowers();
     this.refreshHud();
   },
 
@@ -1045,7 +1099,7 @@ const Game = {
     const fps = this.fpsN / this.fpsT;
     this.fpsT = 0;
     this.fpsN = 0;
-    if (fps < 38 && this.pixelRatio > 0.75) {
+    if (fps < 38 && this.pixelRatio > 0.75 && this.save.settings.quality === 'auto') {
       this.pixelRatio = Math.max(0.75, this.pixelRatio - 0.35);
       this.renderer.setPixelRatio(this.pixelRatio);
       this.resize();

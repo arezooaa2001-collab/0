@@ -570,6 +570,14 @@ function buildCharGeometry(o, m) {
   add('head', sph, 0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   add('head', sph, -0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   if (o.band) add('head', UnitGeo.torus(1, 0.13, 6, 24), 0, 0.225, 0, o.band, Math.PI / 2, 0, 0, 0.124, 0.124, 0.124);
+  if (o.belt) {
+    // championship belt: leather strap with a big metal buckle
+    const metal = o.belt === 'gold' ? '#ffcf3d' : '#d5dce6';
+    add('body', cyl, 0, 0.07, 0, '#7a1020', 0, 0, 0, 0.183 * tw, 0.1, 0.143 * tw);
+    add('body', box, 0, 0.07, 0.14 * tw + 0.01, metal, 0, 0, 0, 0.17, 0.13, 0.03);
+    add('body', sph, 0, 0.07, 0.14 * tw + 0.03, o.belt === 'gold' ? '#e63946' : '#2f6fed', 0, 0, 0, 0.03, 0.03, 0.015);
+    for (const sx of [-1, 1]) add('body', box, sx * 0.13 * tw, 0.07, 0.1 * tw + 0.012, metal, 0, sx * 0.6, 0, 0.07, 0.09, 0.02);
+  }
   // arms
   for (const side of ['L', 'R']) {
     add('sh' + side, sph, 0, -0.02, 0, armTop, 0, 0, 0, 0.083 * ma, 0.085 * ma, 0.08 * ma);
@@ -887,6 +895,15 @@ class Character {
       finished = t >= 1;
     } else {
       this.locomotion(p, dt);
+      const f = this.airFlip;
+      if (f && !this.grounded) {
+        f.t += dt;
+        const a = clamp(f.t / f.dur, 0, 1);
+        tuck(p, a, 0.9);
+        p.bx = f.dir * TAU * f.turns * smooth(a);
+        p.by = f.spin ? TAU * f.spin * smooth(a) : 0;
+        snap = true;
+      }
     }
     if (p.autoAnkle) {
       p.anL = -(p.hpLX + p.knL);
@@ -899,6 +916,11 @@ class Character {
         this.airY = 0;
         this.vy = 0;
         this.grounded = true;
+        if (this.airFlip) {
+          this.airFlip = null;
+          this.cur.bx = wrapAngle(this.cur.bx);
+          this.cur.by = wrapAngle(this.cur.by);
+        }
         if (this.onEvent) this.onEvent('hop', this);
       }
     }
