@@ -4199,7 +4199,7 @@ function serviceSiren() {
   if (!Audio.ctx || !amb) return;
   const v = amb.sirenOn ? Audio.vol(amb.x, amb.z) * 0.06 : 0;
   if (!sirenNodes && v > 0) { const c = Audio.ctx, o = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), g = c.createGain(); o.type = 'square'; o.frequency.value = 780; lfo.frequency.value = 0.55; lg.gain.value = 230; lfo.connect(lg); lg.connect(o.frequency); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200; o.connect(f); f.connect(g); g.gain.value = 0; g.connect(Audio.master); o.start(); lfo.start(); sirenNodes = { g }; }
-  if (sirenNodes) sirenNodes.g.gain.setTargetAtTime(v, Audio.ctx.currentTime, 0.1);
+  if (sirenNodes) sirenNodes.g.gain.setTargetAtTime(v >= 0 ? v : 0, Audio.ctx.currentTime, 0.1);
 }
 /* ---------- the bus line ---------- */
 // the bus pulls into the kerb strip at a stop so traffic can pass it
@@ -6704,7 +6704,7 @@ PH_RUN.play = box => {
   box.innerHTML = `<div class="play-top"><form autocomplete="off"><input class="ph-in" type="search" placeholder="جستجوی برنامه‌ها و بازی‌ها" dir="auto"></form></div><div class="play-tabs"><button type="button" data-t="game">بازی‌ها</button><button type="button" data-t="app">برنامه‌ها</button><button type="button" data-t="mine">مدیریت</button></div><div class="play-body"></div>`;
   const body = box.querySelector('.play-body');
   const state = id => { const d = phone.dl[phDlKey(id)], v = st.apps[id], L = PH_STORE[id].vers.length - 1; return d ? { b: `${fa(Math.round(d.got / d.size * 100))}٪`, a: '', p: d.got / d.size } : v === undefined ? { b: 'نصب', a: 'i' } : v < L ? { b: 'به‌روزرسانی', a: 'i' } : { b: 'باز کردن', a: 'o' }; };
-  const row = id => { const A = PH_STORE[id], s = state(id); return `<div class="play-row" data-id="${id}">${phIcon(id, 48)}<div><b>${phEsc(A.n)}</b><small>${phEsc(A.dev)} · ★${A.rate} · ${fa(A.size)} مگابایت</small>${s.p !== undefined ? `<i class="play-pr"><i style="width:${s.p * 100}%"></i></i>` : ''}</div><button type="button" class="ph-pill${s.a ? '' : ' ghost'}" data-a="${s.a}">${s.b}</button></div>`; };
+  const row = id => { const A = PH_STORE[id], s = state(id); return `<div class="play-row" data-id="${id}">${phIcon(id, 48)}<div><b>${phEsc(A.n)}</b><small>${phEsc(A.dev)} · <span dir="ltr">★ ${A.rate}</span> · ${fa(A.size)} مگابایت</small>${s.p !== undefined ? `<i class="play-pr"><i style="width:${s.p * 100}%"></i></i>` : ''}</div><button type="button" class="ph-pill${s.a ? '' : ' ghost'}" data-a="${s.a}">${s.b}</button></div>`; };
   const list = () => {
     detail = null; box.querySelectorAll('.play-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
     let ids = Object.keys(PH_STORE);
@@ -7145,7 +7145,7 @@ const Audio = {
     this.hg = c.createGain(); this.hg.gain.value = 0; const hl = c.createBiquadFilter(); hl.type = 'lowpass'; hl.frequency.value = 2200; this.hg.connect(hl); hl.connect(this.master);
     for (const f of [370, 466]) { const o = c.createOscillator(); o.type = 'square'; o.frequency.value = f; o.connect(this.hg); o.start(); }
   },
-  rain(a) { if (this.ctx) this.rg.gain.setTargetAtTime(clamp(a, 0, 1) * 0.12, this.ctx.currentTime, 0.3); },
+  rain(a) { if (this.ctx) this.rg.gain.setTargetAtTime((a >= 0 ? clamp(a, 0, 1) : 0) * 0.12, this.ctx.currentTime, 0.3); },
   thunder(dist) {
     if (!this.ctx) return; const c = this.ctx, t = c.currentTime + dist, s = c.createBufferSource(); s.buffer = this.brown; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 180; const g = c.createGain();
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9, t + 0.15); g.gain.exponentialRampToValueAtTime(0.001, t + 3.5); s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + 3.6);
@@ -7158,7 +7158,7 @@ const Audio = {
   shutter() { this.burst(0.12, 3000, 0.04, 'bandpass', 3); this.burst(0.08, 1800, 0.06, 'bandpass', 3); },
   slide() { this.burst(0.05, 600, 0.6, 'lowpass', 1); this.tone(1046, 0, 0.4, 0.015); },
   arcade() { [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, k) => this.tone(f, k * 0.12, 0.1, 0.04, 'square')); },
-  roll(sp) { if (!this.ctx) return; if (!this.rollG) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.brown; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 300; this.rollG = c.createGain(); this.rollG.gain.value = 0; s.connect(f); f.connect(this.rollG); this.rollG.connect(this.master); s.start(); } this.rollG.gain.setTargetAtTime(clamp(sp / 9, 0, 1) * 0.25, this.ctx.currentTime, 0.1); },
+  roll(sp) { if (!this.ctx) return; if (!(sp >= 0)) sp = 0; if (!this.rollG) { const c = this.ctx, s = c.createBufferSource(); s.buffer = this.brown; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 300; this.rollG = c.createGain(); this.rollG.gain.value = 0; s.connect(f); f.connect(this.rollG); this.rollG.connect(this.master); s.start(); } this.rollG.gain.setTargetAtTime(clamp(sp / 9, 0, 1) * 0.25, this.ctx.currentTime, 0.1); },
   music(on) {
     clearInterval(this.musT); if (!on || !this.ctx) return;
     const scale = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3], bass = [130.8, 98, 110, 87.3]; let step = 0;
@@ -7173,14 +7173,14 @@ const Audio = {
   },
   setMute(m) { this.on = !m; if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.7, this.ctx.currentTime, 0.05); },
   engine(on, rpm, load) {
-    if (!this.ctx) return; const t = this.ctx.currentTime;
+    if (!this.ctx) return; const t = this.ctx.currentTime; if (!(rpm >= 0)) rpm = 0; if (!(load >= 0)) load = 0;
     this.eg.gain.setTargetAtTime(on ? 0.06 + load * 0.06 : 0, t, 0.08);
     this.o1.frequency.setTargetAtTime(38 + rpm * 120, t, 0.05); this.o2.frequency.setTargetAtTime(19 + rpm * 60, t, 0.05);
     this.elp.frequency.setTargetAtTime(500 + rpm * 1400 + load * 600, t, 0.05);
   },
-  tyre(a) { if (this.ctx) this.tg.gain.setTargetAtTime(clamp(a, 0, 1) * 0.07, this.ctx.currentTime, 0.05); },
+  tyre(a) { if (this.ctx) this.tg.gain.setTargetAtTime((a >= 0 ? clamp(a, 0, 1) : 0) * 0.07, this.ctx.currentTime, 0.05); },
   horn(on) { if (this.ctx) this.hg.gain.setTargetAtTime(on ? 0.05 : 0, this.ctx.currentTime, 0.02); },
-  vol(x, z) { const d = Math.hypot(x - camera.position.x, z - camera.position.z); return clamp(1 - d / 70, 0, 1); },
+  vol(x, z) { const d = Math.hypot(x - camera.position.x, z - camera.position.z); return d >= 0 ? clamp(1 - d / 70, 0, 1) : 0; }, // NaN-safe: an AudioParam throws on non-finite values
   burst(gain, freq, dur, type = 'lowpass', q = 1) {
     if (!this.ctx || gain < 0.005) return; const c = this.ctx, t = c.currentTime, s = c.createBufferSource(); s.buffer = this.noise;
     const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = c.createGain();
@@ -8461,6 +8461,8 @@ function updateWorld(dt) {
   for (const c of cars) c.near = Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z) < 110 || c.player;
   for (let s = 0; s < 3; s++) {
     for (const c of cars) { if (c.locked || c.carriedBy || c.glide || (s > 0 && !c.near)) continue; c.integrate(c.near ? dt / 3 : dt); carStatic(c); }
+    // a car whose physics ever goes non-finite is put back where it last was fine, at rest
+    if (s === 0) for (const c of cars) { if (isFinite(c.x) && isFinite(c.z) && isFinite(c.vx) && isFinite(c.vz) && isFinite(c.h)) { c._ok = c._ok || [0, 0, 0]; c._ok[0] = c.x; c._ok[1] = c.z; c._ok[2] = c.h; } else if (c._ok) { c.x = c._ok[0]; c.z = c._ok[1]; c.h = c._ok[2]; c.vx = c.vz = c.vf = 0; if ('w' in c) c.w = 0; } }
     for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) { const a = cars[i], b = cars[j]; if (s > 0 && !a.near && !b.near) continue; if (a.carriedBy || b.carriedBy || a.glide || b.glide || (a.locked && b.locked)) continue; const dx = a.x - b.x, dz = a.z - b.z, rs = (a.T.len + b.T.len) / 2; if (dx * dx + dz * dz > rs * rs) continue; const r = satCarCar(a, b); if (r) { if (a.locked) { b.x -= r.nx * r.depth; b.z -= r.nz * r.depth; } else if (b.locked) { a.x += r.nx * r.depth; a.z += r.nz * r.depth; } else carCarResolve(a, b, r); } }
   }
   for (const c of cars) {
