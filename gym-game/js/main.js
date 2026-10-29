@@ -175,7 +175,10 @@ const Game = {
   setTab(tab) {
     this.save.tab = tab;
     $('moveGrid').dataset.tab = tab;
-    document.querySelectorAll('.mv-tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === tab));
+    document.querySelectorAll('.mv-tab').forEach((t) => {
+      t.classList.toggle('on', t.dataset.tab === tab);
+      if (t.dataset.tab === tab && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
     $('moveGrid').scrollTop = 0;
   },
 
