@@ -221,11 +221,15 @@ export class Traffic {
       return;
     }
   }
+  /** clear the road around a point (race start line) */
+  clearAround(x, z, r) {
+    for (const c of this.cars) if (c.active && c.state !== 'incident' && Math.hypot(c.pos.x - x, c.pos.z - z) < r) c.deactivate();
+  }
   init(p) {
     for (let i = 0; i < this.cars.length * 0.8; i++) this.spawnNear(p, 30, 320);
   }
   onHit(car, impact, by) {
-    if (by === this.game.player && !car.isPolice) this.game.onTrafficHit(car, impact);
+    if (by === this.game.player && !car.isPolice && !car.isRival) this.game.onTrafficHit(car, impact);
   }
   update(dt, time) {
     const p = this.game.player.pos;
@@ -235,6 +239,8 @@ export class Traffic {
     obs.push(this.game.player);
     if (this.game.onfoot && this.game.onfoot.active) obs.push(this.game.onfoot.walker);
     if (this.game.police.unit && this.game.police.unit.active) obs.push(this.game.police.unit);
+    const rv = this.game.race && this.game.race.rival;
+    if (rv && rv.active) obs.push(rv);
     const limit = this.limit ?? this.cars.length;
     let active = 0;
     for (const c of this.cars) {

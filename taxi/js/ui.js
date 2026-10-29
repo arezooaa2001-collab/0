@@ -1,5 +1,5 @@
 import { fa, faMoney, faDist, clamp } from './util.js';
-import { GEAR_LABEL, TOP_GEAR } from './vehicle.js';
+import { GEAR_LABEL, TOP_GEAR, CAR_MODELS } from './vehicle.js';
 import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
@@ -123,7 +123,10 @@ export class UI {
     horn.addEventListener('pointercancel', () => g.audio.horn(false));
     $('btnMap').addEventListener('click', () => this.toggleBigMap());
     $('btnMenu').addEventListener('click', () => g.pause(true));
-    $('bigmap').addEventListener('click', () => this.toggleBigMap(false));
+    $('bigmap').addEventListener('click', (e) => {
+      if (e.target.id === 'bigmapCanvas') return this.mapWaypoint(e);
+      this.toggleBigMap(false);
+    });
     $('talkGuide').addEventListener('click', () => {
       g.guideOn = true;
       $('btnGuide').classList.add('active');
@@ -204,12 +207,13 @@ export class UI {
       }
       if (e.code === 'KeyV') g.onfoot.toggle();
       if (e.code === 'KeyK') this.cycleRadio();
+      if (e.code === 'KeyP') g.state === 'photo' ? g.photo.close() : g.state === 'play' && !this.panelOpen && g.photo.open();
       if (e.code === 'KeyO' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openAchievements();
       if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
       const walking = g.onfoot.active || g.onfoot.busy;
       if (e.code in map && g.state === 'play' && !walking) p.requestGear(map[e.code]);
-      if (!walking && (e.code === 'KeyE' || e.code === 'ShiftLeft')) this.gearStep(1);
-      if (!walking && (e.code === 'KeyQ' || e.code === 'ControlLeft')) this.gearStep(-1);
+      if (g.state === 'play' && !walking && (e.code === 'KeyE' || e.code === 'ShiftLeft')) this.gearStep(1);
+      if (g.state === 'play' && !walking && (e.code === 'KeyQ' || e.code === 'ControlLeft')) this.gearStep(-1);
       if (e.code === 'KeyC') g.cycleCamera();
       if (e.code === 'KeyG') g.toggleGuide();
       if (e.code === 'KeyL') { p.lights = !p.lights; $('btnLights').classList.toggle('active', p.lights); }
@@ -267,8 +271,88 @@ export class UI {
   setHud(on) {
     $('hud').classList.toggle('off', !on);
   }
+  /** tap on the big map: drop (or remove) a custom GPS waypoint */
+  mapWaypoint(e) {
+    const g = this.g;
+    const c = $('bigmapCanvas'), r = c.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * HALF * 2 - HALF, z = ((e.clientY - r.top) / r.height) * HALF * 2 - HALF;
+    if (g.rides.ride || g.race.state !== 'idle') {
+      this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
+      return;
+    }
+    if (g.guide && g.guide.custom && Math.hypot(g.guide.x - x, g.guide.z - z) < 60) {
+      g.clearGuide();
+      this.toast('📍 مقصد دلخواه پاک شد', 'info');
+    } else {
+      g.setGuide({ x, z, label: '📍 مقصد دلخواه', addr: REGION_NAMES[regionAt(x, z)], custom: true });
+      g.guideOn = true;
+      $('btnGuide').classList.add('active');
+      this.toast('📍 مقصد دلخواه روی نقشه گذاشته شد؛ فلش 🧭 راه رو نشونت میده', 'good');
+    }
+    g.audio.beep();
+    this.drawBigMap();
+  }
+  makeCracks() {
+    const c = document.createElement('canvas');
+    c.width = 1024;
+    c.height = 576;
+    const ctx = c.getContext('2d');
+    ctx.lineCap = 'round';
+    const crack = (x, y, a, len, w, depth) => {
+      if (depth > 5 || len < 8) return;
+      let px = x, py = y;
+      const steps = 6;
+      for (let i = 0; i < steps; i++) {
+        a += (Math.random() - 0.5) * 0.5;
+        const nx = px + Math.cos(a) * (len / steps), ny = py + Math.sin(a) * (len / steps);
+        ctx.strokeStyle = `rgba(255,255,255,${0.55 - depth * 0.07})`;
+        ctx.lineWidth = Math.max(0.6, w);
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(nx, ny);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = Math.max(0.4, w * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(px + 1, py + 1);
+        ctx.lineTo(nx + 1, ny + 1);
+        ctx.stroke();
+        px = nx;
+        py = ny;
+        if (Math.random() < 0.3) crack(px, py, a + (Math.random() < 0.5 ? 0.8 : -0.8), len * 0.5, w * 0.7, depth + 1);
+      }
+    };
+    for (const [x, y] of [[300, 210], [720, 150], [560, 330]]) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath();
+      ctx.arc(x, y, 9, 0, 7);
+      ctx.fill();
+      for (let k = 0; k < 9; k++) crack(x, y, (k / 9) * Math.PI * 2 + Math.random() * 0.4, 120 + Math.random() * 200, 2.4, 0);
+      // spider-web rings
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1;
+      for (const rr of [22, 45]) {
+        ctx.beginPath();
+        for (let k = 0; k <= 12; k++) {
+          const a = (k / 12) * Math.PI * 2, q = rr * (0.8 + Math.random() * 0.4);
+          k ? ctx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q) : ctx.moveTo(x + Math.cos(a) * q, y + Math.sin(a) * q);
+        }
+        ctx.stroke();
+      }
+    }
+    $('cracks').style.backgroundImage = `url(${c.toDataURL()})`;
+    this.cracksReady = true;
+  }
   update(dt) {
     const g = this.g, p = g.player;
+    // cracked windshield inside the car when the taxi is badly damaged
+    const crack = g.camMode === 'first' && !g.onfoot.active && p.health < 50 ? Math.round(Math.min(0.9, (50 - p.health) / 40) * 20) / 20 : 0;
+    if (crack !== this.crackShown) {
+      if (crack && !this.cracksReady) this.makeCracks();
+      this.crackShown = crack;
+      $('cracks').style.opacity = crack;
+      $('cracks').classList.toggle('hidden', !crack);
+    }
     $('money').textContent = faMoney(g.money);
     $('coinPill').classList.toggle('hidden', !g.coins);
     $('coins').textContent = fa(g.coins);
@@ -360,6 +444,15 @@ export class UI {
     ctx.translate(-(p.pos.x + HALF) * k, -(p.pos.z + HALF) * k);
     ctx.drawImage(w.minimapBase, 0, 0);
     const P = (x, z) => [(x + HALF) * k, (z + HALF) * k];
+    if (g.race.state !== 'idle' && g.race.pts) {
+      ctx.strokeStyle = 'rgba(255,176,32,0.75)';
+      ctx.lineWidth = 7 / sc;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      g.race.pts.forEach((q, i) => (i ? ctx.lineTo(...P(q.x, q.z)) : ctx.moveTo(...P(q.x, q.z))));
+      ctx.stroke();
+    }
     if (g.guide && g.guideOn && g.route && g.route.length) {
       ctx.strokeStyle = '#38e07e';
       ctx.lineWidth = 5 / sc;
@@ -402,7 +495,14 @@ export class UI {
     for (const s of w.stations) icon(s.padX, s.padZ, '#1f8a4c', 11, '⛽');
     for (const s of w.garages) icon(s.padX, s.padZ, '#d68910', 11, '🔧');
     icon(w.police.padX, w.police.padZ, '#1f4fa0', 11, '🚓');
+    const race = g.race;
+    if (race.state === 'idle') for (const s of race.spots) icon(s.padX, s.padZ, '#8e24aa', 11, '🏁');
+    else {
+      for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
+      if (race.rival && race.rival.active) icon(race.rival.pos.x, race.rival.pos.z, '#b04dff', 8);
+    }
     for (const c2 of g.traffic.cars) if (c2.active && c2.state === 'incident') icon(c2.pos.x, c2.pos.z, '#ff4040', 6);
+    icon(w.stuntPark.x, w.stuntPark.z, '#e65100', 10, '🚀');
     if (g.police.unit.active) icon(g.police.unit.pos.x, g.police.unit.pos.z, Math.floor(performance.now() / 200) % 2 ? '#ff3030' : '#3060ff', 9);
     if (g.guide) {
       // clamp target to minimap edge
@@ -410,7 +510,7 @@ export class UI {
       const d = Math.hypot(dx, dz);
       const lim = R * 0.88;
       const f = d > lim ? lim / d : 1;
-      icon(p.pos.x + dx * f, p.pos.z + dz * f, g.rides.state === 'toDest' ? '#34e07a' : '#ffd23a', 12, g.rides.state === 'toDest' ? '🏁' : '🧍');
+      icon(p.pos.x + dx * f, p.pos.z + dz * f, g.rides.state === 'toDest' || g.guide.custom ? '#34e07a' : '#ffd23a', 12, g.guide.custom ? '📍' : g.guide.race ? '🚩' : g.rides.state === 'toDest' ? '🏁' : '🧍');
     }
     ctx.restore();
     // player arrow
@@ -492,7 +592,12 @@ export class UI {
     for (const s of w.stations) dot(s.padX, s.padZ, '#1f8a4c', '⛽');
     for (const s of w.garages) dot(s.padX, s.padZ, '#d68910', '🔧');
     dot(w.police.padX, w.police.padZ, '#1f4fa0', '🚓');
-    if (g.guide) dot(g.guide.x, g.guide.z, '#ffd23a', g.rides.state === 'toDest' ? '🏁' : '🧍', 11);
+    for (const s of g.race.spots) dot(s.padX, s.padZ, '#8e24aa', '🏁');
+    {
+      const sp = w.stuntPark;
+      dot(sp.x, sp.z, '#e65100', '🚀', 10);
+    }
+    if (g.guide) dot(g.guide.x, g.guide.z, '#ffd23a', g.guide.custom ? '📍' : g.guide.race ? '🚩' : g.rides.state === 'toDest' ? '🏁' : '🧍', 11);
     const [X, Y] = P(p.pos.x, p.pos.z);
     ctx.save();
     ctx.translate(X, Y);
@@ -718,14 +823,48 @@ export class UI {
             <button data-a="rep" ${p.health >= 99.5 ? 'disabled' : ''}>تعمیر کامل • ${faMoney(rc)}</button></div>
           <div class="card"><h3>ارتقای موتور (درجه سرعت)</h3><p>سطح ${fa(lvl)} از ۵ • حداکثر سرعت ${fa(Math.round(p.topSpeed() * 3.6))} km/h</p>
             ${lvl < 5 ? `<button data-a="eng">سطح ${fa(lvl + 1)} • ${faMoney(ENG[lvl])}</button>` : '<button disabled>حداکثر سطح ✔</button>'}</div>
+          <div class="card showroom"><h3>🚗 نمایشگاه ماشین</h3><div class="cars">${Object.entries(CAR_MODELS).map(([id, m]) => {
+            const owned = p.owned.includes(id), cur = p.model === id;
+            const bar = (label, v, max) => `<div class="cs"><span>${label}</span><i><b style="width:${Math.min(100, (v / max) * 100)}%"></b></i></div>`;
+            return `<div class="carcard ${cur ? 'cur' : ''}"><div class="ct"><span>${m.icon}</span><div><b>${m.name}</b><small>${m.desc}</small></div></div>
+              ${bar('سرعت', m.speed, 1.35)}${bar('شتاب', m.acc, 1.5)}${bar('فرمون', m.grip, 1.25)}${bar('کم‌مصرفی', 1 / m.fuel, 1.6)}
+              <button data-car="${id}" ${cur ? 'disabled' : ''}>${cur ? '✓ ماشین فعلی' : owned ? 'سوار شو' : 'خرید • ' + faMoney(m.price)}</button></div>`;
+          }).join('')}</div></div>
           <div class="card paint"><h3>🎨 رنگ ماشین</h3><p>هر رنگ ${faMoney(PAINT_COST)} تومان</p>
-            <div class="swatches">${PAINTS.map(([hex, name]) => `<button data-paint="${hex}" title="${name}" style="background:#${hex.toString(16).padStart(6, '0')}" class="${p.paintHex === hex || (!p.paintHex && hex === 0xf3c614) ? 'cur' : ''}"></button>`).join('')}</div></div>
+            <div class="swatches">${PAINTS.map(([hex, name]) => `<button data-paint="${hex}" title="${name}" style="background:#${hex.toString(16).padStart(6, '0')}" class="${p.paintHex === hex || (!p.paintHex && hex === CAR_MODELS[p.model].color) ? 'cur' : ''}"></button>`).join('')}</div></div>
           <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
             <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
           <div class="card"><h3>باک بزرگ‌تر</h3><p>ظرفیت فعلی ${fa(p.tank)} لیتر</p>
             ${ti >= 0 ? `<button data-a="tank">${fa(TANK[ti][0])} لیتری • ${faMoney(TANK[ti][1])}</button>` : '<button disabled>بزرگ‌ترین باک ✔</button>'}</div>
         </div>
         <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
+        el.querySelectorAll('[data-car]').forEach((b) => {
+          b.onclick = () => {
+            const id = b.dataset.car, m = CAR_MODELS[id];
+            const r = g.rides;
+            if (r.ride && r.state !== 'toPickup') {
+              this.toast('مسافر توی ماشینه! اول سفر رو تموم کن', 'warn');
+              return;
+            }
+            if (p.burning) return;
+            if (!p.owned.includes(id)) {
+              g.topUp(m.price);
+              if (g.money < m.price) {
+                this.toast('پول کافی نداری 😟', 'warn');
+                g.audio.bad();
+                return;
+              }
+              g.money -= m.price;
+              p.owned.push(id);
+              g.audio.cash();
+              this.toast(`🎉 ${m.name} مال تو شد!`, 'good');
+            }
+            p.setModel(id);
+            this.toast(`${m.icon} سوار ${m.name} شدی`, 'info');
+            g.save();
+            render();
+          };
+        });
         el.querySelectorAll('[data-paint]').forEach((b) => {
           b.onclick = () => {
             const hex = parseInt(b.dataset.paint, 10);
@@ -763,7 +902,7 @@ export class UI {
             if (a === 'tank') p.tank = TANK[ti][0];
             if (a === 'nos') p.nitro = 100;
             g.audio.cash();
-            this.toast(a === 'rep' ? 'ماشین مثل روز اولش شد ✨' : a === 'eng' ? 'موتور ارتقا پیدا کرد! 🏎️' : 'باک بزرگ‌تر نصب شد ⛽', 'good');
+            this.toast(a === 'rep' ? 'ماشین مثل روز اولش شد ✨' : a === 'eng' ? 'موتور ارتقا پیدا کرد! 🏎️' : a === 'nos' ? 'کپسول نیترو پر شد! 🔥' : 'باک بزرگ‌تر نصب شد ⛽', 'good');
             g.save();
             render();
           };
@@ -808,6 +947,7 @@ export class UI {
   achievement(icon, title, reward) {
     const el = document.createElement('div');
     el.className = 'achpop';
+    el.style.top = `calc(18% + ${document.querySelectorAll('.achpop:not(.out)').length * 84}px)`;
     el.innerHTML = `<span>${icon}</span><div><small>🏆 افتخار جدید!</small><b>${title}</b><em>+${fa(reward)} سکه 🪙</em></div>`;
     document.body.appendChild(el);
     setTimeout(() => el.classList.add('out'), 3800);
@@ -819,7 +959,7 @@ export class UI {
     const n = g.ach.done().length, total = g.ach.list.length;
     const s = g.stats;
     this.panel(`<h2>🏆 افتخارات (${fa(n)} از ${fa(total)})</h2>
-      <div class="statrow"><span>🧳 ${fa(s.trips)} سفر</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
+      <div class="statrow"><span>🧳 ${fa(s.completed ?? s.trips)} سفر</span><span>🚀 ${fa(s.jumps || 0)} پرش</span><span>🌀 رکورد دریفت ${fa(Math.round(s.bestDrift || 0))}</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
       <div class="achs">${g.ach.html()}</div>`);
   }
   openInventory() {
@@ -853,12 +993,17 @@ export class UI {
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
-        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۵ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • F ورود به پمپ/تعمیرگاه</div>
+        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • F ورود به پمپ/تعمیرگاه</div>
         <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
         <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
+        <button data-a="photo">📸 حالت عکاسی (P)</button>
         <button data-a="reset" class="danger">🗑️ شروع دوباره از اول</button>
       </div>`, (el) => {
       el.querySelector('[data-a=resume]').onclick = () => this.closePanel();
+      el.querySelector('[data-a=photo]').onclick = () => {
+        this.closePanel();
+        g.photo.open();
+      };
       const codeIn = el.querySelector('[data-code]');
       const submit = () => {
         if (g.cheat(codeIn.value)) this.closePanel();

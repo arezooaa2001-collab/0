@@ -18,6 +18,7 @@
 <canvas id="gl"></canvas>
 
 <div id="hud" class="off">
+  <div id="cracks" class="hidden"></div>
   <div id="topLeft">
     <canvas id="minimap" width="300" height="300"></canvas>
     <div id="region"></div>
@@ -99,6 +100,9 @@
     <button id="talkGuide">متوجه نشدم، فلش نشونم بده 🧭</button>
   </div>
   <button id="zoneBtn" class="hidden"></button>
+  <div id="stunt" class="hidden"></div>
+  <div id="raceHud" class="hidden"></div>
+  <div id="countdown" class="hidden"></div>
   <div id="chat" class="hidden">
     <div class="chead"><b id="chatWho">💬 گپ با مسافر</b><span id="chatMode"></span><button id="chatKey" type="button" title="کلید API جمنای">⚙️</button><button id="chatClose" type="button">✕</button></div>
     <div id="chatKeyBox" class="hidden">
@@ -118,7 +122,7 @@
 </div>
 
 <div id="panel" class="hidden"></div>
-<div id="bigmap" class="hidden"><canvas id="bigmapCanvas" width="1024" height="1024"></canvas><span class="close">✕</span></div>
+<div id="bigmap" class="hidden"><canvas id="bigmapCanvas" width="1024" height="1024"></canvas><span class="close">✕</span><span class="maphint">📍 روی نقشه بزن تا مقصد دلخواه بذاری • 🏁 مسابقه • 🚀 پارک پرش</span></div>
 
 <div id="jail" class="hidden">
   <div class="jt">🔒 زندان</div>
@@ -129,6 +133,11 @@
 </div>
 
 <div id="cinema" class="hidden"><div class="cbar top"></div><div class="cbar bottom"><p id="cinemaText"></p></div></div>
+<div id="photo" class="hidden">
+  <div class="phbar"><button id="phFilter">🎨 عادی</button><button id="phShot" class="shot">📸</button><button id="phExit">✕ خروج</button></div>
+  <div class="phhint">بکش تا دوربین بچرخه • با دو انگشت (یا اسکرول) زوم کن</div>
+</div>
+<div id="phView" class="hidden"><div class="phbox"><img id="phImg" alt=""><p>عکس ذخیره شد! روی موبایل انگشتت رو روی عکس نگه دار تا ذخیره‌ش کنی.</p><div class="phrow"><a id="phDl" class="btn">⬇️ دانلود</a><button class="phclose">بستن</button></div></div></div>
 <div id="flash"></div>
 <div id="fade"></div>
 

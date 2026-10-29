@@ -58,6 +58,18 @@ export class AudioSys {
     this.windGain.gain.value = 0;
     wn.connect(this.windFilter).connect(this.windGain).connect(this.master);
     wn.start();
+    // tyre squeal: narrow band noise with a wobbling pitch
+    const sk = ctx.createBufferSource();
+    sk.buffer = buf;
+    sk.loop = true;
+    this.skidFilter = ctx.createBiquadFilter();
+    this.skidFilter.type = 'bandpass';
+    this.skidFilter.frequency.value = 1700;
+    this.skidFilter.Q.value = 9;
+    this.skidGain = ctx.createGain();
+    this.skidGain.gain.value = 0;
+    sk.connect(this.skidFilter).connect(this.skidGain).connect(this.master);
+    sk.start();
 
     // siren
     this.sOsc = ctx.createOscillator();
@@ -105,6 +117,19 @@ export class AudioSys {
     const t = this.ctx.currentTime;
     this.windGain.gain.setTargetAtTime(Math.min(0.22, speed * 0.0035 + (rough ? speed * 0.004 : 0)), t, 0.2);
     this.windFilter.frequency.setTargetAtTime(rough ? 220 : 380 + speed * 12, t, 0.2);
+  }
+  setSkid(level) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.skidGain.gain.setTargetAtTime(Math.min(0.5, level) * 0.6, t, 0.06);
+    this.skidFilter.frequency.setTargetAtTime(1500 + Math.sin(t * 13) * 180 + level * 300, t, 0.05);
+  }
+  /** exhaust backfire: a short low thump and crackle */
+  backfire(k = 1) {
+    if (!this.ctx) return;
+    this.burst(0.09, 380, 'lowpass', 0.55 * k);
+    this.burst(0.05, 2400, 'bandpass', 0.25 * k);
+    this.tone(70, 0.12, 0.22 * k, 'sine');
   }
   horn(on) {
     if (!this.ctx) return;
@@ -248,6 +273,8 @@ export class AudioSys {
     if (!this.radioGain) this.setRadio(this.station);
     const ctx = this.ctx;
     const hz = (semi, base = 220) => base * Math.pow(2, semi / 12);
+    // after the tab was hidden (or sound was off) skip the missed notes instead of playing them all at once
+    if (this.radioNext < ctx.currentTime) this.radioNext = ctx.currentTime + 0.05;
     while (this.radioNext < ctx.currentTime + 0.3) {
       const t = this.radioNext, i = this.radioStep++;
       if (this.station === 'pop') {

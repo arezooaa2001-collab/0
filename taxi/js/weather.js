@@ -46,7 +46,7 @@ export class Weather {
       this.timer = 120 + Math.random() * 180;
       let k = KINDS[Math.floor(Math.random() * KINDS.length)];
       if (k === this.kind) k = 'clear';
-      this.set(k);
+      if (k !== this.kind) this.set(k);
     }
     this.cloud = damp(this.cloud, this.target.cloud, 0.25, dt);
     this.rain = damp(this.rain, this.target.rain, 0.3, dt);
@@ -92,7 +92,7 @@ export class Weather {
       if (this.thunderT <= 0) {
         this.thunderT = 6 + Math.random() * 12;
         g.ui.flash();
-        setTimeout(() => g.audio.thunder(), 400 + Math.random() * 1200);
+        setTimeout(() => { if (g.state === 'play' || g.state === 'cutscene') g.audio.thunder(); }, 400 + Math.random() * 1200);
       }
     }
   }

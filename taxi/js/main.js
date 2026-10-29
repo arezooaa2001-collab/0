@@ -16,6 +16,10 @@ import { Arson } from './arson.js';
 import { Weather } from './weather.js';
 import { Pickups } from './pickups.js';
 import { Achievements } from './achievements.js';
+import { Stunts } from './stunts.js';
+import { Race } from './race.js';
+import { Skids } from './skids.js';
+import { Photo } from './photo.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -124,6 +128,10 @@ class Game {
     this.weather = new Weather(this);
     this.pickups = new Pickups(this);
     this.ach = new Achievements(this);
+    this.stunts = new Stunts(this);
+    this.race = new Race(this);
+    this.skids = new Skids(this);
+    this.photo = new Photo(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -132,10 +140,13 @@ class Game {
       exhaust: new Particles(scene, { max: 120, color: 0x9a9a9a }),
       spark: new Particles(scene, { max: 120, color: 0xffb040, additive: true }),
       nitro: new Particles(scene, { max: 160, color: 0x5aa8ff, additive: true }),
+      fire: new Particles(scene, { max: 80, color: 0xff7a1a, additive: true }),
+      tyre: new Particles(scene, { max: 140, color: 0xdedede }),
     };
     // nav screen in the dashboard shows the minimap
     const tex = new THREE.CanvasTexture(this.ui.mm);
     tex.colorSpace = THREE.SRGBColorSpace;
+    this.navTex = tex;
     this.player.car.screen.material = new THREE.MeshBasicMaterial({ map: tex });
     this.load();
     this.ui.toggleAuto(!!this.settings.auto);
@@ -165,7 +176,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex || null, nitro: p.nitro,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -181,7 +192,9 @@ class Game {
     if (d) {
       this.money = d.money; this.coins = d.coins || 0; this.day = d.day; this.hour = d.hour; this.stats = d.stats;
       p.fuel = d.fuel; p.superFuel = d.superFuel; p.tank = d.tank; p.health = d.health; p.engineLevel = d.engine;
-      if (d.paint) p.setPaint(d.paint);
+      if (Array.isArray(d.owned)) p.owned = d.owned;
+      if (d.model && d.model !== p.model) p.buildModel(d.model);
+      if (d.paint !== null && d.paint !== undefined) p.setPaint(d.paint);
       if (d.nitro !== undefined) p.nitro = d.nitro;
       this.hasSave = true;
       if (this.world.roadDist(d.x, d.z) < 9) {
@@ -225,14 +238,20 @@ class Game {
   tutorial() {
     if (this.hasSave && this.stats.trips > 0) {
       this.ui.toast('خوش برگشتی! 🚕 منتظر درخواست سفر باش', 'good');
+      if (!this.stats.seenV3) {
+        this.stats.seenV3 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
+      }
       return;
     }
+    this.stats.seenV3 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
-      [this.ui.coarse ? 'سمت چپ صفحه رو بکش تا فرمون بدی، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
-      ['دنده دستیه! روی ۱ تا ۵ بزن؛ راننده خودش با دست دنده رو جا می‌زنه 👋', 7.5],
+      [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
+      ['دنده دستیه! روی ۱ تا ۷ بزن؛ راننده خودش با دست دنده رو جا می‌زنه 👋', 7.5],
       ['با دکمه 🎥 برو داخل ماشین و از پشت شیشه رانندگی کن', 12],
       ['به‌زودی یه مسافر درخواست میده. آدرس رو می‌گه؛ اگه بلد نبودی 🧭 رو بزن', 16.5],
+      ['روی نقشه 🗺️ دنبال 🏁 مسابقه خیابونی و 🚀 پارک پرش بگرد! با ترمز دستی هم دریفت بزن 🌀', 22],
     ];
     for (const [t, d] of tips) setTimeout(() => this.ui.toast(t, 'info'), d * 1000);
   }
@@ -242,6 +261,8 @@ class Game {
       this.ui.openMenu();
       this.audio.setEngine(0, 0, false);
       this.audio.siren(false);
+      this.audio.setRain(0);
+      this.audio.setSkid(0);
     } else if (!on && this.state === 'pause') {
       this.state = 'play';
       if (this.ui.panelOpen) {
@@ -260,6 +281,8 @@ class Game {
     this.state = 'jail';
     this.cinematic = false;
     this.audio.siren(false);
+    this.audio.setRain(0);
+    this.audio.setSkid(0);
     this.audio.setEngine(0, 0, false);
     this.fade(0, 0.8);
   }
@@ -472,6 +495,12 @@ class Game {
       prev = q;
     }
     this.guideDist = dist;
+    if (this.guide.custom && Math.hypot(this.guide.x - p.pos.x, this.guide.z - p.pos.z) < 22) {
+      this.clearGuide();
+      this.ui.toast('📍 به مقصد دلخواهت رسیدی!', 'good');
+      this.audio.cash();
+      return;
+    }
     // look-ahead point
     let tgt = this.route[this.route.length - 1] || this.guide;
     let acc = 0;
@@ -497,6 +526,7 @@ class Game {
     if (z.kind === 'gas') this.ui.openStation(z);
     else if (z.kind === 'garage') this.ui.openGarage(z);
     else if (z.kind === 'police') this.ui.openPolice();
+    else if (z.kind === 'race') this.race.offer(z);
     else if (z.kind === 'fuelHelp') {
       const cost = 80000;
       this.topUp(cost);
@@ -535,14 +565,14 @@ class Game {
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
-    for (const s of [...w.stations, ...w.garages, w.police]) {
+    for (const s of [...w.stations, ...w.garages, w.police, ...(this.race.state === 'idle' ? this.race.spots : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
     if (!zone && p.fuelTotal() <= 0.01) zone = { kind: 'fuelHelp' };
     if (!zone && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
-      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
+      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
       this.ui.zone(txt);
       this.stopT = sp < 0.6 && !this.ui.controlsHeld() ? (this.stopT || 0) + dt : 0;
       if (this.stopT > 0.5 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {
@@ -621,8 +651,10 @@ class Game {
       if (this.envRT) this.envRT.dispose();
       this.envRT = rt;
       this.scene.environment = rt.texture;
-      this.scene.environmentIntensity = 0.35 + (1 - env.night) * 0.65;
+      this.envBase = 0.35 + (1 - env.night) * 0.65;
     }
+    // storms dim the reflections too
+    this.scene.environmentIntensity = this.envBase * (1 - 0.6 * (this.weather ? this.weather.cloud : 0));
   }
 
   /* ---------------- effects ---------------- */
@@ -659,6 +691,34 @@ class Game {
       }
     }
     fx.nitro.update(dt);
+    // tyre marks + squeal + smoke
+    const marking = this.skids.update();
+    const slide = marking ? Math.min(1, (sp + Math.hypot(p.ext.x, p.ext.y)) / 22) : 0;
+    this.audio.setSkid(this.state === 'play' && sp + Math.hypot(p.ext.x, p.ext.y) > 5 ? slide : 0);
+    if (marking && Math.random() < slide * 0.9) {
+      const side = Math.random() < 0.5 ? 0.74 : -0.74, rr = (p.car.P.wheelZ || 1.4);
+      const x = p.pos.x - s * rr - c * side, z = p.pos.z - c * rr + s * side;
+      fx.tyre.emit(x, p.y + 0.25, z, (Math.random() - 0.5) * 1.5, 0.8 + Math.random(), (Math.random() - 0.5) * 1.5, 1.6, 0.8, 4, 0.35);
+    }
+    fx.tyre.update(dt);
+    // exhaust backfire on fast upshifts and when lifting off at high revs
+    const t0 = this.prevThrottle ?? 0;
+    const upshift = p.shift && !this.prevShift && p.targetGear > p.gear && p.gear >= 1;
+    if (this.state === 'play' && ((upshift && p.rpm > 4300 && sp > 9) || (t0 > 0.8 && p.throttle < 0.1 && p.rpm > 5000 && Math.random() < 0.5))) this.backfire();
+    this.prevShift = !!p.shift;
+    this.prevThrottle = p.throttle;
+    fx.fire.update(dt, -2);
+  }
+  backfire() {
+    const p = this.player, fx = this.fx;
+    const s = Math.sin(p.heading), c = Math.cos(p.heading);
+    const back = p.car.P.len / 2 + 0.1;
+    const pipes = p.model === 'sport' ? [0.35, -0.35] : [0.5];
+    for (const side of pipes) {
+      const x = p.pos.x - s * back + c * side, z = p.pos.z - c * back - s * side;
+      for (let i = 0; i < 7; i++) fx.fire.emit(x, p.y + 0.32, z, -s * (3 + Math.random() * 4) + (Math.random() - 0.5), 0.2 + Math.random() * 0.6, -c * (3 + Math.random() * 4) + (Math.random() - 0.5), 0.12 + Math.random() * 0.12, 0.35 + Math.random() * 0.3, 1.5, 1, 2);
+    }
+    this.audio.backfire(0.7 + Math.random() * 0.5);
   }
   crashFx(e) {
     const p = this.player;
@@ -687,7 +747,7 @@ class Game {
     this.arson.setScale(ph, 65);
   }
   frame() {
-    const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1);
+    const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1) * (this.state === 'play' ? this.slowmo || 1 : 1);
     const st = this.state;
     this.audio.update(dt);
     if (st === 'jail') {
@@ -712,6 +772,11 @@ class Game {
       this.renderer.render(this.scene, this.camera);
       return;
     }
+    if (st === 'photo') {
+      this.photo.update(dt);
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
     this.time += dt;
     this.hour += (dt * 24) / DAY_SECONDS;
     if (this.hour >= 24) {
@@ -723,6 +788,7 @@ class Game {
     this.weather.update(dt);
     this.world.update(dt, this.env, this.time);
     const inp = this.ui.input();
+    this.lastInput = inp;
     const driving = st === 'play' && !this.onfoot.active && !this.onfoot.busy;
     if (st === 'play') this.onfoot.update(dt, inp);
     if (driving) {
@@ -740,8 +806,10 @@ class Game {
     this.police.update(dt);
     if (this.state === 'jail') return;
     this.arson.update(dt);
+    this.race.update(dt);
     if (st === 'play') {
       this.pickups.update(dt);
+      this.stunts.update(dt);
       this.ach.track(dt);
     }
     this.rides.update(dt);

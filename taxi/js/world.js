@@ -401,6 +401,7 @@ export class World {
     this.buildRoadDistance();
     this.places = PLACES.map((p) => this.makePlace(p));
     this.setupStations();
+    this.setupRamps();
     this.buildHeights();
     this.buildTerrain();
     this.buildRoadMeshes();
@@ -410,6 +411,7 @@ export class World {
     this.buildLamps();
     this.buildTrafficLights();
     this.buildRoadside();
+    this.buildRamps();
     this.finishScatter();
     this.buildMinimapBase();
   }
@@ -535,7 +537,103 @@ export class World {
     if (tx + tz <= 1) h = h00 + (h10 - h00) * tx + (h01 - h00) * tz;
     else h = h11 + (h01 - h11) * (1 - tx) + (h10 - h11) * (1 - tz);
     if (this.roadDist(x, z) < 8) h = Math.max(h, 0.02);
+    if (this.rampsReady) h = Math.max(h, this.rampHeight(x, z));
     return h;
+  }
+  /* ---------- stunt ramps ---------- */
+  setupRamps() {
+    this.ramps = [];
+    // stunt park south-east of the city
+    this.stuntPark = { x: 250, z: 610 };
+    this.flats.push({ x: 250, z: 610, r: 90 });
+    const P = this.stuntPark;
+    for (const [dx, dz, rot, len, h] of [[-50, -40, Math.PI / 2, 12, 2.4], [-50, 0, Math.PI / 2, 14, 3.4], [-50, 40, Math.PI / 2, 18, 5], [20, -45, 0, 12, 2.6], [40, 30, -Math.PI / 2, 22, 7]]) {
+      this.ramps.push({ x: P.x + dx, z: P.z + dz, rot, len, w: 6, h, park: true });
+    }
+    // roadside kickers on desert and farm highways
+    for (const r of this.roads) {
+      if (r.type !== 'highway') continue;
+      for (let i = 4; i < r.pts.length - 4; i += 9) {
+        const a = r.pts[i], b = r.pts[i + 1];
+        const reg = regionAt(a.x, a.z);
+        if (reg !== 'desert' && reg !== 'farm') continue;
+        const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+        const dx = (b.x - a.x) / l, dz = (b.z - a.z) / l;
+        const side = i % 2 ? 1 : -1;
+        this.ramps.push({ x: a.x - dz * 15 * side, z: a.z + dx * 15 * side, rot: Math.atan2(dx, dz), len: 11, w: 5, h: 2.4 });
+      }
+    }
+  }
+  buildRamps() {
+    const mat = new THREE.MeshStandardMaterial({
+      map: canvasTexture(128, 256, (g, w, h) => {
+        g.fillStyle = '#d9822b';
+        g.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 32) {
+          g.fillStyle = (y / 32) % 2 ? '#1a1a1a' : '#ffd21a';
+          g.fillRect(0, y, w, 14);
+        }
+        g.fillStyle = 'rgba(0,0,0,0.25)';
+        for (let i = 0; i < 400; i++) g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+      }),
+      roughness: 0.7,
+      metalness: 0.2,
+    });
+    const side = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9 });
+    const grp = new THREE.Group();
+    for (const r of this.ramps) {
+      r.y = this.heightAt(r.x, r.z);
+      const s = new THREE.Shape();
+      s.moveTo(0, 0);
+      s.lineTo(r.len, r.h);
+      s.lineTo(r.len, 0);
+      s.closePath();
+      const geo = new THREE.ExtrudeGeometry(s, { depth: r.w, bevelEnabled: false });
+      // shape x -> local +z (forward), extrude -> local x
+      geo.rotateY(-Math.PI / 2);
+      geo.translate(r.w / 2, 0, 0);
+      const m = new THREE.Mesh(geo, [side, mat]);
+      m.position.set(r.x, r.y - 0.02, r.z);
+      m.rotation.y = r.rot;
+      m.castShadow = m.receiveShadow = true;
+      grp.add(m);
+      // the steep back wall blocks cars driving into it from behind
+      const bx = r.x + Math.sin(r.rot) * (r.len + 0.4), bz = r.z + Math.cos(r.rot) * (r.len + 0.4);
+      this.statics.insert(boxCol(bx, bz, r.w / 2, 0.4, r.rot, { ramp: r }));
+    }
+    mergeByMaterial(grp);
+    this.group.add(grp);
+    this.rampsReady = true;
+    // a big sign at the stunt park
+    const P = this.stuntPark;
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      map: canvasTexture(512, 128, (g, w, h) => {
+        g.fillStyle = '#111';
+        g.fillRect(0, 0, w, h);
+        g.fillStyle = '#ffd21a';
+        g.font = 'bold 64px Vazirmatn, Tahoma, sans-serif';
+        g.textAlign = 'center';
+        g.fillText('🚀 پارک پرش', w / 2, 86);
+      }),
+    }));
+    sign.position.set(P.x, this.heightAt(P.x, P.z - 75) + 6, P.z - 75);
+    this.group.add(sign);
+    for (const dx of [-5.5, 5.5]) {
+      const pole = cyl(0.2, 0.2, 6, side, 8, this.group);
+      pole.position.set(P.x + dx, this.heightAt(P.x, P.z - 75) + 3, P.z - 75);
+    }
+  }
+  rampHeight(x, z) {
+    let best = -Infinity;
+    for (const r of this.ramps) {
+      const dx = x - r.x, dz = z - r.z;
+      if (dx * dx + dz * dz > (r.len + r.w) * (r.len + r.w)) continue;
+      const s = Math.sin(r.rot), c = Math.cos(r.rot);
+      const lz = dx * s + dz * c, lx = dx * c - dz * s;
+      if (Math.abs(lx) < r.w / 2 && lz >= 0 && lz <= r.len) best = Math.max(best, r.y + (r.h * lz) / r.len);
+    }
+    return best;
   }
   surfaceAt(x, z) {
     if (this.roadDist(x, z) < 7.5) return 'road';
@@ -1124,6 +1222,7 @@ export class World {
     if (this.roadDist(x, z) < minRoad) return false;
     if (Math.hypot(x - 1350, z + 750) < 290) return false;
     if (Math.hypot(x - 1160, z - 1525) < 44) return false;
+    if (this.stuntPark && Math.hypot(x - this.stuntPark.x, z - this.stuntPark.z) < 110) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
     for (const s of this.stations) if (Math.hypot(x - s.x, z - s.z) < 22) return false;

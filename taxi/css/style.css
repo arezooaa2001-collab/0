@@ -381,12 +381,71 @@ body.onfoot #steerZone { display: flex !important; }
 #gearCur { display: none; min-width: 34px; height: 34px; border-radius: 10px; background: var(--yellow); color: #111; font-size: 18px; font-weight: 900; align-items: center; justify-content: center; touch-action: none; cursor: pointer; }
 @media (max-height: 480px) {
   #gearCur { display: inline-flex; }
-  #gearbox:not(.open) .hgrid, #gearbox:not(.open) .hand { display: none; }
+  #gearbox:not(.open) .hgrid { display: none; }
   #gearbox:not(.open) { padding: 6px 8px; }
   #gearbox:not(.open) .gtitle { margin: 0; flex-direction: column; gap: 4px; }
   #gearbox:not(.open) .glabel { display: none; }
-  #gearbox.open { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 5; }
+  #gearbox.open { position: absolute; right: calc(100% + 8px); bottom: 0; z-index: 5; }
   #rightPad { position: absolute; }
 }
 
 #offer.vip { border: 2px solid var(--yellow); box-shadow: 0 0 30px rgba(255,210,26,.45), 0 20px 60px rgba(0,0,0,.6); }
+
+/* showroom */
+.card.showroom { grid-column: 1 / -1; }
+.cars { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.carcard { background: rgba(0,0,0,.25); border: 1px solid var(--line); border-radius: 14px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.carcard.cur { border-color: var(--yellow); box-shadow: 0 0 14px rgba(255,210,26,.3); }
+.carcard .ct { display: flex; gap: 8px; align-items: center; }
+.carcard .ct span { font-size: 30px; }
+.carcard .ct div { display: flex; flex-direction: column; }
+.carcard small { font-size: 11px; opacity: .8; }
+.cs { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.cs span { width: 52px; opacity: .85; }
+.cs i { flex: 1; height: 6px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.cs i b { display: block; height: 100%; background: linear-gradient(90deg, #22c55e, #ffd21a); }
+
+/* stunts */
+#stunt { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-size: 30px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 #000, 0 0 18px rgba(255,160,40,.9); pointer-events: none; white-space: nowrap; }
+#stunt.drift { color: #b9f; text-shadow: 0 3px 0 #000, 0 0 18px rgba(170,120,255,.9); }
+#stunt.air { color: #ffe680; }
+.stuntpop { position: fixed; left: 50%; top: 40%; transform: translateX(-50%); font-size: 24px; font-weight: 900; color: #ffd21a; text-shadow: 0 3px 0 #000, 0 0 20px rgba(255,200,40,.8); z-index: 44; pointer-events: none; animation: stuntpop 2.2s ease forwards; white-space: nowrap; }
+@keyframes stuntpop { 0% { opacity: 0; transform: translateX(-50%) scale(.6); } 12% { opacity: 1; transform: translateX(-50%) scale(1.15); } 25% { transform: translateX(-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-30px); } }
+@media (max-height: 480px) { #stunt { font-size: 22px; top: 26%; } .stuntpop { font-size: 18px; } }
+
+/* street races */
+#raceHud { position: absolute; top: 124px; right: 10px; display: flex; flex-direction: column; gap: 3px; background: rgba(30,10,50,.82); border: 2px solid #b04dff; border-radius: 14px; padding: 7px 12px; font-size: 13px; font-weight: 700; color: #fff; direction: rtl; pointer-events: none; box-shadow: 0 0 20px rgba(176,77,255,.4); min-width: 120px; }
+#raceHud b { font-size: 16px; }
+#raceHud b.p1 { color: #ffd21a; }
+#raceHud b.p2 { color: #ff9a9a; }
+#raceHud .gap { opacity: .8; font-size: 12px; }
+#countdown { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 110px; font-weight: 900; color: #fff; text-shadow: 0 6px 0 #000, 0 0 40px rgba(176,77,255,.95); pointer-events: none; animation: cdpop .9s ease forwards; white-space: nowrap; }
+#countdown.go { color: #5dff8a; font-size: 80px; text-shadow: 0 6px 0 #000, 0 0 40px rgba(60,255,120,.9); }
+@keyframes cdpop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: .2; transform: translate(-50%, -50%) scale(.85); } }
+.raceoffer .rv { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 26px; margin: 4px 0 10px; }
+.raceoffer .rv b { font-size: 20px; color: #d9a6ff; }
+.raceoffer .rv small { font-size: 14px; opacity: .85; }
+.raceoffer .prize { font-size: 16px; font-weight: 800; color: var(--yellow); text-align: center; }
+.raceoffer .btnrow { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+.raceoffer .btnrow button { flex: 1; max-width: 220px; padding: 11px; border-radius: 12px; background: linear-gradient(135deg, #b04dff, #7b1fa2); color: #fff; font-weight: 800; font-size: 15px; }
+.raceoffer button.ghost { background: rgba(255,255,255,.12); color: #fff; }
+@media (max-height: 480px) { #raceHud { top: 112px; font-size: 11px; padding: 5px 9px; } #raceHud b { font-size: 13px; } #countdown { font-size: 80px; } }
+
+/* cracked windshield */
+#cracks { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; pointer-events: none; transition: opacity .4s; }
+
+/* photo mode */
+body.photomode #hud, body.photomode #panel, body.photomode .achpop, body.photomode .stuntpop, body.photomode #toasts { display: none !important; }
+#photo { position: fixed; inset: 0; z-index: 30; touch-action: none; cursor: grab; }
+#photo .phbar { position: absolute; bottom: calc(18px + var(--safe-b, 0px)); left: 50%; transform: translateX(-50%); display: flex; gap: 14px; align-items: center; direction: rtl; }
+#photo .phbar button { background: rgba(10,10,20,.72); border: 2px solid rgba(255,255,255,.35); color: #fff; border-radius: 14px; padding: 10px 16px; font-weight: 800; font-size: 14px; backdrop-filter: blur(6px); }
+#photo .phbar .shot { width: 74px; height: 74px; border-radius: 50%; font-size: 32px; padding: 0; background: rgba(255,255,255,.92); border: 5px solid rgba(255,255,255,.5); box-shadow: 0 0 0 4px rgba(0,0,0,.35); }
+#photo .phhint { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.5); color: #fff; padding: 6px 14px; border-radius: 12px; font-size: 12px; white-space: nowrap; direction: rtl; }
+#phView { position: fixed; inset: 0; z-index: 46; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; }
+#phView .phbox { max-width: 92vw; max-height: 92vh; display: flex; flex-direction: column; align-items: center; gap: 10px; direction: rtl; text-align: center; color: #fff; }
+#phView img { max-width: 90vw; max-height: 66vh; border-radius: 12px; border: 3px solid #fff; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+#phView p { font-size: 13px; margin: 0; }
+#phView .phrow { display: flex; gap: 10px; }
+#phView .btn, #phView button { background: #2563eb; color: #fff; border-radius: 12px; padding: 9px 18px; font-weight: 800; text-decoration: none; font-size: 14px; }
+#phView button { background: rgba(255,255,255,.15); }
+#bigmap .maphint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); color: #fff; padding: 6px 14px; border-radius: 12px; font-size: 13px; white-space: nowrap; direction: rtl; pointer-events: none; }

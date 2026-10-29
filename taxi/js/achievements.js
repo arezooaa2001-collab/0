@@ -3,9 +3,9 @@ import { regionAt } from './world.js';
 
 /** id, icon, title, description, reward (coins), progress(game) -> [value, goal] */
 const LIST = [
-  ['firstRide', '🚕', 'اولین مسافر', 'اولین سفرت رو کامل کن', 5, (g) => [g.stats.trips, 1]],
-  ['rides10', '🧳', 'راننده حرفه‌ای', '۱۰ سفر کامل کن', 20, (g) => [g.stats.trips, 10]],
-  ['rides50', '👑', 'سلطان جاده', '۵۰ سفر کامل کن', 100, (g) => [g.stats.trips, 50]],
+  ['firstRide', '🚕', 'اولین مسافر', 'اولین سفرت رو کامل کن', 5, (g) => [g.stats.completed, 1]],
+  ['rides10', '🧳', 'راننده حرفه‌ای', '۱۰ سفر کامل کن', 20, (g) => [g.stats.completed, 10]],
+  ['rides50', '👑', 'سلطان جاده', '۵۰ سفر کامل کن', 100, (g) => [g.stats.completed, 50]],
   ['five5', '⭐', 'پنج ستاره', '۵ بار امتیاز ۵ ستاره بگیر', 25, (g) => [g.stats.fiveStars || 0, 5]],
   ['speed150', '💨', 'پرواز روی آسفالت', 'به سرعت ۱۵۰ کیلومتر برس', 10, (g) => [Math.round(g.stats.maxKmh || 0), 150]],
   ['speed220', '🚀', 'دیوار صوتی', 'به سرعت ۲۲۰ کیلومتر برس', 40, (g) => [Math.round(g.stats.maxKmh || 0), 220]],
@@ -13,6 +13,10 @@ const LIST = [
   ['km100', '🌍', 'دور دنیا', '۱۰۰ کیلومتر رانندگی کن', 80, (g) => [Math.floor(g.stats.km || 0), 100]],
   ['explorer', '🧭', 'جهانگرد', 'به هر ۵ منطقه سر بزن', 30, (g) => [(g.stats.regions || []).length, 5]],
   ['coins20', '🪙', 'سکه‌جمع‌کن', '۲۰ سکه از روی جاده‌ها جمع کن', 15, (g) => [g.stats.coinsPicked || 0, 20]],
+  ['jump', '🚀', 'پرواز با تاکسی', 'یه پرش ۱٫۲ ثانیه‌ای بزن', 20, (g) => [Math.floor((g.stats.bestAir || 0) * 10) / 10, 1.2]],
+  ['drift', '🌀', 'سلطان دریفت', 'یه دریفت ۸۰۰ امتیازی بزن', 25, (g) => [Math.round(g.stats.bestDrift || 0), 800]],
+  ['race1', '🏁', 'قهرمان خیابون', 'یه مسابقه خیابونی رو ببر', 25, (g) => [g.stats.racesWon || 0, 1]],
+  ['raceAll', '🏆', 'سلطان پیست', 'هر ۴ مسیر مسابقه رو ببر', 80, (g) => [(g.stats.raceTracks || []).length, 4]],
   ['nitro', '🔥', 'نیتروباز', '۲۰ ثانیه از نیترو استفاده کن', 10, (g) => [Math.floor(g.stats.nitroSec || 0), 20]],
   ['escape', '🏃', 'فراری', 'از دست پلیس فرار کن', 25, (g) => [g.stats.escapes || 0, 1]],
   ['jail', '🔒', 'زندانی سابق', 'یه بار برو زندان', 5, (g) => [g.stats.jailed || 0, 1]],
@@ -35,6 +39,7 @@ export class Achievements {
   /** live stats that are sampled continuously */
   track(dt) {
     const g = this.g, s = g.stats, p = g.player;
+    if (s.completed == null) s.completed = s.trips || 0; // saves from before the counter existed
     const kmh = Math.abs(p.speed) * 3.6;
     if (g.state === 'play' && !g.onfoot.active) {
       s.maxKmh = Math.max(s.maxKmh || 0, kmh);
@@ -60,6 +65,7 @@ export class Achievements {
         g.audio.cash();
         g.ui.achievement(icon, title, reward);
         g.save();
+        break; // one at a time; the next one pops a second later
       }
     }
   }

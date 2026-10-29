@@ -17,41 +17,23 @@ const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _res = { nx: 0, nz: 0,
 const POLE_L = new THREE.Vector3(1, -1.2, -0.4).normalize();
 const POLE_R = new THREE.Vector3(-1, -1.2, -0.4).normalize();
 
+export const CAR_MODELS = {
+  taxi: { name: 'سمند تاکسی', icon: '🚕', type: 'taxi', color: 0xf3c614, speed: 1, acc: 1, grip: 1, fuel: 1, price: 0, desc: 'تاکسی زرد کلاسیک؛ همه‌کاره و مطمئن' },
+  hatch: { name: 'هاچ‌بک شهری', icon: '🚗', type: 'hatchTaxi', color: 0xf3c614, speed: 0.92, acc: 1.15, grip: 1.2, fuel: 0.65, price: 450000, desc: 'کوچیک و فرز؛ کم‌مصرف، عالی برای شهر' },
+  sport: { name: 'اسپرت توربو', icon: '🏎️', type: 'sport', color: 0xc62828, speed: 1.32, acc: 1.5, grip: 1.1, fuel: 1.5, price: 2600000, desc: 'وحشی و سریع؛ برای مسابقه و فرار از پلیس' },
+};
+
 export class PlayerCar {
   constructor(game) {
     this.game = game;
     const mats = sharedMats();
     this.lampMat = mats.lampOff.clone();
     this.tailMat = mats.tailOff.clone();
-    const c = buildCar({ type: 'taxi', color: 0xf3c614, interior: true, lampMat: this.lampMat, tailMat: this.tailMat });
-    this.car = c;
-    this.group = c.root;
-    this.group.rotation.order = 'YXZ';
-    game.scene.add(this.group);
-
-    this.driver = buildPerson({ female: false, shirt: 0x34495e, pants: 0x222831, mustache: true, skin: 0xe0ac86, hair: 0x1a1210 });
-    poseSit(this.driver);
-    this.driver.root.position.copy(c.seats.driver);
-    this.group.add(this.driver.root);
-
-    // headlights (always present so light count never changes)
-    this.headlights = [];
-    for (const x of [0.6, -0.6]) {
-      const l = new THREE.SpotLight(0xfff1d6, 0, 95, 0.5, 0.55, 1.4);
-      l.position.set(x, 0.7, 2.2);
-      l.target.position.set(x * 2, -0.5, 22);
-      this.group.add(l, l.target);
-      this.headlights.push(l);
-    }
-    // soft instrument glow inside the cabin at night
-    this.dashLight = new THREE.PointLight(0x9fd4ff, 0, 1.6, 1.5);
-    this.dashLight.position.set(0.3, 1.0, 0.4);
-    this.group.add(this.dashLight);
-    // only the big parts cast shadows (keeps the shadow pass cheap)
-    this.group.traverse((o) => {
-      if (o.isMesh) o.castShadow = o.material.name === 'paint' || o.material.name === 'tire';
-    });
-    this.driver.root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+    // a paint material of our own so recolouring never touches NPC cars
+    this.paintMatObj = new THREE.MeshPhysicalMaterial({ color: 0xf3c614, metalness: 0.35, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06, name: 'paint' });
+    this.model = 'taxi';
+    this.owned = ['taxi'];
+    this.buildModel('taxi');
     this.pos = new THREE.Vector3();
     this.heading = 0;
     this.speed = 0;
@@ -93,6 +75,61 @@ export class PlayerCar {
     this.updateLever();
   }
 
+  /** (re)builds the visible car for a model; keeps the physics state */
+  buildModel(id) {
+    const game = this.game;
+    const M = CAR_MODELS[id] || CAR_MODELS.taxi;
+    this.model = CAR_MODELS[id] ? id : 'taxi';
+    this.spec = M;
+    const old = this.group;
+    if (old) {
+      game.scene.remove(old);
+      if (game.arrow) old.remove(game.arrow.group);
+    }
+    this.paintMatObj.color.setHex(this.paintHex ?? M.color);
+    const c = buildCar({ type: M.type, paintMat: this.paintMatObj, interior: true, lampMat: this.lampMat, tailMat: this.tailMat });
+    this.car = c;
+    this.group = c.root;
+    this.group.rotation.order = 'YXZ';
+    game.scene.add(this.group);
+    if (!this.driver) {
+      this.driver = buildPerson({ female: false, shirt: 0x34495e, pants: 0x222831, mustache: true, skin: 0xe0ac86, hair: 0x1a1210 });
+      poseSit(this.driver);
+      this.driver.root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+    }
+    this.driver.root.position.copy(c.seats.driver);
+    this.group.add(this.driver.root);
+    // headlights (always present so light count never changes)
+    this.headlights = [];
+    for (const x of [0.6, -0.6]) {
+      const l = new THREE.SpotLight(0xfff1d6, 0, 95, 0.5, 0.55, 1.4);
+      l.position.set(x, 0.7, c.P.len / 2 - 0.05);
+      l.target.position.set(x * 2, -0.5, 22);
+      this.group.add(l, l.target);
+      this.headlights.push(l);
+    }
+    // soft instrument glow inside the cabin at night
+    this.dashLight = new THREE.PointLight(0x9fd4ff, 0, 1.6, 1.5);
+    this.dashLight.position.set(0.3, 1.0, 0.4);
+    this.group.add(this.dashLight);
+    // only the big parts cast shadows (keeps the shadow pass cheap)
+    this.group.traverse((o) => {
+      if (o.isMesh && o.parent !== this.driver.root) o.castShadow = o.material.name === 'paint' || o.material.name === 'tire';
+    });
+    if (old) {
+      if (game.arrow) this.group.add(game.arrow.group);
+      if (game.navTex) this.car.screen.material = new THREE.MeshBasicMaterial({ map: game.navTex });
+      this.updateLever();
+      this.syncTransform(0);
+    }
+  }
+  /** switch to an owned car (from the showroom) */
+  setModel(id) {
+    if (!CAR_MODELS[id] || id === this.model) return;
+    this.paintHex = undefined;
+    this.buildModel(id);
+    if (this.game.setCamera) this.game.setCamera(this.game.camMode, true);
+  }
   fuelTotal() {
     return this.fuel + this.superFuel;
   }
@@ -101,10 +138,10 @@ export class PlayerCar {
     return t > 0 ? this.superFuel / t : 0;
   }
   speedMul() {
-    return (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
+    return this.spec.speed * (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
   }
   accelMul() {
-    return (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1);
+    return this.spec.acc * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1);
   }
   setPaint(hex) {
     this.paintHex = hex;
@@ -112,11 +149,13 @@ export class PlayerCar {
   }
   /** nitro: hold the NOS button with throttle; slowly recharges */
   updateNitro(dt, inp, alive) {
-    const want = !!inp.nitro && alive && this.nitro > 0 && this.gear > 0 && !this.shift;
+    // once the tank runs dry it needs a little charge before it can fire again (no flicker)
+    const can = this.nitroOn ? this.nitro > 0 : this.nitro > 10;
+    const want = !!inp.nitro && inp.gas > 0.1 && alive && can && this.gear > 0 && (!this.shift || this.nitroOn);
     if (want && !this.nitroOn) this.game.audio.burst(0.6, 1200, 'bandpass', 0.5);
     this.nitroOn = want;
     if (want) this.nitro = Math.max(0, this.nitro - dt * 28);
-    else this.nitro = Math.min(100, this.nitro + dt * 2.2);
+    else if (!inp.nitro) this.nitro = Math.min(100, this.nitro + dt * 2.2);
   }
   /** wipers sweep across the windshield while it rains (or when switched on) */
   updateWipers(dt) {
@@ -133,6 +172,7 @@ export class PlayerCar {
     this.heading = heading;
     this.speed = 0;
     this.ext.set(0, 0);
+    this.sliding = false;
     this.y = this.game.world.heightAt(x, z);
     this.syncTransform(0);
     this.game.camInit = true;
@@ -264,7 +304,7 @@ export class PlayerCar {
     this.brake = damp(this.brake, brk, 12, dt);
 
     const absV = Math.abs(this.speed);
-    const maxSteer = 0.62 / (1 + absV / 15);
+    const maxSteer = (0.62 / (1 + absV / 15)) * Math.min(1.15, this.spec.grip);
     const pull = this.health < 50 ? (50 - this.health) / 50 * 0.04 : 0;
     this.steer = damp(this.steer, clamp(inp.steer, -1, 1) * maxSteer + pull, inp.steer === 0 ? 6 : 9, dt);
 
@@ -293,8 +333,13 @@ export class PlayerCar {
     const surf = world.surfaceAt(this.pos.x, this.pos.z);
     this.offroad = surf === 'sand' || surf === 'grass';
     let decel = this.brake * 10;
-    if (inp.handbrake) decel += 6.5;
+    if (inp.handbrake) decel += absV > 8 ? 3.2 : 6.5;
     decel += (surf === 'sand' ? 1.7 : surf === 'grass' ? 0.8 : 0.16) + 0.00042 * absV * absV;
+    if (this.air) {
+      // flying: no traction, only air drag
+      force = 0;
+      decel = 0.00042 * absV * absV;
+    }
     const prevSpeed = this.speed;
     this.speed += force * dt;
     const dv = decel * dt;
@@ -311,25 +356,48 @@ export class PlayerCar {
     }
     let yawRate = (-steerSpeed * Math.tan(this.steer)) / 2.7;
     const grip = (surf === 'sand' ? 0.85 : 1) * (this.game.weather ? this.game.weather.grip() : 1);
-    if (inp.handbrake && absV > 7) {
-      yawRate *= 1.55;
-      this.ext.x += Math.cos(this.heading) * yawRate * absV * 0.05 * dt;
-      this.ext.y += -Math.sin(this.heading) * yawRate * absV * 0.05 * dt;
-    }
+    // a slide starts with the handbrake and is kept alive with throttle + steering
+    const extV = Math.hypot(this.ext.x, this.ext.y);
+    if (inp.handbrake && absV > 7 && !this.air) this.sliding = true;
+    else if (this.sliding && (this.air || Math.hypot(absV, extV) < 4 || inp.brake > 0.5 || (!inp.handbrake && extV < 1))) this.sliding = false;
+    const drifting = this.sliding;
+    if (drifting) yawRate *= inp.handbrake ? 1.3 : 1.12;
+    if (this.air) yawRate *= 0.3;
     this.yawRate = yawRate * grip;
+    const h0 = this.heading;
     this.heading += this.yawRate * dt;
+    if (drifting) {
+      // drift: the old velocity is split along the new heading; the sideways part only bleeds off slowly
+      const v0x = Math.sin(h0) * this.speed + this.ext.x, v0z = Math.cos(h0) * this.speed + this.ext.y;
+      const nfx = Math.sin(this.heading), nfz = Math.cos(this.heading);
+      let vf = v0x * nfx + v0z * nfz, vl = v0x * nfz - v0z * nfx;
+      const vl1 = vl * Math.exp(-(inp.handbrake ? 0.9 : 1.5 + (1 - inp.gas) * 2.2) * dt);
+      // on the throttle most of the sideways momentum is turned back into forward speed
+      if (vf > 0) vf = Math.max(0, vf + (Math.abs(vl) - Math.abs(vl1)) * inp.gas * 0.75 - Math.abs(vl1) * 0.2 * dt);
+      vl = vl1;
+      this.speed = vf;
+      this.ext.set(nfz * vl, -nfx * vl);
+    } else {
+      // wet roads: a little of the velocity keeps its old direction
+      const slip = this.air ? 0 : this.game.weather ? this.game.weather.rain * 0.2 : 0;
+      if (slip > 0) {
+        this.speed *= 1 - Math.min(0.5, slip * Math.abs(this.heading - h0) * 0.5);
+        this.ext.x += (Math.sin(h0) - Math.sin(this.heading)) * this.speed * slip;
+        this.ext.y += (Math.cos(h0) - Math.cos(this.heading)) * this.speed * slip;
+      }
+    }
 
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const vx = fx * this.speed + this.ext.x, vz = fz * this.speed + this.ext.y;
     this.pos.x += vx * dt;
     this.pos.z += vz * dt;
-    const ek = inp.handbrake ? 1.2 : 3.5;
+    const ek = this.air || drifting ? 0 : 2.6;
     this.ext.x = damp(this.ext.x, 0, ek, dt);
     this.ext.y = damp(this.ext.y, 0, ek, dt);
     this.odometer += Math.hypot(vx, vz) * dt;
 
     // fuel
-    const used = (Math.abs(this.speed) * dt / 120) * (0.55 + 0.75 * this.throttle) + (alive ? dt * 0.0004 : 0);
+    const used = (Math.abs(this.speed) * dt / 120) * (0.55 + 0.75 * this.throttle) * this.spec.fuel + (alive ? dt * 0.0004 : 0);
     if (used > 0 && this.fuelTotal() > 0) {
       const t = this.fuelTotal();
       const sr = this.superFuel / t;
@@ -359,6 +427,7 @@ export class PlayerCar {
         const cx = this.pos.x + fx * OFFS[i], cz = this.pos.z + fz * OFFS[i];
         world.statics.query(cx, cz, CAR_R + 1, hits);
         for (const o of hits) {
+          if (o.ramp && (this.air || this.y > o.ramp.y + 0.6)) continue;
           if (!collideCircle(cx, cz, CAR_R, o, _res)) continue;
           if (o.soft) {
             this.speed *= 0.97;
@@ -432,9 +501,53 @@ export class PlayerCar {
     const hr = w.heightAt(p.x + rx * 0.8, p.z + rz * 0.8), hl = w.heightAt(p.x - rx * 0.8, p.z - rz * 0.8);
     const groundY = Math.max(hc, (hf + hb) / 2);
     const k = dt > 0 ? 1 - Math.exp(-14 * dt) : 1;
-    this.y += (groundY - this.y) * k;
-    this.pitch += (-Math.atan2(hf - hb, 2.8) - this.pitch) * k;
-    this.roll += (Math.atan2(hl - hr, 1.6) - this.roll) * k;
+    if (dt <= 0) {
+      this.y = groundY;
+      this.air = false;
+      this.vy = 0;
+      this.prevGround = groundY;
+      this.vyGround = 0;
+    } else if (this.air) {
+      // ballistic flight
+      this.vy -= 20 * dt;
+      this.y += this.vy * dt;
+      this.airT += dt;
+      this.airMax = Math.max(this.airMax, this.y - groundY);
+      this.pitch += (-Math.atan2(this.vy, Math.max(6, Math.abs(this.speed))) * 0.7 - this.pitch) * (1 - Math.exp(-3 * dt));
+      this.roll *= 1 - Math.min(1, 3 * dt);
+      if (this.y <= groundY) {
+        const imp = -this.vy;
+        this.y = groundY;
+        this.air = false;
+        this.vy = 0;
+        this.prevGround = groundY;
+        this.vyGround = 0;
+        this.landed = { airT: this.airT, height: this.airMax, imp };
+        this.game.shake = Math.max(this.game.shake || 0, Math.min(1, imp / 18));
+        if (imp > 16) {
+          this.health = Math.max(0, this.health - (imp - 16) * 1.5);
+          this.game.audio.crash(imp - 8);
+        } else this.game.audio.burst(0.15, 200, 'lowpass', 0.5);
+      }
+    } else {
+      // vertical speed of the ground under the wheels (ramps, dunes)
+      const vg = (groundY - (this.prevGround ?? groundY)) / dt;
+      const climb = this.vyGround || 0;
+      this.prevGround = groundY;
+      this.vyGround = damp(climb, clamp(vg, -30, 30), 25, dt);
+      if (groundY < this.y - 0.35 && climb > 2.2 && Math.abs(this.speed) > 8) {
+        // the ground fell away while we were climbing: take off!
+        this.air = true;
+        this.vy = climb;
+        this.airT = 0;
+        this.airMax = 0;
+      } else if (groundY > this.y) this.y = groundY;
+      else this.y += (groundY - this.y) * k;
+    }
+    if (!this.air) {
+      this.pitch += (-Math.atan2(hf - hb, 2.8) - this.pitch) * k;
+      this.roll += (Math.atan2(hl - hr, 1.6) - this.roll) * k;
+    }
     if (dt > 0) {
       const lat = this.speed * this.yawRate;
       this.bodyRoll = damp(this.bodyRoll, clamp(lat * 0.011, -0.07, 0.07), 5, dt);

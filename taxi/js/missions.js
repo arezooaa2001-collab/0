@@ -296,6 +296,7 @@ export class Rides {
     const total = Math.round(fare / 1000) * 1000 + tip;
     g.money += total;
     g.stats.trips++;
+    g.stats.completed = (g.stats.completed || 0) + 1;
     g.stats.earned += total;
     g.stats.ratingSum += stars;
     if (stars === 5) g.stats.fiveStars = (g.stats.fiveStars || 0) + 1;

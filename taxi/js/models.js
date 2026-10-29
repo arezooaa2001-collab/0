@@ -169,6 +169,10 @@ const PROFILES = {
     len: 4.5, W: 0.88, belt: 0.97, roof: 1.46, wsZ: 0.9, roofF: 0.12, roofR: -0.95, rwZ: -1.5, wheelZ: 1.38,
     top: [[-2.25, 0.6], [-2.23, 0.8], [-2.12, 0.93], [-1.9, 0.97], [0.9, 0.97], [1.5, 0.9], [2.08, 0.83], [2.2, 0.76], [2.25, 0.6]],
   },
+  sport: {
+    len: 4.6, W: 0.92, belt: 0.95, roof: 1.41, wsZ: 0.95, roofF: 0.06, roofR: -0.9, rwZ: -1.8, wheelZ: 1.45,
+    top: [[-2.3, 0.62], [-2.28, 0.86], [-2.18, 0.95], [0.95, 0.95], [1.55, 0.84], [2.15, 0.72], [2.26, 0.64], [2.3, 0.5]],
+  },
   hatch: {
     len: 4.0, W: 0.86, belt: 0.98, roof: 1.5, wsZ: 0.85, roofF: 0.1, roofR: -1.55, rwZ: -1.95, wheelZ: 1.28,
     top: [[-2.0, 0.6], [-1.99, 0.85], [-1.95, 0.98], [0.85, 0.98], [1.4, 0.9], [1.88, 0.84], [1.98, 0.76], [2.0, 0.6]],
@@ -281,7 +285,8 @@ function gearKnobTexture() {
 export function buildCar(opts = {}) {
   const mats = sharedMats();
   const type = opts.type || 'sedan';
-  const pname = type === 'taxi' || type === 'police' ? 'sedan' : type;
+  const pname = { taxi: 'sedan', police: 'sedan', hatchTaxi: 'hatch' }[type] || type;
+  const isTaxi = type === 'taxi' || type === 'hatchTaxi';
   const P = PROFILES[pname];
   const interior = !!opts.interior;
   const paint = opts.paintMat || paintMat(opts.color ?? 0xf2c40d, interior);
@@ -327,7 +332,7 @@ export function buildCar(opts = {}) {
   const cZ = (y) => P.rwZ + ((P.roofR - P.rwZ) * (y - P.belt)) / (P.roof - P.belt);
 
   const sideBand = (zA, zB, side, parent) => {
-    if (type !== 'taxi' && type !== 'police') return;
+    if (!isTaxi && type !== 'police') return;
     const len = zA - zB;
     const g = new THREE.PlaneGeometry(len, type === 'police' ? 0.2 : 0.1);
     const uv = g.attributes.uv;
@@ -526,7 +531,7 @@ export function buildCar(opts = {}) {
   const out = { root, body, wheels, doors, P, type, paint, wipers, wsN };
 
   // --- type specific roof equipment
-  if (type === 'taxi') {
+  if (isTaxi || (interior && type !== 'sport')) {
     const sg = new THREE.Group();
     sg.position.set(0, P.roof + 0.16, (P.roofF + P.roofR) / 2 - 0.1);
     const signMat = new THREE.MeshStandardMaterial({ map: signTexture('تاکسی', '#ffd21a', '#111'), emissive: 0xffffff, emissiveMap: null, emissiveIntensity: 0.0, roughness: 0.4 });
@@ -536,6 +541,28 @@ export function buildCar(opts = {}) {
     sg.userData.noMerge = true;
     root.add(sg);
     out.roofSign = signMat;
+  }
+  if (type === 'sport') {
+    // rear wing, hood scoop and racing stripes
+    const wingMat = mats.trim;
+    box(1.7, 0.05, 0.32, wingMat, 0, topFn(-2.0) + 0.3, -2.0, body);
+    for (const x of [0.6, -0.6]) box(0.05, 0.28, 0.12, wingMat, x, topFn(-2.0) + 0.15, -2.0, body);
+    const scoop = box(0.5, 0.08, 0.5, mats.trim, 0, topFn(1.5) + 0.05, 1.5, body);
+    scoop.rotation.x = -0.1;
+    const stripe = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.4, name: 'stripe' });
+    for (const x of [0.16, -0.16]) {
+      for (const [z0, z1] of [[0.95, 2.25], [-1.8, -2.28]]) {
+        const zc = (z0 + z1) / 2;
+        const m = box(0.14, 0.01, Math.abs(z1 - z0), stripe, x, topFn(zc) + 0.035, zc, body);
+        m.rotation.x = Math.atan2(topFn(z0) - topFn(z1), Math.abs(z1 - z0)) * (z1 > z0 ? 1 : -1);
+      }
+      box(0.14, 0.01, P.roofF - P.roofR, stripe, x, P.roof + 0.055, (P.roofF + P.roofR) / 2, body);
+    }
+    for (const x of [-0.42, -0.58]) {
+      const tip = cyl(0.05, 0.05, 0.22, mats.chrome, 10, body);
+      tip.rotation.x = Math.PI / 2;
+      tip.position.set(x, 0.32, -P.len / 2 - 0.04);
+    }
   }
   if (type === 'police') {
     const lb = new THREE.Group();
