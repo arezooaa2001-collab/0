@@ -18,6 +18,7 @@ Object.assign(Game, {
     this.buildPowers();
     const on = (id, fn) => $(id).addEventListener('click', fn);
     on('wheelChip', () => { Sfx.init(); this.openWheel(); });
+    on('chalBtn', () => { Sfx.init(); this.openChallenges(); });
     on('wheelSpin', () => this.spinWheel());
     on('photoShot', () => this.takePhoto());
     on('photoExit', () => this.exitPhoto());
@@ -201,6 +202,7 @@ Object.assign(Game, {
 
   noteKnock(n) {
     if (!n) return;
+    this.chalEvent('knock', n);
     const st = this.save.stats;
     if (n > st.maxKnock) st.maxKnock = n;
     this.toast(n === 1 ? '💥 یه نفر رو انداختی! (نگران نباش، پا می‌شه)' : `💥 ${fa(n)} نفر رو انداختی!`, 'gold');
@@ -241,6 +243,7 @@ Object.assign(Game, {
     const w = this.world;
     if (it.type === 'coin') {
       st.picked++;
+      this.chalEvent('coin');
       this.addCoins(2, true);
       this.missionProgress('pickup', 1);
     } else if (it.type === 'gem') {
@@ -555,6 +558,7 @@ Object.assign(Game, {
   startArm(opp) {
     this.closeModal('armModal');
     if (this.arm || !this.world.canAct()) return;
+    this.cancelChallenge();
     this.releasePlayer();
     Sfx.play('whistle');
     const A = new ArmMatch(this.gym, this.player, opp, this.lv());

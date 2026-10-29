@@ -39,7 +39,8 @@ const EQUIP = {
 
 /** Exercises the AI builder may assign to new equipment (every one has an animation). */
 const AI_ANIMS = ['treadmill', 'bike', 'curl', 'lift', 'bench', 'pullup', 'box', 'rope', 'jack', 'squat', 'pushup', 'situp', 'kick', 'backflip', 'frontflip', 'jumpspin', 'handstand', 'cheer',
-  'lunge', 'burpee', 'mountain', 'plank', 'bridge', 'highknees', 'superman', 'russian', 'starjump', 'skater', 'shadow', 'uppercut', 'frontkick', 'cartwheel', 'headspin', 'split', 'hoop', 'spin1080', 'dbackflip', 'swim', 'ski', 'skate', 'climb', 'trampoline'];
+  'lunge', 'burpee', 'mountain', 'plank', 'bridge', 'highknees', 'superman', 'russian', 'starjump', 'skater', 'shadow', 'uppercut', 'frontkick', 'cartwheel', 'headspin', 'split', 'hoop', 'spin1080', 'dbackflip', 'swim', 'ski', 'skate', 'climb', 'trampoline',
+  'kettle', 'ropes', 'rower', 'boxjump', 'tireflip', 'deadlift', 'mball', 'warrior', 'cobra', 'downdog', 'meditate', 'pistol', 'farmer', 'kata', 'combo', 'slip', 'golf', 'archery', 'serve', 'speedbag', 'legpress', 'latpull'];
 const ISLAND_LEVEL = 100;
 for (const m of MOVES) m.cat = 'base';
 
@@ -71,17 +72,44 @@ const ENV_MOVES = [
   { id: 'ski', name: 'اسکی', icon: '⛷️', level: 30, xp: 95, run: 15, equip: 'slope' },
   { id: 'climb', name: 'صخره‌نوردی', icon: '🧗‍♂️', level: 30, xp: 100, equip: 'wall' },
 ].map((m) => Object.assign(m, { cat: 'env' }));
-MOVES.push(...NEW_MOVES, ...ENV_MOVES);
+// The bigger gym's pro zones (equipment) plus yoga and calisthenics, and the moves of the four newest venues.
+const PRO_MOVES = [
+  ['meditate', 'مدیتیشن', '🧘‍♂️', 1, 8], ['cobra', 'حرکت کبرا', '🐍', 2, 12], ['warrior', 'جنگجوی یوگا', '🗡️', 3, 14],
+  ['kettle', 'کتل‌بل', '🔔', 4, 22, 'kettle'], ['mball', 'کوبیدن توپ مدیسن', '🔴', 5, 24], ['downdog', 'سگ رو به پایین', '🐕‍🦺', 6, 22],
+  ['rower', 'پاروزنی', '🚣', 7, 30, 'rower', 10], ['speedbag', 'کیسه سرعتی', '🎯', 8, 34, 'speedbag'], ['farmer', 'راه رفتن کشاورز', '🧺', 9, 36],
+  ['ropes', 'طناب نبرد', '🌊', 9, 40, 'ropes'], ['legpress', 'پرس پا', '🦿', 10, 44, 'legpress'], ['sideplank', 'پلانک پهلو', '📐', 11, 40],
+  ['boxjump', 'پرش روی جعبه', '📦', 11, 48, 'plyo'], ['latpull', 'زیربغل سیم‌کش', '⬇️', 12, 50, 'lat'], ['deadlift', 'ددلیفت', '🏗️', 14, 62, 'barbell'],
+  ['boulder', 'دیوار سنگ‌نوردی', '🧗‍♀️', 14, 60, 'boulder'], ['tireflip', 'چرخاندن لاستیک', '🛞', 16, 72, 'tire'], ['pistol', 'اسکوات تک‌پا', '🦩', 18, 70],
+  ['lsit', 'ال‌سیت', '🪑', 20, 76], ['muscleup', 'ماسل‌آپ', '🦾', 24, 96, 'pullup'], ['hspu', 'شنای بالانس', '🤸‍♀️', 28, 105],
+].map(([id, name, icon, level, xp, equip, run]) => Object.assign({ id, name, icon, level, xp, cat: 'pro' }, equip ? { equip } : {}, run ? { run } : {}));
+
+const VENUE_MOVES = [
+  { id: 'boardbreak', name: 'شکستن تخته', icon: '🪵', level: 10, xp: 46, equip: 'boards' },
+  { id: 'kata', name: 'کاتای کاراته', icon: '🥋', level: 10, xp: 44, equip: 'tatami' },
+  { id: 'archery', name: 'تیراندازی با کمان', icon: '🏹', level: 12, xp: 52, equip: 'target' },
+  { id: 'serve', name: 'سرویس تنیس', icon: '🎾', level: 18, xp: 66, equip: 'tserve' },
+  { id: 'forehand', name: 'فورهند تنیس', icon: '🏸', level: 18, xp: 62, equip: 'tbase' },
+  { id: 'combo', name: 'ترکیب مشت', icon: '🥊', level: 22, xp: 74, equip: 'ring' },
+  { id: 'slip', name: 'جاخالی بوکس', icon: '💨', level: 22, xp: 70, equip: 'ropebox' },
+  { id: 'golf', name: 'ضربه‌ی گلف', icon: '🏌️', level: 40, xp: 120, equip: 'tee' },
+  { id: 'putt', name: 'پات گلف', icon: '⛳', level: 40, xp: 110, equip: 'green' },
+].map((m) => Object.assign(m, { cat: 'env' }));
+
+MOVES.push(...NEW_MOVES, ...ENV_MOVES, ...PRO_MOVES, ...VENUE_MOVES);
 
 /** Sports venues you travel to from the map. */
 const ENVS = [
   { id: 'pool', name: 'استخر المپیک', icon: '🏊', level: 5, desc: 'شنا و شیرجه' },
   { id: 'stadium', name: 'ورزشگاه فوتبال', icon: '🏟️', level: 8, desc: 'پنالتی بزن' },
+  { id: 'dojo', name: 'باغ رزمی ساکورا', icon: '⛩️', level: 10, desc: 'کاراته، شکستن تخته، کمانداری' },
   { id: 'court', name: 'زمین بسکتبال', icon: '🏀', level: 12, desc: 'پرتاب سه‌امتیازی' },
   { id: 'beach', name: 'ساحل والیبال', icon: '🏖️', level: 15, desc: 'اسپک کنار دریا' },
+  { id: 'tennis', name: 'زمین تنیس', icon: '🎾', level: 18, desc: 'سرویس و فورهند' },
   { id: 'gymnastics', name: 'سالن ژیمناستیک', icon: '🤸', level: 20, desc: 'بارفیکس، حلقه، پارالل، ترامپولین' },
+  { id: 'boxing', name: 'سالن بوکس', icon: '🥊', level: 22, desc: 'رینگ، ترکیب مشت، جاخالی' },
   { id: 'ice', name: 'پیست یخ', icon: '⛸️', level: 25, desc: 'اسکیت روی یخ' },
   { id: 'snow', name: 'کوهستان برفی', icon: '🏔️', level: 30, desc: 'اسکی و صخره‌نوردی' },
+  { id: 'golf', name: 'زمین گلف', icon: '⛳', level: 40, desc: 'ضربه‌ی دور و پات' },
 ];
 const ENV_BY_ID = Object.fromEntries(ENVS.map((e) => [e.id, e]));
 Object.assign(EQUIP, {
@@ -97,6 +125,24 @@ Object.assign(EQUIP, {
   ice: { name: 'پیست یخ', env: 'ice' },
   slope: { name: 'پیست اسکی', env: 'snow' },
   wall: { name: 'دیوار صخره', env: 'snow' },
+  kettle: { name: 'جایگاه کتل‌بل', where: 'زون کراس‌فیت' },
+  ropes: { name: 'طناب نبرد', where: 'زون کراس‌فیت' },
+  tire: { name: 'لاستیک بزرگ', where: 'زون کراس‌فیت' },
+  plyo: { name: 'جعبه‌ی پرش', where: 'زون کراس‌فیت' },
+  rower: { name: 'دستگاه پاروزنی', where: 'زون دستگاه‌ها' },
+  legpress: { name: 'دستگاه پرس پا', where: 'زون دستگاه‌ها' },
+  lat: { name: 'دستگاه سیم‌کش', where: 'زون دستگاه‌ها' },
+  boulder: { name: 'دیوار سنگ‌نوردی', where: 'گوشه‌ی شمال شرقی' },
+  speedbag: { name: 'کیسه‌ی سرعتی', where: 'دیوار جنوبی کنار بوکس' },
+  boards: { name: 'سکوی شکستن تخته', env: 'dojo' },
+  tatami: { name: 'تاتامی', env: 'dojo' },
+  target: { name: 'سیبل کمانداری', env: 'dojo' },
+  tserve: { name: 'خط سرویس', env: 'tennis' },
+  tbase: { name: 'خط عقب زمین', env: 'tennis' },
+  ring: { name: 'کیسه‌ی رینگ', env: 'boxing' },
+  ropebox: { name: 'گوشه‌ی رینگ', env: 'boxing' },
+  tee: { name: 'سکوی ضربه', env: 'golf' },
+  green: { name: 'گرین', env: 'golf' },
 });
 for (const k of Object.keys(EQUIP)) if (!EQUIP[k].env) EQUIP[k].env = 'gym';
 
@@ -198,7 +244,7 @@ const ACHIEVEMENTS = [
   { id: 'win1', name: 'اولین برد', icon: '🤼', desc: 'یک کشتی ببر', test: (s) => s.wins >= 1 },
   { id: 'stage5', name: 'قهرمان کشور', icon: '🏅', desc: 'مرحله‌ی ۵ رو ببر', test: (s) => s.stage > 5 },
   { id: 'stage10', name: 'اسطوره‌ی کشتی', icon: '🏆', desc: 'هر ده مرحله رو ببر', test: (s) => s.stage > 10 },
-  { id: 'envs', name: 'جهانگرد', icon: '🗺️', desc: 'به همه‌ی ۷ مکان ورزشی برو', test: (s) => ENVS.every((e) => s.stats.visited.includes(e.id)) },
+  { id: 'envs', name: 'جهانگرد', icon: '🗺️', desc: 'به همه‌ی مکان‌های ورزشی برو', test: (s) => ENVS.every((e) => s.stats.visited.includes(e.id)) },
   { id: 'run50', name: 'تندباد', icon: '🌬️', desc: 'سطح دویدن ۵۰', test: (s) => s.runLevel >= 50 },
   { id: 'race', name: 'برنده‌ی مسابقه', icon: '🏁', desc: 'مسابقه‌ی دو رو اول شو', test: (s) => s.stats.raceWins >= 1 },
   { id: 'pet', name: 'دوست چهارپا', icon: '🐾', desc: 'یه حیوون بخر', test: (s) => s.shop.owned.includes('dog') || s.shop.owned.includes('cat') },

@@ -95,6 +95,8 @@ const EMOTE_ANIMS = {
   e_moon: { dur: 3.0, move: (t) => (t > 0.1 && t < 0.9 ? -1.2 : 0), fn: moonwalkFn },
   e_salute: keyAnim({ dur: 2.0, reps: 1, inOut: 0.2, b: { shRX: -1.25, shRY: 0.2, shRZ: -1.2, elR: -2.6, nkX: -0.05, spX: -0.05 } }),
   e_victory: ANIMS.cheer,
+  talk: keyAnim({ dur: 2.2, reps: 3, inOut: 0.2, a: { shRX: -0.7, elR: -1.5, shRZ: -0.3, nkX: 0.08 }, b: { shRX: -0.45, elR: -1.1, shRZ: -0.15, nkX: -0.05, nkY: 0.15 } }),
+  talk2: keyAnim({ dur: 2.4, reps: 2, inOut: 0.2, a: { shLX: -0.8, elL: -1.4, shRX: -0.8, elR: -1.4, shLZ: 0.4, shRZ: -0.4 }, b: { shLX: -0.5, elL: -1.0, shRX: -0.5, elR: -1.0, shLZ: 0.6, shRZ: -0.6, nkY: -0.15 } }),
   knock: { dur: 2.8, move: (t) => (t < 0.2 ? -2.6 : 0), events: [[0.2, 'land']], fn: knockFn },
   fanclap: keyAnim({ dur: 2.0, reps: 5, inOut: 0.1, plantFeet: true, hop: 0.05, base: { shLX: -1.5, shRX: -1.5, elL: -0.5, elR: -0.5, nkX: -0.15 }, a: { shLZ: 0.6, shRZ: -0.6 }, b: { shLZ: -0.1, shRZ: 0.1 } }),
 };

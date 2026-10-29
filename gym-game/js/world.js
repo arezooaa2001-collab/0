@@ -175,6 +175,7 @@ class WorldBase {
       n.ch.root.position.set(pos.x, 0, pos.z);
       n.ch.root.rotation.y = rand(-Math.PI, Math.PI);
       n.ch.onEvent = (e, c) => this.onCharEvent(e, c, false);
+      n.ch.lookAround = true;
       n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
       this.scene.add(n.ch.root);
       this.npcs.push(n);
@@ -249,6 +250,18 @@ class WorldBase {
     } else if (e === 'jump' || e === 'whoosh') Sfx.play('whoosh');
     else if (e === 'punch') Sfx.play('punch');
     else if (e === 'clap') Sfx.play('clap');
+    else if (e === 'thud') {
+      Sfx.play('land');
+      const yaw = ch.root.rotation.y;
+      this.fx.dust({ x: p.x + Math.sin(yaw) * 0.5, y: 0, z: p.z + Math.cos(yaw) * 0.5 }, 18);
+      this.shake = Math.max(this.shake, 0.15);
+    } else if (e === 'break') {
+      Sfx.play('punch');
+      Sfx.play('clank');
+      const yaw = ch.root.rotation.y;
+      this.fx.burst({ x: p.x + Math.sin(yaw) * 0.62, y: 0.8, z: p.z + Math.cos(yaw) * 0.62 }, { count: 40, colors: ['#d4a96a', '#e3c08d', '#8b5a2b', '#ffffff'], speed: 3, up: 2.5, life: 0.9 });
+      this.shake = Math.max(this.shake, 0.3);
+    }
     else if (e === 'drop') { Sfx.play('clank'); this.shake = Math.max(this.shake, 0.12); }
     else if (e === 'impact' && this.onImpact) this.onImpact();
     else if (e === 'splash') {
@@ -259,6 +272,29 @@ class WorldBase {
 
   npcChoose(n) {
     this.leaveStation(n);
+    const roll = Math.random();
+    if (roll < 0.1) {
+      // show off for a moment
+      n.state = 'exercise';
+      n.reps = 1;
+      n.faceT = 0;
+      n.forceAct = pick(['e_wave', 'e_flex', 'e_laugh', 'e_clap', 'e_dance', 'e_victory', 'e_robot', 'e_bow']);
+      return;
+    }
+    if (roll < 0.2) {
+      // find someone nearby to chat with
+      const p = n.ch.root.position;
+      const mate = this.npcs.find((o) => o !== n && o.state === 'idle' && !o.anchored && o.ch.root.position.distanceTo(p) < 7);
+      if (mate) {
+        const t = rand(4, 8);
+        for (const [a, b] of [[n, mate], [mate, n]]) {
+          a.state = 'chat';
+          a.chat = { other: b, t };
+          a.vel.set(0, 0);
+        }
+        return;
+      }
+    }
     const joggers = this.npcs.filter((o) => o.state === 'jog').length;
     if (this.track && Math.random() < 0.28 && joggers < 9) {
       n.state = 'jog';
@@ -296,6 +332,7 @@ class WorldBase {
   }
 
   npcAction(n) {
+    if (n.forceAct) { const a = n.forceAct; n.forceAct = null; return a; }
     const lvl = n.level;
     const acts = (n.station ? n.station.acts : ['jack', 'pushup', 'squat', 'situp', 'backflip', 'jumpspin', 'rope']).filter((a) => {
       const mv = MOVE_BY_ID[a];
@@ -357,6 +394,18 @@ class WorldBase {
       }
       n.timer -= dt;
       if (n.timer <= 0) { n.state = 'idle'; n.timer = rand(0.5, 2); }
+    } else if (n.state === 'chat') {
+      const c = n.chat;
+      const o = c.other.ch.root.position;
+      const d = Math.hypot(o.x - pos.x, o.z - pos.z);
+      ch.root.rotation.y = angleLerp(ch.root.rotation.y, Math.atan2(o.x - pos.x, o.z - pos.z), damp(5, dt));
+      c.t -= dt;
+      if (d > 1.6) {
+        dirX = (o.x - pos.x) / d;
+        dirZ = (o.z - pos.z) / d;
+        speed = Math.min(n.walk, d);
+      } else if (!ch.busy && ch.grounded && c.t > 0 && Math.random() < dt * 1.5) ch.play(pick(['talk', 'talk', 'e_laugh', 'talk2']));
+      if (c.t <= 0 || c.other.state !== 'chat') { n.state = 'idle'; n.timer = rand(0.5, 2); }
     } else if (n.state === 'fan') {
       const f = n.fan;
       ch.root.rotation.y = angleLerp(ch.root.rotation.y, Math.atan2(f.x - pos.x, f.z - pos.z), damp(6, dt));
@@ -452,7 +501,7 @@ class WorldBase {
 
   npcGain(n, act) {
     const mv = MOVE_BY_ID[act];
-    n.xp += (mv ? mv.xp : 14) * n.rate * xpMult(n.level) * 0.5;
+    n.xp += ((mv && mv.xp) || 14) * n.rate * xpMult(n.level) * 0.5;
     let leveled = false;
     while (n.xp >= xpNeed(n.level)) {
       n.xp -= xpNeed(n.level);

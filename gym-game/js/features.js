@@ -118,17 +118,20 @@ Object.assign(Game, {
     this.addCoins(1 + Math.floor((m.level || 1) / 8), true);
     this.missionProgress('reps', 1);
     this.noteEventRep();
+    this.chalEvent('rep', m);
     this.missionProgress('move', 1, m.id);
     if (m.equip) this.missionProgress('equip', 1);
     this.checkAchievements();
   },
 
   noteCombo(c) {
+    this.chalEvent('combo', c);
     if (c > this.save.stats.maxCombo) this.save.stats.maxCombo = c;
     this.missionProgress('combo', c, null, true);
   },
 
   noteRun(meters) {
+    this.chalEvent('run', meters);
     this.runMeters = (this.runMeters || 0) + meters;
     if (this.runMeters >= 10) {
       this.missionProgress('run', Math.floor(this.runMeters));
@@ -384,6 +387,7 @@ Object.assign(Game, {
 
   startRace() {
     if (this.race || this.world !== this.gym || !this.world.canAct()) return;
+    this.cancelChallenge();
     this.releasePlayer();
     this.raceMode = this.player.mode;
     this.player.mode = 'run';
@@ -478,6 +482,7 @@ Object.assign(Game, {
     else if (a === 'code') { this.closeModal('menuModal'); this.openCode(); }
     else if (a === 'help') { this.closeModal('menuModal'); this.openHelp(); }
     else if (a === 'wheel') this.openWheel();
+    else if (a === 'challenges') this.openChallenges();
     else if (a === 'photo') this.enterPhoto();
     else if (a === 'settings') this.openSettings();
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }

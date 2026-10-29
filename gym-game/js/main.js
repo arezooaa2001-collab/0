@@ -43,7 +43,7 @@ const Game = {
     v.coins = Math.max(0, Math.floor(Number(v.coins) || 0));
     v.color = clamp(Math.floor(Number(v.color) || 0), 0, PLAYER_COLORS.length - 1);
     if (!['walk', 'run', 'jumprun'].includes(v.mode)) v.mode = 'walk';
-    if (!['base', 'new', 'env', 'fun', 'ai'].includes(v.tab)) v.tab = 'base';
+    if (!['base', 'new', 'pro', 'env', 'fun', 'ai'].includes(v.tab)) v.tab = 'base';
     const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
     v.shop = Object.assign({ owned: [], shirt: null, band: null, aura: null, pet: null, trail: null }, obj(v.shop));
     if (!Array.isArray(v.shop.owned)) v.shop.owned = [];
@@ -53,6 +53,7 @@ const Game = {
     }, obj(v.stats));
     for (const k of ['powers', 'maxKnock', 'armWins', 'chests', 'gems', 'emotes', 'jackpots', 'picked']) v.stats[k] = Math.max(0, Number(v.stats[k]) || 0);
     v.fun = Object.assign({ wheelDay: '', lastDay: '', streak: 0 }, obj(v.fun));
+    v.challenges = obj(v.challenges);
     v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
     v.settings = Object.assign({ quality: 'auto', sens: 1, names: true, shake: true }, obj(v.settings));
     if (!['low', 'auto', 'high'].includes(v.settings.quality)) v.settings.quality = 'auto';
@@ -508,6 +509,8 @@ const Game = {
       shirt: sh.shirt && SHOP_BY_ID[sh.shirt] ? SHOP_BY_ID[sh.shirt].color : PLAYER_COLORS[this.save.color],
       band: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
       belt: this.save.stage > MAIN_STAGES ? 'gold' : this.save.stage > 5 ? 'silver' : null,
+      stripe: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+      stripe2: '#ffffff',
     };
   },
 
@@ -645,6 +648,7 @@ const Game = {
     const from = this.where;
     const fromItem = this.placeItem;
     this.closeModal('mapModal');
+    this.cancelChallenge();
     this.releasePlayer();
     this.dash = null;
     this.powerAir = null;
@@ -700,6 +704,7 @@ const Game = {
   startMatch() {
     if (this.mode === 'transition' || this.arm) return;
     if (this.photo) this.exitPhoto();
+    this.cancelChallenge();
     this.dash = null;
     this.powerAir = null;
     const s = this.save;
@@ -1064,6 +1069,7 @@ const Game = {
       this.tickTrail(dt);
       this.tickPickups(dt);
       this.tickEvents(dt);
+      if (this.mode === 'play') this.tickChallenge(dt);
       if (this.race) this.tickRace(dt);
       if (this.mode === 'play') this.tickHud();
       this.renderer.render(this.world.scene, this.camera);

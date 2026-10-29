@@ -1,10 +1,12 @@
 'use strict';
 /* The gym: hall, equipment, strength tower, 40 training NPCs, player movement and camera */
 
-const ROOM = { x: 30, z: 22, h: 10 };
+const ROOM = { x: 42, z: 32, h: 11 };
 const TRACK = { cx: 0, cz: 2, a: 12.5, b: 7.5, w: 2.4 };
-const TOWER = { x: 0, z: -19.4, standX: 0, standZ: -17.4, segs: 20 };
+const TOWER = { x: 0, z: -29.4, standX: 0, standZ: -27.4, segs: 20 };
 const PORTAL = { x: 0, z: 14.6 };
+
+const DUMBBELL_COLORS = ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#2f6fed', '#9b5de5', '#ff4da6'];
 
 function woodTexture() {
   const tex = makeCanvasTexture(512, 512, (ctx, w, h) => {
@@ -39,7 +41,7 @@ function woodTexture() {
     }
   });
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(10, 7.5);
+  tex.repeat.set(14, 11);
   return tex;
 }
 
@@ -77,18 +79,52 @@ class GymWorld extends WorldBase {
     this.buildLights();
     this.buildRoom();
     this.buildTrack();
-    this.buildWeights();
-    this.buildCardio();
+    // the original zones moved out with the walls when the hall grew
+    this.withOffset(-12, 0, () => this.buildWeights());
+    this.withOffset(12, 0, () => this.buildCardio());
     this.buildMats();
-    this.buildBoxing();
-    this.buildNorth();
+    this.withOffset(0, 10, () => this.buildBoxing());
+    this.withOffset(0, -10, () => this.buildNorth());
     this.buildDoor();
     this.buildPortal();
     this.buildTower();
     this.buildBoards();
     this.buildArmTable();
+    this.buildFunctional();
+    this.buildYoga();
+    this.buildCalisthenics();
+    this.buildClimbWall();
+    this.buildSpeedBags();
+    this.buildDecor();
     this.finishBatches();
     this.onImpact = () => this.strikeTower();
+  }
+
+  /** Run a builder with every batch part, collider and station shifted by (dx, dz). */
+  withOffset(dx, dz, fn) {
+    const saved = { matte: this.matte, metal: this.metal, glow: this.glow, addCollider: this.addCollider, addStation: this.addStation };
+    const shift = (b) => {
+      const o = Object.create(b);
+      o.add = (geo, x, y, z, ...rest) => b.add(geo, x + dx, y, z + dz, ...rest);
+      return o;
+    };
+    this.matte = shift(saved.matte);
+    this.metal = shift(saved.metal);
+    this.glow = shift(saved.glow);
+    this.addCollider = (x1, z1, x2, z2) => saved.addCollider.call(this, x1 + dx, z1 + dz, x2 + dx, z2 + dz);
+    this.addStation = (x, z, yaw, acts, opts = {}) => {
+      const o = Object.assign({}, opts);
+      if (o.ax != null) o.ax += dx;
+      if (o.az != null) o.az += dz;
+      return saved.addStation.call(this, x + dx, z + dz, yaw, acts, o);
+    };
+    try { fn(); } finally {
+      this.matte = saved.matte;
+      this.metal = saved.metal;
+      this.glow = saved.glow;
+      delete this.addCollider;
+      delete this.addStation;
+    }
   }
 
   buildLights() {
@@ -126,21 +162,21 @@ class GymWorld extends WorldBase {
     m.box(0.12, 0.12, Z * 2, -X + 0.06, 1.36, 0, '#ffc23d');
     m.box(0.12, 0.12, Z * 2, X - 0.06, 1.36, 0, '#ffc23d');
     m.box(X * 2 + 1, 0.3, Z * 2 + 1, 0, H + 0.15, 0, '#1a1f2c');
-    for (const tz of [-14, -3, 8, 18]) this.metal.box(X * 2, 0.35, 0.3, 0, H - 0.5, tz, '#39404f');
-    for (const lx of [-22, -11, 0, 11, 22]) {
-      for (const lz of [-17, -8.5, 0, 8.5, 17]) if (Math.abs(lx) > 12 || Math.abs(lz) > 7) this.glow.box(5, 0.06, 1.2, lx, H - 0.05, lz, '#fff4dc');
+    for (const tz of [-26, -14, -3, 8, 18, 27]) this.metal.box(X * 2, 0.35, 0.3, 0, H - 0.5, tz, '#39404f');
+    for (let lx = -35; lx <= 35; lx += 10) {
+      for (let lz = -26; lz <= 26; lz += 8.6) if (Math.abs(lx) > 18 || Math.abs(lz) > 11) this.glow.box(5, 0.06, 1.2, lx, H - 0.05, lz, '#fff4dc');
     }
     // big skylight with drifting clouds
-    const sky = new THREE.Mesh(new THREE.PlaneGeometry(24, 13), this.cloudMat);
+    const sky = new THREE.Mesh(new THREE.PlaneGeometry(34, 20), this.cloudMat);
     sky.rotation.x = Math.PI / 2;
     sky.position.set(0, H - 0.08, 0);
     this.scene.add(sky);
-    for (const sz of [-1, 1]) m.box(24.6, 0.3, 0.3, 0, H - 0.2, sz * 6.6, '#e9eef7');
-    for (const sx of [-1, 1]) m.box(0.3, 0.3, 13.4, sx * 12.15, H - 0.2, 0, '#e9eef7');
-    for (const bx of [-6, 0, 6]) m.box(0.12, 0.12, 13, bx, H - 0.15, 0, '#e9eef7');
+    for (const sz of [-1, 1]) m.box(34.6, 0.3, 0.3, 0, H - 0.2, sz * 10.1, '#e9eef7');
+    for (const sx of [-1, 1]) m.box(0.3, 0.3, 20.4, sx * 17.15, H - 0.2, 0, '#e9eef7');
+    for (const bx of [-11, -5.5, 0, 5.5, 11]) m.box(0.12, 0.12, 20, bx, H - 0.15, 0, '#e9eef7');
     // high windows on the long walls
     for (const sx of [-1, 1]) {
-      for (let wz = -18; wz <= 18; wz += 6) {
+      for (let wz = -27; wz <= 27; wz += 6) {
         const win = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 2.6), this.cloudMat);
         win.position.set(sx * (X - 0.05), 6.8, wz);
         win.rotation.y = -sx * Math.PI / 2;
@@ -151,8 +187,8 @@ class GymWorld extends WorldBase {
       }
     }
     // pillars between zones
-    for (const px of [-16.8, 16.8]) {
-      for (const pz of [-12, 0, 12]) {
+    for (const px of [-28.8, 28.8]) {
+      for (const pz of [-24, -12, 0, 12, 24]) {
         m.box(1, H, 1, px, H / 2, pz, '#2a3550');
         this.glow.box(1.04, 0.12, 1.04, px, 2.2, pz, '#ffc23d');
         this.addCollider(px - 0.5, pz - 0.5, px + 0.5, pz + 0.5);
@@ -197,9 +233,10 @@ class GymWorld extends WorldBase {
   buildWeights() {
     const m = this.matte;
     const mt = this.metal;
-    m.box(12.6, 0.03, 43.6, -23.7, 0.015, 0, '#2a2d34');
+    m.box(12.6, 0.03, ROOM.z * 2 - 0.4, -23.7, 0.015, 0, '#2a2d34');
+    for (let i = 0; i < 6; i++) m.box(0.3, 0.032, ROOM.z * 2 - 0.4, -17.6 - i * 0.02, 0.016, 0, ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#2f6fed', '#9b5de5'][i]);
     // mirror wall
-    mt.box(0.05, 2.0, 38, -29.9, 2.45, 0, '#bcd6ea');
+    mt.box(0.05, 2.0, 50, -29.9, 2.45, 0, '#bcd6ea');
     // dumbbell racks
     for (const zc of [-9, 9]) {
       const len = 9;
@@ -212,8 +249,9 @@ class GymWorld extends WorldBase {
         const z = zc - len / 2 + 0.45 + i * 0.6;
         for (const [y, s] of [[0.52, 1 + i * 0.03], [0.98, 0.8 + i * 0.02]]) {
           mt.cyl(0.02, 0.36, -28.5, y, z, '#c9ced6', 0, 0, Math.PI / 2, 10);
-          mt.cyl(0.07 * s, 0.07, -28.36, y, z, '#22252b', 0, 0, Math.PI / 2, 10);
-          mt.cyl(0.07 * s, 0.07, -28.64, y, z, '#22252b', 0, 0, Math.PI / 2, 10);
+          const dc = DUMBBELL_COLORS[i % DUMBBELL_COLORS.length];
+          mt.cyl(0.07 * s, 0.07, -28.36, y, z, dc, 0, 0, Math.PI / 2, 10);
+          mt.cyl(0.07 * s, 0.07, -28.64, y, z, dc, 0, 0, Math.PI / 2, 10);
         }
       }
       this.addCollider(-30, zc - len / 2 - 0.15, -27.95, zc + len / 2 + 0.15);
@@ -254,7 +292,7 @@ class GymWorld extends WorldBase {
     this.addCollider(-27, 19.1, -23.3, 20.1);
     for (let i = 0; i < 6; i++) {
       const x = -27.5 + i * 0.7;
-      mt.sphere(0.13 + i * 0.012, x, 0.14, -20.6, '#22252b');
+      mt.sphere(0.13 + i * 0.012, x, 0.14, -20.6, DUMBBELL_COLORS[i]);
       mt.geo(UnitGeo.torus(1, 0.18, 6, 16), x, 0.3, -20.6, '#22252b', 0, 0, 0, 0.09);
     }
     this.addCollider(-28, -21, -23.6, -20.2);
@@ -263,7 +301,8 @@ class GymWorld extends WorldBase {
   buildCardio() {
     const m = this.matte;
     const mt = this.metal;
-    m.box(12.6, 0.03, 43.6, 23.7, 0.015, 0, '#2a2d34');
+    m.box(12.6, 0.03, ROOM.z * 2 - 0.4, 23.7, 0.015, 0, '#2a2d34');
+    for (let i = 0; i < 6; i++) m.box(0.3, 0.032, ROOM.z * 2 - 0.4, 17.6 + i * 0.02, 0.016, 0, ['#9b5de5', '#2f6fed', '#2ecc71', '#ffd34d', '#ff7b00', '#e63946'][i]);
     for (const z of [-15, -10, -5, 0, 5, 10]) {
       const x = 26;
       m.box(2.0, 0.2, 0.85, x, 0.1, z, '#2d3038');
@@ -273,7 +312,10 @@ class GymWorld extends WorldBase {
         mt.box(0.06, 1.15, 0.06, x + 0.95, 0.78, z + s * 0.36, '#9aa0a8');
       }
       mt.cyl(0.025, 0.78, x + 0.8, 1.15, z, '#9aa0a8', Math.PI / 2, 0, 0, 10);
+      const tc = ['#e63946', '#2f6fed', '#2ecc71', '#ff7b00', '#9b5de5', '#ff4da6'][(z + 15) / 5];
       m.box(0.24, 0.42, 0.82, x + 1.02, 1.45, z, '#23262e');
+      m.box(0.26, 0.08, 0.84, x + 1.02, 1.7, z, tc);
+      m.box(2.02, 0.05, 0.87, x, 0.2, z, tc);
       this.glow.box(0.02, 0.22, 0.5, x + 0.89, 1.5, z, '#39c0ff');
       this.addCollider(x + 0.8, z - 0.48, x + 1.2, z + 0.48);
       this.addStation(x - 0.25, z, Math.PI / 2, ['treadmill'], { equip: 'treadmill', ax: x - 1.6, az: z });
@@ -281,9 +323,10 @@ class GymWorld extends WorldBase {
     for (const z of [-15, -10, -5, 0, 5]) {
       const x = 21.3;
       mt.box(0.1, 0.1, 1.2, x, 0.1, z, '#2c3140');
-      mt.box(0.08, 0.75, 0.08, x, 0.45, z - 0.2, '#e63946');
+      const bc = ['#e63946', '#ffd34d', '#2ecc71', '#2f6fed', '#ff4da6'][(z + 15) / 5];
+      mt.box(0.08, 0.75, 0.08, x, 0.45, z - 0.2, bc);
       m.box(0.26, 0.08, 0.32, x, 0.86, z - 0.25, '#111317');
-      mt.box(0.08, 0.95, 0.08, x, 0.6, z + 0.45, '#e63946');
+      mt.box(0.08, 0.95, 0.08, x, 0.6, z + 0.45, bc);
       mt.cyl(0.03, 0.55, x, 1.1, z + 0.45, '#9aa0a8', 0, 0, Math.PI / 2, 10);
       mt.cyl(0.24, 0.07, x, 0.35, z + 0.42, '#22252b', 0, 0, Math.PI / 2, 18);
       this.addCollider(x - 0.3, z + 0.2, x + 0.3, z + 0.7);
@@ -292,10 +335,12 @@ class GymWorld extends WorldBase {
     }
     for (let i = 0; i < 4; i++) {
       const x = 19 + i * 2.6;
-      m.box(1.2, 1.9, 0.5, x, 0.95, 21.7, i % 2 ? '#2f6fed' : '#e63946');
-      m.box(0.04, 1.7, 0.02, x, 0.95, 21.44, '#0e1424');
+      const lz = ROOM.z - 0.3;
+      m.box(1.2, 1.9, 0.5, x, 0.95, lz, ['#e63946', '#2f6fed', '#ffd34d', '#2ecc71'][i]);
+      m.box(0.04, 1.7, 0.02, x, 0.95, lz - 0.26, '#0e1424');
+      for (const hy of [0.7, 1.35]) m.box(0.5, 0.06, 0.02, x, hy, lz - 0.27, '#ffffff');
     }
-    this.addCollider(18, 21.3, 28.5, 22);
+    this.addCollider(18, ROOM.z - 0.7, 28.5, ROOM.z);
   }
 
   buildMats() {
@@ -351,15 +396,7 @@ class GymWorld extends WorldBase {
       mt.cyl(0.03, 1.7, x, 2.5, z, '#c9ced6', 0, 0, Math.PI / 2, 10);
       this.addStation(x, z, 0, ['pullup'], { equip: 'pullup', ax: x, az: z + 1.1 });
     }
-    // benches to sit on
-    for (const x of [-25, 25]) {
-      m.box(2.4, 0.08, 0.5, x, 0.45, -21.3, '#b58450');
-      for (const s of [-1, 1]) m.box(0.08, 0.45, 0.45, x + s * 1.1, 0.22, -21.3, '#2c3140');
-    }
-    // water cooler
-    m.box(0.45, 1.0, 0.45, 27.5, 0.5, -21.4, '#e9eef7');
-    mt.cyl(0.18, 0.5, 27.5, 1.28, -21.4, '#7fc8ff');
-    this.addCollider(27.2, -21.7, 27.8, -21.1);
+
   }
 
   buildDoor() {
@@ -472,8 +509,8 @@ class GymWorld extends WorldBase {
     this.boardTex = mk(8, 4, -7.5);
     this.rankTex = mk(8, 4, 7.5);
     const banners = [
-      { lines: [{ text: 'زور = تمرین + اراده', size: 110, display: true }], pos: [-ROOM.x + 0.06, 3.6, 0], ry: Math.PI / 2 },
-      { lines: [{ text: 'قهرمان بعدی تویی!', size: 120, display: true, color: '#ffc23d' }], pos: [ROOM.x - 0.06, 3.6, 0], ry: -Math.PI / 2 },
+      { lines: [{ text: 'زور = تمرین + اراده', size: 110, display: true }], pos: [-ROOM.x + 0.06, 5.4, 0], ry: Math.PI / 2 },
+      { lines: [{ text: 'قهرمان بعدی تویی!', size: 120, display: true, color: '#ffc23d' }], pos: [ROOM.x - 0.06, 5.4, 0], ry: -Math.PI / 2 },
       { lines: [{ text: 'سالن کشتی', size: 140, display: true, color: '#ffc23d' }], pos: [0, 6.0, ROOM.z - 0.06], ry: Math.PI },
     ];
     for (const b of banners) {
@@ -652,6 +689,272 @@ class GymWorld extends WorldBase {
     sign.rotation.y = -Math.PI / 2;
     this.scene.add(sign);
     this.addCollider(x + 0.88, z - 0.07, x + 1.02, z + 0.07);
+  }
+
+  /* ---------------- the new pro zones ---------------- */
+
+  zoneSign(text, color, x, y, z, ry, w = 5) {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.25), new THREE.MeshBasicMaterial({
+      map: signTexture([{ text, size: 130, display: true, color }], { w: 1024, h: 256, border: color, bg1: '#10142a', bg2: '#1b1f3d' }),
+      toneMapped: false, side: THREE.DoubleSide,
+    }));
+    mesh.position.set(x, y, z);
+    mesh.rotation.y = ry;
+    this.scene.add(mesh);
+    for (const s of [-1, 1]) this.metal.cyl(0.015, ROOM.h - y - w * 0.125, x + Math.cos(ry) * s * w * 0.4, (ROOM.h + y + w * 0.125) / 2, z - Math.sin(ry) * s * w * 0.4, '#9aa0a8', 0, 0, 0, 6);
+  }
+
+  plant(x, z, pot = '#e76f51', s = 1) {
+    const m = this.matte;
+    m.cyl(0.3 * s, 0.55 * s, x, 0.275 * s, z, pot);
+    m.cyl(0.32 * s, 0.06 * s, x, 0.55 * s, z, '#2c3140');
+    for (let i = 0; i < 5; i++) m.sphere(0.32 * s, x + Math.cos(i * 1.3) * 0.18 * s, (0.9 + (i % 3) * 0.22) * s, z + Math.sin(i * 1.3) * 0.18 * s, ['#2f9e44', '#40c057', '#2b8a3e'][i % 3]);
+    this.addCollider(x - 0.3 * s, z - 0.3 * s, x + 0.3 * s, z + 0.3 * s);
+  }
+
+  buildFunctional() {
+    const m = this.matte;
+    const mt = this.metal;
+    // rubber floor: warm checker for the strength corner, cool checker for the machines
+    for (let i = 0; i < 6; i++) {
+      for (let j = 0; j < 23; j++) {
+        const x = 17.5 + i * 2;
+        const z = -22 + j * 2;
+        const warm = z < 0;
+        const c = (i + j) % 2 ? '#30343f' : (warm ? ['#ff7b00', '#e63946', '#ffb703'][(i + j) % 3] : ['#00b4d8', '#2ecc71', '#4361ee'][(i + j) % 3]);
+        m.box(1.98, 0.025, 1.98, x, 0.013, z, c);
+      }
+    }
+    // battle ropes
+    for (const z of [-20, -16.5]) {
+      mt.cyl(0.14, 0.9, 21.7, 0.45, z, '#ffd34d');
+      mt.cyl(0.16, 0.08, 21.7, 0.92, z, '#2c3140');
+      this.addCollider(21.5, z - 0.2, 21.9, z + 0.2);
+      this.addStation(18.2, z, Math.PI / 2, ['ropes', 'ropes', 'squat'], { equip: 'ropes', ax: 17.2, az: z + 1.1 });
+    }
+    // tire flips, with a spare stack
+    for (const z of [-12, -8]) {
+      m.box(3.2, 0.03, 1.6, 19.6, 0.03, z, '#5d4329');
+      this.addStation(18.0, z, Math.PI / 2, ['tireflip', 'squat'], { equip: 'tire', ax: 17.0, az: z + 1.2 });
+    }
+    for (let k = 0; k < 3; k++) m.geo(UnitGeo.torus(1, 0.42, 8, 24), 27.2, 0.25 + k * 0.48, -10, '#22252b', Math.PI / 2, 0, 0, 0.55);
+    m.cyl(0.32, 1.5, 27.2, 0.75, -10, '#ffd34d');
+    this.addCollider(26.6, -10.6, 27.8, -9.4);
+    // plyo boxes
+    for (const [z, c] of [[-20, '#e63946'], [-16.5, '#2f6fed']]) {
+      m.box(0.62, 0.6, 0.62, 24.35, 0.3, z, c);
+      m.box(0.64, 0.05, 0.64, 24.35, 0.6, z, '#1d2433');
+      this.addCollider(24.05, z - 0.3, 24.65, z + 0.3);
+      this.addStation(23.6, z, Math.PI / 2, ['boxjump', 'squat'], { equip: 'plyo', ax: 22.6, az: z + 1.1 });
+    }
+    // kettlebells
+    for (const z of [-12, -8]) this.addStation(23.6, z, Math.PI / 2, ['kettle', 'squat', 'lunge'], { equip: 'kettle', ax: 22.6, az: z + 1.1 });
+    mt.box(0.6, 0.06, 3.4, 27.5, 0.45, -5.2, '#3c4250');
+    mt.box(0.6, 0.06, 3.4, 27.5, 0.05, -5.2, '#3c4250');
+    for (const dz of [-1.6, 1.6]) mt.box(0.06, 0.5, 0.06, 27.5, 0.25, -5.2 + dz, '#3c4250');
+    for (let i = 0; i < 6; i++) {
+      const z = -6.6 + i * 0.55;
+      mt.sphere(0.15, 27.5, 0.62, z, DUMBBELL_COLORS[i]);
+      mt.geo(UnitGeo.torus(1, 0.18, 6, 16), 27.5, 0.78, z, '#22252b', 0, Math.PI / 2, 0, 0.09);
+    }
+    this.addCollider(27.15, -7, 27.85, -3.4);
+    // rowing machines
+    const rowCols = ['#2f6fed', '#e63946', '#2ecc71', '#ff7b00'];
+    [4, 7, 10, 13].forEach((z, i) => {
+      mt.box(2.8, 0.06, 0.16, 18.9, 0.12, z, '#c9ced6');
+      for (const dx of [-1.3, 1.3]) mt.box(0.12, 0.14, 0.5, 18.9 + dx, 0.07, z, '#2c3140');
+      m.box(0.4, 0.08, 0.32, 18.6, 0.3, z, '#111317');
+      mt.cyl(0.32, 0.22, 20.2, 0.42, z, rowCols[i], 0, 0, Math.PI / 2, 20);
+      mt.cyl(0.2, 0.24, 20.2, 0.42, z, '#1d2433', 0, 0, Math.PI / 2, 16);
+      m.box(0.12, 0.3, 0.42, 19.55, 0.3, z, rowCols[i]);
+      this.addCollider(19.9, z - 0.25, 20.5, z + 0.25);
+      this.addStation(18.6, z, Math.PI / 2, ['rower'], { equip: 'rower', ax: 18.6, az: z + 1.2 });
+    });
+    // leg press machines (sled in front of a reclined seat)
+    for (const [z, c] of [[5, '#9b5de5'], [9.5, '#ff4da6']]) {
+      mt.box(2.6, 0.12, 0.9, 25.4, 0.06, z, '#2c3140');
+      m.box(0.9, 0.1, 0.6, 24.9, 0.45, z, '#111317');
+      m.box(0.1, 0.9, 0.6, 24.2, 0.75, z, '#111317', 0, 0, -0.9);
+      mt.box(0.12, 0.8, 0.8, 26.55, 0.95, z, c, 0, 0, 0.5);
+      for (const dz of [-0.35, 0.35]) mt.box(1.6, 0.08, 0.08, 25.8, 0.75, z + dz, '#c9ced6', 0, 0, 0.5);
+      for (const dz of [-0.55, 0.55]) mt.cyl(0.22, 0.06, 26.7, 1.15, z + dz, c, Math.PI / 2, 0, 0, 16);
+      this.addCollider(25.9, z - 0.5, 27.0, z + 0.5);
+      this.addStation(24.75, z, Math.PI / 2, ['legpress'], { equip: 'legpress', ax: 24.75, az: z + 1.3 });
+    }
+    // lat pulldown towers
+    for (const [z, c] of [[14.5, '#2ecc71'], [18.5, '#ffd34d']]) {
+      m.box(0.5, 0.1, 0.4, 25, 0.5, z, '#111317');
+      m.box(0.4, 0.12, 0.2, 25.25, 0.75, z, '#111317');
+      mt.box(0.14, 2.8, 0.14, 25.75, 1.4, z, c);
+      mt.box(0.6, 0.12, 0.14, 25.45, 2.75, z, c);
+      mt.cyl(0.008, 0.6, 25.15, 2.45, z, '#2c3140', 0, 0, 0, 4);
+      mt.cyl(0.02, 1.2, 25.15, 2.15, z, '#c9ced6', Math.PI / 2, 0, 0, 8);
+      mt.box(0.4, 0.6, 0.5, 25.95, 0.4, z, '#3c4250');
+      this.addCollider(25.6, z - 0.3, 26.2, z + 0.3);
+      this.addStation(25.0, z, -Math.PI / 2, ['latpull'], { equip: 'lat', ax: 23.9, az: z });
+    }
+    this.zoneSign('کراس‌فیت', '#ff7b00', 22.5, 6.2, -14, -Math.PI / 2, 5);
+    this.zoneSign('دستگاه‌ها', '#00b4d8', 22.5, 6.2, 11, -Math.PI / 2, 5);
+  }
+
+  buildYoga() {
+    const m = this.matte;
+    m.box(11.6, 0.025, 20, -22.6, 0.013, -12.5, '#e8d4b0');
+    const mats = ['#ff4da6', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5'];
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 3; c++) {
+        const x = -26.5 + c * 3.6;
+        const z = -20.5 + r * 3.1;
+        m.box(0.8, 0.03, 2, x, 0.03, z, mats[(r + c) % mats.length]);
+        this.addStation(x, z, rand(-0.3, 0.3) + (c % 2 ? Math.PI : 0), ['warrior', 'cobra', 'downdog', 'meditate', 'tree', 'toetouch', 'sideplank', 'split', 'bridge']);
+      }
+    }
+    for (const [x, z, c] of [[-17.8, -21.8, '#e76f51'], [-17.8, -3.3, '#2a9d8f'], [-28, -2.8, '#e9c46a'], [-28, -22.4, '#f4a261']]) this.plant(x, z, c, 1.2);
+    // a soft rainbow arch over the studio
+    for (let i = 0; i < 6; i++) {
+      this.glow.geo(new THREE.TorusGeometry(3.6 - i * 0.25, 0.08, 6, 40, Math.PI), -22.6, 3.2, -23.2, mats[i]);
+    }
+    this.zoneSign('یوگا و کشش', '#ff4da6', -22.6, 6.4, -12, Math.PI / 2, 5);
+  }
+
+  buildCalisthenics() {
+    const m = this.matte;
+    const mt = this.metal;
+    m.box(11.6, 0.025, 20, -22.6, 0.013, 12, '#3a4a6b');
+    for (let k = 0; k < 5; k++) m.box(11.6, 0.027, 0.08, -22.6, 0.014, 2.2 + k * 4.4, '#7fe0ff');
+    // pull-up rig: bars along x, one per row
+    for (const [z, c] of [[6, '#ffd34d'], [10, '#00b4d8'], [14, '#ff4da6'], [18, '#2ecc71']]) {
+      for (const s of [-1, 1]) {
+        mt.box(0.12, 2.6, 0.12, -21 + s * 0.8, 1.3, z, '#1d2433');
+        mt.box(0.14, 0.2, 0.14, -21 + s * 0.8, 1.9, z, c);
+        this.addCollider(-21 + s * 0.8 - 0.08, z - 0.08, -21 + s * 0.8 + 0.08, z + 0.08);
+      }
+      mt.cyl(0.03, 1.7, -21, 2.5, z, '#c9ced6', 0, 0, Math.PI / 2, 10);
+      this.addStation(-21, z, 0, ['pullup', 'muscleup'], { equip: 'pullup', ax: -21, az: z + 1.1 });
+    }
+    // parallettes for L-sits and handstands
+    for (const [z, c] of [[6, '#e63946'], [10, '#2f6fed'], [14, '#ff7b00'], [18, '#9b5de5']]) {
+      for (const s of [-1, 1]) {
+        mt.cyl(0.025, 0.5, -25.6 + s * 0.3, 0.2, z, c, Math.PI / 2, 0, 0, 8);
+        for (const dz of [-0.2, 0.2]) mt.box(0.04, 0.2, 0.04, -25.6 + s * 0.3, 0.1, z + dz, '#2c3140');
+      }
+      this.addStation(-25.6, z - 0.5, 0, ['lsit', 'pistol', 'hspu', 'handstand', 'pushup', 'diamond']);
+    }
+    this.zoneSign('کالیستنیکس', '#7fe0ff', -22.6, 6.4, 12, Math.PI / 2, 5);
+  }
+
+  buildClimbWall() {
+    const m = this.matte;
+    const z = -ROOM.z + 0.4;
+    m.box(11.5, 5.2, 0.5, 22, 2.6, z, '#5c677d');
+    const panels = ['#ff7b00', '#2ecc71', '#00b4d8', '#ff4da6', '#ffd34d'];
+    for (let i = 0; i < 5; i++) m.box(2.2, 5.0, 0.12, 17.6 + i * 2.2, 2.6, z + 0.3, panels[i], 0, 0.06 * (i % 2 ? 1 : -1));
+    for (let i = 0; i < 160; i++) {
+      const hx = rand(16.6, 27.4);
+      const hy = rand(0.3, 5.0);
+      if (Math.random() < 0.5) m.sphere(rand(0.06, 0.12), hx, hy, z + 0.4, pick(['#e63946', '#ffd34d', '#2ecc71', '#2f6fed', '#9b5de5', '#ffffff', '#111111']), 0.7);
+      else m.box(rand(0.12, 0.25), rand(0.08, 0.14), 0.08, hx, hy, z + 0.4, pick(['#ff4da6', '#00b4d8', '#ff7b00', '#d4f700']), 0, rand(-0.8, 0.8));
+    }
+    m.box(11.5, 0.3, 2.4, 22, 0.15, z + 1.7, '#2f6fed');
+    for (let i = 0; i < 4; i++) m.box(2.6, 0.32, 0.05, 17.8 + i * 2.85, 0.16, z + 2.9, '#ffd34d');
+    this.addCollider(16.2, z - 0.3, 27.8, z + 0.5);
+    for (const x of [18, 20.5, 23, 25.5]) this.addStation(x, z + 1.15, Math.PI, ['boulder'], { equip: 'boulder', ax: x, az: z + 3.5 });
+    this.zoneSign('سنگ‌نوردی', '#2ecc71', 22, 7.0, z + 0.4, 0, 5);
+  }
+
+  buildSpeedBags() {
+    const m = this.matte;
+    const mt = this.metal;
+    const z = ROOM.z - 0.6;
+    for (const [x, c] of [[19, '#e63946'], [21.6, '#2f6fed'], [24.2, '#ffd34d']]) {
+      m.box(1.4, 1.2, 0.2, x, 2.6, z + 0.35, c);
+      m.box(0.9, 0.06, 0.7, x, 2.1, z, '#2c3140');
+      mt.cyl(0.01, 0.12, x, 2.0, z - 0.1, '#c9ced6', 0, 0, 0, 4);
+      m.sphere(0.13, x, 1.78, z - 0.1, '#8b1e2d', 1.4);
+      this.addStation(x, z - 0.75, 0, ['speedbag'], { equip: 'speedbag', ax: x, az: z - 1.9 });
+    }
+    this.addCollider(18, z - 0.2, 25.2, z + 0.6);
+  }
+
+  buildDecor() {
+    const m = this.matte;
+    const glow = this.glow;
+    const X = ROOM.x;
+    const Z = ROOM.z;
+    // a colour band of its own on every wall
+    const bands = {
+      north: ['#e63946', '#ff7b00', '#ffd34d'], south: ['#00b4d8', '#2f6fed', '#7fe0ff'],
+      east: ['#2ecc71', '#a7e22e', '#ffd34d'], west: ['#9b5de5', '#ff4da6', '#ff8fab'],
+    };
+    bands.north.forEach((c, i) => m.box(X * 2, 0.22, 0.06, 0, 1.7 + i * 0.3, -Z + 0.06, c));
+    bands.south.forEach((c, i) => m.box(X * 2, 0.22, 0.06, 0, 1.7 + i * 0.3, Z - 0.06, c));
+    bands.east.forEach((c, i) => m.box(0.06, 0.22, Z * 2, X - 0.06, 1.7 + i * 0.3, 0, c));
+    bands.west.forEach((c, i) => m.box(0.06, 0.22, Z * 2, -X + 0.06, 1.7 + i * 0.3, 0, c));
+    // party bunting across the hall
+    const flags = ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5', '#ff4da6'];
+    for (const bz of [-20, -8, 8, 20]) {
+      const n = 40;
+      for (let i = 0; i < n; i++) {
+        const u = i / (n - 1);
+        const x = -X + 3 + u * (X * 2 - 6);
+        const y = ROOM.h - 1.6 - Math.sin(Math.PI * ((i % 10) / 9)) * 0.8;
+        m.add(UnitGeo.cone(3), x, y - 0.25, bz, flags[i % flags.length], Math.PI, Math.PI / 6, 0, 0.22, 0.45, 0.04);
+      }
+    }
+    // lounge in the south-west corner: sofas, vending machines, water coolers
+    for (const [x, c] of [[-36, '#e63946'], [-31, '#2f6fed']]) {
+      m.box(3.4, 0.45, 1.0, x, 0.32, Z - 1.4, c);
+      m.box(3.4, 0.7, 0.3, x, 0.75, Z - 0.95, c);
+      for (let k = 0; k < 3; k++) m.box(1.0, 0.18, 0.8, x - 1.1 + k * 1.1, 0.62, Z - 1.45, '#f1faee');
+      this.addCollider(x - 1.75, Z - 1.95, x + 1.75, Z - 0.8);
+    }
+    for (const [x, c] of [[-26.5, '#ff7b00'], [-25.2, '#2ecc71']]) {
+      m.box(1.1, 2.0, 0.8, x, 1.0, Z - 0.6, c);
+      glow.box(0.8, 1.1, 0.04, x - 0.08, 1.3, Z - 1.02, '#e8f6ff');
+      for (let k = 0; k < 4; k++) for (let j = 0; j < 3; j++) m.box(0.16, 0.18, 0.02, x - 0.32 + j * 0.24, 0.95 + k * 0.28, Z - 1.05, pick(flags));
+      this.addCollider(x - 0.55, Z - 1.0, x + 0.55, Z);
+    }
+    for (const x of [-38.5, 38.5]) {
+      m.box(0.45, 1.0, 0.45, x, 0.5, -Z + 0.6, '#e9eef7');
+      this.metal.cyl(0.18, 0.5, x, 1.28, -Z + 0.6, '#7fc8ff');
+      this.addCollider(x - 0.3, -Z + 0.3, x + 0.3, -Z + 0.9);
+    }
+    // benches around the track
+    for (const [x, z, c] of [[-17, -12, '#ffd34d'], [-17, 14, '#00b4d8'], [8, -22, '#ff4da6'], [-5, 24, '#2ecc71']]) {
+      m.box(2.4, 0.08, 0.5, x, 0.45, z, c);
+      for (const s of [-1, 1]) m.box(0.08, 0.45, 0.45, x + s * 1.1, 0.22, z, '#2c3140');
+      this.addCollider(x - 1.2, z - 0.25, x + 1.2, z + 0.25);
+    }
+    for (const [x, z, c] of [[-16.5, 22, '#e76f51'], [16.5, 24, '#2a9d8f'], [-16.5, -26, '#e9c46a'], [3, 27.5, '#f4a261'], [-3, 27.5, '#9b5de5'], [14.5, -30, '#ff4da6']]) this.plant(x, z, c, 1.1);
+    // murals
+    const mural = (text, cols, x, y, z, ry, w) => {
+      const tex = makeCanvasTexture(1024, 384, (ctx, W, H) => {
+        cols.forEach((c, i) => {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          const x0 = (i / cols.length) * W * 1.3 - 120;
+          ctx.moveTo(x0, 0); ctx.lineTo(x0 + W / cols.length * 1.3, 0); ctx.lineTo(x0 + W / cols.length * 1.3 - 160, H); ctx.lineTo(x0 - 160, H);
+          ctx.fill();
+        });
+        ctx.fillStyle = 'rgba(10,14,30,0.35)';
+        ctx.fillRect(0, H * 0.3, W, H * 0.4);
+        ctx.direction = 'rtl';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `150px ${DISPLAY_FONT}`;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 12;
+        ctx.fillText(text, W / 2, H / 2 + 6);
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.375), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+      mesh.position.set(x, y, z);
+      mesh.rotation.y = ry;
+      this.scene.add(mesh);
+    };
+    mural('حرکت یعنی زندگی', ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5'], -22, 5.2, -Z + 0.08, 0, 12);
+    mural('هر روز قوی‌تر', ['#ff4da6', '#9b5de5', '#4361ee', '#00b4d8', '#2ecc71'], -22, 5.2, Z - 0.08, Math.PI, 12);
+    mural('هرگز تسلیم نشو', ['#ffd34d', '#ff7b00', '#e63946', '#ff4da6'], 22, 6.6, Z - 0.08, Math.PI, 10);
   }
 
   nearArm() {

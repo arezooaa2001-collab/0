@@ -52,6 +52,8 @@
     </button>
     <button id="missionChip" class="mission-chip" type="button"></button>
     <button id="wheelChip" class="wheel-chip" type="button" aria-label="گردونه‌ی شانس: چرخش رایگان" hidden>🎡</button>
+    <button id="chalBtn" class="chal-btn" type="button" aria-label="چالش‌ها">🏆<span>چالش</span></button>
+    <div id="chalHud" class="race-hud chal-hud" hidden></div>
     <div id="comboBadge" class="combo" hidden></div>
     <div id="raceHud" class="race-hud" hidden></div>
     <div id="toasts" class="toasts" aria-live="polite"></div>
@@ -72,6 +74,7 @@
       <div class="move-tabs" role="tablist">
         <button class="mv-tab" type="button" data-tab="base">پایه</button>
         <button class="mv-tab" type="button" data-tab="new">جدید</button>
+        <button class="mv-tab" type="button" data-tab="pro">🏋️ حرفه‌ای</button>
         <button class="mv-tab" type="button" data-tab="env">مکان‌ها</button>
         <button class="mv-tab" type="button" data-tab="fun">💃 نمایشی</button>
         <button id="tabAi" class="mv-tab" type="button" data-tab="ai" hidden>ساخته‌ها</button>
@@ -158,6 +161,7 @@
         <li><b>📍 وسیله‌ها:</b> بعضی ورزش‌ها مثل تردمیل، دمبل، کیسه بوکس و بارفیکس فقط با وسیله‌ی خودشون انجام می‌شن. برو کنارش!</li>
         <li><b>🤼 کشتی:</b> قوی که شدی دکمه‌ی «آماده‌ام» رو بزن. هر مرحله حریف قوی‌تر می‌شه!</li>
         <li><b>🚀 قدرت‌های ویژه:</b> پرش غول (سطح ۱۰)، دش برق (سطح ۱۸) و کوبش زمین (سطح ۳۰) با دکمه‌های گرد کنار دسته.</li>
+        <li><b>🏆 چالش‌ها:</b> هفت چالش با مدال برنز، نقره و طلا. دکمه‌ی 🏆 سمت چپ صفحه.</li>
         <li><b>🎁 سکه و گنج:</b> سکه، الماس، ستاره‌ی طلایی و صندوق گنج روی زمین پیدا می‌شن. هر روز هم گردونه‌ی شانس رایگانه!</li>
         <li><b>🌥️ سطح ۱۰۰:</b> جزیره‌ی ابرها باز می‌شه؛ اونجا با هوش مصنوعی هر وسیله و مکان ورزشی که بخوای می‌سازی.</li>
       </ul>
@@ -199,7 +203,9 @@
       </ul>
       <h3>مکان‌ها، سکه و بیشتر</h3>
       <ul class="help-list">
-        <li>🗺️ از دکمه‌ی نقشه به ۷ مکان ورزشی برو: استخر، ورزشگاه فوتبال، زمین بسکتبال، ساحل والیبال، سالن ژیمناستیک، پیست یخ و کوهستان برفی. هر کدوم ورزش‌های مخصوص خودش رو داره.</li>
+        <li>🗺️ از دکمه‌ی نقشه به ۱۱ مکان ورزشی برو: استخر، ورزشگاه فوتبال، باغ رزمی ساکورا (سطح ۱۰)، زمین بسکتبال، ساحل والیبال، زمین تنیس، سالن ژیمناستیک، سالن بوکس، پیست یخ، کوهستان برفی و زمین گلف. هر کدوم ورزش‌های مخصوص خودش رو داره.</li>
+        <li>🏋️ باشگاه حالا خیلی بزرگ‌تره: بخش کراس‌فیت، دستگاه‌ها، دیوار سنگ‌نوردی، یوگا، کالیستنیکس و کیسه‌ی سرعتی. ورزش‌هاشون توی زبانه‌ی «حرفه‌ای» هستن.</li>
+        <li>🏆 چالش‌ها: از دکمه‌ی 🏆 سمت چپ، هر چالش مدال برنز، نقره و طلا داره.</li>
         <li>🪙 با تمرین، مأموریت، کشتی و مسابقه‌ی دو سکه می‌گیری و توی 🛒 فروشگاه لباس، هاله، حیوون خونگی، کفش سرعت و نوشیدنی انرژی می‌خری.</li>
         <li>🏁 کنار خط شروع پیست قرمز باشگاه، مسابقه‌ی دو با سه دونده رو شروع کن.</li>
         <li>🤼 کشتی هم زورت رو زیاد می‌کنه: هر ضربه و هر امتیاز زور می‌ده و برد، سطح زور جایزه داره.</li>
@@ -262,6 +268,7 @@
       <h2>منو</h2>
       <div class="menu-list">
         <button class="menu-btn hot" type="button" data-menu="wheel">🎡 گردونه‌ی شانس</button>
+        <button class="menu-btn hot" type="button" data-menu="challenges">🏆 چالش‌ها</button>
         <button class="menu-btn" type="button" data-menu="missions">🎯 مأموریت‌ها</button>
         <button class="menu-btn" type="button" data-menu="medals">🏅 مدال‌ها</button>
         <button class="menu-btn" type="button" data-menu="board">🏆 قوی‌ترین‌های باشگاه</button>
@@ -323,6 +330,16 @@
       <label class="set-row" for="sensInput"><span>سرعت چرخش دوربین</span><input id="sensInput" type="range" min="0.4" max="2" step="0.1"></label>
       <label class="set-row" for="namesInput"><span>اسم ورزشکارها</span><input id="namesInput" type="checkbox"></label>
       <label class="set-row" for="shakeInput"><span>لرزش دوربین</span><input id="shakeInput" type="checkbox"></label>
+    </div>
+  </div>
+
+  <!-- ===== Challenges ===== -->
+  <div id="chalModal" class="modal" hidden>
+    <div class="card wide-card">
+      <button class="x" type="button" data-close="chalModal" aria-label="بستن">✕</button>
+      <h2>🏆 چالش‌ها</h2>
+      <p class="muted">هر چالش مدال برنز، نقره و طلا داره. اولین بار که به هر مدال برسی سکه‌ی زیادی می‌گیری و رکوردت ذخیره می‌شه.</p>
+      <div id="chalList" class="chal-list"></div>
     </div>
   </div>
 
@@ -440,12 +457,14 @@
 <script src="js/character.js"></script>
 <script src="js/anims2.js"></script>
 <script src="js/anims3.js"></script>
+<script src="js/anims4.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/world.js"></script>
 <script src="js/gym.js"></script>
 <script src="js/creator.js"></script>
 <script src="js/island.js"></script>
 <script src="js/envs.js"></script>
+<script src="js/envs2.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/pickups.js"></script>
 <script src="js/armwrestle.js"></script>
@@ -453,5 +472,6 @@
 <script src="js/main.js"></script>
 <script src="js/features.js"></script>
 <script src="js/fun.js"></script>
+<script src="js/challenges.js"></script>
 </body>
 </html>

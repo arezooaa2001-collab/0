@@ -156,7 +156,7 @@ function ellipseRingGeometry(a, b, width, segs = 96) {
     nor.push(0, 1, 0, 0, 1, 0);
     if (i < segs) {
       const k = i * 2;
-      idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+      idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); // counter-clockwise seen from above
     }
   }
   const g = new THREE.BufferGeometry();

@@ -556,6 +556,11 @@ function buildCharGeometry(o, m) {
   add('spine', sph, 0.085, 0.4, 0.07, o.shirt, 0, 0, 0, 0.095 * mc, 0.075 * mc, 0.07 * mc);
   add('spine', sph, -0.085, 0.4, 0.07, o.shirt, 0, 0, 0, 0.095 * mc, 0.075 * mc, 0.07 * mc);
   add('spine', cyl, 0, 0.585, 0, o.accent, 0, 0, 0, 0.085, 0.035, 0.08);
+  if (o.stripe) {
+    // a chest band and side panels in a second colour
+    add('spine', cyl, 0, 0.3, 0, o.stripe, 0, 0, 0, 0.187 * tw, 0.07, 0.14);
+    if (o.stripe2) add('spine', cyl, 0, 0.21, 0, o.stripe2, 0, 0, 0, 0.186 * tw, 0.035, 0.139);
+  }
   if (o.number) add('spine', box, -0.08, 0.36, 0.135 + 0.025 * m, o.accent, 0, 0, 0, 0.08, 0.06, 0.02);
   // neck & head
   add('head', cyl, 0, 0.02, 0, o.skin, 0, 0, 0, 0.062 * (1 + 0.3 * m), 0.12, 0.062 * (1 + 0.3 * m));
@@ -583,7 +588,8 @@ function buildCharGeometry(o, m) {
     add('sh' + side, sph, 0, -0.02, 0, armTop, 0, 0, 0, 0.083 * ma, 0.085 * ma, 0.08 * ma);
     add('sh' + side, UnitGeo.capsule(0.06, 0.16, 3, 10), 0, -0.15, 0, o.skin, 0, 0, 0, ma, 1, ma);
     add('sh' + side, sph, 0, -0.15, 0.03, o.skin, 0, 0, 0, 0.05 * mb, 0.075 * mb, 0.045 * mb);
-    if (tee) add('sh' + side, cyl, 0, -0.07, 0, o.shirt, 0, 0, 0, 0.083 * ma, 0.13, 0.083 * ma);
+    if (tee) add('sh' + side, cyl, 0, -0.07, 0, o.sleeve || o.shirt, 0, 0, 0, 0.083 * ma, 0.13, 0.083 * ma);
+    if (tee && o.stripe) add('sh' + side, cyl, 0, -0.125, 0, o.stripe, 0, 0, 0, 0.085 * ma, 0.025, 0.085 * ma);
     add('el' + side, UnitGeo.capsule(0.05, 0.16, 3, 10), 0, -0.12, 0, o.skin, 0, 0, 0, mf, 1, mf);
     if (o.wrist) add('el' + side, cyl, 0, -0.215, 0, side === 'L' ? o.wrist : (o.wrist2 || o.wrist), 0, 0, 0, 0.056 * mf, 0.05, 0.056 * mf);
     add('ha' + side, sph, 0, -0.045, 0, o.skin, 0, 0, 0, 0.042, 0.06, 0.052);
@@ -713,6 +719,8 @@ class Character {
     this.grounded = true;
     this.props = {};
     this.ropeAngle = 0;
+    this.turn = 0;
+    this.lookAround = false;
     this.barbellDrop = null;
     this.time = Math.random() * 10;
     this.onEvent = null;
@@ -860,16 +868,30 @@ class Character {
       p.spX = br;
       p.shLZ = 0.13 + br; p.shRZ = -p.shLZ;
       p.nkX = -br;
+      if (this.lookAround) {
+        // idle people glance around now and then and shift their weight
+        const look = Math.sin(this.time * 0.45 + this.phase);
+        p.nkY = Math.abs(look) > 0.55 ? Math.sign(look) * 0.55 : look * 0.4;
+        const sway = Math.sin(this.time * 0.6 + this.phase * 2) * 0.03;
+        p.bz = sway;
+        p.hpLZ = 0.03 - sway; p.hpRZ = -0.03 - sway;
+      }
       return;
     }
     const r = clamp((sp - 2.2) / 2.6, 0, 1);
     this.runBlend = r;
     this.phase += dt * (4.6 + sp * 1.25);
     gait(p, this.phase, r);
+    // lean into turns and a little more forward when sprinting
+    p.bz = clamp(-this.turn * sp * 0.018, -0.28, 0.28);
+    p.spX += 0.06 * r;
   }
 
   update(dt) {
     this.time += dt;
+    const yaw = this.root.rotation.y;
+    if (dt > 0) this.turn += (wrapAngle(yaw - (this.lastYaw ?? yaw)) / dt - this.turn) * damp(6, dt);
+    this.lastYaw = yaw;
     const p = this.tgt;
     copyPose(p, STAND);
     let snap = false;
@@ -1024,6 +1046,9 @@ function randomOutfit() {
     socks: pick(['#ffffff', '#ffffff', '#111111']),
     style: Math.random() < 0.55 ? 'tee' : 'tank',
     band: Math.random() < 0.3 ? pick(['#ffffff', '#e63946', '#ffd34d', '#2f6fed']) : null,
+    stripe: Math.random() < 0.6 ? pick(PALETTE.shirts.filter((c) => c !== shirt)) : null,
+    stripe2: Math.random() < 0.35 ? pick(['#ffffff', '#111111', '#ffd34d']) : null,
+    sleeve: Math.random() < 0.35 ? pick(PALETTE.shirts.filter((c) => c !== shirt)) : null,
     wrist: Math.random() < 0.35 ? pick(['#ffffff', '#111111', '#e63946']) : null,
     number: Math.random() < 0.4,
   };
