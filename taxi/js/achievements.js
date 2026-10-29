@@ -45,10 +45,10 @@ export class Achievements {
       s.xp = (s.completed || 0) * 70 + (s.coinsPicked || 0) * 3;
       s.level = levelFor(s.xp);
     }
-    const kmh = Math.abs(p.speed) * 3.6;
+    const kmh = (p.groundSpeed ?? Math.abs(p.speed)) * 3.6;
     if (g.state === 'play' && !g.onfoot.active) {
       s.maxKmh = Math.max(s.maxKmh || 0, kmh);
-      s.km = (s.km || 0) + (Math.abs(p.speed) * dt) / 1000;
+      s.km = (s.km || 0) + ((p.groundSpeed ?? Math.abs(p.speed)) * dt) / 1000;
       if (p.nitroOn) s.nitroSec = (s.nitroSec || 0) + dt;
     }
     this.t -= dt;

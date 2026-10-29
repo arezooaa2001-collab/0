@@ -73,6 +73,9 @@ export class Photo {
     g.audio.setEngine(0, 0, false);
     g.audio.setSkid(0);
     g.audio.setWater(0);
+    g.audio.setRain(0);
+    g.audio.setWind(0, false);
+    g.ui.toggleBigMap(false);
     g.audio.siren(false);
     document.body.classList.add('photomode');
     $('photo').classList.remove('hidden');

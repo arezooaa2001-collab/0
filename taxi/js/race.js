@@ -137,6 +137,10 @@ export class Race {
     const [name, color, taunt] = pick(RIVALS);
     const won = (g.stats.raceTracks || []).includes(t.id);
     const path = this.buildPath(t);
+    if (!path) {
+      ui.toast('مسیر مسابقه پیدا نشد 😕', 'warn');
+      return;
+    }
     const km = (this.total / 1000).toFixed(1);
     ui.panel(`<h2>🏁 ${t.icon} ${t.name}</h2>
       <div class="raceoffer"><div class="rv">🏎️ <b>${name}</b><small>«${taunt}»</small></div>
@@ -145,6 +149,12 @@ export class Race {
       <p class="note">از توی حلقه‌های نارنجی رد شو و زودتر از رقیب به خط پایان برس. با فلش 🧭 راه رو گم نمی‌کنی!</p>
       <div class="btnrow"><button data-a="go">قبوله! بزن بریم 🔥</button><button data-a="no" class="ghost">بی‌خیال</button></div></div>`, (el) => {
       el.querySelector('[data-a=go]').onclick = () => {
+        // things may have changed while the panel was open
+        if (this.state !== 'idle' || g.rides.ride || g.police.state !== 'none' || g.state !== 'play' || g.onfoot.active || g.onfoot.busy || g.player.burning) {
+          ui.closePanel();
+          ui.toast(g.rides.ride ? 'اول سفر مسافرت رو تموم کن، بعد مسابقه بده! 🧳' : 'الان نمی‌شه مسابقه داد', 'warn');
+          return;
+        }
         g.topUp(t.fee);
         if (g.money < t.fee) {
           ui.toast('پول ورودی رو نداری 😟', 'warn');
@@ -162,6 +172,7 @@ export class Race {
     const w = this.g.world;
     let path = w.route(t.from[0], t.from[1], t.to[0], t.to[1]);
     // start on the first node so we never begin by driving backwards
+    if (path.length < 3) return null;
     path = path.slice(1).map((q) => ({ x: q.x, z: q.z }));
     // drop duplicates
     const pts = [path[0]];
@@ -171,6 +182,7 @@ export class Race {
     this.pts = pts;
     this.cum = cum;
     this.total = cum[cum.length - 1];
+    if (pts.length < 2 || this.total < 50) return null;
     // checkpoints every ~170 m, the last one is the finish line
     const n = Math.max(2, Math.round(this.total / 170));
     this.cps = [];
@@ -240,7 +252,10 @@ export class Race {
     const h = Math.atan2(st.dx, st.dz);
     this.startPos = { x: st.x + -st.dz * LANE * 0.55, z: st.z + st.dx * LANE * 0.55, h };
     g.fade(1, 0.35, () => {
-      if (this.state !== 'countdown') return;
+      if (this.state !== 'countdown') {
+        g.fade(0, 0.3);
+        return;
+      }
       p.placeAt(this.startPos.x, this.startPos.z, h);
       this.placed = true;
       p.lights = g.env && g.env.night > 0.4;
@@ -296,12 +311,18 @@ export class Race {
     $('raceHud').classList.add('hidden');
     $('countdown').classList.add('hidden');
     g.guideOn = this.prevGuide;
-    if (!g.rides.ride) g.clearGuide();
+    if (g.rides.ride) g.rides.restoreGuide();
+    else g.clearGuide();
     g.rides.cooldown = Math.max(g.rides.cooldown, 10);
     const r = this.rival;
     this.leaveT = 6;
     if (aborted) {
       this.leaveT = 0.1;
+      if (!this.placed) {
+        // never got to the start line: give the entry fee back
+        g.money += t.fee;
+        this.placed = true;
+      }
       return;
     }
     const s = g.stats;
@@ -402,7 +423,7 @@ export class Race {
     }
     // too far off the track or stopped for too long
     if (pr.d > 320) return this.abort('خیلی از مسیر مسابقه دور شدی؛ باختی 🏳️');
-    this.idleT = Math.abs(p.speed) < 1 ? this.idleT + dt : 0;
+    this.idleT = (p.groundSpeed ?? Math.abs(p.speed)) < 1 ? this.idleT + dt : 0;
     if (this.idleT > 25) return this.abort('وایسادی؟! رقیب مسخره‌ت کرد و رفت 🏳️');
     const first = this.ps >= this.rs;
     const mm = Math.floor(this.time / 60), ss = (this.time % 60).toFixed(1).padStart(4, '0');
@@ -420,7 +441,9 @@ export class Race {
     this.ri = pr.i;
     this.rs = pr.s;
     if (!leaving && this.rs >= this.total - 4) this.rivalDone = true;
-    const look = this.pointAt(this.rs + 7 + Math.abs(r.speed) * 0.45);
+    const ahead = (d) => ({ x: r.pos.x + Math.sin(r.heading) * d, z: r.pos.z + Math.cos(r.heading) * d, dx: Math.sin(r.heading), dz: Math.cos(r.heading) });
+    const pastEnd = leaving && this.rs > this.total - 40;
+    const look = pastEnd ? ahead(10) : this.pointAt(this.rs + 7 + Math.abs(r.speed) * 0.45);
     // overtaking: shift sideways when something is in the way
     const fx = Math.sin(r.heading), fz = Math.cos(r.heading);
     let offT = -LANE * 0.5;
@@ -437,7 +460,7 @@ export class Race {
     this.off = damp(this.off, offT, 2.2, dt);
     const tx = look.x - look.dz * this.off, tz = look.z + look.dx * this.off;
     // corner speed
-    const far = this.pointAt(this.rs + 22 + Math.abs(r.speed) * 1.1);
+    const far = pastEnd ? ahead(30) : this.pointAt(this.rs + 22 + Math.abs(r.speed) * 1.1);
     const ang = Math.abs(wrapAngle(Math.atan2(far.x - r.pos.x, far.z - r.pos.z) - r.heading));
     let target = this.track.city ? 27 : 41;
     if (ang > 0.2) target = Math.min(target, Math.max(11, 42 - ang * 34));

@@ -224,8 +224,8 @@ export class UI {
       if (e.code === 'KeyF') g.zoneAction();
       if ((e.code === 'KeyP' || e.code === 'Escape') && g.state === 'photo') g.photo.close();
       else if (e.code === 'KeyP' || e.code === 'Escape') g.pause(g.state !== 'pause');
-      if (e.code === 'Enter' && this.offerCb) this.offerCb.accept();
-      if (e.code === 'KeyY' && this.offerCb) this.offerCb.guide();
+      if (e.code === 'Enter' && this.offerCb && !this.panelOpen) this.offerCb.accept();
+      if (e.code === 'KeyY' && this.offerCb && !this.panelOpen) this.offerCb.guide();
       if (e.code === 'Backspace' && this.offerCb) this.offerCb.decline();
     });
     window.addEventListener('keyup', (e) => {
@@ -284,8 +284,14 @@ export class UI {
     }
     if (g.guide && g.guide.custom && Math.hypot(g.guide.x - x, g.guide.z - z) < 60) {
       g.clearGuide();
+      if (g.guidePrev !== undefined) {
+        g.guideOn = g.guidePrev;
+        g.guidePrev = undefined;
+        $('btnGuide').classList.toggle('active', g.guideOn);
+      }
       this.toast('📍 مقصد دلخواه پاک شد', 'info');
     } else {
+      if (!(g.guide && g.guide.custom)) g.guidePrev = g.guideOn;
       g.setGuide({ x, z, label: '📍 مقصد دلخواه', addr: REGION_NAMES[regionAt(x, z)], custom: true });
       g.guideOn = true;
       $('btnGuide').classList.add('active');
@@ -378,7 +384,7 @@ export class UI {
     }
     const avg = g.stats.trips ? g.stats.ratingSum / g.stats.trips : 5;
     $('stars').textContent = '★ ' + fa(avg.toFixed(1)).replace('.', '٫');
-    const kmh = Math.round(Math.abs(p.speed) * 3.6);
+    const kmh = Math.round((p.groundSpeed ?? Math.abs(p.speed)) * 3.6);
     $('speed').textContent = fa(kmh);
     $('gearNow').textContent = GEAR_LABEL[p.gear] + (p.shift ? '…' : '');
     $('gearCur').textContent = GEAR_LABEL[p.shift ? p.targetGear : p.gear];

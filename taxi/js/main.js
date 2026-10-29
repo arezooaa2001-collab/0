@@ -178,7 +178,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -195,8 +195,10 @@ class Game {
       this.money = d.money; this.coins = d.coins || 0; this.day = d.day; this.hour = d.hour; this.stats = d.stats;
       p.fuel = d.fuel; p.superFuel = d.superFuel; p.tank = d.tank; p.health = d.health; p.engineLevel = d.engine;
       if (Array.isArray(d.owned)) p.owned = d.owned;
+      if (d.paints && typeof d.paints === 'object') p.paints = d.paints;
       if (d.model && d.model !== p.model) p.buildModel(d.model);
-      if (d.paint !== null && d.paint !== undefined) p.setPaint(d.paint);
+      const paint = p.paints[p.model] ?? d.paint;
+      if (paint !== null && paint !== undefined) p.setPaint(paint);
       if (d.neon) p.setNeon(d.neon);
       if (d.nitro !== undefined) p.nitro = d.nitro;
       this.hasSave = true;
@@ -267,6 +269,7 @@ class Game {
       this.audio.setRain(0);
       this.audio.setSkid(0);
       this.audio.setWater(0);
+      this.audio.setWind(0, false);
     } else if (!on && this.state === 'pause') {
       this.state = 'play';
       if (this.ui.panelOpen) {
@@ -288,6 +291,7 @@ class Game {
     this.audio.setRain(0);
     this.audio.setSkid(0);
     this.audio.setWater(0);
+    this.audio.setWind(0, false);
     this.audio.setEngine(0, 0, false);
     this.fade(0, 0.8);
   }
@@ -519,6 +523,11 @@ class Game {
     this.guideDist = dist;
     if (this.guide.custom && Math.hypot(this.guide.x - p.pos.x, this.guide.z - p.pos.z) < 22) {
       this.clearGuide();
+      if (this.guidePrev !== undefined) {
+        this.guideOn = this.guidePrev;
+        this.guidePrev = undefined;
+        document.getElementById('btnGuide').classList.toggle('active', this.guideOn);
+      }
       this.ui.toast('📍 به مقصد دلخواهت رسیدی!', 'good');
       this.audio.cash();
       return;
@@ -580,7 +589,7 @@ class Game {
   }
   updateZones(dt) {
     const p = this.player, w = this.world;
-    const sp = Math.abs(p.speed);
+    const sp = (p.groundSpeed ?? Math.abs(p.speed));
     let zone = null;
     if (this.onfoot.active || this.onfoot.busy) {
       this.currentZone = this.onfoot.active && !this.onfoot.busy && !this.player.burning && this.onfoot.nearCar() ? { kind: 'enter' } : null;
@@ -590,8 +599,10 @@ class Game {
     for (const s of [...w.stations, ...w.garages, w.police, ...(this.race.state === 'idle' ? this.race.spots : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
-    if (!zone && p.fuelTotal() <= 0.01) zone = { kind: 'fuelHelp' };
-    if (!zone && p.health <= 0) zone = { kind: 'tow' };
+    // stranded: roadside help beats every pad except a pump or a garage that can fix it right here
+    const pad = zone && (zone.kind === 'gas' || zone.kind === 'garage');
+    if (!pad && p.fuelTotal() <= 0.01) zone = { kind: 'fuelHelp' };
+    else if (!pad && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
       const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
@@ -724,11 +735,11 @@ class Game {
     }
     fx.tyre.update(dt);
     // exhaust backfire on fast upshifts and when lifting off at high revs
-    const t0 = this.prevThrottle ?? 0;
+    const gas = this.lastInput ? this.lastInput.gas : 0, g0 = this.prevGas ?? 0;
     const upshift = p.shift && !this.prevShift && p.targetGear > p.gear && p.gear >= 1;
-    if (this.state === 'play' && ((upshift && p.rpm > 4300 && sp > 9) || (t0 > 0.8 && p.throttle < 0.1 && p.rpm > 5000 && Math.random() < 0.5))) this.backfire();
+    if (this.state === 'play' && !this.onfoot.active && ((upshift && p.rpm > 4300 && sp > 9) || (g0 > 0.8 && gas < 0.1 && p.rpm > 5000 && Math.random() < 0.6))) this.backfire();
     this.prevShift = !!p.shift;
-    this.prevThrottle = p.throttle;
+    this.prevGas = gas;
     fx.fire.update(dt, -2);
   }
   backfire() {
@@ -844,7 +855,7 @@ class Game {
     this.updateFx(dt);
     const p = this.player;
     this.audio.setEngine(p.rpm, p.throttle, p.health > 0 && p.fuelTotal() > 0);
-    this.audio.setWind(Math.abs(p.speed), p.offroad);
+    this.audio.setWind((p.groundSpeed ?? Math.abs(p.speed)), p.offroad);
     if (!this.cinematic || st === 'play') this.updateCamera(dt);
     this.sky.mesh.position.copy(this.camera.position);
     this.ui.update(dt);

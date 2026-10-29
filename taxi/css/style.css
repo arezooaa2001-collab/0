@@ -414,7 +414,7 @@ body.onfoot #steerZone { display: flex !important; }
 @media (max-height: 480px) { #stunt { font-size: 22px; top: 26%; } .stuntpop { font-size: 18px; } }
 
 /* street races */
-#raceHud { position: absolute; top: 124px; right: 10px; display: flex; flex-direction: column; gap: 3px; background: rgba(30,10,50,.82); border: 2px solid #b04dff; border-radius: 14px; padding: 7px 12px; font-size: 13px; font-weight: 700; color: #fff; direction: rtl; pointer-events: none; box-shadow: 0 0 20px rgba(176,77,255,.4); min-width: 120px; }
+#raceHud { position: relative; display: flex; flex-direction: column; gap: 3px; background: rgba(30,10,50,.82); border: 2px solid #b04dff; border-radius: 14px; padding: 7px 12px; font-size: 13px; font-weight: 700; color: #fff; direction: rtl; pointer-events: none; box-shadow: 0 0 20px rgba(176,77,255,.4); min-width: 120px; }
 #raceHud b { font-size: 16px; }
 #raceHud b.p1 { color: #ffd21a; }
 #raceHud b.p2 { color: #ff9a9a; }
@@ -429,7 +429,7 @@ body.onfoot #steerZone { display: flex !important; }
 .raceoffer .btnrow { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
 .raceoffer .btnrow button { flex: 1; max-width: 220px; padding: 11px; border-radius: 12px; background: linear-gradient(135deg, #b04dff, #7b1fa2); color: #fff; font-weight: 800; font-size: 15px; }
 .raceoffer button.ghost { background: rgba(255,255,255,.12); color: #fff; }
-@media (max-height: 480px) { #raceHud { top: 112px; font-size: 11px; padding: 5px 9px; } #raceHud b { font-size: 13px; } #countdown { font-size: 80px; } }
+@media (max-height: 480px) { #raceHud { font-size: 11px; padding: 5px 9px; } #raceHud b { font-size: 13px; } #countdown { font-size: 80px; } }
 
 /* cracked windshield */
 #cracks { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; pointer-events: none; transition: opacity .4s; }

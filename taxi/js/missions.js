@@ -140,7 +140,7 @@ export class Rides {
     this.beacon.userData.ring.rotation.z += dt;
     const bp = 0.5 + 0.5 * Math.sin(r.t * 4);
     this.beacon.userData.ringMat.opacity = 0.4 + bp * 0.4;
-    const sp = Math.abs(car.speed);
+    const sp = car.groundSpeed ?? Math.abs(car.speed);
 
     if (this.state === 'toPickup') {
       const d = Math.hypot(car.pos.x - r.o.pickup.x, car.pos.z - r.o.pickup.z);
@@ -218,7 +218,12 @@ export class Rides {
         r.complaints++;
         this.say('دیر شد! گفتم که عجله دارم!');
       }
-      if (d < 13 && sp < 1.6) this.startAlight();
+      if (r.follow && sp < 1.6) {
+        // "stop right here": anywhere is fine once the tail is over
+        r.o.dest.x = car.pos.x;
+        r.o.dest.z = car.pos.z;
+        this.startAlight();
+      } else if (d < 13 && sp < 1.6) this.startAlight();
     } else if (this.state === 'alighting') {
       if (r.follow) this.updateTargetLeaving(dt);
       r.outT += dt;
@@ -430,6 +435,14 @@ export class Rides {
     this.state = 'idle';
     this.cooldown = 45;
     return { walker: r.walker, door: r.door || 'rr', o: r.o };
+  }
+  /** point the arrow at whatever this ride needs next (used after a race borrowed it) */
+  restoreGuide() {
+    const g = this.game, r = this.ride;
+    if (!r) return g.clearGuide();
+    if (this.state === 'toPickup' || this.state === 'boarding') g.setGuide({ x: r.o.pickup.x, z: r.o.pickup.z, label: 'مسافر: ' + r.o.name, addr: r.o.pickupAddr });
+    else if (r.follow && !r.follow.done && this.target) g.setGuide({ x: this.target.pos.x, z: this.target.pos.z, label: '🚗 ماشین هدف', addr: 'تعقیبش کن!', follow: true });
+    else g.setGuide({ x: r.o.dest.x, z: r.o.dest.z, label: r.o.dest.name, addr: r.o.destAddr || '' });
   }
   /* ---------- "follow that car" ---------- */
   spawnTarget() {

@@ -218,7 +218,7 @@ export class Police {
     this.light.intensity = 60;
     g.audio.siren(true, clamp(1 - d / 500, 0.15, 1));
     // arrest / escape
-    const sp = Math.abs(pl.speed);
+    const sp = pl.groundSpeed ?? Math.abs(pl.speed);
     const car = g.player;
     if ((d < (pl.onFoot ? 6 : 9) && sp < (pl.onFoot ? 5 : 2.5)) || (!pl.onFoot && (car.health <= 0 || car.fuelTotal() <= 0) && d < 60)) this.arrestT += dt;
     else this.arrestT = Math.max(0, this.arrestT - dt * 0.5);

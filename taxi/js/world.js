@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   rand, rr, pick, fbm, noise2, hash2, clamp, lerp, smoothstep, canvasTexture, speckle, mergeByMaterial,
-  SpatialHash, circleCol, boxCol, makeCanvas,
+  SpatialHash, circleCol, boxCol, makeCanvas, collideCircle,
 } from './util.js';
 import { box, cyl, sphere, signTexture } from './models.js';
 
@@ -560,11 +560,26 @@ export class World {
         const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
         const dx = (b.x - a.x) / l, dz = (b.z - a.z) / l;
         const side = i % 2 ? 1 : -1;
+        const kx = a.x - dz * 15 * side, kz = a.z + dx * 15 * side;
+        // keep clear of landmarks, pumps and garages
+        if (this.places.some((p) => Math.hypot(p.x - kx, p.z - kz) < 90)) continue;
+        if ([...this.stations, ...this.garages].some((s) => Math.hypot(s.x - kx, s.z - kz) < 60)) continue;
         this.ramps.push({ x: a.x - dz * 15 * side, z: a.z + dx * 15 * side, rot: Math.atan2(dx, dz), len: 11, w: 5, h: 2.4 });
       }
     }
   }
   buildRamps() {
+    // drop roadside kickers that ended up inside a building, fence or tree trunk
+    const q = [], res = { nx: 0, nz: 0, pen: 0 };
+    this.ramps = this.ramps.filter((r) => {
+      if (r.park) return true;
+      for (const t of [0.15, 0.5, 0.85]) {
+        const x = r.x + Math.sin(r.rot) * r.len * t, z = r.z + Math.cos(r.rot) * r.len * t;
+        this.statics.query(x, z, 4, q);
+        for (const o of q) if (!o.soft && !o.ramp && collideCircle(x, z, r.w / 2 + 0.5, o, res)) return false;
+      }
+      return true;
+    });
     const mat = new THREE.MeshStandardMaterial({
       map: canvasTexture(128, 256, (g, w, h) => {
         g.fillStyle = '#d9822b';
@@ -1223,6 +1238,7 @@ export class World {
     if (Math.hypot(x - 1350, z + 750) < 290) return false;
     if (Math.hypot(x - 1160, z - 1525) < 44) return false;
     if (this.stuntPark && Math.hypot(x - this.stuntPark.x, z - this.stuntPark.z) < 110) return false;
+    if (this.ramps) for (const r of this.ramps) if (!r.park && Math.hypot(x - r.x - (Math.sin(r.rot) * r.len) / 2, z - r.z - (Math.cos(r.rot) * r.len) / 2) < r.len / 2 + 6) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
     for (const s of this.stations) if (Math.hypot(x - s.x, z - s.z) < 22) return false;

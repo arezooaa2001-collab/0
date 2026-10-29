@@ -33,6 +33,7 @@ export class PlayerCar {
     this.paintMatObj = new THREE.MeshPhysicalMaterial({ color: 0xf3c614, metalness: 0.35, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06, name: 'paint' });
     this.model = 'taxi';
     this.owned = ['taxi'];
+    this.paints = {}; // paint job per car model
     this.buildModel('taxi');
     this.pos = new THREE.Vector3();
     this.heading = 0;
@@ -127,7 +128,7 @@ export class PlayerCar {
   /** switch to an owned car (from the showroom) */
   setModel(id) {
     if (!CAR_MODELS[id] || id === this.model) return;
-    this.paintHex = undefined;
+    this.paintHex = this.paints[id];
     this.buildModel(id);
     if (this.game.setCamera) this.game.setCamera(this.game.camMode, true);
   }
@@ -189,6 +190,7 @@ export class PlayerCar {
   }
   setPaint(hex) {
     this.paintHex = hex;
+    this.paints[this.model] = hex;
     this.car.paint.color.setHex(hex);
   }
   /** nitro: hold the NOS button with throttle; slowly recharges */
@@ -216,6 +218,7 @@ export class PlayerCar {
     this.heading = heading;
     this.speed = 0;
     this.ext.set(0, 0);
+    this.groundSpeed = 0;
     this.sliding = false;
     this.y = this.game.world.heightAt(x, z);
     this.syncTransform(0);
@@ -435,10 +438,26 @@ export class PlayerCar {
     const vx = fx * this.speed + this.ext.x, vz = fz * this.speed + this.ext.y;
     this.pos.x += vx * dt;
     this.pos.z += vz * dt;
+    // a tall step (the side of a ramp) is a wall, not something to climb
+    if (!this.air && world.rampsReady && dt > 0) {
+      const rise = this.groundAt() - this.y;
+      if (rise > 0.5 + 0.45 * Math.hypot(vx, vz) * dt) {
+        this.pos.x -= vx * dt;
+        this.pos.z -= vz * dt;
+        const imp = Math.hypot(vx, vz);
+        this.speed *= -0.2;
+        this.ext.set(0, 0);
+        if (imp > 3) {
+          this.events.push({ type: 'crash', impact: imp * 0.6 });
+          this.health = Math.max(0, this.health - Math.max(0, imp * 0.6 - 2.5) * 1.5);
+        }
+      }
+    }
     const ek = this.air || drifting ? 0 : 2.6;
     this.ext.x = damp(this.ext.x, 0, ek, dt);
     this.ext.y = damp(this.ext.y, 0, ek, dt);
-    this.odometer += Math.hypot(vx, vz) * dt;
+    this.groundSpeed = Math.hypot(vx, vz); // true speed over the ground (includes sliding)
+    this.odometer += this.groundSpeed * dt;
 
     // fuel
     const used = (Math.abs(this.speed) * dt / 120) * (0.55 + 0.75 * this.throttle) * this.spec.fuel + (alive ? dt * 0.0004 : 0);
@@ -535,6 +554,13 @@ export class PlayerCar {
     return -vn;
   }
 
+  /** ground height under the car (centre, or the average of the axles on a slope) */
+  groundAt() {
+    const w = this.game.world, p = this.pos;
+    const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+    const hf = w.heightAt(p.x + fx * 1.4, p.z + fz * 1.4), hb = w.heightAt(p.x - fx * 1.4, p.z - fz * 1.4);
+    return Math.max(w.heightAt(p.x, p.z), (hf + hb) / 2);
+  }
   syncTransform(dt) {
     const w = this.game.world;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);

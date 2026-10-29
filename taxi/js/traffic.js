@@ -40,6 +40,11 @@ export class TrafficCar {
   hit(jx, jz, impact, by) {
     this.knock.x += jx;
     this.knock.y += jz;
+    if (this.isRival) {
+      // a racing rival shrugs off light bumps
+      this.speed *= Math.max(0.6, 1 - impact * 0.03);
+      return;
+    }
     this.spin += (Math.random() - 0.5) * impact * 0.15;
     this.speed *= 0.2;
     if (this.state !== 'incident' && this.state !== 'parked') {
