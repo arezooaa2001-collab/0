@@ -1717,6 +1717,12 @@ function poseHuman(p, dt, t) {
       Q.shLx = -0.95; Q.shRx = -0.95; Q.elL = -1.25; Q.elR = -1.25; Q.shLz = 0.28; Q.shRz = -0.28; Q.hdX = 0.45 + Math.sin(t * 0.8) * 0.04;
     } else if (sp_ === 'drink') {
       Q.shRx = -1.15; Q.shRz = -0.35; Q.elR = -2.15; Q.hdX = -0.32; Q.shLx = 0.05;
+    } else if (sp_ === 'phoneUse') {
+      Q.shRx = -0.95; Q.shRz = -0.18; Q.elR = -1.55; Q.shLx = -0.75; Q.elL = -1.5; Q.shLz = 0.25; Q.hdX = 0.42;
+    } else if (sp_ === 'shoot') {
+      Q.shRx = -1.3; Q.shRz = -0.28; Q.elR = -1.25; Q.shLx = -1.25; Q.shLz = 0.3; Q.elL = -1.2; Q.hdX = 0.04;
+    } else if (sp_ === 'selfie') {
+      Q.shRx = -1.5; Q.shRz = -0.35; Q.elR = -0.2; Q.hdX = -0.06; Q.hdY = 0.08;
     } else if (sp_ === 'phone') {
       Q.shRx = -0.85; Q.shRz = -0.4; Q.elR = -2.25; Q.hdZ = 0.16; Q.hdX = 0.08;
     } else if (sp_ === 'repair') {
@@ -2756,7 +2762,7 @@ function catalogFor(name) {
   const C = [['نانوایی', ['bread', 'cake']], ['سوپرمارکت', ['water', 'juice', 'soda', 'chips', 'choco', 'doogh', 'sandwich']], ['کافه', ['coffee', 'tea', 'cake', 'icecream']], ['چای', ['tea', 'cake', 'water']],
     ['داروخانه', ['vitamin', 'water']], ['کتاب', ['book', 'novel', 'notebook']], ['گل', ['flowers', 'tulips']], ['میوه', ['apple', 'juice']], ['سبزی', ['apple']], ['شیرینی', ['cake', 'choco']], ['قنادی', ['cake', 'choco']],
     ['لوازم‌التحریر', ['notebook', 'book']], ['عینک', ['sunglasses']], ['ابزار', ['flashlight', 'umbrella']], ['پوشاک', ['shirtBlue', 'shirtWhite', 'pantsJeans', 'jacket']], ['بستنی', ['icecream', 'juice']], ['آجیل', ['nuts', 'choco']],
-    ['ساعت', ['watch']], ['موبایل', ['phone', 'headphones']], ['کفش', ['shoesWhite', 'shoesBlack']], ['اسباب', ['ball', 'balloon', 'skateboard']], ['عطاری', ['tea', 'vitamin']], ['لبنیات', ['doogh', 'water']], ['جایگاه', ['water', 'soda', 'chips', 'choco', 'sandwich', 'coffee']]];
+    ['ساعت', ['watch']], ['موبایل', ['phA05', 'phA06', 'phK42', 'phRN13', 'headphones']], ['کفش', ['shoesWhite', 'shoesBlack']], ['اسباب', ['ball', 'balloon', 'skateboard']], ['عطاری', ['tea', 'vitamin']], ['لبنیات', ['doogh', 'water']], ['جایگاه', ['water', 'soda', 'chips', 'choco', 'sandwich', 'coffee']]];
   for (const [k, v] of C) if (name.includes(k)) return v;
   return ['water', 'juice', 'chips', 'choco', 'umbrella'];
 }
@@ -2789,6 +2795,59 @@ function updateInterior(dt) {
     g.fillStyle = '#b3161b'; g.fillRect(0, 112, 256, 32); g.fillStyle = '#fff'; g.font = '18px Vazirmatn, Tahoma'; g.textBaseline = 'middle'; g.direction = 'rtl'; g.textAlign = 'left';
     const msg = TV_NEWS[Math.floor(T_ / 9) % TV_NEWS.length]; g.fillText(msg, ((T_ * 60) % 700) - 400, 128); tv.tex.needsUpdate = true; } }
 }
+/* ============================================================
+   Phones: eight real models with their real specs (sizes, chips, cameras),
+   a working Android phone on screen, a camera that photographs the game world
+   ============================================================ */
+// lens: k = key, z = zoom factor shown on the button, mm = 35 mm equivalent focal length, mp = megapixels,
+// f = aperture, ois, ll = how far you can crop from it with no visible loss (big sensors)
+const PHONES = {
+  a05: { name: 'Galaxy A05', fa: 'سامسونگ گلکسی A05', brand: 'samsung', ui: 'oneui', os: 'Android 13', uiv: 'One UI Core 5.1', year: 2023, code: 'SM-A055F',
+    disp: { inch: 6.7, type: 'PLS LCD', res: [720, 1600], hz: 60 }, dp: [360, 800], notch: 'drop', bez: [9, 12, 24], rad: 34, body: '#1d1f22', back: ['#2a2c30', '#1a1b1e'], camStyle: 'a0',
+    chip: 'MediaTek Helio G85 (۱۲ نانومتری)', cpu: '۸ هسته‌ای: ۲× ۲٫۰ گیگاهرتز Cortex-A75 + ۶× ۱٫۸ گیگاهرتز Cortex-A55', gpu: 'Mali-G52 MC2', ram: 4, rom: 64, bat: 5000, charge: 25, weight: 195, size: '۱۶۸٫۸ × ۷۸٫۲ × ۸٫۸ میلی‌متر', perf: 0.32,
+    rear: [{ k: 'main', z: 1, mm: 26, mp: 50, f: 'f/1.8', note: 'دوربین اصلی (واید)' }, { k: 'depth', mp: 2, f: 'f/2.4', note: 'سنسور عمق (برای پرتره، عکس جدا نمی‌گیرد)' }],
+    front: { mp: 8, f: 'f/2.0', mm: 26 }, maxZoom: 10, video: '۱۰۸۰p با ۳۰ فریم', night: false, q: 0.42, shot: 1600, extra: ['حسگر اثر انگشت کنار بدنه', 'جک ۳٫۵ میلی‌متری هدفون', 'حافظهٔ جانبی تا ۱ ترابایت'] },
+  a06: { name: 'Galaxy A06', fa: 'سامسونگ گلکسی A06', brand: 'samsung', ui: 'oneui', os: 'Android 14', uiv: 'One UI Core 6.1', year: 2024, code: 'SM-A065F',
+    disp: { inch: 6.7, type: 'PLS LCD', res: [720, 1600], hz: 60 }, dp: [360, 800], notch: 'drop', bez: [9, 12, 23], rad: 34, body: '#1f2a3a', back: ['#2b3a50', '#1b2534'], camStyle: 'a0',
+    chip: 'MediaTek Helio G85 (۱۲ نانومتری)', cpu: '۸ هسته‌ای: ۲× ۲٫۰ گیگاهرتز Cortex-A75 + ۶× ۱٫۸ گیگاهرتز Cortex-A55', gpu: 'Mali-G52 MC2', ram: 4, rom: 128, bat: 5000, charge: 25, weight: 189, size: '۱۶۷٫۳ × ۷۷٫۳ × ۸٫۰ میلی‌متر', perf: 0.34,
+    rear: [{ k: 'main', z: 1, mm: 26, mp: 50, f: 'f/1.8', note: 'دوربین اصلی (واید)' }, { k: 'depth', mp: 2, f: 'f/2.4', note: 'سنسور عمق' }],
+    front: { mp: 8, f: 'f/2.0', mm: 26 }, maxZoom: 10, video: '۱۰۸۰p با ۳۰ فریم', night: false, q: 0.46, shot: 1600, extra: ['حسگر اثر انگشت کنار بدنه', 'جک ۳٫۵ میلی‌متری هدفون', 'حافظهٔ جانبی تا ۱ ترابایت'] },
+  a07: { name: 'Galaxy A07', fa: 'سامسونگ گلکسی A07', brand: 'samsung', ui: 'oneui', os: 'Android 15', uiv: 'One UI 7', year: 2025, code: 'SM-A075F', approx: true,
+    disp: { inch: 6.7, type: 'PLS LCD', res: [720, 1600], hz: 90 }, dp: [360, 800], notch: 'drop', bez: [8, 11, 21], rad: 36, body: '#d9dde2', back: ['#e6e9ed', '#c9ced5'], camStyle: 'a0',
+    chip: 'MediaTek Helio G99 (۶ نانومتری)', cpu: '۸ هسته‌ای: ۲× ۲٫۲ گیگاهرتز Cortex-A76 + ۶× ۲٫۰ گیگاهرتز Cortex-A55', gpu: 'Mali-G57 MC2', ram: 4, rom: 128, bat: 5000, charge: 25, weight: 184, size: '۱۶۷٫۴ × ۷۷٫۴ × ۷٫۶ میلی‌متر', perf: 0.48,
+    rear: [{ k: 'main', z: 1, mm: 26, mp: 50, f: 'f/1.8', note: 'دوربین اصلی (واید)' }, { k: 'depth', mp: 2, f: 'f/2.4', note: 'سنسور عمق' }],
+    front: { mp: 8, f: 'f/2.0', mm: 26 }, maxZoom: 10, video: '۱۰۸۰p با ۳۰ فریم', night: false, q: 0.52, shot: 1600, extra: ['مقاوم در برابر آب و گرد و غبار IP54', 'نمایشگر ۹۰ هرتز', '۶ سال به‌روزرسانی اندروید (طبق اعلام سامسونگ)'] },
+  s24u: { name: 'Galaxy S24 Ultra', fa: 'سامسونگ گلکسی S24 اولترا', brand: 'samsung', ui: 'oneui', os: 'Android 14', uiv: 'One UI 6.1', year: 2024, code: 'SM-S928B',
+    disp: { inch: 6.8, type: 'Dynamic AMOLED 2X', res: [1440, 3120], hz: 120 }, dp: [412, 892], notch: 'punch', bez: [6, 7, 7], rad: 20, body: '#3a3934', back: ['#4b4a44', '#2c2b27'], camStyle: 's24u',
+    chip: 'Snapdragon 8 Gen 3 for Galaxy (۴ نانومتری)', cpu: '۸ هسته‌ای: ۱× ۳٫۳۹ گیگاهرتز Cortex-X4 + ۳× ۳٫۱ + ۲× ۲٫۹ + ۲× ۲٫۲ گیگاهرتز', gpu: 'Adreno 750', ram: 12, rom: 256, bat: 5000, charge: 45, weight: 232, size: '۱۶۲٫۳ × ۷۹٫۰ × ۸٫۶ میلی‌متر', perf: 1,
+    rear: [{ k: 'uw', z: 0.6, mm: 13, mp: 12, f: 'f/2.2', note: 'فوق عریض ۱۲۰ درجه' }, { k: 'main', z: 1, mm: 23, mp: 200, f: 'f/1.7', ois: true, ll: 2, note: 'دوربین اصلی ۲۰۰ مگاپیکسلی (زوم ۲ برابر بدون افت)' },
+      { k: 'tele3', z: 3, mm: 67, mp: 10, f: 'f/2.4', ois: true, note: 'تله‌فوتو ۳ برابر' }, { k: 'tele5', z: 5, mm: 111, mp: 50, f: 'f/3.4', ois: true, ll: 2, note: 'پریسکوپ ۵ برابر (۱۰ برابر با کیفیت اپتیکال)' }],
+    front: { mp: 12, f: 'f/2.2', mm: 26 }, maxZoom: 100, video: '8K با ۳۰ فریم · 4K با ۱۲۰ فریم', night: true, q: 1, shot: 3264, extra: ['قلم S Pen داخل بدنه', 'بدنهٔ تیتانیومی', 'مقاوم در برابر آب IP68', 'Space Zoom تا ۱۰۰ برابر', 'Galaxy AI'] },
+  s21fe: { name: 'Galaxy S21 FE 5G', fa: 'سامسونگ گلکسی S21 FE', brand: 'samsung', ui: 'oneui', os: 'Android 12', uiv: 'One UI 4.0', year: 2022, code: 'SM-G990B',
+    disp: { inch: 6.4, type: 'Dynamic AMOLED 2X', res: [1080, 2340], hz: 120 }, dp: [412, 892], notch: 'punch', bez: [7, 9, 10], rad: 32, body: '#5b4f7a', back: ['#8a7bb0', '#6a5c90'], camStyle: 's21fe',
+    chip: 'Exynos 2100 یا Snapdragon 888 (بسته به منطقهٔ فروش، ۵ نانومتری)', cpu: '۸ هسته‌ای تا ۲٫۹ گیگاهرتز', gpu: 'Mali-G78 MP14 / Adreno 660', ram: 6, rom: 128, bat: 4500, charge: 25, weight: 177, size: '۱۵۵٫۷ × ۷۴٫۵ × ۷٫۹ میلی‌متر', perf: 0.82,
+    rear: [{ k: 'uw', z: 0.6, mm: 13, mp: 12, f: 'f/2.2', note: 'فوق عریض ۱۲۳ درجه' }, { k: 'main', z: 1, mm: 26, mp: 12, f: 'f/1.8', ois: true, note: 'دوربین اصلی' }, { k: 'tele3', z: 3, mm: 76, mp: 8, f: 'f/2.4', ois: true, note: 'تله‌فوتو ۳ برابر' }],
+    front: { mp: 32, f: 'f/2.2', mm: 26 }, maxZoom: 30, video: '4K با ۶۰ فریم', night: true, q: 0.82, shot: 2400, extra: ['مقاوم در برابر آب IP68', 'Space Zoom تا ۳۰ برابر', 'شارژ بی‌سیم'] },
+  lgk42: { name: 'LG K42', fa: 'ال‌جی K42', brand: 'lg', ui: 'lg', os: 'Android 10', uiv: 'LG UX 9', year: 2020, code: 'LM-K420', approx: true,
+    disp: { inch: 6.6, type: 'IPS LCD', res: [720, 1600], hz: 60 }, dp: [360, 800], notch: 'punchL', bez: [9, 11, 22], rad: 30, body: '#2c4a3a', back: ['#3d6650', '#24402f'], camStyle: 'lg',
+    chip: 'MediaTek Helio P22 (۱۲ نانومتری)', cpu: '۸ هسته‌ای ۲٫۰ گیگاهرتز Cortex-A53', gpu: 'PowerVR GE8320', ram: 3, rom: 64, bat: 4000, charge: 10, weight: 182, size: '۱۶۵٫۰ × ۷۶٫۷ × ۸٫۴ میلی‌متر', perf: 0.2,
+    rear: [{ k: 'uw', z: 0.6, mm: 14, mp: 5, f: 'f/2.2', note: 'فوق عریض ۱۱۵ درجه' }, { k: 'main', z: 1, mm: 27, mp: 13, f: 'f/2.2', note: 'دوربین اصلی' }, { k: 'macro', mp: 2, f: 'f/2.4', note: 'ماکرو' }, { k: 'depth', mp: 2, f: 'f/2.4', note: 'سنسور عمق' }],
+    front: { mp: 8, f: 'f/2.0', mm: 26 }, maxZoom: 8, video: '۱۰۸۰p با ۳۰ فریم', night: false, q: 0.3, shot: 1280, extra: ['استاندارد نظامی MIL-STD-810G', 'دکمهٔ دستیار گوگل', 'جک ۳٫۵ میلی‌متری'] },
+  rn13: { name: 'Redmi Note 13', fa: 'شیائومی ردمی نوت ۱۳', brand: 'xiaomi', ui: 'miui', os: 'Android 13', uiv: 'MIUI 14', year: 2024, code: '23129RAA4G',
+    disp: { inch: 6.67, type: 'AMOLED', res: [1080, 2400], hz: 120 }, dp: [393, 873], notch: 'punch', bez: [6, 8, 11], rad: 34, body: '#1e2a2a', back: ['#7fb8a8', '#4f8a7a'], camStyle: 'rn',
+    chip: 'Snapdragon 685 (۶ نانومتری)', cpu: '۸ هسته‌ای: ۴× ۲٫۸ گیگاهرتز Cortex-A73 + ۴× ۱٫۹ گیگاهرتز Cortex-A53', gpu: 'Adreno 610', ram: 8, rom: 256, bat: 5000, charge: 33, weight: 188, size: '۱۶۲٫۲ × ۷۵٫۴ × ۸٫۰ میلی‌متر', perf: 0.5,
+    rear: [{ k: 'uw', z: 0.6, mm: 15, mp: 8, f: 'f/2.2', note: 'فوق عریض ۱۲۰ درجه' }, { k: 'main', z: 1, mm: 25, mp: 108, f: 'f/1.75', ll: 1.5, note: 'دوربین اصلی ۱۰۸ مگاپیکسلی' }, { k: 'macro', mp: 2, f: 'f/2.4', note: 'ماکرو' }],
+    front: { mp: 16, f: 'f/2.4', mm: 26 }, maxZoom: 10, video: '۱۰۸۰p با ۳۰ فریم', night: true, q: 0.62, shot: 2048, extra: ['اثر انگشت زیر صفحه', 'فرستندهٔ مادون قرمز (کنترل تلویزیون)', 'شارژ ۳۳ وات'] },
+  phone: { name: 'Galaxy A55 5G', fa: 'سامسونگ گلکسی A55', brand: 'samsung', ui: 'oneui', os: 'Android 14', uiv: 'One UI 6.1', year: 2024, code: 'SM-A556E',
+    disp: { inch: 6.6, type: 'Super AMOLED', res: [1080, 2340], hz: 120 }, dp: [412, 892], notch: 'punch', bez: [8, 10, 12], rad: 34, body: '#20232a', back: ['#3a5a8a', '#25406a'], camStyle: 'a55',
+    chip: 'Exynos 1480 (۴ نانومتری)', cpu: '۸ هسته‌ای: ۴× ۲٫۷۵ گیگاهرتز Cortex-A78 + ۴× ۲٫۰ گیگاهرتز Cortex-A55', gpu: 'Xclipse 530', ram: 8, rom: 128, bat: 5000, charge: 25, weight: 213, size: '۱۶۱٫۱ × ۷۷٫۴ × ۸٫۲ میلی‌متر', perf: 0.66,
+    rear: [{ k: 'uw', z: 0.6, mm: 13, mp: 12, f: 'f/2.2', note: 'فوق عریض ۱۲۳ درجه' }, { k: 'main', z: 1, mm: 26, mp: 50, f: 'f/1.8', ois: true, note: 'دوربین اصلی' }, { k: 'macro', mp: 5, f: 'f/2.4', note: 'ماکرو' }],
+    front: { mp: 32, f: 'f/2.2', mm: 26 }, maxZoom: 10, video: '4K با ۳۰ فریم', night: true, q: 0.74, shot: 2400, extra: ['مقاوم در برابر آب IP67', 'بدنهٔ آلومینیومی و شیشهٔ گوریلا ویکتوس+', 'تراشهٔ امنیتی Knox Vault'] }
+};
+const PHONE_PRICE = { a05: 10000000, a06: 25000000, a07: 45000000, s24u: 59000000, s21fe: 40000000, lgk42: 10000000, rn13: 22000000, phone: 38000000 };
+const PHONE_ITEM = { a05: 'phA05', a06: 'phA06', a07: 'phA07', s24u: 'phS24U', s21fe: 'phS21FE', lgk42: 'phK42', rn13: 'phRN13', phone: 'phone' };
+const PHONE_OF = {}; for (const k in PHONE_ITEM) PHONE_OF[PHONE_ITEM[k]] = k;
+
 /* ============================================================
    Things you can buy, carry, wear and use
    ============================================================ */
@@ -2849,6 +2908,24 @@ const ITEMS = {
   flashlight: { n: 'چراغ‌قوه', p: 750000, cat: 'hold', model: 'flashlight', col: '#2a2a2a' },
   perfume: { n: 'ادکلن', p: 4200000, cat: 'hold', model: 'perfume', col: '#d9b0e8' }
 };
+// phones in the shop list, priced as asked; the old generic phone is now a Galaxy A55
+for (const k in PHONES) { const S = PHONES[k]; ITEMS[PHONE_ITEM[k]] = { n: S.fa, p: PHONE_PRICE[k], cat: 'hold', model: 'phone', col: S.back[0], ph: k }; }
+function phSpecLine(k) { const S = PHONES[k]; return `${fa(S.disp.inch)} اینچ ${fa(S.disp.hz)}Hz · ${fa(S.ram)}/${fa(S.rom)} گیگ · دوربین ${fa(Math.max(...S.rear.map(l => l.mp)))}MP · ${S.os}`; }
+// each model looks like itself: size, colour and its own camera layout on the back
+function phoneParts(k) {
+  const S = PHONES[k] || PHONES.phone, h = S.disp.inch * 0.0246, w = h * (S.dp[0] / S.dp[1]) * 1.04, d = 0.0084, B = (a, b, c) => new THREE.BoxGeometry(a, b, c);
+  const L = (r, x, y, ring = '#2a2a2e') => [[new THREE.CylinderGeometry(r, r, 0.0022, shelfLod ? 8 : 16), x, y, -d / 2 - 0.0011, ring, 'metal', Math.PI / 2], [new THREE.CylinderGeometry(r * 0.62, r * 0.62, 0.0026, shelfLod ? 6 : 14), x, y, -d / 2 - 0.0013, '#05070a', 'glossy', Math.PI / 2]];
+  const out = [[B(w, h, d), 0, h / 2, 0, S.back[0], 'glossy'], [B(w - 0.004, h - 0.004, 0.0012), 0, h / 2, d / 2 + 0.0004, '#0a0d14', 'screen']];
+  const top = h - 0.014, lx = w / 2 - 0.014;
+  if (S.camStyle === 's24u') { out.push(...L(0.0062, lx, top), ...L(0.0062, lx, top - 0.017), ...L(0.0062, lx, top - 0.034), ...L(0.0032, lx - 0.012, top - 0.004, '#1a1a1a'), ...L(0.0032, lx - 0.012, top - 0.024, '#1a1a1a')); }
+  else if (S.camStyle === 's21fe') { out.push([B(0.024, 0.048, 0.0016), lx - 0.002, top - 0.017, -d / 2 - 0.0008, S.body, 'metal'], ...L(0.0058, lx - 0.002, top), ...L(0.0058, lx - 0.002, top - 0.016), ...L(0.0045, lx - 0.002, top - 0.032)); }
+  else if (S.camStyle === 'lg') { out.push([B(0.03, 0.03, 0.0016), lx - 0.004, top - 0.008, -d / 2 - 0.0008, '#1c1f22', 'glossy'], ...L(0.005, lx - 0.011, top - 0.001), ...L(0.005, lx + 0.003, top - 0.001), ...L(0.0035, lx - 0.011, top - 0.016), ...L(0.0035, lx + 0.003, top - 0.016)); }
+  else if (S.camStyle === 'rn') { out.push([B(0.026, 0.044, 0.0016), lx - 0.003, top - 0.014, -d / 2 - 0.0008, '#20282a', 'glossy'], ...L(0.0068, lx - 0.003, top - 0.002), ...L(0.0052, lx - 0.003, top - 0.019), ...L(0.0026, lx - 0.003, top - 0.032)); }
+  else if (S.camStyle === 'a55') { out.push(...L(0.0056, lx, top), ...L(0.0056, lx, top - 0.016), ...L(0.0045, lx, top - 0.031)); }
+  else { out.push(...L(0.006, lx, top), ...L(0.0042, lx, top - 0.017)); }
+  out.push([B(0.0012, 0.022, 0.003), w / 2 + 0.0006, h * 0.66, 0, '#9aa0a6', 'metal']); // side keys
+  return out;
+}
 const fmtT = n => Math.round(n).toLocaleString('fa-IR') + ' تومان';
 const EAT_LINES = { food: ['به به! چه خوشمزه‌ست!', 'آخیش، سیر شدم!', 'عالی بود!', 'دستش درد نکنه!'], drink: ['آخیش، چسبید!', 'به به! خنک شدم!', 'چه می‌چسبه!'] };
 // geometry for an item: used for shop shelves (batched) and for the thing in your hand
@@ -2877,7 +2954,7 @@ function itemParts(id) {
     case 'watch': return [[new THREE.TorusGeometry(0.04, 0.008, 6, 16), 0, 0.04, 0, '#2a2a2a'], [Cy(0.022, 0.022, 0.012, 16), 0, 0.04, 0.04, c, 'metal', Math.PI / 2]];
     case 'backpack': return [[B(0.32, 0.42, 0.16), 0, 0.21, 0, c], [B(0.26, 0.18, 0.06), 0, 0.14, 0.1, darkHex(c)], [B(0.04, 0.4, 0.02), -0.1, 0.22, -0.09, '#1a1a1a'], [B(0.04, 0.4, 0.02), 0.1, 0.22, -0.09, '#1a1a1a']];
     case 'headphones': return [[new THREE.TorusGeometry(0.11, 0.012, 6, 20, Math.PI), 0, 0.02, 0, c], [Cy(0.045, 0.045, 0.035, 14), -0.11, 0.0, 0, '#202020', '', 0, 0, Math.PI / 2], [Cy(0.045, 0.045, 0.035, 14), 0.11, 0.0, 0, '#202020', '', 0, 0, Math.PI / 2]];
-    case 'phone': return [[B(0.075, 0.15, 0.009), 0, 0.075, 0, c, 'glossy'], [B(0.068, 0.138, 0.002), 0, 0.075, 0.0055, '#3a7ad8', 'screen']];
+    case 'phone': return phoneParts(it.ph || 'phone');
     case 'umbrella': return [[Cy(0.045, 0.02, 0.62, 8), 0, 0.38, 0, c], [Cy(0.008, 0.008, 0.86, 6), 0, 0.43, 0, '#333333', 'metal'], [new THREE.TorusGeometry(0.04, 0.009, 6, 10, Math.PI), 0.04, 0.0, 0, '#3a2a1a']];
     case 'flowers': return [[new THREE.ConeGeometry(0.09, 0.32, 10, 1, true), 0, 0.12, 0, '#f4ece0', 'flipY'], [S(0.04), 0, 0.31, 0, c], [S(0.035), 0.05, 0.29, 0.02, c], [S(0.035), -0.05, 0.29, -0.01, c], [S(0.034), 0.01, 0.3, 0.05, c], [S(0.034), -0.02, 0.29, -0.05, c], [S(0.05, 6, 4), 0, 0.26, 0, '#3f7a2a', 'flat']];
     case 'ball': return [[new THREE.IcosahedronGeometry(0.11, 1), 0, 0.11, 0, c, 'flat'], [new THREE.IcosahedronGeometry(0.112, 0), 0, 0.11, 0, '#1a1a1a', 'wire']];
@@ -2934,10 +3011,12 @@ function payAt(shop, clerk) {
   const total = items.reduce((s, c) => s + ITEMS[c.id].p, 0);
   if (store.money < total) { if (clerk) say(clerk, 'ببخشید، موجودی کارتت کافی نیست!', 2.6); Audio.alarm(0.4); return; }
   store.money -= total; store.cart = store.cart.filter(c => c.shop !== shop);
+  { const S = mall.shops.find(q => q.id === shop), nm = S ? S.name : interior.door && interior.door.name || 'فروشگاه'; setTimeout(() => phoneSms('بانک', `خرید از «${nm}»: ${fmtT(total)}\nمانده: ${fmtT(store.money)}`), 1500); }
+  const newPhone = items.find(c => ITEMS[c.id].model === 'phone');
   for (const c of items) addInv(c.id);
   Audio.beepPay(items.length);
   if (clerk) { say(clerk, mpick(['ممنون از خریدتون! مبارکه!', 'بفرمایید، رسیدتون. باز هم تشریف بیارید!', 'نوش جان! خوش اومدید.', 'کارتتون رو بکشید... تأیید شد. ممنون!']), 3); clerk.anim.talkT = 1.5; }
-  banner('خرید انجام شد', `${fa(items.length)} قلم · ${fmtT(total)} — از «کیف» استفاده کن`);
+  banner('خرید انجام شد', newPhone ? `${ITEMS[newPhone.id].n} مال توئه! دکمهٔ «گوشی» بالای صفحه یا کلید P` : `${fa(items.length)} قلم · ${fmtT(total)} — از «کیف» استفاده کن`);
   logEvent(`یکی ${items.map(c => ITEMS[c.id].n).join('، ')} خرید.`); store.stats.buys = (store.stats.buys || 0) + 1;
   updateWalletHUD(); saveGame();
 }
@@ -3024,9 +3103,9 @@ function updateAttachments() {
   }
   // flashlight beam
   if (flashLight) { flashLight.intensity = 0; flashIn.intensity = 0; }
-  if (hid === 'flashlight' && P.flashOn && flashLight) {
+  if (((hid === 'flashlight' && P.flashOn) || (phone.torch && phone.open && hid && ITEMS[hid].model === 'phone')) && flashLight) {
     const fl = P.where === 'in' ? flashIn : flashLight;
-    fl.intensity = 60; _ap.setFromMatrixPosition(attach.held.matrix); fl.position.copy(_ap);
+    fl.intensity = hid === 'flashlight' ? 60 : 36; _ap.setFromMatrixPosition(attach.held.matrix); fl.position.copy(_ap);
     const f = cam.fpOn ? cam.yaw : P.facing, pt = cam.fpOn ? cam.fpPitch : 0.25;
     fl.target.position.set(_ap.x + Math.sin(f) * Math.cos(pt) * 5, _ap.y - Math.sin(pt) * 5, _ap.z + Math.cos(f) * Math.cos(pt) * 5); fl.target.updateMatrixWorld();
   }
@@ -3051,7 +3130,7 @@ function hold(id) {
 function useHeld() {
   const id = store.held, P = player; if (!id) return;
   const m = ITEMS[id].model;
-  if (m === 'phone') takePhoto();
+  if (m === 'phone') { if (phone.open) phoneClose(); else phoneOpen(id); }
   else if (m === 'book') { if (P.state === 'foot') startUse('read', P.pos.x, P.pos.y, P.pos.z, P.facing, null, null); say(P, mpick(['«الا یا ایها الساقی، ادر کأساً و ناولها...»', 'چه کتاب خوبیه!', 'یه فصل دیگه بخونم...']), 3); }
   else if (m === 'flashlight') { P.flashOn = !P.flashOn; Audio.tick(); }
   else if (m === 'ball') { dropBall(); }
@@ -3065,7 +3144,7 @@ function useHeld() {
 function useLabel() {
   const id = store.held; if (!id) return '';
   const m = ITEMS[id].model, P = player;
-  return { phone: 'عکس بگیر', book: 'بخون', flashlight: P.flashOn ? 'خاموش' : 'روشن', ball: 'شوت', balloon: 'ولش کن', skate: P.skate ? 'پیاده شو' : 'اسکیت', perfume: 'بزن', umbrella: P.umbOpen ? 'ببند' : 'باز کن', flowers: 'هدیه بده' }[m] || '';
+  return { phone: phone.open ? 'بستن گوشی' : 'گوشی', book: 'بخون', flashlight: P.flashOn ? 'خاموش' : 'روشن', ball: 'شوت', balloon: 'ولش کن', skate: P.skate ? 'پیاده شو' : 'اسکیت', perfume: 'بزن', umbrella: P.umbOpen ? 'ببند' : 'باز کن', flowers: 'هدیه بده' }[m] || '';
 }
 function updateUseBtn() { const l = useLabel(); const b = $('b-use'); if (b) { b.hidden = !l || !touchUI; b.textContent = l || ''; } }
 function giveFlowers(n) {
@@ -3075,15 +3154,8 @@ function giveFlowers(n) {
   else say(n, mpick(['وای! برای منه؟ مرسی!', 'چه قشنگه! ممنونم!', 'خیلی لطف کردی!']), 3);
   setSpecial(n, 'laugh', 1.6); logEvent(`یکی به ${pp.name} گل هدیه داد!`); updateUseBtn(); saveGame();
 }
-/* phone camera: a real screenshot of the game */
+/* photos from the phone camera (also listed in the bag) */
 const photos = [];
-function takePhoto() {
-  render();
-  let url = null; try { url = renderer.domElement.toDataURL('image/jpeg', 0.85); } catch (_) { }
-  const f = $('flash'); f.style.transition = 'none'; f.style.opacity = '0.9'; requestAnimationFrame(() => { f.style.transition = 'opacity .5s'; f.style.opacity = '0'; });
-  Audio.shutter(); if (url) { photos.unshift(url); if (photos.length > 8) photos.pop(); }
-  toast('عکس گرفته شد — از «کیف» می‌تونی ذخیره‌اش کنی');
-}
 /* skateboard */
 let skateMesh = null;
 function startSkate() { const P = player; if (P.state !== 'foot' || P.where !== 'out') { say(P, 'اینجا نمی‌شه اسکیت سواری کرد!', 2); return; } P.skate = true; P.skateV = Math.hypot(P.vel.x, P.vel.z); Audio.cloth(); say(P, 'بزن بریم!', 1.5); }
@@ -3161,7 +3233,7 @@ function updateWalletHUD() {
   const t = fmtT(store.money); if (t !== walletShown) { walletShown = t; $('money').textContent = t; }
   const nc = store.cart.length; $('cart').hidden = !nc; if (nc) $('cart').textContent = `سبد: ${fa(nc)} قلم · ${fmtT(store.cart.reduce((s, c) => s + ITEMS[c.id].p, 0))}`;
   const e = $('energy-bar'); if (e) { e.style.width = store.energy + '%'; e.style.background = store.energy > 40 ? 'var(--teal)' : store.energy > 15 ? 'var(--amber)' : 'var(--red)'; }
-  const cnt = Object.values(store.inv).reduce((s, n) => s + n, 0); $('btn-bag').textContent = cnt ? `کیف (${fa(cnt)})` : 'کیف';
+  const cnt = Object.values(store.inv).reduce((s, n) => s + n, 0); $('btn-bag').textContent = cnt ? `کیف (${fa(cnt)})` : 'کیف'; $('btn-phone').hidden = !phOwned().length;
 }
 /* the bag panel */
 function toggleBag(force) {
@@ -3182,6 +3254,7 @@ function renderBag() {
     else if (it.cat === 'drink') btn('بنوش', () => { toggleBag(false); consume(id); });
     else if (it.cat === 'wear') btn(worn ? 'دربیار' : 'بپوش', () => wear(id));
     else btn(store.held === id ? 'بذار تو کیف' : 'دست بگیر', () => hold(id));
+    if (it.model === 'phone') btn('روشن کن', () => { toggleBag(false); phoneOpen(id); });
     list.appendChild(row);
   }
   const ph = $('bag-photos'); ph.textContent = '';
@@ -3417,7 +3490,7 @@ function buildMallShop(S) {
   { const [ax, az] = fw(F, -w / 2 + 0.1, -0.05), [bx, bz] = fw(F, w / 2 - 0.1, -d + 0.05); BT.add(S.type === 'cafe' || S.type === 'books' ? 'woodFloor' : 'mallFloor', quadUp(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), fy + 0.018, 2.5), 0, 0, 0, 0, flCol); }
   for (let lx = -w / 2 + 1.6; lx < w / 2 - 1; lx += 2.6) for (let lz = -1.8; lz > -d + 1; lz -= 2.4) sgn(lx, ceil - 0.03, lz, 1.0, 0.04, 1.0, 'mallLamp', 0xffffff);
   S.inside = []; S.spots = [];
-  const ctx = { F, w, d, fy, S, sgn, spot: (lx, lz, id, ly = 0.9) => { const [x, z] = fw(F, lx, lz); const sp = { x, y: fy, z, r: 1.15, item: id, shop: S.id, ly }; S.spots.push(sp); world.uses.push({ x, y: fy, z, r: 1.0, act: 'بردار', label: () => `${ITEMS[id].n} — <b>${fmtT(ITEMS[id].p)}</b> · ${touchUI ? '«بردار»' : '<b>E</b>'} بردار`, use: () => addToCart(id, S.id) }); },
+  const ctx = { F, w, d, fy, S, sgn, spot: (lx, lz, id, ly = 0.9) => { const [x, z] = fw(F, lx, lz); const sp = { x, y: fy, z, r: 1.15, item: id, shop: S.id, ly }; S.spots.push(sp); world.uses.push({ x, y: fy, z, r: 1.0, act: 'بردار', label: () => `${ITEMS[id].n} — <b>${fmtT(ITEMS[id].p)}</b>${ITEMS[id].ph ? ' · ' + phSpecLine(ITEMS[id].ph) : ''} · ${touchUI ? '«بردار»' : '<b>E</b>'} بردار`, use: () => addToCart(id, S.id) }); },
     node: (lx, lz, look) => { const [x, z] = fw(F, lx, lz); S.inside.push([x, z, look]); } };
   SHOP_BUILD[S.type](ctx);
   // cashier counter
@@ -3479,10 +3552,13 @@ const SHOP_BUILD = {
     node(-1.5, -3.9, null);
   },
   digital(c) {
-    const { F, w, d, sgn, spot, node } = c;
-    for (const [lx, lz] of [[-2.5, -3.2], [0.8, -3.2], [-2.5, -5.8]]) { sgn(lx, 0.45, lz, 1.8, 0.9, 0.9, 'mallTrim', 0xf4f4f4, true); for (let k = 0; k < 4; k++) shelfItem(F, lx - 0.6 + k * 0.4, c.fy + 0.92, lz, k % 2 ? 'headphones' : 'phone', -0.6, 1); spot(lx, lz + 0.9, 'phone'); spot(lx + 0.9, lz, 'headphones'); }
+    const { F, w, d, sgn, spot, node } = c, rows = [['s24u', 's21fe', 'phone', 'a07'], ['a06', 'rn13', 'a05', 'lgk42']];
+    rows.forEach((ks, r) => { const lz = r ? -6.0 : -3.4;
+      sgn(-1.4, 0.45, lz, 6.4, 0.9, 0.9, 'mallTrim', 0xf4f4f4, true); sgn(-1.4, 0.905, lz, 6.4, 0.012, 0.92, 'mallMetal', 0x2a2d33);
+      ks.forEach((k, i) => { const lx = -3.65 + i * 1.5; sgn(lx, 0.95, lz - 0.12, 0.34, 0.08, 0.26, 'mallMetal', 0x1a1c20); shelfItem(F, lx, c.fy + 0.99, lz - 0.1, PHONE_ITEM[k], 0, 2.2); sgn(lx, 0.93, lz + 0.3, 0.42, 0.04, 0.16, 'neon', { samsung: 0x3a7ad8, lg: 0xd83a5a, xiaomi: 0xff8a2a }[PHONES[k].brand]); spot(lx, lz + 0.85, PHONE_ITEM[k]); }); });
+    sgn(3.6, 0.55, -5.9, 0.9, 1.1, 0.7, 'mallTrim', 0xf4f4f4, true); for (let k = 0; k < 3; k++) shelfItem(F, 3.35 + k * 0.25, c.fy + 1.11, -5.9, 'headphones', -0.4, 1); spot(3.6, -5.05, 'headphones');
     for (let k = 0; k < 4; k++) { const lx = -w / 2 + 1.2 + k * 1.9; sgn(lx, 2.0, -d + 0.1, 1.7, 1.0, 0.06, 'neon', [0x3a7ad8, 0xd85a3a, 0x3ad87a, 0xd8c83a][k]); sgn(lx, 2.0, -d + 0.07, 1.8, 1.08, 0.04, 'trim', 0x111111); }
-    node(-0.8, -4.6, null);
+    node(-0.8, -4.7, null); node(2.4, -4.7, null);
   },
   shoes(c) {
     const { F, w, d, sgn, spot, node } = c, ids = ['shoesWhite', 'shoesBlack', 'shoesRed', 'shoesBlue'];
@@ -5891,6 +5967,1158 @@ function renderMissions() {
 }
 
 /* ============================================================
+   The phone UI and its apps
+   ============================================================ */
+/* ---------- the phone on screen: a real-size Android screen (in dp) scaled into a phone body ---------- */
+const phone = { open: false, id: null, k: null, S: null, st: null, full: false, app: null, appObj: null, locked: true, off: false, recents: [], el: null, body: null, scr: null, main: null, scale: 1,
+  torch: false, dl: {}, cam: { front: false, zoom: 1, pitch: -0.04, mode: 'photo', timer: 0, grid: false, busy: false }, rec: null, wentFull: false, sbT: 0, notes: [], tick: [] };
+const PH_IC = {
+  phone: ['#22b14c', '<path d="M7 10.6a13 13 0 0 0 6.4 6.4l2.1-2.1a1 1 0 0 1 1-.25 11 11 0 0 0 3.4.55 1 1 0 0 1 1 1v3.3a1 1 0 0 1-1 1A17 17 0 0 1 3 3.5a1 1 0 0 1 1-1h3.3a1 1 0 0 1 1 1c0 1.2.2 2.35.55 3.4a1 1 0 0 1-.25 1z" fill="#fff"/>'],
+  messages: ['#3d8bfd', '<path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4z" fill="#fff"/>'],
+  camera: ['#ef4f63', '<rect x="3" y="6.5" width="18" height="12.5" rx="3" fill="#fff"/><circle cx="12" cy="12.7" r="4" fill="#ef4f63"/><circle cx="12" cy="12.7" r="2.1" fill="#fff"/><rect x="8.5" y="4.3" width="7" height="3" rx="1" fill="#fff"/>'],
+  gallery: ['#e8466a', '<g fill="#fff"><circle cx="12" cy="7.4" r="3.3"/><circle cx="16.6" cy="12" r="3.3"/><circle cx="12" cy="16.6" r="3.3"/><circle cx="7.4" cy="12" r="3.3"/></g><circle cx="12" cy="12" r="2.4" fill="#e8466a"/>'],
+  settings: ['#6f7b8a', '<circle cx="12" cy="12" r="7.2" fill="none" stroke="#fff" stroke-width="3.2" stroke-dasharray="3.1 2.55"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="2" fill="#fff"/>'],
+  clock: ['#20262e', '<circle cx="12" cy="12" r="8.6" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 6.8V12l3.6 2.2" stroke="#7fd0ff" stroke-width="2" fill="none" stroke-linecap="round"/>'],
+  calc: ['#2fa35a', '<path d="M5 8h5M7.5 5.5v5M14 8h5M5.6 15.6l3.8 3.8M9.4 15.6l-3.8 3.8M14 15.6h5M14 19.2h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>'],
+  notes: ['#f39a1e', '<path d="M5 19.5l1.1-4.2L16.3 5.1l3.1 3.1L9.2 18.4z" fill="#fff"/><path d="M5 21h14" stroke="#fff" stroke-width="1.6"/>'],
+  maps: ['#ffffff', '<path d="M2 6l6-2 8 3 6-2v13l-6 2-8-3-6 2z" fill="#e8f0e4"/><path d="M8 4v15M16 7v15" stroke="#9ec98f" stroke-width="1.4"/><path d="M12 3a5 5 0 0 0-5 5c0 3.7 5 9.5 5 9.5s5-5.8 5-9.5a5 5 0 0 0-5-5z" fill="#ea4335"/><circle cx="12" cy="8" r="1.9" fill="#a3221a"/>'],
+  weather: ['#3a8be0', '<circle cx="9" cy="9" r="4" fill="#ffd23a"/><path d="M8.5 19h8.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.4 1.4A2.8 2.8 0 0 0 8.5 19z" fill="#fff"/>'],
+  youtube: ['#ffffff', '<rect x="2.5" y="6" width="19" height="12.5" rx="4" fill="#ff0033"/><path d="M10 9.2v6.1l5.2-3.05z" fill="#fff"/>'],
+  google: ['#ffffff', '<path d="M21.6 12.2c0-.7-.06-1.4-.18-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z" fill="#4285f4"/><path d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z" fill="#34a853"/><path d="M6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9z" fill="#fbbc05"/><path d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.7 9.4 5.9 12 5.9z" fill="#ea4335"/>'],
+  chrome: ['#ffffff', '<path d="M12 2a10 10 0 0 1 8.7 5H12a5 5 0 0 0-4.6 3L4 5.3A10 10 0 0 1 12 2z" fill="#ea4335"/><path d="M20.7 7A10 10 0 0 1 12 22l3.4-5.9A5 5 0 0 0 16.4 10l-.1-.1z" fill="#fbbc05"/><path d="M12 22A10 10 0 0 1 4 5.3L8 12a5 5 0 0 0 7.4 4.1z" fill="#34a853"/><circle cx="12" cy="12" r="4.3" fill="#fff"/><circle cx="12" cy="12" r="3.4" fill="#4285f4"/>'],
+  play: ['#ffffff', '<path d="M4.6 3.2l9.6 9.3-9.6 9.3a1.3 1.3 0 0 1-.6-1.1V4.3c0-.45.23-.85.6-1.1z" fill="#00c1ff"/><path d="M17.6 9.1l-3.4 3.4-9.6-9.3c.4-.25.9-.3 1.4-.05z" fill="#00e57a"/><path d="M14.2 12.5l3.4 3.4L6 22.85c-.5.25-1 .2-1.4-.05z" fill="#ff3a44"/><path d="M17.6 9.1l3.3 1.9c.9.55.9 1.85 0 2.4l-3.3 1.9-3.4-3.4z" fill="#ffd000"/>'],
+  gemini: ['#ffffff', '<defs><linearGradient id="phGm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset=".6" stop-color="#9168ff"/><stop offset="1" stop-color="#e070c8"/></linearGradient></defs><path d="M12 2c.6 5.4 4.6 9.4 10 10-5.4.6-9.4 4.6-10 10-.6-5.4-4.6-9.4-10-10 5.4-.6 9.4-4.6 10-10z" fill="url(#phGm)"/>'],
+  chatgpt: ['#0f0f10', '<g fill="none" stroke="#fff" stroke-width="1.7"><ellipse cx="12" cy="12" rx="8" ry="3.4"/><ellipse cx="12" cy="12" rx="8" ry="3.4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="8" ry="3.4" transform="rotate(120 12 12)"/></g>'],
+  wiki: ['#ffffff', '<text x="12" y="17" text-anchor="middle" font-family="Georgia,serif" font-size="15" fill="#111">W</text>'],
+  snake: ['#1f7a3a', '<path d="M5 17h8a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h9" stroke="#b6f55a" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="18.6" cy="5" r="1.2" fill="#ff4a4a"/>'],
+  g2048: ['#edc22e', '<text x="12" y="15.6" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="8.2" fill="#fff">2048</text>'],
+  flappy: ['#4ec0ca', '<ellipse cx="11" cy="12.5" rx="6.4" ry="5" fill="#f8d43a"/><circle cx="14" cy="10.5" r="2" fill="#fff"/><circle cx="14.6" cy="10.5" r=".9" fill="#111"/><path d="M16.6 12.6l3.4.9-3.3 1.2z" fill="#f2701e"/><ellipse cx="8.4" cy="13.2" rx="2.6" ry="1.6" fill="#fff8d0"/>'],
+  breakout: ['#26214a', '<g fill="#ff5a7a"><rect x="3" y="4" width="5" height="2.5" rx=".6"/><rect x="9.5" y="4" width="5" height="2.5" rx=".6"/><rect x="16" y="4" width="5" height="2.5" rx=".6"/></g><g fill="#ffb340"><rect x="6" y="7.8" width="5" height="2.5" rx=".6"/><rect x="12.5" y="7.8" width="5" height="2.5" rx=".6"/></g><circle cx="12" cy="14.5" r="1.5" fill="#fff"/><rect x="7.5" y="18.5" width="9" height="2" rx="1" fill="#7fd0ff"/>'],
+  dooz: ['#2b2f6b', '<path d="M9 4v16M15 4v16M4 9h16M4 15h16" stroke="#cdd3ff" stroke-width="1.6"/><path d="M5.2 5.2l2.6 2.6M7.8 5.2l-2.6 2.6" stroke="#ff6a6a" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="none" stroke="#7fd0ff" stroke-width="1.8"/>'],
+  mines: ['#5a6472', '<circle cx="12" cy="13" r="5.5" fill="#111"/><path d="M12 4.5v3M12 18.5v3M3.5 13h3M17.5 13h3M6 7l2 2M16 17l2 2M18 7l-2 2M6 19l2-2" stroke="#111" stroke-width="1.8"/><circle cx="10" cy="11" r="1.4" fill="#fff"/>']
+};
+const PH_APPS = {
+  phone: { n: 'تلفن' }, messages: { n: 'پیام‌ها' }, camera: { n: 'دوربین' }, gallery: { n: 'گالری' }, chrome: { n: 'Chrome' }, google: { n: 'Google' }, play: { n: 'Play Store' },
+  gemini: { n: 'Gemini', store: 1 }, chatgpt: { n: 'ChatGPT', store: 1 }, youtube: { n: 'YouTube' }, maps: { n: 'نقشه' }, weather: { n: 'هوا' }, clock: { n: 'ساعت' }, calc: { n: 'ماشین‌حساب' }, notes: { n: 'یادداشت' }, settings: { n: 'تنظیمات' }
+};
+const PH_DOCK = ['phone', 'messages', 'chrome', 'camera'], PH_HOME = ['google', 'gemini', 'chatgpt', 'play', 'gallery', 'youtube', 'maps', 'weather', 'clock', 'calc', 'notes', 'settings'];
+const PH_WALLS = {
+  oneui: ['linear-gradient(165deg,#0d1b4a 0%,#3b2a8a 45%,#c0508a 80%,#f2a07a 100%)', 'radial-gradient(120% 70% at 30% 20%,#2f7dd1 0%,#122a5a 55%,#060b1d 100%)', 'linear-gradient(180deg,#f6d0c4,#c9a0e8 55%,#6a7ae0)', 'linear-gradient(160deg,#0f3d2e,#1d7a5a 50%,#d6e8a0)'],
+  lg: ['radial-gradient(90% 60% at 70% 30%,#c8102e 0%,#5a0a1e 55%,#14060a 100%)', 'linear-gradient(170deg,#1a2a3a,#3a6a7a 60%,#a8d8d0)', 'linear-gradient(160deg,#2a2a2a,#6a6a6a)', 'linear-gradient(180deg,#ffd8a8,#ff8a6a 60%,#7a2a5a)'],
+  miui: ['linear-gradient(160deg,#0e2a3a,#1f6a7a 45%,#9fe0c8)', 'radial-gradient(110% 70% at 20% 10%,#ff9a3a,#d8406a 55%,#2a0e3a)', 'linear-gradient(180deg,#e8eef8,#a8c0f0 55%,#5a7ad8)', 'linear-gradient(160deg,#141414,#3a3a3a)']
+};
+const phEsc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function phIcon(id, size = 52) { const ic = PH_IC[id] || ['#888', '']; return `<span class="ph-ic" style="width:${size}px;height:${size}px;background:${ic[0]}"><svg viewBox="0 0 24 24" width="${Math.round(size * 0.62)}" height="${Math.round(size * 0.62)}">${ic[1]}</svg></span>`; }
+function phEl(tag, cls, html, parent) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; if (parent) parent.appendChild(e); return e; }
+function phOwned() { return Object.keys(store.inv).filter(i => PHONE_OF[i] !== undefined); }
+function phState(k) {
+  store.phones = store.phones || {};
+  const def = { bat: 78 + Math.floor(Math.random() * 18), apps: { gemini: 0, chatgpt: 0 }, wall: 0, dark: false, bright: 1, air: false, wifi: true, notes: [], sms: [{ f: 'اپراتور', t: 'به شبکهٔ تلفن همراه خوش آمدید! سیم‌کارت شما فعال شد.', at: Date.now() }], calls: [], hi: {}, setup: false, vol: 0.7, shots: 0 };
+  const s = store.phones[k] || (store.phones[k] = def);
+  for (const key in def) if (s[key] === undefined || s[key] === null) s[key] = def[key]; // older saves get the new fields
+  return s;
+}
+const phTime = () => { const h = Math.floor(tod), m = Math.floor((tod - h) * 60); return fa(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')); };
+const phDate = () => { try { return new Date().toLocaleDateString('fa-IR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (_) { return ''; } };
+const phOnline = () => !phone.st.air && phone.st.wifi && navigator.onLine !== false;
+function phBuild() {
+  if (phone.el) return;
+  const el = phEl('div', '', `
+<div class="ph-side"><button type="button" class="ph-sbtn" data-a="full">⛶ تمام‌صفحه</button><button type="button" class="ph-sbtn" data-a="shot">📷 دوربین</button><button type="button" class="ph-sbtn" data-a="close">✕ بذار تو جیبت</button></div>
+<div class="ph-body"><i class="ph-key ph-pwr" title="دکمهٔ پاور"></i><i class="ph-key ph-vup" title="صدا +"></i><i class="ph-key ph-vdn" title="صدا −"></i>
+ <div class="ph-scr">
+  <div class="ph-wall"></div>
+  <div class="ph-main"></div>
+  <div class="ph-sb"><span class="ph-sb-t"></span><span class="ph-sb-i"></span></div>
+  <div class="ph-cut"></div>
+  <div class="ph-nav"><button type="button" data-n="rec" aria-label="برنامه‌های اخیر"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 6v12M12 6v12M17 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" data-n="home" aria-label="خانه"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="5" y="5" width="14" height="14" rx="5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" data-n="back" aria-label="برگشت"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M14.5 5.5L8 12l6.5 6.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+  <div class="ph-shade" hidden></div>
+  <div class="ph-lock" hidden></div>
+  <div class="ph-note" hidden></div>
+  <div class="ph-volb" hidden><i></i></div>
+  <div class="ph-black" hidden></div>
+  <button type="button" class="ph-unfull" hidden aria-label="خروج از تمام‌صفحه">⤡</button>
+ </div>
+</div>`, document.body);
+  el.id = 'phone'; el.hidden = true; phone.el = el; phone.body = el.querySelector('.ph-body'); phone.scr = el.querySelector('.ph-scr'); phone.main = el.querySelector('.ph-main');
+  el.querySelector('.ph-side').addEventListener('click', e => { const a = e.target.closest('button')?.dataset.a; if (a === 'full') phFull(!phone.full); else if (a === 'close') phoneClose(); else if (a === 'shot') { phWake(); phUnlock(true); phLaunch('camera'); } });
+  el.querySelector('.ph-unfull').addEventListener('click', () => phFull(false));
+  el.querySelector('.ph-nav').addEventListener('click', e => { const n = e.target.closest('button')?.dataset.n; if (!n || phone.off) return; Audio.tick(); if (n === 'back') phBack(); else if (n === 'home') phHome(); else phRecents(); });
+  el.querySelector('.ph-pwr').addEventListener('click', () => { if (phone.off) { phWake(); } else phSleep(); });
+  el.querySelector('.ph-vup').addEventListener('click', () => phVol(0.1)); el.querySelector('.ph-vdn').addEventListener('click', () => phVol(-0.1));
+  el.querySelector('.ph-black').addEventListener('click', () => { if (phone.st.bat > 0) phWake(); else phNote('باتری تموم شده؛ گوشی رو تو ماشین یا خونه شارژ کن', 1); });
+  // pulling the status bar down opens the quick panel
+  const sb = el.querySelector('.ph-sb'); let sy = null;
+  sb.addEventListener('pointerdown', e => { sy = e.clientY; }); sb.addEventListener('pointerup', e => { if (sy !== null && !phone.locked) phShade(true); sy = null; });
+  for (const ev of ['pointerdown', 'wheel', 'contextmenu']) el.addEventListener(ev, e => { e.stopPropagation(); if (ev === 'contextmenu') e.preventDefault(); }, { passive: ev !== 'contextmenu' });
+  addEventListener('resize', () => { if (phone.open) phLayout(); });
+  document.addEventListener('fullscreenchange', () => { if (phone.open) setTimeout(phLayout, 60); });
+}
+function phLayout() {
+  const S = phone.S, [dw, dh] = S.dp, b = phone.body, s = phone.scr, vw = innerWidth, vh = innerHeight;
+  phone.el.classList.toggle('full', phone.full);
+  if (phone.full) {
+    const k = clamp(Math.min(vw, vh) / dw, 0.8, 3); phone.scale = k;
+    Object.assign(b.style, { width: vw + 'px', height: vh + 'px', borderWidth: '0', borderRadius: '0' });
+    Object.assign(s.style, { width: vw / k + 'px', height: vh / k + 'px', transform: `scale(${k})`, borderRadius: '0' });
+  } else {
+    const [bs, bt, bb] = S.bez, fw = dw + bs * 2, fh = dh + bt + bb, side = vw > 640 ? 170 : 8;
+    const k = Math.min((vh - (vw > 640 ? 24 : 70)) / fh, (vw - side - 24) / fw, 1.1); phone.scale = k;
+    Object.assign(b.style, { width: fw * k + 'px', height: fh * k + 'px', borderWidth: `${bt * k}px ${bs * k}px ${bb * k}px`, borderRadius: S.rad * k + 'px' }); b.style.setProperty('--bs', bs * k + 'px');
+    Object.assign(s.style, { width: dw + 'px', height: dh + 'px', transform: `scale(${k})`, borderRadius: Math.max(4, S.rad - bs) + 'px' });
+  }
+  s.classList.toggle('land', phone.full && vw > vh);
+  phone.el.querySelector('.ph-unfull').hidden = !phone.full;
+  if (phone.appObj && phone.appObj.layout) phone.appObj.layout();
+}
+function phFull(on) {
+  phone.full = on; phLayout();
+  try {
+    if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) { phone.wentFull = true; document.documentElement.requestFullscreen().catch(() => { phone.wentFull = false; }); }
+    if (!on && phone.wentFull && document.fullscreenElement && !IS_TOUCH) { phone.wentFull = false; document.exitFullscreen().catch(() => { }); }
+  } catch (_) { }
+}
+function phApplyLook() {
+  const S = phone.S, st = phone.st, s = phone.scr;
+  const keep = ['locked', 'in-app', 'cam-on', 'land'].filter(c => s.classList.contains(c));
+  s.className = 'ph-scr ui-' + S.ui + (st.dark ? ' dark' : '') + ' notch-' + S.notch; for (const c of keep) s.classList.add(c);
+  s.style.setProperty('--hz', S.disp.hz);
+  phone.body.style.borderColor = S.body; phone.body.style.background = 'transparent';
+  s.style.filter = st.bright < 0.99 ? `brightness(${0.35 + st.bright * 0.65})` : '';
+  phWallpaper();
+}
+function phWallpaper() {
+  const st = phone.st, w = phone.scr.querySelector('.ph-wall');
+  if (typeof st.wall === 'string') { PDB.get(st.wall).then(m => { if (m && m.blob) { if (phone.wallUrl) URL.revokeObjectURL(phone.wallUrl); phone.wallUrl = URL.createObjectURL(m.blob); w.style.background = `center/cover url(${phone.wallUrl})`; } else { st.wall = 0; phWallpaper(); } }); return; }
+  w.style.background = PH_WALLS[phone.S.ui][st.wall % 4];
+}
+/* ---------- opening, closing, sleep, lock ---------- */
+function phoneOpen(id) {
+  const P = player;
+  if (!id) id = store.held && PHONE_OF[store.held] !== undefined ? store.held : phone.id && store.inv[phone.id] ? phone.id : phOwned()[0];
+  if (!id || !store.inv[id]) { toast('گوشی نداری! از «دیجیتال پیام» در پاساژ آزادی (همکف) یکی بخر'); return false; }
+  if (P.state === 'car' && P.car && Math.abs(P.car.vf) > 1.5) { say(P, 'موقع رانندگی با گوشی کار نمی‌کنم! اول وایمیسم.', 2.6); return false; }
+  if (phone.open && phone.id === id) return true;
+  if (phone.open) phoneClose(true);
+  phBuild();
+  phone.id = id; phone.k = PHONE_OF[id]; phone.S = PHONES[phone.k]; phone.st = phState(phone.k); phone.recents = []; phone.cam.zoom = 1; phone.cam.front = false;
+  if (store.held !== id) { store.held = id; updateUseBtn(); }
+  phApplyLook(); phone.open = true; phone.el.hidden = false; keys.clear(); input.jx = input.jy = 0;
+  phone.full = false; phLayout();
+  if (phone.scale < 0.6) phFull(true);
+  phone.app = null; phone.appObj = null; phHomeScreen();
+  if (phone.st.bat <= 0) { phSleep(true); phNote('باتری تموم شده؛ تو ماشین یا خونه شارژ می‌شه', 1); }
+  else { phone.off = false; phone.el.querySelector('.ph-black').hidden = true; phLock(); }
+  phStatus(true); updateUseBtn(); Audio.tone(1568, 0, 0.06, 0.03); Audio.tone(2093, 0.07, 0.08, 0.03);
+  return true;
+}
+function phoneClose(silent) {
+  if (!phone.open) return;
+  phStopApp(); phShade(false); if (phone.rec) phRecStop(); if (phone.ring && phone.ring.ui) { phone.ring.ui.remove(); phone.ring.ui = null; }
+  phone.open = false; phone.el.hidden = true; phone.torch = false;
+  if (phone.full) phFull(false);
+  const P = player; if (['phoneUse', 'selfie', 'shoot'].includes(P.anim.special)) P.anim.special = null;
+  updateUseBtn(); if (!silent) Audio.cloth(); saveGame();
+}
+function phSleep(dead) {
+  phone.off = true; phStopApp(); phShade(false); phone.el.querySelector('.ph-black').hidden = false;
+  phone.el.querySelector('.ph-black').innerHTML = dead ? '<div class="ph-dead"><svg viewBox="0 0 24 24" width="64" height="64"><rect x="3" y="7" width="16" height="10" rx="2" fill="none" stroke="#e33" stroke-width="1.6"/><rect x="19.5" y="10" width="2" height="4" rx=".6" fill="#e33"/><rect x="5" y="9" width="1.6" height="6" fill="#e33"/></svg></div>' : '';
+  phone.locked = true; phone.app = null;
+}
+function phWake() { if (phone.st.bat <= 0) return; phone.off = false; phone.el.querySelector('.ph-black').hidden = true; phLock(); }
+function phLock() {
+  const L = phone.scr.querySelector('.ph-lock'); phone.locked = true; L.hidden = false; phone.scr.classList.add('locked');
+  L.innerHTML = `<div class="ph-lk-clock">${phTime()}</div><div class="ph-lk-date">${phDate()}</div><div class="ph-lk-n"></div><div class="ph-lk-hint"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="6" y="10" width="12" height="10" rx="2" fill="currentColor"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0" stroke="currentColor" stroke-width="1.8" fill="none"/></svg><span>برای باز کردن قفل، بکش بالا یا بزن</span></div>`;
+  const sms = phone.st.sms.filter(m => !m.read).length; if (sms) L.querySelector('.ph-lk-n').innerHTML = `<div class="ph-lk-card">${phIcon('messages', 22)} ${fa(sms)} پیام خوانده‌نشده</div>`;
+  if (!phone.st.setup) { phone.locked = false; L.hidden = true; phone.scr.classList.remove('locked'); phSetup(); return; }
+  let y0 = null; L.onpointerdown = e => { y0 = e.clientY; }; L.onpointerup = e => { if (y0 !== null) phUnlock(); y0 = null; };
+}
+function phUnlock(instant) {
+  const L = phone.scr.querySelector('.ph-lock'); phone.scr.classList.remove('locked'); if (L.hidden) return; phone.locked = false;
+  if (instant) { L.hidden = true; return; }
+  L.classList.add('go'); Audio.tone(1320, 0, 0.05, 0.02); setTimeout(() => { L.hidden = true; L.classList.remove('go'); }, 260);
+}
+// first boot of a new phone: the welcome screen
+function phSetup() {
+  const S = phone.S, v = phone.main; v.innerHTML = '';
+  const a = phEl('div', 'ph-app ph-setup', `<div class="ph-hello">${S.brand === 'lg' ? 'LG' : S.brand === 'xiaomi' ? 'Xiaomi' : 'Hi there'}</div><p>به گوشی جدیدت خوش اومدی!</p><p class="sub">${phEsc(S.name)} · ${S.os} · ${S.uiv}</p><button type="button" class="ph-pill">شروع ›</button>`, v);
+  a.querySelector('button').onclick = () => { phone.st.setup = true; Audio.arcade(); phHomeScreen(); phNote(`${S.fa} آماده‌ست. Gemini و ChatGPT هم نصبه!`); saveGame(); };
+}
+/* ---------- home screen ---------- */
+function phHomeScreen() {
+  phStopApp(); const v = phone.main, st = phone.st; v.innerHTML = ''; phone.app = null; phone.scr.classList.remove('in-app', 'cam-on');
+  const store_ = Object.keys(PH_STORE).filter(id => !PH_STORE[id].sys && st.apps[id] !== undefined);
+  const home = phEl('div', 'ph-home', `<div class="ph-wid"><div class="ph-wid-t">${phTime()}</div><div class="ph-wid-d">${phDate()} · ${phWeatherLine()}</div></div>
+   <div class="ph-gbar"><span>${phIcon('google', 26)}</span><span class="ph-gbar-t">جستجو در Google</span><svg viewBox="0 0 24 24" width="20" height="20"><rect x="9" y="3" width="6" height="11" rx="3" fill="#4285f4"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" stroke="#34a853" stroke-width="1.8" fill="none"/></svg></div>
+   <div class="ph-grid"></div><div class="ph-dock"></div>`, v);
+  home.querySelector('.ph-gbar').onclick = () => phLaunch('google');
+  const grid = home.querySelector('.ph-grid'), dock = home.querySelector('.ph-dock');
+  const ids = PH_HOME.filter(id => !PH_APPS[id].store || st.apps[id] !== undefined).concat(store_);
+  for (const id of ids) phAppBtn(id, grid, true);
+  for (const id of PH_DOCK) phAppBtn(id, dock, false);
+}
+function phAppName(id) { return PH_APPS[id] ? PH_APPS[id].n : PH_STORE[id] ? PH_STORE[id].n : id; }
+function phAppBtn(id, parent, label) {
+  const b = phEl('button', 'ph-appb', `${phIcon(id, phone.S.ui === 'lg' ? 50 : 52)}${label ? `<span>${phEsc(phAppName(id))}</span>` : ''}`, parent); b.type = 'button';
+  if (phone.dl[id]) b.classList.add('dl');
+  b.onclick = () => phLaunch(id);
+}
+function phWeatherLine() { const w = weather, t = phTemp(); return `${fa(t)}° ${w.snow > 0.3 ? 'برفی' : w.rain > 0.3 ? 'بارانی' : w.cloud > 0.6 ? 'ابری' : 'آفتابی'}`; }
+function phTemp() { const day = Math.sin((tod - 9) / 24 * Math.PI * 2) * 6; return Math.round((weather.snow > 0.2 ? -2 : weather.rain > 0.3 ? 14 : 24) + day - weather.cloud * 3); }
+/* ---------- apps ---------- */
+function phLaunch(id) {
+  if (phone.off || !phone.open) return;
+  if (phone.locked) phUnlock(true);
+  phShade(false);
+  if (PH_STORE[id] && phone.st.apps[id] === undefined) { phone.pendingDetail = id; phLaunch('play'); return; }
+  phStopApp(); phone.app = id; phone.recents = [id, ...phone.recents.filter(r => r !== id)].slice(0, 6);
+  const v = phone.main; v.innerHTML = ''; phone.scr.classList.add('in-app');
+  // cheap phones open apps slower, like the real ones
+  const ms = Math.round(90 + (1 - phone.S.perf) * 520);
+  const sp = phEl('div', 'ph-splash', phIcon(id, 74), v);
+  const run = () => {
+    if (phone.app !== id) return; sp.remove();
+    const box = phEl('div', 'ph-app opening' + (phone.st.dark ? ' dark' : ''), '', v);
+    setTimeout(() => box.classList.remove('opening'), 260);
+    const runner = PH_RUN[id] || (PH_GAMES[id] && (b => phGameApp(id, b)));
+    try { phone.appObj = runner ? runner(box) || {} : {}; } catch (e) { console.error(e); box.innerHTML = '<p class="ph-pad">این برنامه متوقف شد.</p>'; phone.appObj = {}; }
+  };
+  phone.launchT = setTimeout(run, ms);
+}
+function phStopApp() { clearTimeout(phone.launchT); if (phone.appObj && phone.appObj.stop) { try { phone.appObj.stop(); } catch (e) { console.error(e); } } phone.appObj = null; phone.scr && phone.scr.classList.remove('cam-on'); }
+function phBack() {
+  if (!phone.scr.querySelector('.ph-shade').hidden) { phShade(false); return; }
+  const ov = phone.main.querySelector('.ph-recents'); if (ov) { ov.remove(); return; }
+  if (phone.locked) return;
+  if (phone.appObj && phone.appObj.back && phone.appObj.back()) return;
+  if (phone.app) phHomeScreen();
+}
+function phHome() { if (phone.locked) { phUnlock(); return; } phShade(false); phHomeScreen(); }
+function phRecents() {
+  if (phone.locked) return; phShade(false);
+  const ov = phone.main.querySelector('.ph-recents'); if (ov) { ov.remove(); return; }
+  const r = phEl('div', 'ph-recents', `<div class="ph-rc-list"></div><button type="button" class="ph-pill">بستن همه</button>`, phone.main);
+  const L = r.querySelector('.ph-rc-list');
+  if (!phone.recents.length) L.innerHTML = '<p class="ph-rc-empty">هیچ برنامهٔ اخیری نیست</p>';
+  for (const id of phone.recents) { const c = phEl('button', 'ph-rc', `${phIcon(id, 30)}<b>${phEsc(phAppName(id))}</b>`, L); c.type = 'button'; c.onclick = () => phLaunch(id); }
+  r.querySelector('.ph-pill').onclick = () => { phone.recents = []; phHomeScreen(); };
+}
+/* ---------- quick panel, volume, notifications ---------- */
+function phShade(on) {
+  const sh = phone.scr && phone.scr.querySelector('.ph-shade'); if (!sh) return; sh.hidden = !on; if (!on) return;
+  const st = phone.st, tg = (k, ic, n, on_) => `<button type="button" class="ph-qt${on_ ? ' on' : ''}" data-q="${k}"><span>${ic}</span><small>${n}</small></button>`;
+  sh.innerHTML = `<div class="ph-qs-top"><b>${phTime()}</b><small>${phDate()}</small></div><div class="ph-qs">
+  ${tg('wifi', '📶', 'Wi-Fi', st.wifi && !st.air)}${tg('air', '✈', 'حالت پرواز', st.air)}${tg('torch', '🔦', 'چراغ‌قوه', phone.torch)}${tg('dark', '🌙', 'حالت تاریک', st.dark)}${tg('snd', '🔊', 'صدا', Audio.on)}${tg('rot', '⛶', 'تمام‌صفحه', phone.full)}</div>
+  <label class="ph-br">☀<input type="range" min="0" max="100" value="${Math.round(st.bright * 100)}"></label>
+  <div class="ph-qs-bat">باتری ${fa(Math.round(st.bat))}٪ ${phCharging() ? '· در حال شارژ ⚡' : ''}</div><button type="button" class="ph-qs-x">بستن</button>`;
+  sh.querySelector('.ph-qs').onclick = e => {
+    const q = e.target.closest('button')?.dataset.q; if (!q) return; Audio.tick();
+    if (q === 'wifi') st.wifi = !st.wifi; else if (q === 'air') st.air = !st.air; else if (q === 'torch') phone.torch = !phone.torch; else if (q === 'dark') { st.dark = !st.dark; phApplyLook(); if (!phone.app) phHomeScreen(); }
+    else if (q === 'snd') $('btn-sound').click(); else if (q === 'rot') phFull(!phone.full);
+    phStatus(true); phShade(true);
+  };
+  sh.querySelector('input').oninput = e => { st.bright = e.target.value / 100; phApplyLook(); };
+  sh.querySelector('.ph-qs-x').onclick = () => phShade(false);
+}
+function phVol(d) {
+  const st = phone.st; st.vol = clamp((st.vol ?? 0.7) + d, 0, 1); if (Audio.master) Audio.master.gain.value = st.vol;
+  const vb = phone.scr.querySelector('.ph-volb'); vb.hidden = false; vb.firstChild.style.height = st.vol * 100 + '%'; clearTimeout(phone.volT); phone.volT = setTimeout(() => vb.hidden = true, 1400); Audio.tick();
+}
+function phNote(t, err) { if (!phone.scr) return; const n = phone.scr.querySelector('.ph-note'); n.textContent = t; n.classList.toggle('err', !!err); n.hidden = false; clearTimeout(phone.noteT); phone.noteT = setTimeout(() => n.hidden = true, 3200); }
+function phCharging() { const P = player; return P.state === 'car' || P.state === 'passenger' || (P.where === 'in' && interior.door && interior.door.kind === 'house'); }
+function phStatus(force) {
+  if (!phone.scr) return; const st = phone.st;
+  const t = phTime(), bat = Math.round(st.bat), key = t + bat + st.air + st.wifi + phCharging() + phone.torch;
+  if (!force && key === phone.sbKey) return; phone.sbKey = key;
+  phone.scr.querySelector('.ph-sb-t').textContent = t;
+  const bars = st.air ? '' : '<svg viewBox="0 0 16 12" width="15" height="12"><path d="M1 11h2v-2H1zM5 11h2V7H5zM9 11h2V4H9zM13 11h2V1h-2z" fill="currentColor"/></svg>';
+  const wifi = st.wifi && !st.air ? '<svg viewBox="0 0 16 12" width="15" height="12"><path d="M8 11l2-2.4a3 3 0 0 0-4 0zM3.4 5.9l1.3 1.6a5 5 0 0 1 6.6 0l1.3-1.6a7 7 0 0 0-9.2 0zM.8 2.9l1.3 1.6a9 9 0 0 1 11.8 0l1.3-1.6a11 11 0 0 0-14.4 0z" fill="currentColor"/></svg>' : '';
+  const col = bat <= 15 ? '#ff4a3a' : 'currentColor';
+  phone.scr.querySelector('.ph-sb-i').innerHTML = `${phone.torch ? '🔦' : ''}${st.air ? '✈' : ''}${wifi}${bars}<span>${fa(bat)}٪</span><svg viewBox="0 0 26 12" width="22" height="11"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor"/><rect x="2" y="2" width="${19 * bat / 100}" height="8" rx="1.6" fill="${col}"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor"/>${phCharging() ? '<path d="M12 1.5L8 7h3l-1 4 4-5.5h-3z" fill="#fff" stroke="#000" stroke-width=".4"/>' : ''}</svg>`;
+  const lc = phone.scr.querySelector('.ph-lk-clock'); if (lc) lc.textContent = t;
+  const hw = phone.main.querySelector('.ph-wid-t'); if (hw) hw.textContent = t;
+}
+/* ---------- every frame ---------- */
+function phoneTick(dt) {
+  for (const id in phone.dl) phDlTick(id, dt);
+  if (phone.ring) phRingTick(dt); else if (phOwned().length) { phone.callT = (phone.callT ?? 300 + Math.random() * 300) - dt; if (phone.callT <= 0) { phone.callT = 420 + Math.random() * 600; phRingStart(); } }
+  if (phone.alarmAt && Date.now() >= phone.alarmAt) { phone.alarmAt = 0; if (phone.open && !phone.off) phNote('⏰ تایمر تموم شد!'); else toast('⏰ تایمر گوشی تموم شد!'); for (let k = 0; k < 8; k++) Audio.tone(k % 2 ? 1760 : 1320, k * 0.2, 0.15, 0.05, 'square'); }
+  for (const k in store.phones || {}) { const s = store.phones[k]; if (!(phone.open && phone.k === k && !phone.off)) s.bat = clamp(s.bat + (phCharging() ? 0.06 : -0.0008) * dt, 0, 100); }
+  const P = player, mine = s => s === 'phoneUse' || s === 'selfie' || s === 'shoot';
+  if (!phone.open) { if (mine(P.anim.special)) P.anim.special = null; return; }
+  if (!store.inv[phone.id] || store.held !== phone.id) { phoneClose(true); return; }
+  if (P.state === 'car' && P.car && Math.abs(P.car.vf) > 2.5) { phoneClose(true); say(P, 'رانندگی با گوشی ممنوع! گوشی رو گذاشتم کنار.', 2.6); return; }
+  const st = phone.st, camOn = phone.app === 'camera' && !phone.off;
+  if (phCharging()) st.bat = Math.min(100, st.bat + 0.12 * dt); // a dead phone charges too (in a car or at home)
+  else if (!phone.off) {
+    const drain = (1 / 60) * (5000 / phone.S.bat) * (phone.S.disp.hz > 90 ? 1.15 : 1) * (camOn ? 1.9 : 1) * (0.6 + st.bright * 0.5);
+    st.bat = Math.max(0, st.bat - drain * 0.9 * dt);
+    if (st.bat <= 0) { phSleep(true); phNote('باتری تموم شد!', 1); }
+  }
+  // the player looks at the phone, holds it up to shoot, or at arm's length for a selfie
+  if (P.state === 'foot' && (!P.anim.special || mine(P.anim.special))) { const want = phone.off ? null : camOn ? (phone.cam.front ? 'selfie' : 'shoot') : 'phoneUse'; if (P.anim.special !== want) { P.anim.special = want; P.anim.sw = 0; } }
+  else if (mine(P.anim.special) && P.state !== 'foot') P.anim.special = null;
+  if (camOn && phone.cam.front && P.H) P.H.hideHead = false;
+  phone.sbT -= dt; if (phone.sbT <= 0) { phone.sbT = 1; phStatus(); }
+  if (phone.appObj && phone.appObj.tick) { try { phone.appObj.tick(dt); } catch (e) { console.error(e); phone.appObj.tick = null; } }
+}
+// the keyboard belongs to the phone while it is full screen or a game is open
+function phoneKey(e) {
+  if (!phone.open) return false;
+  if (e.code === 'Escape') { e.preventDefault(); if (phone.full && !phone.app) phFull(false); else if (phone.app || !phone.scr.querySelector('.ph-shade').hidden) phBack(); else phoneClose(); return true; }
+  if (e.code === 'KeyP' && !e.repeat) { phoneClose(); return true; }
+  if (phone.appObj && phone.appObj.key && phone.appObj.key(e)) { e.preventDefault(); return true; }
+  return phone.full;
+}
+/* ---------- photo & video storage: IndexedDB on this device (falls back to memory) ---------- */
+const PDB = {
+  mem: [], p: null,
+  db() {
+    if (this.p) return this.p;
+    this.p = new Promise(res => {
+      try { const r = indexedDB.open('shahr-azad-phone', 1); r.onupgradeneeded = () => { const s = r.result.createObjectStore('media', { keyPath: 'id' }); s.createIndex('k', 'k'); }; r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null); } catch (_) { res(null); }
+    });
+    return this.p;
+  },
+  async tx(mode, fn) { const db = await this.db(); if (!db) return fn(null); return new Promise(res => { const t = db.transaction('media', mode), s = t.objectStore('media'); let out; Promise.resolve(fn(s)).then(v => out = v); t.oncomplete = () => res(out); t.onerror = t.onabort = () => res(out); }); },
+  req: r => new Promise(res => { r.onsuccess = () => res(r.result); r.onerror = () => res(null); }),
+  async put(m) { const db = await this.db(); if (!db) { this.mem.push(m); return; } return this.tx('readwrite', s => this.req(s.put(m))); },
+  async get(id) { const db = await this.db(); if (!db) return this.mem.find(m => m.id === id) || null; return this.tx('readonly', s => this.req(s.get(id))); },
+  async del(id) { const db = await this.db(); if (!db) { this.mem = this.mem.filter(m => m.id !== id); return; } return this.tx('readwrite', s => this.req(s.delete(id))); },
+  async list(k) { const db = await this.db(); const all = db ? (await this.tx('readonly', s => this.req(s.index('k').getAll(k)))) || [] : this.mem.filter(m => m.k === k); return all.sort((a, b) => b.at - a.at); }
+};
+/* ---------- the camera: a second view of the game world from the phone's own lens ---------- */
+const phCamObj = new THREE.PerspectiveCamera(60, 0.75, 0.05, 1400), _phV = new V3(), _phD = new V3();
+function phLenses() { return phone.S.rear.filter(l => l.z); }
+function phLens() {
+  const c = phone.cam, S = phone.S;
+  if (c.front) return { k: 'front', z: 1, mm: S.front.mm, mp: S.front.mp, f: S.front.f, note: 'دوربین سلفی' };
+  let best = null; for (const l of phLenses()) if (l.z <= c.zoom + 1e-6 && (!best || l.z > best.z)) best = l;
+  return best || phLenses()[0];
+}
+function phZoomStops() {
+  const S = phone.S, L = phLenses(), z = new Set(L.map(l => l.z));
+  for (const l of L) if (l.ll) z.add(l.z * l.ll);
+  if (![...z].some(v => v > 1 && v < 3)) z.add(2);
+  if (S.maxZoom >= 30) z.add(10); z.add(S.maxZoom);
+  return [...z].filter(v => v <= S.maxZoom).sort((a, b) => a - b);
+}
+function phAim(cam3, aspect) {
+  const P = player, c = phone.cam, S = phone.S, lens = phLens();
+  const f = c.front ? S.front.mm : lens.mm * (c.zoom / lens.z), tv = (21.63 / f) / Math.sqrt(1 + aspect * aspect);
+  cam3.fov = 2 * Math.atan(tv) * 180 / Math.PI; cam3.aspect = aspect; cam3.near = c.front ? 0.05 : 0.08; cam3.far = camera.far;
+  camera.getWorldDirection(_phD); const yaw = Math.atan2(_phD.x, _phD.z);
+  if (P.H && P.H.head) _phV.setFromMatrixPosition(P.H.head.matrixWorld); else _phV.set(P.pos.x, P.pos.y + 1.6, P.pos.z);
+  if (!isFinite(_phV.x)) _phV.set(P.pos.x, P.pos.y + 1.6, P.pos.z);
+  cam3.rotation.order = 'YXZ';
+  if (c.front) { const fy = P.state === 'foot' ? P.facing : yaw; cam3.position.set(_phV.x + Math.sin(fy) * 0.62, _phV.y + 0.05, _phV.z + Math.cos(fy) * 0.62); cam3.lookAt(_phV.x, _phV.y - 0.03, _phV.z); }
+  else { cam3.position.set(_phV.x + Math.sin(yaw) * 0.62, _phV.y - 0.07, _phV.z + Math.cos(yaw) * 0.62); cam3.rotation.set(c.pitch, yaw + Math.PI, 0); }
+  cam3.updateProjectionMatrix(); cam3.updateMatrixWorld();
+}
+function phDark() { if (player.where !== 'out') return player.where === 'in' ? 0.25 : 0.1; const t = tod; return t >= 19.6 || t < 5.2 ? 1 : t < 7 ? (7 - t) / 1.8 : t > 17.8 ? (t - 17.8) / 1.8 : 0; }
+function phSkipMain() { return phone.open && phone.full && !phone.off; }
+// called right after the game view is drawn: the viewfinder is a window cut through the phone UI
+function phoneRenderVF(sc) {
+  if (!phone.open || phone.app !== 'camera' || phone.off || !phone.vf || !phone.vf.isConnected) return;
+  const r = phone.vf.getBoundingClientRect(), vw = innerWidth, vh = innerHeight; if (r.width < 8 || r.height < 8) return;
+  const x = Math.max(0, r.left), y = Math.max(0, r.top), w = Math.min(vw, r.right) - x, h = Math.min(vh, r.bottom) - y; if (w < 4 || h < 4) return;
+  phAim(phCamObj, r.width / r.height);
+  const exp = renderer.toneMappingExposure, held = attach.held, hv = held && held.visible;
+  renderer.setRenderTarget(null); renderer.setViewport(r.left, vh - r.bottom, r.width, r.height); renderer.setScissor(x, vh - y - h, w, h); renderer.setScissorTest(true);
+  renderer.toneMappingExposure = exp * (1 + phDark() * (phone.cam.mode === 'night' ? 0.55 : 0.12) * phone.S.q);
+  if (held) held.visible = false;
+  renderer.render(sc, phCamObj);
+  if (held) held.visible = hv; renderer.toneMappingExposure = exp; renderer.setScissorTest(false); renderer.setViewport(0, 0, vw, vh);
+  if (phone.rec) phRecFrame(r);
+}
+let phNoise = null;
+function phNoisePat(g) { if (!phNoise) { phNoise = mkCanvas(256); const ng = phNoise.getContext('2d'), im = ng.createImageData(256, 256); for (let i = 0; i < im.data.length; i += 4) { const v = 128 + (Math.random() + Math.random() + Math.random() - 1.5) * 120; im.data[i] = v + (Math.random() - 0.5) * 40; im.data[i + 1] = v; im.data[i + 2] = v + (Math.random() - 0.5) * 40; im.data[i + 3] = 255; } ng.putImageData(im, 0, 0); } return g.createPattern(phNoise, 'repeat'); }
+// render the shot at the phone's resolution straight into the game canvas, copy it out, then put the canvas back
+function phCapture(night, flash) {
+  const S = phone.S, c = phone.cam, vr = phone.vf.getBoundingClientRect(), land = vr.width > vr.height, dk = phDark();
+  let L = c.front ? Math.min(S.shot, S.front.mp >= 30 ? 2400 : S.front.mp >= 12 ? 2000 : 1600) : S.shot;
+  L = Math.min(L, LOW ? 2048 : 4096, renderer.capabilities.maxTextureSize || 4096);
+  const W = land ? L : Math.round(L * 0.75), H = land ? Math.round(L * 0.75) : L, lens = phLens();
+  const loss = c.front ? 1 : Math.max(1, (c.zoom / lens.z) / (lens.ll || 1)), rs = (0.62 + 0.38 * S.q) / loss;
+  const rw = Math.max(160, Math.round(W * rs)), rh = Math.max(120, Math.round(H * rs));
+  phAim(phCamObj, W / H);
+  const pr = renderer.getPixelRatio(), exp = renderer.toneMappingExposure, held = attach.held, hv = held && held.visible;
+  const fl = player.where === 'in' ? flashIn : player.where === 'out' ? flashLight : null, fi = fl && fl.intensity, fa_ = fl && fl.angle;
+  if (flash && fl && !c.front) { fl.intensity = 140; fl.angle = 0.95; fl.position.copy(phCamObj.position); phCamObj.getWorldDirection(_phD); fl.target.position.copy(phCamObj.position).addScaledVector(_phD, 6); fl.target.updateMatrixWorld(); }
+  if (held) held.visible = false;
+  let out = null;
+  try {
+    renderer.setPixelRatio(1); renderer.setSize(rw, rh, false); renderer.setRenderTarget(null); renderer.setScissorTest(false); renderer.setViewport(0, 0, rw, rh);
+    renderer.toneMappingExposure = exp * (1 + dk * (night ? 0.9 + 1.1 * S.q : 0.15 + 0.35 * S.q) + (flash && c.front ? 0.35 * dk : 0));
+    renderer.shadowMap.needsUpdate = true; renderer.render(zoneScene(player.where), phCamObj);
+    out = mkCanvas(W, H); const g = out.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(renderer.domElement, 0, 0, rw, rh, 0, 0, W, H);
+  } finally {
+    renderer.toneMappingExposure = exp; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); if (held) held.visible = hv;
+    if (fl) { fl.intensity = fi; fl.angle = fa_; }
+    renderer.shadowMap.needsUpdate = true; render();
+  }
+  phDevelop(out, night, dk);
+  return { cv: out, W, H, q: Math.min(0.95, 0.8 + 0.15 * S.q), lens, loss, rw, rh };
+}
+// each brand's colour science, sensor noise in the dark, cheap-lens vignetting
+function phDevelop(cv, night, dk) {
+  const S = phone.S, q = S.q, W = cv.width, H = cv.height, g = cv.getContext('2d');
+  if ('filter' in g) {
+    const sat = S.brand === 'xiaomi' ? 1.14 : S.brand === 'lg' ? 1.0 : 1.08, con = S.brand === 'lg' ? 1.0 : 1.05 - (1 - q) * 0.04, br = S.brand === 'lg' ? 1.03 : 1;
+    const tmp = mkCanvas(W, H); tmp.getContext('2d').drawImage(cv, 0, 0); g.filter = `saturate(${sat}) contrast(${con}) brightness(${br})`; g.drawImage(tmp, 0, 0); g.filter = 'none';
+  }
+  const n = (1 - q) * 0.1 + dk * (1 - q) * (night ? 0.14 : 0.32) + dk * 0.03;
+  if (n > 0.012) { g.save(); g.globalCompositeOperation = 'overlay'; g.globalAlpha = Math.min(0.7, n * 2.2); g.fillStyle = phNoisePat(g); const s = Math.max(1, Math.round(W / 1400)); g.scale(s, s); g.fillRect(0, 0, W / s, H / s); g.restore(); }
+  if (q < 0.7) { const gr = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) / 2); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${0.42 * (0.7 - q)})`); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+}
+function phThumb(src, sw, sh) { const k = 240 / Math.max(sw, sh), t = mkCanvas(Math.round(sw * k), Math.round(sh * k)); t.getContext('2d').drawImage(src, 0, 0, t.width, t.height); return t.toDataURL('image/jpeg', 0.72); }
+const phWait = ms => new Promise(r => setTimeout(r, ms));
+async function phShoot() {
+  const c = phone.cam, S = phone.S, ui = phone.camUI; if (!ui) return;
+  if (c.mode === 'video') { if (phone.rec) phRecStop(); else phRecStart(); return; }
+  if (c.busy) return; c.busy = true;
+  try {
+    if (c.timer) { for (let s = c.timer; s > 0; s--) { ui.big(fa(s)); Audio.tone(1760, 0, 0.05, 0.03); await phWait(1000); if (phone.app !== 'camera') return; } ui.big(''); }
+    const night = c.mode === 'night', dk = phDark(), flash = c.flash === 'on' || (c.flash === 'auto' && dk > 0.6);
+    const hold = night ? Math.round(700 + dk * 2200 * (1.25 - S.q)) : 0;
+    if (hold) { ui.big('ثابت نگه دار…'); await phWait(hold); ui.big(''); }
+    await phWait(Math.round(40 + (1 - S.perf) * 300)); // shutter lag: slower on cheap phones
+    if (phone.app !== 'camera' || !phone.vf) return;
+    if (flash && c.front) { ui.screenFlash(); await phWait(120); }
+    const shot = phCapture(night, flash);
+    Audio.shutter(); ui.blink();
+    const blob = await new Promise(r => shot.cv.toBlob(r, 'image/jpeg', shot.q)); if (!blob) { phNote('ذخیرهٔ عکس انجام نشد', 1); return; }
+    const m = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), k: phone.k, kind: 'photo', blob, thumb: phThumb(shot.cv, shot.W, shot.H), w: shot.W, h: shot.H, size: blob.size, at: Date.now(), gt: tod,
+      lens: shot.lens.k, lensN: shot.lens.note, mp: shot.lens.mp, f: shot.lens.f, zoom: c.front ? 1 : c.zoom, night, flash: !!flash, render: shot.rw + '×' + shot.rh, place: player.where === 'out' ? $('street').textContent : player.where === 'in' ? 'داخل ساختمان' : player.where === 'rb' ? 'ساختمان رنگین‌کمان' : 'محیط آزمایشی' };
+    await PDB.put(m); phone.st.shots = (phone.st.shots || 0) + 1; ui.setThumb(m.thumb); phReact();
+    photos.unshift(URL.createObjectURL(blob)); if (photos.length > 8) URL.revokeObjectURL(photos.pop());
+    store.stats.photos = (store.stats.photos || 0) + 1;
+  } finally { c.busy = false; if (phone.camUI) phone.camUI.big(''); }
+}
+// people who notice they're in your photo react to it
+const _phP = new V3();
+function phReact() {
+  const P = player, pool = P.where === 'out' ? [...npcs, ...mall.npcs] : P.where === 'in' ? interior.npcs : P.where === 'rb' ? rb.people : [];
+  let n = 0;
+  for (const q of pool) {
+    if (!q || q.inCar || q.mode === 'down' || q.hidden || q === P) continue;
+    const d = Math.hypot(q.pos.x - phCamObj.position.x, q.pos.z - phCamObj.position.z); if (d > 14 || d < 0.4) continue;
+    _phP.set(q.pos.x, q.pos.y + 1.4, q.pos.z).project(phCamObj); if (_phP.z > 1 || Math.abs(_phP.x) > 0.9 || Math.abs(_phP.y) > 0.9) continue;
+    if (Math.random() < 0.65 && n < 3) { n++; setTimeout(() => { say(q, mpick(['سیب!', 'عکس منو گرفتی؟ قشنگ شد؟', 'بذار منم ژست بگیرم!', 'یکی دیگه بگیر!', 'برام بفرستش!']), 2.4); if (q.anim && !q.anim.special) setSpecial(q, Math.random() < 0.5 ? 'wave' : 'laugh', 1.4); }, 300 + n * 350); }
+  }
+}
+/* ---------- video: the viewfinder copied frame by frame into a MediaRecorder ---------- */
+function phRecStart() {
+  const S = phone.S, ui = phone.camUI;
+  if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) { phNote('این مرورگر ضبط ویدیو رو پشتیبانی نمی‌کنه', 1); return; }
+  const r = phone.vf.getBoundingClientRect(), ratio = renderer.domElement.width / innerWidth;
+  let cw = r.width * ratio, ch = r.height * ratio; const cap = ((LOW ? 720 : 1080) * (0.55 + 0.45 * S.q)) / Math.max(cw, ch); if (cap < 1) { cw *= cap; ch *= cap; }
+  cw = Math.max(2, Math.round(cw / 2) * 2); ch = Math.max(2, Math.round(ch / 2) * 2);
+  const cv = mkCanvas(cw, ch), g = cv.getContext('2d'), stream = cv.captureStream(30);
+  const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  let mr; try { mr = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: Math.round(1.5e6 + 6e6 * S.q) } : undefined); } catch (e) { phNote('ضبط ویدیو شروع نشد', 1); return; }
+  const rec = phone.rec = { mr, cv, g, chunks: [], t0: performance.now(), type: mr.mimeType || type || 'video/webm', thumb: null, k: phone.k, lens: phLens() };
+  mr.ondataavailable = e => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+  mr.onstop = async () => {
+    const blob = new Blob(rec.chunks, { type: rec.type.split(';')[0] }), dur = (performance.now() - rec.t0) / 1000;
+    if (!blob.size) { phNote('ویدیو خالی بود', 1); return; }
+    await PDB.put({ id: 'v' + Date.now().toString(36), k: rec.k, kind: 'video', blob, thumb: rec.thumb, w: cw, h: ch, size: blob.size, at: Date.now(), gt: tod, dur, lens: rec.lens.k, lensN: rec.lens.note, mp: rec.lens.mp, f: rec.lens.f, zoom: phone.cam.zoom, place: $('street').textContent });
+    if (phone.camUI && rec.thumb) phone.camUI.setThumb(rec.thumb); phNote(`ویدیو ذخیره شد (${fa(Math.round(dur))} ثانیه)`);
+  };
+  mr.start(1000); Audio.tone(1046, 0, 0.12, 0.04); if (ui) ui.recUI(true);
+}
+function phRecFrame(r) {
+  const R = phone.rec, ratio = renderer.domElement.width / innerWidth;
+  try { R.g.drawImage(renderer.domElement, r.left * ratio, r.top * ratio, r.width * ratio, r.height * ratio, 0, 0, R.cv.width, R.cv.height); } catch (_) { }
+  if (!R.thumb) R.thumb = phThumb(R.cv, R.cv.width, R.cv.height);
+  if (phone.camUI) phone.camUI.recTime((performance.now() - R.t0) / 1000);
+}
+function phRecStop() { const R = phone.rec; if (!R) return; phone.rec = null; try { R.mr.stop(); } catch (_) { } Audio.tone(784, 0, 0.12, 0.04); if (phone.camUI) phone.camUI.recUI(false); }
+/* ---------- camera app ---------- */
+const PH_RUN = {};
+PH_RUN.camera = box => {
+  const S = phone.S, c = phone.cam; document.body.classList.add('ph-cam'); if (LOW && !phone.full) setTimeout(() => { if (phone.app === 'camera') phFull(true); }, 0); c.mode = c.mode === 'night' && !S.night ? 'photo' : c.mode; c.flash = c.flash || 'off';
+  box.className = 'ph-app cam'; phone.scr.classList.add('cam-on');
+  box.innerHTML = `<div class="cam-top"><button type="button" data-c="flash"></button><button type="button" data-c="timer"></button><button type="button" data-c="grid">▦</button><button type="button" data-c="info">ⓘ</button></div>
+  <div class="cam-vf"><div class="cam-grid"></div><div class="cam-big"></div><div class="cam-rec" hidden>● <span>۰۰:۰۰</span></div><div class="cam-lens"></div><div class="cam-blink"></div><div class="cam-fx"></div>
+    <div class="cam-zoom"><input type="range" min="0" max="1000" step="1" aria-label="زوم"><div class="cam-zb"></div></div></div>
+  <div class="cam-modes">${S.night ? '<button type="button" data-m="night">شب</button>' : ''}<button type="button" data-m="photo">عکس</button><button type="button" data-m="video">فیلم</button></div>
+  <div class="cam-bot"><button type="button" class="cam-thumb" aria-label="گالری"></button><button type="button" class="cam-shut" aria-label="عکس بگیر"><i></i></button><button type="button" class="cam-flip" aria-label="عوض کردن دوربین">⟲</button></div>
+  <div class="cam-spec" hidden></div>`;
+  const vf = phone.vf = box.querySelector('.cam-vf'), zr = box.querySelector('.cam-zoom input'), zb = box.querySelector('.cam-zb'), lensEl = box.querySelector('.cam-lens'), big = box.querySelector('.cam-big');
+  const minZ = Math.min(...phLenses().map(l => l.z)), lz = v => Math.log(v / minZ) / Math.log(S.maxZoom / minZ) * 1000, zl = t => minZ * Math.pow(S.maxZoom / minZ, t / 1000);
+  const fmtZ = z => fa(z < 1 ? z.toFixed(1).replace(/^0/, '') : z >= 10 || Math.abs(z - Math.round(z)) < 0.05 ? Math.round(z) : z.toFixed(1));
+  const sync = () => {
+    const L = phLens(), stops = c.front ? [] : phZoomStops();
+    zb.innerHTML = stops.map(z => `<button type="button" data-z="${z}" class="${Math.abs(c.zoom - z) < 0.05 ? 'on' : ''}">${fmtZ(z)}${Math.abs(c.zoom - z) < 0.05 ? '×' : ''}</button>`).join('');
+    zr.hidden = c.front; zr.value = lz(c.zoom);
+    const loss = c.front ? 1 : (c.zoom / L.z) / (L.ll || 1);
+    lensEl.textContent = `${c.front ? 'سلفی' : { uw: 'فوق عریض', main: 'اصلی', tele3: 'تله‌فوتو', tele5: 'پریسکوپ' }[L.k] || L.note} · ${fa(L.mp)}MP ${L.f}${!c.front && Math.abs(c.zoom - 1) > 0.05 ? ' · ' + fmtZ(c.zoom) + '×' : ''}${loss > 1.05 ? ' · زوم دیجیتال' : ''}`;
+    box.querySelectorAll('.cam-modes button').forEach(b => b.classList.toggle('on', b.dataset.m === c.mode));
+    box.querySelector('[data-c=flash]').textContent = { off: '⚡̸', on: '⚡', auto: '⚡A' }[c.flash];
+    box.querySelector('[data-c=timer]').textContent = c.timer ? '⏱' + fa(c.timer) : '⏱';
+    box.querySelector('.cam-grid').hidden = !c.grid;
+    box.querySelector('.cam-shut').classList.toggle('vid', c.mode === 'video');
+  };
+  const setZoom = z => { c.zoom = clamp(z, minZ, S.maxZoom); sync(); };
+  zb.onclick = e => { const z = e.target.closest('button')?.dataset.z; if (z) { setZoom(+z); Audio.tick(); } };
+  zr.oninput = () => setZoom(zl(+zr.value));
+  box.querySelector('.cam-top').onclick = e => {
+    const a = e.target.closest('button')?.dataset.c; if (!a) return; Audio.tick();
+    if (a === 'flash') c.flash = { off: 'auto', auto: 'on', on: 'off' }[c.flash]; else if (a === 'timer') c.timer = { 0: 3, 3: 10, 10: 0 }[c.timer || 0]; else if (a === 'grid') c.grid = !c.grid;
+    else if (a === 'info') { const sp = box.querySelector('.cam-spec'); sp.hidden = !sp.hidden; if (!sp.hidden) sp.innerHTML = phCamSpecs(); }
+    sync();
+  };
+  box.querySelector('.cam-spec').onclick = e => { e.currentTarget.hidden = true; };
+  box.querySelector('.cam-modes').onclick = e => { const m = e.target.closest('button')?.dataset.m; if (!m || phone.rec) return; c.mode = m; Audio.tick(); sync(); };
+  box.querySelector('.cam-shut').onclick = () => phShoot();
+  box.querySelector('.cam-flip').onclick = () => { if (phone.rec) return; c.front = !c.front; if (!c.front && c.zoom < minZ) c.zoom = 1; Audio.tick(); sync(); };
+  box.querySelector('.cam-thumb').onclick = () => { if (phone.rec) return; phLaunch('gallery'); };
+  PDB.list(phone.k).then(l => { if (l[0] && phone.camUI) phone.camUI.setThumb(l[0].thumb); });
+  // aim by dragging the viewfinder, pinch or wheel to zoom, tap to focus
+  const ptr = new Map(); let pinch0 = 0, z0 = 1, moved = 0;
+  vf.addEventListener('pointerdown', e => { if (e.target.closest('button,input')) return; ptr.set(e.pointerId, [e.clientX, e.clientY]); try { vf.setPointerCapture(e.pointerId); } catch (_) { } moved = 0; if (ptr.size === 2) { const [a, b] = [...ptr.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); z0 = c.zoom; } });
+  vf.addEventListener('pointermove', e => {
+    if (!ptr.has(e.pointerId)) return; const [px, py] = ptr.get(e.pointerId), dx = e.clientX - px, dy = e.clientY - py; ptr.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ptr.size === 2) { const [a, b] = [...ptr.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0 > 10 && !c.front) setZoom(z0 * d / pinch0); return; }
+    moved += Math.abs(dx) + Math.abs(dy); const s = 0.0045 / Math.max(1, c.zoom * 0.6);
+    if (c.front) { if (player.state === 'foot') player.facing -= dx * s * 1.5; }
+    else { cam.yaw -= dx * s; c.pitch = clamp(c.pitch - dy * s, -1.2, 1.2); }
+    cam.lastLook = simTime;
+  });
+  const up = e => { if (ptr.has(e.pointerId) && ptr.size === 1 && moved < 6) { const fx = box.querySelector('.cam-fx'), r = vf.getBoundingClientRect(), k = phone.scale; fx.style.left = (e.clientX - r.left) / k + 'px'; fx.style.top = (e.clientY - r.top) / k + 'px'; fx.classList.remove('go'); void fx.offsetWidth; fx.classList.add('go'); } ptr.delete(e.pointerId); };
+  vf.addEventListener('pointerup', up); vf.addEventListener('pointercancel', up);
+  vf.addEventListener('wheel', e => { if (!c.front) setZoom(c.zoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: true });
+  phone.camUI = {
+    big: t => { big.textContent = t; big.hidden = !t; },
+    blink: () => { const b = box.querySelector('.cam-blink'); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); },
+    screenFlash: () => { const b = box.querySelector('.cam-blink'); b.classList.remove('go', 'white'); void b.offsetWidth; b.classList.add('go', 'white'); },
+    setThumb: u => { const t = box.querySelector('.cam-thumb'); t.style.backgroundImage = u ? `url(${u})` : ''; },
+    recUI: on => { box.querySelector('.cam-rec').hidden = !on; box.querySelector('.cam-shut').classList.toggle('on', on); box.classList.toggle('recording', on); },
+    recTime: s => { const e = box.querySelector('.cam-rec span'), m = Math.floor(s / 60); e.textContent = fa(String(m).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0')); }
+  };
+  sync(); big.hidden = true;
+  return {
+    stop() { if (phone.rec) phRecStop(); phone.vf = null; phone.camUI = null; phone.scr.classList.remove('cam-on'); document.body.classList.remove('ph-cam'); },
+    back() { const sp = box.querySelector('.cam-spec'); if (!sp.hidden) { sp.hidden = true; return true; } return false; },
+    key(e) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyQ') { if (!e.repeat) phShoot(); return true; } if (e.code === 'Equal' || e.code === 'NumpadAdd') { setZoom(c.zoom * 1.25); return true; } if (e.code === 'Minus' || e.code === 'NumpadSubtract') { setZoom(c.zoom / 1.25); return true; } return false; }
+  };
+};
+function phCamSpecs() {
+  const S = phone.S, rows = S.rear.map(l => `<tr><td>${l.z ? fa(l.z) + '×' : '—'}</td><td>${phEsc(l.note)}</td><td>${fa(l.mp)} مگاپیکسل</td><td dir="ltr">${l.f}${l.mm ? ' · ' + l.mm + 'mm' : ''}${l.ois ? ' · OIS' : ''}</td></tr>`).join('');
+  const L = Math.min(S.shot, LOW ? 2048 : 4096);
+  return `<h3>دوربین‌های ${phEsc(S.fa)}</h3><table>${rows}<tr><td>سلفی</td><td>دوربین جلو</td><td>${fa(S.front.mp)} مگاپیکسل</td><td dir="ltr">${S.front.f}</td></tr></table>
+  <p>زوم: تا ${fa(S.maxZoom)} برابر · فیلم: ${S.video}${S.night ? ' · حالت شب دارد' : ''}</p>
+  <p class="sub">عکس‌هایی که داخل بازی می‌گیری، واقعاً از دنیای بازی از جای لنز گوشی گرفته می‌شن و با رزولوشن ${fa(Math.round(L * 0.75))}×${fa(L)} ذخیره می‌شن (عدد مگاپیکسل بالا مشخصات سنسور واقعی این گوشیه). گوشی ارزون‌تر: عکس نرم‌تر، نویز بیشتر در تاریکی و تأخیر شاتر بیشتر.</p><p class="sub">برای بستن بزن</p>`;
+}
+/* ---------- gallery ---------- */
+PH_RUN.gallery = box => {
+  box.classList.add('gal');
+  box.innerHTML = `<div class="ph-head"><b>گالری</b><small></small></div><div class="gal-grid"></div><div class="gal-view" hidden></div>`;
+  const grid = box.querySelector('.gal-grid'), view = box.querySelector('.gal-view'); let items = [], cur = -1, url = null;
+  const load = () => PDB.list(phone.k).then(l => {
+    items = l; box.querySelector('.ph-head small').textContent = l.length ? `${fa(l.length)} مورد · ${phMB(l.reduce((s, m) => s + (m.size || 0), 0))}` : '';
+    grid.innerHTML = l.length ? '' : '<p class="ph-empty">هنوز عکسی نگرفتی. دوربین رو باز کن!</p>';
+    l.forEach((m, i) => { const b = phEl('button', 'gal-t' + (m.kind === 'video' ? ' vid' : ''), m.kind === 'video' ? `<span>${fa(Math.round(m.dur || 0))}ث</span>` : '', grid); b.type = 'button'; b.style.backgroundImage = `url(${m.thumb})`; b.onclick = () => show(i); });
+  });
+  const close = () => { view.hidden = true; if (url) URL.revokeObjectURL(url); url = null; cur = -1; };
+  const show = i => {
+    if (i < 0 || i >= items.length) return; cur = i; const m = items[i]; if (url) URL.revokeObjectURL(url); url = URL.createObjectURL(m.blob);
+    view.hidden = false;
+    view.innerHTML = `<div class="gal-top"><button type="button" data-g="x">‹</button><span>${new Date(m.at).toLocaleString('fa-IR', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</span><button type="button" data-g="i">ⓘ</button></div>
+      <div class="gal-media">${m.kind === 'video' ? `<video src="${url}" controls playsinline autoplay loop></video>` : `<img src="${url}" alt="عکس">`}</div>
+      <div class="gal-info" hidden><b>جزئیات</b><p>${phEsc(phone.S.fa)} · ${phEsc(m.lensN || m.lens)} · ${fa(m.mp)}MP ${m.f || ''}</p><p>${fa(m.w)}×${fa(m.h)} · ${phMB(m.size)} · ${m.kind === 'video' ? 'ویدیو ' + fa(Math.round(m.dur)) + ' ثانیه' : 'JPEG'}${m.zoom && m.zoom !== 1 ? ' · زوم ' + fa(+(+m.zoom).toFixed(1)) + '×' : ''}${m.night ? ' · حالت شب' : ''}${m.flash ? ' · فلاش' : ''}</p><p>مکان: ${phEsc(m.place || '')} · ساعت بازی ${fa(String(Math.floor(m.gt)).padStart(2, '0'))}:${fa(String(Math.floor((m.gt % 1) * 60)).padStart(2, '0'))}</p></div>
+      <div class="gal-bot"><button type="button" data-g="dl">⬇ ذخیره در دستگاه</button>${m.kind === 'photo' ? '<button type="button" data-g="w">تصویر زمینه</button>' : ''}<button type="button" data-g="del">🗑 حذف</button></div>`;
+    let sx = null; const md = view.querySelector('.gal-media'); md.onpointerdown = e => { sx = e.clientX; }; md.onpointerup = e => { if (sx !== null && Math.abs(e.clientX - sx) > 40) show(cur + (e.clientX < sx ? 1 : -1)); sx = null; };
+  };
+  view.onclick = async e => {
+    const g = e.target.closest('button')?.dataset.g; if (!g) return; const m = items[cur]; Audio.tick();
+    if (g === 'x') close(); else if (g === 'i') view.querySelector('.gal-info').hidden = !view.querySelector('.gal-info').hidden;
+    else if (g === 'dl') { const a = document.createElement('a'); a.href = url; a.download = `shahr-azad-${phone.S.name.replace(/\s+/g, '-')}-${m.id}.${m.kind === 'video' ? (m.blob.type.includes('mp4') ? 'mp4' : 'webm') : 'jpg'}`; document.body.appendChild(a); a.click(); a.remove(); }
+    else if (g === 'w') { phone.st.wall = m.id; phApplyLook(); phNote('تصویر زمینه عوض شد'); saveGame(); }
+    else if (g === 'del') { if (phone.st.wall === m.id) { phone.st.wall = 0; phApplyLook(); } await PDB.del(m.id); close(); load(); }
+  };
+  load();
+  return { back() { if (!view.hidden) { close(); return true; } return false; }, key(e) { if (view.hidden) return false; if (e.code === 'ArrowLeft') { show(cur + 1); return true; } if (e.code === 'ArrowRight') { show(cur - 1); return true; } return false; }, stop() { if (url) URL.revokeObjectURL(url); } };
+};
+const phMB = b => b >= 1e9 ? fa((b / 1e9).toFixed(1)) + ' گیگابایت' : b >= 1e6 ? fa((b / 1e6).toFixed(1)) + ' مگابایت' : fa(Math.max(1, Math.round(b / 1e3))) + ' کیلوبایت';
+/* ---------- the internet: real Google and real websites inside the phone ---------- */
+function phOpenReal(url) { try { window.open(url, '_blank', 'noopener'); } catch (_) { } }
+const PH_SITES = [['Google', 'https://www.google.com/webhp?igu=1', 'google'], ['ویکی‌پدیا', 'https://fa.m.wikipedia.org/', 'wiki'], ['YouTube', 'https://m.youtube.com/', 'youtube'], ['DuckDuckGo', 'https://html.duckduckgo.com/html/', ''], ['Bing', 'https://www.bing.com/', ''], ['دیجی‌کالا', 'https://www.digikala.com/', ''], ['ورزش سه', 'https://www.varzesh3.com/', ''], ['آپارات', 'https://www.aparat.com/', '']];
+function phURL(q) {
+  q = q.trim(); if (!q) return null;
+  if (/^https?:\/\//i.test(q)) return q;
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(q) && !/\s/.test(q)) return 'https://' + q;
+  return 'https://www.google.com/search?igu=1&hl=fa&q=' + encodeURIComponent(q);
+}
+function phWeb(box, google) {
+  box.classList.add('web');
+  box.innerHTML = `<form class="web-bar" autocomplete="off">${google ? phIcon('google', 26) : '<button type="button" class="web-b" data-w="back" aria-label="برگشت">‹</button>'}<input type="text" enterkeyhint="go" placeholder="${google ? 'هر چی می‌خوای جستجو کن' : 'جستجو یا آدرس سایت'}" dir="auto"><button type="button" class="web-b" data-w="real" title="باز کردن در مرورگر واقعی">↗</button></form>
+  <div class="web-body"></div><div class="web-hint" hidden>اگه صفحه سفید موند، اون سایت اجازه نمی‌ده داخل برنامهٔ دیگه باز بشه — دکمهٔ ↗ همون صفحه رو در مرورگر واقعی‌ات باز می‌کنه.</div>`;
+  const inp = box.querySelector('input'), body = box.querySelector('.web-body'), hint = box.querySelector('.web-hint'), stack = []; let cur = null;
+  const home = () => {
+    cur = null; body.innerHTML = google ? `<div class="web-home g"><div class="g-logo"><span style="color:#4285f4">G</span><span style="color:#ea4335">o</span><span style="color:#fbbc05">o</span><span style="color:#4285f4">g</span><span style="color:#34a853">l</span><span style="color:#ea4335">e</span></div><p>جستجوی واقعی در Google — نتیجه‌ها مستقیم از google.com میان.</p></div>`
+      : `<div class="web-home"><div class="web-tiles">${PH_SITES.map(([n, u, ic]) => `<button type="button" data-u="${u}">${ic ? phIcon(ic, 40) : `<span class="ph-ic" style="width:40px;height:40px;background:#e8eaed;color:#333;font:800 16px/40px Arial">${n[0]}</span>`}<small>${n}</small></button>`).join('')}</div></div>`;
+    inp.value = ''; hint.hidden = true;
+  };
+  const go = (u, push = true) => {
+    if (!u) return; if (!phOnline()) { body.innerHTML = '<div class="ph-empty"><b>اینترنت وصل نیست</b><br>Wi-Fi رو روشن کن یا حالت پرواز رو خاموش کن.</div>'; return; }
+    if (push && cur) stack.push(cur); cur = u; inp.value = /google\.com\/search/.test(u) ? decodeURIComponent((u.match(/[?&]q=([^&]*)/) || [, ''])[1].replace(/\+/g, ' ')) : u;
+    body.innerHTML = ''; const f = phEl('iframe', 'web-frame', null, body);
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox'); f.setAttribute('referrerpolicy', 'no-referrer'); f.setAttribute('allow', 'fullscreen'); f.src = u;
+    hint.hidden = true; clearTimeout(box.hintT); box.hintT = setTimeout(() => { if (cur === u) hint.hidden = false; }, 3500);
+  };
+  box.querySelector('form').onsubmit = e => { e.preventDefault(); inp.blur(); go(phURL(inp.value)); };
+  box.querySelector('.web-bar').onclick = e => { const w = e.target.closest('button')?.dataset.w; if (w === 'real') phOpenReal(cur ? cur.replace('igu=1&', '').replace('?igu=1', '') : google ? 'https://www.google.com/' : 'https://www.google.com/'); else if (w === 'back') back(); };
+  body.onclick = e => { const u = e.target.closest('button')?.dataset.u; if (u) go(u); };
+  const back = () => { if (stack.length) { go(stack.pop(), false); return true; } if (cur) { home(); return true; } return false; };
+  home();
+  return { back, open: u => go(u), stop() { clearTimeout(box.hintT); } };
+}
+PH_RUN.google = box => phWeb(box, true);
+PH_RUN.chrome = box => { const o = phWeb(box, false); if (phone.pendingURL) { o.open(phone.pendingURL); phone.pendingURL = null; } return o; };
+PH_RUN.wiki = box => { phone.pendingURL = 'https://fa.m.wikipedia.org/'; return PH_RUN.chrome(box); };
+PH_RUN.youtube = box => {
+  box.innerHTML = `<div class="ph-head yt">${phIcon('youtube', 30)}<b>YouTube</b></div><form class="ph-pad" autocomplete="off"><input class="ph-in" type="search" placeholder="جستجو در YouTube" dir="auto"><button class="ph-pill">جستجو ↗</button></form>
+  <p class="ph-pad sub">یوتیوب اجازه نمی‌ده سایتش داخل برنامهٔ دیگه‌ای باز بشه، برای همین ویدیوها رو در YouTube واقعی (تب جدید مرورگرت) باز می‌کنیم.</p><button type="button" class="ph-pill wide">باز کردن YouTube واقعی ↗</button>`;
+  box.querySelector('form').onsubmit = e => { e.preventDefault(); const q = box.querySelector('input').value.trim(); phOpenReal(q ? 'https://m.youtube.com/results?search_query=' + encodeURIComponent(q) : 'https://m.youtube.com/'); };
+  box.querySelector('.wide').onclick = () => phOpenReal('https://m.youtube.com/');
+};
+/* ---------- Gemini and ChatGPT: the real models through their real APIs, with your own key ---------- */
+const phKeys = (() => { try { return JSON.parse(localStorage.getItem('shahr-phone-keys') || '{}'); } catch (_) { return {}; } })();
+const phSaveKeys = () => { try { localStorage.setItem('shahr-phone-keys', JSON.stringify(phKeys)); } catch (_) { } };
+const phModels = {};
+async function phListModels(p) {
+  if (phModels[p]) return phModels[p];
+  const key = phKeys[p]; let list;
+  if (p === 'gemini') {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=' + encodeURIComponent(key)), j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error?.message || 'HTTP ' + r.status);
+    list = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, ''));
+  } else {
+    const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + key } }), j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error?.message || 'HTTP ' + r.status);
+    list = (j.data || []).map(m => m.id);
+  }
+  return (phModels[p] = list);
+}
+// the old app version picks the oldest model your key can still use, the updated app the newest one
+function phPickModel(p, list, newest) {
+  if (p === 'gemini') {
+    const ok = list.filter(n => /^gemini-\d/.test(n) && !/(tts|image|live|audio|embed|vision|thinking|exp|robotics|computer|native|learnlm)/.test(n)), ver = n => parseFloat((n.match(/^gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+    const score = n => (/flash/.test(n) ? 4 : /pro/.test(n) ? 2 : 0) - (/lite/.test(n) ? 1 : 0) - (/preview/.test(n) ? 3 : 0) - (/-\d{3}$/.test(n) ? 0.5 : 0) - (/latest/.test(n) ? 0.2 : 0);
+    const stable = ok.filter(n => !/preview/.test(n)), pool = stable.length ? stable : ok; if (!pool.length) return null;
+    const vs = pool.map(ver), v = newest ? Math.max(...vs) : Math.min(...vs);
+    return pool.filter(n => ver(n) === v).sort((a, b) => score(b) - score(a) || a.length - b.length)[0];
+  }
+  const ok = list.filter(n => /^gpt-\d/.test(n) && !/(audio|realtime|transcribe|tts|image|search|instruct|codex|embed|moderation|0301|0314|0613|16k|vision|preview)/.test(n));
+  if (!newest) { for (const m of ['gpt-3.5-turbo', 'gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4.1']) if (ok.includes(m)) return m; }
+  const ver = n => parseFloat((n.match(/^gpt-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  const sc = n => -(/-\d{4}-\d\d-\d\d/.test(n) ? 2 : 0) - (/chat-latest/.test(n) ? 1 : 0) - (/nano/.test(n) ? 1.5 : 0) - n.length * 0.01;
+  return ok.sort((a, b) => (newest ? ver(b) - ver(a) : ver(a) - ver(b)) || sc(b) - sc(a))[0] || null;
+}
+async function phAsk(p, model, hist) {
+  const key = phKeys[p];
+  if (p === 'gemini') {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: hist.map(m => ({ role: m.me ? 'user' : 'model', parts: [{ text: m.t }] })) }) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error?.message || 'HTTP ' + r.status);
+    const c = j.candidates && j.candidates[0]; if (!c) throw new Error(j.promptFeedback?.blockReason ? 'پاسخ مسدود شد: ' + j.promptFeedback.blockReason : 'پاسخی نیامد');
+    return (c.content?.parts || []).map(x => x.text || '').join('') || '(پاسخ خالی — ' + (c.finishReason || '') + ')';
+  }
+  const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify({ model, messages: hist.map(m => ({ role: m.me ? 'user' : 'assistant', content: m.t })) }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error?.message || 'HTTP ' + r.status);
+  return j.choices?.[0]?.message?.content || '(پاسخ خالی)';
+}
+function phMd(t) { return phEsc(t).replace(/```([\s\S]*?)```/g, (_, c) => `<pre dir="ltr">${c.replace(/^\w*\n/, '')}</pre>`).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/^#{1,4} (.*)$/gm, '<b>$1</b>').replace(/^[*-] /gm, '• ').replace(/\n/g, '<br>'); }
+function phAI(box, p) {
+  const G = p === 'gemini', st = phone.st, ver = st.apps[p] ?? 0, latest = PH_STORE[p].vers.length - 1, newest = ver >= latest;
+  const site = G ? 'https://gemini.google.com/app' : 'https://chatgpt.com/', keyURL = G ? 'https://aistudio.google.com/apikey' : 'https://platform.openai.com/api-keys';
+  box.classList.add('ai', G ? 'gem' : 'gpt');
+  box.innerHTML = `<div class="ph-head">${phIcon(p, 28)}<b>${G ? 'Gemini' : 'ChatGPT'}</b><small class="ai-model">نسخهٔ ${fa(PH_STORE[p].vers[ver].v)}${newest ? '' : ' (قدیمی)'}</small><button type="button" class="ai-set" aria-label="کلید">⚙</button></div>
+  <div class="ai-log"></div><form class="ai-form" autocomplete="off"><input type="text" enterkeyhint="send" dir="auto" placeholder="${G ? 'از Gemini بپرس' : 'پیام به ChatGPT'}"><button type="submit" aria-label="بفرست">➤</button></form>`;
+  const log = box.querySelector('.ai-log'), inp = box.querySelector('input'), mEl = box.querySelector('.ai-model'), hist = st['ai_' + p] = st['ai_' + p] || []; let model = null, busy = false;
+  const add = (cls, html) => { const d = phEl('div', 'ai-m ' + cls, html, log); log.scrollTop = log.scrollHeight; return d; };
+  const keyCard = msg => {
+    const d = add('sys', `<b>${msg || 'برای جواب واقعی، کلید API لازمه'}</b><p>${G ? 'Gemini' : 'ChatGPT'} واقعی روی سرورهای ${G ? 'گوگل' : 'OpenAI'} اجرا می‌شه. کلید API خودت رو بذار تا سؤال‌هات مستقیم به همون سرورها بره و جواب واقعی بیاد (کلید فقط روی همین دستگاه ذخیره می‌شه).</p>
+      <input class="ph-in" type="password" placeholder="${G ? 'AIza…' : 'sk-…'}" value="${phEsc(phKeys[p] || '')}"><div class="ai-row"><button type="button" data-a="save" class="ph-pill">ذخیرهٔ کلید</button><button type="button" data-a="get" class="ph-pill ghost">گرفتن کلید ↗</button></div>
+      <button type="button" data-a="site" class="ph-pill ghost wide">باز کردن ${G ? 'Gemini' : 'ChatGPT'} واقعی در مرورگر ↗</button>`);
+    d.onclick = e => { const a = e.target.closest('button')?.dataset.a; if (a === 'save') { phKeys[p] = d.querySelector('input').value.trim(); phSaveKeys(); delete phModels[p]; model = null; d.remove(); phNote('کلید ذخیره شد'); prep(); } else if (a === 'get') phOpenReal(keyURL); else if (a === 'site') phOpenReal(site); };
+  };
+  const prep = async () => {
+    if (!phKeys[p]) { keyCard(); return false; }
+    if (model) return true;
+    try { const list = await phListModels(p); model = phPickModel(p, list, newest); if (!model) throw new Error('هیچ مدل گفتگویی روی این کلید فعال نیست'); mEl.textContent = `نسخهٔ ${fa(PH_STORE[p].vers[ver].v)}${newest ? '' : ' (قدیمی)'} · ${model}`; return true; }
+    catch (e) { keyCard('کلید کار نکرد: ' + e.message); return false; }
+  };
+  for (const m of hist.slice(-20)) add(m.me ? 'me' : 'bot', m.me ? phEsc(m.t) : phMd(m.t));
+  if (!hist.length) add('sys hello', G ? '<b>سلام! من Gemini هستم.</b><p>چطور می‌تونم کمکت کنم؟</p>' : '<b>امروز چه کمکی از دستم برمیاد؟</b>');
+  if (!newest) add('sys', `این نسخهٔ قدیمی ${G ? 'Gemini' : 'ChatGPT'} است و از قدیمی‌ترین مدلی که کلیدت بهش دسترسی داره استفاده می‌کنه. از Play Store به‌روزش کن تا جدیدترین مدل فعال بشه.`);
+  if (phKeys[p]) prep();
+  box.querySelector('.ai-set').onclick = () => keyCard('تنظیم کلید API');
+  box.querySelector('form').onsubmit = async e => {
+    e.preventDefault(); const t = inp.value.trim(); if (!t || busy) return;
+    if (!phOnline()) { add('sys', 'اینترنت گوشی قطعه (Wi-Fi یا حالت پرواز رو چک کن).'); return; }
+    inp.value = ''; add('me', phEsc(t)); hist.push({ me: 1, t }); busy = true;
+    if (!(await prep())) { busy = false; return; }
+    const w = add('bot typing', '<i></i><i></i><i></i>');
+    try { const a = await phAsk(p, model, hist.slice(-16)); hist.push({ me: 0, t: a }); while (hist.length > 40) hist.shift(); w.className = 'ai-m bot'; w.innerHTML = phMd(a); saveGame(); }
+    catch (err) { hist.pop(); w.className = 'ai-m sys err'; w.textContent = 'خطا از سرور: ' + err.message + (/fetch|network/i.test(err.message) ? ' (اینترنت دستگاهت رو چک کن)' : ''); }
+    busy = false; log.scrollTop = log.scrollHeight;
+  };
+}
+PH_RUN.gemini = box => phAI(box, 'gemini');
+PH_RUN.chatgpt = box => phAI(box, 'chatgpt');
+/* ---------- Play Store: install, update and remove apps that really work ---------- */
+const PH_STORE = {
+  gemini: { n: 'Google Gemini', dev: 'Google LLC', sys: 1, kind: 'app', size: 96, rate: '۴٫۶', dls: '۵۰۰ میلیون+', desc: 'دستیار هوش مصنوعی گوگل. با کلید API خودت مستقیم به سرورهای واقعی Gemini وصل می‌شه.', vers: [{ v: '1.0', d: 'نسخهٔ اولیه' }, { v: '2.0', d: 'حالا از جدیدترین مدل Gemini که روی حسابت فعاله استفاده می‌کنه.' }] },
+  chatgpt: { n: 'ChatGPT', dev: 'OpenAI', sys: 1, kind: 'app', size: 64, rate: '۴٫۷', dls: '۵۰۰ میلیون+', desc: 'دستیار هوش مصنوعی OpenAI. با کلید API خودت مستقیم به سرورهای واقعی OpenAI وصل می‌شه.', vers: [{ v: '1.0', d: 'نسخهٔ اولیه' }, { v: '2.0', d: 'حالا از جدیدترین مدل GPT که روی حسابت فعاله استفاده می‌کنه.' }] },
+  snake: { n: 'مار', dev: 'استودیو شهر آزاد', kind: 'game', size: 9, rate: '۴٫۴', dls: '۱۰ هزار+', desc: 'مار کلاسیک: سیب بخور، بلند شو، به خودت نخور. با کشیدن انگشت یا کلیدهای جهت.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }, { v: '1.1', d: 'سه سرعت (آرام، معمولی، تند) و حالت «بی‌دیوار» که از لبه رد می‌شی.' }] },
+  g2048: { n: '۲۰۴۸', dev: 'استودیو شهر آزاد', kind: 'game', size: 6, rate: '۴٫۶', dls: '۵۰ هزار+', desc: 'کاشی‌های هم‌عدد رو به هم بزن تا به ۲۰۴۸ برسی.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }, { v: '1.1', d: 'دکمهٔ «برگرد» برای پس گرفتن آخرین حرکت.' }] },
+  flappy: { n: 'پرنده پرواز', dev: 'استودیو شهر آزاد', kind: 'game', size: 12, rate: '۴٫۱', dls: '۱۰۰ هزار+', desc: 'بزن تا پرنده بال بزنه و از بین لوله‌ها رد شه.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
+  breakout: { n: 'آجرشکن', dev: 'استودیو شهر آزاد', kind: 'game', size: 14, rate: '۴٫۳', dls: '۱۰ هزار+', desc: 'با راکت توپ رو برگردون و همهٔ آجرها رو بشکن.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }, { v: '1.1', d: 'مرحله‌های بیشتر: هر بار که همهٔ آجرها رو بشکنی، مرحلهٔ بعد سخت‌تر میاد.' }] },
+  dooz: { n: 'دوز', dev: 'استودیو شهر آزاد', kind: 'game', size: 4, rate: '۴٫۰', dls: '۵ هزار+', desc: 'دوز (ایکس او) در برابر گوشی. گوشی هیچ‌وقت اشتباه نمی‌کنه!', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
+  mines: { n: 'مین‌روب', dev: 'استودیو شهر آزاد', kind: 'game', size: 5, rate: '۴٫۲', dls: '۲۰ هزار+', desc: 'خونه‌ها رو باز کن ولی رو مین نزن. نگه داشتن انگشت = پرچم.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
+  wiki: { n: 'ویکی‌پدیا', dev: 'Wikimedia Foundation', kind: 'app', size: 28, rate: '۴٫۷', dls: '۵۰ میلیون+', desc: 'دانشنامهٔ آزاد. نسخهٔ واقعی fa.wikipedia.org را باز می‌کند.', vers: [{ v: '2.7', d: 'نسخهٔ فعلی' }] }
+};
+function phDlKey(id) { return phone.k + ':' + id; }
+function phInstall(id) {
+  const k = phDlKey(id); if (phone.dl[k]) return;
+  if (!phOnline()) { phNote('برای دانلود باید به اینترنت وصل باشی', 1); return; }
+  const free = phone.S.rom * 1024 - phUsedMB(); if (free < PH_STORE[id].size * 2) { phNote('حافظهٔ گوشی پره!', 1); return; }
+  phone.dl[k] = { id, k: phone.k, got: 0, size: PH_STORE[id].size, upd: phone.st.apps[id] !== undefined }; Audio.tick();
+}
+function phDlTick(key, dt) {
+  const d = phone.dl[key], st = phState(d.k); if (st.air || !st.wifi) return;
+  d.got += dt * (6 + 10 * PHONES[d.k].perf);
+  if (d.got >= d.size) {
+    delete phone.dl[key]; st.apps[d.id] = PH_STORE[d.id].vers.length - 1;
+    if (phone.open && phone.k === d.k) { phNote(`«${PH_STORE[d.id].n}» ${d.upd ? 'به‌روز شد' : 'نصب شد'}`); Audio.tone(1318, 0, 0.08, 0.03); Audio.tone(1760, 0.09, 0.12, 0.03); if (!phone.app) phHomeScreen(); }
+    saveGame();
+  }
+  if (phone.open && phone.app === 'play' && phone.appObj && phone.appObj.refresh) phone.appObj.refreshSoon = true;
+}
+function phUsedMB() { let s = 0; for (const id in phone.st.apps) s += PH_STORE[id] ? PH_STORE[id].size : 0; return s + (phone.mediaMB || 0) + 18000; }
+function phStoreDetail(id) { phone.pendingDetail = id; }
+PH_RUN.play = box => {
+  box.classList.add('play'); const st = phone.st; let tab = 'game', detail = null, q = '';
+  box.innerHTML = `<div class="play-top"><form autocomplete="off"><input class="ph-in" type="search" placeholder="جستجوی برنامه‌ها و بازی‌ها" dir="auto"></form></div><div class="play-tabs"><button type="button" data-t="game">بازی‌ها</button><button type="button" data-t="app">برنامه‌ها</button><button type="button" data-t="mine">مدیریت</button></div><div class="play-body"></div>`;
+  const body = box.querySelector('.play-body');
+  const state = id => { const d = phone.dl[phDlKey(id)], v = st.apps[id], L = PH_STORE[id].vers.length - 1; return d ? { b: `${fa(Math.round(d.got / d.size * 100))}٪`, a: '', p: d.got / d.size } : v === undefined ? { b: 'نصب', a: 'i' } : v < L ? { b: 'به‌روزرسانی', a: 'i' } : { b: 'باز کردن', a: 'o' }; };
+  const row = id => { const A = PH_STORE[id], s = state(id); return `<div class="play-row" data-id="${id}">${phIcon(id, 48)}<div><b>${phEsc(A.n)}</b><small>${phEsc(A.dev)} · ★${A.rate} · ${fa(A.size)} مگابایت</small>${s.p !== undefined ? `<i class="play-pr"><i style="width:${s.p * 100}%"></i></i>` : ''}</div><button type="button" class="ph-pill${s.a ? '' : ' ghost'}" data-a="${s.a}">${s.b}</button></div>`; };
+  const list = () => {
+    detail = null; box.querySelectorAll('.play-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+    let ids = Object.keys(PH_STORE);
+    if (q) ids = ids.filter(id => (PH_STORE[id].n + ' ' + PH_STORE[id].dev + ' ' + id).toLowerCase().includes(q.toLowerCase()));
+    else if (tab === 'mine') ids = ids.filter(id => st.apps[id] !== undefined || phone.dl[phDlKey(id)]); else ids = ids.filter(id => PH_STORE[id].kind === tab);
+    const upd = ids.filter(id => st.apps[id] !== undefined && st.apps[id] < PH_STORE[id].vers.length - 1 && !phone.dl[phDlKey(id)]);
+    body.innerHTML = (tab === 'mine' && !q ? `<div class="play-sum"><b>${upd.length ? fa(upd.length) + ' به‌روزرسانی در دسترس' : 'همه‌چیز به‌روزه'}</b>${upd.length ? '<button type="button" class="ph-pill" data-a="all">به‌روزرسانی همه</button>' : ''}</div>` : '')
+      + (ids.length ? ids.map(row).join('') : '<p class="ph-empty">چیزی پیدا نشد.</p>')
+      + `<button type="button" class="ph-pill ghost wide" data-a="real">${q ? `جستجوی «${phEsc(q)}» در Google Play واقعی ↗` : 'باز کردن Google Play واقعی ↗'}</button>`;
+  };
+  const show = id => {
+    detail = id; const A = PH_STORE[id], s = state(id), v = st.apps[id], L = A.vers.length - 1;
+    body.innerHTML = `<div class="play-det"><div class="play-dh">${phIcon(id, 72)}<div><b>${phEsc(A.n)}</b><small>${phEsc(A.dev)}</small></div></div>
+      <div class="play-stats"><span>★ ${A.rate}<small>امتیاز</small></span><span>${A.dls}<small>دانلود</small></span><span>${fa(A.size)} MB<small>حجم</small></span></div>
+      <div class="ai-row"><button type="button" class="ph-pill${s.a ? '' : ' ghost'}" data-a="${s.a}" style="flex:1">${s.b}</button>${v !== undefined ? '<button type="button" class="ph-pill ghost" data-a="rm">حذف نصب</button>' : ''}</div>
+      ${v !== undefined ? `<p class="sub">نسخهٔ نصب‌شده: ${fa(A.vers[v].v)}${v < L ? ` · نسخهٔ جدید: ${fa(A.vers[L].v)}` : ''}</p>` : ''}
+      <h4>چه چیزی جدیده (${fa(A.vers[L].v)})</h4><p>${phEsc(A.vers[L].d)}</p><h4>دربارهٔ این ${A.kind === 'game' ? 'بازی' : 'برنامه'}</h4><p>${phEsc(A.desc)}</p>
+      <button type="button" class="ph-pill ghost wide" data-a="real">دیدن در Google Play واقعی ↗</button></div>`;
+  };
+  box.querySelector('.play-tabs').onclick = e => { const t = e.target.closest('button')?.dataset.t; if (t) { tab = t; q = ''; box.querySelector('input').value = ''; list(); } };
+  box.querySelector('form').onsubmit = e => { e.preventDefault(); q = box.querySelector('input').value.trim(); box.querySelector('input').blur(); list(); };
+  body.onclick = e => {
+    const b = e.target.closest('button'), r = e.target.closest('[data-id]'), id = r ? r.dataset.id : detail;
+    if (b) { const a = b.dataset.a; Audio.tick();
+      if (a === 'i' && id) phInstall(id); else if (a === 'o' && id) phLaunch(id);
+      else if (a === 'rm' && id) { if (phone.dl[phDlKey(id)]) delete phone.dl[phDlKey(id)]; delete st.apps[id]; phNote(`«${PH_STORE[id].n}» حذف شد`); saveGame(); }
+      else if (a === 'all') { for (const x in st.apps) if (PH_STORE[x] && st.apps[x] < PH_STORE[x].vers.length - 1) phInstall(x); }
+      else if (a === 'real') phOpenReal(detail ? 'https://play.google.com/store/search?q=' + encodeURIComponent(PH_STORE[detail].n) + '&c=apps' : q ? 'https://play.google.com/store/search?q=' + encodeURIComponent(q) : 'https://play.google.com/store');
+      if (phone.app === 'play') detail ? show(detail) : list(); return; }
+    if (r) show(r.dataset.id);
+  };
+  if (phone.pendingDetail) { show(phone.pendingDetail); phone.pendingDetail = null; } else list();
+  let t = 0;
+  return { refresh: true, tick(dt) { t += dt; if (this.refreshSoon && t > 0.25) { t = 0; this.refreshSoon = false; detail ? show(detail) : list(); } }, back() { if (detail) { list(); return true; } return false; } };
+};
+/* ---------- settings: everything about this phone ---------- */
+PH_RUN.settings = box => {
+  const S = phone.S, st = phone.st; let page = null, taps = 0;
+  box.classList.add('set');
+  const rowH = (ic, t, s, p) => `<button type="button" class="set-row" data-p="${p}"><span class="set-ic">${ic}</span><span><b>${t}</b><small>${s}</small></span></button>`;
+  const main = () => { page = null; box.innerHTML = `<div class="ph-head"><b>تنظیمات</b></div><div class="set-list">
+    ${rowH('📶', 'اتصال‌ها', st.air ? 'حالت پرواز روشن' : st.wifi ? 'Wi-Fi: وصل' : 'Wi-Fi خاموش', 'net')}${rowH('☀', 'نمایشگر', `${S.disp.type} · ${fa(S.disp.hz)} هرتز`, 'disp')}${rowH('🖼', 'تصویر زمینه', 'عوض کردن پس‌زمینه', 'wall')}
+    ${rowH('🔊', 'صدا', 'میزان صدای گوشی و بازی', 'snd')}${rowH('🔋', 'باتری', `${fa(Math.round(st.bat))}٪ · ${fa(S.bat)} میلی‌آمپر ساعت`, 'bat')}${rowH('💾', 'حافظه', `${fa(S.rom)} گیگابایت`, 'mem')}
+    ${rowH('▦', 'برنامه‌ها', 'نصب‌شده‌ها و نسخه‌ها', 'apps')}${rowH('⟳', 'به‌روزرسانی نرم‌افزار', S.uiv, 'upd')}${rowH('ℹ', 'دربارهٔ گوشی', S.name, 'about')}</div>`; };
+  const sub = (title, html) => { box.innerHTML = `<div class="ph-head"><button type="button" class="ph-backb" data-p="back">‹</button><b>${title}</b></div><div class="set-page">${html}</div>`; };
+  const kv = (k, v) => `<div class="set-kv"><span>${k}</span><b>${v}</b></div>`;
+  const open = p => {
+    page = p;
+    if (p === 'net') sub('اتصال‌ها', `<label class="set-tg">Wi-Fi <input type="checkbox" data-k="wifi" ${st.wifi ? 'checked' : ''}></label><p class="sub">${st.wifi ? 'وصل به «Shahr-Azad Wi-Fi» — اینترنت واقعی همین دستگاهی که بازی رو روش اجرا می‌کنی' : 'خاموش'}</p><label class="set-tg">حالت پرواز <input type="checkbox" data-k="air" ${st.air ? 'checked' : ''}></label>`);
+    else if (p === 'disp') sub('نمایشگر', `<label class="set-tg">حالت تاریک <input type="checkbox" data-k="dark" ${st.dark ? 'checked' : ''}></label><label class="set-sl">روشنایی <input type="range" min="0" max="100" value="${Math.round(st.bright * 100)}" data-k="bright"></label>${kv('نوع', S.disp.type)}${kv('اندازه', fa(S.disp.inch) + ' اینچ')}${kv('رزولوشن', fa(S.disp.res[0]) + '×' + fa(S.disp.res[1]))}${kv('نرخ نوسازی', fa(S.disp.hz) + ' هرتز')}<button type="button" class="ph-pill wide" data-a="full">${phone.full ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'}</button>`);
+    else if (p === 'wall') sub('تصویر زمینه', `<div class="set-walls">${PH_WALLS[S.ui].map((w, i) => `<button type="button" data-w="${i}" style="background:${w}" class="${st.wall === i ? 'on' : ''}"></button>`).join('')}</div><button type="button" class="ph-pill ghost wide" data-a="gal">انتخاب از گالری (یه عکس رو باز کن، «تصویر زمینه»)</button>`);
+    else if (p === 'snd') sub('صدا', `<label class="set-sl">میزان صدا <input type="range" min="0" max="100" value="${Math.round((st.vol ?? 0.7) * 100)}" data-k="vol"></label><p class="sub">دکمه‌های صدای کنار گوشی هم کار می‌کنن.</p>`);
+    else if (p === 'bat') sub('باتری', `<div class="set-big">${fa(Math.round(st.bat))}٪</div>${kv('وضعیت', phCharging() ? 'در حال شارژ ⚡' : 'شارژ نمی‌شه')}${kv('ظرفیت', fa(S.bat) + ' میلی‌آمپر ساعت')}${kv('شارژ سریع', fa(S.charge) + ' وات')}<p class="sub">داخل ماشین یا خونه، گوشی شارژ می‌شه. صفحهٔ ${fa(S.disp.hz)} هرتزی، روشنایی بالا و دوربین باتری بیشتری مصرف می‌کنن.</p>`);
+    else if (p === 'mem') { sub('حافظه', '<p class="sub">در حال حساب کردن…</p>'); PDB.list(phone.k).then(l => { if (page !== 'mem') return; const media = l.reduce((s, m) => s + (m.size || 0), 0) / 1048576; phone.mediaMB = media; let apps = 0; for (const id in st.apps) apps += PH_STORE[id] ? PH_STORE[id].size : 0; const tot = S.rom * 1024, used = 18000 + apps + media;
+      box.querySelector('.set-page').innerHTML = `<div class="set-big">${fa((used / 1024).toFixed(1))} / ${fa(S.rom)} GB</div><i class="play-pr big"><i style="width:${used / tot * 100}%"></i></i>${kv('سیستم (اندروید)', '۱۸ گیگابایت')}${kv('برنامه‌ها', fa(Math.round(apps)) + ' مگابایت')}${kv('عکس و فیلم (' + fa(l.length) + ' فایل)', phMB(media * 1048576))}${kv('آزاد', fa(((tot - used) / 1024).toFixed(1)) + ' گیگابایت')}`; }); }
+    else if (p === 'apps') { const ids = Object.keys(st.apps); sub('برنامه‌ها', ids.map(id => `<div class="set-app">${phIcon(id, 34)}<span><b>${phEsc(PH_STORE[id].n)}</b><small>نسخهٔ ${fa(PH_STORE[id].vers[st.apps[id]].v)} · ${fa(PH_STORE[id].size)} مگابایت</small></span><button type="button" class="ph-pill ghost" data-rm="${id}">حذف</button></div>`).join('') + `<p class="sub">برنامه‌های سیستمی: ${Object.keys(PH_APPS).filter(i => !PH_APPS[i].store).map(phAppName).join('، ')}</p>`); }
+    else if (p === 'upd') sub('به‌روزرسانی نرم‌افزار', `<div class="set-big" style="font-size:22px">${S.os}<br>${S.uiv}</div><p>نرم‌افزار گوشی به‌روز است.</p><p class="sub">این همون نسخه‌ایه که ${phEsc(S.fa)} باهاش عرضه شده. به‌روزرسانی برنامه‌ها از Play Store انجام می‌شه.</p>`);
+    else if (p === 'about') sub('دربارهٔ گوشی', `<div class="set-big" style="font-size:22px">${phEsc(S.name)}</div>${kv('مدل', S.code)}${kv('سال عرضه', fa(S.year))}${kv('اندروید', S.os)}${kv('رابط کاربری', S.uiv)}${kv('تراشه', S.chip)}${kv('پردازنده', S.cpu)}${kv('گرافیک', S.gpu)}${kv('رم', fa(S.ram) + ' گیگابایت')}${kv('حافظه', fa(S.rom) + ' گیگابایت')}
+      ${kv('نمایشگر', `${fa(S.disp.inch)} اینچ ${S.disp.type} · ${fa(S.disp.res[0])}×${fa(S.disp.res[1])} · ${fa(S.disp.hz)} هرتز`)}${kv('باتری', fa(S.bat) + ' میلی‌آمپر ساعت · شارژ ' + fa(S.charge) + ' وات')}${kv('ابعاد', S.size)}${kv('وزن', fa(S.weight) + ' گرم')}
+      ${kv('دوربین اصلی', S.rear.map(l => fa(l.mp) + 'MP').join(' + '))}${kv('دوربین سلفی', fa(S.front.mp) + 'MP ' + S.front.f)}${kv('فیلم', S.video)}${S.extra.map(x => kv('ویژگی', x)).join('')}
+      ${kv('قیمت خرید', fmtT(PHONE_PRICE[phone.k]))}<button type="button" class="set-row" data-a="build"><span><b>شمارهٔ ساخت</b><small>${S.code}.${S.os.replace(/\D/g, '')}${fa(S.year % 100)}</small></span></button>${S.approx ? '<p class="sub">بعضی از مشخصات این مدل تقریبی است.</p>' : ''}`);
+  };
+  box.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return; Audio.tick();
+    if (b.dataset.p === 'back') main(); else if (b.dataset.p) open(b.dataset.p);
+    else if (b.dataset.w !== undefined) { st.wall = +b.dataset.w; phApplyLook(); open('wall'); }
+    else if (b.dataset.rm) { delete st.apps[b.dataset.rm]; open('apps'); saveGame(); }
+    else if (b.dataset.a === 'gal') phLaunch('gallery'); else if (b.dataset.a === 'full') { phFull(!phone.full); open('disp'); }
+    else if (b.dataset.a === 'build') { taps++; if (taps >= 7) { phNote('شما الان یک توسعه‌دهنده هستید!'); taps = 0; } else if (taps >= 3) phNote(`${fa(7 - taps)} قدم تا توسعه‌دهنده شدن`); }
+  };
+  box.onchange = box.oninput = e => {
+    const k = e.target.dataset.k; if (!k) return;
+    if (k === 'bright') st.bright = e.target.value / 100; else if (k === 'vol') { st.vol = e.target.value / 100; if (Audio.master) Audio.master.gain.value = st.vol; } else st[k] = e.target.checked;
+    if (k === 'dark' || k === 'bright') phApplyLook(); phStatus(true);
+  };
+  main();
+  return { back() { if (page) { main(); return true; } return false; } };
+};
+/* ---------- phone calls: a few real services of the city work ---------- */
+const PH_CONTACTS = [{ n: 'تعمیرگاه مرکزی (یدک‌کش)', num: '02188001234', a: 'tow' }, { n: 'تاکسی‌رانی شهر آزاد', num: '133', a: 'taxi' }, { n: 'ساعت گویا', num: '119', a: 'time' }, { n: 'اورژانس', num: '115', a: 'sos' }, { n: 'پلیس', num: '110', a: 'sos' }, { n: 'آتش‌نشانی', num: '125', a: 'sos' }];
+function phFriends() { return Object.values(store.residents || {}).map(r => r.persona).filter(p => p && p.met > 0 && p.name).slice(0, 12).map((p, i) => ({ n: p.name, num: '0912' + String(1000000 + ((p.name.charCodeAt(0) * 7919 + i * 104729) % 8999999)).slice(0, 7), a: 'friend', p })); }
+/* friends you've talked to call you now and then */
+function phRingStart() {
+  const F = phFriends(), P = player; if (!F.length || mis.kind || (P.state === 'car' && P.car && Math.abs(P.car.vf) > 2.5)) return;
+  phone.ring = { c: mpick(F), t: 0, beep: 0, ui: null }; toast(`📞 ${phone.ring.c.n} داره بهت زنگ می‌زنه! (گوشی رو باز کن: P)`);
+}
+function phRingTick(dt) {
+  const R = phone.ring; R.t += dt; R.beep -= dt;
+  if (R.beep <= 0 && !R.talk) { R.beep = 2.2; for (let k = 0; k < 6; k++) Audio.tone([1318, 1568, 1760][k % 3], k * 0.13, 0.11, 0.05); }
+  if (phone.open && !phone.ring.ui) { if (phone.off && phone.st.bat > 0) phWake(); if (!phone.off) phRingUI(); }
+  if (R.talk) { if (R.t > R.talk) phRingEnd(); return; }
+  if (R.t > 22) { for (const id of phOwned()) { const s = phState(PHONE_OF[id]); s.calls.push({ n: R.c.n, num: R.c.num, at: Date.now(), out: 0, missed: 1 }); } phoneSms(R.c.n, 'بهت زنگ زدم جواب ندادی! هر وقت تونستی بهم زنگ بزن.'); phRingEnd(); }
+}
+function phRingEnd() { const R = phone.ring; if (R && R.ui) R.ui.remove(); phone.ring = null; }
+function phRingUI() {
+  const R = phone.ring, c = R.c, u = R.ui = phEl('div', 'ph-incoming', `<div class="dial-av big">${phEsc(c.n[0])}</div><b>${phEsc(c.n)}</b><small dir="ltr">${fa(c.num)}</small><p class="call-st">تماس ورودی…</p><p class="call-say"></p><div class="ai-row"><button type="button" class="dial-call end" data-r="no" aria-label="رد تماس">✆</button><button type="button" class="dial-call" data-r="yes" aria-label="جواب">✆</button></div>`, phone.scr);
+  u.onclick = e => {
+    const r = e.target.closest('button')?.dataset.r; if (!r) return; Audio.tick();
+    if (r === 'no' || R.talk) { if (!R.talk) phone.st.calls.push({ n: c.n, num: c.num, at: Date.now(), out: 0 }); phRingEnd(); return; }
+    R.talk = R.t + 9; u.querySelector('.call-st').textContent = 'وصل شد'; u.querySelector('[data-r=yes]').remove(); phone.st.calls.push({ n: c.n, num: c.num, at: Date.now(), out: 0 });
+    const near = player.where === 'out' ? places().filter(p => p.dist > 40 && p.dist < 500) : [];
+    if (near.length && Math.random() < 0.6) { const pl = mpick(near); setWaypoint(pl); u.querySelector('.call-say').textContent = `${c.n}: سلام! من دارم میرم «${pl.name}». تو هم بیا اونجا! (مسیرش رو روی نقشه گذاشتم)`; }
+    else u.querySelector('.call-say').textContent = `${c.n}: ${mpick(['سلام! خواستم حالت رو بپرسم. همه چی خوبه؟', 'الو؟ گوشی جدید خریدی؟ مبارکه!', 'دیروز تو پاساژ دیدمت، صدات کردم نشنیدی!', 'امشب آتیش‌بازی هست، بیا بریم ببینیم!'])}`;
+  };
+}
+PH_RUN.phone = box => {
+  const st = phone.st; let tab = 'keys', num = '', call = null;
+  box.classList.add('dial');
+  const friends = phFriends;
+  const render = () => {
+    if (call) return;
+    const C = [...PH_CONTACTS, ...friends()];
+    box.innerHTML = `<div class="dial-body"></div><div class="dial-tabs"><button type="button" data-t="keys">صفحه‌کلید</button><button type="button" data-t="log">اخیر</button><button type="button" data-t="con">مخاطبین</button></div>`;
+    box.querySelectorAll('.dial-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+    const body = box.querySelector('.dial-body');
+    if (tab === 'keys') { body.innerHTML = `<div class="dial-num" dir="ltr">${fa(num)}</div><div class="dial-pad" dir="ltr">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(d => `<button type="button" data-d="${d}">${fa(d)}</button>`).join('')}</div><div class="dial-act"><span></span><button type="button" class="dial-call" data-a="call" aria-label="تماس">${PH_IC.phone[1] ? `<svg viewBox="0 0 24 24" width="30" height="30">${PH_IC.phone[1]}</svg>` : ''}</button><button type="button" class="dial-del" data-a="del">⌫</button></div>`; }
+    else if (tab === 'log') body.innerHTML = st.calls.length ? st.calls.slice().reverse().map(c => `<button type="button" class="dial-row" data-n="${c.num}"><b style="${c.missed ? 'color:#e8333a' : ''}">${phEsc(c.n || fa(c.num))}</b><small>${c.out ? '↗' : c.missed ? '✕ بی‌پاسخ' : '↙'} ${new Date(c.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}</small></button>`).join('') : '<p class="ph-empty">تماسی نداشتی</p>';
+    else body.innerHTML = C.map(c => `<button type="button" class="dial-row" data-n="${c.num}"><span class="dial-av">${phEsc(c.n[0])}</span><b>${phEsc(c.n)}</b><small dir="ltr">${fa(c.num)}</small></button>`).join('');
+  };
+  const dial = n => {
+    const C = [...PH_CONTACTS, ...friends()], c = C.find(x => x.num === n) || { n: '', num: n, a: '' };
+    st.calls.push({ n: c.n, num: n, at: Date.now(), out: 1 }); if (st.calls.length > 30) st.calls.shift();
+    call = { c, t: 0, phase: 'ring', said: false };
+    box.innerHTML = `<div class="call"><div class="dial-av big">${phEsc((c.n || '؟')[0])}</div><b>${phEsc(c.n || fa(n))}</b><small dir="ltr">${fa(n)}</small><p class="call-st">در حال شماره‌گیری…</p><p class="call-say"></p><button type="button" class="dial-call end" data-a="end" aria-label="قطع">✆</button></div>`;
+  };
+  const say_ = t => { const e = box.querySelector('.call-say'); if (e) e.textContent = t; const s = box.querySelector('.call-st'); if (s) s.textContent = 'وصل شد'; };
+  const hang = () => { call = null; Audio.tone(425, 0, 0.2, 0.03); render(); };
+  box.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.t) { tab = b.dataset.t; render(); return; }
+    if (b.dataset.d) { if (num.length < 14) num += b.dataset.d; Audio.tone([941, 697, 697, 697, 770, 770, 770, 852, 852, 852][+b.dataset.d] || 941, 0, 0.08, 0.025); render(); return; }
+    if (b.dataset.a === 'del') { num = num.slice(0, -1); render(); return; }
+    if (b.dataset.a === 'call') { if (num) dial(num.replace(/[^\d*#]/g, '')); return; }
+    if (b.dataset.a === 'end') { hang(); return; }
+    if (b.dataset.n) { tab === 'log' || tab === 'con' ? dial(b.dataset.n) : 0; }
+  };
+  render();
+  return {
+    tick(dt) {
+      if (!call) return; call.t += dt; const c = call.c, st_ = box.querySelector('.call-st');
+      if (call.phase === 'ring') { if (st_ && call.t > 1) st_.textContent = 'زنگ می‌خوره…'; if (Math.floor(call.t * 0.8) !== Math.floor((call.t - dt) * 0.8) && call.t > 0.9) Audio.tone(425, 0, 0.9, 0.025); if (call.t > (c.a ? 2.6 : 6)) call.phase = 'talk'; return; }
+      if (call.said) { if (call.t > 12) hang(); return; } call.said = true; call.t = 0;
+      if (c.a === 'tow') say_(callTow());
+      else if (c.a === 'taxi') { if (player.state === 'car' && player.car && !player.car.service) { phoneClose(true); startTaxi(); } else say_('سلام، تاکسی‌رانی. برای شیفت تاکسی اول سوار یه ماشین شو، بعد دوباره زنگ بزن.'); }
+      else if (c.a === 'time') { const t = `ساعت ${fa(Math.floor(tod))} و ${fa(Math.floor((tod % 1) * 60))} دقیقه`; say_(t); try { const u = new SpeechSynthesisUtterance(t); u.lang = 'fa-IR'; speechSynthesis.speak(u); } catch (_) { } }
+      else if (c.a === 'sos') say_('این تماس فقط داخل بازیه. اگه واقعاً شرایط اضطراری داری، همین الان با گوشی واقعی‌ات به ' + fa(c.num) + ' زنگ بزن.');
+      else if (c.a === 'friend') say_(`${c.n}: الو؟ سلام! ${mpick(['چه خبر؟ بیا همدیگه رو تو شهر ببینیم!', 'الان سرم شلوغه، بعداً بهت زنگ می‌زنم.', 'به به! چه عجب یادی از ما کردی!', 'دارم میام پاساژ، تو هم میای؟'])}`);
+      else { say_('مشترک مورد نظر در دسترس نمی‌باشد.'); for (let k = 0; k < 3; k++) Audio.tone(950 + k * 450, k * 0.33, 0.3, 0.03); }
+    },
+    back() { if (call) { hang(); return true; } return false; },
+    key(e) { if (call || tab !== 'keys') return false; const d = e.key && /^[0-9*#]$/.test(e.key) ? e.key : null; if (d) { num += d; render(); return true; } if (e.code === 'Backspace') { num = num.slice(0, -1); render(); return true; } if (e.code === 'Enter' && num) { dial(num); return true; } return false; }
+  };
+};
+function phoneSms(from, text) { for (const id of phOwned()) phState(PHONE_OF[id]); for (const k in store.phones || {}) { const s = store.phones[k]; s.sms.push({ f: from, t: text, at: Date.now() }); if (s.sms.length > 60) s.sms.shift(); } if (phone.open && !phone.off) { phNote(`${from}: ${text}`); Audio.tone(1318, 0, 0.1, 0.03); Audio.tone(1046, 0.12, 0.14, 0.03); } }
+PH_RUN.messages = box => {
+  const st = phone.st; let thread = null; box.classList.add('msgs');
+  const list = () => { thread = null; const by = {}; for (const m of st.sms) (by[m.f] = by[m.f] || []).push(m); const fs = Object.keys(by).sort((a, b) => by[b][by[b].length - 1].at - by[a][by[a].length - 1].at);
+    box.innerHTML = `<div class="ph-head"><b>پیام‌ها</b></div><div class="msg-list">${fs.map(f => { const L = by[f][by[f].length - 1], un = by[f].filter(m => !m.read).length; return `<button type="button" class="msg-row" data-f="${phEsc(f)}"><span class="dial-av">${phEsc(f[0])}</span><span><b>${phEsc(f)}</b><small>${phEsc(L.t.slice(0, 60))}</small></span>${un ? `<i>${fa(un)}</i>` : ''}</button>`; }).join('') || '<p class="ph-empty">پیامی نداری</p>'}</div>`; };
+  const open = f => { thread = f; const ms = st.sms.filter(m => m.f === f); ms.forEach(m => m.read = true);
+    box.innerHTML = `<div class="ph-head"><button type="button" class="ph-backb" data-b="1">‹</button><b>${phEsc(f)}</b></div><div class="msg-th">${ms.map(m => `<div class="msg-b">${phEsc(m.t)}<small>${new Date(m.at).toLocaleString('fa-IR', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</small></div>`).join('')}</div>`;
+    const th = box.querySelector('.msg-th'); th.scrollTop = th.scrollHeight; };
+  box.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.b) list(); else if (b.dataset.f) open(b.dataset.f); };
+  list();
+  return { back() { if (thread) { list(); return true; } return false; } };
+};
+/* ---------- maps: the city map, search places, route with the guide arrow ---------- */
+PH_RUN.maps = box => {
+  box.classList.add('maps');
+  box.innerHTML = `<form class="map-top" autocomplete="off"><input class="ph-in" type="search" placeholder="جستجو: پمپ بنزین، پاساژ، نانوایی…" dir="auto"></form><div class="map-res" hidden></div><canvas class="map-cv"></canvas><div class="map-btns"><button type="button" data-m="in">+</button><button type="button" data-m="out">−</button><button type="button" data-m="me">◎</button></div><button type="button" class="ph-pill ghost map-real">Google Maps واقعی ↗</button>`;
+  const cv = box.querySelector('.map-cv'), g = cv.getContext('2d'), res = box.querySelector('.map-res'); let zoom = 1.6, cx = null, cz = null, drag = null;
+  const P = () => player.where === 'out' ? (player.state === 'car' ? player.car : player.pos) : interior.door || player.pos;
+  const draw = () => {
+    const r = cv.getBoundingClientRect(), k = phone.scale || 1, W = Math.round(r.width / k * 2), H = Math.round(r.height / k * 2); if (W < 10) return;
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    g.fillStyle = '#e8eae6'; g.fillRect(0, 0, W, H);
+    if (player.where === 'rb' || player.where === 'test' || !mapBase) { g.fillStyle = '#555'; g.font = '600 26px Vazirmatn'; g.textAlign = 'center'; g.fillText('اینجا خارج از نقشهٔ شهره', W / 2, H / 2); return; }
+    const p = P(), s = 1024 / MAPW; if (cx === null) { cx = p.x; cz = p.z; }
+    g.save(); g.translate(W / 2, H / 2); g.scale(zoom, zoom); g.translate(-(cx + MAPW / 2) * s, -(cz + MAPW / 2) * s); g.drawImage(mapBase, 0, 0);
+    const X = v => (v + MAPW / 2) * s;
+    if (waypoint) { g.strokeStyle = '#1a73e8'; g.lineWidth = 5 / zoom * 2; g.beginPath(); g.moveTo(X(p.x), X(p.z)); g.lineTo(X(waypoint.x), X(waypoint.z)); g.stroke(); g.fillStyle = '#ea4335'; g.beginPath(); g.arc(X(waypoint.x), X(waypoint.z), 9 / zoom * 2, 0, 7); g.fill(); }
+    g.fillStyle = '#1a73e8'; g.strokeStyle = '#fff'; g.lineWidth = 3 / zoom * 2; g.beginPath(); g.arc(X(p.x), X(p.z), 8 / zoom * 2, 0, 7); g.fill(); g.stroke(); g.restore();
+  };
+  const search = q => {
+    const L = places().filter(p => !q || p.name.includes(q) || p.keys.some(k => k.includes(norm(q)) || norm(q).includes(k))).sort((a, b) => a.dist - b.dist).slice(0, 12);
+    res.hidden = false; res.innerHTML = L.map((p, i) => `<button type="button" data-i="${i}"><b>${phEsc(p.name)}</b><small>${fa(Math.round(p.dist))} متر</small></button>`).join('') || '<p class="ph-empty">پیدا نشد</p>'; res._L = L;
+  };
+  box.querySelector('form').onsubmit = e => { e.preventDefault(); box.querySelector('input').blur(); search(box.querySelector('input').value.trim()); };
+  box.querySelector('input').onfocus = () => search('');
+  res.onclick = e => { const i = e.target.closest('button')?.dataset.i; if (i === undefined) return; const pl = res._L[+i]; setWaypoint(pl); cx = (pl.x + P().x) / 2; cz = (pl.z + P().z) / 2; res.hidden = true; phNote('مسیر روی نقشه و فلش راهنما نشون داده شد'); Audio.tick(); };
+  box.querySelector('.map-btns').onclick = e => { const m = e.target.closest('button')?.dataset.m; if (m === 'in') zoom = Math.min(6, zoom * 1.4); else if (m === 'out') zoom = Math.max(0.35, zoom / 1.4); else if (m === 'me') { cx = null; } };
+  box.querySelector('.map-real').onclick = () => phOpenReal('https://www.google.com/maps');
+  cv.onpointerdown = e => { drag = [e.clientX, e.clientY]; res.hidden = true; try { cv.setPointerCapture(e.pointerId); } catch (_) { } };
+  cv.onpointermove = e => { if (!drag || cx === null) return; const s = 1024 / MAPW * zoom / 2 * (phone.scale || 1); cx -= (e.clientX - drag[0]) / s; cz -= (e.clientY - drag[1]) / s; drag = [e.clientX, e.clientY]; };
+  cv.onpointerup = cv.onpointercancel = () => { drag = null; };
+  cv.onwheel = e => { zoom = clamp(zoom * Math.exp(-e.deltaY * 0.002), 0.35, 6); };
+  let t = 0;
+  return { tick(dt) { t += dt; if (t > 0.1) { t = 0; draw(); } }, back() { if (!res.hidden) { res.hidden = true; return true; } return false; } };
+};
+PH_RUN.weather = box => {
+  const w = weather, t = phTemp(), kind = w.snow > 0.3 ? ['برفی', '❄'] : w.rain > 0.3 ? ['بارانی', '🌧'] : w.cloud > 0.6 ? ['ابری', '☁'] : tod > 19 || tod < 6 ? ['صاف', '🌙'] : ['آفتابی', '☀'];
+  const next = w.target !== w.state ? { clear: 'آفتابی', cloudy: 'ابری', rain: 'بارانی', snow: 'برفی' }[w.target] : null, mins = Math.max(1, Math.round(w.timer / 60));
+  box.classList.add('wx');
+  box.innerHTML = `<div class="wx-now"><small>شهر آزاد</small><div class="wx-ic">${kind[1]}</div><div class="wx-t">${fa(t)}°</div><b>${kind[0]}</b><small>بیشینه ${fa(t + 3)}° · کمینه ${fa(t - 6)}°</small></div>
+  <div class="wx-cards"><div><small>رطوبت</small><b>${fa(Math.round(35 + w.cloud * 40 + w.rain * 20))}٪</b></div><div><small>باد</small><b>${fa(Math.round(6 + w.cloud * 14))} کیلومتر</b></div><div><small>خیسی جاده</small><b>${fa(Math.round(w.wet * 100))}٪</b></div><div><small>برف روی زمین</small><b>${fa(Math.round(w.cover * 100))}٪</b></div></div>
+  <p class="ph-pad">${next ? `پیش‌بینی: هوا داره ${next} می‌شه.` : `پیش‌بینی: حدود ${fa(mins)} دقیقهٔ دیگه هوا ممکنه عوض بشه.`}</p><p class="ph-pad sub">این‌ها هوای داخل بازیه، همون که در شهر می‌بینی.</p>`;
+};
+PH_RUN.clock = box => {
+  box.classList.add('clk'); let tab = 'clk', sw = phone.sw || (phone.sw = { on: false, t0: 0, acc: 0, laps: [] });
+  const swT = () => sw.acc + (sw.on ? (performance.now() - sw.t0) / 1000 : 0), f2 = n => fa(String(Math.floor(n)).padStart(2, '0'));
+  const render = () => {
+    box.innerHTML = `<div class="clk-body"></div><div class="dial-tabs"><button type="button" data-t="clk">ساعت</button><button type="button" data-t="sw">کرنومتر</button><button type="button" data-t="tm">تایمر</button></div>`;
+    box.querySelectorAll('.dial-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab)); const b = box.querySelector('.clk-body');
+    if (tab === 'clk') b.innerHTML = `<div class="clk-big g"></div><small>ساعت شهر آزاد</small><div class="clk-mid r"></div><small>ساعت واقعی دستگاه تو</small>`;
+    else if (tab === 'sw') b.innerHTML = `<div class="clk-big s"></div><div class="ai-row"><button type="button" class="ph-pill" data-a="go">${sw.on ? 'توقف' : 'شروع'}</button><button type="button" class="ph-pill ghost" data-a="${sw.on ? 'lap' : 'rst'}">${sw.on ? 'دور' : 'صفر'}</button></div><div class="clk-laps">${sw.laps.map((l, i) => `<div>دور ${fa(i + 1)}: ${f2(l / 60)}:${f2(l % 60)}٫${f2((l % 1) * 100)}</div>`).reverse().join('')}</div>`;
+    else b.innerHTML = `<div class="clk-big tm"></div><div class="ai-row">${[1, 3, 5, 10].map(m => `<button type="button" class="ph-pill ghost" data-m="${m}">${fa(m)} دقیقه</button>`).join('')}</div><button type="button" class="ph-pill wide" data-a="tstop">لغو تایمر</button>`;
+  };
+  box.onclick = e => { const b = e.target.closest('button'); if (!b) return; Audio.tick();
+    if (b.dataset.t) { tab = b.dataset.t; render(); } else if (b.dataset.a === 'go') { if (sw.on) { sw.acc = swT(); sw.on = false; } else { sw.t0 = performance.now(); sw.on = true; } render(); }
+    else if (b.dataset.a === 'lap') { sw.laps.push(swT()); render(); } else if (b.dataset.a === 'rst') { sw.acc = 0; sw.laps = []; render(); }
+    else if (b.dataset.m) { phone.alarmAt = Date.now() + b.dataset.m * 60000; phNote(`تایمر ${fa(b.dataset.m)} دقیقه‌ای شروع شد`); } else if (b.dataset.a === 'tstop') phone.alarmAt = 0; };
+  render();
+  return { tick() {
+    const g = box.querySelector('.clk-big.g'); if (g) { g.textContent = phTime(); box.querySelector('.clk-mid.r').textContent = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+    const s = box.querySelector('.clk-big.s'); if (s) { const t = swT(); s.textContent = `${f2(t / 60)}:${f2(t % 60)}٫${f2((t % 1) * 100)}`; }
+    const m = box.querySelector('.clk-big.tm'); if (m) { const l = phone.alarmAt ? Math.max(0, (phone.alarmAt - Date.now()) / 1000) : 0; m.textContent = `${f2(l / 60)}:${f2(l % 60)}`; }
+  } };
+};
+PH_RUN.calc = box => {
+  box.classList.add('calc'); let ex = '', last = '';
+  box.innerHTML = `<div class="calc-scr"><small></small><b dir="ltr">۰</b></div><div class="calc-pad" dir="ltr">${['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '%', '0', '.', '='].map(k => `<button type="button" data-k="${k}" class="${/[÷×−+=]/.test(k) ? 'op' : k === 'C' ? 'cl' : ''}">${fa(k)}</button>`).join('')}</div>`;
+  const show = () => { box.querySelector('.calc-scr b').textContent = fa(ex || '0'); box.querySelector('.calc-scr small').textContent = fa(last); };
+  const press = k => {
+    if (k === 'C') { ex = ''; last = ''; }
+    else if (k === '=') { const js = ex.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/(\d+(?:\.\d+)?)%/g, '($1/100)'); if (!/^[\d+\-*/().\s]*$/.test(js) || !js) return; try { const v = Function('"use strict";return (' + js + ')')(); last = ex + ' ='; ex = isFinite(v) ? String(+v.toPrecision(12)) : 'خطا'; } catch (_) { last = ''; ex = 'خطا'; } }
+    else { if (ex === 'خطا') ex = ''; ex += k; }
+    show();
+  };
+  box.querySelector('.calc-pad').onclick = e => { const k = e.target.closest('button')?.dataset.k; if (k) { press(k); Audio.tick(); } };
+  show();
+  return { key(e) { const m = { '*': '×', '/': '÷', '-': '−', '+': '+', Enter: '=', '=': '=', Escape: '', Backspace: 'B' }; let k = /^[0-9.()%]$/.test(e.key) ? e.key : m[e.key]; if (k === undefined || k === '') return false; if (k === 'B') { ex = ex.slice(0, -1); show(); } else press(k); return true; } };
+};
+PH_RUN.notes = box => {
+  const st = phone.st; let cur = -1; box.classList.add('notes');
+  const list = () => { cur = -1; box.innerHTML = `<div class="ph-head"><b>یادداشت‌ها</b><button type="button" class="ph-pill" data-a="new">+ جدید</button></div><div class="note-list">${st.notes.map((n, i) => `<button type="button" class="note-c" data-i="${i}"><b>${phEsc((n.t.split('\n')[0] || 'بی‌عنوان').slice(0, 40))}</b><small>${phEsc(n.t.slice(0, 90))}</small></button>`).join('') || '<p class="ph-empty">یادداشتی نداری</p>'}</div>`; };
+  const edit = i => { cur = i; box.innerHTML = `<div class="ph-head"><button type="button" class="ph-backb" data-a="back">‹</button><b>یادداشت</b><button type="button" class="ph-pill ghost" data-a="del">حذف</button></div><textarea class="note-ed" dir="auto" placeholder="بنویس…"></textarea>`; const ta = box.querySelector('textarea'); ta.value = st.notes[i].t; ta.oninput = () => { st.notes[i].t = ta.value; st.notes[i].at = Date.now(); }; ta.focus(); };
+  box.onclick = e => { const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a;
+    if (a === 'new') { st.notes.unshift({ t: '', at: Date.now() }); edit(0); } else if (a === 'back') { tidy(); list(); saveGame(); } else if (a === 'del') { st.notes.splice(cur, 1); list(); saveGame(); } else if (b.dataset.i) edit(+b.dataset.i); };
+  const tidy = () => { st.notes = st.notes.filter(n => n.t.trim()); };
+  list();
+  return { back() { if (cur >= 0) { tidy(); list(); saveGame(); return true; } return false; }, stop() { tidy(); } };
+};
+/* ---------- games from the Play Store: small but complete ---------- */
+function phGameApp(id, box) {
+  const st = phone.st, ver = st.apps[id] ?? 0, A = PH_STORE[id];
+  box.classList.add('game', 'g-' + id);
+  box.innerHTML = `<div class="gm-hud"><b>${phEsc(A.n)}</b><span class="gm-sc"></span><span class="gm-hi"></span></div><div class="gm-wrap"><canvas class="gm-cv"></canvas><div class="gm-over" hidden></div></div><div class="gm-ctl"></div>`;
+  const cv = box.querySelector('canvas'), over = box.querySelector('.gm-over');
+  const api = { cv, g: cv.getContext('2d'), ver, W: 2, H: 2, ctl: box.querySelector('.gm-ctl'), restart: null,
+    score(s) { box.querySelector('.gm-sc').textContent = 'امتیاز: ' + fa(s); if (s > (st.hi[id] || 0)) { st.hi[id] = s; } box.querySelector('.gm-hi').textContent = 'رکورد: ' + fa(st.hi[id] || 0); },
+    over(t, sub) { over.hidden = false; over.innerHTML = `<b>${t}</b>${sub ? `<small>${sub}</small>` : ''}<button type="button" class="ph-pill">دوباره</button>`; over.querySelector('button').onclick = () => { over.hidden = true; game.reset(); }; Audio.tone(330, 0, 0.25, 0.04, 'square'); saveGame(); },
+    hide() { over.hidden = true; } };
+  const fit = () => { const r = cv.getBoundingClientRect(), k = phone.scale || 1, W = Math.max(2, Math.round(r.width / k * 2)), H = Math.max(2, Math.round(r.height / k * 2)); if (W !== cv.width || H !== cv.height) { cv.width = W; cv.height = H; } api.W = W; api.H = H; };
+  fit(); const game = PH_GAMES[id](api); game.reset(); api.score(0);
+  let p0 = null, pt = 0, lp = null;
+  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * api.W, (e.clientY - r.top) / r.height * api.H]; };
+  cv.onpointerdown = e => { p0 = pos(e); pt = performance.now(); try { cv.setPointerCapture(e.pointerId); } catch (_) { } game.down && game.down(...p0); clearTimeout(lp); lp = setTimeout(() => { if (p0 && game.long) { game.long(...p0); p0 = null; } }, 420); };
+  cv.onpointermove = e => { const p = pos(e); game.move && game.move(...p); if (p0 && Math.hypot(p[0] - p0[0], p[1] - p0[1]) > 18) clearTimeout(lp); };
+  cv.onpointerup = cv.onpointercancel = e => { clearTimeout(lp); if (!p0) return; const p = pos(e), dx = p[0] - p0[0], dy = p[1] - p0[1]; if (Math.hypot(dx, dy) > 30 && game.swipe) game.swipe(Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0, Math.abs(dx) > Math.abs(dy) ? 0 : Math.sign(dy)); else if (game.tap) game.tap(...p); p0 = null; };
+  const dirOf = e => ({ ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] })[e.code];
+  return { tick(dt) { fit(); game.tick(Math.min(dt, 0.05)); }, key(e) { const d = dirOf(e); if (d && game.swipe && e.type !== 'keyup') { if (!e.repeat || game.held) game.swipe(...d); return true; } if (game.key) return game.key(e); return false; }, keyup(e) { if (game.key) game.key(e); }, stop() { clearTimeout(lp); } };
+}
+const PH_GAMES = {
+  snake(A) {
+    const N = 16; let s, dir, nd, food, t, alive, sc, speed = 1, wrap = false;
+    if (A.ver >= 1) { A.ctl.innerHTML = `<button type="button" class="ph-pill ghost" data-s="0">آرام</button><button type="button" class="ph-pill" data-s="1">معمولی</button><button type="button" class="ph-pill ghost" data-s="2">تند</button><button type="button" class="ph-pill ghost" data-w="1">بی‌دیوار</button>`;
+      A.ctl.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.s) { speed = +b.dataset.s; A.ctl.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('ghost', x !== b)); } else { wrap = !wrap; b.classList.toggle('ghost', !wrap); } G.reset(); }; }
+    const place = () => { do food = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) }; while (s.some(c => c.x === food.x && c.y === food.y)); };
+    const G = {
+      reset() { s = [{ x: 6, y: 8 }, { x: 5, y: 8 }, { x: 4, y: 8 }]; dir = { x: 1, y: 0 }; nd = dir; t = 0; alive = true; sc = 0; place(); A.score(0); A.hide(); },
+      swipe(dx, dy) { if (dx === -dir.x && dy === -dir.y) return; if (dx || dy) nd = { x: dx, y: dy }; },
+      tick(dt) {
+        const { g, W, H } = A, c = Math.floor(Math.min(W, H) / N), ox = (W - c * N) / 2, oy = (H - c * N) / 2;
+        if (alive) { t += dt; const step = [0.17, 0.115, 0.075][speed]; while (t >= step) { t -= step; dir = nd; let h = { x: s[0].x + dir.x, y: s[0].y + dir.y };
+          if (wrap) h = { x: (h.x + N) % N, y: (h.y + N) % N }; else if (h.x < 0 || h.y < 0 || h.x >= N || h.y >= N) { alive = false; A.over('باختی!', `امتیاز: ${fa(sc)}`); break; }
+          if (s.some(q => q.x === h.x && q.y === h.y)) { alive = false; A.over('به خودت خوردی!', `امتیاز: ${fa(sc)}`); break; }
+          s.unshift(h); if (h.x === food.x && h.y === food.y) { sc++; A.score(sc); place(); Audio.tone(880, 0, 0.05, 0.03, 'square'); } else s.pop(); } }
+        g.fillStyle = '#0f2a18'; g.fillRect(0, 0, W, H); g.fillStyle = '#163a22'; for (let y = 0; y < N; y++) for (let x = (y % 2); x < N; x += 2) g.fillRect(ox + x * c, oy + y * c, c, c);
+        if (!wrap) { g.strokeStyle = '#6bd36b'; g.lineWidth = 3; g.strokeRect(ox, oy, c * N, c * N); }
+        g.fillStyle = '#ff4a4a'; g.beginPath(); g.arc(ox + (food.x + 0.5) * c, oy + (food.y + 0.5) * c, c * 0.38, 0, 7); g.fill();
+        s.forEach((q, i) => { g.fillStyle = i ? '#9be04a' : '#d4ff6a'; g.fillRect(ox + q.x * c + 1, oy + q.y * c + 1, c - 2, c - 2); });
+      }
+    };
+    return G;
+  },
+  g2048(A) {
+    let b, sc, prev = null, won;
+    if (A.ver >= 1) { A.ctl.innerHTML = '<button type="button" class="ph-pill ghost">↶ برگرد</button>'; A.ctl.onclick = () => { if (prev) { b = prev.b; sc = prev.sc; prev = null; A.score(sc); A.hide(); } }; }
+    const add = () => { const e = []; b.forEach((v, i) => { if (!v) e.push(i); }); if (e.length) b[e[Math.floor(Math.random() * e.length)]] = Math.random() < 0.9 ? 2 : 4; };
+    const COL = { 2: '#eee4da', 4: '#ede0c8', 8: '#f2b179', 16: '#f59563', 32: '#f67c5f', 64: '#f65e3b', 128: '#edcf72', 256: '#edcc61', 512: '#edc850', 1024: '#edc53f', 2048: '#edc22e' };
+    const G = {
+      reset() { b = new Array(16).fill(0); sc = 0; won = false; prev = null; add(); add(); A.score(0); A.hide(); },
+      swipe(dx, dy) {
+        const old = b.slice(), os = sc; let moved = false;
+        for (let k = 0; k < 4; k++) {
+          const idx = [0, 1, 2, 3].map(j => dx ? k * 4 + (dx > 0 ? 3 - j : j) : (dy > 0 ? 3 - j : j) * 4 + k), line = idx.map(i => b[i]).filter(Boolean), out = [];
+          for (let i = 0; i < line.length; i++) { if (line[i] === line[i + 1]) { out.push(line[i] * 2); sc += line[i] * 2; if (line[i] * 2 === 2048) won = true; i++; } else out.push(line[i]); }
+          while (out.length < 4) out.push(0); idx.forEach((i, j) => { if (b[i] !== out[j]) moved = true; b[i] = out[j]; });
+        }
+        if (!moved) return; prev = { b: old, sc: os }; add(); A.score(sc); Audio.tick();
+        if (won) { won = false; A.over('رسیدی به ۲۰۴۸! 🎉', 'ادامه بده یا از اول'); }
+        else if (!b.includes(0) && !b.some((v, i) => (i % 4 < 3 && v === b[i + 1]) || (i < 12 && v === b[i + 4]))) A.over('حرکتی نمونده', `امتیاز: ${fa(sc)}`);
+      },
+      tick() {
+        const { g, W, H } = A, S = Math.min(W, H) * 0.94, c = S / 4, ox = (W - S) / 2, oy = (H - S) / 2;
+        g.fillStyle = '#faf8ef'; g.fillRect(0, 0, W, H); g.fillStyle = '#bbada0'; g.fillRect(ox, oy, S, S);
+        b.forEach((v, i) => { const x = ox + (i % 4) * c + 6, y = oy + Math.floor(i / 4) * c + 6; g.fillStyle = v ? COL[v] || '#3c3a32' : '#cdc1b4'; g.fillRect(x, y, c - 12, c - 12);
+          if (v) { g.fillStyle = v <= 4 ? '#776e65' : '#fff'; g.font = `800 ${c * (v < 100 ? 0.42 : v < 1000 ? 0.34 : 0.27)}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(v, x + (c - 12) / 2, y + (c - 12) / 2 + 2); } });
+      }
+    };
+    return G;
+  },
+  flappy(A) {
+    let y, vy, pipes, t, sc, alive, started;
+    const G = {
+      reset() { y = 0.45; vy = 0; pipes = []; t = 0; sc = 0; alive = true; started = false; A.score(0); A.hide(); },
+      tap() { if (!alive) return; started = true; vy = -0.62; Audio.tone(1200, 0, 0.04, 0.02); }, swipe() { this.tap(); }, held: false,
+      key(e) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowUp') { if (!e.repeat) this.tap(); return true; } return false; },
+      tick(dt) {
+        const { g, W, H } = A, ar = W / H;
+        if (alive && started) { vy += 1.9 * dt; y += vy * dt; t += dt; if (t > 1.45) { t = 0; pipes.push({ x: ar + 0.1, gap: 0.25 + Math.random() * 0.45, done: false }); }
+          for (const p of pipes) { p.x -= 0.32 * dt; if (!p.done && p.x < 0.25 * ar - 0.08) { p.done = true; sc++; A.score(sc); Audio.tone(1500, 0, 0.05, 0.03); }
+            if (Math.abs(p.x - 0.25 * ar) < 0.08 && Math.abs(y - p.gap) > 0.115) { alive = false; A.over('خوردی به لوله!', `امتیاز: ${fa(sc)}`); } }
+          pipes = pipes.filter(p => p.x > -0.2); if (y > 0.97 || y < 0) { alive = false; A.over('افتادی!', `امتیاز: ${fa(sc)}`); } }
+        const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#4ec0ca'); gr.addColorStop(1, '#bfe9e0'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+        g.fillStyle = '#73bf2e'; for (const p of pipes) { const x = p.x * H, w = 0.15 * H; g.fillRect(x - w / 2, 0, w, (p.gap - 0.13) * H); g.fillRect(x - w / 2, (p.gap + 0.13) * H, w, H); g.fillStyle = '#558a20'; g.fillRect(x - w / 2 - 6, (p.gap - 0.13) * H - 20, w + 12, 20); g.fillRect(x - w / 2 - 6, (p.gap + 0.13) * H, w + 12, 20); g.fillStyle = '#73bf2e'; }
+        g.fillStyle = '#ded895'; g.fillRect(0, H * 0.97, W, H * 0.03);
+        const bx = 0.25 * ar * H, by = y * H, r = 0.035 * H; g.save(); g.translate(bx, by); g.rotate(clamp(vy * 0.9, -0.5, 1.2)); g.fillStyle = '#f8d43a'; g.beginPath(); g.ellipse(0, 0, r * 1.25, r, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(r * 0.5, -r * 0.3, r * 0.38, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(r * 0.62, -r * 0.3, r * 0.16, 0, 7); g.fill(); g.fillStyle = '#f2701e'; g.fillRect(r * 0.9, 0, r * 0.7, r * 0.3); g.restore();
+        if (!started && alive) { g.fillStyle = '#fff'; g.font = `800 ${H * 0.045}px Vazirmatn`; g.textAlign = 'center'; g.fillText('بزن تا پرواز کنی', W / 2, H * 0.3); }
+      }
+    };
+    return G;
+  },
+  breakout(A) {
+    let px, bx, by, vx, vy, bricks, lives, sc, stuck, level, keyL = 0, keyR = 0;
+    const build = () => { bricks = []; const rows = Math.min(8, 4 + level); for (let r = 0; r < rows; r++) for (let c = 0; c < 8; c++) bricks.push({ x: c / 8, y: 0.1 + r * 0.045, hp: level > 1 && r < level - 1 ? 2 : 1, c: ['#ff5a7a', '#ffb340', '#ffe94d', '#4de26b', '#4db8ff', '#a66bff', '#ff8ad8', '#7fe0d0'][r] }); };
+    const G = {
+      reset() { level = 1; lives = 3; sc = 0; px = 0.5; build(); stuck = true; A.score(0); A.hide(); },
+      move(x) { px = clamp(x / A.W, 0.1, 0.9); }, down(x) { px = clamp(x / A.W, 0.1, 0.9); }, tap() { if (stuck) { stuck = false; vx = 0.35; vy = -0.55; } },
+      key(e) { if (e.code === 'ArrowLeft' || e.code === 'KeyA') { keyL = e.type !== 'keyup' ? 1 : 0; return true; } if (e.code === 'ArrowRight' || e.code === 'KeyD') { keyR = e.type !== 'keyup' ? 1 : 0; return true; } if (e.code === 'Space') { this.tap(); return true; } return false; },
+      tick(dt) {
+        const { g, W, H } = A, ar = H / W; px = clamp(px + (keyR - keyL) * 0.9 * dt, 0.1, 0.9);
+        if (stuck) { bx = px; by = 0.9 - 0.025 / ar; }
+        else { const sp = 1 + level * 0.12; bx += vx * dt * sp; by += vy * dt * sp / ar;
+          if (bx < 0.015 || bx > 0.985) { vx = -vx; bx = clamp(bx, 0.015, 0.985); } if (by < 0.02) { vy = Math.abs(vy); }
+          if (by > 0.9 - 0.02 && by < 0.92 && Math.abs(bx - px) < 0.11 && vy > 0) { vy = -Math.abs(vy); vx = (bx - px) * 4; Audio.tone(660, 0, 0.04, 0.03, 'square'); }
+          if (by > 1) { lives--; stuck = true; if (lives <= 0) { A.over('توپ‌ها تموم شد', `امتیاز: ${fa(sc)}`); } }
+          for (const b of bricks) { if (b.hp <= 0) continue; if (bx > b.x && bx < b.x + 1 / 8 && by > b.y && by < b.y + 0.04) { b.hp--; vy = -vy; if (b.hp <= 0) { sc += 10 * level; A.score(sc); } Audio.tone(990, 0, 0.04, 0.03, 'square'); break; } }
+          if (!bricks.some(b => b.hp > 0)) { if (A.ver >= 1) { level++; build(); stuck = true; Audio.arcade(); } else A.over('بردی! 🎉', `امتیاز: ${fa(sc)}`); } }
+        g.fillStyle = '#1a1636'; g.fillRect(0, 0, W, H);
+        for (const b of bricks) if (b.hp > 0) { g.fillStyle = b.hp > 1 ? '#ffffff' : b.c; g.fillRect(b.x * W + 3, b.y * H + 3, W / 8 - 6, 0.04 * H - 6); }
+        g.fillStyle = '#7fd0ff'; g.fillRect((px - 0.1) * W, 0.9 * H, 0.2 * W, 0.018 * H); g.fillStyle = '#fff'; g.beginPath(); g.arc(bx * W, by * H, 0.018 * W, 0, 7); g.fill();
+        g.font = `700 ${H * 0.03}px Vazirmatn`; g.textAlign = 'left'; g.fillText('♥'.repeat(Math.max(0, lives)), 10, H * 0.05); g.textAlign = 'right'; g.fillText('مرحله ' + fa(level), W - 10, H * 0.05);
+        if (stuck && lives > 0) { g.textAlign = 'center'; g.fillText('بزن تا شروع شه', W / 2, H * 0.7); }
+      }
+    };
+    return G;
+  },
+  dooz(A) {
+    let b, turn, done, sc = 0;
+    const L = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+    const win = q => { for (const [a, c, d] of L) if (q[a] && q[a] === q[c] && q[a] === q[d]) return q[a]; return q.includes(null) ? null : 'draw'; };
+    const mm = (q, me) => { const w = win(q); if (w === 'O') return [10]; if (w === 'X') return [-10]; if (w === 'draw') return [0]; let best = [me ? -99 : 99, -1];
+      for (let i = 0; i < 9; i++) if (!q[i]) { q[i] = me ? 'O' : 'X'; const v = mm(q, !me)[0] * 0.9; q[i] = null; if (me ? v > best[0] : v < best[0]) best = [v, i]; } return best; };
+    const end = () => { const w = win(b); if (!w) return false; done = true; if (w === 'X') { sc++; A.score(sc); A.over('بردی!'); } else A.over(w === 'O' ? 'گوشی برد!' : 'مساوی شد', 'گوشی بی‌نقص بازی می‌کنه'); return true; };
+    const G = {
+      reset() { b = new Array(9).fill(null); turn = 'X'; done = false; A.hide(); },
+      tap(x, y) { const { W, H } = A, S = Math.min(W, H) * 0.9, ox = (W - S) / 2, oy = (H - S) / 2, i = Math.floor((x - ox) / (S / 3)), j = Math.floor((y - oy) / (S / 3)); if (done || i < 0 || j < 0 || i > 2 || j > 2 || b[j * 3 + i]) return;
+        b[j * 3 + i] = 'X'; Audio.tick(); if (end()) return; setTimeout(() => { if (done) return; const m = mm(b, true)[1]; if (m >= 0) b[m] = 'O'; end(); }, 300); },
+      tick() { const { g, W, H } = A, S = Math.min(W, H) * 0.9, ox = (W - S) / 2, oy = (H - S) / 2, c = S / 3; g.fillStyle = '#1e2250'; g.fillRect(0, 0, W, H); g.strokeStyle = '#cdd3ff'; g.lineWidth = 6;
+        for (let k = 1; k < 3; k++) { g.beginPath(); g.moveTo(ox + k * c, oy); g.lineTo(ox + k * c, oy + S); g.moveTo(ox, oy + k * c); g.lineTo(ox + S, oy + k * c); g.stroke(); }
+        b.forEach((v, i) => { if (!v) return; const x = ox + (i % 3 + 0.5) * c, y = oy + (Math.floor(i / 3) + 0.5) * c, r = c * 0.28; g.lineWidth = 10; g.lineCap = 'round';
+          if (v === 'X') { g.strokeStyle = '#ff6a6a'; g.beginPath(); g.moveTo(x - r, y - r); g.lineTo(x + r, y + r); g.moveTo(x + r, y - r); g.lineTo(x - r, y + r); g.stroke(); } else { g.strokeStyle = '#7fd0ff'; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); } }); }
+    };
+    return G;
+  },
+  mines(A) {
+    const N = 9, M = 10; let cells, first, done, open, flagMode = false, t0;
+    A.ctl.innerHTML = '<button type="button" class="ph-pill ghost">🚩 حالت پرچم</button>'; A.ctl.onclick = e => { const b = e.target.closest('button'); if (!b) return; flagMode = !flagMode; b.classList.toggle('ghost', !flagMode); };
+    const nb = i => { const x = i % N, y = Math.floor(i / N), o = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if ((dx || dy) && X >= 0 && Y >= 0 && X < N && Y < N) o.push(Y * N + X); } return o; };
+    const reveal = i => { const c = cells[i]; if (c.o || c.f) return; c.o = true; open++; if (!c.m && !c.n) nb(i).forEach(reveal); };
+    const at = (x, y) => { const { W, H } = A, S = Math.min(W, H) * 0.96, c = S / N, ox = (W - S) / 2, oy = (H - S) / 2, i = Math.floor((x - ox) / c), j = Math.floor((y - oy) / c); return i < 0 || j < 0 || i >= N || j >= N ? -1 : j * N + i; };
+    const flag = i => { if (i < 0 || done || cells[i].o) return; cells[i].f = !cells[i].f; Audio.tick(); };
+    const G = {
+      reset() { cells = Array.from({ length: N * N }, () => ({ m: false, n: 0, o: false, f: false })); first = true; done = false; open = 0; A.score(0); A.hide(); },
+      long(x, y) { flag(at(x, y)); },
+      tap(x, y) {
+        const i = at(x, y); if (i < 0 || done) return; if (flagMode) { flag(i); return; } if (cells[i].f) return;
+        if (first) { first = false; t0 = performance.now(); const safe = new Set([i, ...nb(i)]); let k = 0; while (k < M) { const r = Math.floor(Math.random() * N * N); if (!safe.has(r) && !cells[r].m) { cells[r].m = true; k++; } } cells.forEach((c, j) => c.n = nb(j).filter(q => cells[q].m).length); }
+        if (cells[i].m) { done = true; cells.forEach(c => { if (c.m) c.o = true; }); A.over('بوم! 💥', 'روی مین زدی'); return; }
+        reveal(i); Audio.tick(); A.score(open);
+        if (open === N * N - M) { done = true; const s = Math.round((performance.now() - t0) / 1000); A.score(Math.max(1, 999 - s)); A.over('همهٔ مین‌ها رو پیدا کردی! 🎉', `در ${fa(s)} ثانیه`); }
+      },
+      tick() { const { g, W, H } = A, S = Math.min(W, H) * 0.96, c = S / N, ox = (W - S) / 2, oy = (H - S) / 2; g.fillStyle = '#c8ccd2'; g.fillRect(0, 0, W, H);
+        cells.forEach((q, i) => { const x = ox + (i % N) * c, y = oy + Math.floor(i / N) * c; g.fillStyle = q.o ? (q.m ? '#ff5a4a' : '#eef0f2') : '#8a94a2'; g.fillRect(x + 2, y + 2, c - 4, c - 4);
+          g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `800 ${c * 0.5}px Arial`;
+          if (q.o && q.m) { g.fillStyle = '#111'; g.beginPath(); g.arc(x + c / 2, y + c / 2, c * 0.22, 0, 7); g.fill(); }
+          else if (q.o && q.n) { g.fillStyle = ['', '#1a6ad8', '#2a8a3a', '#d83a2a', '#5a2a9a', '#8a2a2a', '#2a8a8a', '#111', '#666'][q.n]; g.fillText(q.n, x + c / 2, y + c / 2 + 2); }
+          else if (q.f) g.fillText('🚩', x + c / 2, y + c / 2 + 2); }); }
+    };
+    return G;
+  }
+};
+
+/* ============================================================
    Audio (synthesised)
    ============================================================ */
 const Audio = {
@@ -5982,6 +7210,8 @@ const keys = new Set();
 const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
 addEventListener('keydown', e => {
   if (!started || typing()) return;
+  if (phone.open && phoneKey(e)) return;
+  if (!e.repeat && e.code === 'KeyP' && !chat.open) { phoneOpen(); return; }
   if (e.code === 'Escape' && chat.open) { closeChat(); return; }
   keys.add(e.code);
   if (e.code === 'Space') { input.jumpQ = true; e.preventDefault(); }
@@ -5995,7 +7225,7 @@ addEventListener('keydown', e => {
   if (!e.repeat && e.code === 'KeyQ') input.useQ = true;
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
-addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('keyup', e => { keys.delete(e.code); if (phone.open && phone.appObj && phone.appObj.keyup) phone.appObj.keyup(e); });
 addEventListener('blur', () => keys.clear());
 function readKeys(dt = 1 / 60) {
   const k = c => keys.has(c);
@@ -6081,6 +7311,7 @@ holdBtn('b-eject', () => { input.ejectQ = true; });
 holdBtn('b-use', () => { input.useQ = true; });
 $('btn-view').addEventListener('click', () => toggleView());
 $('btn-bag').addEventListener('click', () => toggleBag());
+$('btn-phone').addEventListener('click', () => { if (phone.open) phoneClose(); else { toggleBag(false); phoneOpen(); } });
 $('bag-close').addEventListener('click', () => toggleBag(false));
 $('bag-cap').addEventListener('click', () => { store.capOff = !store.capOff; rebuildPlayerLook(); renderBag(); saveGame(); });
 for (const ev of ['pointerdown', 'touchstart']) $('bag').addEventListener(ev, e => e.stopPropagation(), { passive: true });
@@ -6172,7 +7403,7 @@ $('btn-code').addEventListener('click', () => { $('code-panel').hidden = false; 
 $('code-form').addEventListener('submit', e => { e.preventDefault(); $('code-panel').hidden = true; $('code-in').blur(); runCode($('code-in').value); });
 $('code-close').addEventListener('click', () => { $('code-panel').hidden = true; });
 let codeBuf = '';
-addEventListener('keydown', e => { if (!started || typing()) return; const d = e.key && /^[0-9۰-۹]$/.test(e.key) ? e.key : null; if (!d) return; codeBuf = (codeBuf + d).slice(-4); if (/^(1818|1717|1400|۱۸۱۸|۱۷۱۷|۱۴۰۰)$/.test(codeBuf)) { runCode(codeBuf); codeBuf = ''; } });
+addEventListener('keydown', e => { if (!started || typing() || phone.open) return; const d = e.key && /^[0-9۰-۹]$/.test(e.key) ? e.key : null; if (!d) return; codeBuf = (codeBuf + d).slice(-4); if (/^(1818|1717|1400|۱۸۱۸|۱۷۱۷|۱۴۰۰)$/.test(codeBuf)) { runCode(codeBuf); codeBuf = ''; } });
 
 $('chat-close').addEventListener('click', () => closeChat());
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); sendChat($('chat-input').value); });
@@ -6520,7 +7751,7 @@ function snapshot() {
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
     cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
@@ -6535,7 +7766,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) 
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
   if (sv.shop) Object.assign(store, sv.shop);
-  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
+  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
   if (sv.player && sv.player.where === 'rb') resumeRB = true;
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
@@ -7336,7 +8567,9 @@ function updateHUD(dt) {
 }
 function render() {
   const sc = player ? zoneScene(player.where) : scene;
+  if (player && phSkipMain()) { phoneRenderVF(sc); return; }
   if (composer) { renderPass.scene = sc; composer.render(); } else renderer.render(sc, camera);
+  if (player) phoneRenderVF(sc);
 }
 
 let last = performance.now(), demoA = 0;
@@ -7357,6 +8590,7 @@ function frame(now) {
   updateWorld(dt);
   if (simTime - lastSave > 15) saveGame();
   updateCamera(dt);
+  phoneTick(dt);
   updateTimeOfDay();
   syncVisuals(dt);
   updateBubbles(dt);
@@ -7416,8 +8650,8 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
-    step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
+  window.__city = { phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+    step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); phoneTick(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
 renderer.domElement.addEventListener('webglcontextrestored', () => { renderer.shadowMap.needsUpdate = true; envTod = -99; });
