@@ -21,6 +21,12 @@ Object.assign(Game, {
     on('wheelSpin', () => this.spinWheel());
     on('photoShot', () => this.takePhoto());
     on('photoExit', () => this.exitPhoto());
+    $('photoSave').addEventListener('click', (e) => {
+      // inside claude.ai the page saves through the downloads capability; elsewhere the link downloads
+      if (!(window.claude && window.claude.use)) return;
+      e.preventDefault();
+      this.savePhoto();
+    });
     $('armTap').addEventListener('pointerdown', (e) => { e.preventDefault(); this.armTap(); });
     $('armTap').addEventListener('click', (e) => { if (e.detail === 0) this.armTap(); });
     document.querySelectorAll('#qualitySeg button').forEach((b) => b.addEventListener('click', () => {
@@ -736,6 +742,23 @@ Object.assign(Game, {
     $('photoImg').src = url;
     $('photoSave').href = url;
     this.openModal('photoModal');
+  },
+
+  async savePhoto() {
+    const url = $('photoSave').href;
+    let dl = null;
+    try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+    if (!dl) { this.toast('روی عکس انگشتت رو نگه دار (یا راست‌کلیک کن) تا ذخیره‌اش کنی.', 'warn'); return; }
+    try {
+      const bin = atob(url.split(',')[1]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      await dl.save({ filename: 'champion-gym.jpg', data: new Blob([bytes]) });
+      this.toast('📸 عکس ذخیره شد!', 'gold');
+    } catch (err) {
+      if (err && err.code === 'declined') return;
+      this.toast('ذخیره نشد. روی عکس انگشتت رو نگه دار تا ذخیره‌اش کنی.', 'warn');
+    }
   },
 
   /* ---------------- settings ---------------- */
