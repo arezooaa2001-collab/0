@@ -250,6 +250,7 @@ class WorldBase {
     } else if (e === 'jump' || e === 'whoosh') Sfx.play('whoosh');
     else if (e === 'punch') Sfx.play('punch');
     else if (e === 'clap') Sfx.play('clap');
+    else if (e === 'smash') { Sfx.play('punch'); Sfx.play('hammer'); if (this.onSmash) this.onSmash(ch); }
     else if (e === 'thud') {
       Sfx.play('land');
       const yaw = ch.root.rotation.y;
@@ -267,11 +268,17 @@ class WorldBase {
     else if (e === 'splash') {
       Sfx.play('splash');
       this.fx.burst({ x: p.x, y: 0.2, z: p.z + 1 }, { count: 50, colors: ['#bfe9ff', '#ffffff'], speed: 2.5, up: 4, life: 1.0 });
+    } else if (e === 'sand') {
+      Sfx.play('land');
+      const yaw = ch.root.rotation.y;
+      const d = ch.cur.z;
+      this.fx.burst({ x: p.x + Math.sin(yaw) * d, y: 0.1, z: p.z + Math.cos(yaw) * d }, { count: 40, colors: ['#e9d8a6', '#d4b483', '#ffffff'], speed: 3, up: 2, life: 0.8 });
     } else if (e === 'snow') this.fx.burst({ x: p.x, y: 0.1, z: p.z }, { count: 18, colors: ['#ffffff'], speed: 2.5, up: 1.5, life: 0.7 });
   }
 
   npcChoose(n) {
     this.leaveStation(n);
+    if (this.rosterChoose && this.rosterChoose(this, n)) return;
     const roll = Math.random();
     if (roll < 0.1) {
       // show off for a moment
@@ -394,6 +401,26 @@ class WorldBase {
       }
       n.timer -= dt;
       if (n.timer <= 0) { n.state = 'idle'; n.timer = rand(0.5, 2); }
+    } else if (n.state === 'leave') {
+      // walking to the door or a portal to travel to another place
+      const dx = n.exit.x - pos.x;
+      const dz = n.exit.z - pos.z;
+      const d = Math.hypot(dx, dz);
+      n.leaveT = (n.leaveT || 0) + dt;
+      if (d < 0.9 || n.leaveT > 45) {
+        if (this.onNpcExit) this.onNpcExit(this, n);
+        return;
+      }
+      dirX = dx / d;
+      dirZ = dz / d;
+      speed = Math.min(n.level >= 100 ? 3.2 : n.walk, d * 2 + 0.4);
+      n.stuckT += dt;
+      if (n.stuckT > 1.5) {
+        const moved = Math.hypot(pos.x - n.lastPos.x, pos.z - n.lastPos.y);
+        n.stuckT = 0;
+        n.lastPos.set(pos.x, pos.z);
+        if (moved < 0.3) { pos.x += rand(-1, 1); pos.z += rand(-1, 1); }
+      }
     } else if (n.state === 'chat') {
       const c = n.chat;
       const o = c.other.ch.root.position;
@@ -411,7 +438,7 @@ class WorldBase {
       ch.root.rotation.y = angleLerp(ch.root.rotation.y, Math.atan2(f.x - pos.x, f.z - pos.z), damp(6, dt));
       f.t -= dt;
       if (!ch.busy && ch.grounded) {
-        if (f.t > 0) ch.play('fanclap');
+        if (f.t > 0) ch.play(f.anim || 'fanclap');
         else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
       }
     } else if (n.state === 'exercise') {
@@ -450,6 +477,73 @@ class WorldBase {
     ch.update(dt);
   }
 
+  /* ---------------- people travelling between places ---------------- */
+
+  /** Where people arriving from `from` appear (and where they leave towards it). */
+  entrance() { return { x: this.spawn.x, z: this.spawn.z }; }
+  exitPoint() { return this.entrance(); }
+
+  /** Someone arrives: at a door (walks in) or, when nobody is watching, anywhere. */
+  adoptNpc(n, at) {
+    const ch = n.ch;
+    n.world = this;
+    ch.stopAction();
+    ch.onEvent = (e, c) => this.onCharEvent(e, c, false);
+    const p = at ? { x: at.x + rand(-0.8, 0.8), z: at.z + rand(-0.8, 0.8) } : this.freeSpot();
+    ch.root.position.set(p.x, 0, p.z);
+    ch.root.rotation.y = rand(-Math.PI, Math.PI);
+    Object.assign(n, { station: null, anchored: false, chat: null, fan: null, forceAct: null, stuckT: 0, leaveT: 0 });
+    n.vel.set(0, 0);
+    n.lastPos.set(p.x, p.z);
+    if (at) {
+      n.state = 'walk';
+      n.target = this.freeSpot();
+    } else {
+      n.state = 'idle';
+      n.timer = rand(0.3, 2);
+    }
+    ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
+    this.scene.add(ch.root);
+    this.npcs.push(n);
+    if (at && this.fx) this.fx.burst({ x: p.x, y: 1, z: p.z }, { count: 30, colors: ['#7fe0ff', '#ffffff', '#ffd34d'], speed: 2, up: 2, life: 0.8 });
+  }
+
+  dropNpc(n) {
+    this.leaveStation(n);
+    n.ch.stopAction();
+    if (this.fx) { const p = n.ch.root.position; this.fx.burst({ x: p.x, y: 1, z: p.z }, { count: 30, colors: ['#7fe0ff', '#ffffff', '#ffd34d'], speed: 2, up: 2, life: 0.8 }); }
+    this.scene.remove(n.ch.root);
+    const i = this.npcs.indexOf(n);
+    if (i >= 0) this.npcs.splice(i, 1);
+    n.world = null;
+    n.state = 'idle';
+    n.chat = null;
+  }
+
+  /** Keep a place alive while you watch it on a screen (no player here). */
+  simulate(dt) {
+    this.time += dt;
+    for (const n of this.npcs) this.updateNpc(n, dt);
+    const all = this.npcs.map((n) => n.ch);
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        const a = all[i].root.position;
+        const b = all[j].root.position;
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= 0.38 || d2 < 1e-6 || all[i].anchored || all[j].anchored) continue;
+        const d = Math.sqrt(d2);
+        const push = (0.62 - d) / d * 0.5;
+        a.x -= dx * push; a.z -= dz * push;
+        b.x += dx * push; b.z += dz * push;
+      }
+    }
+    for (const n of this.npcs) if (n.ch.label) n.ch.label.visible = !WorldBase.hideNames;
+    if (this.simulateExtra) this.simulateExtra(dt);
+    if (this.fx) this.fx.update(dt);
+  }
+
   /** NPCs that are free to watch: not on a machine, not mid-move, not already knocked down. */
   freeNpcs(x, z, r) {
     return this.npcs.filter((n) => (n.state === 'idle' || n.state === 'walk' || n.state === 'jog' || n.state === 'fan')
@@ -457,13 +551,13 @@ class WorldBase {
   }
 
   /** A few people nearby turn to watch and clap for a while. */
-  gatherFans(x, z, r, max, secs) {
+  gatherFans(x, z, r, max, secs, anim = 'fanclap') {
     const fans = this.freeNpcs(x, z, r).sort(() => Math.random() - 0.5).slice(0, max);
     for (const n of fans) {
       if (n.ch.busy) n.ch.stopAction();
       this.leaveStation(n);
       n.state = 'fan';
-      n.fan = { x, z, t: secs };
+      n.fan = { x, z, t: secs, anim };
       n.vel.set(0, 0);
     }
     return fans.length;
@@ -501,7 +595,7 @@ class WorldBase {
 
   npcGain(n, act) {
     const mv = MOVE_BY_ID[act];
-    n.xp += ((mv && mv.xp) || 14) * n.rate * xpMult(n.level) * 0.5;
+    n.xp += ((mv && mv.xp) || 14) * n.rate * xpMult(n.level) * 0.5 * NPC_GROWTH;
     let leveled = false;
     while (n.xp >= xpNeed(n.level)) {
       n.xp -= xpNeed(n.level);
@@ -509,6 +603,7 @@ class WorldBase {
       leveled = true;
     }
     if (leveled) {
+      if (this.onNpcLevel) this.onNpcLevel(this, n);
       n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
       n.ch.setMuscle(muscleFor(n.level));
       const p = n.ch.root.position;

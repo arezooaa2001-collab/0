@@ -19,6 +19,8 @@ Object.assign(Game, {
     const on = (id, fn) => $(id).addEventListener('click', fn);
     on('wheelChip', () => { Sfx.init(); this.openWheel(); });
     on('chalBtn', () => { Sfx.init(); this.openChallenges(); });
+    $('fbShoot').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); this.fbShoot(); });
+    $('fbPass').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); this.fbPass(); });
     on('wheelSpin', () => this.spinWheel());
     on('photoShot', () => this.takePhoto());
     on('photoExit', () => this.exitPhoto());
@@ -222,7 +224,7 @@ Object.assign(Game, {
 
   tickPickups(dt) {
     const w = this.world;
-    if (!w.fx) return;
+    if (!w.fx || w.env === 'football') return;
     if (!w.pickups) w.pickups = new Pickups(w);
     const auto = this.mode === 'play' && !this.arm;
     const got = w.pickups.update(dt, this.player, auto, w === this.gym ? 12 : 9, this.starActive() ? 6 : 0);

@@ -59,6 +59,14 @@
     <div id="toasts" class="toasts" aria-live="polite"></div>
     <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
     <div id="powers" class="powers"></div>
+    <div id="fbHud" class="fb-hud" hidden>
+      <div class="fb-score"><span id="fbRed" class="fb-red">۰</span><span id="fbClock" class="fb-clock">۳:۰۰</span><span id="fbBlue" class="fb-blue">۰</span></div>
+      <div id="fbMsg" class="fb-msg"></div>
+    </div>
+    <div id="fbBtns" class="fb-btns" hidden>
+      <button id="fbPass" class="fb-btn pass" type="button">🎯<span>پاس</span></button>
+      <button id="fbShoot" class="fb-btn shoot" type="button">⚽<span>شوت</span></button>
+    </div>
     <div id="armHud" class="arm-hud" hidden>
       <div id="armTitle" class="a-title"></div>
       <div class="arm-bar"><div id="armFill" class="arm-fill"></div><div class="arm-mid"></div><span class="pw-tag pw-l">تو</span><span class="pw-tag pw-r">حریف</span></div>
@@ -89,6 +97,19 @@
     <div class="photo-hint">صفحه رو بکش تا دوربین بچرخه</div>
   </div>
   <div id="flash" class="flash"></div>
+  <div id="watch" class="watch" hidden>
+    <div class="w-top">
+      <div class="w-head"><span class="w-live">● زنده</span><b>📺 اتاق دوربین‌ها</b><button id="watchExit" class="w-exit" type="button">✕ خروج</button></div>
+      <div id="watchPlaces" class="w-row"></div>
+      <div id="watchCams" class="w-row"></div>
+      <div id="watchInfo" class="w-info"></div>
+    </div>
+    <div id="watchPad" class="w-pad" hidden>
+      <button type="button" data-k="tl" aria-label="چرخش به چپ">↺</button><button type="button" data-k="f" aria-label="جلو">⬆</button><button type="button" data-k="tr" aria-label="چرخش به راست">↻</button><button type="button" data-k="u" aria-label="بالا">🔼</button>
+      <button type="button" data-k="l" aria-label="چپ">⬅</button><button type="button" data-k="b" aria-label="عقب">⬇</button><button type="button" data-k="r" aria-label="راست">➡</button><button type="button" data-k="d" aria-label="پایین">🔽</button>
+      <div class="w-hint">صفحه رو بکش تا دوربین بچرخه • کیبورد: WASD، Q/E بالا پایین، Z/X چرخش</div>
+    </div>
+  </div>
   <div id="levelBanner" class="level-banner"></div>
 
   <!-- ===== Wrestling HUD ===== -->
@@ -162,6 +183,7 @@
         <li><b>🤼 کشتی:</b> قوی که شدی دکمه‌ی «آماده‌ام» رو بزن. هر مرحله حریف قوی‌تر می‌شه!</li>
         <li><b>🚀 قدرت‌های ویژه:</b> پرش غول (سطح ۱۰)، دش برق (سطح ۱۸) و کوبش زمین (سطح ۳۰) با دکمه‌های گرد کنار دسته.</li>
         <li><b>🏆 چالش‌ها:</b> هفت چالش با مدال برنز، نقره و طلا. دکمه‌ی 🏆 سمت چپ صفحه.</li>
+        <li><b>🍀 سطح ۲۵۰:</b> جزیره‌ی خوش‌شانسی باز می‌شه؛ هر چند قدم ۱۰ سطح زور!</li>
         <li><b>🎁 سکه و گنج:</b> سکه، الماس، ستاره‌ی طلایی و صندوق گنج روی زمین پیدا می‌شن. هر روز هم گردونه‌ی شانس رایگانه!</li>
         <li><b>🌥️ سطح ۱۰۰:</b> جزیره‌ی ابرها باز می‌شه؛ اونجا با هوش مصنوعی هر وسیله و مکان ورزشی که بخوای می‌سازی.</li>
       </ul>
@@ -194,6 +216,8 @@
         <li>پرش: <kbd>Space</kbd> • دویدن موقت: نگه داشتن <kbd>Shift</kbd></li>
         <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
         <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین</li>
+        <li>فوتبال: <kbd>Space</kbd> شوت یا تکل • <kbd>Q</kbd> پاس</li>
+        <li>دوربین آزاد: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> حرکت • <kbd>Q</kbd>/<kbd>E</kbd> پایین و بالا • <kbd>Z</kbd>/<kbd>X</kbd> چرخش</li>
       </ul>
       <h3>وسیله‌ها</h3>
       <ul class="help-list">
@@ -203,7 +227,12 @@
       </ul>
       <h3>مکان‌ها، سکه و بیشتر</h3>
       <ul class="help-list">
-        <li>🗺️ از دکمه‌ی نقشه به ۱۱ مکان ورزشی برو: استخر، ورزشگاه فوتبال، باغ رزمی ساکورا (سطح ۱۰)، زمین بسکتبال، ساحل والیبال، زمین تنیس، سالن ژیمناستیک، سالن بوکس، پیست یخ، کوهستان برفی و زمین گلف. هر کدوم ورزش‌های مخصوص خودش رو داره.</li>
+        <li>🗺️ از دکمه‌ی نقشه به ۱۳ مکان ورزشی برو: استخر، ورزشگاه فوتبال، باغ رزمی ساکورا (سطح ۱۰)، زمین بسکتبال، ساحل والیبال، زمین تنیس، سالن ژیمناستیک، سالن بوکس، پیست یخ، کوهستان برفی، استادیوم دو و میدانی (۳۵)، زمین گلف و پارک پارکور (۴۵). هر کدوم ورزش‌های مخصوص خودش رو داره.</li>
+        <li>🍀 جزیره‌ی خوش‌شانسی (سطح ۲۵۰): دروازه‌ی سبز کنار دروازه‌ی ابری. اون‌جا هر چند قدم که راه بری ۱۰ سطح زور می‌گیری!</li>
+        <li>⚽ یه کد مخفی هست که یه استادیوم فوتبال مخفی به نقشه اضافه می‌کنه. با داور و تماشاگر فوتبال واقعی بازی کن: به توپ برس، با «شوت» (Space) شوت بزن یا تکل کن و با «پاس» (Q) پاس بده.</li>
+        <li>👥 همه‌ی ورزشکارها اول بازی توی باشگاهن. هر کی سطحش برسه، خودش از در اصلی یا دروازه‌ها می‌ره به مکان‌ها؛ جزیره‌ی ابرها فقط ۱۰۰ به بالا و جزیره‌ی خوش‌شانسی فقط ۲۵۰ به بالا.</li>
+        <li>📺 دوربین‌های زنده: روی دیوار بال غربی باشگاه، تصویر زنده‌ی مکان‌ها و جدول «کی کجاست» رو می‌بینی. پشت میز جلوش (یا از منو) وارد اتاق دوربین‌ها شو: هر مکانی رو انتخاب کن، بین دوربین‌ها عوض کن، کسی رو دنبال کن یا با دوربین آزاد جلو، عقب، چپ، راست، بالا و پایین برو.</li>
+        <li>🏢 باشگاه ۱۰۰ متر بزرگ‌تر شد: تالار افتخار، ویترین جام‌ها، مشت‌سنج، تست واکنش، کلاس اسپینینگ، بخش قدرتی، آبمیوه‌بار، سونا، وزنه‌برداری المپیک، صعود با طناب، خط دوی سرعت، ترامپولین، بسکتبال سکه‌ای، پرچم انسانی، دیسکو، اسکنر بدن، حمام یخ، تابلوی جمله‌های انگیزشی و ساعت.</li>
         <li>🏋️ باشگاه حالا خیلی بزرگ‌تره: بخش کراس‌فیت، دستگاه‌ها، دیوار سنگ‌نوردی، یوگا، کالیستنیکس و کیسه‌ی سرعتی. ورزش‌هاشون توی زبانه‌ی «حرفه‌ای» هستن.</li>
         <li>🏆 چالش‌ها: از دکمه‌ی 🏆 سمت چپ، هر چالش مدال برنز، نقره و طلا داره.</li>
         <li>🪙 با تمرین، مأموریت، کشتی و مسابقه‌ی دو سکه می‌گیری و توی 🛒 فروشگاه لباس، هاله، حیوون خونگی، کفش سرعت و نوشیدنی انرژی می‌خری.</li>
@@ -274,6 +303,7 @@
         <button class="menu-btn" type="button" data-menu="board">🏆 قوی‌ترین‌های باشگاه</button>
         <button class="menu-btn" type="button" data-menu="code">🔑 وارد کردن کد</button>
         <button class="menu-btn" type="button" data-menu="music">🎵 موسیقی: <span id="musicState">خاموش</span></button>
+        <button class="menu-btn" type="button" data-menu="watch">📺 دوربین‌های زنده</button>
         <button class="menu-btn" type="button" data-menu="photo">📸 حالت عکس</button>
         <button class="menu-btn" type="button" data-menu="settings">⚙️ تنظیمات</button>
         <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
@@ -458,13 +488,18 @@
 <script src="js/anims2.js"></script>
 <script src="js/anims3.js"></script>
 <script src="js/anims4.js"></script>
+<script src="js/anims5.js"></script>
+<script src="js/anims6.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/world.js"></script>
 <script src="js/gym.js"></script>
+<script src="js/gym2.js"></script>
 <script src="js/creator.js"></script>
 <script src="js/island.js"></script>
 <script src="js/envs.js"></script>
 <script src="js/envs2.js"></script>
+<script src="js/envs3.js"></script>
+<script src="js/football.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/pickups.js"></script>
 <script src="js/armwrestle.js"></script>
@@ -473,5 +508,10 @@
 <script src="js/features.js"></script>
 <script src="js/fun.js"></script>
 <script src="js/challenges.js"></script>
+<script src="js/roster.js"></script>
+<script src="js/lucky.js"></script>
+<script src="js/attractions.js"></script>
+<script src="js/footballgame.js"></script>
+<script src="js/livecam.js"></script>
 </body>
 </html>

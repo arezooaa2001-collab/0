@@ -1,7 +1,7 @@
 'use strict';
 /* The gym: hall, equipment, strength tower, 40 training NPCs, player movement and camera */
 
-const ROOM = { x: 42, z: 32, h: 11 };
+const ROOM = { x: 92, z: 32, h: 11 };
 const TRACK = { cx: 0, cz: 2, a: 12.5, b: 7.5, w: 2.4 };
 const TOWER = { x: 0, z: -29.4, standX: 0, standZ: -27.4, segs: 20 };
 const PORTAL = { x: 0, z: 14.6 };
@@ -41,7 +41,7 @@ function woodTexture() {
     }
   });
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(14, 11);
+  tex.repeat.set(30, 11);
   return tex;
 }
 
@@ -72,7 +72,7 @@ function signTexture(lines, opts = {}) {
 
 class GymWorld extends WorldBase {
   constructor() {
-    super({ bounds: { rect: [ROOM.x, ROOM.z] }, track: TRACK, spawn: { x: 0, z: 4, yaw: Math.PI }, background: '#141a28', fog: [48, 100] });
+    super({ bounds: { rect: [ROOM.x, ROOM.z] }, track: TRACK, spawn: { x: 0, z: 4, yaw: Math.PI }, background: '#141a28', fog: [80, 210] });
     this.ceiling = ROOM.h;
     this.cloudTex = cloudSkyTexture();
     this.cloudMat = new THREE.MeshBasicMaterial({ map: this.cloudTex, toneMapped: false });
@@ -80,8 +80,8 @@ class GymWorld extends WorldBase {
     this.buildRoom();
     this.buildTrack();
     // the original zones moved out with the walls when the hall grew
-    this.withOffset(-12, 0, () => this.buildWeights());
-    this.withOffset(12, 0, () => this.buildCardio());
+    this.withOffset(-62, 0, () => this.buildWeights());
+    this.withOffset(62, 0, () => this.buildCardio());
     this.buildMats();
     this.withOffset(0, 10, () => this.buildBoxing());
     this.withOffset(0, -10, () => this.buildNorth());
@@ -96,6 +96,9 @@ class GymWorld extends WorldBase {
     this.buildClimbWall();
     this.buildSpeedBags();
     this.buildDecor();
+    this.buildWestWing();
+    this.buildEastWing();
+    this.buildLuckyPortal();
     this.finishBatches();
     this.onImpact = () => this.strikeTower();
   }
@@ -163,7 +166,7 @@ class GymWorld extends WorldBase {
     m.box(0.12, 0.12, Z * 2, X - 0.06, 1.36, 0, '#ffc23d');
     m.box(X * 2 + 1, 0.3, Z * 2 + 1, 0, H + 0.15, 0, '#1a1f2c');
     for (const tz of [-26, -14, -3, 8, 18, 27]) this.metal.box(X * 2, 0.35, 0.3, 0, H - 0.5, tz, '#39404f');
-    for (let lx = -35; lx <= 35; lx += 10) {
+    for (let lx = -85; lx <= 85; lx += 10) {
       for (let lz = -26; lz <= 26; lz += 8.6) if (Math.abs(lx) > 18 || Math.abs(lz) > 11) this.glow.box(5, 0.06, 1.2, lx, H - 0.05, lz, '#fff4dc');
     }
     // big skylight with drifting clouds
@@ -187,7 +190,7 @@ class GymWorld extends WorldBase {
       }
     }
     // pillars between zones
-    for (const px of [-28.8, 28.8]) {
+    for (const px of [-28.8, 28.8, -41.5, 41.5, -78.8, 78.8]) {
       for (const pz of [-24, -12, 0, 12, 24]) {
         m.box(1, H, 1, px, H / 2, pz, '#2a3550');
         this.glow.box(1.04, 0.12, 1.04, px, 2.2, pz, '#ffc23d');
@@ -660,6 +663,8 @@ class GymWorld extends WorldBase {
 
   updateExtra(dt, stats) {
     this.updateTower(dt, stats.level);
+    this.updateWings(dt);
+    this.updateLuckyPortal(dt, stats.level);
     this.cloudTex.offset.x = (this.cloudTex.offset.x + dt * 0.006) % 1;
     const P = this.portal;
     const open = stats.level >= ISLAND_LEVEL;
@@ -893,7 +898,7 @@ class GymWorld extends WorldBase {
     // party bunting across the hall
     const flags = ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5', '#ff4da6'];
     for (const bz of [-20, -8, 8, 20]) {
-      const n = 40;
+      const n = Math.round(X);
       for (let i = 0; i < n; i++) {
         const u = i / (n - 1);
         const x = -X + 3 + u * (X * 2 - 6);

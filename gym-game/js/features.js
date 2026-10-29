@@ -39,6 +39,10 @@ Object.assign(Game, {
         this.world.fx.burst({ x: p.x, y: 1.5, z: p.z }, { count: 120, colors: ['#ffc23d', '#2ecc71', '#2f6fed', '#e63946', '#ffffff'], speed: 5, up: 5, life: 1.6 });
         setTimeout(() => { this.closeModal('codeModal'); this.toast('🔓 همه‌ی حرکت‌ها باز شد! امتحانشون کن', 'gold'); }, 900);
       }
+    } else if (v === FOOTBALL_CODE) {
+      const first = this.unlockFootball();
+      this.codeMsg(first ? '⚽ استادیوم مخفی فوتبال باز شد! از نقشه 🗺️ برو و بازی کن' : '⚽ استادیوم مخفی از قبل بازه. از نقشه برو!', true);
+      if (first) setTimeout(() => { this.closeModal('codeModal'); this.toast('⚽ استادیوم مخفی فوتبال توی نقشه اضافه شد!', 'gold'); }, 1100);
     } else if (v === BOOST_CODE) {
       const b = this.save.boost;
       if (this.save.level < BOOST_MIN_LEVEL) {
@@ -145,7 +149,7 @@ Object.assign(Game, {
     const lv = this.lv();
     const tpl = pick(MISSION_TYPES.filter((t) => {
       if (t.type === 'win') return lv >= opponentFor(this.save.stage).level - 3;
-      if (t.type === 'visit') return ENVS.some((e) => lv >= e.level);
+      if (t.type === 'visit') return ENVS.some((e) => !e.secret && lv >= e.level);
       if (t.type === 'power') return this.powerUnlocked(POWERS[0]);
       return true;
     }));
@@ -156,7 +160,7 @@ Object.assign(Game, {
       m.key = pick(opts).id;
     }
     if (tpl.type === 'visit') {
-      const opts = ENVS.filter((e) => lv >= e.level);
+      const opts = ENVS.filter((e) => !e.secret && lv >= e.level);
       m.key = pick(opts).id;
     }
     m.reward = Math.round((30 + n * (tpl.type === 'run' ? 0.15 : tpl.type === 'win' ? 40 : 4)) * (1 + lv / 40));
@@ -463,8 +467,12 @@ Object.assign(Game, {
       g.appendChild(b);
     };
     add('🏋️', 'باشگاه قهرمانان', 'تمرین، قدرت‌سنج و کشتی', 1, this.where === 'gym', () => this.travel('gym'));
-    for (const e of ENVS) add(e.icon, e.name, e.desc, e.level, this.where === 'env' && this.envId === e.id, () => this.travel('env', e.id));
+    for (const e of ENVS) {
+      if (e.secret && !this.save.secretFootball) continue;
+      add(e.icon, e.name, e.desc, e.level, this.where === 'env' && this.envId === e.id, () => this.travel('env', e.id));
+    }
     add('🌥️', 'جزیره‌ی ابرها', 'ساختن با هوش مصنوعی', ISLAND_LEVEL, this.where === 'island', () => this.travel('island'));
+    add('🍀', 'جزیره‌ی خوش‌شانسی', 'هر چند قدم +۱۰ سطح', LUCKY_LEVEL, this.where === 'lucky', () => this.travel('lucky'));
     for (const c of Creations.items.filter((x) => x.kind === 'place').slice(0, 6)) {
       add(c.icon, c.name, 'ساخته‌ی هوش مصنوعی', ISLAND_LEVEL, this.where === 'place' && this.placeItem && this.placeItem.id === c.id, () => this.travel('place', c));
     }
@@ -484,6 +492,7 @@ Object.assign(Game, {
     else if (a === 'wheel') this.openWheel();
     else if (a === 'challenges') this.openChallenges();
     else if (a === 'photo') this.enterPhoto();
+    else if (a === 'watch') this.openWatch(this.worldKey(this.world) || 'gym');
     else if (a === 'settings') this.openSettings();
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }
     else if (a === 'music') {
@@ -512,7 +521,7 @@ Object.assign(Game, {
   },
 
   openBoard() {
-    const rows = this.gym.leaderboard(this.playerName(), this.lv(), this.save.xp);
+    const rows = this.leaderboardAll();
     const tb = $('boardRows');
     tb.innerHTML = '';
     rows.forEach((r, i) => {

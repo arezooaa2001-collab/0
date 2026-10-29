@@ -42,6 +42,9 @@ const AI_ANIMS = ['treadmill', 'bike', 'curl', 'lift', 'bench', 'pullup', 'box',
   'lunge', 'burpee', 'mountain', 'plank', 'bridge', 'highknees', 'superman', 'russian', 'starjump', 'skater', 'shadow', 'uppercut', 'frontkick', 'cartwheel', 'headspin', 'split', 'hoop', 'spin1080', 'dbackflip', 'swim', 'ski', 'skate', 'climb', 'trampoline',
   'kettle', 'ropes', 'rower', 'boxjump', 'tireflip', 'deadlift', 'mball', 'warrior', 'cobra', 'downdog', 'meditate', 'pistol', 'farmer', 'kata', 'combo', 'slip', 'golf', 'archery', 'serve', 'speedbag', 'legpress', 'latpull'];
 const ISLAND_LEVEL = 100;
+const LUCKY_LEVEL = 250;
+/** NPCs train faster than their reps alone would give, so you can watch them grow and travel. */
+const NPC_GROWTH = 16;
 for (const m of MOVES) m.cat = 'base';
 
 // 28 new bodyweight moves you can do anywhere, and 12 that need equipment in the new venues.
@@ -95,7 +98,29 @@ const VENUE_MOVES = [
   { id: 'putt', name: 'پات گلف', icon: '⛳', level: 40, xp: 110, equip: 'green' },
 ].map((m) => Object.assign(m, { cat: 'env' }));
 
-MOVES.push(...NEW_MOVES, ...ENV_MOVES, ...PRO_MOVES, ...VENUE_MOVES);
+// The gym's two new wings: big rewards, unlocked late.
+const HIGH_MOVES = [
+  ['arcadeball', 'بسکتبال سکه‌ای', '🕹️', 25, 90, 'arcade', 'basket'], ['bounce', 'ترامپولین باشگاه', '🦘', 30, 100, 'gymtramp', 'trampoline'],
+  ['spin', 'کلاس اسپینینگ', '🚲', 40, 130, 'spin', 'bike'], ['sledpush', 'هل دادن سورتمه', '🛷', 50, 150, 'sled'],
+  ['atlas', 'سنگ اطلس', '🪨', 60, 170, 'atlas'], ['ropeclimb', 'صعود با طناب', '🪢', 70, 190, 'climbrope'],
+  ['snatch', 'یک‌ضرب', '🏋️‍♀️', 80, 210, 'platform'], ['onearm', 'شنای تک‌دست', '☝️', 90, 230],
+  ['cleanjerk', 'دوضرب', '🏆', 100, 250, 'platform'], ['planche', 'پلانش', '🛫', 120, 280],
+  ['humanflag', 'پرچم انسانی', '🚩', 150, 320, 'flagpole'], ['tripleflip', 'ملق سه‌تایی', '🌀', 200, 400],
+].map(([id, name, icon, level, xp, equip, anim]) => Object.assign({ id, name, icon, level, xp, cat: 'pro' }, equip ? { equip } : {}, anim ? { anim } : {}));
+HIGH_MOVES.find((m) => m.id === 'spin').run = 18;
+
+const FIELD_MOVES = [
+  { id: 'hurdles', name: 'دوی با مانع', icon: '🚧', level: 35, xp: 140, run: 20, equip: 'hurdlelane' },
+  { id: 'longjump', name: 'پرش طول', icon: '🏝️', level: 35, xp: 135, equip: 'sandpit' },
+  { id: 'highjump', name: 'پرش ارتفاع', icon: '🎚️', level: 37, xp: 150, equip: 'hjbar' },
+  { id: 'javelin', name: 'پرتاب نیزه', icon: '🗡️', level: 38, xp: 155, equip: 'runway' },
+  { id: 'shotput', name: 'پرتاب وزنه', icon: '⚫', level: 36, xp: 145, equip: 'shotring' },
+  { id: 'vault', name: 'پرش از روی مانع', icon: '🧱', level: 45, xp: 170, equip: 'pkwall' },
+  { id: 'wallflip', name: 'ملق از دیوار', icon: '🔁', level: 48, xp: 190, equip: 'pkflip' },
+  { id: 'precision', name: 'پرش دقیق', icon: '🎯', level: 45, xp: 160, equip: 'pkblock', anim: 'boxjump' },
+].map((m) => Object.assign(m, { cat: 'env' }));
+
+MOVES.push(...NEW_MOVES, ...ENV_MOVES, ...PRO_MOVES, ...VENUE_MOVES, ...HIGH_MOVES, ...FIELD_MOVES);
 
 /** Sports venues you travel to from the map. */
 const ENVS = [
@@ -109,7 +134,9 @@ const ENVS = [
   { id: 'boxing', name: 'سالن بوکس', icon: '🥊', level: 22, desc: 'رینگ، ترکیب مشت، جاخالی' },
   { id: 'ice', name: 'پیست یخ', icon: '⛸️', level: 25, desc: 'اسکیت روی یخ' },
   { id: 'snow', name: 'کوهستان برفی', icon: '🏔️', level: 30, desc: 'اسکی و صخره‌نوردی' },
+  { id: 'athletics', name: 'استادیوم دو و میدانی', icon: '🏟️', level: 35, desc: 'پرش طول و ارتفاع، مانع، نیزه، وزنه' },
   { id: 'golf', name: 'زمین گلف', icon: '⛳', level: 40, desc: 'ضربه‌ی دور و پات' },
+  { id: 'parkour', name: 'پارک پارکور', icon: '🧱', level: 45, desc: 'پرش از مانع، ملق از دیوار، پرش دقیق' },
 ];
 const ENV_BY_ID = Object.fromEntries(ENVS.map((e) => [e.id, e]));
 Object.assign(EQUIP, {
@@ -134,6 +161,14 @@ Object.assign(EQUIP, {
   lat: { name: 'دستگاه سیم‌کش', where: 'زون دستگاه‌ها' },
   boulder: { name: 'دیوار سنگ‌نوردی', where: 'گوشه‌ی شمال شرقی' },
   speedbag: { name: 'کیسه‌ی سرعتی', where: 'دیوار جنوبی کنار بوکس' },
+  arcade: { name: 'دستگاه بسکتبال سکه‌ای', where: 'بال شرقی' },
+  gymtramp: { name: 'ترامپولین باشگاه', where: 'بال شرقی' },
+  spin: { name: 'دوچرخه‌ی اسپینینگ', where: 'بال غربی' },
+  sled: { name: 'سورتمه', where: 'بال غربی، بخش قدرتی' },
+  atlas: { name: 'سنگ اطلس', where: 'بال غربی، بخش قدرتی' },
+  climbrope: { name: 'طناب صعود', where: 'بال شرقی' },
+  platform: { name: 'سکوی وزنه‌برداری', where: 'بال شرقی' },
+  flagpole: { name: 'تیرک پرچم انسانی', where: 'بال شرقی' },
   boards: { name: 'سکوی شکستن تخته', env: 'dojo' },
   tatami: { name: 'تاتامی', env: 'dojo' },
   target: { name: 'سیبل کمانداری', env: 'dojo' },
@@ -142,6 +177,14 @@ Object.assign(EQUIP, {
   ring: { name: 'کیسه‌ی رینگ', env: 'boxing' },
   ropebox: { name: 'گوشه‌ی رینگ', env: 'boxing' },
   tee: { name: 'سکوی ضربه', env: 'golf' },
+  hurdlelane: { name: 'خط مانع', env: 'athletics' },
+  sandpit: { name: 'گودال شن', env: 'athletics' },
+  hjbar: { name: 'میله‌ی پرش ارتفاع', env: 'athletics' },
+  runway: { name: 'خط پرتاب نیزه', env: 'athletics' },
+  shotring: { name: 'دایره‌ی پرتاب وزنه', env: 'athletics' },
+  pkwall: { name: 'دیوار کوتاه', env: 'parkour' },
+  pkflip: { name: 'دیوار بلند', env: 'parkour' },
+  pkblock: { name: 'سکوی پرش', env: 'parkour' },
   green: { name: 'گرین', env: 'golf' },
 });
 for (const k of Object.keys(EQUIP)) if (!EQUIP[k].env) EQUIP[k].env = 'gym';
@@ -186,6 +229,7 @@ const NPC_NAMES = [
   'کیان', 'آرش', 'بابک', 'کاوه', 'سهراب', 'بهرام', 'داریوش', 'کوروش', 'پویا', 'پارسا',
   'سینا', 'نیما', 'یاسین', 'طاها', 'ماهان', 'آرین', 'بردیا', 'سامان', 'شایان', 'عرفان',
   'فرزاد', 'کامیار', 'مانی', 'میلاد', 'نوید', 'هومن', 'یزدان', 'جواد', 'صادق', 'اکبر',
+  'رامین', 'شهاب', 'تینا', 'نگار', 'مریم', 'سارا', 'لیلا', 'نازنین', 'ستاره', 'یاسمن',
 ];
 
 const PLAYER_COLORS = ['#e63946', '#2f6fed', '#2ecc71', '#ff7b00', '#9b5de5', '#111111'];
@@ -244,7 +288,7 @@ const ACHIEVEMENTS = [
   { id: 'win1', name: 'اولین برد', icon: '🤼', desc: 'یک کشتی ببر', test: (s) => s.wins >= 1 },
   { id: 'stage5', name: 'قهرمان کشور', icon: '🏅', desc: 'مرحله‌ی ۵ رو ببر', test: (s) => s.stage > 5 },
   { id: 'stage10', name: 'اسطوره‌ی کشتی', icon: '🏆', desc: 'هر ده مرحله رو ببر', test: (s) => s.stage > 10 },
-  { id: 'envs', name: 'جهانگرد', icon: '🗺️', desc: 'به همه‌ی مکان‌های ورزشی برو', test: (s) => ENVS.every((e) => s.stats.visited.includes(e.id)) },
+  { id: 'envs', name: 'جهانگرد', icon: '🗺️', desc: 'به همه‌ی مکان‌های ورزشی برو', test: (s) => ENVS.every((e) => e.secret || s.stats.visited.includes(e.id)) },
   { id: 'run50', name: 'تندباد', icon: '🌬️', desc: 'سطح دویدن ۵۰', test: (s) => s.runLevel >= 50 },
   { id: 'race', name: 'برنده‌ی مسابقه', icon: '🏁', desc: 'مسابقه‌ی دو رو اول شو', test: (s) => s.stats.raceWins >= 1 },
   { id: 'pet', name: 'دوست چهارپا', icon: '🐾', desc: 'یه حیوون بخر', test: (s) => s.shop.owned.includes('dog') || s.shop.owned.includes('cat') },
@@ -314,4 +358,8 @@ ACHIEVEMENTS.push(
   { id: 'belt', name: 'کمربند طلا', icon: '🥇', desc: 'کمربند طلایی قهرمانی', test: (s) => s.stage > 10 },
   { id: 'streak', name: 'وفادار', icon: '📅', desc: '۵ روز پشت سر هم بیا', test: (s) => s.fun.streak >= 5 },
   { id: 'jackpot', name: 'خوش‌شانس', icon: '🍀', desc: 'جایزه‌ی بزرگ گردونه', test: (s) => s.stats.jackpots >= 1 },
+  { id: 'goal', name: 'گلزن', icon: '⚽', desc: 'توی استادیوم مخفی گل بزن', test: (s) => (s.stats.goals || 0) >= 1 },
+  { id: 'fbwin', name: 'قهرمان فوتبال', icon: '🥅', desc: 'یه بازی فوتبال ببر', test: (s) => (s.stats.fbWins || 0) >= 1 },
+  { id: 'lv250', name: 'خدای شانس', icon: '🌈', desc: 'سطح ۲۵۰', test: (s) => s.level >= 250 },
+  { id: 'punch', name: 'مشت آهنین', icon: '🥊', desc: 'مشت‌سنج: بالای ۱۰۰۰', test: (s) => (s.records && s.records.punch) >= 1000 },
 );

@@ -54,6 +54,8 @@ const Game = {
     for (const k of ['powers', 'maxKnock', 'armWins', 'chests', 'gems', 'emotes', 'jackpots', 'picked']) v.stats[k] = Math.max(0, Number(v.stats[k]) || 0);
     v.fun = Object.assign({ wheelDay: '', lastDay: '', streak: 0 }, obj(v.fun));
     v.challenges = obj(v.challenges);
+    v.records = obj(v.records);
+    v.secretFootball = !!v.secretFootball;
     v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
     v.settings = Object.assign({ quality: 'auto', sens: 1, names: true, shake: true }, obj(v.settings));
     if (!['low', 'auto', 'high'].includes(v.settings.quality)) v.settings.quality = 'auto';
@@ -69,7 +71,7 @@ const Game = {
 
   persist() {
     const s = this.save;
-    s.npcs = this.gym ? this.gym.npcs.map((n) => ({ l: n.level, x: Math.round(n.xp) })) : s.npcs;
+    s.npcs = this.people ? this.people.map((n) => ({ l: n.level, x: Math.round(n.xp), loc: n.loc })) : s.npcs;
     Store.set(SAVE_KEY, s);
   },
 
@@ -107,6 +109,7 @@ const Game = {
     Sfx.setMuted(this.save.muted);
     this.gym = new GymWorld();
     this.gym.spawnNpcs(NPC_NAMES, this.save.npcs);
+    this.initRoster();
     this.player = createPlayer(this.outfit(), this.lv());
     this.player.mode = this.save.mode;
     this.gym.enter(this.player);
@@ -119,6 +122,7 @@ const Game = {
     this.bindUi();
     this.bindInput();
     this.initFun();
+    this.bindWatchUi();
     this.labelPlayer();
     this.ensureMissions();
     Creations.onChange((items) => this.onCreations(items));
@@ -283,11 +287,11 @@ const Game = {
         if (r) this.world.guideTo(r.s);
         return;
       }
-      started = this.world.useStation(st, m.id, () => this.exerciseDone(m));
+      started = this.world.useStation(st, m.anim || m.id, () => this.exerciseDone(m));
     } else if (m.custom) {
       started = this.world.playerDo(m.anim, () => this.customDone(m.name, m.effect));
     } else {
-      started = this.world.playerDo(m.id, () => this.exerciseDone(m));
+      started = this.world.playerDo(m.anim || m.id, () => this.exerciseDone(m));
     }
     if (!started) return;
     Sfx.play('click');
@@ -351,13 +355,13 @@ const Game = {
     this.refreshHud();
   },
 
-  addLevels(n) {
+  addLevels(n, quiet) {
     const s = this.save;
     const from = s.level;
     const frac = s.xp / xpNeed(s.level);
     s.level += n;
     s.xp = Math.floor(frac * xpNeed(s.level));
-    this.levelsGained(from, s.level);
+    this.levelsGained(from, s.level, quiet && Math.floor(from / 50) === Math.floor(s.level / 50));
     this.refreshHud();
   },
 
@@ -383,16 +387,18 @@ const Game = {
     this.refreshHud();
   },
 
-  levelsGained(from, to) {
-    Sfx.play('levelup');
-    const b = $('levelBanner');
-    b.innerHTML = `<small>سطح زور</small><b>${fa(to + (this.boostActive() ? BOOST_LEVELS : 0))}</b>`;
-    b.classList.remove('show');
-    void b.offsetWidth;
-    b.classList.add('show');
+  levelsGained(from, to, quiet) {
+    if (!quiet) {
+      Sfx.play('levelup');
+      const b = $('levelBanner');
+      b.innerHTML = `<small>سطح زور</small><b>${fa(to + (this.boostActive() ? BOOST_LEVELS : 0))}</b>`;
+      b.classList.remove('show');
+      void b.offsetWidth;
+      b.classList.add('show');
+    }
     setPlayerLevelLook(this.player, this.lv());
     this.refreshMoves();
-    if (this.mode === 'play') {
+    if (this.mode === 'play' && !quiet) {
       const p = this.player.ch.root.position;
       this.world.fx.ring({ x: p.x, y: 0.2, z: p.z }, { count: 70, color: '#ffc23d', radius: 0.5, speed: 6, life: 0.9 });
       this.world.fx.burst({ x: p.x, y: 1.4, z: p.z }, { count: 60, colors: ['#ffc23d', '#ffffff', '#ff7b00'], speed: 3, up: 4, life: 1.4 });
@@ -401,7 +407,7 @@ const Game = {
       const opened = MOVES.filter((m) => m.level > from && m.level <= to);
       if (opened.length === 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 «${opened[0].name}» باز شد!`, 'gold'); }, 700);
       else if (opened.length > 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 ${fa(opened.length)} حرکت جدید باز شد!`, 'gold'); }, 700);
-      const envs = ENVS.filter((e) => e.level > from && e.level <= to);
+      const envs = ENVS.filter((e) => !e.secret && e.level > from && e.level <= to);
       for (const e of envs) setTimeout(() => this.toast(`🗺️ «${e.name}» باز شد! از دکمه‌ی نقشه برو`, 'gold'), 1200);
     }
     if (from < ISLAND_LEVEL && to >= ISLAND_LEVEL) {
@@ -597,8 +603,8 @@ const Game = {
   getIsland() {
     if (!this.island) {
       this.island = new IslandWorld();
-      this.island.spawnNpcs(ISLAND_NAMES, null, [25, 80]);
       this.island.setCreations(Creations.items);
+      this.settleResidents(this.island);
     }
     return this.island;
   },
@@ -607,7 +613,6 @@ const Game = {
     let w = this.places.get(item.id);
     if (!w) {
       w = new PlaceWorld(item);
-      w.spawnNpcs([...NPC_NAMES].sort(() => Math.random() - 0.5).slice(0, 6), null, [5, 45]);
       this.places.set(item.id, w);
     }
     return w;
@@ -617,9 +622,8 @@ const Game = {
     let w = this.envs.get(id);
     if (!w) {
       w = buildEnv(id);
-      const e = ENV_BY_ID[id];
-      w.spawnNpcs([...NPC_NAMES].sort(() => Math.random() - 0.5).slice(0, 8), null, [e.level, e.level + 25]);
       this.envs.set(id, w);
+      this.settleResidents(w);
     }
     return w;
   },
@@ -633,9 +637,15 @@ const Game = {
       this.toast(`🔒 جزیره‌ی ابرها در سطح ${fa(ISLAND_LEVEL)} باز می‌شه. الان سطح ${fa(this.lv())} هستی؛ خیلی تمرین کن!`, 'warn');
       return;
     }
+    if (target === 'lucky' && this.lv() < LUCKY_LEVEL) {
+      Sfx.play('error');
+      this.toast(`🔒 جزیره‌ی خوش‌شانسی در سطح ${fa(LUCKY_LEVEL)} باز می‌شه. الان سطح ${fa(this.lv())} هستی!`, 'warn');
+      return;
+    }
     if (target === 'env') {
       const e = ENV_BY_ID[item];
       if (!e) return;
+      if (e.secret && !this.save.secretFootball) return;
       if (this.lv() < e.level) {
         Sfx.play('error');
         this.toast(`🔒 «${e.name}» در سطح ${fa(e.level)} باز می‌شه.`, 'warn');
@@ -659,15 +669,18 @@ const Game = {
       if (target === 'gym') {
         w = this.gym;
         if (from === 'island') at = { x: PORTAL.x + 2.5, z: PORTAL.z - 2.5, yaw: Math.PI, camYaw: 0.7 };
+        if (from === 'lucky') at = { x: LUCKY_PORTAL.x + 2.5, z: LUCKY_PORTAL.z - 2.5, yaw: Math.PI, camYaw: 0.7 };
       } else if (target === 'island') {
         w = this.getIsland();
         if (from === 'place' && fromItem) {
           const pp = w.placePortals.find((p) => p.item.id === fromItem.id);
           if (pp) at = { x: pp.x * 0.85, z: pp.z * 0.85, yaw: Math.atan2(-pp.x, -pp.z), camYaw: Math.atan2(pp.x, pp.z) + 0.6 };
         }
-      } else if (target === 'env') w = this.getEnv(item);
+      } else if (target === 'lucky') w = this.getLucky();
+      else if (target === 'env') w = this.getEnv(item);
       else w = this.getPlace(item);
       if (this.pet) this.world.scene.remove(this.pet.root);
+      if (this.inFootball()) this.footballLeave();
       w.enter(this.player, at);
       this.world = w;
       this.where = target;
@@ -680,7 +693,11 @@ const Game = {
       if (target === 'island') {
         this.toast(this.save.islandSeen ? 'به جزیره‌ی ابرها خوش اومدی! 🌥️' : '🌥️ به جزیره‌ی ابرها رسیدی! برو پیش ربات وسط جزیره و هر وسیله‌ی ورزشی که دلت می‌خواد بساز.', 'gold');
         this.save.islandSeen = true;
+      } else if (target === 'lucky') {
+        this.luckyLast = null;
+        this.toast('🍀 به جزیره‌ی خوش‌شانسی خوش اومدی! هر چند قدم که راه بری ۱۰ سطح زور می‌گیری!', 'gold');
       } else if (target === 'place') this.toast(`${item.icon} به «${item.name}» خوش اومدی!`, 'gold');
+      else if (target === 'env' && item === 'football') this.footballEnter();
       else if (target === 'env') {
         const e = ENV_BY_ID[item];
         this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «مکان‌ها» هستن.`, 'gold');
@@ -827,7 +844,18 @@ const Game = {
         const open = this.lv() >= ISLAND_LEVEL;
         return { label: open ? '🌥️ برو به جزیره‌ی ابرها' : `🔒 جزیره‌ی ابرها • سطح ${fa(ISLAND_LEVEL)}`, run: () => this.travel('island') };
       }
+      if (w.nearLuckyPortal()) {
+        const open = this.lv() >= LUCKY_LEVEL;
+        return { label: open ? '🍀 برو به جزیره‌ی خوش‌شانسی' : `🔒 جزیره‌ی خوش‌شانسی • سطح ${fa(LUCKY_LEVEL)}`, run: () => this.travel('lucky') };
+      }
+      const at = this.attractionAction();
+      if (at) return at;
       if (this.nearRaceStart()) return { label: '🏁 مسابقه‌ی دو', run: () => this.startRace() };
+    } else if (this.inFootball()) {
+      if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
+      return null;
+    } else if (w === this.lucky) {
+      if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
     } else if (w === this.island) {
       if (w.nearKiosk()) return { label: '🤖 با هوش مصنوعی حرف بزن', run: () => this.openAi() };
       if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
@@ -860,7 +888,7 @@ const Game = {
   },
 
   runContext() {
-    if (this.mode !== 'play' || this.modals.size) return;
+    if (this.mode !== 'play' || this.modals.size || this.watch) return;
     Sfx.init();
     const c = this.contextAction();
     if (c) c.run();
@@ -939,10 +967,14 @@ const Game = {
       }
       this.keys.add(e.code);
       if (e.repeat) return;
+      if (this.inFootball()) {
+        if (e.code === 'Space') { this.pendingJump = false; this.fbShoot(); return; }
+        if (e.code === 'KeyQ' || e.code === 'KeyF') { this.fbPass(); return; }
+      }
       if (e.code === 'Digit1' || e.code === 'Numpad1') this.usePower('superjump');
       if (e.code === 'Digit2' || e.code === 'Numpad2') this.usePower('dash');
       if (e.code === 'Digit3' || e.code === 'Numpad3') this.usePower('slam');
-      if (e.code === 'Space') this.pendingJump = true;
+      if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
       if (e.code === 'KeyE') this.runContext();
       if (e.code === 'KeyR') this.onMove(MOVE_BY_ID.run);
       if (e.code === 'KeyF') this.onMove(MOVE_BY_ID.jumprun);
@@ -990,6 +1022,11 @@ const Game = {
     cv.addEventListener('pointermove', (e) => {
       const p = this.camDrag.get(e.pointerId);
       if (!p || this.mode !== 'play') return;
+      if (this.watch) {
+        this.watchDrag(e.clientX - p.x, e.clientY - p.y);
+        p.x = e.clientX; p.y = e.clientY;
+        return;
+      }
       const cam = this.world.cam;
       if (this.camDrag.size >= 2) {
         const pts = [...this.camDrag.values()];
@@ -1027,7 +1064,7 @@ const Game = {
     let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     let y = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
     if (this.joy.id != null) { x = this.joy.x; y = this.joy.y; }
-    const enabled = this.mode === 'play' && !this.modals.size && !this.arm && !(this.race && this.race.state === 'count');
+    const enabled = this.mode === 'play' && !this.modals.size && !this.arm && !this.watch && !(this.race && this.race.state === 'count');
     const jump = this.pendingJump && enabled;
     this.pendingJump = false;
     return { x, y, run: k.has('ShiftLeft') || k.has('ShiftRight'), jump, enabled };
@@ -1070,9 +1107,15 @@ const Game = {
       this.tickPickups(dt);
       this.tickEvents(dt);
       if (this.mode === 'play') this.tickChallenge(dt);
+      this.tickRoster(dt);
+      this.tickFootball();
+      this.tickLucky();
+      if (this.world === this.gym && this.mode === 'play') this.tickWings(dt);
       if (this.race) this.tickRace(dt);
       if (this.mode === 'play') this.tickHud();
-      this.renderer.render(this.world.scene, this.camera);
+      this.tickWall(dt);
+      if (this.watch) this.stepWatch(dt);
+      else this.renderer.render(this.world.scene, this.camera);
     } catch (e) {
       // keep the game drawing even if one system fails; report each distinct error once
       this.errors = this.errors || new Set();
