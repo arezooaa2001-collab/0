@@ -52,6 +52,7 @@ export class Pickups {
       if (Math.hypot(f.pos.x - it.x, f.pos.z - it.z) < reach && Math.abs((g.player.y || 0) - it.y) < 4) {
         g.coins += 1;
         g.stats.coinsPicked = (g.stats.coinsPicked || 0) + 1;
+        g.addXp(3);
         g.audio.cash();
         g.ui.toast(`🪙 +۱ سکه! (${fa(g.coins)})`, 'good');
         this.place(it, f.pos);

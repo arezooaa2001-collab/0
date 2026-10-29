@@ -229,6 +229,10 @@ export class Traffic {
     for (let i = 0; i < this.cars.length * 0.8; i++) this.spawnNear(p, 30, 320);
   }
   onHit(car, impact, by) {
+    if (car.isTarget) {
+      if (by === this.game.player) this.game.rides.onTargetHit();
+      return;
+    }
     if (by === this.game.player && !car.isPolice && !car.isRival) this.game.onTrafficHit(car, impact);
   }
   update(dt, time) {
@@ -241,6 +245,8 @@ export class Traffic {
     if (this.game.police.unit && this.game.police.unit.active) obs.push(this.game.police.unit);
     const rv = this.game.race && this.game.race.rival;
     if (rv && rv.active) obs.push(rv);
+    const tg = this.game.rides && this.game.rides.target;
+    if (tg && tg.active) obs.push(tg);
     const limit = this.limit ?? this.cars.length;
     let active = 0;
     for (const c of this.cars) {

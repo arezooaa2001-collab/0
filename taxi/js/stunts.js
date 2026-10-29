@@ -42,6 +42,7 @@ export class Stunts {
         const pts = Math.round(L.airT * 100 + L.height * 25);
         const cash = pts * 150;
         g.money += cash;
+        g.addXp(pts / 8);
         s.jumps = (s.jumps || 0) + 1;
         s.bestAir = Math.max(s.bestAir || 0, L.airT);
         g.audio.cash();
@@ -81,6 +82,7 @@ export class Stunts {
     if (bank && this.driftT > 1 && pts > 50) {
       const cash = pts * 40;
       g.money += cash;
+      g.addXp(pts / 15);
       s.bestDrift = Math.max(s.bestDrift || 0, pts);
       s.drifts = (s.drifts || 0) + 1;
       g.audio.cash();

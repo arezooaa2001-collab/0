@@ -288,6 +288,8 @@ export class Police {
     if (g.ui.panelOpen) g.ui.closePanel();
     this.state = 'arrest';
     g.state = 'cutscene';
+    g.audio.setWater(0);
+    g.audio.setSkid(0);
     g.ui.setWanted(false);
     g.ui.hideIncident();
     g.ui.setHud(false);

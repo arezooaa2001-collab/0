@@ -72,6 +72,7 @@ export class Photo {
     g.ui.resetInputs();
     g.audio.setEngine(0, 0, false);
     g.audio.setSkid(0);
+    g.audio.setWater(0);
     g.audio.siren(false);
     document.body.classList.add('photomode');
     $('photo').classList.remove('hidden');

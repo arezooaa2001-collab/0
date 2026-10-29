@@ -309,6 +309,7 @@ export class Race {
       g.money += t.prize;
       g.coins += t.coins;
       s.racesWon = (s.racesWon || 0) + 1;
+      g.addXp(150);
       s.raceTracks = s.raceTracks || [];
       if (!s.raceTracks.includes(t.id)) s.raceTracks.push(t.id);
       g.audio.cash();
@@ -320,6 +321,7 @@ export class Race {
       g.ui.say(this.rivalName, pick(['هه! گفتم که نمی‌تونی 😏', 'برو یه ماشین بهتر بخر! 😂', 'دفعه بعد شاید! 🏎️💨']), { mood: 'grumpy' });
     }
     s.races = (s.races || 0) + 1;
+    if (!win) g.addXp(40);
     r.speed = Math.min(r.speed, 14);
     g.save();
   }

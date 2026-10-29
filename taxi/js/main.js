@@ -20,7 +20,8 @@ import { Stunts } from './stunts.js';
 import { Race } from './race.js';
 import { Skids } from './skids.js';
 import { Photo } from './photo.js';
-import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp } from './util.js';
+import { Props } from './props.js';
+import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
 const SET_KEY = 'taxiCity.settings.v1';
@@ -132,6 +133,7 @@ class Game {
     this.race = new Race(this);
     this.skids = new Skids(this);
     this.photo = new Photo(this);
+    this.props = new Props(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -176,7 +178,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -195,6 +197,7 @@ class Game {
       if (Array.isArray(d.owned)) p.owned = d.owned;
       if (d.model && d.model !== p.model) p.buildModel(d.model);
       if (d.paint !== null && d.paint !== undefined) p.setPaint(d.paint);
+      if (d.neon) p.setNeon(d.neon);
       if (d.nitro !== undefined) p.nitro = d.nitro;
       this.hasSave = true;
       if (this.world.roadDist(d.x, d.z) < 9) {
@@ -263,6 +266,7 @@ class Game {
       this.audio.siren(false);
       this.audio.setRain(0);
       this.audio.setSkid(0);
+      this.audio.setWater(0);
     } else if (!on && this.state === 'pause') {
       this.state = 'play';
       if (this.ui.panelOpen) {
@@ -283,6 +287,7 @@ class Game {
     this.audio.siren(false);
     this.audio.setRain(0);
     this.audio.setSkid(0);
+    this.audio.setWater(0);
     this.audio.setEngine(0, 0, false);
     this.fade(0, 0.8);
   }
@@ -329,6 +334,23 @@ class Game {
     this.saveSettings();
   }
   /** total buying power: cash plus coins (1 coin = 10,000 tomans) */
+  /** driver experience: rides, stunts, races and mayhem all level you up */
+  addXp(n) {
+    const s = this.stats;
+    s.xp = (s.xp || 0) + Math.max(0, Math.round(n));
+    const lv = levelFor(s.xp);
+    if (lv > (s.level || 1)) {
+      s.level = lv;
+      const reward = lv * 5;
+      this.coins += reward;
+      this.audio.tone(523, 0.15, 0.15, 'triangle');
+      this.audio.tone(659, 0.15, 0.15, 'triangle', 0.12);
+      this.audio.tone(784, 0.15, 0.15, 'triangle', 0.24);
+      this.audio.tone(1047, 0.4, 0.18, 'triangle', 0.36);
+      this.ui.achievement('🎖️', `سطح ${fa(lv)}: «${levelTitle(lv)}»`, reward, '⬆️ سطح جدید!');
+      this.save();
+    }
+  }
   wallet() {
     return this.money + this.coins * COIN;
   }
@@ -745,6 +767,7 @@ class Game {
     const ph = h * this.renderer.getPixelRatio();
     for (const k in this.fx) this.fx[k].setScale(ph, 65);
     this.arson.setScale(ph, 65);
+    if (this.props) this.props.water.setScale(ph, 65);
   }
   frame() {
     const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1) * (this.state === 'play' ? this.slowmo || 1 : 1);
@@ -809,6 +832,7 @@ class Game {
     this.race.update(dt);
     if (st === 'play') {
       this.pickups.update(dt);
+      this.props.update(dt);
       this.stunts.update(dt);
       this.ach.track(dt);
     }

@@ -1,10 +1,11 @@
-import { fa, faMoney, faDist, clamp } from './util.js';
+import { fa, faMoney, faDist, clamp, levelFor, xpFor, levelTitle } from './util.js';
 import { GEAR_LABEL, TOP_GEAR, CAR_MODELS } from './vehicle.js';
 import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
 const $ = (id) => document.getElementById(id);
-const PAINT_COST = 120000, NOS_COST = 60000;
+const PAINT_COST = 120000, NOS_COST = 60000, NEON_COST = 250000, RAINBOW_COST = 600000;
+const NEONS = [[0x00e5ff, 'آبی یخی'], [0xff2bd6, 'صورتی'], [0x39ff14, 'سبز فسفری'], [0xa040ff, 'بنفش'], [0xff2a2a, 'قرمز'], [0xffd21a, 'طلایی'], ['rainbow', 'رنگین‌کمان 🌈']];
 const PAINTS = [[0xf3c614, 'زرد تاکسی'], [0x1f8a4c, 'سبز تاکسی'], [0xf2f2f2, 'سفید'], [0x15171a, 'مشکی'], [0xc62828, 'قرمز'], [0x1f5fbf, 'آبی'], [0xff7a1a, 'نارنجی'], [0x8e44ad, 'بنفش'], [0xb8bcc2, 'نقره‌ای']];
 const STATIONS = [null, 'pop', 'sonati'];
 const STATION_NAME = { pop: '📻 رادیو پاپ ۹۸٫۵', sonati: '📻 رادیو سنتی (دستگاه شور) ۱۰۲٫۷' };
@@ -207,7 +208,7 @@ export class UI {
       }
       if (e.code === 'KeyV') g.onfoot.toggle();
       if (e.code === 'KeyK') this.cycleRadio();
-      if (e.code === 'KeyP') g.state === 'photo' ? g.photo.close() : g.state === 'play' && !this.panelOpen && g.photo.open();
+      if (e.code === 'KeyX') g.state === 'photo' ? g.photo.close() : g.state === 'play' && !this.panelOpen && g.photo.open();
       if (e.code === 'KeyO' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openAchievements();
       if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
       const walking = g.onfoot.active || g.onfoot.busy;
@@ -221,7 +222,8 @@ export class UI {
       if (e.code === 'KeyM') this.toggleBigMap();
       if (e.code === 'KeyT') this.toggleAuto();
       if (e.code === 'KeyF') g.zoneAction();
-      if (e.code === 'KeyP' || e.code === 'Escape') g.pause(g.state !== 'pause');
+      if ((e.code === 'KeyP' || e.code === 'Escape') && g.state === 'photo') g.photo.close();
+      else if (e.code === 'KeyP' || e.code === 'Escape') g.pause(g.state !== 'pause');
       if (e.code === 'Enter' && this.offerCb) this.offerCb.accept();
       if (e.code === 'KeyY' && this.offerCb) this.offerCb.guide();
       if (e.code === 'Backspace' && this.offerCb) this.offerCb.decline();
@@ -366,6 +368,14 @@ export class UI {
     const h = Math.floor(g.hour), m = Math.floor((g.hour - h) * 60);
     $('clock').textContent = fa(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
     $('day').textContent = fa(g.day);
+    {
+      const xp = g.stats.xp || 0, lv = levelFor(xp), a = xpFor(lv), b = xpFor(lv + 1);
+      if (lv !== this.lvShown) {
+        this.lvShown = lv;
+        $('lvl').textContent = '🎖️' + fa(lv);
+      }
+      $('xpBar').style.width = ((xp - a) / (b - a)) * 100 + '%';
+    }
     const avg = g.stats.trips ? g.stats.ratingSum / g.stats.trips : 5;
     $('stars').textContent = '★ ' + fa(avg.toFixed(1)).replace('.', '٫');
     const kmh = Math.round(Math.abs(p.speed) * 3.6);
@@ -646,14 +656,15 @@ export class UI {
     const el = $('offer');
     const md = MOODS[o.mood];
     el.innerHTML = `
-      <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.vip ? '⭐ VIP • ' : ''}${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}${o.vip ? ' • کرایه ۳ برابر، ولی باید سریع برسی!' : ''}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
+      <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.vip ? '⭐ VIP • ' : o.kind === 'robber' ? '🕶️ مسافر مشکوک • ' : o.kind === 'follow' ? '🕵️ ' : ''}${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}${o.vip ? ' • کرایه ۳ برابر، ولی باید سریع برسی!' : o.kind === 'robber' ? ' • کرایه خیلی بالا... ولی یه کیف پر پول دستشه! 💰' : o.kind === 'follow' ? ' • یه ماشین رو باید تعقیب کنی!' : ''}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
       <div class="orow"><i>🧍</i><div><small>مبدا (${faDist(o.toPick)} از تو)</small><b>${o.pickupAddr}</b></div></div>
-      <div class="orow"><i>🏁</i><div><small>مقصد • ${faDist(o.len)}</small><b>${o.destAddr}</b></div></div>
+      <div class="orow"><i>${o.kind === 'follow' ? '🚗' : '🏁'}</i><div><small>${o.kind === 'follow' ? 'ماموریت' : 'مقصد • ' + faDist(o.len)}</small><b>${o.destAddr}</b></div></div>
       <div class="ometa">⛽ حدود ${fa(o.fuelNeed)} لیتر بنزین لازمه ${o.fuelNeed > this.g.player.fuelTotal() ? '<em>— بنزینت کمه!</em>' : ''}</div>
       <div class="obtns"><button class="ok">✅ قبول</button><button class="guide">🧭 قبول + فلش</button><button class="no">❌ رد</button></div>
       <div class="otimer"><i id="offerTimer"></i></div>`;
     el.classList.remove('hidden');
     el.classList.toggle('vip', !!o.vip);
+    el.classList.toggle('special', !!o.kind);
     this.offerCb = { accept, decline, guide };
     el.querySelector('.ok').onclick = accept;
     el.querySelector('.no').onclick = decline;
@@ -832,6 +843,9 @@ export class UI {
           }).join('')}</div></div>
           <div class="card paint"><h3>🎨 رنگ ماشین</h3><p>هر رنگ ${faMoney(PAINT_COST)} تومان</p>
             <div class="swatches">${PAINTS.map(([hex, name]) => `<button data-paint="${hex}" title="${name}" style="background:#${hex.toString(16).padStart(6, '0')}" class="${p.paintHex === hex || (!p.paintHex && hex === CAR_MODELS[p.model].color) ? 'cur' : ''}"></button>`).join('')}</div></div>
+          <div class="card neon"><h3>💡 نئون زیر ماشین</h3><p>هر رنگ ${faMoney(NEON_COST)} • رنگین‌کمان ${faMoney(RAINBOW_COST)} تومان</p>
+            <div class="swatches">${NEONS.map(([v, name]) => `<button data-neon="${v}" title="${name}" class="${p.neon === v ? 'cur' : ''} ${v === 'rainbow' ? 'rainbow' : ''}" style="${v === 'rainbow' ? '' : `background:#${v.toString(16).padStart(6, '0')};box-shadow:0 0 12px #${v.toString(16).padStart(6, '0')}`}"></button>`).join('')}
+            <button data-neon="off" class="off ${p.neon ? '' : 'cur'}" title="خاموش">✕</button></div></div>
           <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
             <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
           <div class="card"><h3>باک بزرگ‌تر</h3><p>ظرفیت فعلی ${fa(p.tank)} لیتر</p>
@@ -861,6 +875,28 @@ export class UI {
             }
             p.setModel(id);
             this.toast(`${m.icon} سوار ${m.name} شدی`, 'info');
+            g.save();
+            render();
+          };
+        });
+        el.querySelectorAll('[data-neon]').forEach((b) => {
+          b.onclick = () => {
+            const raw = b.dataset.neon;
+            const v = raw === 'off' ? null : raw === 'rainbow' ? 'rainbow' : parseInt(raw, 10);
+            if (p.neon === v || (!p.neon && !v)) return;
+            const cost = v === null ? 0 : v === 'rainbow' ? RAINBOW_COST : NEON_COST;
+            if (cost) {
+              g.topUp(cost);
+              if (g.money < cost) {
+                this.toast('پول کافی نداری 😟', 'warn');
+                g.audio.bad();
+                return;
+              }
+              g.money -= cost;
+              g.audio.cash();
+            }
+            p.setNeon(v);
+            this.toast(v ? '💡 نئون نصب شد! شب‌ها حسابی می‌درخشه ✨' : 'نئون خاموش شد', v ? 'good' : 'info');
             g.save();
             render();
           };
@@ -944,11 +980,11 @@ export class UI {
     $('btnRadio').classList.toggle('active', !!g.radio);
     this.toast(g.radio ? STATION_NAME[g.radio] : '📻 رادیو خاموش', 'info');
   }
-  achievement(icon, title, reward) {
+  achievement(icon, title, reward, head = '🏆 افتخار جدید!') {
     const el = document.createElement('div');
     el.className = 'achpop';
     el.style.top = `calc(18% + ${document.querySelectorAll('.achpop:not(.out)').length * 84}px)`;
-    el.innerHTML = `<span>${icon}</span><div><small>🏆 افتخار جدید!</small><b>${title}</b><em>+${fa(reward)} سکه 🪙</em></div>`;
+    el.innerHTML = `<span>${icon}</span><div><small>${head}</small><b>${title}</b><em>+${fa(reward)} سکه 🪙</em></div>`;
     document.body.appendChild(el);
     setTimeout(() => el.classList.add('out'), 3800);
     setTimeout(() => el.remove(), 4500);
@@ -959,7 +995,7 @@ export class UI {
     const n = g.ach.done().length, total = g.ach.list.length;
     const s = g.stats;
     this.panel(`<h2>🏆 افتخارات (${fa(n)} از ${fa(total)})</h2>
-      <div class="statrow"><span>🧳 ${fa(s.completed ?? s.trips)} سفر</span><span>🚀 ${fa(s.jumps || 0)} پرش</span><span>🌀 رکورد دریفت ${fa(Math.round(s.bestDrift || 0))}</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
+      <div class="statrow"><span>🎖️ سطح ${fa(levelFor(s.xp || 0))} • ${levelTitle(levelFor(s.xp || 0))}</span><span>🧳 ${fa(s.completed ?? s.trips)} سفر</span><span>🚀 ${fa(s.jumps || 0)} پرش</span><span>🌀 رکورد دریفت ${fa(Math.round(s.bestDrift || 0))}</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
       <div class="achs">${g.ach.html()}</div>`);
   }
   openInventory() {
@@ -993,10 +1029,10 @@ export class UI {
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
-        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • F ورود به پمپ/تعمیرگاه</div>
+        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • X عکاسی • F ورود به پمپ/تعمیرگاه</div>
         <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
         <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
-        <button data-a="photo">📸 حالت عکاسی (P)</button>
+        <button data-a="photo">📸 حالت عکاسی (X)</button>
         <button data-a="reset" class="danger">🗑️ شروع دوباره از اول</button>
       </div>`, (el) => {
       el.querySelector('[data-a=resume]').onclick = () => this.closePanel();

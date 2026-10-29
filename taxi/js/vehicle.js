@@ -116,6 +116,7 @@ export class PlayerCar {
     this.group.traverse((o) => {
       if (o.isMesh && o.parent !== this.driver.root) o.castShadow = o.material.name === 'paint' || o.material.name === 'tire';
     });
+    this.buildNeon();
     if (old) {
       if (game.arrow) this.group.add(game.arrow.group);
       if (game.navTex) this.car.screen.material = new THREE.MeshBasicMaterial({ map: game.navTex });
@@ -142,6 +143,49 @@ export class PlayerCar {
   }
   accelMul() {
     return this.spec.acc * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1);
+  }
+  /** underglow: a soft additive pool of light under the car plus two neon tubes */
+  buildNeon() {
+    if (!this.neonTex) {
+      const cv = document.createElement('canvas');
+      cv.width = 128;
+      cv.height = 256;
+      const g = cv.getContext('2d');
+      const grd = g.createRadialGradient(64, 128, 10, 64, 128, 128);
+      grd.addColorStop(0, 'rgba(255,255,255,1)');
+      grd.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grd;
+      g.fillRect(0, 0, 128, 256);
+      this.neonTex = new THREE.CanvasTexture(cv);
+      this.neonMat = new THREE.MeshBasicMaterial({ map: this.neonTex, color: 0x00e5ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      this.neonTubeMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+    }
+    const P = this.car.P;
+    const grp = new THREE.Group();
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(P.W * 2 + 2.2, P.len + 2.4), this.neonMat);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.y = 0.06;
+    pool.renderOrder = 2;
+    grp.add(pool);
+    for (const x of [P.W * 0.82, -P.W * 0.82]) {
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, P.len * 0.62), this.neonTubeMat);
+      t.position.set(x, 0.24, 0);
+      grp.add(t);
+    }
+    grp.visible = !!this.neon;
+    this.neonGroup = grp;
+    this.group.add(grp);
+    this.setNeon(this.neon);
+  }
+  setNeon(v) {
+    this.neon = v || null;
+    if (!this.neonGroup) return;
+    this.neonGroup.visible = !!this.neon;
+    if (typeof this.neon === 'number') {
+      this.neonMat.color.setHex(this.neon);
+      this.neonTubeMat.color.setHex(this.neon);
+    }
   }
   setPaint(hex) {
     this.paintHex = hex;
@@ -592,6 +636,13 @@ export class PlayerCar {
     for (const l of this.headlights) l.intensity = on ? 380 : 0;
     this.lampMat.emissiveIntensity = on ? 3 : 0.15;
     this.dashLight.intensity = night * 0.35;
+    if (this.neon) {
+      if (this.neon === 'rainbow') {
+        this.neonMat.color.setHSL((performance.now() / 2500) % 1, 1, 0.55);
+        this.neonTubeMat.color.copy(this.neonMat.color);
+      }
+      this.neonMat.opacity = 0.35 + night * 0.65;
+    }
     const braking = this.brake > 0.1 || (this.auto && this.gear === -1 && inp.gas > 0.1);
     this.tailMat.emissiveIntensity = braking ? 4 : on ? 1.2 : 0.25;
     if (c.roofSign) {

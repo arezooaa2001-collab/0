@@ -285,3 +285,8 @@ export function collideCircle(x, z, R, o, res) {
   res.pen = pen;
   return res;
 }
+
+/** driver levels */
+export const levelFor = (xp) => Math.max(1, Math.floor((1 + Math.sqrt(1 + (4 * xp) / 60)) / 2));
+export const xpFor = (lv) => 60 * lv * (lv - 1);
+export const levelTitle = (lv) => (lv >= 17 ? 'افسانه شهر' : lv >= 12 ? 'سلطان جاده' : lv >= 8 ? 'استاد فرمون' : lv >= 5 ? 'راننده کارکشته' : lv >= 3 ? 'راننده خط' : 'تازه‌کار');

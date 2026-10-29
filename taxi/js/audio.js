@@ -70,6 +70,17 @@ export class AudioSys {
     this.skidGain.gain.value = 0;
     sk.connect(this.skidFilter).connect(this.skidGain).connect(this.master);
     sk.start();
+    // gushing water (broken hydrants)
+    const wa = ctx.createBufferSource();
+    wa.buffer = buf;
+    wa.loop = true;
+    const wf = ctx.createBiquadFilter();
+    wf.type = 'highpass';
+    wf.frequency.value = 900;
+    this.waterGain = ctx.createGain();
+    this.waterGain.gain.value = 0;
+    wa.connect(wf).connect(this.waterGain).connect(this.master);
+    wa.start(0, 0.7);
 
     // siren
     this.sOsc = ctx.createOscillator();
@@ -123,6 +134,10 @@ export class AudioSys {
     const t = this.ctx.currentTime;
     this.skidGain.gain.setTargetAtTime(Math.min(0.5, level) * 0.6, t, 0.06);
     this.skidFilter.frequency.setTargetAtTime(1500 + Math.sin(t * 13) * 180 + level * 300, t, 0.05);
+  }
+  setWater(level) {
+    if (!this.ctx) return;
+    this.waterGain.gain.setTargetAtTime(Math.min(1, level) * 0.18, this.ctx.currentTime, 0.2);
   }
   /** exhaust backfire: a short low thump and crackle */
   backfire(k = 1) {

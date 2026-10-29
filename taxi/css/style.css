@@ -449,3 +449,13 @@ body.photomode #hud, body.photomode #panel, body.photomode .achpop, body.photomo
 #phView .btn, #phView button { background: #2563eb; color: #fff; border-radius: 12px; padding: 9px 18px; font-weight: 800; text-decoration: none; font-size: 14px; }
 #phView button { background: rgba(255,255,255,.15); }
 #bigmap .maphint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.65); color: #fff; padding: 6px 14px; border-radius: 12px; font-size: 13px; white-space: nowrap; direction: rtl; pointer-events: none; }
+
+/* neon shop */
+.card.neon .swatches button.rainbow { background: conic-gradient(#ff2a2a, #ffd21a, #39ff14, #00e5ff, #a040ff, #ff2bd6, #ff2a2a); }
+.card.neon .swatches button.off { background: rgba(255,255,255,.12); color: #fff; font-size: 14px; }
+
+/* driver level */
+#infoPill { position: relative; overflow: hidden; white-space: nowrap; gap: 4px; padding-left: 6px; padding-right: 6px; }
+#xpBar { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: linear-gradient(90deg, #b04dff, #ff2bd6); transition: width .4s; }
+#lvl { color: #e0b3ff; font-weight: 800; }
+#offer.special { border: 2px solid #b04dff; box-shadow: 0 0 30px rgba(176,77,255,.45), 0 20px 60px rgba(0,0,0,.6); }

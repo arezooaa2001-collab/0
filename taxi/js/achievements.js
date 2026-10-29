@@ -1,4 +1,4 @@
-import { fa } from './util.js';
+import { fa, levelFor } from './util.js';
 import { regionAt } from './world.js';
 
 /** id, icon, title, description, reward (coins), progress(game) -> [value, goal] */
@@ -17,6 +17,7 @@ const LIST = [
   ['drift', '🌀', 'سلطان دریفت', 'یه دریفت ۸۰۰ امتیازی بزن', 25, (g) => [Math.round(g.stats.bestDrift || 0), 800]],
   ['race1', '🏁', 'قهرمان خیابون', 'یه مسابقه خیابونی رو ببر', 25, (g) => [g.stats.racesWon || 0, 1]],
   ['raceAll', '🏆', 'سلطان پیست', 'هر ۴ مسیر مسابقه رو ببر', 80, (g) => [(g.stats.raceTracks || []).length, 4]],
+  ['smash', '💥', 'خراب‌کار شهر', '۳۰ تا مخروط، سطل آشغال یا شیر آتش‌نشانی رو بزن', 15, (g) => [g.stats.smashed || 0, 30]],
   ['nitro', '🔥', 'نیتروباز', '۲۰ ثانیه از نیترو استفاده کن', 10, (g) => [Math.floor(g.stats.nitroSec || 0), 20]],
   ['escape', '🏃', 'فراری', 'از دست پلیس فرار کن', 25, (g) => [g.stats.escapes || 0, 1]],
   ['jail', '🔒', 'زندانی سابق', 'یه بار برو زندان', 5, (g) => [g.stats.jailed || 0, 1]],
@@ -40,6 +41,10 @@ export class Achievements {
   track(dt) {
     const g = this.g, s = g.stats, p = g.player;
     if (s.completed == null) s.completed = s.trips || 0; // saves from before the counter existed
+    if (s.xp == null) {
+      s.xp = (s.completed || 0) * 70 + (s.coinsPicked || 0) * 3;
+      s.level = levelFor(s.xp);
+    }
     const kmh = Math.abs(p.speed) * 3.6;
     if (g.state === 'play' && !g.onfoot.active) {
       s.maxKmh = Math.max(s.maxKmh || 0, kmh);
@@ -62,6 +67,7 @@ export class Achievements {
       if (v >= goal) {
         done.push(id);
         g.coins += reward;
+        g.addXp(reward * 2);
         g.audio.cash();
         g.ui.achievement(icon, title, reward);
         g.save();

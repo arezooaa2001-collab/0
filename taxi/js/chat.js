@@ -214,8 +214,8 @@ export class PassengerChat {
     const h = Math.floor(g.hour), m = Math.floor((g.hour - h) * 60);
     return {
       first: o.name.split(' ')[0],
-      dest: o.dest.name,
-      region: REGION_NAMES[o.dest.region],
+      dest: o.kind === 'follow' ? 'هر جا که اون ماشین قرمز بره' : o.kind === 'robber' ? 'مخفیگاه' : o.dest.name,
+      region: REGION_NAMES[o.dest.region] || 'شهر',
       kmh: Math.round(Math.abs(g.player.speed) * 3.6),
       left: g.guideDist || 0,
       night: g.env && g.env.night > 0.5,
@@ -230,13 +230,15 @@ export class PassengerChat {
     const r = this.ride, o = r.o, c = this.context(), s = r.story;
     return [
       `تو «${o.name}» هستی، یه مسافر ${o.female ? 'زن' : 'مرد'} ${s.age} ساله که توی یه تاکسی نشستی (این یه بازی رانندگی ایرانیه و کاربر راننده تاکسیه).`,
-      `شغلت ${s.job}ه و به ${s.hobby} علاقه داری. داری میری «${c.dest}» توی منطقه ${c.region}، چون ${s.reason}.`,
+      `شغلت ${o.kind === 'follow' ? 'کارآگاه خصوصی' : o.kind === 'robber' ? '(فعلاً) دزدی' : s.job}ه و به ${s.hobby} علاقه داری. داری میری «${c.dest}» توی منطقه ${c.region}، چون ${s.reason}.`,
       `اخلاقت: ${MOOD_DESC[o.mood] || MOOD_DESC.normal}.`,
+      o.kind === 'robber' ? 'نقش ویژه: تو یه دزد بانک (کارتونی، مثل فیلم‌های اکشن) هستی که همین الان از بانک فرار کردی و پلیس دنبالته؛ عصبی و هیجان‌زده‌ای و مدام به راننده می‌گی تندتر بره و پلیس رو گم کنه.' : '',
+      o.kind === 'follow' ? 'نقش ویژه: تو یه کارآگاه خصوصی هستی که داری با این تاکسی یه ماشین قرمز مشکوک رو تعقیب می‌کنی؛ مرموز و هیجان‌زده‌ای و نمی‌خوای لو بری.' : '',
       `وضعیت الان: ساعت ${c.time} ${c.night ? '(شبه)' : '(روزه)'}، سرعت ماشین ${c.kmh} کیلومتر بر ساعت، حدود ${faDist(c.left)} تا مقصد مونده، توی این سفر ${c.crashes} بار تصادف شده، کرایه ${faMoney(c.fare)} تومنه.`,
       'قوانین: فقط و فقط به‌عنوان همین مسافر و به فارسی محاوره‌ای و خودمونی (مثل حرف زدن واقعی توی تاکسی تهران) جواب بده.',
       'جواب‌هات کوتاه باشه (معمولاً یک تا سه جمله)، طبیعی و انسانی، گاهی خودت هم سؤال بپرس. هیچ‌وقت نگو که هوش مصنوعی یا مدل زبانی هستی و از نقش بیرون نیا.',
       'اگه سرعت خیلی زیاده یا تصادف شده، طبق اخلاقت واکنش نشون بده. اگه راننده بی‌ادبی کرد، دلخور شو.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }
 
   async askGemini() {
