@@ -420,7 +420,7 @@ ENV_BUILDERS.gym3 = () => {
   const R = 34;
   const w = new EnvWorld('gym3', {
     bounds: { circle: R }, spawn: { x: 0, z: 28, yaw: Math.PI }, background: '#ffd9a0', fog: [90, 300],
-    skyTop: '#3d5afe', skyBottom: '#ffcf8a', groundTint: 0x998866,
+    skyTop: '#4f9bff', skyBottom: '#ffe3b0', groundTint: 0x998866,
   });
   const Z = { x: 0, z: -16, r: 9.5 };
   w.zone = { x: Z.x, z: Z.z, r: Z.r, level: TITAN_LEVEL, name: 'میدان تایتان' };
@@ -557,6 +557,7 @@ ENV_BUILDERS.gym4 = () => {
     skyTop: '#05010f', skyBottom: '#2a0a4a', groundTint: 0x442266,
   });
   w.clouds.visible = false;
+  for (const c of w.scene.children) if (c.material && c.material.side === THREE.BackSide) c.visible = false;
   const Z = { x: 0, z: -15, r: 9.5 };
   w.zone = { x: Z.x, z: Z.z, r: Z.r, level: OLYMPUS_LEVEL, name: 'قله‌ی المپ' };
   const m = w.matte;
@@ -648,7 +649,7 @@ ENV_BUILDERS.gym4 = () => {
     w.addCollider(x - 0.2, z - 0.2, x + 0.2, z + 0.2);
   }
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(Z.r * 0.95, Z.r * 0.95, 60, 40, 1, true), new THREE.MeshBasicMaterial({
-    color: '#ffd34d', transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+    color: '#fff6c8', transparent: true, opacity: 0.05, fog: false, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
   }));
   beam.position.set(Z.x, 30, Z.z);
   w.scene.add(beam);
@@ -662,7 +663,7 @@ ENV_BUILDERS.gym4 = () => {
   }
   crown.position.set(Z.x, 11, Z.z);
   w.scene.add(crown);
-  w.anims.push((dt, time) => { crown.rotation.y += dt * 0.8; crown.position.y = 11 + Math.sin(time) * 0.6; beam.material.opacity = 0.06 + 0.03 * Math.sin(time * 2); });
+  w.anims.push((dt, time) => { crown.rotation.y += dt * 0.8; crown.position.y = 11 + Math.sin(time) * 0.6; beam.material.opacity = 0.045 + 0.02 * Math.sin(time * 2); });
   // crystal heroes at the gate of the peak
   makeStatue(w, CRYSTAL_OUTFIT, 'planetlift', 0.6, -6.5, Z.z + Z.r + 2.2, Math.PI, { scale: 2.6, plinth: 1.2, plinthColor: '#24124a', trim: '#7fe0ff' });
   makeStatue(w, CRYSTAL_OUTFIT, 'e_victory', 0.5, 6.5, Z.z + Z.r + 2.2, Math.PI, { scale: 2.6, plinth: 1.2, plinthColor: '#24124a', trim: '#ff7bf0' });
