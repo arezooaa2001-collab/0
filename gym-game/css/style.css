@@ -896,3 +896,35 @@ kbd {
   .build-bar { bottom: calc(var(--safe-b) + 150px); }
   .b-btn { padding: 7px 9px; font-size: 13px; }
 }
+
+/* exercising until you stop, and the spinning class */
+.stop-btn { background: linear-gradient(180deg, #ff6b75, #d62839); color: #fff; box-shadow: 0 5px 0 #8f1622, 0 0 24px rgba(230, 57, 70, 0.55); }
+.stop-btn:active { box-shadow: 0 2px 0 #8f1622; }
+.spin-panel {
+  position: absolute; top: calc(var(--safe-t) + 72px); left: 50%; transform: translateX(-50%);
+  width: min(430px, calc(100vw - 560px)); min-width: 300px; display: grid; gap: 6px; padding: 9px 12px 10px;
+  border-radius: 16px; border: 1px solid rgba(199, 125, 255, 0.55); background: var(--glass);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(199, 125, 255, 0.3); animation: pop 0.3s ease-out;
+}
+.spin-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.spin-head { font: 400 18px/1.3 var(--display); color: #e7c6ff; }
+.spin-info { font: 500 13.5px/1.5 var(--body); color: #e8ecf5; }
+.spin-x { border: 0; border-radius: 10px; padding: 4px 9px; background: rgba(255, 255, 255, 0.1); color: #ffc9cd; font: 600 12px/1.3 var(--body); white-space: nowrap; }
+.spin-cues { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.cue-btn {
+  position: relative; display: grid; justify-items: center; gap: 1px; padding: 5px 2px 6px; border-radius: 12px;
+  border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff;
+}
+.cue-icon { font-size: 21px; line-height: 1.1; }
+.cue-name { font: 600 10.5px/1.25 var(--body); text-align: center; }
+.cue-btn.coach { border-color: #ffd34d; box-shadow: 0 0 14px rgba(255, 211, 77, 0.55); animation: cuePulse 1s ease-in-out infinite; }
+.cue-btn.mine { background: linear-gradient(180deg, #9d4edd, #6a1fb0); }
+.cue-btn.learned::after { content: '🎓'; position: absolute; top: -6px; left: -4px; font-size: 13px; }
+@keyframes cuePulse { 50% { transform: scale(1.06); } }
+.hud.spin-on .toasts { top: calc(var(--safe-t) + 196px); }
+.hud.build-on .spin-panel, .hud.build-on .stop-btn { display: none !important; }
+@media (max-width: 720px) {
+  .spin-panel { top: calc(var(--safe-t) + 178px); width: calc(100% - 24px); min-width: 0; }
+  .spin-head { font-size: 16px; }
+  .hud.spin-on .toasts { top: calc(var(--safe-t) + 300px); }
+}

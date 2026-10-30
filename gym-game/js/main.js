@@ -246,7 +246,7 @@ const Game = {
 
   refreshMoves() {
     const P = this.player;
-    const busy = !this.world.canAct();
+    const busy = !this.world.canAct() && !this.loop;
     const mult = this.mult();
     const here = this.envKey();
     // equipment found in this world, and the pieces you placed here from other gyms
@@ -259,7 +259,7 @@ const Game = {
       if (!b) continue;
       const un = this.isUnlocked(m);
       b.classList.toggle('locked', !un);
-      b.classList.toggle('active', !!m.toggle && P.mode === m.id);
+      b.classList.toggle('active', (!!m.toggle && P.mode === m.id) || (!!this.loop && this.loop.m === m));
       b.classList.toggle('wait', !m.toggle && busy && un);
       let sub;
       if (m.toggle) sub = P.mode === m.id ? 'روشن' : 'خاموش';
@@ -291,7 +291,7 @@ const Game = {
   onMove(m) {
     if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
     Sfx.init();
-    if (m.emote) { this.doEmote(m); return; }
+    if (m.emote) { if (this.loop) this.stopLoop(true); this.doEmote(m); return; }
     if (!this.isUnlocked(m)) {
       Sfx.play('error');
       this.toast(`🔒 «${m.name}» در سطح ${fa(m.level)} باز می‌شه. تمرین کن!`, 'warn');
@@ -306,6 +306,11 @@ const Game = {
       this.toast(P.mode === 'walk' ? 'حالت راه رفتن' : (P.mode === 'run' ? '🏃 دویدن روشن شد' : '🦘 دویدن پرشی روشن شد. حالا راه برو!'));
       this.refreshMoves();
       return;
+    }
+    if (this.loop) {
+      // already exercising: the same button keeps going, another one switches to it
+      if (this.loop.m === m) { this.toast('⏹ برای تموم کردن، دکمه‌ی «توقف» رو بزن'); return; }
+      this.stopLoop(true);
     }
     if (!this.world.canAct()) return;
     const since = this.clock - this.lastExerciseEnd;
@@ -329,17 +334,78 @@ const Game = {
         return;
       }
       if (m.zone && this.lv() < m.zone) { this.zoneFail(m, st); return; }
-      started = this.world.useStation(st, m.anim || m.id, () => this.exerciseDone(m));
+      if (this.spinBlock && this.spinBlock(m, st)) return;
+      started = this.startLoop({ m, st, anim: m.anim || m.id, done: () => this.exerciseDone(m) });
     } else if (m.custom) {
-      started = this.world.playerDo(m.anim, () => this.customDone(m.name, m.effect));
+      started = this.startLoop({ m, anim: m.anim, done: () => this.customDone(m.name, m.effect) });
     } else {
-      started = this.world.playerDo(m.anim || m.id, () => this.exerciseDone(m));
+      started = this.startLoop({ m, anim: m.anim || m.id, done: () => this.exerciseDone(m) });
     }
     if (!started) return;
     Sfx.play('click');
     this.combo = since <= 1.6 ? Math.min(10, this.combo + 1) : 0;
     this.noteCombo(this.combo);
     this.refreshMoves();
+  },
+
+  /* ---------------- exercising until you press stop ---------------- */
+
+  /** Start an exercise that repeats rep after rep until the stop button. */
+  startLoop(L) {
+    L.world = this.world;
+    L.reps = 0;
+    this.loop = L;
+    if (!this.loopRep(L)) { this.loop = null; return false; }
+    this.showStop();
+    return true;
+  },
+
+  loopRep(L) {
+    const fin = (name) => {
+      L.reps++;
+      L.done(name);
+      if (this.loop !== L) return;
+      this.showStop();
+      if (!this.loopRep(L)) this.stopLoop();
+    };
+    const anim = L.next ? L.next() : L.anim;
+    if (L.st) return this.world.useStation(L.st, anim, fin, () => this.loop === L);
+    return this.world.playerDo(anim, fin);
+  },
+
+  /** Stop button: end the exercise now and step off the machine. quiet: switching to another one. */
+  stopLoop(quiet) {
+    const L = this.loop;
+    if (!L) return;
+    this.loop = null;
+    const P = this.player;
+    if (L.world === this.world) {
+      P.ch.stopAction();
+      P.ch.station = null;
+      this.world.releaseStation();
+      P.ch.root.position.y = 0;
+    }
+    this.lastExerciseEnd = this.clock;
+    if (L.onStop) L.onStop(quiet);
+    if (!quiet && L.reps > 0) this.toast(`⏹ تموم شد: ${fa(L.reps)} بار «${L.m.name}»`);
+    this.showStop();
+    this.refreshMoves();
+  },
+
+  showStop() {
+    const L = this.loop;
+    const b = $('stopBtn');
+    b.hidden = !L;
+    if (!L) return;
+    const t = `⏹ توقف • ${L.m.icon || ''} ${fa(L.reps)} بار`;
+    if (b.textContent !== t) b.textContent = t;
+  },
+
+  /** Anything that takes the player away (travel, races, building) ends the exercise. */
+  tickLoop() {
+    const L = this.loop;
+    if (!L) return;
+    if (this.mode !== 'play' || this.race || this.arm || this.photo || this.build || this.world !== L.world) this.stopLoop(true);
   },
 
   exerciseDone(m) {
@@ -652,6 +718,7 @@ const Game = {
   },
 
   releasePlayer() {
+    this.stopLoop(true);
     const P = this.player;
     if (P.anchor) {
       P.anchor.player = false;
@@ -915,6 +982,8 @@ const Game = {
         const open = this.lv() >= LUCKY_LEVEL;
         return { label: open ? '🍀 برو به جزیره‌ی خوش‌شانسی' : `🔒 جزیره‌ی خوش‌شانسی • سطح ${fa(LUCKY_LEVEL)}`, run: () => this.travel('lucky') };
       }
+      const inv = this.spinInviteAction();
+      if (inv) return inv;
       const at = this.attractionAction();
       if (at) return at;
       if (this.nearRaceStart()) return { label: '🏁 مسابقه‌ی دو', run: () => this.startRace() };
@@ -947,7 +1016,7 @@ const Game = {
   useCustom(st) {
     const item = st.custom;
     const since = this.clock - this.lastExerciseEnd;
-    if (this.world.useStation(st, item.anim, () => this.customDone(item.name, item.effect))) {
+    if (this.startLoop({ m: item, st, anim: item.anim, done: () => this.customDone(item.name, item.effect) })) {
       Sfx.play('click');
       this.combo = since <= 1.6 ? Math.min(10, this.combo + 1) : 0;
       this.noteCombo(this.combo);
@@ -981,6 +1050,8 @@ const Game = {
     $('codeForm').addEventListener('submit', (e) => { e.preventDefault(); this.submitCode(); });
     on('rankBtn', () => { Sfx.init(); this.openBoard(); });
     on('buildBtn', () => { Sfx.init(); this.toggleBuild(); });
+    on('stopBtn', () => this.stopLoop());
+    on('spinCancel', () => this.spinCancelClass());
     on('bAdd', () => this.openBuildCatalog());
     on('bMove', () => this.buildMove());
     on('bRot', () => this.buildRotate());
@@ -1032,6 +1103,7 @@ const Game = {
         const open = [...this.modals].filter((id) => id !== 'startModal' && id !== 'resultModal');
         if (open.length) open.forEach((id) => this.closeModal(id));
         else if (this.photo) this.exitPhoto();
+        else if (this.loop) this.stopLoop();
         return;
       }
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -1165,6 +1237,7 @@ const Game = {
   step(dt) {
     this.clock += dt;
     try {
+      this.tickLoop();
       if (this.mode === 'arena') {
         this.arena.update(dt, this.camera);
         this.renderer.render(this.arena.scene, this.camera);
@@ -1194,6 +1267,7 @@ const Game = {
       if (this.world === this.gym && this.mode === 'play') this.tickWings(dt);
       if (this.race) this.tickRace(dt);
       if (this.mode === 'play') this.tickHud();
+      this.tickSpin();
       this.tickWall(dt);
       if (this.watch) this.stepWatch(dt);
       else this.renderer.render(this.world.scene, this.camera);

@@ -283,7 +283,8 @@ class WorldBase {
     if (roll < 0.1) {
       // show off for a moment
       n.state = 'exercise';
-      n.reps = 1;
+      n.sessT = 0;
+      n.act = null;
       n.faceT = 0;
       n.forceAct = pick(['e_wave', 'e_flex', 'e_laugh', 'e_clap', 'e_dance', 'e_victory', 'e_robot', 'e_bow']);
       return;
@@ -312,7 +313,8 @@ class WorldBase {
       n.hopT = rand(0.3, 1);
       return;
     }
-    const free = this.stations.filter((s) => !s.occ && !(s.player));
+    // class equipment (spinning bikes) is only used as a full class, never alone
+    const free = this.stations.filter((s) => !s.occ && !(s.player) && !s.cls);
     if (free.length && Math.random() < 0.85) {
       const s = pick(free);
       s.occ = n;
@@ -362,8 +364,10 @@ class WorldBase {
       const dz = n.target.z - pos.z;
       const d = Math.hypot(dx, dz);
       if (d < 0.35) {
+        // like the player, they keep going until they decide to stop
         n.state = 'exercise';
-        n.reps = n.station ? randi(1, 3) : randi(1, 2);
+        n.sessT = n.station ? rand(18, 50) : rand(8, 22);
+        n.act = null;
         n.faceT = n.station ? 0.4 : 0;
         if (n.station && (n.station.x !== n.station.ax || n.station.z !== n.station.az)) {
           pos.set(n.station.x, n.station.y || 0, n.station.z);
@@ -441,14 +445,17 @@ class WorldBase {
         if (f.t > 0) ch.play(f.anim || 'fanclap');
         else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
       }
+    } else if (n.state === 'class') {
+      // invited to a class (spinning): walking to their seat, waiting, riding, finishing
+      [dirX, dirZ, speed] = this.classNpc(n, dt);
     } else if (n.state === 'exercise') {
+      n.sessT -= dt;
       if (n.faceT > 0 && n.station) {
         n.faceT -= dt;
         ch.root.rotation.y = angleLerp(ch.root.rotation.y, n.station.yaw, damp(8, dt));
       } else if (!ch.busy && ch.grounded) {
-        if (n.reps > 0) {
-          n.reps--;
-          const a = this.npcAction(n);
+        if (n.forceAct || n.sessT > 0) {
+          const a = n.forceAct ? this.npcAction(n) : (n.act || (n.act = this.npcAction(n)));
           if (n.station) ch.root.rotation.y = n.station.yaw;
           ch.station = n.station;
           ch.play(a, () => this.npcGain(n, a));
@@ -568,7 +575,7 @@ class WorldBase {
   knockAround(x, z, r, skip) {
     let count = 0;
     for (const n of this.npcs) {
-      if (n === skip || n.state === 'knocked') continue;
+      if (n === skip || n.state === 'knocked' || n.state === 'class') continue;
       const p = n.ch.root.position;
       const d = Math.hypot(p.x - x, p.z - z);
       if (d > r || !n.ch.grounded) continue;
@@ -648,7 +655,8 @@ class WorldBase {
   }
 
   /** Snap the player onto a station and play an animation there. */
-  useStation(s, anim, onDone) {
+  /** hold(): when it says so, stay on the machine after the rep (the next rep follows right away). */
+  useStation(s, anim, onDone, hold) {
     if (!this.canAct()) return false;
     const P = this.player;
     if (s.occ) {
@@ -667,6 +675,10 @@ class WorldBase {
     P.ch.station = s;
     P.ch.onRootCommit = null;
     const ok = P.ch.play(anim, (name) => {
+      if (hold && hold() && P.anchor === s) {
+        if (onDone) onDone(name);
+        return;
+      }
       s.player = false;
       if (P.anchor === s) {
         P.anchor = null;
@@ -674,8 +686,22 @@ class WorldBase {
       }
       if (onDone) onDone(name);
     });
-    if (!ok) { s.player = false; P.anchor = null; }
+    if (!ok) {
+      s.player = false;
+      P.anchor = null;
+      P.ch.root.position.set(s.ax, 0, s.az);
+    }
     return ok;
+  }
+
+  /** Get off the machine the player is on (stop button). */
+  releaseStation() {
+    const P = this.player;
+    const s = P.anchor;
+    if (!s) return;
+    s.player = false;
+    P.anchor = null;
+    P.ch.root.position.set(s.ax, 0, s.az);
   }
 
   /** Point a beacon and a floor arrow at a station for a while. */

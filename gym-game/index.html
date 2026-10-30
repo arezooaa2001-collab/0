@@ -75,6 +75,12 @@
     <div id="raceHud" class="race-hud" hidden></div>
     <div id="toasts" class="toasts" aria-live="polite"></div>
     <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
+    <button id="stopBtn" class="ctx-btn stop-btn" type="button" hidden>⏹ توقف</button>
+    <div id="spinPanel" class="spin-panel" hidden>
+      <div class="spin-top"><b id="spinHead" class="spin-head"></b><button id="spinCancel" class="spin-x" type="button">✕ لغو کلاس</button></div>
+      <div id="spinInfo" class="spin-info"></div>
+      <div id="spinCues" class="spin-cues" hidden></div>
+    </div>
     <div id="powers" class="powers"></div>
     <div id="fbHud" class="fb-hud" hidden>
       <div class="fb-score"><span id="fbRed" class="fb-red">۰</span><span id="fbClock" class="fb-clock">۳:۰۰</span><span id="fbBlue" class="fb-blue">۰</span></div>
@@ -245,6 +251,8 @@
         <li>📍 ورزش‌هایی که این علامت رو دارن فقط با وسیله‌ی خودشون انجام می‌شن: تردمیل و دوچرخه (سمت راست باشگاه)، دمبل، هالتر و پرس سینه (سمت چپ)، کیسه بوکس (گوشه‌ی جنوب شرقی) و بارفیکس (دو طرف قدرت‌سنج).</li>
         <li>اگه دور باشی و دکمه‌اش رو بزنی، یه فلش سبز راه رو نشونت می‌ده. کنار وسیله که رسیدی دکمه‌ی پایین صفحه رو بزن.</li>
         <li>🏃 دویدن، تردمیل و دوچرخه «سطح دویدن» رو بالا می‌برن و سریع‌ترت می‌کنن.</li>
+        <li>⏹ هر ورزشی رو شروع کنی، تا وقتی خودت دکمه‌ی «⏹ توقف» (یا <kbd>Esc</kbd>) رو نزنی ادامه می‌دی و هر بار زور می‌گیری. دکمه‌ی یه ورزش دیگه رو بزنی، می‌ری سراغ اون. بقیه‌ی ورزشکارها هم همین‌طورن: تا خودشون نخوان، از روی وسیله پا نمی‌شن.</li>
+        <li>🚲 کلاس اسپینینگ (بال غربی): تنهایی نمی‌شه! باید هر ۱۲ دوچرخه پر باشه. کنار هر ورزشکار برو و «🙋 دعوت» رو بزن؛ قبول می‌کنه و میاد می‌شینه. وقتی ۱۱ نفر نشستن، خودت روی دوچرخه‌ی خالی بشین. مربی هر چند ثانیه یه حرکت جدید می‌کنه (نشسته، ایستاده، اسپرینت، دست‌ها بالا، شنا روی فرمون)؛ همون رو بزن تا زور بیشتری بگیری و حرکت رو یاد بگیری.</li>
       </ul>
       <h3>👑 هدف بازی: مسیر قهرمانی</h3>
       <ul>
@@ -601,5 +609,6 @@
 <script src="js/livecam.js"></script>
 <script src="js/goals.js"></script>
 <script src="js/builder.js"></script>
+<script src="js/spinclass.js"></script>
 </body>
 </html>

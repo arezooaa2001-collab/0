@@ -185,7 +185,7 @@ Object.assign(Game, {
         continue;
       }
       if (n.loc === 'gym') {
-        if (n.travelCd > 0) continue;
+        if (n.travelCd > 0 || n.state === 'class') continue;
         const away = this.people.filter((p) => p.loc !== 'gym').length;
         if (n.level < ISLAND_LEVEL && (away > this.people.length * 0.4 || Math.random() > 0.05)) { n.travelCd = rand(10, 40); continue; }
         const dest = this.pickDestination(n);

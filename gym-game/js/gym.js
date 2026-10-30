@@ -329,15 +329,16 @@ class GymWorld extends WorldBase {
     }
     for (const z of [-15, -10, -5, 0, 5]) {
       const x = 21.3;
-      mt.box(0.1, 0.1, 1.2, x, 0.1, z, '#2c3140');
+      mt.box(0.1, 0.1, 1.2, x, 0.05, z, '#2c3140');
       const bc = ['#e63946', '#ffd34d', '#2ecc71', '#2f6fed', '#ff4da6'][(z + 15) / 5];
+      mt.box(0.06, 0.26, 0.06, x, 0.22, z + 0.02, '#2c3140');
       mt.box(0.08, 0.75, 0.08, x, 0.45, z - 0.2, bc);
       m.box(0.26, 0.08, 0.32, x, 0.86, z - 0.25, '#111317');
       mt.box(0.08, 0.95, 0.08, x, 0.6, z + 0.45, bc);
       mt.cyl(0.03, 0.55, x, 1.1, z + 0.45, '#9aa0a8', 0, 0, Math.PI / 2, 10);
       mt.cyl(0.24, 0.07, x, 0.35, z + 0.42, '#22252b', 0, 0, Math.PI / 2, 18);
       this.addCollider(x - 0.3, z + 0.2, x + 0.3, z + 0.7);
-      this.addStation(x, z - 0.28, 0, ['bike'], { equip: 'bike', ax: x - 1.0, az: z - 0.28 });
+      addBikeCrank(this, this.addStation(x, z - 0.28, 0, ['bike'], { equip: 'bike', ax: x - 1.0, az: z - 0.28 }), bc);
       this.addStation(x - 1.8, z, Math.PI / 2, ['jack', 'squat', 'rope', 'pushup']);
     }
     for (let i = 0; i < 4; i++) {

@@ -178,29 +178,42 @@ Object.assign(GymWorld.prototype, {
     this.floorPatch(SP.x - 6, SP.z - 6, SP.x + 6, SP.z + 10, ['#4361ee', '#3a0ca3', '#7209b7'], 2);
     m.box(4, 0.4, 2.4, SP.x, 0.2, SP.z - 4.2, '#ff4da6');
     this.addCollider(SP.x - 2, SP.z - 5.4, SP.x + 2, SP.z - 3.0);
+    this.spinBikes = [];
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 4; c++) {
         const x = SP.x - 4.2 + c * 2.8;
         const z = SP.z + 0.5 + r * 2.8;
         const col = ['#ff4da6', '#7fe0ff', '#ffd34d', '#2ecc71'][c];
-        mt.box(0.1, 0.1, 1.2, x, 0.1, z, '#2c3140');
+        mt.box(0.1, 0.1, 1.2, x, 0.05, z, '#2c3140');
         mt.box(0.08, 0.75, 0.08, x, 0.45, z + 0.2, col);
         m.box(0.26, 0.08, 0.32, x, 0.86, z + 0.25, '#111317');
         mt.box(0.08, 0.95, 0.08, x, 0.6, z - 0.45, col);
         mt.cyl(0.03, 0.55, x, 1.1, z - 0.45, '#9aa0a8', 0, 0, Math.PI / 2, 10);
         mt.cyl(0.24, 0.07, x, 0.35, z - 0.42, col, 0, 0, Math.PI / 2, 18);
+        mt.box(0.06, 0.26, 0.06, x, 0.22, z - 0.02, '#2c3140');
         this.addCollider(x - 0.3, z - 0.7, x + 0.3, z - 0.2);
-        this.addStation(x, z + 0.28, Math.PI, ['bike'], { equip: 'spin', ax: x + 1.0, az: z + 0.28 });
+        // a class bike: nobody rides it alone, the class starts when every bike has a rider
+        const st = this.addStation(x, z + 0.28, Math.PI, ['bike'], { equip: 'spin', ax: x + 1.0, az: z + 0.28, cls: 'spin' });
+        addBikeCrank(this, st, col);
+        this.spinBikes.push(st);
       }
     }
-    mt.box(0.1, 0.1, 1.2, SP.x, 0.5, SP.z - 4.2, '#2c3140');
-    mt.box(0.08, 0.95, 0.08, SP.x, 1.0, SP.z - 4.65, '#ff4da6');
-    mt.cyl(0.24, 0.07, SP.x, 0.75, SP.z - 4.62, '#ff4da6', 0, 0, Math.PI / 2, 18);
+    // the instructor's bike on the stage, facing the class
+    const cz = SP.z - 4.2;
+    mt.box(0.1, 0.1, 1.2, SP.x, 0.45, cz + 0.28, '#2c3140');
+    mt.box(0.08, 0.75, 0.08, SP.x, 0.85, cz + 0.08, '#ff4da6');
+    m.box(0.26, 0.08, 0.32, SP.x, 1.26, cz + 0.03, '#111317');
+    mt.box(0.08, 0.95, 0.08, SP.x, 1.0, cz + 0.73, '#ff4da6');
+    mt.cyl(0.03, 0.55, SP.x, 1.5, cz + 0.73, '#9aa0a8', 0, 0, Math.PI / 2, 10);
+    mt.cyl(0.24, 0.07, SP.x, 0.75, cz + 0.7, '#ff4da6', 0, 0, Math.PI / 2, 18);
+    mt.box(0.06, 0.26, 0.06, SP.x, 0.62, cz + 0.3, '#2c3140');
     const coach = new Character(Object.assign(randomOutfit(), { shirt: '#ff4da6', band: '#ffffff', muscle: 0.6 }));
-    coach.root.position.set(SP.x, 0.4, SP.z - 4.2);
+    coach.root.position.set(SP.x, 0.4, cz);
     coach.setLabel('مربی', 'کلاس اسپینینگ', '#ff4da6');
     this.scene.add(coach.root);
     this.coach = coach;
+    coach.station = { x: SP.x, y: 0.4, z: cz, yaw: 0 };
+    addBikeCrank(this, coach.station, '#ff4da6');
     this.zoneSign('کلاس اسپینینگ', '#c77dff', SP.x, 7.5, SP.z + 2, Math.PI / 2, 5);
 
     // strongman corner: atlas stones onto platforms and sled lanes
@@ -538,9 +551,7 @@ Object.assign(GymWorld.prototype, {
     }
     this.scanRing.position.y = this.scanning ? 0.3 + (Math.sin(t * 6) * 0.5 + 0.5) * 2.1 : 0.3 + (Math.sin(t * 1.5) * 0.5 + 0.5) * 2.1;
     this.scanRing.material.color.set(this.scanning ? '#2ecc71' : '#7fe0ff');
-    this.coach.speed = 0;
-    if (!this.coach.busy) this.coach.play(pick(['bike', 'cheer', 'e_clap']));
-    this.coach.update(dt);
+    this.spinTick(dt);
     this.barista.update(dt);
     this.quoteT = (this.quoteT || 0) + dt;
     if (this.quoteT > 7) { this.quoteT = 0; this.nextQuote(); }

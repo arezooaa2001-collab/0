@@ -25,6 +25,11 @@ const FK = (() => {
   return {
     bones,
     set(c) {
+      this.pose(c);
+      root.updateMatrixWorld(true);
+    },
+    /** Joint angles only; matrices are brought up to date per limb by the caller. */
+    pose(c) {
       bones.body.position.set(c.x, HIP_H + c.y, c.z);
       bones.body.rotation.set(c.bx, c.by, c.bz);
       bones.spine.rotation.set(c.spX, c.spY, c.spZ);
@@ -39,7 +44,6 @@ const FK = (() => {
       bones.knR.rotation.x = c.knR;
       bones.anL.rotation.x = c.autoAnkle ? -(c.hpLX + c.knL) : c.anL;
       bones.anR.rotation.x = c.autoAnkle ? -(c.hpRX + c.knR) : c.anR;
-      root.updateMatrixWorld(true);
     },
     /** Point given in a bone's frame, in the character's own frame (feet on y = 0, facing +z). */
     at(name, x, y, z, out) { return bones[name].localToWorld((out || v).set(x, y, z)); },
@@ -59,18 +63,22 @@ const _p0 = new THREE.Vector3();
 const _pq = new THREE.Vector3();
 
 function limbTip(p, L, out) {
-  FK.set(p);
-  return FK.at(L.bone, L.tip[0], L.tip[1], L.tip[2], out);
+  // only the chain from the hips to this hand or foot needs fresh matrices
+  FK.pose(p);
+  const b = FK.bones[L.bone];
+  b.updateWorldMatrix(true, false);
+  return b.localToWorld((out || _e).set(L.tip[0], L.tip[1], L.tip[2]));
 }
 
 /** Bend one arm or leg so its tip reaches target (character frame). Damped least squares. */
-function solveLimb(p, which, target, iters = 16) {
+function solveLimb(p, which, target, iters = 16, tol = 1e-3) {
   const L = LIMB[which];
   const k = L.keys;
+  const tol2 = tol * tol;
   for (let it = 0; it < iters; it++) {
     limbTip(p, L, _p0);
     _e.subVectors(target, _p0);
-    if (_e.lengthSq() < 1e-6) break;
+    if (_e.lengthSq() < tol2) break;
     const J = [];
     for (let i = 0; i < 3; i++) {
       const old = p[k[i]];
@@ -95,11 +103,11 @@ function solveLimb(p, which, target, iters = 16) {
 }
 
 /** Solve, and if the warm start got stuck, start that limb again from a neutral bend. */
-function reachLimb(p, which, target, seed) {
+function reachLimb(p, which, target, seed, iters = 16, tol = 1e-3) {
   const tgt = _rt.copy(target);
-  if (solveLimb(p, which, tgt) < 0.03) return;
+  if (solveLimb(p, which, tgt, iters, tol) < 0.03) return;
   for (const key of LIMB[which].keys) p[key] = seed[key];
-  solveLimb(p, which, tgt, 24);
+  solveLimb(p, which, tgt, 24, tol);
 }
 const _rt = new THREE.Vector3();
 
@@ -464,5 +472,5 @@ function warpWallContactFn(p, t, ch) {
 
 ANIMS.warpwall = { snapAll: true, dur: 5.6, events: [[0.26, 'hop'], [0.46, 'clap'], [0.6, 'land'], [0.82, 'jump'], [0.93, 'land']], fn: warpWallContactFn };
 
-return { FK, solveLimb, gripBar };
+return { FK, solveLimb, reachLimb, gripBar, makePoseCached };
 })();
