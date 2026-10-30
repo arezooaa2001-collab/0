@@ -260,10 +260,10 @@ Object.assign(GymWorld.prototype, {
     // salmon ladder against the north wall
     for (const x of [112, 116.5]) {
       const z = -Z + 1.3;
-      for (const s of [-1, 1]) mt.box(0.14, 5.4, 0.14, x + s * 0.8, 2.7, z - 0.25, '#2ecc71');
-      for (let k = 0; k < 5; k++) mt.box(1.8, 0.06, 0.12, x, 2.5 + k * 0.55, z - 0.28, '#c9ced6');
-      for (const s of [-1, 1]) this.addCollider(x + s * 0.8 - 0.09, z - 0.34, x + s * 0.8 + 0.09, z - 0.16);
-      this.addStation(x, z, Math.PI, ['salmon'], { equip: 'nsalmon', ax: x, az: z + 1.4, bar: { y: 2.5, f: 0.28 } });
+      for (const s of [-1, 1]) mt.box(0.14, 5.4, 0.14, x + s * 0.8, 2.7, z - 0.33, '#2ecc71');
+      for (let k = 0; k < 5; k++) mt.box(1.8, 0.06, 0.12, x, 2.5 + k * 0.55, z - 0.33, '#c9ced6');
+      for (const s of [-1, 1]) this.addCollider(x + s * 0.8 - 0.09, z - 0.42, x + s * 0.8 + 0.09, z - 0.24);
+      this.addStation(x, z, Math.PI, ['salmon'], { equip: 'nsalmon', ax: x, az: z + 1.4, bar: { y: 2.5, f: 0.33 } });
     }
     // the warped wall: a quarter pipe ending in a platform
     {

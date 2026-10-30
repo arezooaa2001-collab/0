@@ -353,6 +353,7 @@ ANIMS.salmon = wrapGrip(ANIMS.salmon, hangW(0, 0.08, 0.9, 1), 'mid', (t, ch) => 
 /* ---------- ninja warped wall: run up the curve, grab the top, mantle, slide back down ---------- */
 
 const _warpQ = makePose();
+const _wt = new THREE.Vector3();
 const _warpSeed = makePose();
 Object.assign(_warpSeed, { shLX: -2.7, shRX: -2.7, shLZ: 0.25, shRZ: -0.25, elL: -0.4, elR: -0.4, hpLX: -0.8, hpRX: -0.6, hpLZ: 0.1, hpRZ: -0.1, knL: 1.2, knR: 1.0 });
 
@@ -363,26 +364,26 @@ function warpSurf(f, W) {
   return W.R * (1 - Math.cos(a));
 }
 
-/** Hanging from the top edge with toes on the curve, or pressing up over it (k = 0 .. 1). */
+/** Hanging from the top edge with toes on the curve (k = 0), pulled up until the hips reach the edge (k = 1). */
 function warpHangPose(p, W, k) {
   const edgeY = W.R + 0.03;
   const edgeF = W.f0 + W.R - 0.05;
   copyPose(p, _warpSeed);
-  // hang back from the wall with the arms reaching forward, so the knees stay clear of it
-  const hipY = lerp(edgeY - 1.08, edgeY + 0.05, k);
+  const hipY = lerp(edgeY - 1.02, edgeY - 0.38, k);
   p.y = hipY - HIP_H;
-  p.z = lerp(edgeF - 0.42, edgeF - 0.12, k);
-  p.bx = lerp(0.3, 0.45, k);
+  p.z = edgeF - 0.5;
+  p.bx = lerp(0.36, 0.5, k);
   p.nkX = -0.4 * (1 - k);
   p.autoAnkle = false;
   p.anL = p.anR = -0.2;
-  solveLimb(p, 'armL', _t.set(0.26, edgeY, edgeF));
-  solveLimb(p, 'armR', _t.set(-0.26, edgeY, edgeF));
-  const fy = hipY - lerp(0.75, 0.55, k);
+  reachLimb(p, 'armL', _t.set(0.26, edgeY, edgeF), _warpSeed);
+  reachLimb(p, 'armR', _t.set(-0.26, edgeY, edgeF), _warpSeed);
+  // toes on the curve below, where it is already almost vertical
+  const fy = hipY - 0.92;
   const a = Math.acos(clamp(1 - fy / W.R, -1, 1));
   const ff = W.f0 + W.R * Math.sin(a) - 0.02;
-  solveLimb(p, 'legL', _t.set(0.16, fy + 0.05, ff));
-  solveLimb(p, 'legR', _t.set(-0.16, fy - 0.1, ff + 0.02));
+  reachLimb(p, 'legL', _t.set(0.16, fy + 0.06, ff), _warpSeed);
+  reachLimb(p, 'legR', _t.set(-0.16, fy - 0.08, ff + 0.01), _warpSeed);
   return p;
 }
 
@@ -397,6 +398,16 @@ function warpWallContactFn(p, t, ch) {
     p.z = f;
     p.y = warpSurf(f, W) + 0.02;
     p.spX = 0.3;
+    // each foot lands on the curve under it, never inside it
+    p.autoAnkle = false;
+    p.anL = -(p.hpLX + p.knL) - 0.5;
+    p.anR = -(p.hpRX + p.knR) - 0.5;
+    for (const [leg, x] of [['legL', 0.11], ['legR', -0.11]]) {
+      FK.set(p);
+      const toe = FK.at(leg === 'legL' ? 'anL' : 'anR', 0, -0.08, 0.1, _wt);
+      const floor = warpSurf(toe.z, W) + 0.01;
+      if (toe.y < floor) reachLimb(p, leg, _t.set(x, floor, toe.z), _warpSeed);
+    }
     return;
   }
   if (t < 0.48) {
@@ -412,21 +423,21 @@ function warpWallContactFn(p, t, ch) {
     return;
   }
   if (t < 0.6) {
-    const k = smooth(seg(t, 0.5, 0.6));
-    copyPose(p, warpHangPose(_warpQ, W, k));
+    copyPose(p, warpHangPose(_warpQ, W, smooth(seg(t, 0.5, 0.6))));
     return;
   }
   if (t < 0.7) {
-    // stand up on the platform, arms up
-    const k = smooth(seg(t, 0.6, 0.66));
+    // swing up into a crouch on top of the platform, then stand with arms up
+    const top = makePoseCached(ch);
+    copyPose(top, STAND);
+    crouchPose(top, 0.85 * (1 - smooth(seg(t, 0.65, 0.7))));
+    top.y += W.R;
+    top.z = W.f0 + W.R + 0.35;
+    const v = smooth(seg(t, 0.66, 0.7));
+    top.shLZ = 0.12 + 2.5 * v; top.shRZ = -top.shLZ;
     copyPose(p, warpHangPose(_warpQ, W, 1));
-    const q = makePoseCached(ch);
-    copyPose(q, STAND);
-    q.y = W.R;
-    q.z = W.f0 + W.R + 0.5;
-    const v = smooth(seg(t, 0.64, 0.7));
-    q.shLZ = 0.12 + 2.5 * v; q.shRZ = -q.shLZ;
-    mixInto(p, q, k);
+    mixInto(p, top, smooth(seg(t, 0.6, 0.65)));
+    if (t >= 0.65) copyPose(p, top);
     return;
   }
   // walk across the platform and jump down off the back
@@ -434,7 +445,7 @@ function warpWallContactFn(p, t, ch) {
   if (t < 0.82) {
     const u = seg(t, 0.7, 0.82);
     gait(p, u * 10, 0);
-    p.z = lerp(top + 0.5, top + W.back - 0.25, u);
+    p.z = lerp(top + 0.35, top + W.back - 0.25, u);
     p.y = W.R;
     return;
   }

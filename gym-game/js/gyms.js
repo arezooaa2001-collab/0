@@ -454,7 +454,7 @@ ENV_BUILDERS.gym3 = () => {
   m.box(7.2, 0.015, 5.2, -16, 0.008, -3, '#d4af37');
   for (const x of [-18, -14]) w.equipStation('g3mat', 'kata', x, -3, Math.PI);
   for (let k = 0; k < 5; k++) m.box(7, 0.35, 1.2, 17, 0.175 + k * 0.35, -9 - k * 1.2, '#efe9dc');
-  w.addCollider(13.5, -15, 20.5, -8.4);
+  w.addCollider(13.5, -14.4, 20.5, -8.4);
   for (const x of [15, 19]) w.equipStation('g3stairs', 'highknees', x, -6.5, Math.PI);
   // bronze and gold heroes along the path
   makeStatue(w, GOLD_OUTFIT, 'e_victory', 0.5, -9, 8, Math.PI / 2, { scale: 1.2 });

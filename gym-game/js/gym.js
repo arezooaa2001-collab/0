@@ -265,9 +265,10 @@ class GymWorld extends WorldBase {
     }
     // bench presses
     for (const z of [-17, -1.5]) {
-      m.box(1.4, 0.12, 0.38, -21.3, 0.47, z, '#111317');
-      mt.box(0.08, 0.42, 0.08, -21.8, 0.21, z, '#3c4250');
-      mt.box(0.08, 0.42, 0.08, -20.8, 0.21, z, '#3c4250');
+      // the pad ends just past the hips so the legs bend over its end, not through it
+      m.box(1.15, 0.12, 0.38, -21.43, 0.47, z, '#111317');
+      mt.box(0.08, 0.42, 0.08, -21.85, 0.21, z, '#3c4250');
+      mt.box(0.08, 0.42, 0.08, -21.0, 0.21, z, '#3c4250');
       for (const s of [-1, 1]) mt.box(0.1, 1.25, 0.1, -22.1, 0.62, z + s * 0.55, '#3c4250');
       mt.cyl(0.02, 1.9, -22.05, 1.22, z, '#d4d8de', Math.PI / 2, 0, 0, 10);
       for (const s of [-1, 1]) {
