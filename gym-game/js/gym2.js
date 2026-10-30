@@ -51,7 +51,8 @@ Object.assign(GymWorld.prototype, {
     const nz = Math.round((z2 - z1) / size);
     for (let i = 0; i < nx; i++) {
       for (let j = 0; j < nz; j++) {
-        this.matte.box(size - 0.02, 0.025, size - 0.02, x1 + (i + 0.5) * size, 0.013, z1 + (j + 0.5) * size, colors[(i + j) % colors.length]);
+        // flush with the floor: machines and people both stand on it at floor height
+        this.matte.box(size - 0.02, 0.008, size - 0.02, x1 + (i + 0.5) * size, 0.004, z1 + (j + 0.5) * size, colors[(i + j) % colors.length]);
       }
     }
   },
@@ -193,7 +194,7 @@ Object.assign(GymWorld.prototype, {
         mt.box(0.06, 0.26, 0.06, x, 0.22, z - 0.02, '#2c3140');
         this.addCollider(x - 0.3, z - 0.7, x + 0.3, z - 0.2);
         // a class bike: nobody rides it alone, the class starts when every bike has a rider
-        const st = this.addStation(x, z + 0.28, Math.PI, ['bike'], { equip: 'spin', ax: x + 1.0, az: z + 0.28, cls: 'spin' });
+        const st = this.addStation(x, z + 0.28, Math.PI, ['bike'], { equip: 'spin', ax: x + 1.0, az: z + 0.28, cls: 'spin', y: 0 });
         addBikeCrank(this, st, col);
         this.spinBikes.push(st);
       }

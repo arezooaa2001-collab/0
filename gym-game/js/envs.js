@@ -70,7 +70,7 @@ function buildEnv(id) {
 
 const ENV_BUILDERS = {
   pool() {
-    const w = new EnvWorld('pool', { bounds: { rect: [20, 14] }, spawn: { x: 0, z: 10, yaw: Math.PI }, background: '#bfe0ff', fog: [60, 220] });
+    const w = new EnvWorld('pool', { bounds: { rect: [20, 14] }, spawn: { x: 0, z: 9.4, yaw: Math.PI }, background: '#bfe0ff', fog: [60, 220] });
     const m = w.matte;
     m.box(40, 0.1, 28, 0, -0.05, 0, '#e3edf3');
     m.box(26, 0.02, 13, 0, 0.0, -2, '#1d5f9e');
@@ -98,7 +98,7 @@ const ENV_BUILDERS = {
       const z = -7 + lane * 2.4 + 1.2;
       w.equipStation('swim', 'swim', -8 + (lane % 2) * 16, z, lane % 2 ? -Math.PI / 2 : Math.PI / 2, { ax: -8 + (lane % 2) * 16, az: 6.2 });
     }
-    w.stands(0, 8.6, 30, 3, Math.PI, null);
+    w.stands(0, 10.8, 30, 3, 0, null);
     // lifeguard chair and umbrellas
     m.box(0.8, 1.8, 0.8, 15, 0.9, -2, '#e63946');
     w.addCollider(14.5, -2.5, 15.5, -1.5);
@@ -359,12 +359,12 @@ const ENV_BUILDERS = {
       m.add(UnitGeo.cone(20), x, h * 0.82, z, '#ffffff', 0, 0, 0, r * 0.38, h * 0.36, r * 0.38);
     }
     // climbing wall
-    m.box(12, 6, 1.4, 0, 3, -24, '#8a7a6a');
-    m.box(5, 4, 1.6, -5, 6.5, -24.1, '#9a8a7a');
-    m.box(4, 3, 1.6, 4.5, 7.2, -24.1, '#7a6a5a');
-    for (let i = 0; i < 40; i++) m.sphere(0.1, rand(-5.5, 5.5), rand(0.5, 5.6), -23.25, pick(['#e63946', '#ffd34d', '#2ecc71', '#2f6fed']));
+    m.box(12, 10.4, 1.4, 0, 5.2, -24, '#8a7a6a');
+    m.box(5, 4, 1.6, -5, 10.6, -24.1, '#9a8a7a');
+    m.box(4, 3, 1.6, 4.5, 11.2, -24.1, '#7a6a5a');
+    for (let i = 0; i < 80; i++) m.sphere(0.1, rand(-5.5, 5.5), rand(0.5, 10.0), -23.25, pick(['#e63946', '#ffd34d', '#2ecc71', '#2f6fed']));
     w.addCollider(-6, -24.8, 6, -23.3);
-    for (const x of [-3.5, 0, 3.5]) w.equipStation('wall', 'climb', x, -22.6, Math.PI, { ax: x, az: -21.2, wall: 0.65, wallH: 5.6 });
+    for (const x of [-3.5, 0, 3.5]) w.equipStation('wall', 'climb', x, -22.6, Math.PI, { ax: x, az: -21.2, wall: 0.65, wallH: 10.0 });
     // ski piste with gates
     m.box(10, 0.03, 30, 14, 0.02, 0, '#e8f1fb');
     for (let i = 0; i < 6; i++) {

@@ -56,11 +56,13 @@ class Pickups {
     this.coins = new THREE.InstancedMesh(COIN_GEO, COIN_MAT, 48);
     this.gems = new THREE.InstancedMesh(GEM_GEO, GEM_MAT, 4);
     for (const m of [this.coins, this.gems]) {
+      m.userData.noSolid = true;
       m.count = 0;
       m.frustumCulled = false;
       world.scene.add(m);
     }
     this.star = new THREE.Mesh(starGeometry(), STAR_MAT);
+    this.star.userData.noSolid = true;
     this.star.visible = false;
     world.scene.add(this.star);
     this.chest = null;
@@ -105,6 +107,7 @@ class Pickups {
     const p = this.spot();
     if (!p || this.chest) return null;
     const g = chestMesh();
+    g.userData.noSolid = true;
     g.position.set(p.x, 0, p.z);
     g.rotation.y = rand(-Math.PI, Math.PI);
     this.world.scene.add(g);

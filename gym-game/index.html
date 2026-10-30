@@ -30,6 +30,7 @@
           <button id="rankBtn" class="chip" type="button">🏆 <span id="rankText"></span></button>
         </div>
         <div class="run-row"><span id="runText"></span><div class="runbar"><div id="runFill" class="runfill"></div></div></div>
+        <div class="run-row en-row"><span id="enText"></span><div class="runbar"><div id="enFill" class="runfill en-fill"></div></div></div>
         <div class="st-row st-chips">
           <button id="coinChip" class="chip coin" type="button">🪙 <span id="coinText">۰</span></button>
           <span id="boostBadge" class="chip boost" hidden></span>
@@ -76,6 +77,11 @@
     <div id="toasts" class="toasts" aria-live="polite"></div>
     <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
     <button id="stopBtn" class="ctx-btn stop-btn" type="button" hidden>⏹ توقف</button>
+    <div id="runPanel" class="spin-panel run-panel" hidden>
+      <div class="spin-top"><b id="runHead" class="spin-head"></b><button id="runInvite" class="spin-x run-inv" type="button">🙋 دعوت</button><button id="runAgain" class="spin-x run-inv" type="button" hidden>🔁 دوباره</button></div>
+      <div class="energy-bar"><div id="energyFill" class="energy-fill"></div><span id="energyText" class="energy-text"></span></div>
+      <div id="runInfo" class="spin-info"></div>
+    </div>
     <div id="spinPanel" class="spin-panel" hidden>
       <div class="spin-top"><b id="spinHead" class="spin-head"></b><button id="spinCancel" class="spin-x" type="button">✕ لغو کلاس</button></div>
       <div id="spinInfo" class="spin-info"></div>
@@ -109,6 +115,8 @@
         <button class="mv-tab" type="button" data-tab="env">مکان‌ها</button>
         <button class="mv-tab" type="button" data-tab="fun">💃 نمایشی</button>
         <button id="tabAi" class="mv-tab" type="button" data-tab="ai" hidden>ساخته‌ها</button>
+        <button class="mv-tab" type="button" data-tab="energy">⚡ انرژی</button>
+        <button id="tabField" class="mv-tab hot-tab" type="button" data-tab="field" hidden>🌀 حرکت ویژه</button>
         <button id="tabPlaced" class="mv-tab" type="button" data-tab="placed" hidden>🧩 اضافه‌شده</button>
         <button class="mv-tab gym-tab" type="button" data-tab="g2" data-gym="2" hidden>⚙️ باشگاه فولاد</button>
         <button class="mv-tab gym-tab" type="button" data-tab="g3" data-gym="3" hidden>🏛️ معبد تایتان‌ها</button>
@@ -231,6 +239,57 @@
     </form>
   </div>
 
+  <!-- ===== Trick Field ===== -->
+  <div id="trickModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="trickModal" aria-label="بستن">✕</button>
+      <h2>🌀 پرش چرخشی هوایی</h2>
+      <p class="muted">می‌پری، توی هوا ایستاده می‌چرخی، افقی می‌شی، یه ملق می‌زنی و فرود میای. هر بار که این حرکت رو انجام بدی چند سطح زور بگیری؟ خودت انتخاب کن. (این زور با ورزش به دست نیومده، پس «تقلبی» حساب می‌شه و دکمه‌ی پاک کردن زور تقلبی پاکش می‌کنه.)</p>
+      <div class="seg quick-seg" id="trickQuick">
+        <button type="button" data-n="1">۱</button><button type="button" data-n="10">۱۰</button><button type="button" data-n="100">۱۰۰</button><button type="button" data-n="1000">۱٬۰۰۰</button><button type="button" data-n="100000">۱۰۰٬۰۰۰</button>
+      </div>
+      <input id="trickAmt" class="code-input" inputmode="numeric" maxlength="10" placeholder="چند سطح؟" dir="ltr" aria-label="هر بار چند سطح زور">
+      <button id="trickGo" class="big-btn gold" type="button">🌀 شروع</button>
+    </div>
+  </div>
+
+  <!-- ===== Running track ===== -->
+  <div id="runInviteModal" class="modal" hidden>
+    <div class="card">
+      <button class="x" type="button" data-close="runInviteModal" aria-label="بستن">✕</button>
+      <h2>🙋 کی با تو بدوه؟</h2>
+      <p id="runInviteHead" class="muted"></p>
+      <p class="muted">هر کسی سطح انرژی ⚡ بیشتری داشته باشه بیشتر می‌دوه. اگه از همه جلو بزنی رتبه‌ی ۱ می‌شی؛ یه کم عقب‌تر رتبه‌ی ۲؛ خیلی عقب رتبه‌ی ۱۰.</p>
+      <div id="runInviteList" class="inv-list"></div>
+    </div>
+  </div>
+  <div id="runResultModal" class="modal" hidden>
+    <div class="card small-card">
+      <h2 id="runResultTitle"></h2>
+      <p id="runResultSub" class="muted"></p>
+      <ol id="runResultList" class="run-res"></ol>
+      <p class="muted">جایزه‌ها برای کل یک میلیون متر: رتبه‌ی ۱: ۱٬۰۰۰٬۰۰۰ سطح • ۲: ۲۰٬۰۰۰ • ۳: ۱۰۰ • ۴: ۵۰ • ۵: ۱۰. هر چقدر از راه رو بدوی، همون‌قدر از جایزه بهت می‌رسه. کل یک میلیون متر رو تموم کنی: ۱٬۰۰۰٬۰۰۰ سطح زور.</p>
+      <div class="btn-row"><button id="runResAgain" class="big-btn gold" type="button">🔁 دوباره از خط شروع</button><button id="runResHome" class="big-btn" type="button">🏋️ برگشت به باشگاه</button></div>
+    </div>
+  </div>
+
+  <!-- ===== My level ===== -->
+  <div id="levelsModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="levelsModal" aria-label="بستن">✕</button>
+      <h2>📉 سطح من</h2>
+      <p id="lvInfo" class="muted"></p>
+      <div class="lv-row">
+        <input id="lvCut" class="code-input lv-input" inputmode="numeric" maxlength="9" placeholder="چند سطح؟" dir="ltr" aria-label="چند سطح کم بشه">
+        <button id="lvCutBtn" class="big-btn" type="button">➖ کم کن</button>
+      </div>
+      <h3>🧹 زور تقلبی</h3>
+      <p class="muted">هر زوری که با ورزش به دست نیاوردی: سطح‌های موقت (جزیره‌ی خوش‌شانسی، گردونه، صندوق، شیک، هوش مصنوعی)، کد ۱۹۱۹ و زوری که توی زمین حرکات ویژه خودت انتخاب کردی.</p>
+      <div id="cheatInfo" class="cheat-info"></div>
+      <button id="cheatBtn" class="big-btn gold" type="button">🧹 همه‌ی زور تقلبی رو پاک کن</button>
+    </div>
+  </div>
+
   <!-- ===== Help ===== -->
   <div id="helpModal" class="modal" hidden>
     <div class="card">
@@ -252,6 +311,9 @@
         <li>اگه دور باشی و دکمه‌اش رو بزنی، یه فلش سبز راه رو نشونت می‌ده. کنار وسیله که رسیدی دکمه‌ی پایین صفحه رو بزن.</li>
         <li>🏃 دویدن، تردمیل و دوچرخه «سطح دویدن» رو بالا می‌برن و سریع‌ترت می‌کنن.</li>
         <li>⏹ هر ورزشی رو شروع کنی، تا وقتی خودت دکمه‌ی «⏹ توقف» (یا <kbd>Esc</kbd>) رو نزنی ادامه می‌دی و هر بار زور می‌گیری. دکمه‌ی یه ورزش دیگه رو بزنی، می‌ری سراغ اون. بقیه‌ی ورزشکارها هم همین‌طورن: تا خودشون نخوان، از روی وسیله پا نمی‌شن.</li>
+        <li>🏁 تالار انرژی و دو (از در بزرگ دیوار شرقی باشگاه): ته تالار دروازه‌ی پیست یک‌میلیون متریه. تا ۳ نفر دعوت کن، خودت بدو و با 🚀 توربو یا ☄️ خیلی توربو تندتر برو؛ ولی انرژی بیشتری می‌خوره. انرژی تموم بشه غش می‌کنی و مسابقه تموم می‌شه. سطح انرژی رو با زبانه‌ی «⚡ انرژی» بالا ببر.</li>
+        <li>🌀 زمین حرکات ویژه (از نقشه): روی زمین شطرنجی برو تا «پرش چرخشی هوایی» باز بشه؛ زورش رو خودت انتخاب می‌کنی (تقلبی حساب می‌شه).</li>
+        <li>📉 از منو می‌تونی هر چند سطح بخوای از خودت کم کنی یا همه‌ی زور تقلبی رو یک‌جا پاک کنی.</li>
         <li>🚲 کلاس اسپینینگ (بال غربی): تنهایی نمی‌شه! باید هر ۱۲ دوچرخه پر باشه. کنار هر ورزشکار برو و «🙋 دعوت» رو بزن؛ قبول می‌کنه و میاد می‌شینه. وقتی ۱۱ نفر نشستن، خودت روی دوچرخه‌ی خالی بشین. مربی هر چند ثانیه یه حرکت جدید می‌کنه (نشسته، ایستاده، اسپرینت، دست‌ها بالا، شنا روی فرمون)؛ همون رو بزن تا زور بیشتری بگیری و حرکت رو یاد بگیری.</li>
       </ul>
       <h3>👑 هدف بازی: مسیر قهرمانی</h3>
@@ -345,6 +407,7 @@
         <button class="menu-btn" type="button" data-menu="music">🎵 موسیقی: <span id="musicState">خاموش</span></button>
         <button class="menu-btn" type="button" data-menu="watch">📺 دوربین‌های زنده</button>
         <button class="menu-btn" type="button" data-menu="photo">📸 حالت عکس</button>
+        <button class="menu-btn" type="button" data-menu="levels">📉 سطح من و پاک کردن زور تقلبی</button>
         <button class="menu-btn" type="button" data-menu="settings">⚙️ تنظیمات</button>
         <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
       </div>
@@ -440,11 +503,11 @@
     <div class="card small-card">
       <button class="x" type="button" data-close="settingsModal" aria-label="بستن">✕</button>
       <h2>⚙️ تنظیمات</h2>
-      <div class="set-row"><span>کیفیت تصویر</span>
-        <div class="seg" id="qualitySeg">
-          <button type="button" data-q="low">کم</button><button type="button" data-q="auto">خودکار</button><button type="button" data-q="high">زیاد</button>
-        </div>
+      <h3 class="gfx-title">🎮 گرافیک</h3>
+      <div class="seg gfx-seg" id="gfxSeg">
+        <button type="button" data-q="go">Go</button><button type="button" data-q="plus">Plus</button><button type="button" data-q="pro">Pro</button><button type="button" data-q="ultra">Ultra</button><button type="button" data-q="pc">PC</button>
       </div>
+      <p id="gfxDesc" class="muted gfx-desc"></p>
       <label class="set-row" for="sensInput"><span>سرعت چرخش دوربین</span><input id="sensInput" type="range" min="0.4" max="2" step="0.1"></label>
       <label class="set-row" for="namesInput"><span>اسم ورزشکارها</span><input id="namesInput" type="checkbox"></label>
       <label class="set-row" for="shakeInput"><span>لرزش دوربین</span><input id="shakeInput" type="checkbox"></label>
@@ -580,6 +643,7 @@
 <script src="js/anims6.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/world.js"></script>
+<script src="js/solid.js"></script>
 <script src="js/gym.js"></script>
 <script src="js/gym2.js"></script>
 <script src="js/gymannex.js"></script>
@@ -610,5 +674,8 @@
 <script src="js/goals.js"></script>
 <script src="js/builder.js"></script>
 <script src="js/spinclass.js"></script>
+<script src="js/levelkit.js"></script>
+<script src="js/tricks.js"></script>
+<script src="js/runtrack.js"></script>
 </body>
 </html>

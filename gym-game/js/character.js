@@ -678,6 +678,7 @@ class Character {
       longPants: false, highShoes: false, number: false,
     }, opts);
     this.root = new THREE.Group();
+    this.root.userData.noSolid = true;
     this.bones = [];
     this.B = {};
     for (const [name, parent, x, y, z] of BONE_DEFS) {
@@ -905,7 +906,7 @@ class Character {
     } else if (this.action) {
       this.actionT += dt;
       const A = this.action.def;
-      const t = Math.min(1, this.actionT / A.dur);
+      const t = Math.min(1, this.actionT / (A.durFor ? A.durFor(this) : A.dur));
       A.fn(p, t, this);
       if (A.move) this.rootSpeed = A.move(t);
       if (A.side) this.rootSide = A.side(t);

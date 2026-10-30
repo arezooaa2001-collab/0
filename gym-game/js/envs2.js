@@ -249,7 +249,7 @@ Object.assign(ENV_BUILDERS, {
   },
 
   boxing() {
-    const w = new EnvWorld('boxing', { bounds: { rect: [18, 14] }, spawn: { x: 0, z: 11, yaw: Math.PI }, background: '#0b0d18', fog: [40, 120] });
+    const w = new EnvWorld('boxing', { bounds: { rect: [18, 14] }, spawn: { x: 0, z: 10.1, yaw: Math.PI }, background: '#0b0d18', fog: [40, 120] });
     w.ceiling = 12;
     const m = w.matte;
     m.box(38, 0.1, 30, 0, -0.05, 0, '#1b1e2b');

@@ -317,7 +317,8 @@ function wrapGrip(def, weight, mode, yFn) {
 
 const hangW = (a, b, c, d) => (t) => smooth(seg(t, a, b)) * (1 - smooth(seg(t, c, d)));
 
-ANIMS.climb = { snapAll: true, dur: 7.0, events: [[0.1, 'hop'], [0.95, 'hop']], fn: wallClimbFn };
+// a taller wall takes longer to climb, at the same pace
+ANIMS.climb = { snapAll: true, dur: 7.0, durFor: (ch) => 7.0 * Math.max(1, ((ch.station && ch.station.wallH) || 5) / 5), events: [[0.1, 'hop'], [0.95, 'hop']], fn: wallClimbFn };
 ANIMS.boulder = ANIMS.climb;
 ANIMS.ropeclimb = { snapAll: true, dur: 6.4, events: [[0.08, 'jump'], [0.97, 'hop']], fn: ropeClimbContactFn };
 /** Pull-up with the hands fixed on the bar and the body just behind it, so the chin clears the bar. */

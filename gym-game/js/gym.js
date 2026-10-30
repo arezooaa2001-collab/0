@@ -72,7 +72,7 @@ function signTexture(lines, opts = {}) {
 
 class GymWorld extends WorldBase {
   constructor() {
-    super({ bounds: { rect: [ROOM.x, ROOM.z] }, track: TRACK, spawn: { x: 0, z: 4, yaw: Math.PI }, background: '#141a28', fog: [80, 210] });
+    super({ bounds: { rect: [ROOM.x, ROOM.z], extra: [[ROOM.x - 12, -ROOM.z, RUN_HALL.x2, ROOM.z]] }, track: TRACK, spawn: { x: 0, z: 4, yaw: Math.PI }, background: '#141a28', fog: [80, 210] });
     this.ceiling = ROOM.h;
     this.cloudTex = cloudSkyTexture();
     this.cloudMat = new THREE.MeshBasicMaterial({ map: this.cloudTex, toneMapped: false });
@@ -102,6 +102,7 @@ class GymWorld extends WorldBase {
     this.buildStatueGarden();
     this.buildNinja();
     this.buildLuckyPortal();
+    this.buildRunHall();
     this.finishBatches();
     this.onImpact = () => this.strikeTower();
   }
@@ -158,15 +159,21 @@ class GymWorld extends WorldBase {
     m.box(X * 2 + 1, H, 0.5, 0, H / 2, -Z - 0.25, wall);
     m.box(X * 2 + 1, H, 0.5, 0, H / 2, Z + 0.25, wall);
     m.box(0.5, H, Z * 2, -X - 0.25, H / 2, 0, wall);
-    m.box(0.5, H, Z * 2, X + 0.25, H / 2, 0, wall);
+    // the east wall has a wide doorway into the Energy & Running Hall
+    const D = RUN_HALL.door;
+    const L = Z - D;
+    for (const sz of [-1, 1]) {
+      m.box(0.5, H, L, X + 0.25, H / 2, sz * (D + L / 2), wall);
+      m.box(0.1, 1.3, L, X - 0.03, 0.65, sz * (D + L / 2), dado);
+      m.box(0.12, 0.12, L, X - 0.06, 1.36, sz * (D + L / 2), '#ffc23d');
+    }
+    m.box(0.5, H - RUN_HALL.doorH, D * 2, X + 0.25, (H + RUN_HALL.doorH) / 2, 0, wall);
     m.box(X * 2, 1.3, 0.1, 0, 0.65, -Z + 0.03, dado);
     m.box(X * 2, 1.3, 0.1, 0, 0.65, Z - 0.03, dado);
     m.box(0.1, 1.3, Z * 2, -X + 0.03, 0.65, 0, dado);
-    m.box(0.1, 1.3, Z * 2, X - 0.03, 0.65, 0, dado);
     m.box(X * 2, 0.12, 0.12, 0, 1.36, -Z + 0.06, '#ffc23d');
     m.box(X * 2, 0.12, 0.12, 0, 1.36, Z - 0.06, '#ffc23d');
     m.box(0.12, 0.12, Z * 2, -X + 0.06, 1.36, 0, '#ffc23d');
-    m.box(0.12, 0.12, Z * 2, X - 0.06, 1.36, 0, '#ffc23d');
     m.box(X * 2 + 1, 0.3, Z * 2 + 1, 0, H + 0.15, 0, '#1a1f2c');
     for (const tz of [-26, -14, -3, 8, 18, 27]) this.metal.box(X * 2, 0.35, 0.3, 0, H - 0.5, tz, '#39404f');
     for (let lx = -(X - 7); lx <= X - 7; lx += 10) {
@@ -338,7 +345,7 @@ class GymWorld extends WorldBase {
       mt.cyl(0.03, 0.55, x, 1.1, z + 0.45, '#9aa0a8', 0, 0, Math.PI / 2, 10);
       mt.cyl(0.24, 0.07, x, 0.35, z + 0.42, '#22252b', 0, 0, Math.PI / 2, 18);
       this.addCollider(x - 0.3, z + 0.2, x + 0.3, z + 0.7);
-      addBikeCrank(this, this.addStation(x, z - 0.28, 0, ['bike'], { equip: 'bike', ax: x - 1.0, az: z - 0.28 }), bc);
+      addBikeCrank(this, this.addStation(x, z - 0.28, 0, ['bike'], { equip: 'bike', ax: x - 1.0, az: z - 0.28, y: 0 }), bc);
       this.addStation(x - 1.8, z, Math.PI / 2, ['jack', 'squat', 'rope', 'pushup']);
     }
     for (let i = 0; i < 4; i++) {
@@ -868,20 +875,21 @@ class GymWorld extends WorldBase {
   buildClimbWall() {
     const m = this.matte;
     const z = -ROOM.z + 0.4;
-    m.box(11.5, 5.2, 0.5, 22, 2.6, z, '#5c677d');
+    // a tall wall: nearly up to the roof
+    m.box(11.5, 9.6, 0.5, 22, 4.8, z, '#5c677d');
     const panels = ['#ff7b00', '#2ecc71', '#00b4d8', '#ff4da6', '#ffd34d'];
-    for (let i = 0; i < 5; i++) m.box(2.2, 5.0, 0.12, 17.6 + i * 2.2, 2.6, z + 0.3, panels[i], 0, 0.06 * (i % 2 ? 1 : -1));
-    for (let i = 0; i < 160; i++) {
+    for (let i = 0; i < 5; i++) m.box(2.2, 9.4, 0.12, 17.6 + i * 2.2, 4.8, z + 0.3, panels[i], 0, 0.06 * (i % 2 ? 1 : -1));
+    for (let i = 0; i < 300; i++) {
       const hx = rand(16.6, 27.4);
-      const hy = rand(0.3, 5.0);
+      const hy = rand(0.3, 9.4);
       if (Math.random() < 0.5) m.sphere(rand(0.06, 0.12), hx, hy, z + 0.4, pick(['#e63946', '#ffd34d', '#2ecc71', '#2f6fed', '#9b5de5', '#ffffff', '#111111']), 0.7);
       else m.box(rand(0.12, 0.25), rand(0.08, 0.14), 0.08, hx, hy, z + 0.4, pick(['#ff4da6', '#00b4d8', '#ff7b00', '#d4f700']), 0, rand(-0.8, 0.8));
     }
     m.box(11.5, 0.05, 2.4, 22, 0.025, z + 1.7, '#2f6fed');
     for (let i = 0; i < 4; i++) m.box(2.6, 0.06, 0.05, 17.8 + i * 2.85, 0.03, z + 2.9, '#ffd34d');
     this.addCollider(16.2, z - 0.3, 27.8, z + 0.5);
-    for (const x of [18, 20.5, 23, 25.5]) this.addStation(x, z + 1.15, Math.PI, ['boulder'], { equip: 'boulder', ax: x, az: z + 3.5, wall: 0.7, wallH: 5.0 });
-    this.zoneSign('سنگ‌نوردی', '#2ecc71', 22, 7.0, z + 0.4, 0, 5);
+    for (const x of [18, 20.5, 23, 25.5]) this.addStation(x, z + 1.15, Math.PI, ['boulder'], { equip: 'boulder', ax: x, az: z + 3.5, wall: 0.7, wallH: 9.3 });
+    this.zoneSign('سنگ‌نوردی', '#2ecc71', 22, 10.25, z + 0.4, 0, 5);
   }
 
   buildSpeedBags() {
@@ -910,7 +918,7 @@ class GymWorld extends WorldBase {
     };
     bands.north.forEach((c, i) => m.box(X * 2, 0.22, 0.06, 0, 1.7 + i * 0.3, -Z + 0.06, c));
     bands.south.forEach((c, i) => m.box(X * 2, 0.22, 0.06, 0, 1.7 + i * 0.3, Z - 0.06, c));
-    bands.east.forEach((c, i) => m.box(0.06, 0.22, Z * 2, X - 0.06, 1.7 + i * 0.3, 0, c));
+    bands.east.forEach((c, i) => { for (const sz of [-1, 1]) m.box(0.06, 0.22, Z - RUN_HALL.door, X - 0.06, 1.7 + i * 0.3, sz * (Z + RUN_HALL.door) / 2, c); });
     bands.west.forEach((c, i) => m.box(0.06, 0.22, Z * 2, -X + 0.06, 1.7 + i * 0.3, 0, c));
     // party bunting across the hall
     const flags = ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5', '#ff4da6'];

@@ -119,7 +119,7 @@ class WorldBase {
   finishBatches() {
     for (const [b, mat] of [[this.matte, MATTE_MAT], [this.metal, METAL_MAT], [this.glow, GLOW_MAT]]) {
       const mesh = b.build(mat);
-      if (mesh) this.scene.add(mesh);
+      if (mesh) { mesh.userData.noSolid = true; this.scene.add(mesh); }
     }
     this.matte = this.metal = this.glow = null;
     this.fx = new Particles(this.scene, 700, 0.2);
@@ -184,6 +184,7 @@ class WorldBase {
 
   inBounds(x, z, m = 0) {
     if (this.bounds.circle) return Math.hypot(x, z) < this.bounds.circle - m;
+    if (this.bounds.extra && this.bounds.extra.some(([x1, z1, x2, z2]) => x > x1 + m && x < x2 - m && z > z1 + m && z < z2 - m)) return true;
     return Math.abs(x) < this.bounds.rect[0] - m && Math.abs(z) < this.bounds.rect[1] - m;
   }
 
@@ -197,6 +198,7 @@ class WorldBase {
       } else p = { x: rand(-this.bounds.rect[0] + 3, this.bounds.rect[0] - 3), z: rand(-this.bounds.rect[1] + 3, this.bounds.rect[1] - 3) };
       if (Math.hypot(p.x - this.spawn.x, p.z - this.spawn.z) < 2.5) continue;
       if (this.colliders.some((c) => p.x > c.x1 - 0.6 && p.x < c.x2 + 0.6 && p.z > c.z1 - 0.6 && p.z < c.z2 + 0.6)) continue;
+      if (!this.spotFree(p.x, p.z, 0.6)) continue;
       return p;
     }
     return { x: rand(-3, 3), z: rand(-3, 3) };
@@ -370,7 +372,7 @@ class WorldBase {
         n.act = null;
         n.faceT = n.station ? 0.4 : 0;
         if (n.station && (n.station.x !== n.station.ax || n.station.z !== n.station.az)) {
-          pos.set(n.station.x, n.station.y || 0, n.station.z);
+          pos.set(n.station.x, this.stationY(n.station), n.station.z);
           n.anchored = true;
         }
       } else {
@@ -445,6 +447,8 @@ class WorldBase {
         if (f.t > 0) ch.play(f.anim || 'fanclap');
         else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
       }
+    } else if (n.state === 'race') {
+      [dirX, dirZ, speed] = this.raceNpc(n, dt);
     } else if (n.state === 'class') {
       // invited to a class (spinning): walking to their seat, waiting, riding, finishing
       [dirX, dirZ, speed] = this.classNpc(n, dt);
@@ -475,14 +479,24 @@ class WorldBase {
       n.vel.multiplyScalar(Math.max(0, 1 - 10 * dt));
     }
     if (!n.anchored) {
+      const px = pos.x;
+      const pz = pos.z;
       pos.x += n.vel.x * dt;
       pos.z += n.vel.y * dt;
-      this.rootMotion(ch, pos, dt);
-      this.resolve(pos, 0.32);
+      this.resolveBody(pos, ch.root.rotation.y);
+      // blocked by something: really stop (no legs walking on the spot into it)
+      if (dt > 0) { n.vel.x = (pos.x - px) / dt; n.vel.y = (pos.z - pz) / dt; }
+      if (ch.rootSpeed || ch.rootSide) {
+        this.rootMotion(ch, pos, dt);
+        this.resolveBody(pos, ch.root.rotation.y);
+      }
+      this.settleY(pos, dt);
     }
     ch.anchored = !!n.anchored;
     ch.speed = n.vel.length();
     ch.update(dt);
+    // limbs against things: for everyone close enough to be seen clearly
+    if (!n.anchored && this.player && pos.distanceToSquared(this.player.ch.root.position) < 400) this.limbPush(ch, pos, true);
   }
 
   /* ---------------- people travelling between places ---------------- */
@@ -669,7 +683,7 @@ class WorldBase {
     s.player = true;
     P.anchor = s;
     P.guide = null;
-    P.ch.root.position.set(s.x, s.y || 0, s.z);
+    P.ch.root.position.set(s.x, this.stationY(s), s.z);
     P.ch.root.rotation.y = s.yaw;
     P.vel.set(0, 0);
     P.ch.station = s;
@@ -752,18 +766,26 @@ class WorldBase {
       if (moving && P.mode !== 'walk') gained += RUN_XP_PER_SEC[P.mode] * dt * Math.min(1, P.vel.length() / 5.4);
     }
     if (P.anchor) {
-      pos.set(P.anchor.x, P.anchor.y || 0, P.anchor.z);
+      pos.set(P.anchor.x, this.stationY(P.anchor), P.anchor.z);
     } else {
+      const px = pos.x;
+      const pz = pos.z;
       pos.x += P.vel.x * dt;
       pos.z += P.vel.y * dt;
-      this.rootMotion(ch, pos, dt);
-      this.resolve(pos, 0.34);
-      pos.y = 0;
+      this.resolveBody(pos, ch.root.rotation.y);
+      // blocked by something: really stop (no legs walking on the spot into it)
+      if (dt > 0) { P.vel.x = (pos.x - px) / dt; P.vel.y = (pos.z - pz) / dt; }
+      if (ch.rootSpeed || ch.rootSide) {
+        this.rootMotion(ch, pos, dt);
+        this.resolveBody(pos, ch.root.rotation.y);
+      }
+      this.settleY(pos, dt);
     }
     this.metersRun = (this.metersRun || 0) + (P.anchor ? 0 : P.vel.length() * dt);
     ch.anchored = !!P.anchor;
     ch.speed = P.anchor ? 0 : P.vel.length();
     ch.update(dt);
+    if (!P.anchor) this.limbPush(ch, pos, false);
     P.marker.position.y = 2.35 + Math.sin(this.time * 4) * 0.06 + ch.airY;
     P.marker.rotation.y += dt * 2;
     P.ring.material.opacity = 0.65 + 0.35 * Math.sin(this.time * 3);
@@ -844,12 +866,19 @@ class WorldBase {
         b.x += dx * push * wb; b.z += dz * push * wb;
       }
     }
-    for (const c of all) if (!c.anchored) this.resolve(c.root.position, 0.32);
+    for (const c of all) if (!c.anchored) this.resolveBody(c.root.position, c.root.rotation.y);
   }
 
   cameraLimits(x, y, z) {
     const B = this.bounds;
-    if (B.rect) {
+    const c = this.cam;
+    const room = B.extra && c && Math.abs(c.tx) > B.rect[0] ? B.extra.find(([x1, z1, x2, z2]) => c.tx > x1 && c.tx < x2 && c.tz > z1 && c.tz < z2) : null;
+    if (room) {
+      // in a side hall: keep the camera in that hall
+      x = clamp(x, B.rect[0] + 0.6, room[2] - 0.6);
+      z = clamp(z, room[1] + 0.6, room[3] - 0.6);
+      y = clamp(y, 0.6, (this.ceiling || 30) - 0.8);
+    } else if (B.rect) {
       x = clamp(x, -B.rect[0] + 0.6, B.rect[0] - 0.6);
       z = clamp(z, -B.rect[1] + 0.6, B.rect[1] - 0.6);
       y = clamp(y, 0.6, (this.ceiling || 30) - 0.8);
@@ -864,7 +893,7 @@ class WorldBase {
     const k = damp(8, dt);
     c.tx += (p.x - c.tx) * k;
     c.tz += (p.z - c.tz) * k;
-    c.ty += (1.25 + ch.airY * 0.5 + Math.max(0, ch.cur.y) * 0.5 - c.ty) * k;
+    c.ty += (1.25 + p.y + ch.airY * 0.5 + Math.max(0, ch.cur.y) * 0.5 - c.ty) * k;
     const cp = Math.cos(c.pitch);
     const [x, y, z] = this.cameraLimits(
       c.tx + Math.sin(c.yaw) * cp * c.dist,

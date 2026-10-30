@@ -309,11 +309,11 @@ Object.assign(GymWorld.prototype, {
     // cargo net on the east wall
     {
       const xw = ROOM.x - 0.5;
-      for (let i = 0; i < 9; i++) m.box(0.05, 6, 0.05, xw, 3, 9 + i * 1.2, '#c9a46c');
-      for (let j = 0; j < 10; j++) m.box(0.05, 0.05, 9.8, xw, 0.4 + j * 0.62, 13.8, '#c9a46c');
-      m.box(0.3, 0.3, 10.4, xw + 0.1, 6.1, 13.8, '#ff4da6');
+      for (let i = 0; i < 9; i++) m.box(0.05, 9.6, 0.05, xw, 4.8, 9 + i * 1.2, '#c9a46c');
+      for (let j = 0; j < 16; j++) m.box(0.05, 0.05, 9.8, xw, 0.4 + j * 0.6, 13.8, '#c9a46c');
+      m.box(0.3, 0.3, 10.4, xw + 0.1, 9.7, 13.8, '#ff4da6');
       this.addCollider(xw - 0.12, 8.6, ROOM.x, 19);
-      for (const z of [11.5, 16]) this.addStation(xw - 0.75, z, Math.PI / 2, ['climb'], { equip: 'nnet', ax: xw - 2.6, az: z, wall: 0.72, wallH: 6.0 });
+      for (const z of [11.5, 16]) this.addStation(xw - 0.75, z, Math.PI / 2, ['climb'], { equip: 'nnet', ax: xw - 2.6, az: z, wall: 0.72, wallH: 9.4 });
     }
     // neon art: a giant ninja star and lightning on the walls
     const star = new THREE.Group();

@@ -15,6 +15,7 @@ function addBikeCrank(world, st, col) {
   const g = new THREE.Group();
   g.position.set(st.x, st.y || 0, st.z);
   g.rotation.y = st.yaw;
+  g.userData.noSolid = true;
   const R = BIKE.crankR;
   const pivot = propMesh((b) => {
     b.cyl(0.025, 0.36, 0, 0, 0, '#9aa0a8', 0, 0, Math.PI / 2, 8);
@@ -170,7 +171,7 @@ Object.assign(GymWorld.prototype, {
       const dz = s.az - pos.z;
       const d = Math.hypot(dx, dz);
       if (d < 0.35 || c.walkT > 40) {
-        pos.set(s.x, s.y || 0, s.z);
+        pos.set(s.x, this.stationY(s), s.z);
         ch.root.rotation.y = s.yaw;
         n.anchored = true;
         n.vel.set(0, 0);

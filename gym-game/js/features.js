@@ -366,6 +366,7 @@ Object.assign(Game, {
     const id = this.save.shop.pet;
     if (!id || !this.owns(id)) { this.pet = null; return; }
     if (!this.pet || this.pet.kind !== id) this.pet = new Pet(id);
+    this.pet.root.userData.noSolid = true;
     this.world.scene.add(this.pet.root);
     this.pet.place(this.player.ch.root.position);
   },
@@ -505,6 +506,7 @@ Object.assign(Game, {
     else if (a === 'photo') this.enterPhoto();
     else if (a === 'watch') this.openWatch(this.worldKey(this.world) || 'gym');
     else if (a === 'settings') this.openSettings();
+    else if (a === 'levels') this.openLevels();
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }
     else if (a === 'music') {
       this.save.music = !this.save.music;

@@ -45,7 +45,15 @@ const DISPLAY_FONT = 'Lalezar, Vazirmatn, Tahoma, sans-serif';
 
 const UnitGeo = {
   _c: {},
-  get(key, make) { return this._c[key] || (this._c[key] = make()); },
+  get(key, make) {
+    let g = this._c[key];
+    if (!g) {
+      g = this._c[key] = make();
+      // closed convex shapes: their outline seen from above is exact (collision uses it)
+      if (/^(box|cyl|cone|sph|cap)/.test(key)) g.userData.convex = true;
+    }
+    return g;
+  },
   box() { return this.get('box', () => new THREE.BoxGeometry(1, 1, 1)); },
   cyl(seg = 16) { return this.get('cyl' + seg, () => new THREE.CylinderGeometry(1, 1, 1, seg)); },
   cone(seg = 16) { return this.get('cone' + seg, () => new THREE.CylinderGeometry(0, 1, 1, seg)); },

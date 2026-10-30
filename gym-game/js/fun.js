@@ -32,7 +32,7 @@ Object.assign(Game, {
     });
     $('armTap').addEventListener('pointerdown', (e) => { e.preventDefault(); this.armTap(); });
     $('armTap').addEventListener('click', (e) => { if (e.detail === 0) this.armTap(); });
-    document.querySelectorAll('#qualitySeg button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#gfxSeg button').forEach((b) => b.addEventListener('click', () => {
       this.save.settings.quality = b.dataset.q;
       this.applySettings();
       this.openSettings(true);
@@ -770,7 +770,7 @@ Object.assign(Game, {
 
   openSettings(keep) {
     const st = this.save.settings;
-    document.querySelectorAll('#qualitySeg button').forEach((b) => b.classList.toggle('on', b.dataset.q === st.quality));
+    this.renderGraphics();
     $('sensInput').value = String(st.sens);
     $('namesInput').checked = st.names;
     $('shakeInput').checked = st.shake;
@@ -783,10 +783,7 @@ Object.assign(Game, {
     const st = this.save.settings;
     WorldBase.hideNames = !st.names;
     WorldBase.shakeScale = st.shake ? 1 : 0;
-    const dpr = window.devicePixelRatio || 1;
-    this.pixelRatio = st.quality === 'low' ? 0.75 : st.quality === 'high' ? Math.min(dpr, 2) : Math.min(dpr, 1.75);
-    this.renderer.setPixelRatio(this.pixelRatio);
-    this.resize();
+    this.applyGraphics();
     if (this.player) this.labelPlayer();
   },
 });

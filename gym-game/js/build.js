@@ -256,6 +256,7 @@ Object.assign(WorldBase.prototype, {
     const s = Math.sin(yaw);
     const toW = (lx, lz) => [item.x + lx * c + lz * s, item.z - lx * s + lz * c];
     const group = new THREE.Group();
+    group.userData.noSolid = true;
     group.position.set(item.x, 0, item.z);
     group.rotation.y = yaw;
     const t = {
@@ -297,7 +298,11 @@ Object.assign(WorldBase.prototype, {
       group.add(pad);
       return { group };
     }
-    const placed = { item, group, colliders: [], stations: [] };
+    const placed = { item, group, colliders: [], stations: [], solidParts: [] };
+    // its real shapes, for exact collision
+    group.updateMatrixWorld(true);
+    for (const b of [t.m, t.mt, t.gl]) for (const p of b.parts) placed.solidParts.push({ geo: p.geo, matrix: group.matrixWorld.clone().multiply(p.matrix) });
+    this.solids = null;
     for (const [x1, z1, x2, z2] of t.cols) {
       const [ax, az] = toW(x1, z1);
       const [bx, bz] = toW(x2, z2);
@@ -322,6 +327,7 @@ Object.assign(WorldBase.prototype, {
     this.scene.remove(p.group);
     p.group.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && o.geometry) o.geometry.dispose(); });
     this.colliders = this.colliders.filter((c) => c.placed !== id);
+    this.solids = null;
     for (const s of p.stations) {
       if (s.occ) {
         const n = s.occ;

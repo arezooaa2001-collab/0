@@ -78,8 +78,11 @@ const Game = {
     } : null;
     v.build.nextId = Math.max(0, Math.floor(Number(v.build.nextId) || 0));
     v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
-    v.settings = Object.assign({ quality: 'auto', sens: 1, names: true, shake: true }, obj(v.settings));
-    if (!['low', 'auto', 'high'].includes(v.settings.quality)) v.settings.quality = 'auto';
+    v.settings = Object.assign({ quality: defaultGraphics(), sens: 1, names: true, shake: true }, obj(v.settings));
+    // the old three choices become the new presets
+    v.settings.quality = { low: 'go', auto: defaultGraphics(), high: 'pro' }[v.settings.quality] || v.settings.quality;
+    if (!GRAPHICS[v.settings.quality]) v.settings.quality = defaultGraphics();
+    v.cheatLv = Math.max(0, Math.floor(Number(v.cheatLv) || 0));
     v.settings.sens = clamp(Number(v.settings.sens) || 1, 0.4, 2);
     v.settings.names = v.settings.names !== false;
     v.settings.shake = v.settings.shake !== false;
@@ -107,7 +110,7 @@ const Game = {
   need(L) { return this.track === 'g2' ? Math.round(xpNeed(L) * G2_HARD) : xpNeed(L); },
   mult() { return xpMult(this.prog().level); },
   boostActive() { return Date.now() < (this.save.boost.until || 0); },
-  stats() { return { level: this.lv(), runLevel: this.runLv(), speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) }; },
+  stats() { return { level: this.lv(), runLevel: this.runLv(), speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) * this.turboMult() }; },
   envKey() { return this.where === 'env' ? this.envId : this.where; },
 
   /* ---------------- boot ---------------- */
@@ -117,7 +120,10 @@ const Game = {
     const canvas = $('scene');
     let renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+      // edge smoothing is fixed when the page starts: off only for the Go preset
+      const pre = Store.get(SAVE_KEY, null);
+      this.antialias = !(pre && pre.settings && (pre.settings.quality === 'go' || pre.settings.quality === 'low'));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: this.antialias, powerPreference: 'high-performance' });
     } catch (e) {
       $('noGl').hidden = false;
       return;
@@ -182,6 +188,7 @@ const Game = {
   isUnlocked(m) {
     if (m.custom) return true;
     if (m.cat === 'g2') return this.save.g2.level >= m.level;
+    if (m.cat === 'energy') return this.energyLv() >= m.level;
     if (m.gym) return this.lv() >= m.level;
     return this.save.unlocked || this.lv() >= m.level;
   },
@@ -298,8 +305,14 @@ const Game = {
       this.shakeBtn(m.id);
       return;
     }
+    if (m.field) { if (this.loop && this.loop.m === m) this.toast('⏹ برای تموم کردن، دکمه‌ی «توقف» رو بزن'); else this.openTrick(); return; }
     const P = this.player;
     if (m.toggle) {
+      if (RUN_TURBO[m.id] && !this.world.allowTurbo) {
+        Sfx.play('error');
+        this.toast(`${m.icon} «${m.name}» فقط توی «پیست دو یک‌میلیون متری» کار می‌کنه (از ته تالار انرژی، سمت شرق باشگاه).`, 'warn');
+        return;
+      }
       P.mode = P.mode === m.id ? 'walk' : m.id;
       this.save.mode = P.mode;
       Sfx.play('click');
@@ -339,7 +352,7 @@ const Game = {
     } else if (m.custom) {
       started = this.startLoop({ m, anim: m.anim, done: () => this.customDone(m.name, m.effect) });
     } else {
-      started = this.startLoop({ m, anim: m.anim || m.id, done: () => this.exerciseDone(m) });
+      started = this.startLoop({ m, anim: m.anim || m.id, done: () => (m.cat === 'energy' ? this.energyDone(m) : this.exerciseDone(m)) });
     }
     if (!started) return;
     Sfx.play('click');
@@ -787,6 +800,7 @@ const Game = {
     Sfx.play('whoosh');
     const from = this.where;
     const fromItem = this.placeItem;
+    const fromEnv = this.envId;
     this.closeModal('mapModal');
     this.cancelChallenge();
     this.releasePlayer();
@@ -800,6 +814,7 @@ const Game = {
         w = this.gym;
         if (from === 'island') at = { x: PORTAL.x + 2.5, z: PORTAL.z - 2.5, yaw: Math.PI, camYaw: 0.7 };
         if (from === 'lucky') at = { x: LUCKY_PORTAL.x + 2.5, z: LUCKY_PORTAL.z - 2.5, yaw: Math.PI, camYaw: 0.7 };
+        if (from === 'env' && fromEnv === 'runtrack') at = { x: RUN_HALL.gate.x - 4, z: RUN_HALL.gate.z, yaw: -Math.PI / 2, camYaw: Math.PI / 2 };
       } else if (target === 'island') {
         w = this.getIsland();
         if (from === 'place' && fromItem) {
@@ -984,6 +999,7 @@ const Game = {
       }
       const inv = this.spinInviteAction();
       if (inv) return inv;
+      if (w.nearRunGate()) return { label: '🏁 برو به پیست دو یک‌میلیون متری', run: () => this.travel('env', 'runtrack') };
       const at = this.attractionAction();
       if (at) return at;
       if (this.nearRaceStart()) return { label: '🏁 مسابقه‌ی دو', run: () => this.startRace() };
@@ -1052,6 +1068,14 @@ const Game = {
     on('buildBtn', () => { Sfx.init(); this.toggleBuild(); });
     on('stopBtn', () => this.stopLoop());
     on('spinCancel', () => this.spinCancelClass());
+    on('lvCutBtn', () => this.cutLevels());
+    on('cheatBtn', () => this.purgeCheats());
+    on('trickGo', () => this.startTrick());
+    on('runInvite', () => this.openRunInvite());
+    on('runAgain', () => this.resetRun());
+    on('runResAgain', () => this.resetRun());
+    on('runResHome', () => { this.closeModal('runResultModal'); this.travel('gym'); });
+    document.querySelectorAll('#trickQuick button').forEach((b) => b.addEventListener('click', () => { $('trickAmt').value = b.dataset.n; }));
     on('bAdd', () => this.openBuildCatalog());
     on('bMove', () => this.buildMove());
     on('bRot', () => this.buildRotate());
@@ -1268,7 +1292,9 @@ const Game = {
       if (this.race) this.tickRace(dt);
       if (this.mode === 'play') this.tickHud();
       this.tickSpin();
+      if (this.mode === 'play' || this.mode === 'transition') this.tickRun(dt);
       this.tickWall(dt);
+      this.tickShadows();
       if (this.watch) this.stepWatch(dt);
       else this.renderer.render(this.world.scene, this.camera);
     } catch (e) {
@@ -1294,6 +1320,7 @@ const Game = {
     cb.hidden = !comboOn;
     if (comboOn) cb.textContent = `کمبو ×${fa((1 + this.combo * 0.1).toFixed(1))}`;
     this.tickTimers();
+    this.tickTrickField();
     this.tickTemp();
     this.tickZone();
     this.tickBadges();

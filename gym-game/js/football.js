@@ -76,6 +76,7 @@ class FootballWorld extends EnvWorld {
     this.finishBatches();
     this.ball = { pos: new THREE.Vector3(0, 0.11, 0), vel: new THREE.Vector3(), holder: null, last: null, spin: 0 };
     this.ballMesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12), new THREE.MeshStandardMaterial({ map: ballTexture(), roughness: 0.45 }));
+    this.ballMesh.userData.noSolid = true;
     this.scene.add(this.ballMesh);
     this.ballShadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT);
     this.ballShadow.scale.set(0.35, 1, 0.35);

@@ -47,7 +47,7 @@ Object.assign(Game, {
     if (loc === 'island') return level >= ISLAND_LEVEL;
     if (loc === 'lucky') return level >= LUCKY_LEVEL;
     const e = ENV_BY_ID[loc];
-    return !!(e && !e.secret && level >= e.level);
+    return !!(e && !e.secret && !e.noVisit && level >= e.level);
   },
 
   worldKey(w) {
@@ -88,7 +88,7 @@ Object.assign(Game, {
   pickDestination(n) {
     if (n.level >= LUCKY_LEVEL && Math.random() < 0.5) return 'lucky';
     if (n.level >= ISLAND_LEVEL && Math.random() < 0.55) return 'island';
-    const opts = ENVS.filter((e) => !e.secret && n.level >= e.level).map((e) => e.id);
+    const opts = ENVS.filter((e) => !e.secret && !e.noVisit && n.level >= e.level).map((e) => e.id);
     return opts.length ? pick(opts) : null;
   },
 
