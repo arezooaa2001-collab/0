@@ -6584,7 +6584,9 @@ PH_RUN.youtube = box => {
   box.querySelector('form').onsubmit = e => { e.preventDefault(); const q = box.querySelector('input').value.trim(); phOpenReal(q ? 'https://m.youtube.com/results?search_query=' + encodeURIComponent(q) : 'https://m.youtube.com/'); };
   box.querySelector('.wide').onclick = () => phOpenReal('https://m.youtube.com/');
 };
-/* ---------- Gemini and ChatGPT: the real models through their real APIs, with your own key ---------- */
+/* ---------- Gemini and ChatGPT: the real models through their real APIs, laid out like the real Android apps.
+   The preinstalled version 1 is the early app (Gemini as launched in Feb 2024, the 2023 ChatGPT app) on the oldest model
+   your key can still use; the Play Store update to version 2 brings the current app with the newest model and a model picker ---------- */
 const phKeys = (() => { try { return JSON.parse(localStorage.getItem('shahr-phone-keys') || '{}'); } catch (_) { return {}; } })();
 const phSaveKeys = () => { try { localStorage.setItem('shahr-phone-keys', JSON.stringify(phKeys)); } catch (_) { } };
 const phModels = {};
@@ -6602,6 +6604,12 @@ async function phListModels(p) {
   }
   return (phModels[p] = list);
 }
+// only models made for chatting, newest first
+function phChatModels(p, list) {
+  if (p === 'gemini') { const ver = n => parseFloat((n.match(/^gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]); return list.filter(n => /^gemini-\d/.test(n) && !/(tts|image|live|audio|embed|vision|thinking|exp|robotics|computer|native|learnlm)/.test(n)).sort((a, b) => ver(b) - ver(a) || a.length - b.length); }
+  const ver = n => parseFloat((n.match(/^gpt-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  return list.filter(n => /^gpt-\d/.test(n) && !/(audio|realtime|transcribe|tts|image|search|instruct|codex|embed|moderation|0301|0314|0613|16k|vision|preview|\d{4}-\d\d-\d\d)/.test(n)).sort((a, b) => ver(b) - ver(a) || a.length - b.length);
+}
 // the old app version picks the oldest model your key can still use, the updated app the newest one
 function phPickModel(p, list, newest) {
   if (p === 'gemini') {
@@ -6617,61 +6625,292 @@ function phPickModel(p, list, newest) {
   const sc = n => -(/-\d{4}-\d\d-\d\d/.test(n) ? 2 : 0) - (/chat-latest/.test(n) ? 1 : 0) - (/nano/.test(n) ? 1.5 : 0) - n.length * 0.01;
   return ok.sort((a, b) => (newest ? ver(b) - ver(a) : ver(a) - ver(b)) || sc(b) - sc(a))[0] || null;
 }
-async function phAsk(p, model, hist) {
-  const key = phKeys[p];
-  if (p === 'gemini') {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: hist.map(m => ({ role: m.me ? 'user' : 'model', parts: [{ text: m.t }] })) }) });
-    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error?.message || 'HTTP ' + r.status);
-    const c = j.candidates && j.candidates[0]; if (!c) throw new Error(j.promptFeedback?.blockReason ? 'پاسخ مسدود شد: ' + j.promptFeedback.blockReason : 'پاسخی نیامد');
-    return (c.content?.parts || []).map(x => x.text || '').join('') || '(پاسخ خالی — ' + (c.finishReason || '') + ')';
-  }
-  const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify({ model, messages: hist.map(m => ({ role: m.me ? 'user' : 'assistant', content: m.t })) }) });
-  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error?.message || 'HTTP ' + r.status);
-  return j.choices?.[0]?.message?.content || '(پاسخ خالی)';
+// "gemini-2.5-flash" → "2.5 Flash", "gpt-4o-mini" → "GPT-4o mini", like the apps' model menus
+function phModelLabel(p, m) {
+  if (!m) return '';
+  if (p === 'gemini') return m.replace(/^gemini-/, '').split('-').map(w => /^\d/.test(w) ? w : w[0].toUpperCase() + w.slice(1)).join(' ').replace(/ Lite/, '-Lite');
+  return m.replace(/^gpt-/, 'GPT-').replace(/-turbo$/, '').replace(/-(mini|nano)/, ' $1').replace(/-chat-latest$/, ' Instant');
 }
-function phMd(t) { return phEsc(t).replace(/```([\s\S]*?)```/g, (_, c) => `<pre dir="ltr">${c.replace(/^\w*\n/, '')}</pre>`).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/^#{1,4} (.*)$/gm, '<b>$1</b>').replace(/^[*-] /gm, '• ').replace(/\n/g, '<br>'); }
+// photos from the phone's gallery, shrunk to send to the model
+const phImgCache = new Map();
+async function phImgB64(id) {
+  if (phImgCache.has(id)) return phImgCache.get(id);
+  const m = await PDB.get(id); if (!m || !m.blob) throw new Error('این عکس دیگه تو گالری نیست');
+  const bm = await createImageBitmap(m.blob), k = Math.min(1, 1024 / Math.max(bm.width, bm.height)), c = mkCanvas(Math.round(bm.width * k), Math.round(bm.height * k));
+  c.getContext('2d').drawImage(bm, 0, 0, c.width, c.height); const b = c.toDataURL('image/jpeg', 0.85).split(',')[1]; phImgCache.set(id, b); return b;
+}
+// answers arrive word by word, as in the apps (server-sent events from both APIs)
+async function phStream(p, model, msgs, onText, signal) {
+  const key = phKeys[p]; let r;
+  if (p === 'gemini') {
+    const contents = []; for (const m of msgs) contents.push({ role: m.me ? 'user' : 'model', parts: [...(m.img ? [{ inlineData: { mimeType: 'image/jpeg', data: await phImgB64(m.img) } }] : []), { text: m.t || (m.img ? 'این عکس' : ' ') }] });
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents }), signal });
+  } else {
+    const messages = []; for (const m of msgs) messages.push({ role: m.me ? 'user' : 'assistant', content: m.me && m.img ? [{ type: 'text', text: m.t || 'این عکس' }, { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + await phImgB64(m.img) } }] : m.t });
+    r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify({ model, messages, stream: true }), signal });
+  }
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error?.message || 'HTTP ' + r.status); }
+  const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '', out = '', why = '';
+  for (;;) {
+    const { done, value } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if (!d || d === '[DONE]') continue; let j; try { j = JSON.parse(d); } catch (_) { continue; }
+      if (j.error) throw new Error(j.error.message || 'خطا');
+      let piece = '';
+      if (p === 'gemini') { const c = j.candidates && j.candidates[0]; piece = ((c && c.content && c.content.parts) || []).map(x => x.thought ? '' : x.text || '').join(''); if (c && c.finishReason && c.finishReason !== 'STOP') why = c.finishReason; if (j.promptFeedback && j.promptFeedback.blockReason) why = j.promptFeedback.blockReason; }
+      else piece = (j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content) || '';
+      if (piece) { out += piece; onText(out); }
+    }
+  }
+  if (!out && why) throw new Error('پاسخی داده نشد (' + why + ')');
+  return out;
+}
+// markdown the way the apps show it: headings, lists, tables, quotes, code blocks with a copy button
+function phMd(src) {
+  const inl = s => phEsc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  const out = [], L = String(src).replace(/\r/g, '').split('\n'); let i = 0;
+  while (i < L.length) {
+    const l = L[i];
+    if (/^\s*```/.test(l)) { const lang = l.replace(/^\s*```/, '').trim(), code = []; i++; while (i < L.length && !/^\s*```/.test(L[i])) code.push(L[i++]); i++; out.push(`<div class="md-code"><div class="md-code-h"><span>${phEsc(lang || 'code')}</span><button type="button" data-copy>${aiSvg('copy', 15)}</button></div><pre dir="ltr">${phEsc(code.join('\n'))}</pre></div>`); continue; }
+    if (/^\s*$/.test(l)) { i++; continue; }
+    let m;
+    if ((m = l.match(/^(#{1,6})\s+(.*)/))) { out.push(`<h${Math.min(6, m[1].length + 2)} dir="auto">${inl(m[2])}</h${Math.min(6, m[1].length + 2)}>`); i++; continue; }
+    if (/^\s*(\*\s*\*\s*\*|-{3,}|_{3,})\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < L.length && /^\s*\|?\s*:?-{2,}/.test(L[i + 1])) {
+      const row = s => s.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim()), head = row(l); i += 2; const rows = []; while (i < L.length && /^\s*\|.*\|\s*$/.test(L[i])) rows.push(row(L[i++]));
+      out.push(`<div class="md-tbl"><table dir="auto"><thead><tr>${head.map(c => `<th>${inl(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${inl(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`); continue;
+    }
+    if (/^\s*>/.test(l)) { const q = []; while (i < L.length && /^\s*>/.test(L[i])) q.push(L[i++].replace(/^\s*>\s?/, '')); out.push(`<blockquote dir="auto">${inl(q.join(' '))}</blockquote>`); continue; }
+    if ((m = l.match(/^(\s*)([-*+]|\d+[.)])\s+/))) {
+      const ol = /\d/.test(m[2]), items = [];
+      while (i < L.length && (L[i].match(/^\s*([-*+]|\d+[.)])\s+/) || (items.length && /^\s{2,}\S/.test(L[i])))) { const t = L[i].replace(/^\s*([-*+]|\d+[.)])\s+/, ''); if (/^\s*([-*+]|\d+[.)])\s+/.test(L[i])) items.push((L[i].match(/^\s*/)[0].length >= 2 ? '<span class="md-sub"></span>' : '') + inl(t)); else items[items.length - 1] += ' ' + inl(L[i].trim()); i++; }
+      out.push(`<${ol ? 'ol' : 'ul'} dir="auto">${items.map(t => `<li>${t}</li>`).join('')}</${ol ? 'ol' : 'ul'}>`); continue;
+    }
+    const para = [l]; i++; while (i < L.length && !/^\s*$/.test(L[i]) && !/^(#{1,6}\s|\s*```|\s*>|\s*([-*+]|\d+[.)])\s+|\s*\|)/.test(L[i])) para.push(L[i++]);
+    out.push(`<p dir="auto">${para.map(inl).join('<br>')}</p>`);
+  }
+  return out.join('');
+}
+const AI_ICON = {
+  menu: '<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  menu2: '<path d="M4 9h16M4 15h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  chev: '<path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>',
+  plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  send: '<path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  sendG: '<path d="M3.5 20.5l17-8.5-17-8.5 2.5 8.5zM6 12h7" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>',
+  stop: '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  up: '<path d="M7 11v9H4v-9zM7 11l4-7c1.5 0 2.5 1 2.2 2.6L12.6 10H18a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
+  down: '<g transform="rotate(180 12 12)"><path d="M7 11v9H4v-9zM7 11l4-7c1.5 0 2.5 1 2.2 2.6L12.6 10H18a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></g>',
+  regen: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  spk: '<path d="M4 9v6h4l5 4V5L8 9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  pen: '<path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 3.5l2 2L12 14l-3 1 1-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  img: '<rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.8" fill="currentColor"/><path d="M4 18l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  cam: '<path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  wave: '<path d="M6 10v4M10 6.5v11M14 9v6M18 11v2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  trash: '<path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  key: '<circle cx="8" cy="15" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 12l8-8M16 7l2 2M14 9l2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  spark: '<defs><linearGradient id="aiGm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset=".6" stop-color="#9168ff"/><stop offset="1" stop-color="#e070c8"/></linearGradient></defs><path d="M12 2c.6 5.4 4.6 9.4 10 10-5.4.6-9.4 4.6-10 10-.6-5.4-4.6-9.4-10-10 5.4-.6 9.4-4.6 10-10z" fill="url(#aiGm)"/>',
+  knot: '<g fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="12" rx="8" ry="3.4"/><ellipse cx="12" cy="12" rx="8" ry="3.4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="8" ry="3.4" transform="rotate(120 12 12)"/></g>'
+};
+const aiSvg = (k, s = 22) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true">${AI_ICON[k]}</svg>`;
+// the apps' own wording; English is the original text, Persian follows the phone's language setting
+const AI_STR = {
+  gemini: {
+    en: { hello: n => `Hello, ${n}`, help: 'How can I help you today?', ask1: 'Type, talk, or share a photo', ask2: 'Ask Gemini', disc1: 'Gemini may display inaccurate info, including about people, so double-check its responses.', disc2: 'Gemini can make mistakes, so double-check it', newChat: 'New chat', recent: 'Recent', settings: 'Settings', gallery: 'Gallery', camera: 'Camera', live: 'Live', listening: 'Listening…', speaking: 'Gemini is speaking…', copied: 'Copied to clipboard', stopped: 'You stopped this response',
+      chips1: ['Help me write a thank-you note to a friend', 'Brainstorm ideas for a weekend in the city', 'Explain how a car engine works', 'Give me a quick dinner recipe'], chips2: ['Write a story', 'Help me learn', 'Make a plan', 'Boost my day'] },
+    fa: { hello: n => `سلام ${n}`, help: 'امروز چطور می‌تونم کمکتون کنم؟', ask1: 'بنویسید، صحبت کنید یا عکس بفرستید', ask2: 'از Gemini بپرسید', disc1: 'ممکن است Gemini اطلاعات نادرست، از جمله دربارهٔ افراد، نشان دهد؛ پس پاسخ‌هایش را بررسی کنید.', disc2: 'Gemini ممکن است اشتباه کند، پس بررسی‌اش کنید', newChat: 'گفتگوی جدید', recent: 'اخیر', settings: 'تنظیمات', gallery: 'گالری', camera: 'دوربین', live: 'زنده', listening: 'در حال گوش دادن…', speaking: 'Gemini در حال صحبت…', copied: 'در بریده‌دان کپی شد', stopped: 'این پاسخ را متوقف کردید',
+      chips1: ['کمکم کن یه یادداشت تشکر برای دوستم بنویسم', 'برای آخر هفته تو شهر ایده بده', 'توضیح بده موتور ماشین چطور کار می‌کنه', 'یه دستور شام سریع بهم بگو'], chips2: ['یه داستان بنویس', 'کمکم کن یاد بگیرم', 'برنامه‌ریزی کن', 'حالمو خوب کن'] }
+  },
+  chatgpt: {
+    en: { empty2: 'What can I help with?', ask1: 'Message', ask2: 'Ask anything', disc1: 'ChatGPT can make mistakes. Consider checking important information.', disc2: 'ChatGPT can make mistakes. Check important info.', you: 'You', newChat: 'New chat', recent: 'Chats', settings: 'Settings', gallery: 'Photos', camera: 'Camera', live: 'Voice', listening: 'Listening…', speaking: 'Speaking…', copied: 'Copied', stopped: 'Stopped',
+      chips1: [], chips2: ['Summarize text', 'Brainstorm', 'Help me write', 'Make a plan'] },
+    fa: { empty2: 'چه کمکی از دستم برمی‌آید؟', ask1: 'پیام', ask2: 'هر چیزی بپرسید', disc1: 'ChatGPT ممکن است اشتباه کند. اطلاعات مهم را بررسی کنید.', disc2: 'ChatGPT ممکن است اشتباه کند. اطلاعات مهم را بررسی کنید.', you: 'شما', newChat: 'گفتگوی جدید', recent: 'گفتگوها', settings: 'تنظیمات', gallery: 'عکس‌ها', camera: 'دوربین', live: 'صدا', listening: 'در حال گوش دادن…', speaking: 'در حال صحبت…', copied: 'کپی شد', stopped: 'متوقف شد',
+      chips1: [], chips2: ['خلاصه کن', 'ایده بده', 'کمکم کن بنویسم', 'برنامه‌ریزی کن'] }
+  }
+};
+const phHasFa = t => /[؀-ۿ]/.test(t);
+function phSpeak(t, done) {
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(String(t).replace(/[*#`>|_]/g, '').slice(0, 1500)); u.lang = phHasFa(t) ? 'fa-IR' : 'en-US'; u.onend = u.onerror = () => done && done(); speechSynthesis.speak(u); return true; } catch (_) { done && done(); return false; }
+}
+function phListen(lang, onText, onEnd) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return null;
+  const r = new SR(); r.lang = lang; r.interimResults = true; r.maxAlternatives = 1; let fin = '';
+  r.onresult = e => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += e.results[i][0].transcript; else t += e.results[i][0].transcript; } onText(fin + t, false); };
+  r.onend = () => onEnd(fin); r.onerror = () => { }; try { r.start(); } catch (_) { return null; } return r;
+}
+function phCopy(t, msg) { const ok = () => phNote(msg); try { navigator.clipboard.writeText(t).then(ok, () => { fallback(); }); } catch (_) { fallback(); } function fallback() { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); } catch (_) { } a.remove(); ok(); } }
 function phAI(box, p) {
-  const G = p === 'gemini', st = phone.st, ver = st.apps[p] ?? 0, latest = PH_STORE[p].vers.length - 1, newest = ver >= latest;
-  const site = G ? 'https://gemini.google.com/app' : 'https://chatgpt.com/', keyURL = G ? 'https://aistudio.google.com/apikey' : 'https://platform.openai.com/api-keys';
-  box.classList.add('ai', G ? 'gem' : 'gpt');
-  box.innerHTML = `<div class="ph-head">${phIcon(p, 28)}<b>${G ? 'Gemini' : 'ChatGPT'}</b><small class="ai-model">نسخهٔ ${fa(PH_STORE[p].vers[ver].v)}${newest ? '' : ' (قدیمی)'}</small><button type="button" class="ai-set" aria-label="کلید">⚙</button></div>
-  <div class="ai-log"></div><form class="ai-form" autocomplete="off"><input type="text" enterkeyhint="send" dir="auto" placeholder="${G ? 'از Gemini بپرس' : 'پیام به ChatGPT'}"><button type="submit" aria-label="بفرست">➤</button></form>`;
-  const log = box.querySelector('.ai-log'), inp = box.querySelector('input'), mEl = box.querySelector('.ai-model'), hist = st['ai_' + p] = st['ai_' + p] || []; let model = null, busy = false;
-  const add = (cls, html) => { const d = phEl('div', 'ai-m ' + cls, html, log); log.scrollTop = log.scrollHeight; return d; };
-  const keyCard = msg => {
-    const d = add('sys', `<b>${msg || 'برای جواب واقعی، کلید API لازمه'}</b><p>${G ? 'Gemini' : 'ChatGPT'} واقعی روی سرورهای ${G ? 'گوگل' : 'OpenAI'} اجرا می‌شه. کلید API خودت رو بذار تا سؤال‌هات مستقیم به همون سرورها بره و جواب واقعی بیاد (کلید فقط روی همین دستگاه ذخیره می‌شه).</p>
-      <input class="ph-in" type="password" placeholder="${G ? 'AIza…' : 'sk-…'}" value="${phEsc(phKeys[p] || '')}"><div class="ai-row"><button type="button" data-a="save" class="ph-pill">ذخیرهٔ کلید</button><button type="button" data-a="get" class="ph-pill ghost">گرفتن کلید ↗</button></div>
-      <button type="button" data-a="site" class="ph-pill ghost wide">باز کردن ${G ? 'Gemini' : 'ChatGPT'} واقعی در مرورگر ↗</button>`);
-    d.onclick = e => { const a = e.target.closest('button')?.dataset.a; if (a === 'save') { phKeys[p] = d.querySelector('input').value.trim(); phSaveKeys(); delete phModels[p]; model = null; d.remove(); phNote('کلید ذخیره شد'); prep(); } else if (a === 'get') phOpenReal(keyURL); else if (a === 'site') phOpenReal(site); };
+  const G = p === 'gemini', st = phone.st, ver = st.apps[p] ?? 0, latest = PH_STORE[p].vers.length - 1, v2 = ver >= latest;
+  const lang = st.lang === 'en' ? 'en' : 'fa', S = AI_STR[p][lang], name = phKeys.name || (lang === 'en' ? 'there' : 'دوست من');
+  st.ai = st.ai || {}; const A = st.ai[p] = st.ai[p] || { chats: [], cur: null, model: null };
+  if (st['ai_' + p] && st['ai_' + p].length) { A.chats.unshift({ id: 'c' + Date.now().toString(36), title: (st['ai_' + p][0].t || '').slice(0, 40), at: Date.now(), msgs: st['ai_' + p].map(m => ({ me: m.me, t: m.t })) }); } delete st['ai_' + p];
+  let chat = A.chats.find(c => c.id === A.cur) || null, model = null, ctl = null, attach = null, listening = null, voice = null;
+  box.className = `ph-app ai2 ${G ? 'gem' : 'gpt'} v${v2 ? 2 : 1}`; box.dir = lang === 'en' ? 'ltr' : 'rtl';
+  const title = G ? (v2 ? `<button type="button" class="ai-title" data-a="pick">Gemini <span class="ai-mchip"><span class="ai-mname" dir="ltr"></span>${aiSvg('chev', 16)}</span></button>` : '<span class="ai-title">Gemini</span>')
+    : (v2 ? `<button type="button" class="ai-title" data-a="pick">ChatGPT <span class="ai-mname" dir="ltr"></span>${aiSvg('chev', 16)}</button>` : '<span class="ai-title">ChatGPT <span class="ai-mname v1" dir="ltr"></span></span>');
+  const avatar = `<button type="button" class="ai-av" data-a="acct">${phEsc((phKeys.name || 'G')[0].toUpperCase())}</button>`;
+  box.innerHTML = `<div class="ai-top"><button type="button" class="ai-ib" data-a="menu" aria-label="menu">${aiSvg(G || !v2 ? 'menu' : 'menu2')}</button>${title}${G ? avatar : `<button type="button" class="ai-ib" data-a="new" aria-label="new chat">${aiSvg('pen')}</button>`}</div>
+  <div class="ai-log"></div>
+  <div class="ai-dock"><div class="ai-att" hidden></div>
+   <div class="ai-comp">${!G || v2 ? `<button type="button" class="ai-ib ai-plus" data-a="plus">${aiSvg('plus')}</button>` : ''}<textarea rows="1" dir="auto" placeholder="${phEsc(v2 ? S.ask2 : S.ask1)}"></textarea>
+    ${G && !v2 ? `<button type="button" class="ai-ib" data-a="gal">${aiSvg('cam')}</button>` : ''}<button type="button" class="ai-ib ai-mic" data-a="mic">${aiSvg('mic')}</button><button type="button" class="ai-go" data-a="go"></button></div>
+   <p class="ai-disc">${phEsc(v2 ? S.disc2 : S.disc1)}</p></div>
+  <div class="ai-scrim" hidden></div><div class="ai-drawer" hidden></div><div class="ai-sheet" hidden></div><div class="ai-voice" hidden></div>`;
+  const log = box.querySelector('.ai-log'), ta = box.querySelector('textarea'), go = box.querySelector('.ai-go'), att = box.querySelector('.ai-att'), drawer = box.querySelector('.ai-drawer'), sheet = box.querySelector('.ai-sheet'), scrim = box.querySelector('.ai-scrim');
+  const setGo = () => {
+    const busy = !!ctl, has = !!(ta.value.trim() || attach);
+    go.innerHTML = busy ? aiSvg('stop', 18) : has || !v2 ? aiSvg(G ? 'sendG' : 'send', G ? 20 : 18) : aiSvg('wave', 20);
+    go.className = 'ai-go' + (busy ? ' busy' : has ? ' on' : v2 ? ' voice' : ' idle'); box.querySelector('.ai-mic').hidden = busy || (has && !G);
   };
-  const prep = async () => {
-    if (!phKeys[p]) { keyCard(); return false; }
+  const showModel = () => { for (const e of box.querySelectorAll('.ai-mname')) e.textContent = model ? (e.classList.contains('v1') ? (/3\.5/.test(model) ? '3.5' : phModelLabel(p, model).replace('GPT-', '')) : phModelLabel(p, model)) : ''; };
+  const near = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+  const ai = () => G ? `<span class="ai-spark">${aiSvg('spark', 24)}</span>` : `<span class="ai-gptav">${aiSvg('knot', 18)}</span>`;
+  const thumbOf = id => { const m = phone._thumbs && phone._thumbs[id]; return m ? `<img class="ai-img" src="${m}" alt="">` : ''; };
+  const msgEl = (m, i) => {
+    const d = document.createElement('div');
+    if (m.me) {
+      d.className = 'ai-u';
+      if (!G && !v2) d.innerHTML = `<div class="ai-who"><span class="ai-uav">${phEsc((phKeys.name || S.you || 'Y')[0])}</span><b>${phEsc(S.you)}</b></div><div class="ai-ut" dir="auto">${m.img ? thumbOf(m.img) : ''}${phEsc(m.t)}</div>`;
+      else if (G && !v2) d.innerHTML = `<span class="ai-uav">${phEsc((phKeys.name || 'G')[0].toUpperCase())}</span><div class="ai-ut" dir="auto">${m.img ? thumbOf(m.img) : ''}${phEsc(m.t)}</div>`;
+      else d.innerHTML = `${m.img ? thumbOf(m.img) : ''}${m.t ? `<div class="ai-ub" dir="auto">${phEsc(m.t)}</div>` : ''}`;
+    } else {
+      d.className = 'ai-b' + (m.err ? ' err' : '');
+      const head = !G && !v2 ? `<div class="ai-who">${ai()}<b>ChatGPT</b></div>` : G ? ai() : '';
+      const acts = m.err ? `<button type="button" class="ai-retry" data-act="regen">${lang === 'en' ? 'Retry' : 'دوباره'}</button>` : `<div class="ai-acts">${G ? `<button type="button" data-act="up">${aiSvg('up', 18)}</button><button type="button" data-act="down">${aiSvg('down', 18)}</button><button type="button" data-act="regen">${aiSvg('regen', 18)}</button><button type="button" data-act="copy">${aiSvg('copy', 18)}</button><button type="button" data-act="spk">${aiSvg('spk', 18)}</button>` : `<button type="button" data-act="copy">${aiSvg('copy', 18)}</button><button type="button" data-act="up">${aiSvg('up', 18)}</button><button type="button" data-act="down">${aiSvg('down', 18)}</button><button type="button" data-act="spk">${aiSvg('spk', 18)}</button><button type="button" data-act="regen">${aiSvg('regen', 18)}</button>`}</div>`;
+      d.innerHTML = `${head}<div class="ai-bt">${m.err ? phEsc(m.t) : phMd(m.t)}${m.stopped ? `<p class="ai-stopped">${phEsc(S.stopped)}</p>` : ''}</div>${acts}`;
+      if (m.fb) d.querySelector(`[data-act=${m.fb}]`)?.classList.add('on');
+    }
+    d.dataset.i = i; return d;
+  };
+  const empty = () => {
+    if (G) return v2 ? `<div class="ai-empty g2"><h1 class="ai-grad">${phEsc(S.hello(name))}</h1><div class="ai-chips">${S.chips2.map(c => `<button type="button" data-chip="${phEsc(c)}">${phEsc(c)}</button>`).join('')}</div></div>`
+      : `<div class="ai-empty g1"><h1><span class="ai-grad">${phEsc(S.hello(name))}</span><br><span class="ai-sub">${phEsc(S.help)}</span></h1><div class="ai-cards">${S.chips1.map(c => `<button type="button" data-chip="${phEsc(c)}">${phEsc(c)}</button>`).join('')}</div></div>`;
+    return v2 ? `<div class="ai-empty c2"><h1>${phEsc(S.empty2)}</h1><div class="ai-chips">${S.chips2.map(c => `<button type="button" data-chip="${phEsc(c)}">${phEsc(c)}</button>`).join('')}</div></div>` : `<div class="ai-empty c1"><span class="ai-biglogo">${aiSvg('knot', 56)}</span></div>`;
+  };
+  const render = () => { log.innerHTML = ''; if (!chat || !chat.msgs.length) { log.innerHTML = empty(); return; } chat.msgs.forEach((m, i) => log.appendChild(msgEl(m, i))); log.scrollTop = log.scrollHeight; };
+  // thumbnails of gallery photos used in chats
+  const loadThumbs = async () => { phone._thumbs = phone._thumbs || {}; const ids = new Set(); for (const c of A.chats) for (const m of c.msgs) if (m.img && !phone._thumbs[m.img]) ids.add(m.img); for (const id of ids) { const r = await PDB.get(id); if (r) phone._thumbs[id] = r.thumb; } if (ids.size) render(); };
+  const ready = async () => {
+    if (!phKeys[p]) { keyScreen(); return false; }
     if (model) return true;
-    try { const list = await phListModels(p); model = phPickModel(p, list, newest); if (!model) throw new Error('هیچ مدل گفتگویی روی این کلید فعال نیست'); mEl.textContent = `نسخهٔ ${fa(PH_STORE[p].vers[ver].v)}${newest ? '' : ' (قدیمی)'} · ${model}`; return true; }
-    catch (e) { keyCard('کلید کار نکرد: ' + e.message); return false; }
+    try { const list = await phListModels(p); model = v2 && A.model && list.includes(A.model) ? A.model : phPickModel(p, list, v2); if (!model) throw new Error(lang === 'en' ? 'No chat model is enabled for this key' : 'هیچ مدل گفتگویی روی این کلید فعال نیست'); showModel(); return true; }
+    catch (e) { keyScreen((lang === 'en' ? 'The key did not work: ' : 'کلید کار نکرد: ') + e.message); return false; }
   };
-  for (const m of hist.slice(-20)) add(m.me ? 'me' : 'bot', m.me ? phEsc(m.t) : phMd(m.t));
-  if (!hist.length) add('sys hello', G ? '<b>سلام! من Gemini هستم.</b><p>چطور می‌تونم کمکت کنم؟</p>' : '<b>امروز چه کمکی از دستم برمیاد؟</b>');
-  if (!newest) add('sys', `این نسخهٔ قدیمی ${G ? 'Gemini' : 'ChatGPT'} است و از قدیمی‌ترین مدلی که کلیدت بهش دسترسی داره استفاده می‌کنه. از Play Store به‌روزش کن تا جدیدترین مدل فعال بشه.`);
-  if (phKeys[p]) prep();
-  box.querySelector('.ai-set').onclick = () => keyCard('تنظیم کلید API');
-  box.querySelector('form').onsubmit = async e => {
-    e.preventDefault(); const t = inp.value.trim(); if (!t || busy) return;
-    if (!phOnline()) { add('sys', 'اینترنت گوشی قطعه (Wi-Fi یا حالت پرواز رو چک کن).'); return; }
-    inp.value = ''; add('me', phEsc(t)); hist.push({ me: 1, t }); busy = true;
-    if (!(await prep())) { busy = false; return; }
-    const w = add('bot typing', '<i></i><i></i><i></i>');
-    try { const a = await phAsk(p, model, hist.slice(-16)); hist.push({ me: 0, t: a }); while (hist.length > 40) hist.shift(); w.className = 'ai-m bot'; w.innerHTML = phMd(a); saveGame(); }
-    catch (err) { hist.pop(); w.className = 'ai-m sys err'; w.textContent = 'خطا از سرور: ' + err.message + (/fetch|network/i.test(err.message) ? ' (اینترنت دستگاهت رو چک کن)' : ''); }
-    busy = false; log.scrollTop = log.scrollHeight;
+  const save = () => { A.cur = chat ? chat.id : null; A.chats = A.chats.filter(c => c.msgs.length).slice(0, 30); saveGame(); };
+  const ask = async () => {
+    if (!phOnline()) { add({ me: 0, err: 1, t: lang === 'en' ? "You're offline. Check your connection." : 'اینترنت گوشی قطعه (Wi-Fi یا حالت پرواز رو چک کن).' }, true); return; }
+    if (!(await ready())) return;
+    const m = { me: 0, t: '' }; chat.msgs.push(m); const el = msgEl(m, chat.msgs.length - 1); el.classList.add('live'); el.querySelector('.ai-bt').innerHTML = '<span class="ai-dots"><i></i><i></i><i></i></span>'; log.appendChild(el); log.scrollTop = log.scrollHeight;
+    ctl = new AbortController(); setGo(); let raf = 0;
+    try {
+      const hist = chat.msgs.slice(0, -1).filter(x => !x.err).slice(-20);
+      await phStream(p, model, hist, t => { m.t = t; if (raf) return; raf = setTimeout(() => { raf = 0; const stick = near(); el.querySelector('.ai-bt').innerHTML = phMd(m.t) + '<span class="ai-caret"></span>'; if (stick) log.scrollTop = log.scrollHeight; }, 45); }, ctl.signal);
+    } catch (e) { if (e.name === 'AbortError') m.stopped = 1; else { m.err = 1; m.t = (lang === 'en' ? 'Something went wrong: ' : 'خطا از سرور: ') + e.message + (/fetch|network/i.test(e.message) ? (lang === 'en' ? ' (check your internet)' : ' (اینترنت دستگاهت رو چک کن)') : ''); } }
+    clearTimeout(raf); ctl = null; if (!m.t && !m.err) m.t = m.stopped ? '' : '…';
+    if (!chat.title) chat.title = (chat.msgs[0].t || 'عکس').slice(0, 42);
+    const nel = msgEl(m, chat.msgs.length - 1); el.replaceWith(nel); if (near()) log.scrollTop = log.scrollHeight;
+    setGo(); save(); if (voice) voice.reply(m.t, m.err);
+  };
+  const add = (m, local) => { if (!chat) { chat = { id: 'c' + Date.now().toString(36), title: '', at: Date.now(), msgs: [] }; A.chats.unshift(chat); } if (!chat.msgs.length) log.innerHTML = ''; chat.msgs.push(m); chat.at = Date.now(); log.appendChild(msgEl(m, chat.msgs.length - 1)); log.scrollTop = log.scrollHeight; if (local) save(); };
+  const send = text => {
+    text = (text ?? ta.value).trim(); if ((!text && !attach) || ctl) return;
+    ta.value = ''; ta.style.height = ''; const m = { me: 1, t: text }; if (attach) { m.img = attach.id; phone._thumbs = phone._thumbs || {}; phone._thumbs[attach.id] = attach.thumb; attach = null; att.hidden = true; att.innerHTML = ''; }
+    add(m); setGo(); ask();
+  };
+  // the "Sign in" step: the real services need your own API key
+  function keyScreen(msg) {
+    openSheet(`<div class="ai-key">${G ? `<span class="ai-keylogo">${aiSvg('spark', 46)}</span>` : `<span class="ai-keylogo k">${aiSvg('knot', 40)}</span>`}<h2>${G ? 'Gemini' : (lang === 'en' ? 'Welcome to ChatGPT' : 'به ChatGPT خوش آمدید')}</h2>
+      ${msg ? `<p class="ai-keyerr">${phEsc(msg)}</p>` : ''}<p>${G ? 'Gemini' : 'ChatGPT'} واقعی روی سرورهای ${G ? 'گوگل' : 'OpenAI'} اجرا می‌شه. به‌جای ورود با حساب، کلید API خودت رو بذار تا پیام‌هات مستقیم به همون سرورها بره. کلید فقط روی همین دستگاه می‌مونه.</p>
+      <input class="ph-in" data-k="name" type="text" dir="auto" placeholder="${lang === 'en' ? 'Your name' : 'اسم تو'}" value="${phEsc(phKeys.name || '')}"><input class="ph-in" data-k="key" type="password" placeholder="${G ? 'AIza…' : 'sk-…'}" value="${phEsc(phKeys[p] || '')}">
+      <button type="button" class="ai-btn" data-a="savekey">${lang === 'en' ? 'Continue' : 'ادامه'}</button><button type="button" class="ai-btn ghost" data-a="getkey">${lang === 'en' ? 'Get an API key ↗' : 'گرفتن کلید API ↗'}</button><button type="button" class="ai-btn ghost" data-a="site">${G ? 'gemini.google.com ↗' : 'chatgpt.com ↗'}</button>
+      ${phKeys[p] ? `<button type="button" class="ai-btn ghost danger" data-a="delkey">${lang === 'en' ? 'Remove key' : 'حذف کلید'}</button>` : ''}</div>`);
+  }
+  function openSheet(html) { sheet.innerHTML = html; sheet.hidden = false; scrim.hidden = false; }
+  const closeAll = () => { sheet.hidden = drawer.hidden = scrim.hidden = true; };
+  const openDrawer = () => {
+    drawer.innerHTML = `<button type="button" class="ai-dnew" data-a="new">${aiSvg(G ? 'plus' : 'pen', 18)}<span>${phEsc(S.newChat)}</span></button><p class="ai-dh">${phEsc(S.recent)}</p>
+      <div class="ai-dlist">${A.chats.filter(c => c.msgs.length).map(c => `<div class="ai-dc${chat && c.id === chat.id ? ' on' : ''}" data-c="${c.id}"><span dir="auto">${phEsc(c.title || '…')}</span><button type="button" data-del="${c.id}" aria-label="delete">${aiSvg('trash', 16)}</button></div>`).join('')}</div>
+      <button type="button" class="ai-dset" data-a="acct">${aiSvg('key', 18)}<span>${phEsc(S.settings)}${model ? ` · <span dir="ltr">${phEsc(model)}</span>` : ''}</span></button>`;
+    drawer.hidden = false; scrim.hidden = false;
+  };
+  const openPicker = async () => {
+    if (!(await ready())) return;
+    const list = phChatModels(p, await phListModels(p)).slice(0, 8);
+    openSheet(`<div class="ai-pick"><p class="ai-dh">${lang === 'en' ? 'Choose your model' : 'مدل رو انتخاب کن'}</p>${list.map(m => `<button type="button" data-m="${m}" class="${m === model ? 'on' : ''}"><span><b>${phEsc(phModelLabel(p, m))}</b><small dir="ltr">${m}</small></span>${m === model ? aiSvg('check', 18) : ''}</button>`).join('')}</div>`);
+  };
+  const openPlus = () => openSheet(`<div class="ai-plusm"><button type="button" data-a="gal">${aiSvg('img')}<span>${phEsc(S.gallery)}</span></button><button type="button" data-a="camapp">${aiSvg('cam')}<span>${phEsc(S.camera)}</span></button></div>`);
+  const openGallery = async () => {
+    const l = (await PDB.list(phone.k)).filter(m => m.kind === 'photo').slice(0, 30);
+    openSheet(`<div class="ai-galp"><p class="ai-dh">${phEsc(S.gallery)}</p>${l.length ? `<div class="ai-galg">${l.map(m => `<button type="button" data-img="${m.id}" style="background-image:url(${m.thumb})"></button>`).join('')}</div>` : `<p class="ph-empty">${lang === 'en' ? 'No photos yet — take some with the Camera app.' : 'هنوز عکسی نگرفتی؛ با برنامهٔ دوربین عکس بگیر.'}</p>`}</div>`);
+    sheet._l = l;
+  };
+  const mic = () => {
+    if (listening) { listening.stop(); return; }
+    const L = lang === 'en' && !phHasFa(ta.value) ? 'en-US' : 'fa-IR', base = ta.value;
+    listening = phListen(L, t => { ta.value = (base ? base + ' ' : '') + t; setGo(); }, () => { listening = null; box.querySelector('.ai-mic').classList.remove('on'); setGo(); });
+    if (!listening) { phNote(lang === 'en' ? 'Voice typing is not available in this browser' : 'تایپ صوتی در این مرورگر پشتیبانی نمی‌شه', 1); return; }
+    box.querySelector('.ai-mic').classList.add('on');
+  };
+  // voice conversation (Gemini Live / ChatGPT voice): listen, answer aloud, listen again
+  const startVoice = () => {
+    if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) { phNote(lang === 'en' ? 'Voice mode is not available in this browser' : 'حالت صوتی در این مرورگر پشتیبانی نمی‌شه', 1); return; }
+    const V = box.querySelector('.ai-voice'); V.hidden = false;
+    V.innerHTML = `<div class="ai-orb ${G ? 'g' : 'c'}"></div><p class="ai-vst"></p><p class="ai-vtx" dir="auto"></p><button type="button" class="ai-vend">${aiSvg('x', 24)}</button>`;
+    const stEl = V.querySelector('.ai-vst'), tx = V.querySelector('.ai-vtx');
+    voice = { on: true, rec: null,
+      listen() { if (!this.on) return; stEl.textContent = S.listening; V.classList.remove('talk'); this.rec = phListen(lang === 'en' ? 'en-US' : 'fa-IR', t => { tx.textContent = t; }, fin => { this.rec = null; if (!this.on) return; if (fin.trim()) { tx.textContent = fin; send(fin); stEl.textContent = '…'; } else setTimeout(() => this.listen(), 300); }); },
+      reply(t, err) { if (!this.on) return; if (err) { stEl.textContent = t; setTimeout(() => this.listen(), 1500); return; } stEl.textContent = S.speaking; V.classList.add('talk'); tx.textContent = ''; phSpeak(t, () => this.listen()); },
+      end() { this.on = false; try { this.rec && this.rec.stop(); speechSynthesis.cancel(); } catch (_) { } V.hidden = true; voice = null; } };
+    V.querySelector('.ai-vend').onclick = () => voice && voice.end();
+    voice.listen();
+  };
+  box.addEventListener('click', async e => {
+    const b = e.target.closest('button, .ai-dc'); if (!b) { if (e.target === scrim) closeAll(); return; }
+    const a = b.dataset.a;
+    if (b.dataset.copy !== undefined) { phCopy(b.closest('.md-code').querySelector('pre').textContent, S.copied); return; }
+    if (b.dataset.chip) { send(b.dataset.chip); return; }
+    if (b.dataset.act) {
+      const i = +b.closest('[data-i]').dataset.i, m = chat.msgs[i], k = b.dataset.act; Audio.tick();
+      if (k === 'copy') phCopy(m.t, S.copied); else if (k === 'spk') phSpeak(m.t);
+      else if (k === 'up' || k === 'down') { m.fb = m.fb === k ? null : k; b.parentNode.querySelectorAll('[data-act=up],[data-act=down]').forEach(x => x.classList.toggle('on', x.dataset.act === m.fb)); save(); }
+      else if (k === 'regen' && !ctl) { chat.msgs.splice(i); render(); ask(); }
+      return;
+    }
+    if (b.dataset.del) { e.stopPropagation(); A.chats = A.chats.filter(c => c.id !== b.dataset.del); if (chat && chat.id === b.dataset.del) { chat = null; render(); } save(); openDrawer(); return; }
+    if (b.dataset.c) { chat = A.chats.find(c => c.id === b.dataset.c) || null; closeAll(); render(); save(); return; }
+    if (b.dataset.m) { model = A.model = b.dataset.m; showModel(); closeAll(); save(); return; }
+    if (b.dataset.img) { const m = sheet._l.find(x => x.id === b.dataset.img); attach = { id: m.id, thumb: m.thumb }; att.innerHTML = `<span class="ai-chipimg" style="background-image:url(${m.thumb})"><button type="button" data-a="unatt">${aiSvg('x', 14)}</button></span>`; att.hidden = false; closeAll(); setGo(); ta.focus(); return; }
+    if (!a) return; Audio.tick();
+    if (a === 'menu') openDrawer(); else if (a === 'new') { if (ctl) return; chat = null; closeAll(); render(); save(); }
+    else if (a === 'pick') openPicker(); else if (a === 'acct') { closeAll(); keyScreen(); }
+    else if (a === 'plus') openPlus(); else if (a === 'gal') openGallery(); else if (a === 'camapp') { closeAll(); phLaunch('camera'); }
+    else if (a === 'unatt') { attach = null; att.hidden = true; att.innerHTML = ''; setGo(); }
+    else if (a === 'mic') mic();
+    else if (a === 'go') { if (ctl) ctl.abort(); else if (ta.value.trim() || attach) send(); else if (v2) startVoice(); }
+    else if (a === 'savekey') { const k = sheet.querySelector('[data-k=key]').value.trim(), n = sheet.querySelector('[data-k=name]').value.trim(); if (n) phKeys.name = n; if (k !== phKeys[p]) { phKeys[p] = k; delete phModels[p]; model = null; } phSaveKeys(); closeAll(); if (k) ready().then(ok => { if (ok) phNote((lang === 'en' ? 'Connected: ' : 'وصل شد: ') + '\u2066' + phModelLabel(p, model) + '\u2069'); }); if (!chat) render(); }
+    else if (a === 'getkey') phOpenReal(G ? 'https://aistudio.google.com/apikey' : 'https://platform.openai.com/api-keys'); else if (a === 'site') phOpenReal(G ? 'https://gemini.google.com/app' : 'https://chatgpt.com/');
+    else if (a === 'delkey') { delete phKeys[p]; delete phModels[p]; model = null; phSaveKeys(); closeAll(); showModel(); }
+  });
+  ta.addEventListener('input', () => { ta.style.height = ''; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; setGo(); });
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+  render(); setGo(); loadThumbs(); if (phKeys[p]) ready(); else keyScreen(); // first launch: the sign-in step, like the real apps
+  return {
+    back() { if (voice) { voice.end(); return true; } if (!sheet.hidden || !drawer.hidden) { closeAll(); return true; } return false; },
+    stop() { if (ctl) ctl.abort(); if (listening) listening.stop(); if (voice) voice.end(); try { speechSynthesis.cancel(); } catch (_) { } }
   };
 }
 PH_RUN.gemini = box => phAI(box, 'gemini');
 PH_RUN.chatgpt = box => phAI(box, 'chatgpt');
 /* ---------- Play Store: install, update and remove apps that really work ---------- */
 const PH_STORE = {
-  gemini: { n: 'Google Gemini', dev: 'Google LLC', sys: 1, kind: 'app', size: 96, rate: '۴٫۶', dls: '۵۰۰ میلیون+', desc: 'دستیار هوش مصنوعی گوگل. با کلید API خودت مستقیم به سرورهای واقعی Gemini وصل می‌شه.', vers: [{ v: '1.0', d: 'نسخهٔ اولیه' }, { v: '2.0', d: 'حالا از جدیدترین مدل Gemini که روی حسابت فعاله استفاده می‌کنه.' }] },
-  chatgpt: { n: 'ChatGPT', dev: 'OpenAI', sys: 1, kind: 'app', size: 64, rate: '۴٫۷', dls: '۵۰۰ میلیون+', desc: 'دستیار هوش مصنوعی OpenAI. با کلید API خودت مستقیم به سرورهای واقعی OpenAI وصل می‌شه.', vers: [{ v: '1.0', d: 'نسخهٔ اولیه' }, { v: '2.0', d: 'حالا از جدیدترین مدل GPT که روی حسابت فعاله استفاده می‌کنه.' }] },
+  gemini: { n: 'Google Gemini', dev: 'Google LLC', sys: 1, kind: 'app', size: 96, rate: '۴٫۶', dls: '۵۰۰ میلیون+', desc: 'دستیار هوش مصنوعی گوگل. با کلید API خودت مستقیم به سرورهای واقعی Gemini وصل می‌شه.', vers: [{ v: '1.0', d: 'ظاهر برنامه همون Gemini اولیه (۲۰۲۴)، با قدیمی‌ترین مدلی که کلیدت هنوز بهش دسترسی داره.' }, { v: '2.0', d: 'ظاهر جدید Gemini: انتخاب مدل (Flash / Pro)، گفتگوی صوتی Live، فرستادن عکس از گالری، و جدیدترین مدل روی حسابت.' }] },
+  chatgpt: { n: 'ChatGPT', dev: 'OpenAI', sys: 1, kind: 'app', size: 64, rate: '۴٫۷', dls: '۵۰۰ میلیون+', desc: 'دستیار هوش مصنوعی OpenAI. با کلید API خودت مستقیم به سرورهای واقعی OpenAI وصل می‌شه.', vers: [{ v: '1.0', d: 'ظاهر برنامه همون ChatGPT اولیه (۲۰۲۳)، با قدیمی‌ترین مدل GPT که کلیدت هنوز بهش دسترسی داره (اگه باشه GPT-3.5).' }, { v: '2.0', d: 'ظاهر جدید ChatGPT: انتخاب مدل، حالت صوتی، فرستادن عکس، و جدیدترین مدل GPT روی حسابت.' }] },
   snake: { n: 'مار', dev: 'استودیو شهر آزاد', kind: 'game', size: 9, rate: '۴٫۴', dls: '۱۰ هزار+', desc: 'مار کلاسیک: سیب بخور، بلند شو، به خودت نخور. با کشیدن انگشت یا کلیدهای جهت.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }, { v: '1.1', d: 'سه سرعت (آرام، معمولی، تند) و حالت «بی‌دیوار» که از لبه رد می‌شی.' }] },
   g2048: { n: '۲۰۴۸', dev: 'استودیو شهر آزاد', kind: 'game', size: 6, rate: '۴٫۶', dls: '۵۰ هزار+', desc: 'کاشی‌های هم‌عدد رو به هم بزن تا به ۲۰۴۸ برسی.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }, { v: '1.1', d: 'دکمهٔ «برگرد» برای پس گرفتن آخرین حرکت.' }] },
   flappy: { n: 'پرنده پرواز', dev: 'استودیو شهر آزاد', kind: 'game', size: 12, rate: '۴٫۱', dls: '۱۰۰ هزار+', desc: 'بزن تا پرنده بال بزنه و از بین لوله‌ها رد شه.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
@@ -6748,7 +6987,7 @@ PH_RUN.settings = box => {
   const main = () => { page = null; box.innerHTML = `<div class="ph-head"><b>تنظیمات</b></div><div class="set-list">
     ${rowH('📶', 'اتصال‌ها', st.air ? 'حالت پرواز روشن' : st.wifi ? 'Wi-Fi: وصل' : 'Wi-Fi خاموش', 'net')}${rowH('☀', 'نمایشگر', `${S.disp.type} · ${fa(S.disp.hz)} هرتز`, 'disp')}${rowH('🖼', 'تصویر زمینه', 'عوض کردن پس‌زمینه', 'wall')}
     ${rowH('🔊', 'صدا', 'میزان صدای گوشی و بازی', 'snd')}${rowH('🔋', 'باتری', `${fa(Math.round(st.bat))}٪ · ${fa(S.bat)} میلی‌آمپر ساعت`, 'bat')}${rowH('💾', 'حافظه', `${fa(S.rom)} گیگابایت`, 'mem')}
-    ${rowH('▦', 'برنامه‌ها', 'نصب‌شده‌ها و نسخه‌ها', 'apps')}${rowH('⟳', 'به‌روزرسانی نرم‌افزار', S.uiv, 'upd')}${rowH('ℹ', 'دربارهٔ گوشی', S.name, 'about')}</div>`; };
+    ${rowH('🌐', 'زبان', phone.st.lang === 'en' ? 'English' : 'فارسی', 'lang')}${rowH('▦', 'برنامه‌ها', 'نصب‌شده‌ها و نسخه‌ها', 'apps')}${rowH('⟳', 'به‌روزرسانی نرم‌افزار', S.uiv, 'upd')}${rowH('ℹ', 'دربارهٔ گوشی', S.name, 'about')}</div>`; };
   const sub = (title, html) => { box.innerHTML = `<div class="ph-head"><button type="button" class="ph-backb" data-p="back">‹</button><b>${title}</b></div><div class="set-page">${html}</div>`; };
   const kv = (k, v) => `<div class="set-kv"><span>${k}</span><b>${v}</b></div>`;
   const open = p => {
@@ -6762,6 +7001,7 @@ PH_RUN.settings = box => {
       box.querySelector('.set-page').innerHTML = `<div class="set-big">${fa((used / 1024).toFixed(1))} / ${fa(S.rom)} GB</div><i class="play-pr big"><i style="width:${used / tot * 100}%"></i></i>${kv('سیستم (اندروید)', '۱۸ گیگابایت')}${kv('برنامه‌ها', fa(Math.round(apps)) + ' مگابایت')}${kv('عکس و فیلم (' + fa(l.length) + ' فایل)', phMB(media * 1048576))}${kv('آزاد', fa(((tot - used) / 1024).toFixed(1)) + ' گیگابایت')}`; }); }
     else if (p === 'apps') { const ids = Object.keys(st.apps); sub('برنامه‌ها', ids.map(id => `<div class="set-app">${phIcon(id, 34)}<span><b>${phEsc(PH_STORE[id].n)}</b><small>نسخهٔ ${fa(PH_STORE[id].vers[st.apps[id]].v)} · ${fa(PH_STORE[id].size)} مگابایت</small></span><button type="button" class="ph-pill ghost" data-rm="${id}">حذف</button></div>`).join('') + `<p class="sub">برنامه‌های سیستمی: ${Object.keys(PH_APPS).filter(i => !PH_APPS[i].store).map(phAppName).join('، ')}</p>`); }
     else if (p === 'upd') sub('به‌روزرسانی نرم‌افزار', `<div class="set-big" style="font-size:22px">${S.os}<br>${S.uiv}</div><p>نرم‌افزار گوشی به‌روز است.</p><p class="sub">این همون نسخه‌ایه که ${phEsc(S.fa)} باهاش عرضه شده. به‌روزرسانی برنامه‌ها از Play Store انجام می‌شه.</p>`);
+    else if (p === 'lang') sub('زبان', `<div class="set-walls" style="grid-template-columns:1fr"><button type="button" class="set-row" data-lang="fa"><span><b>فارسی</b><small>${st.lang !== 'en' ? '✓ فعال' : ''}</small></span></button><button type="button" class="set-row" data-lang="en"><span><b>English</b><small>${st.lang === 'en' ? '✓ فعال' : ''}</small></span></button></div><p class="sub">برنامه‌های Gemini و ChatGPT با این زبان نشون داده می‌شن. English همون متن اصلی خود برنامه‌هاست؛ فارسی ترجمهٔ منه.</p>`);
     else if (p === 'about') sub('دربارهٔ گوشی', `<div class="set-big" style="font-size:22px">${phEsc(S.name)}</div>${kv('مدل', S.code)}${kv('سال عرضه', fa(S.year))}${kv('اندروید', S.os)}${kv('رابط کاربری', S.uiv)}${kv('تراشه', S.chip)}${kv('پردازنده', S.cpu)}${kv('گرافیک', S.gpu)}${kv('رم', fa(S.ram) + ' گیگابایت')}${kv('حافظه', fa(S.rom) + ' گیگابایت')}
       ${kv('نمایشگر', `${fa(S.disp.inch)} اینچ ${S.disp.type} · ${fa(S.disp.res[0])}×${fa(S.disp.res[1])} · ${fa(S.disp.hz)} هرتز`)}${kv('باتری', fa(S.bat) + ' میلی‌آمپر ساعت · شارژ ' + fa(S.charge) + ' وات')}${kv('ابعاد', S.size)}${kv('وزن', fa(S.weight) + ' گرم')}
       ${kv('دوربین اصلی', S.rear.map(l => fa(l.mp) + 'MP').join(' + '))}${kv('دوربین سلفی', fa(S.front.mp) + 'MP ' + S.front.f)}${kv('فیلم', S.video)}${S.extra.map(x => kv('ویژگی', x)).join('')}
@@ -6770,6 +7010,7 @@ PH_RUN.settings = box => {
   box.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; Audio.tick();
     if (b.dataset.p === 'back') main(); else if (b.dataset.p) open(b.dataset.p);
+    else if (b.dataset.lang) { st.lang = b.dataset.lang; open('lang'); saveGame(); }
     else if (b.dataset.w !== undefined) { st.wall = +b.dataset.w; phApplyLook(); open('wall'); }
     else if (b.dataset.rm) { delete st.apps[b.dataset.rm]; open('apps'); saveGame(); }
     else if (b.dataset.a === 'gal') phLaunch('gallery'); else if (b.dataset.a === 'full') { phFull(!phone.full); open('disp'); }
