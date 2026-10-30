@@ -12,11 +12,13 @@ let result = null; // { blob, url, w, h }
 let options = { scale: 2, strength: 'medium' };
 let hooks = { saveToGallery: async () => {} };
 
+// The single-file build (Camera.html) provides the engine as a blob URL.
+const coreUrl = () => window.__ENHANCE_CORE_URL || new URL('./enhance-core.js', import.meta.url).href;
+
 function getWorker() {
   if (worker || workerFailed) return worker;
   try {
-    worker = new Worker(new URL('./enhance-core.js', import.meta.url));
-    worker.onerror = () => { workerFailed = true; worker = null; };
+    worker = new Worker(coreUrl());
   } catch {
     workerFailed = true;
     worker = null;
@@ -28,7 +30,7 @@ function loadCoreOnMainThread() {
   if (self.EnhanceCore) return Promise.resolve(self.EnhanceCore);
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = new URL('./enhance-core.js', import.meta.url).href;
+    s.src = coreUrl();
     s.onload = () => (self.EnhanceCore ? resolve(self.EnhanceCore) : reject(new Error('core')));
     s.onerror = () => reject(new Error('core'));
     document.head.appendChild(s);
@@ -124,17 +126,31 @@ function runJob(job) {
   const w = getWorker();
   if (w) {
     return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        w.removeEventListener('message', onMsg);
+        w.removeEventListener('error', onError);
+      };
       const onMsg = (e) => {
         const m = e.data;
         if (m.id !== job.id) return;
         if (m.type === 'progress') setProgress(m.p, STAGE_TEXT[m.stage]);
         else {
-          w.removeEventListener('message', onMsg);
+          cleanup();
           if (m.type === 'done') resolve(m);
           else reject(Object.assign(new Error(m.message), { oom: m.oom }));
         }
       };
+      // A worker that cannot start (blocked by the browser) is replaced by the main thread.
+      const onError = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        cleanup();
+        try { w.terminate(); } catch { /* ignore */ }
+        worker = null;
+        workerFailed = true;
+        reject(Object.assign(new Error('worker'), { workerFailed: true }));
+      };
       w.addEventListener('message', onMsg);
+      w.addEventListener('error', onError);
       w.postMessage(job, [job.data]);
     });
   }
@@ -171,6 +187,7 @@ async function run() {
       try {
         res = await runJob(job);
       } catch (err) {
+        if (err.workerFailed) { attempt--; continue; }
         if (err.oom && attempt < caps.length - 1) { toast('حافظه کافی نبود؛ با اندازه کوچک‌تر دوباره تلاش می‌شود…'); continue; }
         throw err;
       }

@@ -1337,6 +1337,7 @@ function bindUI() {
 }
 
 function registerServiceWorker() {
+  if (window.__CAMERA_SINGLE_FILE) return;
   const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || local)) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
