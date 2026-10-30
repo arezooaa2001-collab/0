@@ -337,8 +337,8 @@ Object.assign(Game, {
       this.drinkUntil = Math.max(Date.now(), this.drinkUntil || 0) + 90000;
       this.toast('🥤 ۹۰ ثانیه زور دوبرابر!', 'gold');
     } else if (it.id === 'shake') {
-      this.addLevels(1);
-      this.toast('🥛 +۱ سطح زور!', 'gold');
+      this.addTempLevels(2, 'shake');
+      this.toast('🥛 +۲ سطح زور برای ۵ دقیقه!', 'gold');
     } else if (it.id === 'shoes') this.toast('👟 کفش سرعت رو پوشیدی! سریع‌تر می‌دوی.', 'gold');
     else if (it.id === 'magnet') this.toast('👛 از این به بعد سکه‌ها دوبرابرن!', 'gold');
     if (['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat)) this.equipItem(it, true);
@@ -466,13 +466,23 @@ Object.assign(Game, {
       });
       g.appendChild(b);
     };
-    add('🏋️', 'باشگاه قهرمانان', 'تمرین، قدرت‌سنج و کشتی', 1, this.where === 'gym', () => this.travel('gym'));
+    const head = (text) => {
+      const h = document.createElement('div');
+      h.className = 'map-head';
+      h.textContent = text;
+      g.appendChild(h);
+    };
+    head('🏆 باشگاه‌های قهرمان');
+    add('🏋️', 'باشگاه قهرمانان', 'باشگاه اول: تمرین، قدرت‌سنج و کشتی', 1, this.where === 'gym', () => this.travel('gym'));
+    for (const e of GYM_ENVS) add(e.icon, e.name, e.desc, e.level, this.where === 'env' && this.envId === e.id, () => this.travel('env', e.id));
+    head('🗺️ مکان‌های ورزشی');
     for (const e of ENVS) {
+      if (e.gym) continue;
       if (e.secret && !this.save.secretFootball) continue;
       add(e.icon, e.name, e.desc, e.level, this.where === 'env' && this.envId === e.id, () => this.travel('env', e.id));
     }
     add('🌥️', 'جزیره‌ی ابرها', 'ساختن با هوش مصنوعی', ISLAND_LEVEL, this.where === 'island', () => this.travel('island'));
-    add('🍀', 'جزیره‌ی خوش‌شانسی', 'هر چند قدم +۱۰ سطح', LUCKY_LEVEL, this.where === 'lucky', () => this.travel('lucky'));
+    add('🍀', 'جزیره‌ی خوش‌شانسی', 'هر چند قدم +۱۰ سطح موقت (۵ دقیقه)', LUCKY_LEVEL, this.where === 'lucky', () => this.travel('lucky'));
     for (const c of Creations.items.filter((x) => x.kind === 'place').slice(0, 6)) {
       add(c.icon, c.name, 'ساخته‌ی هوش مصنوعی', ISLAND_LEVEL, this.where === 'place' && this.placeItem && this.placeItem.id === c.id, () => this.travel('place', c));
     }
@@ -487,6 +497,7 @@ Object.assign(Game, {
   menuAction(a) {
     if (a === 'missions') this.openMissions();
     else if (a === 'medals') this.openMedals();
+    else if (a === 'goals') this.openGoals();
     else if (a === 'code') { this.closeModal('menuModal'); this.openCode(); }
     else if (a === 'help') { this.closeModal('menuModal'); this.openHelp(); }
     else if (a === 'wheel') this.openWheel();

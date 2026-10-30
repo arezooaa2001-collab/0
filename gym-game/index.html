@@ -18,9 +18,9 @@
   <!-- ===== Gym HUD ===== -->
   <div id="hud" class="hud" hidden>
     <div class="topbar">
-      <div class="strength">
+      <div id="hudLevel" class="strength">
         <div class="st-row">
-          <span class="st-label">💪 سطح زور</span>
+          <span id="lvlLabel" class="st-label">💪 سطح زور</span>
           <b id="lvlNum" class="st-num">۱</b>
         </div>
         <div id="titleText" class="st-title"></div>
@@ -36,6 +36,7 @@
           <span id="drinkBadge" class="chip drink" hidden></span>
           <span id="starBadge" class="chip star" hidden></span>
           <span id="eventBadge" class="chip event" hidden></span>
+          <span id="tempBadge" class="chip temp" hidden></span>
         </div>
       </div>
       <div class="tools">
@@ -51,6 +52,7 @@
       <span id="readySub" class="rb-sub"></span>
     </button>
     <button id="missionChip" class="mission-chip" type="button"></button>
+    <button id="goalChip" class="goal-chip" type="button"></button>
     <button id="wheelChip" class="wheel-chip" type="button" aria-label="گردونه‌ی شانس: چرخش رایگان" hidden>🎡</button>
     <button id="chalBtn" class="chal-btn" type="button" aria-label="چالش‌ها">🏆<span>چالش</span></button>
     <div id="chalHud" class="race-hud chal-hud" hidden></div>
@@ -86,6 +88,9 @@
         <button class="mv-tab" type="button" data-tab="env">مکان‌ها</button>
         <button class="mv-tab" type="button" data-tab="fun">💃 نمایشی</button>
         <button id="tabAi" class="mv-tab" type="button" data-tab="ai" hidden>ساخته‌ها</button>
+        <button class="mv-tab gym-tab" type="button" data-tab="g2" data-gym="2" hidden>⚙️ باشگاه فولاد</button>
+        <button class="mv-tab gym-tab" type="button" data-tab="g3" data-gym="3" hidden>🏛️ معبد تایتان‌ها</button>
+        <button class="mv-tab gym-tab" type="button" data-tab="g4" data-gym="4" hidden>🌌 المپ کیهانی</button>
       </div>
       <div id="moveGrid" class="move-grid"></div>
     </section>
@@ -225,10 +230,18 @@
         <li>اگه دور باشی و دکمه‌اش رو بزنی، یه فلش سبز راه رو نشونت می‌ده. کنار وسیله که رسیدی دکمه‌ی پایین صفحه رو بزن.</li>
         <li>🏃 دویدن، تردمیل و دوچرخه «سطح دویدن» رو بالا می‌برن و سریع‌ترت می‌کنن.</li>
       </ul>
+      <h3>👑 هدف بازی: مسیر قهرمانی</h3>
+      <ul>
+        <li>🎯 بالای صفحه همیشه «هدف بعدی» رو می‌بینی. از منو «مسیر قهرمانی» رو باز کن: ۱۱ قدم از سطح ۱۰ تا قله‌ی المپ. همه رو تموم کنی «قهرمانِ قهرمانان» می‌شی و تاج طلایی می‌گیری.</li>
+        <li>⏳ فقط زوری که با ورزش (تمرین، دویدن، کشتی، مسابقه، چالش و مأموریت) به دست میاری موندگاره. سطح‌هایی که از جزیره‌ی خوش‌شانسی، دستگاه‌ها و ورزش‌های ساخته‌ی هوش مصنوعی، گردونه، صندوق گنج یا شیک پروتئین می‌گیری «موقت»ن و ۵ دقیقه بعد از بین می‌رن. کنار سکه‌ها یه شمارنده‌ی نارنجی ⏳ نشونت می‌ده چقدر مونده.</li>
+        <li>⚙️ باشگاه فولاد (سطح ۲۵): باشگاه دوم با ظاهر و ورزش‌های کاملاً جدید (پتک، بشکه، کامیون، ماشین، تیرآهن، زنجیر...). این‌جا سطحت جداست، از ۱ شروع می‌شه و سخت‌تر بالا می‌ره. وقتی برگردی باشگاه اول، سطح اصلیت سر جاشه.</li>
+        <li>🏛️ معبد تایتان‌ها و 🌌 المپ کیهانی (هر دو از سطح ۵۰۰): ورزش‌های اسطوره‌ای و کیهانی. وسط معبد «میدان تایتان» هست که وزنه‌هاش فقط با سطح ۵۰۰+ بلند می‌شن، و وسط المپ «قله‌ی المپ» که فقط سطح ۱۰۰۰+ از پسش برمیاد. کمتر باشی و امتحان کنی، شکست می‌خوری و ۲۰ سطح جریمه می‌شی!</li>
+        <li>🗿 باشگاه اول ۸۰ متر دیگه بزرگ شد: غرب «باغ الهام» با فواره‌ی طلایی، ده مجسمه‌ی طلایی و مرمری و برنزی، مشعل‌ها، شیرهای سنگی، دمبل غول‌پیکر، رنگین‌کمان و تابلوهای نقاشی؛ شرق «پیست نینجا» با میله‌های میمون، نردبان سالمون، دیوار منحنی، پله‌های پنج‌گانه، تیر تعادل و تور صعود.</li>
+      </ul>
       <h3>مکان‌ها، سکه و بیشتر</h3>
       <ul class="help-list">
         <li>🗺️ از دکمه‌ی نقشه به ۱۳ مکان ورزشی برو: استخر، ورزشگاه فوتبال، باغ رزمی ساکورا (سطح ۱۰)، زمین بسکتبال، ساحل والیبال، زمین تنیس، سالن ژیمناستیک، سالن بوکس، پیست یخ، کوهستان برفی، استادیوم دو و میدانی (۳۵)، زمین گلف و پارک پارکور (۴۵). هر کدوم ورزش‌های مخصوص خودش رو داره.</li>
-        <li>🍀 جزیره‌ی خوش‌شانسی (سطح ۲۵۰): دروازه‌ی سبز کنار دروازه‌ی ابری. اون‌جا هر چند قدم که راه بری ۱۰ سطح زور می‌گیری!</li>
+        <li>🍀 جزیره‌ی خوش‌شانسی (سطح ۲۵۰): دروازه‌ی سبز کنار دروازه‌ی ابری. اون‌جا هر چند قدم که راه بری ۱۰ سطح زور موقت (۵ دقیقه) می‌گیری!</li>
         <li>⚽ یه کد مخفی هست که یه استادیوم فوتبال مخفی به نقشه اضافه می‌کنه. با داور و تماشاگر فوتبال واقعی بازی کن: به توپ برس، با «شوت» (Space) شوت بزن یا تکل کن و با «پاس» (Q) پاس بده.</li>
         <li>👥 همه‌ی ورزشکارها اول بازی توی باشگاهن. هر کی سطحش برسه، خودش از در اصلی یا دروازه‌ها می‌ره به مکان‌ها؛ جزیره‌ی ابرها فقط ۱۰۰ به بالا و جزیره‌ی خوش‌شانسی فقط ۲۵۰ به بالا.</li>
         <li>📺 دوربین‌های زنده: روی دیوار بال غربی باشگاه، تصویر زنده‌ی مکان‌ها و جدول «کی کجاست» رو می‌بینی. پشت میز جلوش (یا از منو) وارد اتاق دوربین‌ها شو: هر مکانی رو انتخاب کن، بین دوربین‌ها عوض کن، کسی رو دنبال کن یا با دوربین آزاد جلو، عقب، چپ، راست، بالا و پایین برو.</li>
@@ -296,6 +309,7 @@
       <button class="x" type="button" data-close="menuModal" aria-label="بستن">✕</button>
       <h2>منو</h2>
       <div class="menu-list">
+        <button class="menu-btn hot" type="button" data-menu="goals">👑 مسیر قهرمانی (هدف بازی)</button>
         <button class="menu-btn hot" type="button" data-menu="wheel">🎡 گردونه‌ی شانس</button>
         <button class="menu-btn hot" type="button" data-menu="challenges">🏆 چالش‌ها</button>
         <button class="menu-btn" type="button" data-menu="missions">🎯 مأموریت‌ها</button>
@@ -308,6 +322,29 @@
         <button class="menu-btn" type="button" data-menu="settings">⚙️ تنظیمات</button>
         <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== Champion's path ===== -->
+  <div id="goalModal" class="modal" hidden>
+    <div class="card wide-card">
+      <button class="x" type="button" data-close="goalModal" aria-label="بستن">✕</button>
+      <h2>👑 مسیر قهرمانی</h2>
+      <p id="goalSub" class="muted"></p>
+      <div id="goalList" class="goal-list"></div>
+    </div>
+  </div>
+
+  <!-- ===== The finale ===== -->
+  <div id="endModal" class="modal" hidden>
+    <div class="card end-card">
+      <button class="x" type="button" data-close="endModal" aria-label="بستن">✕</button>
+      <div class="end-crown">👑</div>
+      <h2>قهرمانِ قهرمانان!</h2>
+      <p>از باشگاه اول تا باشگاه فولاد، از معبد تایتان‌ها تا قله‌ی المپ... همه رو با زور خودت فتح کردی!</p>
+      <p id="endStats" class="end-stats"></p>
+      <p class="muted">بازی تموم نمی‌شه: حالا رکوردهات رو بشکن، سطحت رو بالاتر ببر و تاج طلایی‌ات رو به همه نشون بده.</p>
+      <button class="big-btn gold" type="button" data-close="endModal">ادامه می‌دم! 💪</button>
     </div>
   </div>
 
@@ -494,17 +531,21 @@
 <script src="js/world.js"></script>
 <script src="js/gym.js"></script>
 <script src="js/gym2.js"></script>
+<script src="js/gymannex.js"></script>
 <script src="js/creator.js"></script>
 <script src="js/island.js"></script>
 <script src="js/envs.js"></script>
 <script src="js/envs2.js"></script>
 <script src="js/envs3.js"></script>
 <script src="js/football.js"></script>
+<script src="js/anims7.js"></script>
+<script src="js/gyms.js"></script>
 <script src="js/extras.js"></script>
 <script src="js/pickups.js"></script>
 <script src="js/armwrestle.js"></script>
 <script src="js/arena.js"></script>
 <script src="js/main.js"></script>
+<script src="js/temp.js"></script>
 <script src="js/features.js"></script>
 <script src="js/fun.js"></script>
 <script src="js/challenges.js"></script>
@@ -513,5 +554,6 @@
 <script src="js/attractions.js"></script>
 <script src="js/footballgame.js"></script>
 <script src="js/livecam.js"></script>
+<script src="js/goals.js"></script>
 </body>
 </html>

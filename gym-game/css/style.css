@@ -318,6 +318,11 @@ kbd {
 .move-grid[data-tab="ai"] .mv-btn:not([data-cat="ai"]),
 .move-grid[data-tab="fun"] .mv-btn:not([data-cat="fun"]),
 .move-grid[data-tab="pro"] .mv-btn:not([data-cat="pro"]) { display: none; }
+.move-grid[data-tab="g2"] .mv-btn:not([data-cat="g2"]):not(.toggle),
+.move-grid[data-tab="g3"] .mv-btn:not([data-cat="g3"]):not(.toggle),
+.move-grid[data-tab="g4"] .mv-btn:not([data-cat="g4"]):not(.toggle) { display: none; }
+.move-tabs.gym-only .mv-tab:not(.gym-tab) { display: none; }
+.mv-tab.gym-tab.on { background: linear-gradient(90deg, #ff7b00, #ffd34d); border-color: #ffb347; }
 .mv-btn.equip.here:not(.near) { box-shadow: 0 4px 0 #0a1230, 0 0 0 2px rgba(127, 224, 255, 0.45); }
 .floater.fl-coin { color: #ffe09a; font-size: 18px; text-shadow: 0 2px 0 #6b4400; }
 .a-zoor {
@@ -834,4 +839,35 @@ kbd {
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* temporary (non-exercise) levels and the Steel Gym track */
+.chip.temp { background: linear-gradient(90deg, #ff7b00, #ffd34d); color: #2b1400; border: 0; font-weight: 800; }
+.strength.g2 { border-color: #ff7b00; box-shadow: 0 0 0 1px #ff7b0066, 0 6px 22px #ff5a0033; }
+.strength.g2 .st-num { color: #ff9a3d; }
+.strength.g2 .xpfill { background: linear-gradient(90deg, #ff5a00, #ffb347); }
+
+/* champion's path */
+.goal-chip {
+  position: absolute; top: calc(var(--safe-t) + 96px); left: calc(max(12px, var(--safe-l)) + 54px);
+  max-width: min(320px, 46vw); padding: 5px 12px; border-radius: 12px;
+  border: 1px solid #c8a2ff; background: linear-gradient(90deg, rgba(90, 40, 160, 0.82), rgba(40, 20, 90, 0.82)); color: #f3e6ff;
+  font: 600 12px/1.5 var(--body); text-align: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hud.arm-on .goal-chip, .hud.fb-on .goal-chip { display: none !important; }
+.goal-list { display: grid; gap: 8px; margin-top: 10px; max-height: 60vh; overflow: auto; }
+.goal-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); }
+.goal-row.done { opacity: 0.7; border-color: #2ecc71; }
+.goal-row.now { border-color: var(--gold); box-shadow: 0 0 14px rgba(255, 194, 61, 0.35); }
+.goal-n { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); font-weight: 800; }
+.goal-t b { display: block; font-size: 14px; }
+.goal-bar { height: 6px; margin-top: 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: linear-gradient(90deg, #9b5de5, #ffc23d); }
+.goal-row small { color: #ffe09a; white-space: nowrap; }
+.end-card { text-align: center; max-width: 460px; border: 2px solid var(--gold); background: radial-gradient(circle at 50% 0%, #4a2a00, #10142a 70%); }
+.end-crown { font-size: 76px; line-height: 1; animation: wobble 1.6s ease-in-out infinite; filter: drop-shadow(0 0 22px #ffc23d); }
+.end-stats { font-weight: 800; color: #ffe09a; }
+.map-head { grid-column: 1 / -1; font: 800 14px/1.6 var(--display, inherit); color: #ffe09a; margin-top: 6px; }
+@media (max-width: 640px) {
+  .goal-chip { top: calc(var(--safe-t) + 196px); left: max(12px, var(--safe-l)); max-width: 46vw; font-size: 11px; white-space: normal; }
 }

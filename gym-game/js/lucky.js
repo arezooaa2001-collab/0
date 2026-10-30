@@ -175,7 +175,7 @@ Object.assign(Game, {
     this.luckyLast = m;
     while (this.luckyMeters >= LUCKY_STEP) {
       this.luckyMeters -= LUCKY_STEP;
-      this.addLevels(LUCKY_LEVELS, true);
+      this.addTempLevels(LUCKY_LEVELS, 'lucky', true);
       this.floatText(`+${fa(LUCKY_LEVELS)} سطح 🍀`, 'fl-combo');
       Sfx.play('coin');
       const p = this.player.ch.root.position;

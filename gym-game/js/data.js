@@ -245,7 +245,7 @@ const BOOST_SECONDS = 120;
 
 const SHOP = [
   { id: 'drink', cat: 'boost', name: 'نوشیدنی انرژی', icon: '🥤', price: 60, desc: '۹۰ ثانیه زور دوبرابر' },
-  { id: 'shake', cat: 'boost', name: 'شیک پروتئین', icon: '🥛', price: 150, desc: 'فوری +۱ سطح زور' },
+  { id: 'shake', cat: 'boost', name: 'شیک پروتئین', icon: '🥛', price: 150, desc: '+۲ سطح زور موقت (۵ دقیقه)' },
   { id: 'shoes', cat: 'gear', name: 'کفش سرعت', icon: '👟', price: 250, once: true, desc: 'برای همیشه ۱۵٪ سریع‌تر' },
   { id: 'magnet', cat: 'gear', name: 'کیف پول طلایی', icon: '👛', price: 300, once: true, desc: 'سکه‌ها دوبرابر' },
   { id: 'dog', cat: 'pet', name: 'سگ ورزشکار', icon: '🐕', price: 350, once: true, desc: 'همه‌جا دنبالت میاد' },
@@ -323,10 +323,10 @@ const WHEEL = [
   { id: 'c50', label: '🪙 ۵۰', color: '#2f6fed', w: 22 },
   { id: 'drink', label: '🥤 نوشیدنی', color: '#00b4d8', w: 14 },
   { id: 'c100', label: '🪙 ۱۰۰', color: '#9b5de5', w: 18 },
-  { id: 'lv1', label: '💪 +۱ سطح', color: '#e63946', w: 12 },
+  { id: 'lv1', label: '💪 +۱ سطح ⏳', color: '#e63946', w: 12 },
   { id: 'star', label: '⭐ ستاره', color: '#ff7b00', w: 12 },
   { id: 'c250', label: '🪙 ۲۵۰', color: '#2ecc71', w: 10 },
-  { id: 'lv3', label: '💪 +۳ سطح', color: '#ff006e', w: 7 },
+  { id: 'lv3', label: '💪 +۳ سطح ⏳', color: '#ff006e', w: 7 },
   { id: 'c1000', label: '💎 ۱۰۰۰', color: '#d4a017', w: 5 },
 ];
 const WHEEL_PRICE = 100;

@@ -1,7 +1,7 @@
 'use strict';
 /* The gym: hall, equipment, strength tower, 40 training NPCs, player movement and camera */
 
-const ROOM = { x: 92, z: 32, h: 11 };
+const ROOM = { x: 132, z: 32, h: 11 };
 const TRACK = { cx: 0, cz: 2, a: 12.5, b: 7.5, w: 2.4 };
 const TOWER = { x: 0, z: -29.4, standX: 0, standZ: -27.4, segs: 20 };
 const PORTAL = { x: 0, z: 14.6 };
@@ -41,7 +41,7 @@ function woodTexture() {
     }
   });
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(30, 11);
+  tex.repeat.set(Math.round(ROOM.x / 3), 11);
   return tex;
 }
 
@@ -76,6 +76,7 @@ class GymWorld extends WorldBase {
     this.ceiling = ROOM.h;
     this.cloudTex = cloudSkyTexture();
     this.cloudMat = new THREE.MeshBasicMaterial({ map: this.cloudTex, toneMapped: false });
+    this.anims = [];
     this.buildLights();
     this.buildRoom();
     this.buildTrack();
@@ -98,6 +99,8 @@ class GymWorld extends WorldBase {
     this.buildDecor();
     this.buildWestWing();
     this.buildEastWing();
+    this.buildStatueGarden();
+    this.buildNinja();
     this.buildLuckyPortal();
     this.finishBatches();
     this.onImpact = () => this.strikeTower();
@@ -166,7 +169,7 @@ class GymWorld extends WorldBase {
     m.box(0.12, 0.12, Z * 2, X - 0.06, 1.36, 0, '#ffc23d');
     m.box(X * 2 + 1, 0.3, Z * 2 + 1, 0, H + 0.15, 0, '#1a1f2c');
     for (const tz of [-26, -14, -3, 8, 18, 27]) this.metal.box(X * 2, 0.35, 0.3, 0, H - 0.5, tz, '#39404f');
-    for (let lx = -85; lx <= 85; lx += 10) {
+    for (let lx = -(X - 7); lx <= X - 7; lx += 10) {
       for (let lz = -26; lz <= 26; lz += 8.6) if (Math.abs(lx) > 18 || Math.abs(lz) > 11) this.glow.box(5, 0.06, 1.2, lx, H - 0.05, lz, '#fff4dc');
     }
     // big skylight with drifting clouds
@@ -665,6 +668,7 @@ class GymWorld extends WorldBase {
     this.updateTower(dt, stats.level);
     this.updateWings(dt);
     this.updateLuckyPortal(dt, stats.level);
+    for (const f of this.anims) f(dt, this.time);
     this.cloudTex.offset.x = (this.cloudTex.offset.x + dt * 0.006) % 1;
     const P = this.portal;
     const open = stats.level >= ISLAND_LEVEL;
@@ -959,7 +963,7 @@ class GymWorld extends WorldBase {
     };
     mural('حرکت یعنی زندگی', ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5'], -22, 5.2, -Z + 0.08, 0, 12);
     mural('هر روز قوی‌تر', ['#ff4da6', '#9b5de5', '#4361ee', '#00b4d8', '#2ecc71'], -22, 5.2, Z - 0.08, Math.PI, 12);
-    mural('هرگز تسلیم نشو', ['#ffd34d', '#ff7b00', '#e63946', '#ff4da6'], 22, 6.6, Z - 0.08, Math.PI, 10);
+    this.painting('waves', 22, 6.6, Z - 0.12, Math.PI, 9);
   }
 
   nearArm() {

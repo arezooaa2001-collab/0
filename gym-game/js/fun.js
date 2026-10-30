@@ -273,7 +273,7 @@ Object.assign(Game, {
       let text;
       if (r < 0.4) { const n = randi(8, 20) * 10; this.addCoins(n, true); text = `🪙 ${fa(n)} سکه`; }
       else if (r < 0.6) { this.drinkUntil = Math.max(Date.now(), this.drinkUntil || 0) + 60000; text = '🥤 ۶۰ ثانیه زور دوبرابر'; }
-      else if (r < 0.75) { this.addLevels(1); text = '💪 +۱ سطح زور'; }
+      else if (r < 0.75) { this.addTempLevels(3, 'chest'); text = '💪 +۳ سطح زور موقت (۵ دقیقه)'; }
       else if (r < 0.9) { this.addCoins(300, true); Sfx.play('gem'); text = '💎 کیسه‌ی الماس: ۳۰۰ سکه'; }
       else { this.giveStar(20); text = '⭐ قدرت ستاره'; }
       this.showBanner('🎁 صندوق گنج', text);
@@ -511,8 +511,8 @@ Object.assign(Game, {
       text = '💎 جایزه‌ی بزرگ! ۱۰۰۰ سکه';
       this.confetti();
     } else if (s.id === 'drink') { this.drinkUntil = Math.max(Date.now(), this.drinkUntil || 0) + 90000; text = '🥤 ۹۰ ثانیه زور دوبرابر'; }
-    else if (s.id === 'lv1') this.addLevels(1);
-    else if (s.id === 'lv3') { this.addLevels(3); this.confetti(); }
+    else if (s.id === 'lv1') this.addTempLevels(1, 'wheel');
+    else if (s.id === 'lv3') { this.addTempLevels(3, 'wheel'); this.confetti(); }
     else if (s.id === 'star') this.giveStar(20);
     if (s.id !== 'c1000') Sfx.play('success');
     $('wheelMsg').textContent = `جایزه: ${text}`;
@@ -676,15 +676,14 @@ Object.assign(Game, {
 
   labelPlayer() {
     const ch = this.player.ch;
-    ch.setLabel(this.playerName(), '🎖️ ' + titleFor(this.lv()), '#ffd34d');
+    ch.setLabel(this.playerName(), this.save.goals.champion ? '👑 قهرمانِ قهرمانان' : '🎖️ ' + titleFor(this.lv()), '#ffd34d');
     ch.label.position.y = 2.85;
     ch.label.visible = !WorldBase.hideNames;
   },
 
   onLevelsFun(from, to) {
-    const real = (l) => l + (this.boostActive() ? BOOST_LEVELS : 0);
-    const a = titleFor(real(from));
-    const b = titleFor(real(to));
+    const a = titleFor(from);
+    const b = titleFor(to);
     if (a !== b) {
       setTimeout(() => { Sfx.play('medal'); this.toast(`🎖️ عنوان جدید: «${b}»`, 'gold'); this.confetti(); }, 1000);
     }

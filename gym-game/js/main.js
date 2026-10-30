@@ -9,6 +9,7 @@ const Game = {
   mode: 'menu', // menu | play | arena | transition
   where: 'gym', // gym | island | place | env
   envId: null,
+  track: 'main', // which level you are earning: 'main', or 'g2' inside the Steel Gym
   keys: new Set(),
   joy: { x: 0, y: 0, id: null },
   camDrag: new Map(),
@@ -56,6 +57,14 @@ const Game = {
     v.challenges = obj(v.challenges);
     v.records = obj(v.records);
     v.secretFootball = !!v.secretFootball;
+    v.temp = (Array.isArray(v.temp) ? v.temp : []).filter((t) => t && t.n > 0 && t.until > Date.now() && t.until < Date.now() + 400000)
+      .map((t) => ({ n: Math.floor(t.n), src: String(t.src), kind: t.kind === 'run' ? 'run' : 'str', at: Number(t.at) || 0, until: Number(t.until) }));
+    v.g2 = Object.assign({ level: 1, xp: 0, best: 1 }, obj(v.g2));
+    v.g2.level = Math.max(1, Math.floor(Number(v.g2.level) || 1));
+    v.g2.xp = Math.max(0, Number(v.g2.xp) || 0);
+    v.g2.best = Math.max(v.g2.level, Math.floor(Number(v.g2.best) || 1));
+    v.goals = obj(v.goals);
+    v.penalties = Math.max(0, Math.floor(Number(v.penalties) || 0));
     v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
     v.settings = Object.assign({ quality: 'auto', sens: 1, names: true, shake: true }, obj(v.settings));
     if (!['low', 'auto', 'high'].includes(v.settings.quality)) v.settings.quality = 'auto';
@@ -77,10 +86,16 @@ const Game = {
 
   playerName() { return this.save.name || 'قهرمان'; },
 
-  /** Strength level including the temporary 1919 boost. */
-  lv() { return this.save.level + (this.boostActive() ? BOOST_LEVELS : 0); },
+  /** Main strength level: what you earned by exercising + the 1919 boost + temporary levels. */
+  lv() { return this.save.level + (this.boostActive() ? BOOST_LEVELS : 0) + this.tempActive('str'); },
+  /** The level that counts where you are now: the Steel Gym keeps its own, started from 1. */
+  gymLv() { return this.track === 'g2' ? this.save.g2.level : this.lv(); },
+  /** The level and xp being earned right now. */
+  prog() { return this.track === 'g2' ? this.save.g2 : this.save; },
+  need(L) { return this.track === 'g2' ? Math.round(xpNeed(L) * G2_HARD) : xpNeed(L); },
+  mult() { return xpMult(this.prog().level); },
   boostActive() { return Date.now() < (this.save.boost.until || 0); },
-  stats() { return { level: this.lv(), runLevel: this.save.runLevel, speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) }; },
+  stats() { return { level: this.lv(), runLevel: this.runLv(), speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) }; },
   envKey() { return this.where === 'env' ? this.envId : this.where; },
 
   /* ---------------- boot ---------------- */
@@ -125,6 +140,7 @@ const Game = {
     this.bindWatchUi();
     this.labelPlayer();
     this.ensureMissions();
+    this.checkGoals();
     Creations.onChange((items) => this.onCreations(items));
     Creations.init();
     this.refreshHud(true);
@@ -150,7 +166,12 @@ const Game = {
 
   /* ---------------- moves panel ---------------- */
 
-  isUnlocked(m) { return m.custom || this.save.unlocked || this.lv() >= m.level; },
+  isUnlocked(m) {
+    if (m.custom) return true;
+    if (m.cat === 'g2') return this.save.g2.level >= m.level;
+    if (m.gym) return this.lv() >= m.level;
+    return this.save.unlocked || this.lv() >= m.level;
+  },
 
   moveButton(m) {
     const b = document.createElement('button');
@@ -214,7 +235,7 @@ const Game = {
   refreshMoves() {
     const P = this.player;
     const busy = !this.world.canAct();
-    const mult = xpMult(this.save.level);
+    const mult = this.mult();
     const here = this.envKey();
     for (const m of [...MOVES, ...this.customMoves]) {
       const b = this.moveBtns[m.id];
@@ -233,6 +254,7 @@ const Game = {
         b.classList.toggle('near', !!near);
         b.classList.toggle('here', env === here);
         sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : env === here ? `📍 ${EQUIP[m.equip].name}` : `🗺️ ${this.envName(env)}`;
+        if (m.zone && !near) sub = `${this.lv() >= m.zone ? '✅' : '⛔'} فقط سطح ${fa(m.zone)}+`;
       } else sub = `${fa(Math.round(m.xp * mult))} زور`;
       const subEl = b.querySelector('.mv-sub');
       if (subEl.textContent !== sub) subEl.textContent = sub;
@@ -287,6 +309,7 @@ const Game = {
         if (r) this.world.guideTo(r.s);
         return;
       }
+      if (m.zone && this.lv() < m.zone) { this.zoneFail(m, st); return; }
       started = this.world.useStation(st, m.anim || m.id, () => this.exerciseDone(m));
     } else if (m.custom) {
       started = this.world.playerDo(m.anim, () => this.customDone(m.name, m.effect));
@@ -303,8 +326,9 @@ const Game = {
   exerciseDone(m) {
     this.lastExerciseEnd = this.clock;
     const mult = 1 + this.combo * 0.1;
-    this.gainXp(Math.round(m.xp * mult * xpMult(this.save.level)));
+    this.gainXp(Math.round(m.xp * mult * this.mult()));
     if (m.run) this.gainRun(Math.round(m.run * mult));
+    if (m.zone) this.zoneDone(m);
     this.noteRep(m);
     this.refreshMoves();
   },
@@ -312,16 +336,14 @@ const Game = {
   /** Equipment or exercises the AI built: apply their effect exactly as described. */
   customDone(name, effect) {
     this.lastExerciseEnd = this.clock;
+    // not earned by real exercise, so it only lasts 5 minutes
+    const kind = effect.stat === 'run' ? 'run' : 'str';
     if (effect.levels) {
-      if (effect.stat === 'run') this.addRunLevels(effect.levels);
-      else this.addLevels(effect.levels);
-      this.floatText(`+${fa(effect.levels)}`, 'fl-combo');
+      this.addTempLevels(effect.levels, 'ai', false, kind);
+      this.floatText(`+${fa(effect.levels)} ⏳`, 'fl-combo');
       Sfx.play('xp');
     }
-    if (effect.xp) {
-      if (effect.stat === 'run') { this.gainRun(effect.xp); this.floatText(`+${fa(effect.xp)}`, 'fl-run'); }
-      else this.gainXp(effect.xp);
-    }
+    if (effect.xp) this.addTempXp(effect.xp, 'ai', kind);
     this.noteRep({ id: 'ai', level: 10 });
     this.refreshMoves();
   },
@@ -331,7 +353,7 @@ const Game = {
   /** kind: 'exercise' (floater + sound), 'run' (small floater every 5), 'reward' (no floater). */
   gainXp(amount, kind = 'exercise') {
     if (!(amount > 0)) return;
-    const s = this.save;
+    const s = this.prog();
     if (kind !== 'reward') amount *= this.xpBoost();
     amount = Math.round(amount * 10) / 10;
     s.xp += amount;
@@ -347,22 +369,40 @@ const Game = {
     }
     const from = s.level;
     let guard = 0;
-    while (s.xp >= xpNeed(s.level) && guard++ < 5000) {
-      s.xp -= xpNeed(s.level);
+    while (s.xp >= this.need(s.level) && guard++ < 5000) {
+      s.xp -= this.need(s.level);
       s.level++;
     }
-    if (s.level > from) this.levelsGained(from, s.level);
+    if (s.level > from) this.levelsGained(this.track === 'g2' ? from : this.lv() - (s.level - from), this.gymLv(), false, this.track);
     this.refreshHud();
   },
 
+  /** Permanent levels, earned by exercise (wrestling wins), on the track you are on. */
   addLevels(n, quiet) {
-    const s = this.save;
-    const from = s.level;
-    const frac = s.xp / xpNeed(s.level);
+    const s = this.prog();
+    const from = this.gymLv();
+    const frac = s.xp / this.need(s.level);
     s.level += n;
-    s.xp = Math.floor(frac * xpNeed(s.level));
-    this.levelsGained(from, s.level, quiet && Math.floor(from / 50) === Math.floor(s.level / 50));
+    if (this.track === 'g2') s.best = Math.max(s.best, s.level);
+    s.xp = Math.floor(frac * this.need(s.level));
+    this.levelsGained(from, this.gymLv(), quiet, this.track);
     this.refreshHud();
+  },
+
+  /** Take away permanent main levels (failing a Titan or Olympus lift). */
+  loseLevels(n) {
+    const s = this.save;
+    const before = s.level;
+    s.level = Math.max(1, s.level - n);
+    s.xp = Math.min(s.xp, xpNeed(s.level) - 1);
+    s.penalties += before - s.level;
+    setPlayerLevelLook(this.player, this.lv());
+    this.labelPlayer();
+    this.refreshPowers(true);
+    this.refreshMoves();
+    this.refreshHud(true);
+    this.persist();
+    return before - s.level;
   },
 
   gainRun(amount) {
@@ -379,19 +419,14 @@ const Game = {
     this.refreshHud();
   },
 
-  addRunLevels(n) {
-    this.save.runLevel += n;
-    this.toast(`🏃 +${fa(n)} سطح دویدن! حالا سطح ${fa(this.save.runLevel)}`, 'gold');
-    this.persist();
-    this.checkAchievements();
-    this.refreshHud();
-  },
-
-  levelsGained(from, to, quiet) {
+  /** from/to are the levels as shown (main: with boost and temporary levels; g2: the Steel Gym level). */
+  levelsGained(from, to, quiet, track = 'main') {
+    if (quiet && Math.floor(from / 50) !== Math.floor(to / 50)) quiet = false;
+    if (track === 'g2') { this.g2LevelsGained(from, to, quiet); return; }
     if (!quiet) {
       Sfx.play('levelup');
       const b = $('levelBanner');
-      b.innerHTML = `<small>سطح زور</small><b>${fa(to + (this.boostActive() ? BOOST_LEVELS : 0))}</b>`;
+      b.innerHTML = `<small>${this.track === 'g2' ? 'سطح زور اصلی' : 'سطح زور'}</small><b>${fa(to)}</b>`;
       b.classList.remove('show');
       void b.offsetWidth;
       b.classList.add('show');
@@ -404,10 +439,10 @@ const Game = {
       this.world.fx.burst({ x: p.x, y: 1.4, z: p.z }, { count: 60, colors: ['#ffc23d', '#ffffff', '#ff7b00'], speed: 3, up: 4, life: 1.4 });
     }
     if (!this.save.unlocked && !this.boostActive()) {
-      const opened = MOVES.filter((m) => m.level > from && m.level <= to);
+      const opened = MOVES.filter((m) => m.cat !== 'g2' && m.level > from && m.level <= to);
       if (opened.length === 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 «${opened[0].name}» باز شد!`, 'gold'); }, 700);
       else if (opened.length > 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 ${fa(opened.length)} حرکت جدید باز شد!`, 'gold'); }, 700);
-      const envs = ENVS.filter((e) => !e.secret && e.level > from && e.level <= to);
+      const envs = ENVS.filter((e) => !e.secret && !e.track && e.level > from && e.level <= to);
       for (const e of envs) setTimeout(() => this.toast(`🗺️ «${e.name}» باز شد! از دکمه‌ی نقشه برو`, 'gold'), 1200);
     }
     if (from < ISLAND_LEVEL && to >= ISLAND_LEVEL) {
@@ -415,26 +450,33 @@ const Game = {
     }
     const next = opponentFor(this.save.stage);
     if (from < next.level && to >= next.level) setTimeout(() => this.toast(`💪 هم‌زور «${next.name}» شدی! دکمه‌ی آماده‌ام رو بزن`, 'gold'), 2200);
-    this.missionProgress('levels', to - from);
+    if (from < GYM3_LEVEL && to >= GYM3_LEVEL) setTimeout(() => { Sfx.play('win'); this.toast('🏛️⚡ سطح ۵۰۰! «معبد تایتان‌ها» و «المپ کیهانی» باز شدن! از نقشه برو', 'gold'); this.confetti(); }, 1800);
+    if (!this.levelTemp) this.missionProgress('levels', to - from);
     this.onLevelsFun(from, to);
+    this.checkGoals();
     this.checkAchievements();
     this.persist();
   },
 
   refreshHud(force) {
     const s = this.save;
-    const need = xpNeed(s.level);
-    const frac = clamp(s.xp / need, 0, 1);
+    const p = this.prog();
+    const need = this.need(p.level);
+    const frac = clamp(p.xp / need, 0, 1);
     const boost = this.boostActive();
-    const key = `${s.level}|${Math.floor(s.xp)}|${s.stage}|${s.muted}|${s.runLevel}|${Math.floor(s.runXp)}|${s.coins}|${boost}`;
+    const lv = this.lv();
+    const key = `${this.track}|${p.level}|${lv}|${Math.floor(p.xp)}|${s.stage}|${s.muted}|${this.runLv()}|${Math.floor(s.runXp)}|${s.coins}|${boost}`;
     if (force || key !== this.hudKey) {
       this.hudKey = key;
-      $('lvlNum').textContent = fa(this.lv());
-      $('lvlNum').classList.toggle('boosted', boost);
-      $('titleText').textContent = '🎖️ ' + titleFor(this.lv());
+      const g2 = this.track === 'g2';
+      $('lvlNum').textContent = fa(this.gymLv());
+      $('lvlNum').classList.toggle('boosted', !g2 && (boost || this.tempActive('str') > 0));
+      $('lvlLabel').textContent = g2 ? '⚙️ سطح باشگاه فولاد' : '💪 سطح زور';
+      $('hudLevel').classList.toggle('g2', g2);
+      $('titleText').textContent = g2 ? `💪 زور اصلی: ${fa(lv)}` : '🎖️ ' + titleFor(lv);
       $('xpFill').style.width = `${frac * 100}%`;
-      $('xpText').textContent = `${fa(Math.floor(s.xp))} / ${fa(need)}`;
-      $('runText').textContent = `🏃 سطح دویدن ${fa(s.runLevel)}`;
+      $('xpText').textContent = `${fa(Math.floor(p.xp))} / ${fa(need)}`;
+      $('runText').textContent = `🏃 سطح دویدن ${fa(this.runLv())}`;
       $('runFill').style.width = `${clamp(s.runXp / runNeed(s.runLevel), 0, 1) * 100}%`;
       $('coinText').textContent = fa(s.coins);
       const opp = opponentFor(s.stage);
@@ -442,6 +484,7 @@ const Game = {
       $('readyBtn').classList.toggle('hot', this.lv() >= opp.level);
       $('soundBtn').textContent = s.muted ? '🔇' : '🔊';
       this.renderMissionChip();
+      this.renderGoalChip();
     }
     if (force || this.clock - (this.rankT || 0) > 1) {
       this.rankT = this.clock;
@@ -685,6 +728,7 @@ const Game = {
       this.world = w;
       this.where = target;
       this.envId = target === 'env' ? item : null;
+      this.enterTrack(target, item);
       this.placeItem = target === 'place' ? item : null;
       this.attachPet();
       this.mode = 'play';
@@ -698,6 +742,7 @@ const Game = {
         this.toast('🍀 به جزیره‌ی خوش‌شانسی خوش اومدی! هر چند قدم که راه بری ۱۰ سطح زور می‌گیری!', 'gold');
       } else if (target === 'place') this.toast(`${item.icon} به «${item.name}» خوش اومدی!`, 'gold');
       else if (target === 'env' && item === 'football') this.footballEnter();
+      else if (target === 'env' && ENV_BY_ID[item].gym) this.gymWelcome(ENV_BY_ID[item]);
       else if (target === 'env') {
         const e = ENV_BY_ID[item];
         this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «مکان‌ها» هستن.`, 'gold');
@@ -925,6 +970,7 @@ const Game = {
     on('menuBtn', () => { Sfx.init(); this.openMenu(); });
     on('coinChip', () => { Sfx.init(); this.openShop(); });
     on('missionChip', () => { Sfx.init(); this.openMissions(); });
+    on('goalChip', () => { Sfx.init(); this.openGoals(); });
     on('aiBtn', () => this.openAi());
     on('readyBtn', () => this.openReady());
     on('fightBtn', () => this.startMatch());
@@ -1096,7 +1142,7 @@ const Game = {
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());
       if (gained > 0) {
-        this.gainXp(gained * xpMult(this.save.level), 'run');
+        this.gainXp(gained * this.mult(), 'run');
         this.gainRun(gained * 1.5);
       }
       const ran = (this.world.metersRun || 0) - metersBefore;
@@ -1139,6 +1185,8 @@ const Game = {
     cb.hidden = !comboOn;
     if (comboOn) cb.textContent = `کمبو ×${fa((1 + this.combo * 0.1).toFixed(1))}`;
     this.tickTimers();
+    this.tickTemp();
+    this.tickZone();
     this.tickBadges();
     this.refreshPowers();
     this.refreshHud();

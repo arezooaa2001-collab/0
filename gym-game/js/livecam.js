@@ -16,8 +16,11 @@ Object.assign(Game, {
         { name: 'بال شرقی', pos: [44, 9, 28], look: [62, 0, -12] },
         { name: 'پیست و میز مچ', pos: [14, 5, 14], look: [4, 0, 2] },
         { name: 'کراس‌فیت', pos: [16, 6, -2], look: [24, 0, -14] },
+        { name: 'باغ مجسمه‌ها', pos: [-94, 7, 24], look: [-114, 1, -2] },
+        { name: 'پیست نینجا', pos: [96, 7, 26], look: [114, 1, -8] },
       ];
     }
+    if (w && w.cams) return w.cams;
     if (key === 'football') {
       return [
         { name: 'پخش زنده', fn: (cam) => { const b = w.ball.pos; cam.position.set(b.x * 0.85, 13, 33); cam.lookAt(b.x, 0, b.z * 0.5); } },
