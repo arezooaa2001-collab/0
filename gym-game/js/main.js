@@ -65,6 +65,18 @@ const Game = {
     v.g2.best = Math.max(v.g2.level, Math.floor(Number(v.g2.best) || 1));
     v.goals = obj(v.goals);
     v.penalties = Math.max(0, Math.floor(Number(v.penalties) || 0));
+    v.build = Object.assign({ gym: [], gym2: null, gym2Theme: null, nextId: 0 }, obj(v.build));
+    const okItem = (i) => i && typeof i.id === 'string' && typeof i.type === 'string' && Number.isFinite(i.x) && Number.isFinite(i.z);
+    const clean = (a) => a.filter(okItem).slice(0, 200).map((i) => ({ id: i.id.slice(0, 12), type: i.type, x: i.x, z: i.z, rot: ((Math.floor(i.rot) || 0) % 4 + 4) % 4 }));
+    v.build.gym = Array.isArray(v.build.gym) ? clean(v.build.gym) : [];
+    v.build.gym2 = Array.isArray(v.build.gym2) ? clean(v.build.gym2) : null;
+    v.build.gym2Theme = v.build.gym2Theme && typeof v.build.gym2Theme === 'object' ? {
+      wall: /^#[0-9a-f]{6}$/i.test(v.build.gym2Theme.wall) ? v.build.gym2Theme.wall : G2_THEME_DEFAULT.wall,
+      floor: Array.isArray(v.build.gym2Theme.floor) && v.build.gym2Theme.floor.every((c) => /^#[0-9a-f]{6}$/i.test(c)) ? v.build.gym2Theme.floor.slice(0, 2) : G2_THEME_DEFAULT.floor,
+      light: /^#[0-9a-f]{6}$/i.test(v.build.gym2Theme.light) ? v.build.gym2Theme.light : G2_THEME_DEFAULT.light,
+      name: String(v.build.gym2Theme.name || '').slice(0, 24),
+    } : null;
+    v.build.nextId = Math.max(0, Math.floor(Number(v.build.nextId) || 0));
     v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
     v.settings = Object.assign({ quality: 'auto', sens: 1, names: true, shake: true }, obj(v.settings));
     if (!['low', 'auto', 'high'].includes(v.settings.quality)) v.settings.quality = 'auto';
@@ -123,6 +135,7 @@ const Game = {
     this.loadSave();
     Sfx.setMuted(this.save.muted);
     this.gym = new GymWorld();
+    this.applyLayout(this.gym, 'gym');
     this.gym.spawnNpcs(NPC_NAMES, this.save.npcs);
     this.initRoster();
     this.player = createPlayer(this.outfit(), this.lv());
@@ -225,7 +238,6 @@ const Game = {
   },
 
   nearEquip(type) {
-    if (EQUIP[type].env !== this.envKey()) return null;
     const r = this.world.nearestStation((s) => s.equip === type);
     return r && r.d < 2.4 ? r.s : null;
   },
@@ -237,6 +249,11 @@ const Game = {
     const busy = !this.world.canAct();
     const mult = this.mult();
     const here = this.envKey();
+    // equipment found in this world, and the pieces you placed here from other gyms
+    const equips = new Set(this.world.stations.map((s) => s.equip).filter(Boolean));
+    const placed = new Set(this.world.stations.filter((s) => s.placed && this.world === this.gym).map((s) => s.equip));
+    $('tabPlaced').hidden = !placed.size;
+    if (!placed.size && this.save.tab === 'placed') this.setTab('base');
     for (const m of [...MOVES, ...this.customMoves]) {
       const b = this.moveBtns[m.id];
       if (!b) continue;
@@ -250,10 +267,12 @@ const Game = {
       else if (m.emote) sub = '👏 نمایشی';
       else if (m.equip) {
         const env = EQUIP[m.equip].env;
-        const near = env === here ? this.nearEquip(m.equip) : null;
+        const local = equips.has(m.equip);
+        const near = local ? this.nearEquip(m.equip) : null;
         b.classList.toggle('near', !!near);
-        b.classList.toggle('here', env === here);
-        sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : env === here ? `📍 ${EQUIP[m.equip].name}` : `🗺️ ${this.envName(env)}`;
+        b.classList.toggle('here', local);
+        b.classList.toggle('placedmv', placed.has(m.equip));
+        sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : local ? `📍 ${EQUIP[m.equip].name}` : `🗺️ ${this.envName(env)}`;
         if (m.zone && !near) sub = `${this.lv() >= m.zone ? '✅' : '⛔'} فقط سطح ${fa(m.zone)}+`;
       } else sub = `${fa(Math.round(m.xp * mult))} زور`;
       const subEl = b.querySelector('.mv-sub');
@@ -270,7 +289,7 @@ const Game = {
   },
 
   onMove(m) {
-    if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo) return;
+    if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
     Sfx.init();
     if (m.emote) { this.doEmote(m); return; }
     if (!this.isUnlocked(m)) {
@@ -293,7 +312,7 @@ const Game = {
     let started;
     if (m.equip) {
       const env = EQUIP[m.equip].env;
-      if (env !== this.envKey()) {
+      if (!this.world.stations.some((s) => s.equip === m.equip)) {
         Sfx.play('error');
         const e = ENV_BY_ID[env];
         const lock = e && this.lv() < e.level ? ` (از سطح ${fa(e.level)} باز می‌شه)` : '';
@@ -665,6 +684,7 @@ const Game = {
     let w = this.envs.get(id);
     if (!w) {
       w = buildEnv(id);
+      if (w.layoutKey) this.applyLayout(w, w.layoutKey);
       this.envs.set(id, w);
       this.settleResidents(w);
     }
@@ -757,6 +777,8 @@ const Game = {
 
   updateWorldHud() {
     const inGym = this.where === 'gym';
+    $('buildBtn').hidden = !this.buildKey();
+    if (this.build && this.buildKey() !== this.build.key) this.exitBuild();
     $('readyBtn').hidden = !inGym;
     $('aiBtn').hidden = !(this.where === 'island' || this.where === 'place');
   },
@@ -880,7 +902,7 @@ const Game = {
 
   contextAction() {
     const w = this.world;
-    if (this.race || this.arm || this.photo || !w.canAct() || this.player.anchor) return null;
+    if (this.race || this.arm || this.photo || this.build || !w.canAct() || this.player.anchor) return null;
     if (w.pickups && w.pickups.nearChest(this.player.ch.root.position)) return { label: '🎁 صندوق گنج رو باز کن', run: () => this.openChest() };
     if (w === this.gym) {
       if (w.nearTower() && w.tower.state === 'idle') return { label: '🔨 تست قدرت', run: () => this.strengthTest() };
@@ -958,6 +980,18 @@ const Game = {
     on('startBtn', () => this.startGame());
     $('codeForm').addEventListener('submit', (e) => { e.preventDefault(); this.submitCode(); });
     on('rankBtn', () => { Sfx.init(); this.openBoard(); });
+    on('buildBtn', () => { Sfx.init(); this.toggleBuild(); });
+    on('bAdd', () => this.openBuildCatalog());
+    on('bMove', () => this.buildMove());
+    on('bRot', () => this.buildRotate());
+    on('bTurn', () => this.buildRotate());
+    on('bDel', () => this.buildDelete());
+    on('bPut', () => this.buildPut());
+    on('bCancel', () => this.buildCancel());
+    on('bTheme', () => this.openTheme());
+    on('bExit', () => this.exitBuild());
+    on('thApply', () => this.applyTheme());
+    on('thReset', () => this.resetGym2());
     on('soundBtn', () => {
       Sfx.init();
       this.save.muted = !this.save.muted;
@@ -1156,6 +1190,7 @@ const Game = {
       this.tickRoster(dt);
       this.tickFootball();
       this.tickLucky();
+      if (this.build && this.mode === 'play') this.tickBuild();
       if (this.world === this.gym && this.mode === 'play') this.tickWings(dt);
       if (this.race) this.tickRace(dt);
       if (this.mode === 'play') this.tickHud();

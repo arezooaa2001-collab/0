@@ -206,6 +206,7 @@ class FootballWorld extends EnvWorld {
       m.box(5, 0.5, 0.8, x, 0.25, -W - 1.2, '#1d2433');
       m.box(5.2, 1.6, 0.1, x, 1.0, -W - 1.6, '#a8d8ff');
       for (let k = 0; k < 4; k++) m.sphere(0.2, x - 1.8 + k * 1.2, 0.7, -W - 1.2, c);
+      this.addCollider(x - 2.6, -W - 1.65, x + 2.6, -W - 0.8);
     }
     // the player's way back to the gym
     this.homeRing = portalRing(this, -8, W + 1.2, '#ffc23d', 'برگشت به باشگاه');

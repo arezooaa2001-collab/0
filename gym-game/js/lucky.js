@@ -39,6 +39,7 @@ class LuckyWorld extends WorldBase {
     // rainbow arch ending in two pots of gold
     const cols = ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#4361ee', '#9b5de5'];
     cols.forEach((c, i) => this.glow.geo(new THREE.TorusGeometry(14 - i * 0.55, 0.28, 8, 64, Math.PI), 0, 0, -10, c));
+    for (const s of [-1, 1]) this.addCollider(s > 0 ? 10.4 : -14.3, -10.3, s > 0 ? 14.3 : -10.4, -9.7);
     for (const s of [-1, 1]) {
       const x = s * 11.2;
       m.cyl(1.0, 1.1, x, 0.55, -10, '#1d1d1d', 0, 0, 0, 20);
@@ -53,7 +54,13 @@ class LuckyWorld extends WorldBase {
     }
     for (const [x, z, ry] of [[-6, -20, 0.3], [7, 12, -0.6], [-19, 14, 1.2]]) {
       m.geo(new THREE.TorusGeometry(1.3, 0.28, 8, 24, Math.PI * 1.3), x, 1.6, z, '#ffcf33', 0, ry, Math.PI * 0.85);
-      this.addCollider(x - 1, z - 1, x + 1, z + 1);
+      // collide only where the horseshoe actually comes down to body height
+      const e = new THREE.Euler(0, ry, Math.PI * 0.85);
+      for (let k = 0; k <= 12; k++) {
+        const t = (k / 12) * Math.PI * 1.3;
+        const v = new THREE.Vector3(1.3 * Math.cos(t), 1.3 * Math.sin(t), 0).applyEuler(e);
+        if (v.y + 1.6 < 1.85) this.addCollider(x + v.x - 0.3, z + v.z - 0.3, x + v.x + 0.3, z + v.z + 0.3);
+      }
     }
     for (const [x, z, n, ry] of [[9, -2, 6, 0.4], [-9, -1, 3, -0.3]]) {
       m.box(1.6, 1.6, 1.6, x, 0.8, z, '#ffffff', ry, 0.0);
@@ -133,6 +140,13 @@ Object.assign(GymWorld.prototype, {
     clovers.add(new THREE.Mesh(mergeParts(b.parts, false), MATTE_MAT));
     clovers.position.set(x, 0, z);
     this.scene.add(clovers);
+    this.addCollider(x - 1.5, z - 0.15, x + 1.5, z + 0.15);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU;
+      const cx = x + Math.cos(a) * 2.0;
+      const cz = z + Math.sin(a) * 2.0;
+      this.addCollider(cx - 0.32, cz - 0.32, cx + 0.32, cz + 0.32);
+    }
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.85), new THREE.MeshBasicMaterial({
       map: signTexture([{ text: 'جزیره‌ی خوش‌شانسی • سطح ۲۵۰', size: 84, display: true, color: '#7dff8a' }], { w: 1024, h: 256, border: '#ffd34d' }),
       toneMapped: false, side: THREE.DoubleSide,
@@ -153,7 +167,8 @@ Object.assign(GymWorld.prototype, {
     L.ring.rotation.y += dt * (open ? 1.5 : 0.3);
     L.ring.material.color.set(open ? '#2ecc71' : '#5d6b8a');
     L.disc.material.opacity = open ? 0.35 + 0.2 * Math.sin(this.time * 4) : 0.08;
-    L.clovers.rotation.y -= dt * 0.4;
+    // the clovers stay where their colliders are and just sway
+    L.clovers.rotation.y = 0.04 * Math.sin(this.time * 1.3);
   },
 });
 

@@ -450,6 +450,7 @@ class WorldBase {
           n.reps--;
           const a = this.npcAction(n);
           if (n.station) ch.root.rotation.y = n.station.yaw;
+          ch.station = n.station;
           ch.play(a, () => this.npcGain(n, a));
         } else {
           this.leaveStation(n);
@@ -623,6 +624,13 @@ class WorldBase {
     if (!this.canAct()) return false;
     this.player.vel.set(0, 0);
     ch.speed = 0;
+    ch.station = null;
+    const pos = ch.root.position;
+    ch.onRootCommit = (x, z) => {
+      const yaw = ch.root.rotation.y;
+      pos.x += x * Math.cos(yaw) + z * Math.sin(yaw);
+      pos.z += -x * Math.sin(yaw) + z * Math.cos(yaw);
+    };
     return ch.play(anim, onDone);
   }
 
@@ -656,6 +664,8 @@ class WorldBase {
     P.ch.root.position.set(s.x, s.y || 0, s.z);
     P.ch.root.rotation.y = s.yaw;
     P.vel.set(0, 0);
+    P.ch.station = s;
+    P.ch.onRootCommit = null;
     const ok = P.ch.play(anim, (name) => {
       s.player = false;
       if (P.anchor === s) {

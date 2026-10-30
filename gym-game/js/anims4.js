@@ -215,7 +215,7 @@ function sequenceAnim(dur, poses, { base = {}, props, events, plantFeet = true, 
 }
 
 function boxJumpFn(p, t) {
-  const H = 0.6;
+  const H = 0.625;
   const D = 0.62;
   if (t < 0.22) {
     const c = smooth(t / 0.22);

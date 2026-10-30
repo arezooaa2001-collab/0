@@ -33,6 +33,13 @@ class EnvWorld extends WorldBase {
 
   stands(x, z, w, rows, ry, colors) {
     const m = this.matte;
+    {
+      const ex = x + Math.sin(ry) * (rows - 1);
+      const ez = z + Math.cos(ry) * (rows - 1);
+      const side = Math.abs(Math.sin(ry)) < 0.5;
+      if (side) this.addCollider(x - w / 2, Math.min(z, ez) - 0.5, x + w / 2, Math.max(z, ez) + 0.5);
+      else this.addCollider(Math.min(x, ex) - 0.5, z - w / 2, Math.max(x, ex) + 0.5, z + w / 2);
+    }
     for (let r = 0; r < rows; r++) {
       const h = 0.45 + r * 0.55;
       const off = r * 1.0;
@@ -92,7 +99,6 @@ const ENV_BUILDERS = {
       w.equipStation('swim', 'swim', -8 + (lane % 2) * 16, z, lane % 2 ? -Math.PI / 2 : Math.PI / 2, { ax: -8 + (lane % 2) * 16, az: 6.2 });
     }
     w.stands(0, 8.6, 30, 3, Math.PI, null);
-    w.addCollider(-15, 8.0, 15, 12);
     // lifeguard chair and umbrellas
     m.box(0.8, 1.8, 0.8, 15, 0.9, -2, '#e63946');
     w.addCollider(14.5, -2.5, 15.5, -1.5);
@@ -267,13 +273,14 @@ const ENV_BUILDERS = {
       w.metal.cyl(0.03, 3.2, 3, 1.25, z, '#e0e4ea', 0, 0, Math.PI / 2);
       for (const x of [1.8, 4.2]) w.metal.box(0.06, 1.25, 0.06, x, 0.62, z, '#c9d3e0');
     }
-    w.addCollider(1.7, -0.4, 1.9, 0.4);
+    w.addCollider(1.72, -0.4, 4.28, 0.4);
     w.equipStation('pbars', 'parallel', 3, 0, Math.PI / 2, { ax: 3, az: 1.4 });
     // trampolines
     for (const [x, z] of [[11, -4], [11, 4]]) {
       m.cyl(1.5, 0.55, x, 0.3, z, '#2c3140');
       m.cyl(1.3, 0.04, x, 0.6, z, '#111111');
       w.metal.geo(UnitGeo.torus(1, 0.05, 6, 32), x, 0.6, z, '#2f6fed', Math.PI / 2, 0, 0, 1.45);
+      w.addCollider(x - 1.3, z - 1.3, x + 1.3, z + 1.3);
       w.equipStation('tramp', 'trampoline', x, z, -Math.PI / 2, { y: 0.62, ax: x - 2.1, az: z });
     }
     // beam and vault (decor)
@@ -295,9 +302,23 @@ const ENV_BUILDERS = {
     ice.scale.set(16, 10, 1);
     ice.position.y = 0.02;
     w.scene.add(ice);
+    // the boards are solid; a gap on the spawn side is the way onto the ice
     for (let i = 0; i < 64; i++) {
+      if (i >= 15 && i <= 17) continue;
       const a = (i / 64) * TAU;
-      m.box(1.7, 0.9, 0.12, Math.cos(a) * 16.2, 0.45, Math.sin(a) * 10.2, i % 8 === 0 ? '#e63946' : '#ffffff', -a + Math.PI / 2);
+      const bx = Math.cos(a) * 16.2;
+      const bz = Math.sin(a) * 10.2;
+      // turned along the oval's tangent so neighbours meet
+      const ry = Math.atan2(-10.2 * Math.cos(a), -16.2 * Math.sin(a));
+      m.box(1.75, 0.9, 0.12, bx, 0.45, bz, i % 8 === 0 ? '#e63946' : '#ffffff', ry);
+      for (const u of [-0.6, 0, 0.6]) {
+        const tx = -Math.sin(a) * 16.2;
+        const tz = Math.cos(a) * 10.2;
+        const tl = Math.hypot(tx, tz);
+        const cx = bx + (tx / tl) * u;
+        const cz = bz + (tz / tl) * u;
+        w.addCollider(cx - 0.16, cz - 0.16, cx + 0.16, cz + 0.16);
+      }
     }
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * TAU;
@@ -309,15 +330,16 @@ const ENV_BUILDERS = {
       const x = Math.cos(a) * 21;
       const z = Math.sin(a) * 21;
       if (Math.hypot(x, z - 18) < 5) continue;
-      m.cyl(0.18, 1.2, x, 0.6, z, '#6b4423');
-      m.add(UnitGeo.cone(12), x, 2.2, z, '#1f6b3a', 0, 0, 0, 1.3, 2.4, 1.3);
-      m.add(UnitGeo.cone(12), x, 3.3, z, '#f5f8ff', 0, 0, 0, 0.7, 0.8, 0.7);
+      m.cyl(0.18, 2.0, x, 1.0, z, '#6b4423');
+      m.add(UnitGeo.cone(12), x, 3.15, z, '#1f6b3a', 0, 0, 0, 1.3, 2.4, 1.3);
+      m.add(UnitGeo.cone(12), x, 4.25, z, '#f5f8ff', 0, 0, 0, 0.7, 0.8, 0.7);
       w.addCollider(x - 0.4, z - 0.4, x + 0.4, z + 0.4);
     }
     // string lights
     for (let i = 0; i < 40; i++) {
       const a = (i / 40) * TAU;
-      w.glow.sphere(0.09, Math.cos(a) * 16.2, 1.25, Math.sin(a) * 10.2, pick(['#ff4d6d', '#ffd34d', '#7fe0ff', '#2ecc71']));
+      if (a > 1.35 && a < 1.8) continue;
+      w.glow.sphere(0.09, Math.cos(a) * 16.2, 0.95, Math.sin(a) * 10.2, pick(['#ff4d6d', '#ffd34d', '#7fe0ff', '#2ecc71']));
     }
     w.anims.push((dt) => {
       for (let i = 0; i < 2; i++) w.fx.emit(rand(-26, 26), 12, rand(-26, 26), rand(-0.3, 0.3), -0.8, rand(-0.3, 0.3), new THREE.Color('#ffffff'), 9, 0.05);
@@ -342,7 +364,7 @@ const ENV_BUILDERS = {
     m.box(4, 3, 1.6, 4.5, 7.2, -24.1, '#7a6a5a');
     for (let i = 0; i < 40; i++) m.sphere(0.1, rand(-5.5, 5.5), rand(0.5, 5.6), -23.25, pick(['#e63946', '#ffd34d', '#2ecc71', '#2f6fed']));
     w.addCollider(-6, -24.8, 6, -23.3);
-    for (const x of [-3.5, 0, 3.5]) w.equipStation('wall', 'climb', x, -22.6, Math.PI, { ax: x, az: -21.2 });
+    for (const x of [-3.5, 0, 3.5]) w.equipStation('wall', 'climb', x, -22.6, Math.PI, { ax: x, az: -21.2, wall: 0.65, wallH: 5.6 });
     // ski piste with gates
     m.box(10, 0.03, 30, 14, 0.02, 0, '#e8f1fb');
     for (let i = 0; i < 6; i++) {
@@ -359,9 +381,9 @@ const ENV_BUILDERS = {
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       if (Math.hypot(x, z - 22) < 6 || (z < -19 && Math.abs(x) < 8)) continue;
-      m.cyl(0.2, 1.2, x, 0.6, z, '#6b4423');
-      m.add(UnitGeo.cone(12), x, 2.4, z, '#1f5b33', 0, 0, 0, 1.5, 2.8, 1.5);
-      m.add(UnitGeo.cone(12), x, 3.6, z, '#ffffff', 0, 0, 0, 0.8, 0.9, 0.8);
+      m.cyl(0.2, 2.0, x, 1.0, z, '#6b4423');
+      m.add(UnitGeo.cone(12), x, 3.4, z, '#1f5b33', 0, 0, 0, 1.5, 2.8, 1.5);
+      m.add(UnitGeo.cone(12), x, 4.6, z, '#ffffff', 0, 0, 0, 0.8, 0.9, 0.8);
       w.addCollider(x - 0.45, z - 0.45, x + 0.45, z + 0.45);
     }
     // cabin

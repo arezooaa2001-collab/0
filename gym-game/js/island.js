@@ -35,6 +35,8 @@ function portalRing(world, x, z, color, title) {
   ring.position.set(x, 1.6, z);
   ring.rotation.y = Math.atan2(x, z);
   world.scene.add(ring);
+  // the ring's foot is solid all along its width
+  orientedColliders(world, x, z, 2.85, 0.26, ring.rotation.y, 0.26);
   const sign = labelSprite(title, 'برای رفتن کنارش برو', color, 3);
   sign.position.set(x, 3.6, z);
   world.scene.add(sign);

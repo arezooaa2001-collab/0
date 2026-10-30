@@ -12,14 +12,42 @@ function blossomTree(w, x, z, s = 1, colors = ['#ffb7c5', '#ff8fab', '#ffc8dd', 
   const m = w.matte;
   m.cyl(0.22 * s, 2.4 * s, x, 1.2 * s, z, '#6b3e26', 0.08, 0, 0.05);
   for (const [dx, dy, dz, r] of [[0.9, 2.5, 0, 0.45], [-0.8, 2.6, 0.3, 0.4], [0.2, 2.9, -0.7, 0.4]]) {
-    m.cyl(0.08 * s, 1.2 * s, x + dx * 0.5 * s, dy * 0.85 * s, z + dz * 0.5 * s, '#6b3e26', dz * 0.6, 0, -dx * 0.6);
+    m.cyl(0.08 * s, 1.2 * s, x + dx * 0.5 * s, dy * 0.85 * s + 0.35, z + dz * 0.5 * s, '#6b3e26', dz * 0.6, 0, -dx * 0.6);
   }
+  m.cyl(0.18 * s, 1.0, x, 2.4 * s + 0.4, z, '#6b3e26');
   for (let i = 0; i < 9; i++) {
     const a = i * 0.7;
     const r = rand(0.5, 1.4) * s;
-    m.sphere(rand(0.7, 1.05) * s, x + Math.cos(a) * r, (2.9 + rand(-0.3, 0.7)) * s, z + Math.sin(a) * r, colors[i % colors.length]);
+    const rr = rand(0.7, 1.05) * s;
+    // keep the blossom above head height
+    m.sphere(rr, x + Math.cos(a) * r, Math.max((2.9 + rand(-0.3, 0.7)) * s + 0.4, 1.95 + rr), z + Math.sin(a) * r, colors[i % colors.length]);
   }
   w.addCollider(x - 0.3 * s, z - 0.3 * s, x + 0.3 * s, z + 0.3 * s);
+}
+
+/** A rotated rectangle as a grid of small squares, so the collision follows its real outline. */
+function orientedColliders(w, cx, cz, W, D, ry, cell = 0.8) {
+  const nx = Math.max(1, Math.round(W / cell));
+  const nz = Math.max(1, Math.round(D / cell));
+  const c = Math.cos(ry);
+  const s = Math.sin(ry);
+  const sx = W / nx;
+  const sz = D / nz;
+  const h = 0.5 * (Math.min(sx, sz) * (Math.abs(c) + Math.abs(s)));
+  for (let i = 0; i < nx; i++) {
+    for (let j = 0; j < nz; j++) {
+      const lx = -W / 2 + (i + 0.5) * sx;
+      const lz = -D / 2 + (j + 0.5) * sz;
+      const x = cx + lx * c + lz * s;
+      const z = cz - lx * s + lz * c;
+      w.addCollider(x - h, z - h, x + h, z + h);
+    }
+  }
+}
+
+/** An oval pond or basin as three overlapping rectangles that stay inside the ellipse. */
+function ellipseColliders(w, cx, cz, rx, rz) {
+  for (const [fx, fz] of [[0.93, 0.36], [0.78, 0.62], [0.4, 0.92]]) w.addCollider(cx - rx * fx, cz - rz * fz, cx + rx * fx, cz + rz * fz);
 }
 
 function stoneLantern(w, x, z) {
@@ -35,7 +63,11 @@ function stoneLantern(w, x, z) {
 function leafyTree(w, x, z, s, colors) {
   const m = w.matte;
   m.cyl(0.25 * s, 2.6 * s, x, 1.3 * s, z, '#7a4a2a');
-  for (let i = 0; i < 5; i++) m.sphere(rand(0.9, 1.3) * s, x + rand(-0.8, 0.8) * s, (2.9 + rand(0, 1.0)) * s, z + rand(-0.8, 0.8) * s, colors[i % colors.length]);
+  m.cyl(0.18 * s, 1.0, x, 2.6 * s + 0.4, z, '#7a4a2a');
+  for (let i = 0; i < 5; i++) {
+    const rr = rand(0.9, 1.3) * s;
+    m.sphere(rr, x + rand(-0.8, 0.8) * s, Math.max((2.9 + rand(0, 1.0)) * s, 1.95 + rr), z + rand(-0.8, 0.8) * s, colors[i % colors.length]);
+  }
   w.addCollider(x - 0.35 * s, z - 0.35 * s, x + 0.35 * s, z + 0.35 * s);
 }
 
@@ -64,11 +96,11 @@ Object.assign(ENV_BUILDERS, {
     // the dojo hall: tatami floor under a big curved roof
     const DX = 0;
     const DZ = -6;
-    m.box(14, 0.12, 10, DX, 0.06, DZ, '#6b4423');
+    m.box(14, 0.02, 10, DX, 0.01, DZ, '#6b4423');
     for (let i = 0; i < 6; i++) {
       for (let j = 0; j < 4; j++) {
-        m.box(2.1, 0.05, 2.2, DX - 5.5 + i * 2.2, 0.13, DZ - 3.45 + j * 2.3, (i + j) % 2 ? '#c9c58a' : '#d8d49a');
-        m.box(2.12, 0.052, 0.08, DX - 5.5 + i * 2.2, 0.131, DZ - 3.45 + j * 2.3 - 1.08, '#2b4a2b');
+        m.box(2.1, 0.012, 2.2, DX - 5.5 + i * 2.2, 0.026, DZ - 3.45 + j * 2.3, (i + j) % 2 ? '#c9c58a' : '#d8d49a');
+        m.box(2.12, 0.013, 0.08, DX - 5.5 + i * 2.2, 0.027, DZ - 3.45 + j * 2.3 - 1.08, '#2b4a2b');
       }
     }
     for (const [x, z] of [[-6.8, -10.8], [6.8, -10.8], [-6.8, -1.2], [6.8, -1.2], [0, -10.8]]) {
@@ -80,6 +112,7 @@ Object.assign(ENV_BUILDERS, {
     m.add(UnitGeo.cone(4), DX, 6.9, DZ, '#d4a017', 0, Math.PI / 4, 0, 1.2, 0.6, 1.0);
     for (const s of [-1, 1]) m.box(16.4, 0.2, 0.25, DX, 4.5, DZ + s * 5.8, '#d62828');
     m.box(14, 4, 0.2, DX, 2.2, DZ - 5.0, '#f3e9d2');
+    w.addCollider(DX - 7, DZ - 5.12, DX + 7, DZ - 4.88);
     for (let i = 0; i < 6; i++) m.box(0.08, 4, 0.22, DX - 6 + i * 2.4, 2.2, DZ - 4.98, '#6b4423');
     // big painted sun and a gong inside the hall
     w.glow.cyl(1.0, 0.04, DX, 2.6, DZ - 4.85, '#e63946', Math.PI / 2, 0, 0, 32);
@@ -118,7 +151,7 @@ Object.assign(ENV_BUILDERS, {
     pond.rotation.x = -Math.PI / 2;
     pond.position.set(-14, 0.07, -12);
     w.scene.add(pond);
-    w.addCollider(-18.6, -15.6, -9.4, -8.4);
+    ellipseColliders(w, -14, -12, 5.2, 5.2);
     const koi = [];
     for (let i = 0; i < 7; i++) {
       const f = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: pick(['#ff7b00', '#ffffff', '#ff4d4d', '#ffd34d']), roughness: 0.4 }));
@@ -139,13 +172,15 @@ Object.assign(ENV_BUILDERS, {
     }
     // bamboo groves, lanterns, cherry trees
     for (const [cx, cz] of [[-22, 6], [21, -12], [-6, 20]]) {
+      let x1 = Infinity, x2 = -Infinity, z1 = Infinity, z2 = -Infinity;
       for (let i = 0; i < 9; i++) {
         const x = cx + rand(-1.4, 1.4);
         const z = cz + rand(-1.4, 1.4);
         const h = rand(4, 7);
         m.cyl(0.08, h, x, h / 2, z, pick(['#4caf50', '#66bb6a', '#7cb342']), 0, 0, 0, 6);
+        x1 = Math.min(x1, x); x2 = Math.max(x2, x); z1 = Math.min(z1, z); z2 = Math.max(z2, z);
       }
-      w.addCollider(cx - 1.5, cz - 1.5, cx + 1.5, cz + 1.5);
+      w.addCollider(x1 - 0.1, z1 - 0.1, x2 + 0.1, z2 + 0.1);
     }
     for (const [x, z] of [[-3, 14], [3, 14], [-3, 8], [3, 8], [9, -12], [-9, 10]]) stoneLantern(w, x, z);
     const trees = [[-8, 14], [8, 14], [-18, -2], [18, 2], [-10, -18], [10, -18], [20, -20], [-21, -18], [0, -19], [22, 11], [-20, 15]];
@@ -199,11 +234,10 @@ Object.assign(ENV_BUILDERS, {
     }
     w.stands(0, -14.6, 22, 3, Math.PI, ['#ff4da6', '#ffffff', '#ffd34d', '#00b4d8']);
     w.stands(14.2, 0, 22, 3, Math.PI / 2, ['#2ecc71', '#ffffff', '#ff7b00']);
-    w.addCollider(-11.5, -17, 11.5, -14.1);
-    w.addCollider(13.7, -11.5, 17, 11.5);
     // hedges, flowers and flags
-    for (let i = 0; i < 14; i++) m.box(2.2, 1.0, 0.9, -15.5 + (i % 7) * 2.4, 0.5, i < 7 ? 16.2 : 16.2, '#2b8a3e');
-    for (let i = 0; i < 30; i++) m.sphere(0.12, rand(-16, 8), 1.05, rand(15.8, 16.6), pick(['#ff4da6', '#ffd34d', '#ffffff', '#e63946', '#9b5de5']));
+    for (let i = 0; i < 7; i++) m.box(2.2, 1.0, 0.9, -15.5 + i * 2.4, 0.5, 16.2, '#2b8a3e');
+    w.addCollider(-16.6, 15.75, -0.0, 16.65);
+    for (let i = 0; i < 30; i++) m.sphere(0.12, rand(-16.4, -0.3), 1.03, rand(15.85, 16.55), pick(['#ff4da6', '#ffd34d', '#ffffff', '#e63946', '#9b5de5']));
     for (const [x, c] of [[-14, '#e63946'], [-11, '#2f6fed'], [11, '#ffd34d'], [14, '#2ecc71']]) {
       w.metal.cyl(0.04, 5, x, 2.5, -14.8, '#d5dce6');
       m.box(1.2, 0.7, 0.03, x + 0.62, 4.55, -14.8, c);
@@ -297,8 +331,6 @@ Object.assign(ENV_BUILDERS, {
     // crowd, big screen and banners
     w.stands(0, -11.4, 30, 3, Math.PI, ['#e63946', '#ffffff', '#ffd34d', '#2f6fed', '#ff4da6']);
     w.stands(0, 11.4, 30, 3, 0, ['#2ecc71', '#ffffff', '#00b4d8', '#ff7b00']);
-    w.addCollider(-15, -14.5, 15, -10.9);
-    w.addCollider(-15, 10.9, 15, 14.5);
     for (const [x, c] of [[-17.2, '#e63946'], [17.2, '#2f6fed']]) {
       const ban = new THREE.Mesh(new THREE.PlaneGeometry(7, 3.4), new THREE.MeshBasicMaterial({
         map: signTexture([{ text: x < 0 ? 'گوشه‌ی قرمز' : 'گوشه‌ی آبی', size: 120, display: true, color: '#ffffff' }], { w: 1024, h: 512, bg1: c, bg2: '#141826', border: '#ffd34d' }),
@@ -321,7 +353,7 @@ Object.assign(ENV_BUILDERS, {
     for (let i = 0; i < 10; i++) m.box(6, 0.02, 56, -27 + i * 6, 0.0, 0, i % 2 ? '#5cbf60' : '#66c96a');
     m.box(10, 0.025, 40, 0, 0.01, -4, '#7ed957');
     // tee boxes
-    m.box(12, 0.06, 3, 0, 0.03, 19.5, '#8fe388');
+    m.box(12, 0.02, 3, 0, 0.014, 19.5, '#8fe388');
     for (const x of [-4.5, -1.5, 1.5, 4.5]) {
       w.equipStation('tee', 'golf', x, 19.4, Math.PI, { ax: x, az: 21.4 });
       m.cyl(0.03, 0.04, x + 0.05, 0.03, 18.78, '#ffffff', 0, 0, 0, 6);
@@ -329,7 +361,7 @@ Object.assign(ENV_BUILDERS, {
     for (const [x, c] of [[-6.5, '#e63946'], [6.5, '#2f6fed']]) m.sphere(0.18, x, 0.15, 19.5, c);
     // putting green with the hole and a flag
     const G = { x: 16, z: -8 };
-    m.cyl(6, 0.03, G.x, 0.03, G.z, '#9ff08f', 0, 0, 0, 40);
+    m.cyl(6, 0.016, G.x, 0.016, G.z, '#9ff08f', 0, 0, 0, 40);
     m.cyl(0.11, 0.035, G.x, 0.035, G.z, '#111111', 0, 0, 0, 16);
     w.metal.cyl(0.02, 2.4, G.x, 1.2, G.z, '#ffffff', 0, 0, 0, 6);
     const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), new THREE.MeshStandardMaterial({ color: '#e63946', side: THREE.DoubleSide }));
@@ -353,7 +385,7 @@ Object.assign(ENV_BUILDERS, {
     pond.scale.set(1.5, 1, 1);
     pond.position.set(-16, 0.05, -6);
     w.scene.add(pond);
-    w.addCollider(-22.5, -10.5, -9.5, -1.5);
+    ellipseColliders(w, -16, -6, 6.75, 4.5);
     // autumn trees in many colours
     const tcol = [['#2f9e44', '#40c057'], ['#ff7b00', '#ffb347'], ['#ffd34d', '#f4c430'], ['#e63946', '#ff6b6b'], ['#2b8a3e', '#69db7c']];
     for (let i = 0; i < 26; i++) {

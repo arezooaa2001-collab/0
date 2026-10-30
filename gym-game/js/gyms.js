@@ -9,6 +9,7 @@
  */
 
 const G2_LEVEL = 25;
+const G2_THEME_DEFAULT = { wall: '#6e341a', floor: ['#2b2e34', '#33373e'], light: '#ffd9a0', name: '' };
 const G2_HARD = 1.6;
 const GYM3_LEVEL = 500;
 const TITAN_LEVEL = 500;
@@ -143,6 +144,20 @@ const CRYSTAL_OUTFIT = {
   sole: '#ffffff', socks: '#9fe8ff', style: 'tank', band: '#ff7bf0', number: false,
 };
 
+/** Keep a frozen pose on its spot: no drift forward, and the lowest foot or hand resting on the top. */
+function standOnPlinth(q) {
+  q.x = 0;
+  q.z = 0;
+  const FKr = Contact.FK;
+  FKr.set(q);
+  const v = new THREE.Vector3();
+  let low = Infinity;
+  for (const [b, x, y, z] of [['anL', 0, -0.08, 0.05], ['anR', 0, -0.08, 0.05], ['anL', 0, -0.08, 0.16], ['anR', 0, -0.08, 0.16], ['haL', 0, -0.09, 0], ['haR', 0, -0.09, 0]]) {
+    low = Math.min(low, FKr.at(b, x, y, z, v).y);
+  }
+  q.y -= low;
+}
+
 /** A frozen character on a plinth: a statue. */
 function makeStatue(w, outfit, anim, t, x, z, ry, { scale = 1, plinth = 1, plinthColor = '#d8d0c0', trim = '#d4af37', muscle = 1 } = {}) {
   if (plinth > 0) {
@@ -157,6 +172,7 @@ function makeStatue(w, outfit, anim, t, x, z, ry, { scale = 1, plinth = 1, plint
   ch.manual = true;
   copyPose(ch.manualPose, makePose());
   ANIMS[anim].fn(ch.manualPose, t, ch);
+  standOnPlinth(ch.manualPose);
   copyPose(ch.cur, ch.manualPose);
   ch.apply();
   w.scene.add(ch.root);
@@ -207,26 +223,28 @@ ENV_BUILDERS.gym2 = () => {
   const m = w.matte;
   const mt = w.metal;
   const glow = w.glow;
+  const th = w.theme = Object.assign({}, G2_THEME_DEFAULT, Game.save && Game.save.build && Game.save.build.gym2Theme);
+  const shadeOf = (c, k) => '#' + new THREE.Color(c).lerp(new THREE.Color(k > 0 ? '#ffffff' : '#000000'), Math.abs(k)).getHexString();
   const warm = new THREE.PointLight(0xff7a2a, 1.4, 40, 1.6);
   warm.position.set(0, 4, -17);
   w.scene.add(warm);
   // steel floor plates and hazard edges
   for (let i = 0; i < 15; i++) {
-    for (let j = 0; j < 11; j++) m.box(3.96, 0.06, 3.96, -W + 2 + i * 4, -0.02, -D + 2 + j * 4, (i + j) % 2 ? '#2b2e34' : '#33373e');
+    for (let j = 0; j < 11; j++) m.box(3.96, 0.06, 3.96, -W + 2 + i * 4, -0.02, -D + 2 + j * 4, (i + j) % 2 ? th.floor[0] : th.floor[1]);
   }
   for (let i = 0; i < 30; i++) {
     m.box(1.0, 0.065, 0.5, -W + 1 + i * 2, 0.0, -D + 0.3, i % 2 ? '#ffd34d' : '#1d1d1d', 0.6);
     m.box(1.0, 0.065, 0.5, -W + 1 + i * 2, 0.0, D - 0.3, i % 2 ? '#ffd34d' : '#1d1d1d', 0.6);
   }
   // corrugated rusty walls with ribs, roof trusses, hanging lamps
-  m.box(W * 2, H, 0.4, 0, H / 2, -D - 0.2, '#6e341a');
-  m.box(W * 2, H, 0.4, 0, H / 2, D + 0.2, '#6e341a');
-  m.box(0.4, H, D * 2, -W - 0.2, H / 2, 0, '#6e341a');
-  m.box(0.4, H, D * 2, W + 0.2, H / 2, 0, '#6e341a');
+  m.box(W * 2, H, 0.4, 0, H / 2, -D - 0.2, th.wall);
+  m.box(W * 2, H, 0.4, 0, H / 2, D + 0.2, th.wall);
+  m.box(0.4, H, D * 2, -W - 0.2, H / 2, 0, th.wall);
+  m.box(0.4, H, D * 2, W + 0.2, H / 2, 0, th.wall);
   for (let i = 0; i <= 30; i++) {
-    for (const z of [-D + 0.05, D - 0.05]) m.box(0.18, H, 0.12, -W + i * 2, H / 2, z, '#8a4422');
+    for (const z of [-D + 0.05, D - 0.05]) m.box(0.18, H, 0.12, -W + i * 2, H / 2, z, shadeOf(th.wall, 0.18));
   }
-  for (let j = 0; j <= 22; j++) for (const x of [-W + 0.05, W - 0.05]) m.box(0.12, H, 0.18, x, H / 2, -D + j * 2, '#8a4422');
+  for (let j = 0; j <= 22; j++) for (const x of [-W + 0.05, W - 0.05]) m.box(0.12, H, 0.18, x, H / 2, -D + j * 2, shadeOf(th.wall, 0.18));
   m.box(W * 2, 0.3, D * 2, 0, H + 0.15, 0, '#1a1614');
   for (let i = 0; i < 8; i++) {
     const z = -D + 2.75 + i * 5.5;
@@ -236,7 +254,7 @@ ENV_BUILDERS.gym2 = () => {
   for (const [x, z] of [[-18, -8], [-6, -8], [6, -8], [18, -8], [-18, 6], [-6, 6], [6, 6], [18, 6]]) {
     mt.cyl(0.02, 2.4, x, H - 1.6, z, '#2c3140', 0, 0, 0, 6);
     mt.cyl(0.55, 0.35, x, H - 2.9, z, '#2c3140', 0, 0, 0, 14);
-    glow.cyl(0.45, 0.04, x, H - 3.08, z, '#ffd9a0', 0, 0, 0, 14);
+    glow.cyl(0.45, 0.04, x, H - 3.08, z, th.light, 0, 0, 0, 14);
   }
   // shipping containers along the side walls
   for (const [x, z, c, rib] of [[-27.4, 18, '#2f6fed', '#2458c0'], [27.4, -3, '#2a9d8f', '#1f7a70'], [27.4, 3.4, '#e63946', '#b8252f'], [-27.4, 12.5, '#ff7b00', '#cc6200']]) {
@@ -251,14 +269,6 @@ ENV_BUILDERS.gym2 = () => {
   m.box(4, 6, 2.2, 0, 4, -21, '#3a2e28');
   m.add(UnitGeo.cone(4), 0, 7.8, -21, '#2c2420', 0, Math.PI / 4, 0, 2.6, 1.6, 2.0);
   w.addCollider(-6, -21.8, 6, -18.6);
-  for (const x of [-3, 3]) {
-    const st = w.equipStation('g2forge', 'hammer', x, -15.2, Math.PI);
-    const [ax, az] = local(st, 0, 0.8);
-    m.box(0.6, 0.6, 0.35, ax, 0.3, az, '#2c3140');
-    mt.box(0.85, 0.2, 0.4, ax, 0.7, az, '#3c4250');
-    mt.add(UnitGeo.cone(4), ax + 0.55, 0.7, az, '#3c4250', 0, 0, -Math.PI / 2, 0.14, 0.4, 0.14);
-    w.addCollider(ax - 0.5, az - 0.25, ax + 0.5, az + 0.25);
-  }
   const sparks = { t: 0 };
   w.anims.push((dt) => {
     sparks.t -= dt;
@@ -290,92 +300,8 @@ ENV_BUILDERS.gym2 = () => {
   trolley.position.set(0, H - 0.8, 2);
   w.scene.add(trolley);
   w.anims.push((dt, time) => { trolley.position.x = 9 * Math.sin(time * 0.15); });
-  // stations
-  for (const x of [-25, -21, -17]) {
-    const st = w.equipStation('g2tire', 'hammer', x, -12, Math.PI);
-    const [tx, tz] = local(st, 0, 0.95);
-    m.add(UnitGeo.torus(1, 0.45, 8, 20), tx, 0.2, tz, '#1d1d1d', Math.PI / 2, 0, 0, 0.75, 0.75, 0.75);
-    w.addCollider(tx - 0.6, tz - 0.6, tx + 0.6, tz + 0.6);
-  }
-  for (const x of [-25, -21]) {
-    const z = -3;
-    for (const s of [-1, 1]) mt.cyl(0.03, H - 2.5, x + s * 0.85, (H + 2.5) / 2, z, '#9aa0a8', 0, 0, 0, 5);
-    mt.cyl(0.035, 1.8, x, 2.5, z, '#c9ced6', 0, 0, Math.PI / 2, 10);
-    for (let k = 0; k < 10; k++) for (const s of [-1, 1]) mt.add(UnitGeo.torus(1, 0.3, 4, 8), x + s * 0.85, 3.0 + k * 0.6, z, '#9aa0a8', 0, k % 2 ? Math.PI / 2 : 0, 0, 0.1, 0.1, 0.1);
-    w.addStation(x, z, 0, ['pullup'], { equip: 'g2chainbar', ax: x, az: z + 1.1 });
-  }
-  for (const x of [-15, -11]) {
-    m.box(2.6, 0.06, 2.4, x, 0.03, -3, '#3d2b1f');
-    w.equipStation('g2log', 'logpress', x, -3, Math.PI);
-  }
-  for (const x of [17, 21, 25]) {
-    const st = w.equipStation('g2keg', 'kegtoss', x, -12, Math.PI);
-    for (const s of [-1, 1]) {
-      const [px, pz] = local(st, s * 1.3, -2.3);
-      mt.box(0.12, 3.4, 0.12, px, 1.7, pz, '#ffb000');
-      w.addCollider(px - 0.1, pz - 0.1, px + 0.1, pz + 0.1);
-    }
-    const [bx, bz] = local(st, 0, -2.3);
-    mt.box(2.7, 0.1, 0.1, bx, 3.4, bz, '#ffb000', st.yaw);
-    for (let k = 0; k < 3; k++) {
-      const [kx, kz] = local(st, -0.9 + k * 0.9, -3.6);
-      m.cyl(0.2, 0.5, kx, 0.25, kz, '#aab3c0', 0, 0, 0, 12);
-    }
-  }
-  for (const x of [9, 13]) {
-    const st = w.equipStation('g2anvil', 'anvilwalk', x, -3, Math.PI);
-    const [ax, az] = local(st, 0, -3.4);
-    m.box(1.6, 0.03, 4.6, x, 0.015, -4.6, '#4a4f5a');
-    m.box(0.5, 0.25, 0.5, ax, 0.12, az, '#3c4250');
-  }
-  for (const x of [19, 23]) {
-    m.box(2.2, 0.05, 2.2, x, 0.025, -3, '#3d2b1f');
-    w.equipStation('g2kb', 'kettle', x, -3, Math.PI);
-  }
-  for (const x of [-25, -19]) {
-    m.box(3.2, 0.05, 4, x, 0.025, 6, '#3d2b1f');
-    w.equipStation('g2bigtire', 'tireflip', x, 7, Math.PI);
-  }
-  {
-    const st = w.equipStation('g2truck', 'truckpull', -12, 16, -Math.PI / 2);
-    const [cx, cz] = local(st, 0, 8.6);
-    m.box(4.2, 2.0, 2.3, cx - 2.1, 1.3, cz, '#e63946');
-    m.box(2.0, 2.6, 2.3, cx + 0.9, 1.6, cz, '#c1121f');
-    m.box(0.06, 1.0, 1.9, cx + 1.92, 2.2, cz, '#9fd6ff');
-    for (const dx of [-3.4, -1.0, 1.0]) for (const s of [-1, 1]) m.cyl(0.45, 0.35, cx + dx, 0.45, cz + s * 1.15, '#1d1d1d', Math.PI / 2, 0, 0, 14);
-    glow.box(0.06, 0.25, 0.4, cx + 1.92, 1.0, cz + 0.8, '#fff4c2');
-    glow.box(0.06, 0.25, 0.4, cx + 1.92, 1.0, cz - 0.8, '#fff4c2');
-    w.addCollider(cx - 4.3, cz - 1.3, cx + 1.95, cz + 1.3);
-  }
-  for (const x of [-7, -3]) {
-    m.box(2.4, 0.05, 3.6, x, 0.025, 8.6, '#4a4f5a');
-    w.equipStation('g2car', 'carlift', x, 10, Math.PI);
-  }
-  for (const x of [8, 12]) {
-    const st = w.equipStation('g2beam', 'beamsquat', x, 7, Math.PI);
-    for (const s of [-1, 1]) {
-      const [px, pz] = local(st, s * 1.4, -0.6);
-      mt.box(0.12, 2.0, 0.12, px, 1.0, pz, '#ff7b00');
-      w.addCollider(px - 0.1, pz - 0.1, px + 0.1, pz + 0.1);
-    }
-  }
-  for (const x of [17, 22]) {
-    const st = w.equipStation('g2stone', 'atlas', x, 7, Math.PI);
-    const [px, pz] = local(st, 0, 0.9);
-    m.cyl(0.42, 1.25, px, 0.62, pz, '#3c2a22', 0, 0, 0, 12);
-    glow.cyl(0.43, 0.06, px, 1.2, pz, '#ff5a00', 0, 0, 0, 12);
-    w.addCollider(px - 0.4, pz - 0.4, px + 0.4, pz + 0.4);
-  }
-  for (const x of [6, 10]) {
-    m.box(1.6, 0.03, 5, x, 0.015, 14.5, '#4a4f5a');
-    w.equipStation('g2sled', 'sledpush', x, 17, Math.PI);
-  }
-  for (const x of [21, 25]) {
-    const z = 16;
-    for (let k = 0; k < 14; k++) mt.add(UnitGeo.torus(1, 0.3, 4, 8), x, 0.6 + k * 0.62, z - 0.1, '#9aa0a8', 0, k % 2 ? Math.PI / 2 : 0, 0, 0.12, 0.12, 0.12);
-    m.box(2.2, 0.3, 2.2, x, 0.15, z, '#ff7b00');
-    w.addStation(x, z, Math.PI, ['ropeclimb'], { equip: 'g2climb', ax: x, az: z + 1.8 });
-  }
+  // the equipment is made of movable pieces (build.js): your own layout, or the original one
+  w.layoutKey = 'gym2';
   // walls of fire-coloured art: hammers, flames and a lion made of iron
   const art = makeCanvasTexture(1024, 384, (ctx, Wd, Hd) => {
     const g = ctx.createLinearGradient(0, 0, Wd, Hd);
@@ -406,7 +332,7 @@ ENV_BUILDERS.gym2 = () => {
     p.rotation.y = ry;
     w.scene.add(p);
   }
-  ringSign(w, '⚙️ باشگاه فولاد', `سطح جدا • از ۱ شروع کن`, 0, 8.6, -12, '#ff9a3d');
+  ringSign(w, '⚙️ ' + (th.name || 'باشگاه فولاد'), `سطح جدا • از ۱ شروع کن`, 0, 8.6, -12, '#ff9a3d');
   // iron statues of strongmen at the entrance
   makeStatue(w, Object.assign({}, BRONZE_OUTFIT, { skin: '#5d6675', hair: '#3c4250', shirt: '#6e7787', shorts: '#4a525f', shoes: '#5d6675', sole: '#9aa0a8', socks: '#5d6675', accent: '#c9ced6' }), 'e_flex', 0.5, -4.5, 19.6, Math.PI, { scale: 1.4, plinth: 0.8, plinthColor: '#2c2420', trim: '#ff7b00' });
   makeStatue(w, Object.assign({}, BRONZE_OUTFIT, { skin: '#5d6675', hair: '#3c4250', shirt: '#6e7787', shorts: '#4a525f', shoes: '#5d6675', sole: '#9aa0a8', socks: '#5d6675', accent: '#c9ced6' }), 'e_victory', 0.5, 4.5, 19.6, Math.PI, { scale: 1.4, plinth: 0.8, plinthColor: '#2c2420', trim: '#ff7b00' });
@@ -430,7 +356,8 @@ ENV_BUILDERS.gym3 = () => {
   // marble island floating over a golden sea of clouds
   m.cyl(R + 1.5, 0.6, 0, -0.3, 0, '#efe9dc', 0, 0, 0, 64);
   m.cyl(R + 2.2, 3.0, 0, -2.1, 0, '#d8d0c0', 0, 0, 0, 64);
-  for (let i = 0; i < 6; i++) m.add(UnitGeo.torus(1, 0.012, 4, 64), 0, 0.01, 0, i % 2 ? '#d4af37' : '#c9b38a', Math.PI / 2, 0, 0, 8 + i * 4.4, 8 + i * 4.4, 8 + i * 4.4);
+  // inlaid rings: flat strips in the floor, not bumps
+  for (let i = 0; i < 6; i++) m.geo(ellipseRingGeometry(8 + i * 4.4, 8 + i * 4.4, 0.14), 0, 0.006, 0, i % 2 ? '#d4af37' : '#c9b38a');
   for (let i = 0; i < 24; i++) m.box(0.06, 0.012, R - 6, Math.sin(i * 0.2618) * (R / 2 + 3), 0.012, Math.cos(i * 0.2618) * (R / 2 + 3), '#e2d6bd', i * 0.2618);
   // colonnade around the edge
   for (let i = 0; i < 30; i++) {
@@ -469,8 +396,8 @@ ENV_BUILDERS.gym3 = () => {
     w.addCollider(x - 0.2, z - 0.2, x + 0.2, z + 0.2);
   }
   // the Titans' arena: raised gold ring, fence with an open south gate
-  m.cyl(Z.r, 0.12, Z.x, 0.06, Z.z, '#e8dcc0', 0, 0, 0, 48);
-  glow.add(UnitGeo.torus(1, 0.013, 6, 64), Z.x, 0.14, Z.z, '#ffcf33', Math.PI / 2, 0, 0, Z.r, Z.r, Z.r);
+  m.cyl(Z.r, 0.02, Z.x, 0.01, Z.z, '#e8dcc0', 0, 0, 0, 48);
+  glow.geo(ellipseRingGeometry(Z.r - 0.1, Z.r - 0.1, 0.2), Z.x, 0.022, Z.z, '#ffcf33');
   for (let i = 0; i < 36; i++) {
     const a = (i / 36) * TAU;
     if (Math.abs(wrapAngle(a)) < 0.2) continue;
@@ -488,16 +415,17 @@ ENV_BUILDERS.gym3 = () => {
   for (const [x, z] of [[-6, -19], [-2.2, -21.5]]) {
     const st = w.equipStation('g3column', 'columnlift', x, z, Math.PI);
     const [cx, cz] = local(st, 0, 0.75);
-    m.box(3.2, 0.05, 1.4, cx, 0.13, cz, '#c9b38a', st.yaw);
+    m.box(3.2, 0.012, 1.4, cx, 0.026, cz, '#c9b38a', st.yaw);
   }
   for (const [x, z] of [[2.2, -21.5], [6, -19]]) {
     w.equipStation('g3globe', 'globehold', x, z, Math.PI);
-    m.cyl(0.8, 0.1, x, 0.17, z, '#d4af37', 0, 0, 0, 20);
+    m.cyl(0.8, 0.012, x, 0.026, z, '#d4af37', 0, 0, 0, 20);
   }
   for (const x of [-4, 4]) {
     const st = w.equipStation('g3boulder', 'boulderthrow', x, -11.5, Math.PI);
     const [bx, bz] = local(st, 0, -0.9);
     m.sphere(0.36, bx, 0.36, bz, '#7a6a5a');
+    w.addCollider(bx - 0.34, bz - 0.34, bx + 0.34, bz + 0.34);
   }
   {
     const st = w.equipStation('g3chariot', 'truckpull', 0, -24, Math.PI);
@@ -509,6 +437,7 @@ ENV_BUILDERS.gym3 = () => {
     }
     mt.box(0.12, 0.12, 2.6, cx, 0.8, cz + 1.8, '#8a6d1a');
     w.addCollider(cx - 1.4, cz - 0.8, cx + 1.4, cz + 0.8);
+    w.addCollider(cx - 0.1, cz + 0.8, cx + 0.1, cz + 3.1);
   }
   // normal exercises around the temple
   for (const z of [6, 11]) {
@@ -518,11 +447,11 @@ ENV_BUILDERS.gym3 = () => {
   }
   for (const z of [6, 11]) {
     w.equipStation('g3discus', 'discus', 12, z, Math.PI / 2);
-    m.cyl(1.25, 0.06, 12, 0.03, z, '#c9b38a', 0, 0, 0, 24);
+    m.cyl(1.25, 0.02, 12, 0.01, z, '#c9b38a', 0, 0, 0, 24);
     glow.add(UnitGeo.torus(1, 0.05, 4, 32), 12, 0.07, z, '#ffcf33', Math.PI / 2, 0, 0, 1.25, 1.25, 1.25);
   }
-  m.box(7, 0.06, 5, -16, 0.03, -3, '#b33a3a');
-  m.box(7.2, 0.04, 5.2, -16, 0.02, -3, '#d4af37');
+  m.box(7, 0.02, 5, -16, 0.012, -3, '#b33a3a');
+  m.box(7.2, 0.015, 5.2, -16, 0.008, -3, '#d4af37');
   for (const x of [-18, -14]) w.equipStation('g3mat', 'kata', x, -3, Math.PI);
   for (let k = 0; k < 5; k++) m.box(7, 0.35, 1.2, 17, 0.175 + k * 0.35, -9 - k * 1.2, '#efe9dc');
   w.addCollider(13.5, -15, 20.5, -8.4);
@@ -531,7 +460,7 @@ ENV_BUILDERS.gym3 = () => {
   makeStatue(w, GOLD_OUTFIT, 'e_victory', 0.5, -9, 8, Math.PI / 2, { scale: 1.2 });
   makeStatue(w, BRONZE_OUTFIT, 'javelin', 0.6, 9, 8, -Math.PI / 2, { scale: 1.2, trim: '#b0703a' });
   makeStatue(w, MARBLE_OUTFIT, 'discus', 0.5, -20, 24, 0.6, { scale: 1.3 });
-  makeStatue(w, BRONZE_OUTFIT, 'boxjump', 0.36, 20, 24, -0.6, { scale: 1.3, trim: '#b0703a' });
+  makeStatue(w, BRONZE_OUTFIT, 'e_flex', 0.5, 20, 24, -0.6, { scale: 1.3, trim: '#b0703a' });
   // golden laurel crown floating above the arena
   const crown = new THREE.Group();
   const cb = new Batch();
@@ -608,7 +537,7 @@ ENV_BUILDERS.gym4 = () => {
   // the floating platform with a neon grid
   m.cyl(R + 1, 0.6, 0, -0.3, 0, '#1b0f33', 0, 0, 0, 64);
   m.add(UnitGeo.cone(64), 0, -7, 0, '#140a26', Math.PI, 0, 0, R + 1, 13, R + 1);
-  glow.add(UnitGeo.torus(1, 0.008, 6, 96), 0, 0.02, 0, '#7fe0ff', Math.PI / 2, 0, 0, R + 0.6, R + 0.6, R + 0.6);
+  glow.geo(ellipseRingGeometry(R + 0.4, R + 0.4, 0.35), 0, 0.012, 0, '#7fe0ff');
   for (let i = -R + 2; i <= R - 2; i += 4) {
     const half = Math.sqrt(R * R - i * i) - 0.5;
     glow.box(0.05, 0.01, half * 2, i, 0.012, 0, i % 8 === 0 ? '#ff7bf0' : '#5a2a8a');
@@ -637,9 +566,9 @@ ENV_BUILDERS.gym4 = () => {
     for (const r of rocks) { r.g.position.y = r.y + Math.sin(time * r.s + r.ph) * 1.2; r.g.rotation.x += dt * 0.2; r.g.rotation.y += dt * 0.15; }
   });
   // Olympus peak: a glowing ring with a column of light and a hovering crown of stars
-  m.cyl(Z.r, 0.12, Z.x, 0.06, Z.z, '#24124a', 0, 0, 0, 48);
-  glow.add(UnitGeo.torus(1, 0.02, 6, 64), Z.x, 0.14, Z.z, '#ffd34d', Math.PI / 2, 0, 0, Z.r, Z.r, Z.r);
-  glow.add(UnitGeo.torus(1, 0.011, 6, 64), Z.x, 0.15, Z.z, '#ff7bf0', Math.PI / 2, 0, 0, Z.r - 0.5, Z.r - 0.5, Z.r - 0.5);
+  m.cyl(Z.r, 0.02, Z.x, 0.01, Z.z, '#24124a', 0, 0, 0, 48);
+  glow.geo(ellipseRingGeometry(Z.r - 0.2, Z.r - 0.2, 0.25), Z.x, 0.022, Z.z, '#ffd34d');
+  glow.geo(ellipseRingGeometry(Z.r - 0.75, Z.r - 0.75, 0.12), Z.x, 0.023, Z.z, '#ff7bf0');
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * TAU;
     if (Math.abs(wrapAngle(a)) < 0.25) continue;
@@ -670,12 +599,12 @@ ENV_BUILDERS.gym4 = () => {
   // peak stations
   for (const x of [-5, 5]) {
     w.equipStation('g4planet', 'planetlift', x, -18.5, Math.PI);
-    glow.cyl(0.9, 0.05, x, 0.17, -18.5, '#ff9f43', 0, 0, 0, 20);
+    glow.cyl(0.9, 0.012, x, 0.028, -18.5, '#ff9f43', 0, 0, 0, 20);
   }
   for (const x of [-3.5]) w.equipStation('g4comet', 'cometthrow', x, -10.5, Math.PI);
   for (const x of [3.5]) {
     w.equipStation('g4thunder', 'thunderslam', x, -10.5, Math.PI);
-    glow.cyl(1.0, 0.05, x, 0.17, -10.5, '#7fe0ff', 0, 0, 0, 20);
+    glow.cyl(1.0, 0.012, x, 0.028, -10.5, '#7fe0ff', 0, 0, 0, 20);
   }
   w.equipStation('g4sun', 'sunpush', 0, -20.5, Math.PI);
   // normal stations
@@ -696,6 +625,7 @@ ENV_BUILDERS.gym4 = () => {
     const st = w.equipStation('g4star', 'starthrow', -20, z, -Math.PI / 2);
     const [bx, bz] = local(st, 0.7, -0.4);
     m.cyl(0.35, 0.5, bx, 0.25, bz, '#3a2a5a', 0, 0, 0, 12);
+    w.addCollider(bx - 0.35, bz - 0.35, bx + 0.35, bz + 0.35);
     for (let k = 0; k < 4; k++) glow.sphere(0.1, bx + rand(-0.2, 0.2), 0.55, bz + rand(-0.2, 0.2), '#ffd34d');
   }
   glow.box(10, 0.02, 3.6, 18, 0.015, -2, '#3a6aa8');

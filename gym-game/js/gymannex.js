@@ -7,6 +7,7 @@
  */
 
 const ANNEX = { west: -112, east: 112 };
+const WARP = { f0: 3.9, R: 3.1, back: 2.4, land: 1.0 };
 
 Object.assign(EQUIP, {
   nbars: { name: 'میله‌های میمون', env: 'gym', where: 'پیست نینجا، بال شرقی جدید' },
@@ -156,7 +157,7 @@ Object.assign(GymWorld.prototype, {
     const SILVER = Object.assign({}, MARBLE_OUTFIT, { skin: '#c9ced6', hair: '#9aa0a8', shirt: '#d5dce6', shorts: '#aab3c0', shoes: '#c9ced6', sole: '#ffffff', socks: '#c9ced6' });
     const rows = [
       [GOLD_OUTFIT, 'lift', 0.6], [SILVER, 'handstand', 0.5], [BRONZE_OUTFIT, 'javelin', 0.6], [MARBLE_OUTFIT, 'archery', 0.5], [CRYSTAL_OUTFIT, 'kata', 0.3],
-      [MARBLE_OUTFIT, 'e_salute', 0.5], [BRONZE_OUTFIT, 'boxjump', 0.36], [GOLD_OUTFIT, 'globehold', 0.25], [SILVER, 'frontkick', 0.5], [CRYSTAL_OUTFIT, 'e_flex', 0.5],
+      [MARBLE_OUTFIT, 'e_salute', 0.5], [BRONZE_OUTFIT, 'kettle', 0.3], [GOLD_OUTFIT, 'globehold', 0.25], [SILVER, 'frontkick', 0.5], [CRYSTAL_OUTFIT, 'e_flex', 0.5],
     ];
     rows.forEach(([o, a, t], i) => {
       const side = i < 5 ? -1 : 1;
@@ -191,7 +192,7 @@ Object.assign(GymWorld.prototype, {
       m.box(0.6, 0.7, 0.3, lx + 1.0, 0.75, lz - 0.45, '#e2d6bd');
       m.cyl(0.06, 1.1, lx - 1.6, 1.0, lz, '#d8d0c0', 0, 0, 0.8);
       m.sphere(0.14, lx - 2.0, 1.35, lz, '#c9a46c');
-      this.addCollider(lx - 1.4, lz - 0.85, lx + 1.4, lz + 0.85);
+      this.addCollider(lx - 2.15, lz - 0.85, lx + 1.4, lz + 0.85);
     }
     // a giant golden dumbbell turning on a pedestal by the far wall
     const D = { x: -127, z: 0 };
@@ -210,6 +211,7 @@ Object.assign(GymWorld.prototype, {
     this.anims.push((dt, time) => { dumbbell.rotation.y += dt * 0.45; dumbbell.position.y = 3.4 + Math.sin(time * 1.3) * 0.25; });
     // rainbow arch over the garden path
     const HALF_TORUS = new THREE.TorusGeometry(1, 0.12, 4, 40, Math.PI);
+    for (const s of [-1, 1]) this.addCollider(X - 9.8, s > 0 ? 4.1 : -7.2, X - 8.2, s > 0 ? 7.2 : -4.1);
     ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#00b4d8', '#9b5de5'].forEach((c, i) => {
       glow.add(HALF_TORUS, X - 9, 0, 0, c, 0, Math.PI / 2, 0, 6.5 - i * 0.26, 6.5 - i * 0.26, 6.5 - i * 0.26);
     });
@@ -253,30 +255,38 @@ Object.assign(GymWorld.prototype, {
         mt.box(0.1, 0.1, 5.4, x + s * 0.6, 2.85, z0 + 2.2, '#ff4da6');
       }
       for (let k = 0; k < 9; k++) mt.cyl(0.03, 1.2, x, 2.82, z0 + 0.1 + k * 0.6, '#ffd34d', 0, 0, Math.PI / 2, 8);
-      this.addStation(x, z0, 0, ['monkeybars'], { equip: 'nbars', ax: x, az: z0 - 1.2 });
+      this.addStation(x, z0, 0, ['monkeybars'], { equip: 'nbars', ax: x, az: z0 + 4.2, bar: { y: 2.82, f: 0 } });
     }
     // salmon ladder against the north wall
     for (const x of [112, 116.5]) {
       const z = -Z + 1.3;
       for (const s of [-1, 1]) mt.box(0.14, 5.4, 0.14, x + s * 0.8, 2.7, z - 0.25, '#2ecc71');
-      for (let k = 0; k < 5; k++) mt.box(1.8, 0.06, 0.2, x, 2.5 + k * 0.55, z - 0.25, '#c9ced6');
-      mt.cyl(0.035, 1.7, x, 2.5, z, '#ffd34d', 0, 0, Math.PI / 2, 10);
-      this.addCollider(x - 0.9, z - 0.4, x + 0.9, z - 0.1);
-      this.addStation(x, z, Math.PI, ['salmon'], { equip: 'nsalmon', ax: x, az: z + 1.4 });
+      for (let k = 0; k < 5; k++) mt.box(1.8, 0.06, 0.12, x, 2.5 + k * 0.55, z - 0.28, '#c9ced6');
+      for (const s of [-1, 1]) this.addCollider(x + s * 0.8 - 0.09, z - 0.34, x + s * 0.8 + 0.09, z - 0.16);
+      this.addStation(x, z, Math.PI, ['salmon'], { equip: 'nsalmon', ax: x, az: z + 1.4, bar: { y: 2.5, f: 0.28 } });
     }
     // the warped wall: a quarter pipe ending in a platform
     {
-      const zw = -16.6;
-      for (let k = 0; k < 10; k++) {
-        const a = (k / 10) * (Math.PI / 2);
-        const y = 3.1 * (1 - Math.cos(a));
-        const z = zw - 2.0 * Math.sin(a);
-        m.box(7, 0.35, 0.45, 123, y + 0.15, z, k % 2 ? '#ff7b00' : '#ffb347', 0, -a);
+      // a true quarter circle: flat at the bottom, vertical at the top, solid underneath
+      const zw = -13.6;
+      const R = WARP.R;
+      const N = 16;
+      for (let k = 0; k < N; k++) {
+        const a0 = (k / N) * (Math.PI / 2);
+        const a1 = ((k + 1) / N) * (Math.PI / 2);
+        const am = (a0 + a1) / 2;
+        const len = 2 * R * Math.sin((a1 - a0) / 2) + 0.03;
+        // the slat's top face lies on the curve (rotated to its tangent); a solid column fills below
+        m.box(7, 0.12, len, 123, R * (1 - Math.cos(am)) - 0.06 * Math.cos(am), zw - (R + 0.06) * Math.sin(am), k % 2 ? '#ff7b00' : '#ffb347', 0, am);
+        const y0 = R * (1 - Math.cos(a0));
+        const u0 = R * Math.sin(a0);
+        const u1 = R * Math.sin(a1);
+        if (y0 > 0.02) m.box(7, y0, u1 - u0, 123, y0 / 2, zw - (u0 + u1) / 2, '#2c3140');
       }
-      m.box(7, 3.1, 2.4, 123, 1.55, zw - 3.3, '#2c3140');
-      glow.box(7.05, 0.1, 0.1, 123, 3.12, zw - 2.1, '#ffd34d');
-      this.addCollider(119.5, zw - 4.5, 126.5, zw - 0.2);
-      for (const x of [121, 125]) this.addStation(x, zw + 3.9, Math.PI, ['warpwall'], { equip: 'nwarp', ax: x, az: zw + 5 });
+      m.box(7, R, 2.4, 123, R / 2, zw - R - 1.2, '#2c3140');
+      glow.box(7.05, 0.1, 0.1, 123, R + 0.02, zw - R, '#ffd34d');
+      this.addCollider(119.5, zw - R - 2.4, 126.5, zw - 0.5);
+      for (const x of [121, 125]) this.addStation(x, zw + WARP.f0, Math.PI, ['warpwall'], { equip: 'nwarp', ax: x, az: zw - WARP.R - WARP.back - WARP.land });
     }
     // quintuple steps: tilted blocks left and right
     for (const x of [99, 105]) {
@@ -286,14 +296,15 @@ Object.assign(GymWorld.prototype, {
         m.box(0.9, 0.3, 0.9, x + s * 0.45, 0.15, z0 + 1.2 * (k + 1) - 0.6, k % 2 ? '#00b4d8' : '#9b5de5', 0, 0, s * 0.3);
       }
       glow.box(2.4, 0.02, 7, x, 0.015, z0 + 3, '#1f7ae0');
-      this.addStation(x, z0 - 0.4, 0, ['qsteps'], { equip: 'nsteps', ax: x, az: z0 - 1.4 });
+      this.addStation(x, z0 - 0.4, 0, ['qsteps'], { equip: 'nsteps', ax: x, az: z0 - 0.4 + 7.0 });
     }
     // balance beams
     for (const x of [112, 116]) {
       const z0 = 4;
-      mt.box(0.18, 0.12, 5.8, x, 0.36, z0 + 2.8, '#ffd34d');
+      mt.box(0.24, 0.12, 5.8, x, 0.36, z0 + 2.8, '#ffd34d');
       for (const z of [z0 + 0.2, z0 + 5.5]) m.box(0.5, 0.3, 0.3, x, 0.15, z, '#2c3140');
-      this.addStation(x, z0 - 0.3, 0, ['beamwalk'], { equip: 'nbeam', ax: x, az: z0 - 1.2 });
+      this.addCollider(x - 0.25, z0 + 0.05, x + 0.25, z0 + 5.65);
+      this.addStation(x, z0 - 0.3, 0, ['beamwalk'], { equip: 'nbeam', ax: x, az: z0 - 0.3 + 6.2 });
     }
     // cargo net on the east wall
     {
@@ -301,8 +312,8 @@ Object.assign(GymWorld.prototype, {
       for (let i = 0; i < 9; i++) m.box(0.05, 6, 0.05, xw, 3, 9 + i * 1.2, '#c9a46c');
       for (let j = 0; j < 10; j++) m.box(0.05, 0.05, 9.8, xw, 0.4 + j * 0.62, 13.8, '#c9a46c');
       m.box(0.3, 0.3, 10.4, xw + 0.1, 6.1, 13.8, '#ff4da6');
-      this.addCollider(xw - 0.3, 8.6, ROOM.x, 19);
-      for (const z of [11.5, 16]) this.addStation(xw - 0.75, z, Math.PI / 2, ['climb'], { equip: 'nnet', ax: xw - 2.6, az: z });
+      this.addCollider(xw - 0.12, 8.6, ROOM.x, 19);
+      for (const z of [11.5, 16]) this.addStation(xw - 0.75, z, Math.PI / 2, ['climb'], { equip: 'nnet', ax: xw - 2.6, az: z, wall: 0.72, wallH: 6.0 });
     }
     // neon art: a giant ninja star and lightning on the walls
     const star = new THREE.Group();

@@ -895,6 +895,7 @@ class Character {
     const p = this.tgt;
     copyPose(p, STAND);
     let snap = false;
+    let snapAll = false;
     let finished = false;
     this.rootSpeed = 0;
     this.rootSide = 0;
@@ -914,6 +915,7 @@ class Character {
         this.action.ev++;
       }
       snap = true;
+      snapAll = !!A.snapAll;
       finished = t >= 1;
     } else {
       this.locomotion(p, dt);
@@ -949,13 +951,18 @@ class Character {
     const a = damp(this.rate, dt);
     const c = this.cur;
     for (const k of POSE_KEYS) {
-      if (snap && ROOT_KEYS.has(k)) c[k] = p[k];
+      if (snap && (snapAll || ROOT_KEYS.has(k))) c[k] = p[k];
       else c[k] += (p[k] - c[k]) * a;
     }
     if (finished) {
       const act = this.action;
       this.action = null;
       c.bx = wrapAngle(c.bx); c.by = wrapAngle(c.by); c.bz = wrapAngle(c.bz);
+      // a move that carried the body somewhere: stay there instead of sliding back through things
+      if (Math.hypot(c.x, c.z) > 0.2) {
+        if (this.onRootCommit) this.onRootCommit(c.x, c.z);
+        c.x = 0; c.z = 0;
+      }
       for (const pr of act.def.props || []) this.showProp(pr, false);
       if (act.onDone) act.onDone(act.name);
     }

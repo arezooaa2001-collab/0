@@ -218,7 +218,8 @@ function salmonFn(p, t) {
   const f = u - step;
   const pull = Math.sin(Math.PI * Math.min(1, f * 1.4));
   p.y = hang * (0.45 + 0.55 * step + 0.55 * smooth(seg(f, 0.25, 0.6)));
-  p.shLX = p.shRX = lerp(0.05, -3.0 + 0.8 * pull, hang);
+  // arms reach forward to the rung so the chest stays clear of the ladder
+  p.shLX = p.shRX = lerp(0.05, -2.62 + 0.55 * pull, hang);
   p.elL = p.elR = lerp(-0.18, -0.05 - 1.6 * pull, hang);
   p.shLZ = (0.25 + 0.2 * pull) * hang; p.shRZ = -p.shLZ;
   p.hpLX = p.hpRX = (-0.8 * pull - 0.2) * hang;
@@ -265,27 +266,38 @@ function qStepsFn(p, t) {
   const f = u * n - k;
   p.z = 1.2 * (k + smooth(f));
   p.x = (k % 2 ? -0.45 : 0.45) * (1 - smooth(f)) + (k % 2 ? 0.45 : -0.45) * smooth(f);
-  p.y = 0.25 + 0.45 * Math.sin(Math.PI * f);
+  p.y = 0.3 + 0.45 * Math.sin(Math.PI * f);
   p.bz = (k % 2 ? 1 : -1) * 0.2 * (1 - 2 * f);
   p.hpLX = -0.9 * Math.sin(Math.PI * f); p.knL = 1.2 * Math.sin(Math.PI * f);
   p.hpRX = -0.4 * Math.sin(Math.PI * f); p.knR = 0.8 * Math.sin(Math.PI * f);
   p.shLX = -1.0 * Math.sin(Math.PI * f); p.shRX = 0.4 * Math.sin(Math.PI * f);
   p.shLZ = 0.6; p.shRZ = -0.6;
-  if (t < 0.05 || t > 0.95) p.y = 0.25 * smooth(seg(t, 0, 0.05)) * (1 - smooth(seg(t, 0.95, 1)));
+  if (t < 0.05) p.y = 0.3 * smooth(seg(t, 0, 0.05));
+  if (t > 0.95) {
+    // hop off the last block onto the floor beyond it
+    const a = seg(t, 0.95, 1);
+    p.z = 6 + 1.0 * a;
+    p.x = 0.45 * (1 - a);
+    p.y = 0.3 * (1 - a) + 0.25 * Math.sin(Math.PI * a);
+  }
 }
 
 function beamWalkFn(p, t) {
   const u = seg(t, 0.06, 0.94);
   gait(p, u * 16, 0);
-  p.z = 5.4 * u;
-  const up = smooth(seg(t, 0, 0.06)) * (1 - smooth(seg(t, 0.94, 1)));
+  p.z = 0.6 + 4.8 * u;
+  if (t < 0.06) p.z = 0.6 * smooth(t / 0.06);
+  const up = smooth(seg(t, 0.03, 0.06)) * (1 - smooth(seg(t, 0.95, 0.99)));
+  if (t > 0.94) p.z = 5.4 + 0.8 * smooth(seg(t, 0.94, 0.99));
   p.y += 0.42 * up;
   p.shLZ = 0.12 + 1.45 * up; p.shRZ = -p.shLZ;
   p.shLX = p.shRX = 0;
   p.elL = p.elR = -0.05;
+  // one foot in front of the other, both on the narrow beam
+  p.hpLZ = lerp(0.03, -0.05, up);
+  p.hpRZ = lerp(-0.03, 0.05, up);
   p.bz = 0.12 * Math.sin(t * 13) * up;
   p.spY = 0.06 * Math.sin(t * 9);
-  if (t > 0.94) p.z = 5.4;
 }
 
 Object.assign(ANIMS, {
@@ -318,3 +330,28 @@ Object.assign(ANIMS, {
   qsteps: { dur: 3.0, events: [[0.2, 'hop'], [0.38, 'hop'], [0.56, 'hop'], [0.74, 'hop'], [0.95, 'land']], fn: qStepsFn },
   beamwalk: { dur: 4.6, events: [[0.05, 'hop'], [0.96, 'hop']], fn: beamWalkFn },
 });
+
+/* the leg-press sled plate rides on the soles of the feet */
+EXTRA_PROPS.legplate = (ch, pr) => {
+  const m = propMesh((b) => {
+    b.box(0.85, 0.05, 0.62, 0, 0, 0, '#9b5de5');
+    b.box(0.9, 0.03, 0.66, 0, -0.035, 0, '#2c3140');
+  });
+  ch.root.add(m);
+  pr.meshes.push(m);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const qr = new THREE.Quaternion();
+  pr.tick = (c) => {
+    c.root.updateMatrixWorld(true);
+    c.B.anL.localToWorld(a.set(0, -0.11, 0.05));
+    c.B.anR.localToWorld(b.set(0, -0.11, 0.05));
+    a.add(b).multiplyScalar(0.5);
+    c.root.worldToLocal(m.position.copy(a));
+    c.B.anL.getWorldQuaternion(q);
+    c.root.getWorldQuaternion(qr);
+    m.quaternion.copy(qr.invert().multiply(q));
+  };
+};
+ANIMS.legpress = Object.assign({}, ANIMS.legpress, { props: ['legplate'] });

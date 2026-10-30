@@ -74,7 +74,6 @@ Object.assign(ENV_BUILDERS, {
     m.box(0.12, 0.1, 1.2, sp.x + 1.1, 0.05, sp.z, '#ffffff');
     // stands, olympic rings, flags, scoreboard
     w.stands(0, -21.5, 56, 5, Math.PI, ['#e63946', '#ffffff', '#2f6fed', '#ffd34d']);
-    w.addCollider(-30, -26, 30, -21);
     const rings = [['#2f6fed', -2.4, 0], ['#111111', 0, 0], ['#e63946', 2.4, 0], ['#ffd34d', -1.2, -1.1], ['#2ecc71', 1.2, -1.1]];
     for (const [c, x, y] of rings) w.glow.geo(new THREE.TorusGeometry(1.0, 0.13, 8, 32), x, 9.5 + y, -23.5, c);
     for (let i = 0; i < 10; i++) {
@@ -101,9 +100,10 @@ Object.assign(ENV_BUILDERS, {
     [[-14, -4, Math.PI / 2], [-14, 2, Math.PI / 2], [14, -6, -Math.PI / 2], [14, 0, -Math.PI / 2]].forEach(([x, z, yaw], i) => {
       const st = w.equipStation('pkwall', 'vault', x, z, yaw, { ax: x - Math.sin(yaw) * 1.2, az: z - Math.cos(yaw) * 1.2 });
       const [cx, cz] = local(st, 0, 2.9);
-      m.box(0.6, 0.9, 2.2, cx, 0.45, cz, vaultCols[i], yaw);
-      m.box(0.64, 0.06, 2.24, cx, 0.92, cz, '#2c3140', yaw);
-      w.addCollider(cx - 1.1, cz - 1.1, cx + 1.1, cz + 1.1);
+      // across the run-up, so you really vault over it
+      m.box(2.2, 0.9, 0.6, cx, 0.45, cz, vaultCols[i], yaw);
+      m.box(2.24, 0.06, 0.64, cx, 0.92, cz, '#2c3140', yaw);
+      orientedColliders(w, cx, cz, 2.2, 0.6, yaw, 0.3);
     });
     // tall graffiti walls for wall flips (wall face 2.1 m ahead)
     [[-6, -14, Math.PI], [0, -14, Math.PI], [6, -14, Math.PI]].forEach(([x, z, yaw], i) => {
@@ -126,7 +126,7 @@ Object.assign(ENV_BUILDERS, {
     for (const [x, z, c, ry] of [[-20, -12, '#e63946', 0.5], [20, -12, '#2f6fed', -0.5], [-22, 8, '#2ecc71', 1.3], [22, 8, '#ff7b00', -1.3]]) {
       m.box(6, 2.6, 2.4, x, 1.3, z, c, ry);
       for (let k = 0; k < 8; k++) m.box(0.06, 2.4, 2.42, x + Math.cos(ry) * (-2.8 + k * 0.8), 1.3, z - Math.sin(ry) * (-2.8 + k * 0.8), '#1d2433', ry);
-      w.addCollider(x - 3, z - 3, x + 3, z + 3);
+      orientedColliders(w, x, z, 6, 2.4, ry, 0.6);
     }
     for (const [x, z] of [[-10, 14], [10, 14]]) {
       for (const s of [-1, 1]) w.metal.box(0.06, 0.8, 0.06, x + s * 2, 0.4, z, '#2c3140');
@@ -134,6 +134,7 @@ Object.assign(ENV_BUILDERS, {
     }
     for (const [x, z, ry] of [[0, -22, 0], [-17, 18, 0.8], [17, 18, -0.8]]) {
       m.add(UnitGeo.box(), x, 0.6, z, '#9aa1ab', -0.3, ry, 0, 4, 0.2, 3);
+      orientedColliders(w, x, z, 4, 2.9, ry, 0.6);
     }
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * TAU + 0.2;

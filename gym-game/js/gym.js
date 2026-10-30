@@ -295,13 +295,13 @@ class GymWorld extends WorldBase {
       const h = 0.4 + i * 0.2;
       m.box(0.8, h, 0.8, -26.5 + i * 1.1, h / 2, 19.6, '#b58450');
     }
-    this.addCollider(-27, 19.1, -23.3, 20.1);
+    this.addCollider(-26.95, 19.15, -23.85, 20.05);
     for (let i = 0; i < 6; i++) {
       const x = -27.5 + i * 0.7;
       mt.sphere(0.13 + i * 0.012, x, 0.14, -20.6, DUMBBELL_COLORS[i]);
       mt.geo(UnitGeo.torus(1, 0.18, 6, 16), x, 0.3, -20.6, '#22252b', 0, 0, 0, 0.09);
     }
-    this.addCollider(-28, -21, -23.6, -20.2);
+    this.addCollider(-27.85, -20.95, -23.65, -20.25);
   }
 
   buildCardio() {
@@ -324,7 +324,7 @@ class GymWorld extends WorldBase {
       m.box(2.02, 0.05, 0.87, x, 0.2, z, tc);
       this.glow.box(0.02, 0.22, 0.5, x + 0.89, 1.5, z, '#39c0ff');
       this.addCollider(x + 0.8, z - 0.48, x + 1.2, z + 0.48);
-      this.addStation(x - 0.25, z, Math.PI / 2, ['treadmill'], { equip: 'treadmill', ax: x - 1.6, az: z });
+      this.addStation(x - 0.25, z, Math.PI / 2, ['treadmill'], { equip: 'treadmill', ax: x - 1.6, az: z, y: 0.225 });
     }
     for (const z of [-15, -10, -5, 0, 5]) {
       const x = 21.3;
@@ -439,6 +439,13 @@ class GymWorld extends WorldBase {
     }
     clouds.position.set(x, 0, z);
     this.scene.add(clouds);
+    // the ring stands on its base: solid where it touches the floor, and round each cloud
+    this.addCollider(x - 1.5, z - 0.15, x + 1.5, z + 0.15);
+    clouds.updateMatrixWorld(true);
+    for (const c of clouds.children) {
+      const b = new THREE.Box3().setFromObject(c);
+      this.addCollider(b.min.x, b.min.z, b.max.x, b.max.z);
+    }
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.85), new THREE.MeshBasicMaterial({
       map: signTexture([{ text: 'جزیره‌ی ابرها • سطح ۱۰۰', size: 92, display: true, color: '#7fe0ff' }], { w: 1024, h: 256, border: '#7fe0ff' }),
       toneMapped: false, side: THREE.DoubleSide,
@@ -675,7 +682,7 @@ class GymWorld extends WorldBase {
     P.ring.rotation.z += dt * (open ? 1.2 : 0.25);
     P.ring.material.color.set(open ? '#7fe0ff' : '#5d6b8a');
     P.glow.material.opacity = open ? 0.45 + 0.2 * Math.sin(this.time * 3) : 0.12;
-    P.clouds.rotation.y += dt * 0.3;
+    P.clouds.children.forEach((c, i) => { c.rotation.y += dt * 0.5; c.position.y = 0.25 + (i % 2) * 0.25 + 0.06 * Math.sin(this.time * 1.5 + i); });
   }
 
   buildArmTable() {
@@ -743,7 +750,7 @@ class GymWorld extends WorldBase {
     }
     // tire flips, with a spare stack
     for (const z of [-12, -8]) {
-      m.box(3.2, 0.03, 1.6, 19.6, 0.03, z, '#5d4329');
+      m.box(3.2, 0.02, 1.6, 19.6, 0.01, z, '#5d4329');
       this.addStation(18.0, z, Math.PI / 2, ['tireflip', 'squat'], { equip: 'tire', ax: 17.0, az: z + 1.2 });
     }
     for (let k = 0; k < 3; k++) m.geo(UnitGeo.torus(1, 0.42, 8, 24), 27.2, 0.25 + k * 0.48, -10, '#22252b', Math.PI / 2, 0, 0, 0.55);
@@ -783,16 +790,19 @@ class GymWorld extends WorldBase {
     for (const [z, c] of [[5, '#9b5de5'], [9.5, '#ff4da6']]) {
       mt.box(2.6, 0.12, 0.9, 25.4, 0.06, z, '#2c3140');
       m.box(0.9, 0.1, 0.6, 24.9, 0.45, z, '#111317');
-      m.box(0.1, 0.9, 0.6, 24.2, 0.75, z, '#111317', 0, 0, -0.9);
-      mt.box(0.12, 0.8, 0.8, 26.55, 0.95, z, c, 0, 0, 0.5);
+      m.box(0.1, 0.9, 0.6, 24.4, 0.52, z, '#111317', 0, 0, 1.05);
+      // the sled plate itself moves with the feet (a prop of the leg-press move); here only its stop
+      mt.box(0.1, 0.1, 0.8, 26.4, 0.62, z, c);
       for (const dz of [-0.35, 0.35]) mt.box(1.6, 0.08, 0.08, 25.8, 0.75, z + dz, '#c9ced6', 0, 0, 0.5);
       for (const dz of [-0.55, 0.55]) mt.cyl(0.22, 0.06, 26.7, 1.15, z + dz, c, Math.PI / 2, 0, 0, 16);
       this.addCollider(25.9, z - 0.5, 27.0, z + 0.5);
+      this.addCollider(24.1, z - 0.45, 25.9, z + 0.45);
       this.addStation(24.75, z, Math.PI / 2, ['legpress'], { equip: 'legpress', ax: 24.75, az: z + 1.3 });
     }
     // lat pulldown towers
     for (const [z, c] of [[14.5, '#2ecc71'], [18.5, '#ffd34d']]) {
-      m.box(0.5, 0.1, 0.4, 25, 0.5, z, '#111317');
+      m.box(0.5, 0.1, 0.4, 25, 0.37, z, '#111317');
+      for (const s of [-1, 1]) for (const dx of [-0.2, 0.2]) mt.box(0.04, 0.33, 0.04, 25 + dx, 0.16, z + s * 0.15, '#2c3140');
       m.box(0.4, 0.12, 0.2, 25.25, 0.75, z, '#111317');
       mt.box(0.14, 2.8, 0.14, 25.75, 1.4, z, c);
       mt.box(0.6, 0.12, 0.14, 25.45, 2.75, z, c);
@@ -800,6 +810,7 @@ class GymWorld extends WorldBase {
       mt.cyl(0.02, 1.2, 25.15, 2.15, z, '#c9ced6', Math.PI / 2, 0, 0, 8);
       mt.box(0.4, 0.6, 0.5, 25.95, 0.4, z, '#3c4250');
       this.addCollider(25.6, z - 0.3, 26.2, z + 0.3);
+      this.addCollider(24.75, z - 0.25, 25.6, z + 0.25);
       this.addStation(25.0, z, -Math.PI / 2, ['latpull'], { equip: 'lat', ax: 23.9, az: z });
     }
     this.zoneSign('کراس‌فیت', '#ff7b00', 22.5, 6.2, -14, -Math.PI / 2, 5);
@@ -864,10 +875,10 @@ class GymWorld extends WorldBase {
       if (Math.random() < 0.5) m.sphere(rand(0.06, 0.12), hx, hy, z + 0.4, pick(['#e63946', '#ffd34d', '#2ecc71', '#2f6fed', '#9b5de5', '#ffffff', '#111111']), 0.7);
       else m.box(rand(0.12, 0.25), rand(0.08, 0.14), 0.08, hx, hy, z + 0.4, pick(['#ff4da6', '#00b4d8', '#ff7b00', '#d4f700']), 0, rand(-0.8, 0.8));
     }
-    m.box(11.5, 0.3, 2.4, 22, 0.15, z + 1.7, '#2f6fed');
-    for (let i = 0; i < 4; i++) m.box(2.6, 0.32, 0.05, 17.8 + i * 2.85, 0.16, z + 2.9, '#ffd34d');
+    m.box(11.5, 0.05, 2.4, 22, 0.025, z + 1.7, '#2f6fed');
+    for (let i = 0; i < 4; i++) m.box(2.6, 0.06, 0.05, 17.8 + i * 2.85, 0.03, z + 2.9, '#ffd34d');
     this.addCollider(16.2, z - 0.3, 27.8, z + 0.5);
-    for (const x of [18, 20.5, 23, 25.5]) this.addStation(x, z + 1.15, Math.PI, ['boulder'], { equip: 'boulder', ax: x, az: z + 3.5 });
+    for (const x of [18, 20.5, 23, 25.5]) this.addStation(x, z + 1.15, Math.PI, ['boulder'], { equip: 'boulder', ax: x, az: z + 3.5, wall: 0.7, wallH: 5.0 });
     this.zoneSign('سنگ‌نوردی', '#2ecc71', 22, 7.0, z + 0.4, 0, 5);
   }
 

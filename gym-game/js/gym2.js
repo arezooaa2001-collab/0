@@ -177,6 +177,7 @@ Object.assign(GymWorld.prototype, {
     const SP = WING.spin;
     this.floorPatch(SP.x - 6, SP.z - 6, SP.x + 6, SP.z + 10, ['#4361ee', '#3a0ca3', '#7209b7'], 2);
     m.box(4, 0.4, 2.4, SP.x, 0.2, SP.z - 4.2, '#ff4da6');
+    this.addCollider(SP.x - 2, SP.z - 5.4, SP.x + 2, SP.z - 3.0);
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 4; c++) {
         const x = SP.x - 4.2 + c * 2.8;
@@ -210,6 +211,7 @@ Object.assign(GymWorld.prototype, {
       this.addCollider(-73 + 0.28, z - 0.5, -73 + 1.28, z + 0.5);
       this.addStation(-73, z, Math.PI / 2, ['atlas', 'squat'], { equip: 'atlas', ax: -74.3, az: z });
       for (let k = 0; k < 3; k++) m.sphere(0.2 + k * 0.05, -77 + k * 0.7, 0.2 + k * 0.05, z + 1.4, '#8d99ae');
+      this.addCollider(-77.25, z + 1.1, -75.3, z + 1.7);
     }
     for (const z of [18, 22]) {
       m.box(14, 0.03, 2.2, -70, 0.016, z, '#3a7d44');
@@ -233,6 +235,7 @@ Object.assign(GymWorld.prototype, {
       const x = J.x - 4 + i * 1.6;
       mt.cyl(0.04, 0.75, x, 0.37, J.z - 2.6, '#c9ced6');
       m.cyl(0.24, 0.08, x, 0.78, J.z - 2.6, ['#e63946', '#ffd34d', '#2ecc71'][i % 3]);
+      this.addCollider(x - 0.2, J.z - 2.8, x + 0.2, J.z - 2.4);
     }
     this.addCollider(J.x - 5, J.z - 2.1, J.x + 5, J.z + 0.5);
     const barista = new Character(Object.assign(randomOutfit(), { shirt: '#2a9d8f', band: null, muscle: 0.2 }));
@@ -281,19 +284,19 @@ Object.assign(GymWorld.prototype, {
     const Z = ROOM.z;
     // Olympic lifting platforms
     for (const x of [50, 56, 62]) {
-      m.box(3.2, 0.06, 3.2, x, 0.03, -25, '#c9a46c');
-      m.box(0.8, 0.065, 3.2, x - 1.2, 0.032, -25, '#3a3a3a');
-      m.box(0.8, 0.065, 3.2, x + 1.2, 0.032, -25, '#3a3a3a');
+      m.box(3.2, 0.02, 3.2, x, 0.01, -25, '#c9a46c');
+      m.box(0.8, 0.022, 3.2, x - 1.2, 0.011, -25, '#3a3a3a');
+      m.box(0.8, 0.022, 3.2, x + 1.2, 0.011, -25, '#3a3a3a');
       this.addStation(x, -25, Math.PI, ['snatch', 'cleanjerk', 'lift'], { equip: 'platform', ax: x, az: -22.6 });
     }
     for (let i = 0; i < 8; i++) mt.cyl(0.22 + (i % 4) * 0.03, 0.06, 47 + i * 0.6, 0.3, -30.8, ['#e63946', '#2f6fed', '#ffd34d', '#2ecc71'][i % 4], Math.PI / 2, 0, 0, 18);
-    this.addCollider(46.5, -31.2, 52, -30.4);
+    this.addCollider(46.6, -31.0, 51.6, -30.6);
     this.zoneSign('وزنه‌برداری المپیک', '#ffd34d', 56, 7.8, -27, 0, 6);
     // rope climb from the ceiling
     for (const x of [70, 73, 76]) {
-      m.cyl(0.045, ROOM.h - 0.6, x, ROOM.h / 2 + 0.3, -26.85, '#d9c49a', 0, 0, 0, 8);
-      m.box(2.2, 0.3, 2.2, x, 0.15, -27, '#2f6fed');
-      this.addStation(x, -27, Math.PI, ['ropeclimb'], { equip: 'climbrope', ax: x, az: -25.2 });
+      m.cyl(0.045, ROOM.h - 0.6, x, ROOM.h / 2 + 0.3, -27.25, '#d9c49a', 0, 0, 0, 8);
+      m.box(2.2, 0.02, 2.2, x, 0.01, -27, '#2f6fed');
+      this.addStation(x, -27, Math.PI, ['ropeclimb'], { equip: 'climbrope', ax: x, az: -25.2, rope: 0.25, ropeH: ROOM.h - 0.8 });
     }
     this.zoneSign('صعود با طناب', '#7fe0ff', 73, 8.2, -29, 0, 5);
     // sprint lane with timing gates
@@ -320,6 +323,7 @@ Object.assign(GymWorld.prototype, {
       m.cyl(1.5, 0.55, x, 0.3, z, '#2c3140');
       m.cyl(1.3, 0.04, x, 0.6, z, '#111111');
       mt.geo(UnitGeo.torus(1, 0.05, 6, 32), x, 0.6, z, pick(['#ff4da6', '#2f6fed', '#ffd34d', '#2ecc71']), Math.PI / 2, 0, 0, 1.45);
+      this.addCollider(x - 1.3, z - 1.3, x + 1.3, z + 1.3);
       this.addStation(x, z, -Math.PI / 2, ['trampoline'], { equip: 'gymtramp', y: 0.62, ax: x - 2.1, az: z });
     }
     this.zoneSign('پارک ترامپولین', '#ff4da6', 52, 7.6, 7, -Math.PI / 2, 5);
@@ -340,7 +344,7 @@ Object.assign(GymWorld.prototype, {
     // human flag poles
     for (const x of [62, 66]) {
       mt.cyl(0.07, 3.6, x, 1.8, 15, '#c9ced6');
-      m.cyl(0.6, 0.05, x, 0.025, 15, '#e63946');
+      m.cyl(0.6, 0.02, x, 0.01, 15, '#e63946');
       this.addCollider(x - 0.1, 14.9, x + 0.1, 15.1);
       this.addStation(x - 0.35, 15, Math.PI / 2, ['humanflag'], { equip: 'flagpole', ax: x - 1.6, az: 15 });
     }
@@ -383,6 +387,7 @@ Object.assign(GymWorld.prototype, {
       const a = (i / 6) * TAU;
       if (Math.abs(wrapAngle(a + Math.PI / 2)) < 0.4) continue;
       mt.box(0.08, 2.5, 0.08, B.x + Math.cos(a) * 0.95, 1.33, B.z + Math.sin(a) * 0.95, '#7fe0ff');
+      this.addCollider(B.x + Math.cos(a) * 0.95 - 0.07, B.z + Math.sin(a) * 0.95 - 0.07, B.x + Math.cos(a) * 0.95 + 0.07, B.z + Math.sin(a) * 0.95 + 0.07);
     }
     this.scanRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.05, 6, 32), new THREE.MeshBasicMaterial({ color: '#7fe0ff', toneMapped: false, transparent: true, opacity: 0.8 }));
     this.scanRing.rotation.x = Math.PI / 2;
