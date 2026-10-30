@@ -1,0 +1,1363 @@
+'use strict';
+/* Game controller: HUD, input, progression, saving, travel between worlds and the arena.
+ * Shop, missions, medals, map, race and the boost code live in features.js. */
+
+const SAVE_KEY = 'zoor-gym-save-v1';
+
+const Game = {
+  save: null,
+  mode: 'menu', // menu | play | arena | transition
+  where: 'gym', // gym | island | place | env
+  envId: null,
+  track: 'main', // which level you are earning: 'main', or 'g2' inside the Steel Gym
+  keys: new Set(),
+  joy: { x: 0, y: 0, id: null },
+  camDrag: new Map(),
+  combo: 0,
+  lastExerciseEnd: -10,
+  runXpShown: 0,
+  clock: 0,
+  modals: new Set(),
+  pendingJump: false,
+  errorShown: false,
+  places: new Map(),
+  envs: new Map(),
+  aiBusy: false,
+  customMoves: [],
+  race: null,
+  pet: null,
+
+  loadSave() {
+    const d = {
+      level: 1, xp: 0, stage: 1, unlocked: false, muted: false, color: 0, wins: 0, losses: 0,
+      name: '', npcs: null, mode: 'walk', runLevel: 1, runXp: 0, islandSeen: false,
+      coins: 0, music: false, tab: 'base', achievements: [], missions: [],
+    };
+    const s = Store.get(SAVE_KEY, null);
+    this.save = Object.assign(d, s && typeof s === 'object' ? s : {});
+    const v = this.save;
+    v.level = Math.max(1, Math.floor(Number(v.level) || 1));
+    v.xp = Math.max(0, Number(v.xp) || 0);
+    v.runLevel = Math.max(1, Math.floor(Number(v.runLevel) || 1));
+    v.runXp = Math.max(0, Number(v.runXp) || 0);
+    v.stage = Math.max(1, Math.floor(Number(v.stage) || 1));
+    v.coins = Math.max(0, Math.floor(Number(v.coins) || 0));
+    v.color = clamp(Math.floor(Number(v.color) || 0), 0, PLAYER_COLORS.length - 1);
+    if (!['walk', 'run', 'jumprun'].includes(v.mode)) v.mode = 'walk';
+    if (!['base', 'new', 'pro', 'env', 'fun', 'ai'].includes(v.tab)) v.tab = 'base';
+    const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+    v.shop = Object.assign({ owned: [], shirt: null, band: null, aura: null, pet: null, trail: null }, obj(v.shop));
+    if (!Array.isArray(v.shop.owned)) v.shop.owned = [];
+    v.stats = Object.assign({
+      reps: 0, moves: {}, visited: [], raceWins: 0, coinsEarned: 0, maxCombo: 0, missionsDone: 0, equipReps: 0,
+      powers: 0, maxKnock: 0, armWins: 0, chests: 0, gems: 0, emotes: 0, jackpots: 0, picked: 0,
+    }, obj(v.stats));
+    for (const k of ['powers', 'maxKnock', 'armWins', 'chests', 'gems', 'emotes', 'jackpots', 'picked']) v.stats[k] = Math.max(0, Number(v.stats[k]) || 0);
+    v.fun = Object.assign({ wheelDay: '', lastDay: '', streak: 0 }, obj(v.fun));
+    v.challenges = obj(v.challenges);
+    v.records = obj(v.records);
+    v.secretFootball = !!v.secretFootball;
+    v.temp = (Array.isArray(v.temp) ? v.temp : []).filter((t) => t && t.n > 0 && t.until > Date.now() && t.until < Date.now() + 400000)
+      .map((t) => ({ n: Math.floor(t.n), src: String(t.src), kind: t.kind === 'run' ? 'run' : 'str', at: Number(t.at) || 0, until: Number(t.until) }));
+    v.g2 = Object.assign({ level: 1, xp: 0, best: 1 }, obj(v.g2));
+    v.g2.level = Math.max(1, Math.floor(Number(v.g2.level) || 1));
+    v.g2.xp = Math.max(0, Number(v.g2.xp) || 0);
+    v.g2.best = Math.max(v.g2.level, Math.floor(Number(v.g2.best) || 1));
+    v.goals = obj(v.goals);
+    v.penalties = Math.max(0, Math.floor(Number(v.penalties) || 0));
+    v.build = Object.assign({ gym: [], gym2: null, gym2Theme: null, nextId: 0 }, obj(v.build));
+    const okItem = (i) => i && typeof i.id === 'string' && typeof i.type === 'string' && Number.isFinite(i.x) && Number.isFinite(i.z);
+    const clean = (a) => a.filter(okItem).slice(0, 200).map((i) => ({ id: i.id.slice(0, 12), type: i.type, x: i.x, z: i.z, rot: ((Math.floor(i.rot) || 0) % 4 + 4) % 4 }));
+    v.build.gym = Array.isArray(v.build.gym) ? clean(v.build.gym) : [];
+    v.build.gym2 = Array.isArray(v.build.gym2) ? clean(v.build.gym2) : null;
+    v.build.gym2Theme = v.build.gym2Theme && typeof v.build.gym2Theme === 'object' ? {
+      wall: /^#[0-9a-f]{6}$/i.test(v.build.gym2Theme.wall) ? v.build.gym2Theme.wall : G2_THEME_DEFAULT.wall,
+      floor: Array.isArray(v.build.gym2Theme.floor) && v.build.gym2Theme.floor.every((c) => /^#[0-9a-f]{6}$/i.test(c)) ? v.build.gym2Theme.floor.slice(0, 2) : G2_THEME_DEFAULT.floor,
+      light: /^#[0-9a-f]{6}$/i.test(v.build.gym2Theme.light) ? v.build.gym2Theme.light : G2_THEME_DEFAULT.light,
+      name: String(v.build.gym2Theme.name || '').slice(0, 24),
+    } : null;
+    v.build.nextId = Math.max(0, Math.floor(Number(v.build.nextId) || 0));
+    v.fun.streak = Math.max(0, Math.floor(Number(v.fun.streak) || 0));
+    v.settings = Object.assign({ quality: defaultGraphics(), sens: 1, names: true, shake: true }, obj(v.settings));
+    // the old three choices become the new presets
+    v.settings.quality = { low: 'go', auto: defaultGraphics(), high: 'pro' }[v.settings.quality] || v.settings.quality;
+    if (!GRAPHICS[v.settings.quality]) v.settings.quality = defaultGraphics();
+    v.cheatLv = Math.max(0, Math.floor(Number(v.cheatLv) || 0));
+    v.settings.sens = clamp(Number(v.settings.sens) || 1, 0.4, 2);
+    v.settings.names = v.settings.names !== false;
+    v.settings.shake = v.settings.shake !== false;
+    v.stats.moves = obj(v.stats.moves);
+    if (!Array.isArray(v.stats.visited)) v.stats.visited = [];
+    v.boost = Object.assign({ used: false, until: 0 }, obj(v.boost));
+    if (!Array.isArray(v.achievements)) v.achievements = [];
+    if (!Array.isArray(v.missions)) v.missions = [];
+  },
+
+  persist() {
+    const s = this.save;
+    s.npcs = this.people ? this.people.map((n) => ({ l: n.level, x: Math.round(n.xp), loc: n.loc })) : s.npcs;
+    Store.set(SAVE_KEY, s);
+  },
+
+  playerName() { return this.save.name || 'قهرمان'; },
+
+  /** Main strength level: what you earned by exercising + the 1919 boost + temporary levels. */
+  lv() { return this.save.level + (this.boostActive() ? BOOST_LEVELS : 0) + this.tempActive('str'); },
+  /** The level that counts where you are now: the Steel Gym keeps its own, started from 1. */
+  gymLv() { return this.track === 'g2' ? this.save.g2.level : this.lv(); },
+  /** The level and xp being earned right now. */
+  prog() { return this.track === 'g2' ? this.save.g2 : this.save; },
+  need(L) { return this.track === 'g2' ? Math.round(xpNeed(L) * G2_HARD) : xpNeed(L); },
+  mult() { return xpMult(this.prog().level); },
+  boostActive() { return Date.now() < (this.save.boost.until || 0); },
+  stats() { return { level: this.lv(), runLevel: this.runLv(), speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) * this.turboMult() }; },
+  envKey() { return this.where === 'env' ? this.envId : this.where; },
+
+  /* ---------------- boot ---------------- */
+
+  init() {
+    THREE.ColorManagement.legacyMode = false;
+    const canvas = $('scene');
+    let renderer;
+    try {
+      // edge smoothing is fixed when the page starts: off only for the Go preset
+      const pre = Store.get(SAVE_KEY, null);
+      this.antialias = !(pre && pre.settings && (pre.settings.quality === 'go' || pre.settings.quality === 'low'));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: this.antialias, powerPreference: 'high-performance' });
+    } catch (e) {
+      $('noGl').hidden = false;
+      return;
+    }
+    this.renderer = renderer;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    this.pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+    renderer.setPixelRatio(this.pixelRatio);
+    this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+
+    this.loadSave();
+    Sfx.setMuted(this.save.muted);
+    this.gym = new GymWorld();
+    this.applyLayout(this.gym, 'gym');
+    this.gym.spawnNpcs(NPC_NAMES, this.save.npcs);
+    this.initRoster();
+    this.player = createPlayer(this.outfit(), this.lv());
+    this.player.mode = this.save.mode;
+    this.gym.enter(this.player);
+    this.world = this.gym;
+    this.gym.onTowerDone = (lvl, rang) => this.towerResult(lvl, rang);
+    this.arena = new Arena();
+    this.attachPet();
+
+    this.buildMoves();
+    this.bindUi();
+    this.bindInput();
+    this.initFun();
+    this.bindWatchUi();
+    this.labelPlayer();
+    this.ensureMissions();
+    this.checkGoals();
+    Creations.onChange((items) => this.onCreations(items));
+    Creations.init();
+    this.refreshHud(true);
+    this.updateWorldHud();
+    this.openStart();
+
+    setInterval(() => { if (this.mode === 'play') this.persist(); }, 6000);
+    window.addEventListener('pagehide', () => this.persist());
+    this.last = performance.now();
+    this.fpsT = 0;
+    this.fpsN = 0;
+    requestAnimationFrame((t) => this.frame(t));
+  },
+
+  resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    this.camera.fov = w < h ? 68 : 55;
+    this.camera.updateProjectionMatrix();
+  },
+
+  /* ---------------- moves panel ---------------- */
+
+  isUnlocked(m) {
+    if (m.custom) return true;
+    if (m.cat === 'g2') return this.save.g2.level >= m.level;
+    if (m.cat === 'energy') return this.energyLv() >= m.level;
+    if (m.gym) return this.lv() >= m.level;
+    return this.save.unlocked || this.lv() >= m.level;
+  },
+
+  moveButton(m) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mv-btn' + (m.toggle ? ' toggle' : '') + (m.equip ? ' equip' : '') + (m.custom ? ' custom' : '');
+    b.dataset.id = m.id;
+    b.dataset.cat = m.custom ? 'ai' : m.cat;
+    b.innerHTML = `<span class="mv-icon"></span><span class="mv-name"></span><span class="mv-sub"></span><span class="mv-lock">🔒 سطح ${fa(m.level || 1)}</span>`;
+    b.querySelector('.mv-icon').textContent = m.icon;
+    b.querySelector('.mv-name').textContent = m.name;
+    b.addEventListener('click', () => this.onMove(m));
+    return b;
+  },
+
+  buildMoves() {
+    const grid = $('moveGrid');
+    grid.innerHTML = '';
+    this.moveBtns = {};
+    for (const m of MOVES) {
+      const b = this.moveButton(m);
+      grid.appendChild(b);
+      this.moveBtns[m.id] = b;
+    }
+    this.setTab(this.save.tab);
+  },
+
+  setTab(tab) {
+    this.save.tab = tab;
+    $('moveGrid').dataset.tab = tab;
+    document.querySelectorAll('.mv-tab').forEach((t) => {
+      t.classList.toggle('on', t.dataset.tab === tab);
+      if (t.dataset.tab === tab && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    $('moveGrid').scrollTop = 0;
+  },
+
+  /** Exercises the AI made show up as extra buttons that work anywhere. */
+  setCustomMoves(items) {
+    const grid = $('moveGrid');
+    for (const m of this.customMoves) { this.moveBtns[m.id].remove(); delete this.moveBtns[m.id]; }
+    this.customMoves = items.filter((c) => c.kind === 'exercise').slice(0, 12).map((c) => ({
+      id: 'ai_' + c.id, name: c.name, icon: c.icon, custom: true, level: 1, anim: c.anim, effect: c.effect,
+    }));
+    for (const m of this.customMoves) {
+      const b = this.moveButton(m);
+      grid.appendChild(b);
+      this.moveBtns[m.id] = b;
+    }
+    $('tabAi').hidden = !this.customMoves.length;
+    this.refreshMoves();
+  },
+
+  nearEquip(type) {
+    const r = this.world.nearestStation((s) => s.equip === type);
+    return r && r.d < 2.4 ? r.s : null;
+  },
+
+  envName(env) { return env === 'gym' ? 'باشگاه' : (ENV_BY_ID[env] ? ENV_BY_ID[env].name : env); },
+
+  refreshMoves() {
+    const P = this.player;
+    const busy = !this.world.canAct() && !this.loop;
+    const mult = this.mult();
+    const here = this.envKey();
+    // equipment found in this world, and the pieces you placed here from other gyms
+    const equips = new Set(this.world.stations.map((s) => s.equip).filter(Boolean));
+    const placed = new Set(this.world.stations.filter((s) => s.placed && this.world === this.gym).map((s) => s.equip));
+    $('tabPlaced').hidden = !placed.size;
+    if (!placed.size && this.save.tab === 'placed') this.setTab('base');
+    for (const m of [...MOVES, ...this.customMoves]) {
+      const b = this.moveBtns[m.id];
+      if (!b) continue;
+      const un = this.isUnlocked(m);
+      b.classList.toggle('locked', !un);
+      b.classList.toggle('active', (!!m.toggle && P.mode === m.id) || (!!this.loop && this.loop.m === m));
+      b.classList.toggle('wait', !m.toggle && busy && un);
+      let sub;
+      if (m.toggle) sub = P.mode === m.id ? 'روشن' : 'خاموش';
+      else if (m.custom) sub = effectText(m.effect);
+      else if (m.emote) sub = '👏 نمایشی';
+      else if (m.equip) {
+        const env = EQUIP[m.equip].env;
+        const local = equips.has(m.equip);
+        const near = local ? this.nearEquip(m.equip) : null;
+        b.classList.toggle('near', !!near);
+        b.classList.toggle('here', local);
+        b.classList.toggle('placedmv', placed.has(m.equip));
+        sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : local ? `📍 ${EQUIP[m.equip].name}` : `🗺️ ${this.envName(env)}`;
+        if (m.zone && !near) sub = `${this.lv() >= m.zone ? '✅' : '⛔'} فقط سطح ${fa(m.zone)}+`;
+      } else sub = `${fa(Math.round(m.xp * mult))} زور`;
+      const subEl = b.querySelector('.mv-sub');
+      if (subEl.textContent !== sub) subEl.textContent = sub;
+    }
+  },
+
+  shakeBtn(id) {
+    const b = this.moveBtns[id];
+    if (!b) return;
+    b.classList.remove('shake');
+    void b.offsetWidth;
+    b.classList.add('shake');
+  },
+
+  onMove(m) {
+    if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
+    Sfx.init();
+    if (m.emote) { if (this.loop) this.stopLoop(true); this.doEmote(m); return; }
+    if (!this.isUnlocked(m)) {
+      Sfx.play('error');
+      this.toast(`🔒 «${m.name}» در سطح ${fa(m.level)} باز می‌شه. تمرین کن!`, 'warn');
+      this.shakeBtn(m.id);
+      return;
+    }
+    if (m.field) { if (this.loop && this.loop.m === m) this.toast('⏹ برای تموم کردن، دکمه‌ی «توقف» رو بزن'); else this.openTrick(); return; }
+    const P = this.player;
+    if (m.toggle) {
+      if (RUN_TURBO[m.id] && !this.world.allowTurbo) {
+        Sfx.play('error');
+        this.toast(`${m.icon} «${m.name}» فقط توی «پیست دو یک‌میلیون متری» کار می‌کنه (از ته تالار انرژی، سمت شرق باشگاه).`, 'warn');
+        return;
+      }
+      P.mode = P.mode === m.id ? 'walk' : m.id;
+      this.save.mode = P.mode;
+      Sfx.play('click');
+      this.toast(P.mode === 'walk' ? 'حالت راه رفتن' : (P.mode === 'run' ? '🏃 دویدن روشن شد' : '🦘 دویدن پرشی روشن شد. حالا راه برو!'));
+      this.refreshMoves();
+      return;
+    }
+    if (this.loop) {
+      // already exercising: the same button keeps going, another one switches to it
+      if (this.loop.m === m) { this.toast('⏹ برای تموم کردن، دکمه‌ی «توقف» رو بزن'); return; }
+      this.stopLoop(true);
+    }
+    if (!this.world.canAct()) return;
+    const since = this.clock - this.lastExerciseEnd;
+    let started;
+    if (m.equip) {
+      const env = EQUIP[m.equip].env;
+      if (!this.world.stations.some((s) => s.equip === m.equip)) {
+        Sfx.play('error');
+        const e = ENV_BY_ID[env];
+        const lock = e && this.lv() < e.level ? ` (از سطح ${fa(e.level)} باز می‌شه)` : '';
+        this.toast(`«${m.name}» با ${EQUIP[m.equip].name} انجام می‌شه. برو به «${this.envName(env)}»${lock}. از دکمه‌ی نقشه 🗺️`, 'warn');
+        return;
+      }
+      const st = this.nearEquip(m.equip);
+      if (!st) {
+        const r = this.world.nearestStation((s) => s.equip === m.equip);
+        Sfx.play('error');
+        this.shakeBtn(m.id);
+        this.toast(`برای «${m.name}» برو سراغ ${EQUIP[m.equip].name}. دنبال فلش سبز برو!`, 'warn');
+        if (r) this.world.guideTo(r.s);
+        return;
+      }
+      if (m.zone && this.lv() < m.zone) { this.zoneFail(m, st); return; }
+      if (this.spinBlock && this.spinBlock(m, st)) return;
+      started = this.startLoop({ m, st, anim: m.anim || m.id, done: () => this.exerciseDone(m) });
+    } else if (m.custom) {
+      started = this.startLoop({ m, anim: m.anim, done: () => this.customDone(m.name, m.effect) });
+    } else {
+      started = this.startLoop({ m, anim: m.anim || m.id, done: () => (m.cat === 'energy' ? this.energyDone(m) : this.exerciseDone(m)) });
+    }
+    if (!started) return;
+    Sfx.play('click');
+    this.combo = since <= 1.6 ? Math.min(10, this.combo + 1) : 0;
+    this.noteCombo(this.combo);
+    this.refreshMoves();
+  },
+
+  /* ---------------- exercising until you press stop ---------------- */
+
+  /** Start an exercise that repeats rep after rep until the stop button. */
+  startLoop(L) {
+    L.world = this.world;
+    L.reps = 0;
+    this.loop = L;
+    if (!this.loopRep(L)) { this.loop = null; return false; }
+    this.showStop();
+    return true;
+  },
+
+  loopRep(L) {
+    const fin = (name) => {
+      L.reps++;
+      L.done(name);
+      if (this.loop !== L) return;
+      this.showStop();
+      if (!this.loopRep(L)) this.stopLoop();
+    };
+    const anim = L.next ? L.next() : L.anim;
+    if (L.st) return this.world.useStation(L.st, anim, fin, () => this.loop === L);
+    return this.world.playerDo(anim, fin);
+  },
+
+  /** Stop button: end the exercise now and step off the machine. quiet: switching to another one. */
+  stopLoop(quiet) {
+    const L = this.loop;
+    if (!L) return;
+    this.loop = null;
+    const P = this.player;
+    if (L.world === this.world) {
+      P.ch.stopAction();
+      P.ch.station = null;
+      this.world.releaseStation();
+      P.ch.root.position.y = 0;
+    }
+    this.lastExerciseEnd = this.clock;
+    if (L.onStop) L.onStop(quiet);
+    if (!quiet && L.reps > 0) this.toast(`⏹ تموم شد: ${fa(L.reps)} بار «${L.m.name}»`);
+    this.showStop();
+    this.refreshMoves();
+  },
+
+  showStop() {
+    const L = this.loop;
+    const b = $('stopBtn');
+    b.hidden = !L;
+    if (!L) return;
+    const t = `⏹ توقف • ${L.m.icon || ''} ${fa(L.reps)} بار`;
+    if (b.textContent !== t) b.textContent = t;
+  },
+
+  /** Anything that takes the player away (travel, races, building) ends the exercise. */
+  tickLoop() {
+    const L = this.loop;
+    if (!L) return;
+    if (this.mode !== 'play' || this.race || this.arm || this.photo || this.build || this.world !== L.world) this.stopLoop(true);
+  },
+
+  exerciseDone(m) {
+    this.lastExerciseEnd = this.clock;
+    const mult = 1 + this.combo * 0.1;
+    this.gainXp(Math.round(m.xp * mult * this.mult()));
+    if (m.run) this.gainRun(Math.round(m.run * mult));
+    if (m.zone) this.zoneDone(m);
+    this.noteRep(m);
+    this.refreshMoves();
+  },
+
+  /** Equipment or exercises the AI built: apply their effect exactly as described. */
+  customDone(name, effect) {
+    this.lastExerciseEnd = this.clock;
+    // not earned by real exercise, so it only lasts 5 minutes
+    const kind = effect.stat === 'run' ? 'run' : 'str';
+    if (effect.levels) {
+      this.addTempLevels(effect.levels, 'ai', false, kind);
+      this.floatText(`+${fa(effect.levels)} ⏳`, 'fl-combo');
+      Sfx.play('xp');
+    }
+    if (effect.xp) this.addTempXp(effect.xp, 'ai', kind);
+    this.noteRep({ id: 'ai', level: 10 });
+    this.refreshMoves();
+  },
+
+  /* ---------------- progression ---------------- */
+
+  /** kind: 'exercise' (floater + sound), 'run' (small floater every 5), 'reward' (no floater). */
+  gainXp(amount, kind = 'exercise') {
+    if (!(amount > 0)) return;
+    const s = this.prog();
+    if (kind !== 'reward') amount *= this.xpBoost();
+    amount = Math.round(amount * 10) / 10;
+    s.xp += amount;
+    if (kind === 'run') {
+      this.runXpShown += amount;
+      if (this.runXpShown >= 5) {
+        this.floatText(`+${fa(Math.floor(this.runXpShown))}`, 'fl-run');
+        this.runXpShown -= Math.floor(this.runXpShown);
+      }
+    } else if (kind === 'exercise') {
+      this.floatText(`+${fa(Math.round(amount))}`, this.combo > 0 || this.xpBoost() > 1 ? 'fl-combo' : '');
+      Sfx.play('xp');
+    }
+    const from = s.level;
+    let guard = 0;
+    while (s.xp >= this.need(s.level) && guard++ < 5000) {
+      s.xp -= this.need(s.level);
+      s.level++;
+    }
+    if (s.level > from) this.levelsGained(this.track === 'g2' ? from : this.lv() - (s.level - from), this.gymLv(), false, this.track);
+    this.refreshHud();
+  },
+
+  /** Permanent levels, earned by exercise (wrestling wins), on the track you are on. */
+  addLevels(n, quiet) {
+    const s = this.prog();
+    const from = this.gymLv();
+    const frac = s.xp / this.need(s.level);
+    s.level += n;
+    if (this.track === 'g2') s.best = Math.max(s.best, s.level);
+    s.xp = Math.floor(frac * this.need(s.level));
+    this.levelsGained(from, this.gymLv(), quiet, this.track);
+    this.refreshHud();
+  },
+
+  /** Take away permanent main levels (failing a Titan or Olympus lift). */
+  loseLevels(n) {
+    const s = this.save;
+    const before = s.level;
+    s.level = Math.max(1, s.level - n);
+    s.xp = Math.min(s.xp, xpNeed(s.level) - 1);
+    s.penalties += before - s.level;
+    setPlayerLevelLook(this.player, this.lv());
+    this.labelPlayer();
+    this.refreshPowers(true);
+    this.refreshMoves();
+    this.refreshHud(true);
+    this.persist();
+    return before - s.level;
+  },
+
+  gainRun(amount) {
+    if (!(amount > 0)) return;
+    const s = this.save;
+    s.runXp += amount;
+    const from = s.runLevel;
+    let guard = 0;
+    while (s.runXp >= runNeed(s.runLevel) && guard++ < 5000) {
+      s.runXp -= runNeed(s.runLevel);
+      s.runLevel++;
+    }
+    if (s.runLevel > from) { this.toast(`🏃 سطح دویدن ${fa(s.runLevel)}! سریع‌تر شدی`, 'gold'); this.checkAchievements(); }
+    this.refreshHud();
+  },
+
+  /** from/to are the levels as shown (main: with boost and temporary levels; g2: the Steel Gym level). */
+  levelsGained(from, to, quiet, track = 'main') {
+    if (quiet && Math.floor(from / 50) !== Math.floor(to / 50)) quiet = false;
+    if (track === 'g2') { this.g2LevelsGained(from, to, quiet); return; }
+    if (!quiet) {
+      Sfx.play('levelup');
+      const b = $('levelBanner');
+      b.innerHTML = `<small>${this.track === 'g2' ? 'سطح زور اصلی' : 'سطح زور'}</small><b>${fa(to)}</b>`;
+      b.classList.remove('show');
+      void b.offsetWidth;
+      b.classList.add('show');
+    }
+    setPlayerLevelLook(this.player, this.lv());
+    this.refreshMoves();
+    if (this.mode === 'play' && !quiet) {
+      const p = this.player.ch.root.position;
+      this.world.fx.ring({ x: p.x, y: 0.2, z: p.z }, { count: 70, color: '#ffc23d', radius: 0.5, speed: 6, life: 0.9 });
+      this.world.fx.burst({ x: p.x, y: 1.4, z: p.z }, { count: 60, colors: ['#ffc23d', '#ffffff', '#ff7b00'], speed: 3, up: 4, life: 1.4 });
+    }
+    if (!this.save.unlocked && !this.boostActive()) {
+      const opened = MOVES.filter((m) => m.cat !== 'g2' && m.level > from && m.level <= to);
+      if (opened.length === 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 «${opened[0].name}» باز شد!`, 'gold'); }, 700);
+      else if (opened.length > 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 ${fa(opened.length)} حرکت جدید باز شد!`, 'gold'); }, 700);
+      const envs = ENVS.filter((e) => !e.secret && !e.track && e.level > from && e.level <= to);
+      for (const e of envs) setTimeout(() => this.toast(`🗺️ «${e.name}» باز شد! از دکمه‌ی نقشه برو`, 'gold'), 1200);
+    }
+    if (from < ISLAND_LEVEL && to >= ISLAND_LEVEL) {
+      setTimeout(() => { Sfx.play('win'); this.toast('🌥️ جزیره‌ی ابرها باز شد! از نقشه یا دروازه‌ی ابری کنار در سالن کشتی برو', 'gold'); }, 1500);
+    }
+    const next = opponentFor(this.save.stage);
+    if (from < next.level && to >= next.level) setTimeout(() => this.toast(`💪 هم‌زور «${next.name}» شدی! دکمه‌ی آماده‌ام رو بزن`, 'gold'), 2200);
+    if (from < GYM3_LEVEL && to >= GYM3_LEVEL) setTimeout(() => { Sfx.play('win'); this.toast('🏛️⚡ سطح ۵۰۰! «معبد تایتان‌ها» و «المپ کیهانی» باز شدن! از نقشه برو', 'gold'); this.confetti(); }, 1800);
+    if (!this.levelTemp) this.missionProgress('levels', to - from);
+    this.onLevelsFun(from, to);
+    this.checkGoals();
+    this.checkAchievements();
+    this.persist();
+  },
+
+  refreshHud(force) {
+    const s = this.save;
+    const p = this.prog();
+    const need = this.need(p.level);
+    const frac = clamp(p.xp / need, 0, 1);
+    const boost = this.boostActive();
+    const lv = this.lv();
+    const key = `${this.track}|${p.level}|${lv}|${Math.floor(p.xp)}|${s.stage}|${s.muted}|${this.runLv()}|${Math.floor(s.runXp)}|${s.coins}|${boost}`;
+    if (force || key !== this.hudKey) {
+      this.hudKey = key;
+      const g2 = this.track === 'g2';
+      $('lvlNum').textContent = fa(this.gymLv());
+      $('lvlNum').classList.toggle('boosted', !g2 && (boost || this.tempActive('str') > 0));
+      $('lvlLabel').textContent = g2 ? '⚙️ سطح باشگاه فولاد' : '💪 سطح زور';
+      $('hudLevel').classList.toggle('g2', g2);
+      $('titleText').textContent = g2 ? `💪 زور اصلی: ${fa(lv)}` : '🎖️ ' + titleFor(lv);
+      $('xpFill').style.width = `${frac * 100}%`;
+      $('xpText').textContent = `${fa(Math.floor(p.xp))} / ${fa(need)}`;
+      $('runText').textContent = `🏃 سطح دویدن ${fa(this.runLv())}`;
+      $('runFill').style.width = `${clamp(s.runXp / runNeed(s.runLevel), 0, 1) * 100}%`;
+      $('coinText').textContent = fa(s.coins);
+      const opp = opponentFor(s.stage);
+      $('readySub').textContent = `مرحله‌ی ${fa(s.stage)} • حریف سطح ${fa(opp.level)}`;
+      $('readyBtn').classList.toggle('hot', this.lv() >= opp.level);
+      $('soundBtn').textContent = s.muted ? '🔇' : '🔊';
+      this.renderMissionChip();
+      this.renderGoalChip();
+    }
+    if (force || this.clock - (this.rankT || 0) > 1) {
+      this.rankT = this.clock;
+      const rows = this.gym.leaderboard(this.playerName(), this.lv(), s.xp);
+      const rank = rows.findIndex((r) => r.isPlayer) + 1;
+      $('rankText').textContent = `رتبه ${fa(rank)} از ${fa(rows.length)}`;
+      this.gym.drawBoards({ level: this.lv(), frac, rank, total: rows.length }, rows);
+    }
+  },
+
+  /* ---------------- HUD helpers ---------------- */
+
+  toast(text, cls = '') {
+    const box = $('toasts');
+    const el = document.createElement('div');
+    el.className = 'toast ' + cls;
+    el.textContent = text;
+    box.appendChild(el);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(() => el.classList.add('out'), 3000);
+    setTimeout(() => el.remove(), 3500);
+  },
+
+  floatText(text, cls) {
+    if (this.mode !== 'play') return;
+    const ch = this.player.ch;
+    const v = new THREE.Vector3();
+    ch.root.getWorldPosition(v);
+    v.y += 2.1 + ch.airY + (cls === 'fl-coin' ? 0.4 : 0);
+    v.project(this.camera);
+    if (v.z > 1) return;
+    const el = document.createElement('div');
+    el.className = 'floater ' + (cls || '');
+    el.dir = 'ltr';
+    el.textContent = text;
+    el.style.left = `${(v.x * 0.5 + 0.5) * 100}%`;
+    el.style.top = `${(-v.y * 0.5 + 0.5) * 100}%`;
+    $('floaters').appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  },
+
+  showBanner(small, big) {
+    const b = $('levelBanner');
+    b.innerHTML = '';
+    const s = document.createElement('small');
+    s.textContent = small;
+    const g = document.createElement('b');
+    g.textContent = big;
+    b.append(s, g);
+    b.classList.remove('show');
+    void b.offsetWidth;
+    b.classList.add('show');
+  },
+
+  openModal(id) {
+    $(id).hidden = false;
+    this.modals.add(id);
+    this.keys.clear();
+    this.resetJoy();
+  },
+  closeModal(id) {
+    $(id).hidden = true;
+    this.modals.delete(id);
+  },
+
+  /* ---------------- start ---------------- */
+
+  outfit() {
+    const sh = this.save.shop;
+    return {
+      shirt: sh.shirt && SHOP_BY_ID[sh.shirt] ? SHOP_BY_ID[sh.shirt].color : PLAYER_COLORS[this.save.color],
+      band: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+      belt: this.save.stage > MAIN_STAGES ? 'gold' : this.save.stage > 5 ? 'silver' : null,
+      stripe: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+      stripe2: '#ffffff',
+    };
+  },
+
+  /** Rebuild the player's character (new clothes) in place. */
+  rebuildPlayer() {
+    const old = this.player;
+    const pos = old.ch.root.position.clone();
+    const yaw = old.ch.root.rotation.y;
+    this.releasePlayer();
+    this.world.scene.remove(old.ch.root);
+    this.world.scene.remove(old.arrow);
+    this.player = createPlayer(this.outfit(), this.lv());
+    this.player.mode = old.mode;
+    const cam = Object.assign({}, this.world.cam);
+    this.world.enter(this.player, { x: pos.x, z: pos.z, yaw });
+    Object.assign(this.world.cam, cam);
+    this.labelPlayer();
+  },
+
+  openStart() {
+    this.mode = 'menu';
+    $('hud').hidden = true;
+    $('nameInput').value = this.save.name || '';
+    const sw = $('swatches');
+    sw.innerHTML = '';
+    PLAYER_COLORS.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (i === this.save.color ? ' on' : '');
+      b.style.background = c;
+      b.setAttribute('aria-label', 'رنگ ' + fa(i + 1));
+      b.addEventListener('click', () => {
+        this.save.color = i;
+        this.save.shop.shirt = null;
+        sw.querySelectorAll('.swatch').forEach((x, j) => x.classList.toggle('on', j === i));
+        this.rebuildPlayer();
+      });
+      sw.appendChild(b);
+    });
+    $('startStats').textContent = this.save.level > 1 || this.save.stage > 1
+      ? `ادامه‌ی بازی: سطح زور ${fa(this.save.level)} • مرحله‌ی کشتی ${fa(this.save.stage)} • 🪙 ${fa(this.save.coins)}`
+      : '';
+    this.openModal('startModal');
+  },
+
+  startGame() {
+    Sfx.init();
+    Sfx.play('go');
+    this.save.name = $('nameInput').value.trim().slice(0, 14);
+    this.closeModal('startModal');
+    $('hud').hidden = false;
+    this.mode = 'play';
+    if (this.save.music) Sfx.music(true);
+    this.persist();
+    this.refreshHud(true);
+    this.refreshMoves();
+    this.toast(`سلام ${this.playerName()}! تمرین رو شروع کن 💪`, 'gold');
+    this.labelPlayer();
+    this.dailyLogin();
+  },
+
+  /* ---------------- travel ---------------- */
+
+  fadeTo(fn) {
+    const f = $('fade');
+    f.classList.add('on');
+    setTimeout(() => {
+      try { fn(); } catch (e) { console.error(e); }
+      setTimeout(() => f.classList.remove('on'), 80);
+    }, 420);
+  },
+
+  releasePlayer() {
+    this.stopLoop(true);
+    const P = this.player;
+    if (P.anchor) {
+      P.anchor.player = false;
+      P.ch.root.position.set(P.anchor.ax, 0, P.anchor.az);
+      P.anchor = null;
+    }
+    P.ch.stopAction();
+    P.ch.root.position.y = 0;
+  },
+
+  getIsland() {
+    if (!this.island) {
+      this.island = new IslandWorld();
+      this.island.setCreations(Creations.items);
+      this.settleResidents(this.island);
+    }
+    return this.island;
+  },
+
+  getPlace(item) {
+    let w = this.places.get(item.id);
+    if (!w) {
+      w = new PlaceWorld(item);
+      this.places.set(item.id, w);
+    }
+    return w;
+  },
+
+  getEnv(id) {
+    let w = this.envs.get(id);
+    if (!w) {
+      w = buildEnv(id);
+      if (w.layoutKey) this.applyLayout(w, w.layoutKey);
+      this.envs.set(id, w);
+      this.settleResidents(w);
+    }
+    return w;
+  },
+
+  /** target: 'gym' | 'island' | 'place' (item = creation) | 'env' (item = env id) */
+  travel(target, item) {
+    if (this.mode !== 'play' || this.race || this.arm) return;
+    if (this.photo) this.exitPhoto();
+    if (target === 'island' && this.lv() < ISLAND_LEVEL) {
+      Sfx.play('error');
+      this.toast(`🔒 جزیره‌ی ابرها در سطح ${fa(ISLAND_LEVEL)} باز می‌شه. الان سطح ${fa(this.lv())} هستی؛ خیلی تمرین کن!`, 'warn');
+      return;
+    }
+    if (target === 'lucky' && this.lv() < LUCKY_LEVEL) {
+      Sfx.play('error');
+      this.toast(`🔒 جزیره‌ی خوش‌شانسی در سطح ${fa(LUCKY_LEVEL)} باز می‌شه. الان سطح ${fa(this.lv())} هستی!`, 'warn');
+      return;
+    }
+    if (target === 'env') {
+      const e = ENV_BY_ID[item];
+      if (!e) return;
+      if (e.secret && !this.save.secretFootball) return;
+      if (this.lv() < e.level) {
+        Sfx.play('error');
+        this.toast(`🔒 «${e.name}» در سطح ${fa(e.level)} باز می‌شه.`, 'warn');
+        return;
+      }
+      if (this.where === 'env' && this.envId === item) return;
+    }
+    Sfx.init();
+    Sfx.play('whoosh');
+    const from = this.where;
+    const fromItem = this.placeItem;
+    const fromEnv = this.envId;
+    this.closeModal('mapModal');
+    this.cancelChallenge();
+    this.releasePlayer();
+    this.dash = null;
+    this.powerAir = null;
+    this.mode = 'transition';
+    this.fadeTo(() => {
+      let w;
+      let at;
+      if (target === 'gym') {
+        w = this.gym;
+        if (from === 'island') at = { x: PORTAL.x + 2.5, z: PORTAL.z - 2.5, yaw: Math.PI, camYaw: 0.7 };
+        if (from === 'lucky') at = { x: LUCKY_PORTAL.x + 2.5, z: LUCKY_PORTAL.z - 2.5, yaw: Math.PI, camYaw: 0.7 };
+        if (from === 'env' && fromEnv === 'runtrack') at = { x: RUN_HALL.gate.x - 4, z: RUN_HALL.gate.z, yaw: -Math.PI / 2, camYaw: Math.PI / 2 };
+      } else if (target === 'island') {
+        w = this.getIsland();
+        if (from === 'place' && fromItem) {
+          const pp = w.placePortals.find((p) => p.item.id === fromItem.id);
+          if (pp) at = { x: pp.x * 0.85, z: pp.z * 0.85, yaw: Math.atan2(-pp.x, -pp.z), camYaw: Math.atan2(pp.x, pp.z) + 0.6 };
+        }
+      } else if (target === 'lucky') w = this.getLucky();
+      else if (target === 'env') w = this.getEnv(item);
+      else w = this.getPlace(item);
+      if (this.pet) this.world.scene.remove(this.pet.root);
+      if (this.inFootball()) this.footballLeave();
+      w.enter(this.player, at);
+      this.world = w;
+      this.where = target;
+      this.envId = target === 'env' ? item : null;
+      this.enterTrack(target, item);
+      this.placeItem = target === 'place' ? item : null;
+      this.attachPet();
+      this.mode = 'play';
+      this.updateWorldHud();
+      this.refreshMoves();
+      if (target === 'island') {
+        this.toast(this.save.islandSeen ? 'به جزیره‌ی ابرها خوش اومدی! 🌥️' : '🌥️ به جزیره‌ی ابرها رسیدی! برو پیش ربات وسط جزیره و هر وسیله‌ی ورزشی که دلت می‌خواد بساز.', 'gold');
+        this.save.islandSeen = true;
+      } else if (target === 'lucky') {
+        this.luckyLast = null;
+        this.toast('🍀 به جزیره‌ی خوش‌شانسی خوش اومدی! هر چند قدم که راه بری ۱۰ سطح زور می‌گیری!', 'gold');
+      } else if (target === 'place') this.toast(`${item.icon} به «${item.name}» خوش اومدی!`, 'gold');
+      else if (target === 'env' && item === 'football') this.footballEnter();
+      else if (target === 'env' && ENV_BY_ID[item].gym) this.gymWelcome(ENV_BY_ID[item]);
+      else if (target === 'env') {
+        const e = ENV_BY_ID[item];
+        this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «مکان‌ها» هستن.`, 'gold');
+        if (!this.save.stats.visited.includes(item)) this.save.stats.visited.push(item);
+        this.missionProgress('visit', 1, item);
+        this.checkAchievements();
+        this.setTab('env');
+      } else this.toast('برگشتی باشگاه 💪');
+      this.persist();
+    });
+  },
+
+  updateWorldHud() {
+    const inGym = this.where === 'gym';
+    $('buildBtn').hidden = !this.buildKey();
+    if (this.build && this.buildKey() !== this.build.key) this.exitBuild();
+    $('readyBtn').hidden = !inGym;
+    $('aiBtn').hidden = !(this.where === 'island' || this.where === 'place');
+  },
+
+  /* ---------------- wrestling ---------------- */
+
+  startMatch() {
+    if (this.mode === 'transition' || this.arm) return;
+    if (this.photo) this.exitPhoto();
+    this.cancelChallenge();
+    this.dash = null;
+    this.powerAir = null;
+    const s = this.save;
+    const opp = opponentFor(s.stage);
+    this.closeModal('readyModal');
+    this.closeModal('resultModal');
+    this.releasePlayer();
+    this.mode = 'transition';
+    this.fadeTo(() => {
+      $('hud').hidden = true;
+      this.mode = 'arena';
+      this.arena.start({
+        opp, playerLevel: this.lv(), playerName: this.playerName(),
+        playerOutfit: this.player.ch.o,
+        xpMult: xpMult(s.level),
+        onZoor: (amt) => this.gainXp(amt, 'reward'),
+        onEnd: (r) => this.matchEnded(r, opp),
+      });
+    });
+  },
+
+  matchEnded(r, opp) {
+    const s = this.save;
+    const reasons = {
+      fall: 'ضربه فنی', tech: 'برتری فنی (۱۰ امتیاز اختلاف)', points: 'امتیاز بیشتر در پایان وقت',
+      criteria: 'امتیاز آخر', golden: 'امتیاز طلایی در وقت اضافه', decision: 'رأی داور',
+    };
+    const reward = Math.round((r.win ? 50 + 40 * opp.stage : 15 + 5 * opp.stage) * xpMult(s.level));
+    const levels = r.win ? 1 + Math.floor(opp.stage / 2) : 0;
+    const coins = r.win ? 25 * opp.stage : 5 * opp.stage;
+    const lastMain = r.win && opp.stage === MAIN_STAGES;
+    if (r.win) {
+      s.wins++;
+      if (opp.stage === 5 && s.stage <= 5) setTimeout(() => this.toast('🥈 کمربند نقره‌ای قهرمانی مال تو شد! به کمرت نگاه کن', 'gold'), 600);
+      if (opp.stage === MAIN_STAGES && s.stage <= MAIN_STAGES) setTimeout(() => this.toast('🥇 کمربند طلایی قهرمانی مال تو شد!', 'gold'), 600);
+      s.stage = Math.max(s.stage, opp.stage + 1);
+      this.confetti();
+      this.missionProgress('win', 1);
+    } else s.losses++;
+    $('resTitle').textContent = r.win ? (lastMain ? '👑 قهرمان افسانه‌ای شدی!' : '🏆 بردی!') : '😓 باختی!';
+    $('resTitle').className = r.win ? 'res-title win' : 'res-title lose';
+    $('resReason').textContent = (r.win ? 'برد با ' : 'باخت با ') + reasons[r.reason];
+    $('resScore').innerHTML = `<span class="red">${fa(r.score.p)}</span><span class="vs">–</span><span class="blue">${fa(r.score.o)}</span>`;
+    $('resNames').textContent = `${this.playerName()} در برابر ${opp.name}`;
+    const parts = [];
+    if (levels) parts.push(`+${fa(levels)} سطح زور`);
+    parts.push(`+${fa(reward + (r.zoor || 0))} زور`);
+    parts.push(`🪙 ${fa(coins)}`);
+    $('resXp').textContent = 'جایزه: ' + parts.join(' • ');
+    let tip;
+    if (lastMain) tip = 'همه‌ی ۱۰ مرحله رو بردی! حالا چالش بی‌پایان شروع می‌شه.';
+    else if (r.win) {
+      const nx = opponentFor(s.stage);
+      tip = `حریف بعدی قوی‌تره: ${nx.name} (${nx.title}) با سطح زور ${fa(nx.level)}`;
+    } else tip = 'زوری که توی همین کشتی گرفتی مال خودته. برگرد باشگاه، قوی‌تر شو و دوباره بیا!';
+    $('resTip').textContent = tip;
+    $('nextBtn').textContent = r.win ? '➡️ ادامه: مرحله‌ی بعد' : '🔁 دوباره کشتی بگیر';
+    this.gainXp(reward, 'reward');
+    if (levels) this.addLevels(levels);
+    this.addCoins(coins);
+    this.checkAchievements();
+    this.persist();
+    this.openModal('resultModal');
+  },
+
+  backToGym() {
+    if (this.mode === 'transition') return;
+    this.closeModal('resultModal');
+    this.mode = 'transition';
+    this.fadeTo(() => {
+      this.arena.stop();
+      this.mode = 'play';
+      $('hud').hidden = false;
+      setPlayerLevelLook(this.player, this.lv());
+      if (this.player.ch.o.belt !== this.outfit().belt) this.rebuildPlayer();
+      this.refreshHud(true);
+      this.refreshMoves();
+      this.toast('برگشتی باشگاه! زورت رو بیشتر کن 💪');
+    });
+  },
+
+  openReady() {
+    if (this.mode !== 'play' || this.where !== 'gym' || this.arm || this.race) return;
+    Sfx.init();
+    const s = this.save;
+    const opp = opponentFor(s.stage);
+    $('rdStage').textContent = s.stage <= MAIN_STAGES ? `مرحله‌ی ${fa(s.stage)} از ${fa(MAIN_STAGES)}` : `چالش بی‌پایان • مرحله‌ی ${fa(s.stage)}`;
+    $('rdOppName').textContent = opp.name;
+    $('rdOppTitle').textContent = opp.title;
+    $('rdOppLvl').textContent = fa(opp.level);
+    $('rdMeName').textContent = this.playerName();
+    $('rdMeLvl').textContent = fa(this.lv());
+    const dots = $('rdDots');
+    dots.innerHTML = '';
+    for (let i = 1; i <= MAIN_STAGES; i++) {
+      const d = document.createElement('span');
+      d.className = 'dot' + (i < s.stage ? ' done' : '') + (i === s.stage ? ' now' : '');
+      d.textContent = fa(i);
+      dots.appendChild(d);
+    }
+    const adv = $('rdAdvice');
+    const diff = this.lv() - opp.level;
+    if (diff >= 3) { adv.textContent = '🔥 تو از حریف قوی‌تری. برو بخورش!'; adv.className = 'advice good'; }
+    else if (diff >= 0) { adv.textContent = '✅ زورت به حریف می‌رسه. با سرعت زور بزن و فن‌ها رو به‌موقع بزن!'; adv.className = 'advice good'; }
+    else if (diff >= -2) { adv.textContent = '⚠️ حریف یه کم از تو قوی‌تره. می‌تونی بری، ولی سخته!'; adv.className = 'advice warn'; }
+    else { adv.textContent = `⛔ حریف ${fa(-diff)} سطح از تو قوی‌تره. بهتره اول بیشتر تمرین کنی.`; adv.className = 'advice bad'; }
+    this.openModal('readyModal');
+  },
+
+  /* ---------------- context button (things you are standing next to) ---------------- */
+
+  contextAction() {
+    const w = this.world;
+    if (this.race || this.arm || this.photo || this.build || !w.canAct() || this.player.anchor) return null;
+    if (w.pickups && w.pickups.nearChest(this.player.ch.root.position)) return { label: '🎁 صندوق گنج رو باز کن', run: () => this.openChest() };
+    if (w === this.gym) {
+      if (w.nearTower() && w.tower.state === 'idle') return { label: '🔨 تست قدرت', run: () => this.strengthTest() };
+      if (w.nearArm()) return { label: '💪 مچ‌اندازی', run: () => this.openArm() };
+      if (w.nearPortal()) {
+        const open = this.lv() >= ISLAND_LEVEL;
+        return { label: open ? '🌥️ برو به جزیره‌ی ابرها' : `🔒 جزیره‌ی ابرها • سطح ${fa(ISLAND_LEVEL)}`, run: () => this.travel('island') };
+      }
+      if (w.nearLuckyPortal()) {
+        const open = this.lv() >= LUCKY_LEVEL;
+        return { label: open ? '🍀 برو به جزیره‌ی خوش‌شانسی' : `🔒 جزیره‌ی خوش‌شانسی • سطح ${fa(LUCKY_LEVEL)}`, run: () => this.travel('lucky') };
+      }
+      const inv = this.spinInviteAction();
+      if (inv) return inv;
+      if (w.nearRunGate()) return { label: '🏁 برو به پیست دو یک‌میلیون متری', run: () => this.travel('env', 'runtrack') };
+      const at = this.attractionAction();
+      if (at) return at;
+      if (this.nearRaceStart()) return { label: '🏁 مسابقه‌ی دو', run: () => this.startRace() };
+    } else if (this.inFootball()) {
+      if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
+      return null;
+    } else if (w === this.lucky) {
+      if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
+    } else if (w === this.island) {
+      if (w.nearKiosk()) return { label: '🤖 با هوش مصنوعی حرف بزن', run: () => this.openAi() };
+      if (w.nearHome()) return { label: '🏋️ برگشت به باشگاه', run: () => this.travel('gym') };
+      const pp = w.nearPlace();
+      if (pp) return { label: `${pp.item.icon} برو به ${pp.item.name}`, run: () => this.travel('place', pp.item) };
+    } else if (w.nearHome && w.nearHome()) {
+      return { label: '🌥️ برگشت به جزیره', run: () => this.travel('island') };
+    }
+    const eq = w.nearestStation((s) => !!s.equip);
+    if (eq && eq.d < 2.0) {
+      const m = MOVES.find((x) => x.equip === eq.s.equip);
+      if (m) return { label: `${m.icon} ${m.name}`, run: () => this.onMove(m) };
+    }
+    const r = w.nearestStation((s) => !!s.custom);
+    if (r && r.d < 2.0) {
+      const item = r.s.custom;
+      return { label: `${item.icon} ${item.name}`, run: () => this.useCustom(r.s) };
+    }
+    return null;
+  },
+
+  useCustom(st) {
+    const item = st.custom;
+    const since = this.clock - this.lastExerciseEnd;
+    if (this.startLoop({ m: item, st, anim: item.anim, done: () => this.customDone(item.name, item.effect) })) {
+      Sfx.play('click');
+      this.combo = since <= 1.6 ? Math.min(10, this.combo + 1) : 0;
+      this.noteCombo(this.combo);
+    }
+  },
+
+  runContext() {
+    if (this.mode !== 'play' || this.modals.size || this.watch) return;
+    Sfx.init();
+    const c = this.contextAction();
+    if (c) c.run();
+  },
+
+  strengthTest() {
+    if (this.mode !== 'play' || this.modals.size || this.world !== this.gym) return;
+    Sfx.init();
+    if (this.gym.startStrengthTest(this.lv())) Sfx.play('click');
+  },
+
+  towerResult(level, rang) {
+    const rows = this.gym.leaderboard(this.playerName(), this.lv(), this.save.xp);
+    const rank = rows.findIndex((r) => r.isPlayer) + 1;
+    this.toast(rang ? `🔔 دینگ! قدرتت سطح ${fa(level)}ـه! تو یه هیولایی!` : `🔨 قدرت تو: سطح ${fa(level)} • رتبه ${fa(rank)} از ${fa(rows.length)}`, 'gold');
+  },
+
+  /* ---------------- input ---------------- */
+
+  bindUi() {
+    const on = (id, fn) => $(id).addEventListener('click', fn);
+    on('startBtn', () => this.startGame());
+    $('codeForm').addEventListener('submit', (e) => { e.preventDefault(); this.submitCode(); });
+    on('rankBtn', () => { Sfx.init(); this.openBoard(); });
+    on('buildBtn', () => { Sfx.init(); this.toggleBuild(); });
+    on('stopBtn', () => this.stopLoop());
+    on('spinCancel', () => this.spinCancelClass());
+    on('lvCutBtn', () => this.cutLevels());
+    on('cheatBtn', () => this.purgeCheats());
+    on('trickGo', () => this.startTrick());
+    on('runInvite', () => this.openRunInvite());
+    on('runAgain', () => this.resetRun());
+    on('runResAgain', () => this.resetRun());
+    on('runResHome', () => { this.closeModal('runResultModal'); this.travel('gym'); });
+    document.querySelectorAll('#trickQuick button').forEach((b) => b.addEventListener('click', () => { $('trickAmt').value = b.dataset.n; }));
+    on('bAdd', () => this.openBuildCatalog());
+    on('bMove', () => this.buildMove());
+    on('bRot', () => this.buildRotate());
+    on('bTurn', () => this.buildRotate());
+    on('bDel', () => this.buildDelete());
+    on('bPut', () => this.buildPut());
+    on('bCancel', () => this.buildCancel());
+    on('bTheme', () => this.openTheme());
+    on('bExit', () => this.exitBuild());
+    on('thApply', () => this.applyTheme());
+    on('thReset', () => this.resetGym2());
+    on('soundBtn', () => {
+      Sfx.init();
+      this.save.muted = !this.save.muted;
+      Sfx.setMuted(this.save.muted);
+      this.refreshHud(true);
+      this.persist();
+    });
+    on('mapBtn', () => { Sfx.init(); this.openMap(); });
+    on('shopBtn', () => { Sfx.init(); this.openShop(); });
+    on('menuBtn', () => { Sfx.init(); this.openMenu(); });
+    on('coinChip', () => { Sfx.init(); this.openShop(); });
+    on('missionChip', () => { Sfx.init(); this.openMissions(); });
+    on('goalChip', () => { Sfx.init(); this.openGoals(); });
+    on('aiBtn', () => this.openAi());
+    on('readyBtn', () => this.openReady());
+    on('fightBtn', () => this.startMatch());
+    on('trainBtn', () => this.closeModal('readyModal'));
+    on('nextBtn', () => this.startMatch());
+    on('gymBtn', () => this.backToGym());
+    on('ctxBtn', () => this.runContext());
+    on('panelToggle', () => {
+      const p = $('panel');
+      p.classList.toggle('collapsed');
+      $('panelToggle').setAttribute('aria-expanded', String(!p.classList.contains('collapsed')));
+    });
+    document.querySelectorAll('.mv-tab').forEach((t) => t.addEventListener('click', () => { Sfx.play('click'); this.setTab(t.dataset.tab); }));
+    $('aiForm').addEventListener('submit', (e) => { e.preventDefault(); this.sendAi(); });
+    document.querySelectorAll('.ai-example').forEach((b) => b.addEventListener('click', () => this.sendAi(b.textContent)));
+    document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => this.closeModal(b.dataset.close)));
+    document.querySelectorAll('[data-menu]').forEach((b) => b.addEventListener('click', () => this.menuAction(b.dataset.menu)));
+    $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.startGame(); });
+  },
+
+  bindInput() {
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Escape') {
+        const open = [...this.modals].filter((id) => id !== 'startModal' && id !== 'resultModal');
+        if (open.length) open.forEach((id) => this.closeModal(id));
+        else if (this.photo) this.exitPhoto();
+        else if (this.loop) this.stopLoop();
+        return;
+      }
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      if (this.modals.size) return;
+      if (this.mode === 'arena') {
+        if (!e.repeat) this.arena.key(e.code);
+        return;
+      }
+      if (this.mode !== 'play') return;
+      if (this.arm) {
+        if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) this.armTap();
+        return;
+      }
+      this.keys.add(e.code);
+      if (e.repeat) return;
+      if (this.inFootball()) {
+        if (e.code === 'Space') { this.pendingJump = false; this.fbShoot(); return; }
+        if (e.code === 'KeyQ' || e.code === 'KeyF') { this.fbPass(); return; }
+      }
+      if (e.code === 'Digit1' || e.code === 'Numpad1') this.usePower('superjump');
+      if (e.code === 'Digit2' || e.code === 'Numpad2') this.usePower('dash');
+      if (e.code === 'Digit3' || e.code === 'Numpad3') this.usePower('slam');
+      if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
+      if (e.code === 'KeyE') this.runContext();
+      if (e.code === 'KeyR') this.onMove(MOVE_BY_ID.run);
+      if (e.code === 'KeyF') this.onMove(MOVE_BY_ID.jumprun);
+      if (e.code === 'KeyM') this.openMap();
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => { this.keys.clear(); this.resetJoy(); this.camDrag.clear(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { this.keys.clear(); this.resetJoy(); this.persist(); } });
+    document.addEventListener('contextmenu', (e) => { if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'))) e.preventDefault(); });
+
+    const joy = $('joy');
+    const knob = $('joyKnob');
+    const R = 46;
+    const setJoy = (e) => {
+      const r = joy.getBoundingClientRect();
+      let dx = e.clientX - (r.left + r.width / 2);
+      let dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy);
+      if (d > R) { dx = (dx / d) * R; dy = (dy / d) * R; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      this.joy.x = dx / R;
+      this.joy.y = dy / R;
+    };
+    joy.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      Sfx.init();
+      this.joy.id = e.pointerId;
+      try { joy.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      joy.classList.add('on');
+      setJoy(e);
+    });
+    joy.addEventListener('pointermove', (e) => { if (e.pointerId === this.joy.id) setJoy(e); });
+    const end = (e) => { if (e.pointerId === this.joy.id) this.resetJoy(); };
+    joy.addEventListener('pointerup', end);
+    joy.addEventListener('pointercancel', end);
+    joy.addEventListener('lostpointercapture', end);
+
+    const cv = $('scene');
+    cv.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'play') return;
+      Sfx.init();
+      this.camDrag.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    });
+    cv.addEventListener('pointermove', (e) => {
+      const p = this.camDrag.get(e.pointerId);
+      if (!p || this.mode !== 'play') return;
+      if (this.watch) {
+        this.watchDrag(e.clientX - p.x, e.clientY - p.y);
+        p.x = e.clientX; p.y = e.clientY;
+        return;
+      }
+      const cam = this.world.cam;
+      if (this.camDrag.size >= 2) {
+        const pts = [...this.camDrag.values()];
+        const before = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        p.x = e.clientX; p.y = e.clientY;
+        const after = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        cam.dist = clamp(cam.dist * (before / Math.max(1, after)), 3.5, 14);
+        return;
+      }
+      const sens = this.save.settings.sens;
+      cam.yaw -= (e.clientX - p.x) * 0.0065 * sens;
+      cam.pitch = clamp(cam.pitch + (e.clientY - p.y) * 0.004 * sens, 0.02, 1.15);
+      p.x = e.clientX; p.y = e.clientY;
+    });
+    const up = (e) => this.camDrag.delete(e.pointerId);
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', (e) => {
+      if (this.mode !== 'play') return;
+      e.preventDefault();
+      this.world.cam.dist = clamp(this.world.cam.dist * (e.deltaY > 0 ? 1.1 : 0.9), 3.5, 14);
+    }, { passive: false });
+  },
+
+  resetJoy() {
+    this.joy.x = 0;
+    this.joy.y = 0;
+    this.joy.id = null;
+    $('joyKnob').style.transform = '';
+    $('joy').classList.remove('on');
+  },
+
+  input() {
+    const k = this.keys;
+    let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
+    let y = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
+    if (this.joy.id != null) { x = this.joy.x; y = this.joy.y; }
+    const enabled = this.mode === 'play' && !this.modals.size && !this.arm && !this.watch && !(this.race && this.race.state === 'count');
+    const jump = this.pendingJump && enabled;
+    this.pendingJump = false;
+    return { x, y, run: k.has('ShiftLeft') || k.has('ShiftRight'), jump, enabled };
+  },
+
+  /* ---------------- loop ---------------- */
+
+  frame(now) {
+    requestAnimationFrame((t) => this.frame(t));
+    let dt = (now - this.last) / 1000;
+    this.last = now;
+    if (!(dt > 0)) return;
+    dt = Math.min(dt, 0.05);
+    this.step(dt);
+    this.watchFps(dt);
+  },
+
+  step(dt) {
+    this.clock += dt;
+    try {
+      this.tickLoop();
+      if (this.mode === 'arena') {
+        this.arena.update(dt, this.camera);
+        this.renderer.render(this.arena.scene, this.camera);
+        return;
+      }
+      if (this.mode === 'menu') this.world.cam.yaw += dt * 0.12;
+      this.tickPowers(dt);
+      if (this.arm) this.tickArm(dt);
+      const metersBefore = this.world.metersRun || 0;
+      const gained = this.world.update(dt, this.input(), this.camera, this.stats());
+      if (gained > 0) {
+        this.gainXp(gained * this.mult(), 'run');
+        this.gainRun(gained * 1.5);
+      }
+      const ran = (this.world.metersRun || 0) - metersBefore;
+      if (ran > 0 && this.mode === 'play') this.noteRun(ran);
+      if (this.pet) this.pet.update(dt, this.player, this.clock);
+      this.tickAura(dt);
+      this.tickTrail(dt);
+      this.tickPickups(dt);
+      this.tickEvents(dt);
+      if (this.mode === 'play') this.tickChallenge(dt);
+      this.tickRoster(dt);
+      this.tickFootball();
+      this.tickLucky();
+      if (this.build && this.mode === 'play') this.tickBuild();
+      if (this.world === this.gym && this.mode === 'play') this.tickWings(dt);
+      if (this.race) this.tickRace(dt);
+      if (this.mode === 'play') this.tickHud();
+      this.tickSpin();
+      if (this.mode === 'play' || this.mode === 'transition') this.tickRun(dt);
+      this.tickWall(dt);
+      this.tickShadows();
+      if (this.watch) this.stepWatch(dt);
+      else this.renderer.render(this.world.scene, this.camera);
+    } catch (e) {
+      // keep the game drawing even if one system fails; report each distinct error once
+      this.errors = this.errors || new Set();
+      const key = String(e && e.message);
+      if (!this.errors.has(key) && this.errors.size < 8) { this.errors.add(key); console.error(e); }
+      try { this.renderer.render(this.mode === 'arena' ? this.arena.scene : this.world.scene, this.camera); } catch (e2) { /* ignore */ }
+    }
+  },
+
+  tickHud() {
+    const busy = !this.world.canAct();
+    this.hudT = (this.hudT || 0) + 1;
+    if (busy !== this.lastBusy || this.hudT % 15 === 0) { this.lastBusy = busy; this.refreshMoves(); }
+    const c = this.contextAction();
+    const btn = $('ctxBtn');
+    btn.hidden = !c;
+    if (c && btn.textContent !== c.label) btn.textContent = c.label;
+    const comboOn = this.combo > 0 && (busy || this.clock - this.lastExerciseEnd <= 1.6);
+    if (!comboOn && this.combo > 0 && !busy) this.combo = 0;
+    const cb = $('comboBadge');
+    cb.hidden = !comboOn;
+    if (comboOn) cb.textContent = `کمبو ×${fa((1 + this.combo * 0.1).toFixed(1))}`;
+    this.tickTimers();
+    this.tickTrickField();
+    this.tickTemp();
+    this.tickZone();
+    this.tickBadges();
+    this.refreshPowers();
+    this.refreshHud();
+  },
+
+  watchFps(dt) {
+    this.fpsT += dt;
+    this.fpsN++;
+    if (this.fpsT < 3) return;
+    const fps = this.fpsN / this.fpsT;
+    this.fpsT = 0;
+    this.fpsN = 0;
+    if (fps < 38 && this.pixelRatio > 0.75 && this.save.settings.quality === 'auto') {
+      this.pixelRatio = Math.max(0.75, this.pixelRatio - 0.35);
+      this.renderer.setPixelRatio(this.pixelRatio);
+      this.resize();
+    }
+  },
+};
+
+/** Canvas signs need the Persian fonts, so wait for them briefly before building the world. */
+function bootWhenFontsReady() {
+  let started = false;
+  const go = () => { if (!started) { started = true; Game.init(); } };
+  try {
+    if (document.fonts && document.fonts.load) {
+      Promise.all([
+        document.fonts.load(`40px Lalezar`, 'باشگاه'),
+        document.fonts.load(`700 20px Vazirmatn`, 'سطح'),
+        document.fonts.load(`400 20px Vazirmatn`, 'سطح'),
+      ]).then(go, go);
+      setTimeout(go, 2500);
+      return;
+    }
+  } catch (e) { /* fall through */ }
+  go();
+}
+window.addEventListener('DOMContentLoaded', bootWhenFontsReady);
