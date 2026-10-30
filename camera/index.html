@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Camera — دوربین واقعی دستگاه با زوم تا ۲۵۰ برابر، فیلم‌برداری، ویدیوی سریع و آهسته و بهبود کیفیت عکس">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Camera">
+  <title>Camera</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- صفحه اجازه دسترسی -->
+  <section id="permScreen" class="screen perm-screen">
+    <div class="perm-card">
+      <img class="perm-logo" src="icons/icon.svg" alt="" width="96" height="96">
+      <h1>Camera</h1>
+      <p id="permText">برای دیدن تصویر دوربین داخل برنامه، فقط اجازه <b>دوربین</b> لازم است. میکروفون فقط وقتی خودت روشنش کنی درخواست می‌شود.</p>
+      <button id="permBtn" class="btn primary big" type="button">اجازه دسترسی به دوربین</button>
+      <p id="permError" class="perm-error" hidden></p>
+      <button id="permEnhanceBtn" class="btn ghost" type="button">بهبود کیفیت عکس (بدون دوربین)</button>
+    </div>
+  </section>
+
+  <!-- صفحه دوربین -->
+  <section id="camScreen" class="screen cam-screen" hidden>
+    <div id="stage" class="stage">
+      <video id="video" class="src-video" playsinline muted autoplay></video>
+      <canvas id="view" class="view"></canvas>
+      <div id="focusRing" class="focus-ring" hidden></div>
+      <div id="flash" class="shot-flash"></div>
+      <canvas id="minimap" class="minimap" width="160" height="90" hidden></canvas>
+      <div id="recBadge" class="rec-badge" hidden><span class="dot"></span><span id="recTime">00:00</span><small id="recInfo"></small></div>
+    </div>
+
+    <header class="topbar">
+      <button id="enhanceBtn" class="icon-btn" type="button" title="بهبود کیفیت عکس" aria-label="بهبود کیفیت عکس">
+        <svg viewBox="0 0 24 24"><path d="M12 2l1.8 4.7L18.5 8.5l-4.7 1.8L12 15l-1.8-4.7L5.5 8.5l4.7-1.8z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9z"/><path d="M6 15l.7 1.6 1.6.7-1.6.7L6 19.6l-.7-1.6-1.6-.7 1.6-.7z"/></svg>
+      </button>
+      <button id="torchBtn" class="icon-btn" type="button" title="چراغ" aria-label="چراغ" hidden>
+        <svg viewBox="0 0 24 24"><path d="M7 2h10v4l-3 4v12h-4V10L7 6z"/></svg>
+      </button>
+      <button id="micBtn" class="icon-btn" type="button" title="میکروفون" aria-label="میکروفون" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 18h2v4h-2z"/></svg>
+        <span class="slash"></span>
+      </button>
+      <button id="resBtn" class="chip" type="button" title="کیفیت تصویر">4K</button>
+      <span id="fpsInfo" class="chip ghost-chip" hidden></span>
+      <button id="helpBtn" class="icon-btn" type="button" title="راهنما" aria-label="راهنما">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm2.1-7.7l-.9.9A3.4 3.4 0 0 0 13 14h-2v-.5a4 4 0 0 1 1.2-2.8l1.2-1.3A2 2 0 1 0 10 8H8a4 4 0 1 1 7.1 2.3z"/></svg>
+      </button>
+    </header>
+
+    <div class="bottom">
+      <div class="zoom-panel">
+        <div id="zoomValue" class="zoom-value">1.0×</div>
+        <div id="zoomPresets" class="zoom-presets"></div>
+        <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0" aria-label="بزرگنمایی">
+        <div id="zoomInfo" class="zoom-info"></div>
+      </div>
+
+      <div id="modeOptions" class="mode-options"></div>
+
+      <nav id="modes" class="modes" aria-label="حالت">
+        <button type="button" data-mode="photo">عکس</button>
+        <button type="button" data-mode="video" class="active">ویدیو</button>
+        <button type="button" data-mode="fast">ویدیو سریع</button>
+        <button type="button" data-mode="slow">ویدیو آهسته</button>
+      </nav>
+
+      <div class="controls">
+        <button id="galleryBtn" class="thumb-btn" type="button" aria-label="گالری"><img id="galleryThumb" alt="" hidden><span class="thumb-empty"></span></button>
+        <button id="shutterBtn" class="shutter video" type="button" aria-label="ضبط"><span></span></button>
+        <button id="flipBtn" class="icon-btn round" type="button" title="دوربین جلو / عقب" aria-label="دوربین جلو / عقب">
+          <svg viewBox="0 0 24 24"><path d="M20 5h-3.2L15 3H9L7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 13a5 5 0 0 1-4.8-3.6l1.9-.6A3 3 0 0 0 15 13h-2l3-3 3 3h-2a5 5 0 0 1-5 5zm4.8-6.4A3 3 0 0 0 9 11h2l-3 3-3-3h2a5 5 0 0 1 9.8-1z"/></svg>
+        </button>
+      </div>
+      <button id="blackoutBtn" class="btn ghost small blackout-btn" type="button" hidden>🌙 خاموش کردن صفحه (ضبط ادامه دارد)</button>
+    </div>
+
+    <div id="blackout" class="blackout" hidden><p id="blackoutHint">در حال ضبط… برای روشن شدن صفحه دو بار ضربه بزن</p></div>
+  </section>
+
+  <!-- گالری -->
+  <section id="galleryScreen" class="screen page-screen" hidden>
+    <header class="page-head">
+      <button class="icon-btn back" type="button" data-back aria-label="بازگشت"><svg viewBox="0 0 24 24"><path d="M8.6 5.4L10 4l8 8-8 8-1.4-1.4L15.2 12z"/></svg></button>
+      <h2>گالری</h2>
+      <span id="galleryCount" class="muted"></span>
+    </header>
+    <p class="note">عکس‌ها و ویدیوها داخل حافظه همین برنامه روی دستگاه خودت ذخیره می‌شوند. برای انتقال به گالری گوشی/تبلت روی «ذخیره در دستگاه» یا «اشتراک‌گذاری» بزن.</p>
+    <div id="galleryGrid" class="gallery-grid"></div>
+    <p id="galleryEmpty" class="empty" hidden>هنوز چیزی ثبت نشده.</p>
+  </section>
+
+  <!-- نمایشگر -->
+  <section id="viewerScreen" class="screen viewer-screen" hidden>
+    <header class="page-head dark">
+      <button class="icon-btn back" type="button" data-back aria-label="بازگشت"><svg viewBox="0 0 24 24"><path d="M8.6 5.4L10 4l8 8-8 8-1.4-1.4L15.2 12z"/></svg></button>
+      <h2 id="viewerTitle">مشاهده</h2>
+      <span id="viewerMeta" class="muted"></span>
+    </header>
+    <div id="viewerBody" class="viewer-body"></div>
+    <div class="viewer-actions">
+      <button id="vSave" class="btn primary" type="button">ذخیره در دستگاه</button>
+      <button id="vShare" class="btn" type="button">اشتراک‌گذاری</button>
+      <button id="vEnhance" class="btn" type="button">بهبود کیفیت</button>
+      <button id="vDelete" class="btn danger" type="button">حذف</button>
+    </div>
+  </section>
+
+  <!-- بهبود کیفیت عکس -->
+  <section id="enhanceScreen" class="screen page-screen" hidden>
+    <header class="page-head">
+      <button class="icon-btn back" type="button" data-back aria-label="بازگشت"><svg viewBox="0 0 24 24"><path d="M8.6 5.4L10 4l8 8-8 8-1.4-1.4L15.2 12z"/></svg></button>
+      <h2>بهبود کیفیت عکس</h2>
+      <span></span>
+    </header>
+
+    <label id="dropZone" class="drop-zone" for="enhanceInput">
+      <input id="enhanceInput" type="file" accept="image/*" hidden>
+      <span class="drop-icon">🖼️</span>
+      <b>یک عکس انتخاب کن</b>
+      <small>هر عکسی از گالری یا فایل‌های دستگاه</small>
+    </label>
+
+    <div id="enhanceOptions" class="enhance-options" hidden>
+      <div class="opt-row">
+        <span>بزرگ‌کردن</span>
+        <div class="seg" id="scaleSeg">
+          <button type="button" data-v="1">۱× (فقط بهبود)</button>
+          <button type="button" data-v="2" class="active">۲×</button>
+          <button type="button" data-v="4">۴×</button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <span>شدت</span>
+        <div class="seg" id="strengthSeg">
+          <button type="button" data-v="low">ملایم</button>
+          <button type="button" data-v="medium" class="active">متوسط</button>
+          <button type="button" data-v="high">زیاد</button>
+        </div>
+      </div>
+      <label class="check"><input id="autoColor" type="checkbox" checked> اصلاح خودکار نور و رنگ</label>
+      <label class="check"><input id="denoiseOn" type="checkbox" checked> حذف نویز (دانه‌دانه بودن)</label>
+      <p id="enhanceSizes" class="muted"></p>
+      <button id="enhanceRun" class="btn primary big" type="button">✨ بهبود کیفیت</button>
+    </div>
+
+    <div id="enhanceProgress" class="progress" hidden><span></span></div>
+    <p id="enhanceStatus" class="muted center"></p>
+
+    <div id="compare" class="compare" hidden>
+      <div class="compare-inner" id="compareInner">
+        <img id="cmpBefore" alt="قبل">
+        <div class="cmp-after-wrap" id="cmpAfterWrap"><img id="cmpAfter" alt="بعد"></div>
+        <div class="cmp-line" id="cmpLine"></div>
+        <span class="cmp-label before">قبل</span><span class="cmp-label after">بعد</span>
+      </div>
+      <input id="cmpSlider" type="range" min="0" max="100" value="50" aria-label="مقایسه قبل و بعد">
+      <div class="viewer-actions">
+        <button id="eSave" class="btn primary" type="button">ذخیره در دستگاه</button>
+        <button id="eShare" class="btn" type="button">اشتراک‌گذاری</button>
+        <button id="eGallery" class="btn" type="button">افزودن به گالری برنامه</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- راهنما -->
+  <div id="helpDlg" class="dialog" hidden>
+    <div class="dialog-card">
+      <h3>راهنمای Camera</h3>
+      <ul>
+        <li><b>زوم:</b> با دو انگشت روی تصویر، با نوار زوم یا دکمه‌های آماده. دوربین پشت تا <b>۲۵۰×</b> و دوربین جلو تا <b>۲۰×</b>.</li>
+        <li>اول زوم سخت‌افزاری خود دوربین (لنز/سنسور) استفاده می‌شود و بقیه‌اش با زوم دیجیتال پرکیفیت روی پردازنده گرافیکی دستگاه انجام می‌شود. زیر نوار زوم نوشته شده هر کدام چقدر است.</li>
+        <li>وقتی زوم دیجیتال فعال است با یک انگشت تصویر را جابه‌جا کن. با یک ضربه فوکوس می‌شود (اگر دستگاه پشتیبانی کند).</li>
+        <li>در زوم‌های خیلی زیاد دست کمی هم بلرزد تصویر خیلی تکان می‌خورد؛ تبلت را به جایی تکیه بده.</li>
+        <li><b>ویدیو:</b> دکمه قرمز. برای ضبط صدا اول دکمه میکروفون را روشن کن.</li>
+        <li><b>ویدیو سریع:</b> هر چند ثانیه یک فریم می‌گیرد و ویدیوی تند (تایم‌لپس) می‌سازد. <b>ویدیو آهسته:</b> ویدیوی اسلوموشن ۲، ۴ یا ۸ برابر آهسته‌تر.</li>
+        <li><b>خاموش کردن صفحه:</b> هنگام ضبط، دکمه «خاموش کردن صفحه» صفحه را کاملاً سیاه می‌کند ولی ضبط ادامه دارد. دکمه پاور را نزن؛ اگر دستگاه قفل شود مرورگر دوربین را قطع می‌کند و برنامه هرچه ضبط شده را ذخیره می‌کند.</li>
+      </ul>
+      <button class="btn primary" type="button" data-close>باشه</button>
+    </div>
+  </div>
+
+  <div id="busy" class="busy" hidden><div class="busy-card"><div class="spinner"></div><p id="busyText">در حال آماده‌سازی…</p><div class="progress"><span id="busyBar"></span></div></div></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="vendor/mp4-muxer.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
