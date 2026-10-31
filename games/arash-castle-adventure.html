@@ -222,6 +222,13 @@ body.hsedit-on #hsEdGuide,body.hsedit-on #hsEdInfo{z-index:5}
 /* Whistle stays reachable above the play field, while the live builder hides the HUD. */
 #hsWhistle{min-height:36px;padding:6px 11px!important;background:linear-gradient(140deg,#876330,#48321a)!important;color:#ffe9ae!important;border:1px solid #e7b961!important;touch-action:manipulation}
 #hsWhistle:disabled{opacity:.5;cursor:default}
+/* stealth feedback: alarm vignette, noise chip and sneak toggle */
+#hsAlarm{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .35s;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,196,60,.55) 100%)}
+#hsAlarm.red{background:radial-gradient(ellipse at center,transparent 48%,rgba(230,40,30,.72) 100%);animation:hsAlarmPulse .8s ease-in-out infinite}
+@keyframes hsAlarmPulse{50%{filter:brightness(1.6)}}
+#hsNoise{font-size:.75rem;font-weight:700;color:#ffe9ae;white-space:nowrap;padding:.12rem .55rem;border-radius:999px;border:1px solid rgba(255,220,150,.35);background:linear-gradient(90deg,rgba(232,72,58,calc(var(--n,0)*.85)),rgba(255,255,255,.07))}
+#sneakBtn.on{background:linear-gradient(140deg,#3d6b4f,#1f3a2a)!important;border-color:#9ed1b2!important}
+body.hsedit-on #hsAlarm,body.arcade-playing #hsAlarm{display:none!important}
 /* The single direct-size entry for the hide-and-seek hall. No render-context switch. */
 #hsSizeModal[hidden]{display:none!important}
 #hsSizeModal{position:fixed;inset:0;z-index:120;background:rgba(5,8,10,.76);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;direction:rtl;color:#ffedc9;font-family:var(--body)}
@@ -368,7 +375,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="fade"></div>
 <div id="altChip" class="chip ui" hidden></div>
 <div id="frBubble" hidden></div>
-<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
+<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
 
 <div id="hsMission" hidden aria-live="polite"><b id="hsMissionTitle">🏆 چالش مخفیگاه</b><span id="hsMissionText">آمادهٔ شروع</span><div id="hsMissionTrack"><i id="hsMissionFill"></i></div></div>
 <div id="hsKit" hidden aria-label="ابزار قایم‌موشک و ارتقاها">
@@ -384,7 +391,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="hospitalBar" hidden><span id="hospitalInfo">🏥 بیمارستان</span><button id="hospitalLeave">بازگشت به بازی</button></div>
 <div id="miniBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 72px);left:50%;transform:translateX(-50%);z-index:8;align-items:center;gap:9px;max-width:96vw;background:rgba(18,28,31,.91);border:1px solid #c4bc84;border-radius:14px;padding:9px 13px;direction:rtl"><span id="miniInfo">🎮 ماجراجویی</span><button id="miniLeave" class="rb ghost" style="white-space:nowrap">بازگشت</button></div>
 <div id="mazeBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 68px);left:50%;transform:translateX(-50%);z-index:7;align-items:center;gap:10px;max-width:94vw;background:rgba(18,10,5,.88);border:1px solid #d7a45c;border-radius:18px;padding:9px 12px;box-shadow:0 5px 20px #0008;direction:rtl"><span id="mazeInfo">🔥 هزارتوی مشعل‌ها</span><button id="mazeLeave" class="rb ghost" style="white-space:nowrap">خروج از هزارتو</button></div>
-<div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
+<div id="hsAlarm" aria-hidden="true"></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
 <div id="crBox" hidden><div class="chead"><b>✨ سازنده</b><span id="crStatus"></span><button id="crClose" aria-label="بستن سازنده">✕</button></div>
 <div class="crbody"><p id="crLog" class="note">بنویس چه چیزی به دنیا اضافه شود؛ ده ثانیه بعد جلویت ساخته می‌شود. می‌توانی عکس هم بفرستی.</p>
 <div class="crex"><button type="button" data-crex="سه تا درخت کاج">سه تا درخت کاج</button><button type="button" data-crex="یه ماشین قرمز">یه ماشین قرمز</button><button type="button" data-crex="یه آدم برفی بزرگ">آدم برفی بزرگ</button><button type="button" data-crex="یه تابلو که روش بنویسه «خانهٔ من»">تابلو با نوشته</button><button type="button" data-crex="یه رنگین کمان">رنگین‌کمان</button><button type="button" data-crex="یه قلعهٔ سنگی">قلعه</button></div>
@@ -407,7 +414,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
   <button type="button" id="decoyCancel" aria-label="لغو گذاشتن مجسمه">✖ انصراف</button>
 </div>
 <div id="moveBtns" class="ui" hidden>
-  <div class="mcol"><button class="mbtn sm" id="sitBtn" aria-label="نشستن"><b>🪑</b><span>نشستن</span></button><button class="mbtn sm" id="lieBtn" aria-label="دراز کشیدن"><b>🛏</b><span>دراز کش</span></button><button class="mbtn sm" id="decoyBtn" aria-label="کپی مجسمه‌ای از شخصیت در حالت فعلی"><b>🗿</b><span>کپی من</span></button></div>
+  <div class="mcol"><button class="mbtn sm" id="sitBtn" aria-label="نشستن"><b>🪑</b><span>نشستن</span></button><button class="mbtn sm" id="lieBtn" aria-label="دراز کشیدن"><b>🛏</b><span>دراز کش</span></button><button class="mbtn sm" id="sneakBtn" hidden aria-pressed="false" aria-label="آهسته راه رفتن بی‌صدا (کلید Z)"><b>🐾</b><span>آهسته</span></button><button class="mbtn sm" id="decoyBtn" aria-label="کپی مجسمه‌ای از شخصیت در حالت فعلی"><b>🗿</b><span>کپی من</span></button></div>
   <button class="mbtn" id="runBtn" aria-pressed="false" aria-label="دویدن"><b>🏃</b><span>دویدن</span></button>
   <button class="mbtn big2" id="jumpBtn" aria-label="پرش"><b>⤒</b><span>پرش</span></button>
 </div>
@@ -1355,6 +1362,9 @@ const SFX={ctx:null,ok:false};
   SFX.deny=function(){if(!SFX.ok)return;const t=C.currentTime;tone(t,220,.18,.05,'square',1,.1);tone(t+.2,180,.25,.05,'square',1,.1);};
   SFX.zg=function(on){if(!SFX.ok)return;const t=C.currentTime;const o=C.createOscillator();o.type='sine';o.frequency.setValueAtTime(on?180:900,t);o.frequency.exponentialRampToValueAtTime(on?900:120,t+1.4);const g=C.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+.2);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);o.connect(g);out(g,1,.6);o.start(t);o.stop(t+1.6);};
   SFX.mute=function(m){if(!SFX.ok)return;master.gain.setTargetAtTime(m?0:.85,C.currentTime,.05);};
+  SFX.frStep=function(a,run){if(!SFX.ok||a<=.03)return;const t=C.currentTime;a=Math.min(1,a)*(run?1.2:1);tone(t,rand(70,92),.08,.22*a,'sine',.8,.3,50);burst(t,.03,rand(1500,2600),1.4,.17*a,'bandpass',.9,.25);};
+  SFX.heart=function(a){if(!SFX.ok)return;const t=C.currentTime;a=Math.min(1,a);tone(t,58,.12,.4*a,'sine',1,.1,42);tone(t+.19,52,.14,.3*a,'sine',1,.1,40);};
+  SFX.alert=function(seen){if(!SFX.ok)return;const t=C.currentTime;if(seen){tone(t,880,.12,.07,'triangle',1,.3,1320);tone(t+.1,1320,.2,.06,'triangle',1,.3);}else tone(t,520,.18,.05,'sine',1,.3,700);};
   SFX.whisper=function(){if(!SFX.ok)return;const t=C.currentTime;for(let i=0;i<4;i++)burst(t+i*.03,.03,rand(1500,3000),1.5,.05,'bandpass',.6,.4);};
   // A voiced, two-note whistle with a real onset and fading breath noise.
   SFX.whistle=function(){SFX.init();SFX.resume();if(!SFX.ok)return;
@@ -2973,11 +2983,11 @@ function updateWalk(dt){
   const k=G.keys;let fx=(k.KeyD||k.ArrowRight?1:0)-(k.KeyA||k.ArrowLeft?1:0),fz=(k.KeyW||k.ArrowUp?1:0)-(k.KeyS||k.ArrowDown?1:0);
   if(G.joy.id>=0){fx+=G.joy.x;fz-=G.joy.y;}
   const l=Math.hypot(fx,fz);if(l>1){fx/=l;fz/=l;}
-  const running=(G.run||k.ShiftLeft||k.ShiftRight)&&l>.25;const sp=running?4.2:1.55;
+  const running=(G.run||k.ShiftLeft||k.ShiftRight)&&l>.25;const sneaking=!running&&G.sneak&&HS.on;const sp=running?4.2:sneaking?.85:1.55;
   const s=Math.sin(G.yaw),c=Math.cos(G.yaw);const wx=(fx*c-fz*s)*sp,wz=(-fx*s-fz*c)*sp;
   const acc=G.grounded?(running?6.5:9):1.8;const a=1-Math.exp(-dt*acc);G.vel.x=lerp(G.vel.x,wx,a);G.vel.z=lerp(G.vel.z,wz,a);
   G.jumpBuf=Math.max(0,G.jumpBuf-dt);G.coyote=G.grounded?.12:Math.max(0,G.coyote-dt);
-  if(G.jumpBuf>0&&G.coyote>0){G.vy=3.9+(running?.3:0);G.grounded=false;G.coyote=0;G.jumpBuf=0;SFX.jump();if(HS.on)hsHearSound(G.pos.x,G.pos.z,11,'پرش');}
+  if(G.jumpBuf>0&&G.coyote>0){G.vy=3.9+(running?.3:0);G.grounded=false;G.coyote=0;G.jumpBuf=0;SFX.jump();if(HS.on)hsHearSound(G.pos.x,G.pos.z,11*hsQuietK(),'پرش');}
   const v=Math.hypot(G.vel.x,G.vel.z);
   if(G.view==='tp'){if(v>.08)PL.yaw=lerpAngle(PL.yaw,Math.atan2(G.vel.x,G.vel.z),1-Math.exp(-dt*10));}else PL.yaw=G.yaw+Math.PI;
   const px=G.pos.x,pz=G.pos.z;
@@ -3004,13 +3014,13 @@ function updateWalk(dt){
   if(A0>40){const k=Math.min(30,Math.max(.9,Math.log(A0/40)/6)),An=Math.max(39.5,A0*Math.exp(-k*dt));G.vy=Math.min(G.vy,(An-A0)/dt);}else if(G.feet>2)G.vy=Math.max(G.vy,-(G.feet*.9+8));moveAlt(G.vy*dt);
   if(G.vy>0){const ch=ceilHeight(G.pos.x,G.pos.z,prevFeet+BODY.h);if(G.feet+BODY.h>ch){G.feet=Math.max(prevFeet,ch-BODY.h);G.vy=0;}}
   const gh=groundHeight(G.pos.x,G.pos.z,Math.max(prevFeet,G.feet),G.grounded);
-  if(G.feet<=gh){if(!G.grounded){const imp=-G.vy;if(imp>2.4){SFX.land(imp,surfAt(G.pos.x,G.pos.z));G.landK=clamp(imp/8,0,1);if(HS.on)hsHearSound(G.pos.x,G.pos.z,14,'فرود');}}G.feet=gh;G.vy=0;G.grounded=true;}
+  if(G.feet<=gh){if(!G.grounded){const imp=-G.vy;if(imp>2.4){SFX.land(imp,surfAt(G.pos.x,G.pos.z));G.landK=clamp(imp/8,0,1);if(HS.on)hsHearSound(G.pos.x,G.pos.z,14*hsQuietK(),'فرود');}}G.feet=gh;G.vy=0;G.grounded=true;}
   else if(G.grounded&&G.vy<=0&&G.feet-gh<.42){G.feet=gh;G.vy=0;}
   else G.grounded=false;
   G.landK=Math.max(0,(G.landK||0)-dt*3.5);
   const rv=Math.hypot(G.pos.x-px,G.pos.z-pz)/Math.max(dt,1e-4);
   const prev=G.bobPhase;if(G.grounded)G.bobPhase+=dt*rv*(running?4.3:5.6);G.bob=lerp(G.bob,G.grounded&&rv>.15?1:0,1-Math.exp(-dt*6));
-  if(G.grounded&&Math.floor(prev/Math.PI)!==Math.floor(G.bobPhase/Math.PI)&&rv>.3){SFX.step(surfAt(G.pos.x,G.pos.z),running);if(HS.on)hsHearSound(G.pos.x,G.pos.z,running?13:7,running?'دویدن':'قدم');}
+  if(G.grounded&&Math.floor(prev/Math.PI)!==Math.floor(G.bobPhase/Math.PI)&&rv>.3){SFX.step(surfAt(G.pos.x,G.pos.z),running);if(HS.on)hsPlayerStep(running,rv);}
   G.eyeY=lerp(G.eyeY===undefined?G.feet+1.62:G.eyeY,G.feet+1.62,1-Math.exp(-dt*(G.grounded?14:40)));
   PL.g.position.set(G.pos.x,G.feet,G.pos.z);PL.g.rotation.set(0,PL.yaw,0,'YXZ');PL.phase+=dt*rv*4.4;
   posePlayer(dt,G.grounded?rv:0,PL.phase,G.t,{air:G.grounded?0:clamp(.4+G.vy*.15,0,1),land:G.landK});
@@ -3023,7 +3033,8 @@ function updateWalk(dt){
 }
 function toggleView(){if(MAZE.on){toast('🔦 هزارتو فقط با دید اول‌شخص اجرا می‌شود.',1700);return;}G.view=G.view==='fp'?'tp':'fp';if(G.view==='tp')G.pitch=clamp(G.pitch,-.6,.2);setViewLabel();try{localStorage.setItem('needle-view',G.view);}catch(e){}}
 function setViewLabel(){const b=$('#viewBtn');b.disabled=MAZE.on;b.innerHTML='👁<span class="vl"> '+(G.view==='fp'?'سوم‌شخص':'اول‌شخص')+'</span>';b.setAttribute('aria-label',G.view==='fp'?'دید سوم‌شخص':'دید اول‌شخص');}
-function setRun(on){G.run=on;$('#runBtn').classList.toggle('on',on);$('#runBtn').setAttribute('aria-pressed',on?'true':'false');}
+function setSneak(on){G.sneak=!!on;if(G.sneak&&G.run)setRun(false);const b=$('#sneakBtn');if(b){b.classList.toggle('on',G.sneak);b.setAttribute('aria-pressed',G.sneak?'true':'false');}if(G.sneak&&HS.on)toast('🐾 آهسته راه می‌ری؛ صدای پات خیلی کم شنیده می‌شه.',1600);}
+function setRun(on){if(on&&G.sneak)setSneak(false);G.run=on;$('#runBtn').classList.toggle('on',on);$('#runBtn').setAttribute('aria-pressed',on?'true':'false');}
 
 /* ---- one endless road surface: markings, crossings and asphalt are drawn by the street shader from world position ---- */
 function buildRoadPlane(){const rg=new THREE.PlaneGeometry(900,900,6,6);rg.rotateX(-Math.PI/2);flAttr(rg,null);rg.setAttribute('aSurf',new THREE.Float32BufferAttribute(new Float32Array(rg.attributes.position.count),1));
@@ -5515,18 +5526,21 @@ function hsTent(px,pz,yawR,theme){
   const f=hsFrame(px,pz,yawR),cloth=theme.cloth,trim=theme.accent,L=1.7,H=1.58;
   // The roof is two inclined fabric planes; tent poles & seams are separately modeled.
   for(const sign of [-1,1]){
-    const side=new THREE.BoxGeometry(1.34,.045,L);side.rotateZ(sign*Math.PI*.245);side.translate(sign*.46,.99,-.72);fgeo(f,side,cloth);
-    const seam=new THREE.BoxGeometry(1.36,.035,.055);seam.rotateZ(sign*Math.PI*.245);seam.translate(sign*.46,.99,-1.51);fgeo(f,seam,trim);
+    // ridge (0,H) down to the eave on top of the side poles (±.92,1.14): a proper ∧ roof
+    const run=.92,drop=H-1.14,len=Math.hypot(run,drop)+.04,ang=Math.atan2(drop,run);
+    const side=new THREE.BoxGeometry(len,.045,L);side.rotateZ(-sign*ang);side.translate(sign*run/2,(H+1.14)/2,-.72);fgeo(f,side,cloth);
+    const seam=new THREE.BoxGeometry(len+.02,.035,.055);seam.rotateZ(-sign*ang);seam.translate(sign*run/2,(H+1.14)/2+.01,-1.51);fgeo(f,seam,trim);
   }
   for(const x of [-.89,.89])for(const z of [-1.52,.02])fgeo(f,new THREE.CylinderGeometry(.024,.032,1.17,6).translate(x,.58,z),0x6b4931);
   fgeo(f,new THREE.CylinderGeometry(.04,.04,L,7).rotateX(Math.PI/2).translate(0,H,-.72),0xb9a177);
   fbx(f,0x71604a,-.91,.91,0,.045,-1.57,.12);
+  for(const sign of [-1,1]){const flap=new THREE.BoxGeometry(.6,1.08,.03);flap.rotateY(sign*.22);flap.translate(sign*.5,.6,.05);fgeo(f,flap,cloth);}
   for(const x of [-.40,.40])fbx(f,trim,x-.035,x+.035,0,.55,-1.56,-1.50);
   // Side cloth colliders occupy only the visible outer edges, center remains open.
   hsColL(f,-.90,-.65,0,1.2,-1.49,-.18,{occ:true});hsColL(f,.65,.90,0,1.2,-1.49,-.18,{occ:true});
   hsColL(f,-.84,.84,0,.22,-1.56,-1.48,{occ:true});
   return hsSpot({kind:'tent',px,pz,yawR,name:'چادر پارچه‌ای',hideL:'زیر چادر پنهان شو',peekL:'پشت چادر را نگاه کن',closed:true,peek:'soft',
-    entL:[0,.72],inL:[0,-.72],camL:[0,.90,-.73],body:{p:'lie',l:[0,-.72],d:[0,1]}});
+    entL:[0,.72],inL:[0,-.72],camL:[0,.90,-.73],body:{p:'lie',l:[0,-1.42],d:[0,1]}});
 }
 function hsSecretShelf(px,pz,yawR,theme){
   const f=hsFrame(px,pz,yawR),wood=theme.wood,w=1.34,d=.65,h=2.25;
@@ -5835,7 +5849,7 @@ function hsStart(){if(EXTRA.on)miniExit();if(ARASH.phase==='chase'||ARASH.phase=
   LIGHTS.pool.forEach((l,i)=>{const p=HS.lamps[i];if(p){l.position.set(HS.AX+p[0],p[1]-.25,HS.AZ+p[2]);l.intensity=2.4;l.distance=16;l.color.set(0xffe2b8);}});
   hsNextRound();}
 function hsPlace(x,z,yaw){G.pos.set(HS.AX+x,0,HS.AZ+z);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=yaw;G.pitch=-.05;PL.yaw=yaw+Math.PI;}
-function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hsExpandTo(HS.round);}catch(e){console.error('قایم‌موشک: ساخت وسایل اضافی',e);try{hsFinishExtraMeshes();hsGrid();}catch(e2){console.error(e2);}toast('تالار آماده است؛ بعضی وسایل این دور بارگذاری نشدند.',2600);}HS.role=HS.turnMode==='me'?'hide':HS.turnMode==='friend'?'seek':(HS.role==='hide'?'seek':'hide');HS.concern=null;HS.phase='prep';HS.t=0;HS.meter=0;HS.noise=null;HS.noiseT=-9;HS.lastHeard=-100;HS.whistle=null;HS.whistleAsked=false;HS.whistleAskedAt=-1;HS.whistleCooldown=-20;HS.whistleAnim=0;hsSearchReset();hsAdventureReset();HS.decoySeen=new Set();HS.hint=0;HS.endT=0;HS.panelShown=false;
+function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hsExpandTo(HS.round);}catch(e){console.error('قایم‌موشک: ساخت وسایل اضافی',e);try{hsFinishExtraMeshes();hsGrid();}catch(e2){console.error(e2);}toast('تالار آماده است؛ بعضی وسایل این دور بارگذاری نشدند.',2600);}HS.role=HS.turnMode==='me'?'hide':HS.turnMode==='friend'?'seek':(HS.role==='hide'?'seek':'hide');HS.concern=null;HS.phase='prep';HS.t=0;HS.meter=0;HS.noise=null;HS.alert=null;HS.noiseLvl=0;HS.noiseT=-9;HS.lastHeard=-100;HS.whistle=null;HS.whistleAsked=false;HS.whistleAskedAt=-1;HS.whistleCooldown=-20;HS.whistleAnim=0;hsSearchReset();hsAdventureReset();HS.decoySeen=new Set();HS.hint=0;HS.endT=0;HS.panelShown=false;
   if(HS.mySpot){HS.mySpot=null;}if(G.pose!=='stand')standUp();
   for(const sp of HS.spots){sp.open=0;sp.pulse=0;if(sp.apply)sp.apply(0);}FR.hsIn=null;FR.pose='stand';FR.vx=FR.vz=0;FR.vy=0;FR.feet=0;
   const F=HS.fs={st:'idle',path:null,pi:0,t0:G.t,sayT:0,n:0};
@@ -5846,7 +5860,7 @@ function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hs
     const opts=HS.spots.filter(s=>s!==HS.lastFrSpot);const sp=opts[(Math.random()*opts.length)|0];HS.lastFrSpot=sp;F.st='tohide';F.spot=sp;hsGo(sp.ent[0],sp.ent[1]);
     toast('🙈 چشم‌هات رو بستی؛ '+FR.name+' داره قایم می‌شه…',2600);}
   hsUI(true);}
-function hsExit(){if(!HS.on)return;hsAdventureEnd();hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
+function hsExit(){if(!HS.on)return;hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
   FR.hsIn=null;FR.off=HS.frOff;FR.hsV=0;LIGHTS.pool.forEach((l,i)=>{l.position.copy(LIGHTS.poolHome[i]);l.distance=9;l.color.set(0xffa14a);l.intensity=TODS[TODi].lant;});
   G.pos.set(0,0,PILE.R+2);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=0;G.pitch=-.12;resetFriend();
   for(const id of ['hsBar','hsEyes','hsPeek'])$('#'+id).hidden=true;closePanel();toast('برگشتی به تالار خودت.',2000);}
@@ -5999,7 +6013,7 @@ function hsWallSearchCtl(dt,o){
 function hsSearchWatchdog(){
   if(!HS.on||HS.phase!=='play'||HS.role!=='hide'||HS.concern||!HS.fs||HS_EDITOR.active)return;
   const F=HS.fs;
-  if(['walk','chase','patrol','soundWalk','decoyWalk','wallApproach'].includes(F.st)){
+  if(['walk','chase','patrol','soundWalk','decoyWalk','wallApproach','invWalk'].includes(F.st)){
     // Never keep a sitting/kneeling pose while a movement order is active.
     if(FR.pose!=='stand')frStand();
     if(!F.progressAt){F.progressAt=G.t;F.progressX=FR.x;F.progressZ=FR.z;}
@@ -6048,14 +6062,16 @@ function hsChoose(){
  const F=HS.fs;if(!F||HS.phase==='end')return;
  if(FR.pose!=='stand'&&!HS.concern)frStand();
  F.wall=null;F.wallBehind=null;F.patrolIdx=undefined;F.progressAt=0;
- if(HS.noise&&!HS.noise.used&&G.t-HS.noise.t<5){
-   HS.noise.used=true;
-   if(hsGo(HS.noise.x,HS.noise.z)){
-     F.st='walk';F.spot=null;F.fast=true;
-     hsBubble(pick(['صدای پات رو شنیدم! دنبال منبعش می‌گردم. 👂','صدایی شنیدم، می‌رم اون سمت رو نگاه کنم.']),2.2);
-     return;
-   }
+ // 1) a sound heard while he was busy (opening a closet, lifting a wall) is followed up now
+ const AL=HS.alert;
+ if(AL&&AL.pending&&G.t-AL.t<6){AL.pending=false;F.inv=true;if(hsInvGo())return;}
+ // 2) after scanning where the sound came from, open the hiding places closest to it
+ if(F.invQueue&&F.invQueue.length&&AL&&G.t-AL.t<35){
+   while(F.invQueue.length){const sp=F.invQueue.shift();AL.checked.add(sp);
+     if(hsGo(sp.ent[0],sp.ent[1])){F.st='walk';F.spot=sp;F.fast=true;F.inv=true;frPathClear();
+       if(Math.random()<.45)hsBubble(pick(['شاید این تو باشی…','این مخفیگاه درست کنار صدا بود!','بذار این‌جا رو هم ببینم… 👀']),1.8);return;}}
  }
+ if(F.inv){F.inv=false;F.invQueue=null;if(AL&&G.t-AL.t<35&&Math.random()<.6)hsBubble(pick(['عجیبه… مطمئنم یه صدایی شنیدم.','هوم… شاید اشتباه شنیدم. ولی حواسم هست!']),2.2);}
  if(!HS.spotFailed)HS.spotFailed=new Map();
  if(!HS.visited)HS.visited=[];
  HS.searchTurns=(HS.searchTurns||0)+1;
@@ -6094,7 +6110,7 @@ function hsChoose(){
 function hsDecoySpot(){
  if(!HS.on||HS.role!=='hide'||HS.phase!=='play'||HS.concern||!HS.fs||HS.fs.st==='count'||HS.fs.st==='done')return;
  const F=HS.fs;
- if(F.st==='decoyWalk'||F.st==='decoyLook')return;
+ if(F.st==='decoyWalk'||F.st==='decoyLook'||F.st==='wallLift'||F.st==='check')return;
  for(const d of ARASH_DECOYS.list){
    if(HS.decoySeen&&HS.decoySeen.has(d))continue;
    const dx=d.x-FR.x,dz=d.z-FR.z,dist=Math.hypot(dx,dz);
@@ -6169,6 +6185,7 @@ function hsFriendCtl(dt){const F=HS.fs,o={tx:null,tz:null,face:null,v:0};const p
   if(HS.concern)return hsConcernCtl(dt,o);
   if(F.st==='decoyWalk'||F.st==='decoyLook')return hsDecoyCtl(dt,o);
   if(F.st==='soundWalk'||F.st==='soundScan')return hsSoundCtl(dt,o);
+  if(F.st==='hearTurn'||F.st==='invWalk'||F.st==='invScan')return hsInvCtl(dt,o);
   if(F.st==='wallApproach'||F.st==='wallLift')return hsWallSearchCtl(dt,o);
   if(HS.role==='hide'&&['walk','chase','patrol'].includes(F.st)&&FR.pose!=='stand')frStand();
   if(HS.role==='hide'){
@@ -6179,12 +6196,12 @@ function hsFriendCtl(dt){const F=HS.fs,o={tx:null,tz:null,face:null,v:0};const p
     }
     if(F.st==='walk'||F.st==='chase'||F.st==='patrol'){
       if(!F.path){F.st='idle';hsChoose();return o;}
-      const w=hsStep();if(F.st==='chase'&&G.t-F.goT>.9){F.goT=G.t;if(F.last&&!hsGo(F.last[0],F.last[1])){F.st='blocked';F.t0=G.t;frObstacleNotice('no-route');return o;}}
+      const w=hsStep();if(F.st==='chase'&&G.t-F.goT>.5){F.goT=G.t;if(F.last&&!hsGo(F.last[0],F.last[1])){F.st='blocked';F.t0=G.t;frObstacleNotice('no-route');return o;}}
       if(hsArrived(F.spot?.42:Math.max(.6,(HS.navCell||.35)*.9))){if(F.spot){F.st='check';F.t0=G.t;F.spot.pulse=1.3;frStand(); // inspect while standing, so the next movement can start immediately
           if(F.spot.kind==='hay')SFX.rustle&&SFX.rustle(1.2,0,.1);else SFX.doorSwing&&SFX.doorSwing(1);}
         else{if(F.st==='patrol'&&F.patrolIdx!==undefined){HS.patrolSeen.add(F.patrolIdx);F.patrolIdx=undefined;}F.st='look';F.t0=G.t;}return o;}
       if(G.t-F.goT>Math.max(10,Math.hypot(F.goal?.[0]-FR.x||0,F.goal?.[1]-FR.z||0)/3.5+5)&&(F.st==='walk'||F.st==='patrol')){if(F.spot)HS.spotFailed?.set(F.spot,G.t);if(F.st==='patrol'&&F.patrolIdx!==undefined)HS.patrolFailed?.set(F.patrolIdx,G.t);F.st='idle';hsChoose();return o;}
-      if(w){o.tx=w[0];o.tz=w[1];o.v=F.st==='chase'?4.3:F.st==='patrol'?4.0:F.fast?3.8:3.0;o.run=F.st==='chase';}return o;}
+      if(w){o.tx=w[0];o.tz=w[1];o.v=F.st==='chase'?4.05:F.st==='patrol'?4.0:F.inv?3.2:F.fast?3.8:3.0;o.run=F.st==='chase';}return o;}
     if(F.st==='check'){const s=F.spot;o.face=[s.c[0],s.c[1]];
       if(G.t-F.t0>.7&&HS.mySpot===s){if(G.pose==='lie'){hsBecomeConcerned();return o;}hsEnd('fr','check');return o;}
       if(G.t-F.t0>1.15){if(FR.pose!=='stand')frStand();if(s&&!HS.visited.includes(s))HS.visited.push(s);if(Math.random()<.35)hsBubble(pick(['این‌جا نیست…','نه، خالیه.','هوم… پس کجاست؟']),1.6);hsChoose();}return o;}
@@ -6209,24 +6226,129 @@ function hsDetect(dt){if(HS.concern||HS.fs.st==='count'||HS.fs.st==='done')retur
     if(HS.meter>.32&&HS.fs.st!=='chase'&&HS.fs.st!=='check'){HS.fs.st='chase';HS.fs.spot=null;hsGo(G.pos.x,G.pos.z);hsBubble(pick(['اِ! یه چیزی دیدم!','وایسا ببینم… 👀','اون‌جا چی بود؟']),1.6);}}
   else HS.meter=Math.max(0,HS.meter-.3*dt);
   if(HS.meter>=1)hsEnd('fr','seen');
-  if(HS.fs.st==='chase'&&HS.meter<=0&&hsArrived(.8)){HS.fs.st='look';HS.fs.t0=G.t;}}
+  if(HS.fs.st==='chase'&&HS.meter<=0&&hsArrived(.8)){const L=HS.fs.last||[FR.x,FR.z];
+    HS.alert={x:L[0],z:L[1],sx:L[0],sz:L[1],t:G.t,r:2.4,kind:'seen',loud:true,n:3,t0:G.t,pending:false,checked:new Set()};
+    HS.fs.inv=true;HS.fs.st='invScan';HS.fs.t0=G.t;HS.fs.scanYaw=FR.yaw;hsBubble(pick(['همین الان این‌جا بودی! کجا رفتی؟','در رفتی؟ از دستم فرار نمی‌کنی! 😏','می‌دونم همین نزدیکی قایم شدی…']),2.2);}}
+/* NATURAL HEARING (v4)
+   Every footstep is a real sound. Arash reacts the moment he hears it: stops, turns his head
+   toward it, walks (or runs, if it was loud) to roughly where it came from, scans the area and
+   then opens the hiding places closest to it. Repeated sounds make him more certain and faster.
+   His ears give a direction and a rough distance, never the exact position. */
+const HS_HEAR_BUSY=['count','done','concern','care','hidden','tohide'];
+const HS_HEAR_DEFER=['wallLift','decoyLook','check'];
+function hsQuietK(){return HS_ADVENTURE&&HS_ADVENTURE.upgrades&&HS_ADVENTURE.upgrades.quiet?.6:1;}
+function hsPlayerStep(running,rv){
+ const sneak=!running&&(G.sneak||rv<1.05);
+ const r=(running?17:sneak?2.4:8.5)*hsQuietK();
+ HS.noiseLvl=Math.max(HS.noiseLvl||0,running?1:sneak?.15:.55);
+ hsHearSound(G.pos.x,G.pos.z,r,running?'دویدن':sneak?'قدم آهسته':'قدم');
+}
 function hsHearSound(x,z,radius,kind){
  if(!HS.on||HS.role!=='hide'||HS.phase!=='play'||HS_EDITOR.active||HS.concern)return false;
+ const F=HS.fs;if(!F||HS_HEAR_BUSY.includes(F.st)||FR.hsIn)return false;
  const d=Math.hypot(FR.x-x,FR.z-z),clear=hsLine(FR.x,FR.z,x,z);
- const range=clear?radius:radius*.62;
- if(d>range||G.t-(HS.lastHeard||-100)<1.25)return false;
+ if(d>(clear?radius:radius*.6))return false;
  HS.lastHeard=G.t;HS.noiseT=G.t;
- HS.noise={x,z,t:G.t,kind,used:true};
- const F=HS.fs;
- if(F&&F.st!=='count'&&F.st!=='done'&&F.st!=='concern'&&F.st!=='care'){
-   if(hsGo(x,z)){frStand();F.st='walk';F.spot=null;F.fast=true;
-     hsBubble(pick(['شنیدم! از این طرف بود؟ 👂','صدا رو شنیدم، میام ببینم چیه!','وای، یه صدایی از پشت وسایل اومد!']),2.5);
-   }else{frObstacleNotice('no-route');}
+ const loud=radius>=10.5;
+ const err=Math.min(3.2,.25+d*.07+(clear?0:.9));
+ const a=Math.random()*Math.PI*2,rr=Math.random()*err;let ex=x+Math.cos(a)*rr,ez=z+Math.sin(a)*rr;
+ const c=hsNearFree(...hsCell(ex,ez));if(c){const q=hsCellW(c[0],c[1]);ex=q[0];ez=q[1];}
+ const prev=HS.alert,fresh=!prev||G.t-prev.t>7;
+ HS.alert={x:ex,z:ez,sx:x,sz:z,t:G.t,r:err,kind,loud:loud||(!fresh&&prev.loud&&G.t-prev.t<3),n:fresh?1:prev.n+1,t0:fresh?G.t:prev.t0,pending:false,checked:fresh?new Set():prev.checked};
+ HS.noise={x:ex,z:ez,t:G.t,kind,used:true};
+ if(F.st==='chase'){F.last=[x,z];return true;}
+ if(HS_HEAR_DEFER.includes(F.st)){HS.alert.pending=true;return true;}
+ F.inv=true;F.invQueue=null;
+ if(F.st==='hearTurn')return true; // already turning toward it; he'll walk to the newest estimate
+ if(F.st==='invWalk'){
+   if(F.goal&&Math.hypot(F.goal[0]-ex,F.goal[1]-ez)>1.2&&G.t-F.goT>.4)hsInvGo();
+   if(HS.alert.n===3)hsBubble(pick(['دیگه مطمئنم! یکی همین‌جاست! 😤','صدای پات داره نزدیک‌تر می‌شه!']),2);
+   return true;
+ }
+ if(fresh){
+   frStand();F.st='hearTurn';F.t0=G.t;F.path=null;F.goal=null;F.spot=null;FR.vx=FR.vz=0;
+   SFX.alert&&SFX.alert(false);
+   hsBubble(loud?pick(['هی! صدای دویدن بود! 👂','وای! یکی داره می‌دوه!','صدای بلندی اومد! از اون طرف!']):
+     kind==='صدای مخفیگاه'?pick(['صدای در اومد؟ 👂','یه چیزی تق کرد…']):pick(['هیس… صدای پا؟ 👂','صبر کن… یه صدایی شنیدم.','کی اون‌جاست؟ 👂']),2.2);
+ }else{
+   hsInvGo();
+   if(Math.random()<.5)hsBubble(pick(['دوباره صدا اومد!','آهان، باز هم شنیدم! 👂','این بار مطمئن‌ترم!']),1.8);
  }
  return true;
 }
-function hsNoise(){if(HS.mySpot||G.pose!=='stand')return;const v=Math.hypot(G.vel.x,G.vel.z),d=Math.hypot(G.pos.x-FR.x,G.pos.z-FR.z);
-  const base=(G.landK||0)>.3?9:v>3?13:v>.7?6:0;const r=base*(HS_ADVENTURE.upgrades.quiet?0.58:1);if(r&&d<r)hsHearSound(G.pos.x,G.pos.z,r,v>3?'running':'steps');}
+function hsInvGo(){
+ const F=HS.fs,A=HS.alert;if(!F||!A)return false;
+ let ok=hsGo(A.x,A.z);
+ for(let k=1;k<=8&&!ok;k++){const ang=k*2.39996,r=Math.min(1+k*.7,A.r+3);const c=hsNearFree(...hsCell(A.x+Math.cos(ang)*r,A.z+Math.sin(ang)*r));if(c){const q=hsCellW(c[0],c[1]);ok=hsGo(q[0],q[1]);}}
+ if(ok){if(FR.pose!=='stand')frStand();F.st='invWalk';F.spot=null;F.inv=true;F.invStart=G.t;F.goT=G.t;}
+ return ok;
+}
+function hsInvQueue(){
+ const A=HS.alert;if(!A)return [];const R=Math.max(3.6,A.r+2.6);
+ const dist=s=>Math.min(Math.hypot(s.ent[0]-A.x,s.ent[1]-A.z),Math.hypot(s.c[0]-A.x,s.c[1]-A.z));
+ return HS.spots.filter(s=>!A.checked.has(s)&&dist(s)<R).sort((a,b)=>dist(a)-dist(b)).slice(0,A.n>=3?4:3);
+}
+function hsInvCtl(dt,o){
+ const F=HS.fs,A=HS.alert;
+ if(!A){F.inv=false;F.st='idle';hsChoose();return o;}
+ if(F.st==='hearTurn'){
+   o.face=[A.sx,A.sz];
+   if(G.t-F.t0>(A.loud?.35:.6)&&!hsInvGo()){F.inv=false;HS.alert=null;F.st='idle';frObstacleNotice('no-route');hsChoose();}
+   return o;
+ }
+ if(F.st==='invWalk'){
+   const toScan=()=>{F.st='invScan';F.t0=G.t;F.path=null;F.goal=null;F.scanYaw=FR.yaw;
+     if(Math.random()<.55)hsBubble(A.kind==='track'?pick(['ردپاها تا این‌جا اومده…','ردپا این‌جا تموم می‌شه… پس کجایی؟ 🤔']):pick(['همین‌جاها بود…','صدا از این طرف بود. کجایی؟ 🤔','می‌دونم این نزدیکی‌ها هستی!']),2);};
+   if(!F.path){toScan();return o;}
+   const w=hsStep();
+   if(hsArrived(.75)||G.t-F.invStart>Math.max(12,Math.hypot(F.goal[0]-FR.x,F.goal[1]-FR.z)/2.5+6)){toScan();return o;}
+   if(w){o.tx=w[0];o.tz=w[1];const urgent=A.loud||A.n>=3;o.v=urgent?4.0:A.n>=2?3.4:2.9;o.run=urgent;}
+   return o;
+ }
+ if(F.st==='invScan'){
+   const t=G.t-F.t0,ang=F.scanYaw+Math.sin(t*2.1)*1.3;o.face=[FR.x+Math.sin(ang),FR.z+Math.cos(ang)];
+   if(t>1.7){F.invQueue=hsInvQueue();F.st='idle';hsChoose();}
+   return o;
+ }
+ return o;
+}
+/* the player's own footsteps only make sound per step now (see hsPlayerStep) */
+function hsNoise(){}
+/* "?" / "!" over Arash's head, his audible footsteps, your heartbeat and the screen-edge alarm */
+function hsAlertFx(dt){
+ HS.noiseLvl=Math.max(0,(HS.noiseLvl||0)-dt*.9);
+ const F=HS.fs||{},act=HS.on&&HS.role==='hide'&&HS.phase==='play'&&G.mode==='walk'&&!HS_EDITOR.active&&!HS.concern;
+ let mode='';if(act){if(F.st==='chase'||HS.meter>.32)mode='!';else if(F.st==='hearTurn'||F.st==='invWalk'||F.st==='invScan'||F.inv||F.st==='soundWalk'||F.st==='soundScan')mode='?';}
+ if(!HS.alertSpr&&typeof THREE!=='undefined'&&typeof scene!=='undefined'){
+   const mk=(ch,col)=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='rgba(20,10,4,.8)';x.beginPath();x.arc(64,64,54,0,Math.PI*2);x.fill();x.lineWidth=7;x.strokeStyle=col;x.stroke();x.fillStyle=col;x.font='900 86px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(ch,64,70);return new THREE.CanvasTexture(c);};
+   HS.alertTex={'?':mk('?','#ffd34d'),'!':mk('!','#ff4a3a')};
+   HS.alertSpr=new THREE.Sprite(new THREE.SpriteMaterial({map:HS.alertTex['?'],transparent:true,depthWrite:false,fog:false}));
+   HS.alertSpr.scale.set(.42,.42,1);HS.alertSpr.renderOrder=6;HS.alertSpr.visible=false;scene.add(HS.alertSpr);
+ }
+ const S=HS.alertSpr;
+ if(S){const show=!!mode&&FR.rig&&FR.rig.g.visible&&!FR.hsIn;S.visible=show;
+   if(show){if(S.userData.m!==mode){S.userData.m=mode;S.material.map=HS.alertTex[mode];S.material.needsUpdate=true;S.userData.pop=1;}
+     S.userData.pop=Math.max(0,(S.userData.pop||0)-dt*3);const k=.42*(1+S.userData.pop*.6);S.scale.set(k,k,1);
+     S.position.set(FR.x,FR.feet+2.25+Math.sin(G.t*5)*.04,FR.z);}}
+ if(mode!==HS.alertMode){if(mode==='!')SFX.alert&&SFX.alert(true);HS.alertMode=mode;}
+ if(act&&!FR.hsIn){
+   const d=Math.hypot(FR.x-G.pos.x,FR.z-G.pos.z),sp=Math.hypot(FR.vx,FR.vz);
+   if(sp>.6){HS.frStepT=(HS.frStepT||0)+dt*sp/1.25;if(HS.frStepT>=1){HS.frStepT-=1;const clear=hsLine(FR.x,FR.z,G.pos.x,G.pos.z);SFX.frStep&&SFX.frStep(Math.max(0,1-d/16)*(clear?1:.5),sp>3.6);}}
+   const danger=mode==='!'?1:mode==='?'?.6:.35,near=Math.max(0,1-d/7)*danger;
+   if(near>.12){HS.heartT=(HS.heartT||0)-dt;if(HS.heartT<=0){HS.heartT=1.05-near*.55;SFX.heart&&SFX.heart(near);}}
+ }
+ const v=document.getElementById('hsAlarm');
+ if(v){const lvl=act?(mode==='!'?.5+HS.meter*.45:mode==='?'?.26:0):0,key=mode+Math.round(lvl*20);
+   if(v.dataset.k!==key){v.dataset.k=key;v.style.opacity=lvl.toFixed(2);v.className=mode==='!'?'red':'';}}
+ const nc=document.getElementById('hsNoise');
+ if(nc){const on=HS.on&&HS.role==='hide'&&HS.phase!=='end'&&G.mode==='walk';if(nc.hidden===on)nc.hidden=!on;
+   if(on){const n=HS.noiseLvl||0;
+     const t1=HS.mySpot?'🤫 مخفی':n>.7?'📢 پرسروصدا':n>.25?'🦶 صدای پا':G.sneak?'🐾 آهسته':'🔇 بی‌صدا';
+     const t2=t1+(mode==='!'?' · ❗ دیدت':mode==='?'?' · ❓ مشکوکه':'');
+     if(nc.textContent!==t2)nc.textContent=t2;nc.style.setProperty('--n',Math.min(1,n).toFixed(2));}}
+ const sb=document.getElementById('sneakBtn');
+ if(sb){const on=HS.on&&HS.role==='hide'&&G.mode==='walk'&&HS.phase!=='end';if(sb.hidden===on)sb.hidden=!on;}
+}
 /* ---- PLAYER WHISTLE AND NON-OMNISCIENT SOUND TRACKING ---- */
 function hsPlayerWhistle(){
   if(!HS.on||HS_EDITOR.active||HS.role!=='hide'||HS.phase!=='play'||HS.concern){
@@ -6244,6 +6366,8 @@ function hsPlayerWhistle(){
 function hsWhistleInvestigate(){
   const sig=HS.whistle,F=HS.fs;
   if(!sig||sig.processed||!HS.on||HS.role!=='hide'||HS.phase!=='play'||HS.concern||HS_EDITOR.active||G.t<sig.due)return;
+  // never interrupt a half-lifted wall, an open closet or a chase; the sound waits a moment
+  if(F&&['wallLift','chase','decoyLook','check','hearTurn'].includes(F.st))return;
   sig.processed=true;
   // A whistle coming from behind walls carries direction, not coordinates.
   // More distance and more occlusion increase uncertainty, while the AI must
@@ -6427,13 +6551,18 @@ function hsAdventureFootprint(x,z,angle){
 }
 function hsAdventureTrackInvestigate(){
   const A=HS_ADVENTURE,F=HS.fs;
-  if(!F||HS.concern||!['walk','patrol','idle','blocked'].includes(F.st))return;
+  if(!F||HS.concern||F.inv||!['walk','patrol','idle','blocked'].includes(F.st))return;
   if(G.t-A.lastTrackScan<4.5)return;A.lastTrackScan=G.t;
   const tracks=A.footprints.filter(p=>G.t-p.at<16&&!A.seenTracks.has(p.uid)&&Math.hypot(FR.x-p.x,FR.z-p.z)<6.2&&hsSeg(FR.x,1.45,FR.z,p.x,.1,p.z));
   tracks.sort((a,b)=>Math.hypot(FR.x-a.x,FR.z-a.z)-Math.hypot(FR.x-b.x,FR.z-b.z));
   if(!tracks.length)return;
   const p=tracks[0];A.seenTracks.add(p.uid);
-  if(hsGo(p.x,p.z)){frStand();F.st='walk';F.spot=null;F.fast=true;hsBubble('صبر کن! اینجا ردپا هست... اون سمت رو هم می‌گردم! 👣',2.6);}
+  // fresh footprints are a clue: follow them, look around, then open the nearby hiding places
+  const head=A.footprints.filter(q=>q.at>=p.at&&G.t-q.at<16).sort((a,b)=>b.at-a.at)[0]||p;
+  for(const q of A.footprints)if(G.t-q.at<16&&Math.hypot(q.x-p.x,q.z-p.z)<4)A.seenTracks.add(q.uid);
+  HS.alert={x:head.x,z:head.z,sx:head.x,sz:head.z,t:G.t,r:2.2,kind:'track',loud:false,n:2,t0:G.t,pending:false,checked:new Set()};
+  F.invQueue=null;F.inv=true;
+  if(hsInvGo()){hsBubble('صبر کن! این‌جا ردپا هست… دنبالش می‌رم! 👣',2.6);}else{F.inv=false;HS.alert=null;}
 }
 function hsAdventureUpdate(dt){
   if(!HS.on)return;
@@ -6522,7 +6651,7 @@ function hsUpdate(dt){if(!HS.on)return;HS.t+=dt;hsAdventureUpdate(dt);
       if(HS.role==='hide'){if(G.t-(HS.lastDecoyScan||0)>.32){HS.lastDecoyScan=G.t;hsDecoySpot();}hsDetect(dt);hsNoise();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_FR)hsEnd('me','time');}
       else{hsSeekCheck();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_ME)hsEnd('fr','time');}}
     else if(HS.phase==='end'){HS.endT+=dt;if(HS.endT>2.8&&!HS.panelShown&&!G.panel){HS.panelShown=true;hsResultPanel();}}}
-  hsSearchWatchdog();hsUI();}
+  hsSearchWatchdog();hsAlertFx(dt);hsUI();}
 function hsUI(force){if(!HS.on)return;const bar=$('#hsBar'),eyes=$('#hsEyes'),peek=$('#hsPeek');const show=G.mode==='walk';bar.hidden=!show;
   const tl=(lim)=>{if(HS.timerMode==='unlimited')return '∞';const s=Math.max(0,Math.ceil(lim-HS.t));return fa(Math.floor(s/60))+':'+fa(String(s%60).padStart(2,'0'));};const N=FR.name;let txt;
   if(HS.phase==='prep')txt=HS.role==='hide'?'🙈 قایم شو! '+fa(Math.max(0,Math.ceil(HSX.PREP_HIDE-HS.t))):'🙈 '+N+' داره قایم می‌شه… '+fa(Math.max(0,Math.ceil(HSX.PREP_SEEK-HS.t)));
@@ -8284,6 +8413,8 @@ $('#hospitalLeave').addEventListener('click',e=>{e.stopPropagation();hospitalExi
 $('#panelClose').addEventListener('click',closePanel);$('#panelBody').addEventListener('click',panelClick);
 $('#panel').addEventListener('pointerdown',e=>{if(e.target.id==='panel')closePanel();});
 const pbtn=(id,fn)=>{$(id).addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();SFX.resume();fn(e);});$(id).addEventListener('click',e=>e.preventDefault());};
+pbtn('#sneakBtn',()=>{if(G.mode==='walk')setSneak(!G.sneak);});
+addEventListener('keydown',e=>{if(e.code!=='KeyZ'||e.repeat||!HS.on)return;if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;setSneak(!G.sneak);});
 pbtn('#sitBtn',()=>{if(G.mode==='walk')sitDown();});pbtn('#lieBtn',()=>{if(G.mode==='walk')lieDown();});
 pbtn('#exitCarBtn',()=>exitCar());pbtn('#hornBtn',()=>{if(G.car)SFX.horn(G.car);});
 pbtn('#hbBtn',()=>{G.hand=true;});for(const ev of ['pointerup','pointercancel','pointerleave'])$('#hbBtn').addEventListener(ev,()=>{G.hand=false;});
