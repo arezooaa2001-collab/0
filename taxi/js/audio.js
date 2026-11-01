@@ -333,6 +333,24 @@ export class AudioSys {
           this.note(hz(scale[this.melody] + 12), t, 0.35, 0.08, 'sine');
         }
         this.radioNext += step;
+      } else if (this.station === 'electro') {
+        // four-on-the-floor at 128 bpm, 16th-note grid: Fm - Db - Ab - Eb
+        const step = 60 / 128 / 4;
+        const chords = [[-4, -1, 3], [-8, -4, -1], [-1, 3, 6], [-6, -2, 1]];
+        const ch = chords[Math.floor(i / 32) % 4];
+        if (i % 4 === 0) this.drum(t, 110, 0.3, 1.0); // kick
+        if (i % 8 === 4) this.drum(t, 2200, 0.16, 0.35, 'bandpass'); // clap
+        if (i % 4 === 2) this.drum(t, 8000, 0.09, 0.2, 'highpass'); // open hat
+        else this.drum(t, 9000, 0.03, 0.06, 'highpass');
+        // rolling off-beat bass (ducked under the kick)
+        if (i % 4 !== 0) this.note(hz(ch[0] - 12 + (i % 8 === 6 ? 12 : 0), 110), t, step * 0.9, 0.16, 'sawtooth');
+        // supersaw stabs and a gated arpeggio
+        if (i % 16 === 0 || i % 16 === 6 || i % 16 === 12) for (const n of ch) {
+          this.note(hz(n + 12), t, step * 2.2, 0.03, 'sawtooth');
+          this.note(hz(n + 12) * 1.006, t, step * 2.2, 0.025, 'sawtooth');
+        }
+        this.note(hz(ch[i % 3] + 24), t, step * 0.7, 0.03, 'square');
+        this.radioNext += step;
       } else {
         // Persian "Shur" on D with quarter tones: santur tremolo + daf
         const step = 0.17;

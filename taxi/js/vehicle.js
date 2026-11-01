@@ -88,6 +88,7 @@ export class PlayerCar {
       if (game.arrow) old.remove(game.arrow.group);
     }
     this.paintMatObj.color.setHex(this.paintHex ?? M.color);
+    this.paintFinish(this.paintHex ?? M.color);
     const c = buildCar({ type: M.type, paintMat: this.paintMatObj, interior: true, lampMat: this.lampMat, tailMat: this.tailMat });
     this.car = c;
     this.group = c.root;
@@ -192,6 +193,13 @@ export class PlayerCar {
     this.paintHex = hex;
     this.paints[this.model] = hex;
     this.car.paint.color.setHex(hex);
+    this.paintFinish(hex);
+  }
+  /** the golden reward paint is real metal; everything else is glossy car paint */
+  paintFinish(hex) {
+    const gold = hex === 0xd4af37;
+    this.paintMatObj.metalness = gold ? 0.95 : 0.35;
+    this.paintMatObj.roughness = gold ? 0.2 : 0.32;
   }
   /** nitro: hold the NOS button with throttle; slowly recharges */
   updateNitro(dt, inp, alive) {

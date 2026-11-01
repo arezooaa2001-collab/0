@@ -33,7 +33,7 @@ export class Crazy {
     const g = this.g;
     if (this.state !== 'idle') return false;
     if (g.rides.ride) return g.ui.toast('اول سفر مسافرت رو تموم کن 🧳', 'warn'), false;
-    if (g.race.state !== 'idle') return false;
+    if (g.race.state !== 'idle' || g.parking.state !== 'idle') return false;
     if (g.police.state !== 'none') return g.ui.toast('با پلیس پشت سرت؟! اول گمشون کن 🚨', 'warn'), false;
     if (g.player.burning || g.onfoot.active) return false;
     return true;

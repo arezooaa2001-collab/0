@@ -480,3 +480,10 @@ body.photomode .nearpop { display: none; }
 .daily h3, h3.achh { margin: 2px 0 8px; font-size: 15px; }
 .daily h3 small { font-weight: 400; opacity: .7; font-size: 11px; }
 .daily .note { margin: 6px 0 0; }
+
+/* parking challenge */
+#parkHud { display: flex; gap: 10px; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(21,101,192,.9), rgba(13,71,161,.9)); border: 2px solid #90caf9; border-radius: 16px; padding: 5px 14px; font-weight: 800; color: #fff; direction: rtl; box-shadow: 0 0 24px rgba(33,150,243,.5); margin-top: 4px; }
+#parkHud b { font-size: 22px; }
+#parkHud span { font-size: 13px; }
+#parkHud.low b { color: #ffe066; animation: czpulse .5s infinite alternate; }
+@media (max-height: 480px) { #parkHud b { font-size: 17px; } #parkHud { padding: 3px 10px; } }

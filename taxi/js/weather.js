@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp, damp } from './util.js';
+import { regionAt } from './world.js';
 
 const KINDS = ['clear', 'clear', 'cloudy', 'rain', 'storm'];
 const NAMES = { clear: '☀️ هوا صافه', cloudy: '☁️ هوا ابری شد', rain: '🌧️ بارون گرفت! جاده لیزه، مواظب باش', storm: '⛈️ طوفان و رعد و برق!' };
@@ -14,6 +15,31 @@ export class Weather {
     this.cloud = 0;
     this.rain = 0;
     this.target = { cloud: 0, rain: 0 };
+    this.snow = 0;
+    // snowflakes for the mountains
+    const FL = 1400;
+    this.flakes = new Float32Array(FL * 3);
+    for (let i = 0; i < FL; i++) {
+      this.flakes[i * 3] = (Math.random() - 0.5) * BOX;
+      this.flakes[i * 3 + 1] = Math.random() * HEIGHT;
+      this.flakes[i * 3 + 2] = (Math.random() - 0.5) * BOX;
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FL * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    const fc = document.createElement('canvas');
+    fc.width = fc.height = 32;
+    const fx = fc.getContext('2d');
+    const grd = fx.createRadialGradient(16, 16, 1, 16, 16, 15);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.5, 'rgba(255,255,255,0.7)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    fx.fillStyle = grd;
+    fx.fillRect(0, 0, 32, 32);
+    this.snowMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.3, map: new THREE.CanvasTexture(fc), transparent: true, opacity: 0, depthWrite: false });
+    this.snowPts = new THREE.Points(sg, this.snowMat);
+    this.snowPts.frustumCulled = false;
+    this.snowPts.visible = false;
+    game.scene.add(this.snowPts);
     this.timer = 90 + Math.random() * 120;
     this.thunderT = 8;
     const pos = new Float32Array(DROPS * 6);
@@ -50,7 +76,16 @@ export class Weather {
     }
     this.cloud = damp(this.cloud, this.target.cloud, 0.25, dt);
     this.rain = damp(this.rain, this.target.rain, 0.3, dt);
-    const c = this.cloud, r = this.rain;
+    // up in the mountains the clouds bring snow instead of rain
+    const f = g.focus();
+    const cold = regionAt(f.pos.x, f.pos.z) === 'lake' && this.target.cloud >= 0.6;
+    this.snow = damp(this.snow, cold ? 1 : 0, 0.4, dt);
+    if (cold && !this.snowSaid && this.snow > 0.3 && g.state === 'play') {
+      this.snowSaid = true;
+      g.ui.toast('❄️ داره برف میاد! جاده لیز شده، آروم برون', 'info');
+    } else if (!cold && this.snow < 0.05) this.snowSaid = false;
+    const c = this.cloud, r = this.rain * (1 - this.snow);
+    this.wet = r;
     // darken the world
     g.sun.intensity *= 1 - 0.75 * c;
     g.hemi.intensity *= 1 - 0.25 * c;
@@ -69,7 +104,9 @@ export class Weather {
     }
     // rain streaks follow the camera
     this.mat.opacity = 0.42 * r;
-    this.lines.visible = r > 0.02;
+    this.lines.visible = r > 0.05;
+    // snowy whiteout
+    if (this.snow > 0.01) g.scene.fog.color.lerp(this.white || (this.white = new THREE.Color(0xe8eef4)), 0.55 * this.snow * (1 - g.env.night * 0.8));
     if (this.lines.visible) {
       const cam = g.camera.position;
       const p = this.lines.geometry.attributes.position.array;
@@ -86,6 +123,7 @@ export class Weather {
       this.lines.geometry.attributes.position.needsUpdate = true;
     }
     g.audio.setRain(r);
+    this.updateSnow(dt);
     // thunder in storms
     if (this.kind === 'storm' && r > 0.6) {
       this.thunderT -= dt;
@@ -96,8 +134,25 @@ export class Weather {
       }
     }
   }
+  updateSnow(dt) {
+    const s = this.snow, g = this.g;
+    this.snowPts.visible = s > 0.02;
+    this.snowMat.opacity = 0.9 * s;
+    if (!this.snowPts.visible) return;
+    const cam = g.camera.position, F = this.flakes;
+    const p = this.snowPts.geometry.attributes.position.array, t = g.time;
+    for (let i = 0; i < F.length / 3; i++) {
+      let y = F[i * 3 + 1] - 2.6 * dt;
+      if (y < 0) y += HEIGHT;
+      F[i * 3 + 1] = y;
+      p[i * 3] = cam.x + F[i * 3] + Math.sin(t * 0.9 + i) * 0.6;
+      p[i * 3 + 1] = cam.y - 8 + y;
+      p[i * 3 + 2] = cam.z + F[i * 3 + 2] + Math.cos(t * 0.7 + i * 1.3) * 0.6;
+    }
+    this.snowPts.geometry.attributes.position.needsUpdate = true;
+  }
   grip() {
-    return 1 - 0.12 * this.rain;
+    return 1 - 0.12 * this.rain * (1 - this.snow) - 0.22 * this.snow;
   }
 }
 export { clamp };

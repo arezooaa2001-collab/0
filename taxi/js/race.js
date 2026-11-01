@@ -125,7 +125,7 @@ export class Race {
   /* ---------------- offer ---------------- */
   offer(spot) {
     const g = this.g, ui = g.ui, t = spot.track;
-    if (this.state !== 'idle' || g.crazy.state !== 'idle') return;
+    if (this.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle') return;
     if (g.rides.ride) {
       ui.toast('اول سفر مسافرت رو تموم کن، بعد مسابقه بده! 🧳', 'warn');
       return;
@@ -150,7 +150,7 @@ export class Race {
       <div class="btnrow"><button data-a="go">قبوله! بزن بریم 🔥</button><button data-a="no" class="ghost">بی‌خیال</button></div></div>`, (el) => {
       el.querySelector('[data-a=go]').onclick = () => {
         // things may have changed while the panel was open
-        if (this.state !== 'idle' || g.crazy.state !== 'idle' || g.rides.ride || g.police.state !== 'none' || g.state !== 'play' || g.onfoot.active || g.onfoot.busy || g.player.burning) {
+        if (this.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.rides.ride || g.police.state !== 'none' || g.state !== 'play' || g.onfoot.active || g.onfoot.busy || g.player.burning) {
           ui.closePanel();
           ui.toast(g.rides.ride ? 'اول سفر مسافرت رو تموم کن، بعد مسابقه بده! 🧳' : 'الان نمی‌شه مسابقه داد', 'warn');
           return;

@@ -7,8 +7,8 @@ const $ = (id) => document.getElementById(id);
 const PAINT_COST = 120000, NOS_COST = 60000, NEON_COST = 250000, RAINBOW_COST = 600000;
 const NEONS = [[0x00e5ff, 'آبی یخی'], [0xff2bd6, 'صورتی'], [0x39ff14, 'سبز فسفری'], [0xa040ff, 'بنفش'], [0xff2a2a, 'قرمز'], [0xffd21a, 'طلایی'], ['rainbow', 'رنگین‌کمان 🌈']];
 const PAINTS = [[0xf3c614, 'زرد تاکسی'], [0x1f8a4c, 'سبز تاکسی'], [0xf2f2f2, 'سفید'], [0x15171a, 'مشکی'], [0xc62828, 'قرمز'], [0x1f5fbf, 'آبی'], [0xff7a1a, 'نارنجی'], [0x8e44ad, 'بنفش'], [0xb8bcc2, 'نقره‌ای']];
-const STATIONS = [null, 'pop', 'sonati'];
-const STATION_NAME = { pop: '📻 رادیو پاپ ۹۸٫۵', sonati: '📻 رادیو سنتی (دستگاه شور) ۱۰۲٫۷' };
+const STATIONS = [null, 'pop', 'sonati', 'electro'];
+const STATION_NAME = { pop: '📻 رادیو پاپ ۹۸٫۵', sonati: '📻 رادیو سنتی (دستگاه شور) ۱۰۲٫۷', electro: '📻 رادیو الکترو ۱۰۷٫۱ ⚡' };
 const STAR = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
 export class UI {
@@ -517,6 +517,12 @@ export class UI {
       for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
       if (race.rival && race.rival.active) icon(race.rival.pos.x, race.rival.pos.z, '#b04dff', 8);
     }
+    // golden statues show up as a sparkle when you're close
+    const got = g.stats.statues || [];
+    for (const s of g.thrills.statues) if (!got.includes(s.id) && Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 160) icon(s.x, s.z, '#ffd54a', 7, '✨');
+    const pk = g.parking;
+    if (pk.state === 'idle') icon(pk.spot.padX, pk.spot.padZ, '#1565c0', 10, '🅿️');
+    else icon(pk.bay.x, pk.bay.z, '#39e07a', 7);
     const cz = g.crazy;
     if (cz.state === 'idle' && race.state === 'idle') icon(cz.spot.padX, cz.spot.padZ, '#ff6a00', 11, '🔥');
     for (const c of cz.waiting) icon(c.at.x, c.at.z, c.col === 'g' ? '#39e07a' : c.col === 'y' ? '#ffd23a' : '#ff4040', 8, '🧍');
@@ -613,6 +619,7 @@ export class UI {
     dot(w.police.padX, w.police.padZ, '#1f4fa0', '🚓');
     for (const s of g.race.spots) dot(s.padX, s.padZ, '#8e24aa', '🏁');
     dot(g.crazy.spot.padX, g.crazy.spot.padZ, '#ff6a00', '🔥');
+    dot(g.parking.spot.padX, g.parking.spot.padZ, '#1565c0', '🅿️');
     {
       const sp = w.stuntPark;
       dot(sp.x, sp.z, '#e65100', '🚀', 10);
@@ -856,7 +863,7 @@ export class UI {
               <button data-car="${id}" ${cur ? 'disabled' : ''}>${cur ? '✓ ماشین فعلی' : owned ? 'سوار شو' : 'خرید • ' + faMoney(m.price)}</button></div>`;
           }).join('')}</div></div>
           <div class="card paint"><h3>🎨 رنگ ماشین</h3><p>هر رنگ ${faMoney(PAINT_COST)} تومان</p>
-            <div class="swatches">${PAINTS.map(([hex, name]) => `<button data-paint="${hex}" title="${name}" style="background:#${hex.toString(16).padStart(6, '0')}" class="${p.paintHex === hex || (!p.paintHex && hex === CAR_MODELS[p.model].color) ? 'cur' : ''}"></button>`).join('')}</div></div>
+            <div class="swatches">${[...PAINTS, ...(g.stats.statues && g.stats.statues.length >= g.thrills.statues.length ? [[0xd4af37, 'طلایی (جایزه مجسمه‌ها) ✨']] : [])].map(([hex, name]) => `<button data-paint="${hex}" title="${name}" style="background:#${hex.toString(16).padStart(6, '0')}" class="${p.paintHex === hex || (!p.paintHex && hex === CAR_MODELS[p.model].color) ? 'cur' : ''}"></button>`).join('')}</div></div>
           <div class="card neon"><h3>💡 نئون زیر ماشین</h3><p>هر رنگ ${faMoney(NEON_COST)} • رنگین‌کمان ${faMoney(RAINBOW_COST)} تومان</p>
             <div class="swatches">${NEONS.map(([v, name]) => `<button data-neon="${v}" title="${name}" class="${p.neon === v ? 'cur' : ''} ${v === 'rainbow' ? 'rainbow' : ''}" style="${v === 'rainbow' ? '' : `background:#${v.toString(16).padStart(6, '0')};box-shadow:0 0 12px #${v.toString(16).padStart(6, '0')}`}"></button>`).join('')}
             <button data-neon="off" class="off ${p.neon ? '' : 'cur'}" title="خاموش">✕</button></div></div>
@@ -874,7 +881,7 @@ export class UI {
               this.toast('مسافر توی ماشینه! اول سفر رو تموم کن', 'warn');
               return;
             }
-            if (g.race.state !== 'idle' || g.crazy.state !== 'idle') {
+            if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle') {
               this.toast('وسط مسابقه که نمیشه ماشین عوض کرد! 😅', 'warn');
               return;
             }

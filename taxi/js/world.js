@@ -412,6 +412,7 @@ export class World {
     this.buildTrafficLights();
     this.buildRoadside();
     this.buildRamps();
+    this.buildLot();
     this.finishScatter();
     this.buildMinimapBase();
   }
@@ -546,6 +547,9 @@ export class World {
     // stunt park south-east of the city
     this.stuntPark = { x: 250, z: 610 };
     this.flats.push({ x: 250, z: 610, r: 90 });
+    // parking lot for the parking challenge, next to the desert road
+    this.lot = { x: -62, z: 520, w: 44, d: 32 };
+    this.flats.push({ x: this.lot.x, z: this.lot.z, r: 34 });
     const P = this.stuntPark;
     for (const [dx, dz, rot, len, h] of [[-50, -40, Math.PI / 2, 12, 2.4], [-50, 0, Math.PI / 2, 14, 3.4], [-50, 40, Math.PI / 2, 18, 5], [20, -45, 0, 12, 2.6], [40, 30, -Math.PI / 2, 22, 7]]) {
       this.ramps.push({ x: P.x + dx, z: P.z + dz, rot, len, w: 6, h, park: true });
@@ -638,6 +642,49 @@ export class World {
       const pole = cyl(0.2, 0.2, 6, side, 8, this.group);
       pole.position.set(P.x + dx, this.heightAt(P.x, P.z - 75) + 3, P.z - 75);
     }
+  }
+  /** asphalt parking lot with painted bays: two rows facing an aisle */
+  buildLot() {
+    const L = this.lot;
+    const PX = 32; // pixels per metre
+    const tex = canvasTexture(L.w * PX / 2, L.d * PX / 2, (g, w, h) => {
+      const k = w / L.w;
+      g.fillStyle = '#3b3d40';
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 1500; i++) {
+        g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},0.05)`;
+        g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+      }
+      g.strokeStyle = '#f2f2f2';
+      g.lineWidth = 0.14 * k;
+      for (const bay of this.lotBays()) {
+        const x0 = (bay.x - bay.hw - L.x + L.w / 2) * k, x1 = (bay.x + bay.hw - L.x + L.w / 2) * k;
+        const z0 = (bay.z - bay.hd - L.z + L.d / 2) * k, z1 = (bay.z + bay.hd - L.z + L.d / 2) * k;
+        g.beginPath();
+        g.moveTo(x0, bay.row < 0 ? z1 : z0);
+        g.lineTo(x0, bay.row < 0 ? z0 : z1);
+        g.lineTo(x1, bay.row < 0 ? z0 : z1);
+        g.lineTo(x1, bay.row < 0 ? z1 : z0);
+        g.stroke();
+      }
+      g.fillStyle = '#ffd21a';
+      g.font = `bold ${3 * k}px sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('P', w / 2, h / 2);
+    }, { aniso: 8 });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(L.w, L.d), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.set(L.x, this.heightAt(L.x, L.z) + 0.03, L.z);
+    plane.receiveShadow = true;
+    this.group.add(plane);
+  }
+  /** bay rectangles of the lot: two rows of 12, 3 m wide and 5.6 m deep */
+  lotBays() {
+    const L = this.lot, out = [];
+    for (const row of [-1, 1])
+      for (let i = 0; i < 12; i++) out.push({ i, row, x: L.x - 18 + i * 3 + 1.5, z: L.z + row * 6.6, hw: 1.5, hd: 2.8 });
+    return out;
   }
   rampHeight(x, z) {
     let best = -Infinity;
@@ -1238,6 +1285,7 @@ export class World {
     if (Math.hypot(x - 1350, z + 750) < 290) return false;
     if (Math.hypot(x - 1160, z - 1525) < 44) return false;
     if (this.stuntPark && Math.hypot(x - this.stuntPark.x, z - this.stuntPark.z) < 110) return false;
+    if (this.lot && Math.abs(x - this.lot.x) < this.lot.w / 2 + 12 && Math.abs(z - this.lot.z) < this.lot.d / 2 + 12) return false;
     if (this.ramps) for (const r of this.ramps) if (!r.park && Math.hypot(x - r.x - (Math.sin(r.rot) * r.len) / 2, z - r.z - (Math.cos(r.rot) * r.len) / 2) < r.len / 2 + 6) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
