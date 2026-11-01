@@ -606,6 +606,8 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .gram-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:0 10px}.gram-pick button{aspect-ratio:1;border:3px solid transparent;border-radius:6px;background:#ddd center/cover;cursor:pointer}.gram-pick button.on{border-color:#e1306c}
 .gram-ta{width:calc(100% - 28px);margin:10px 14px;min-height:70px;border:1px solid rgba(127,127,127,.3);border-radius:12px;padding:10px;font:500 14px var(--body);background:transparent;color:inherit;resize:none}
 .pow-r{display:flex;align-items:center;gap:8px;font:600 14px var(--body);color:var(--paper);flex-wrap:wrap}.pow-r input[type=radio]{width:18px;height:18px;accent-color:#ffd23a}
+.ach-h{margin:10px 0 6px;font:600 13px/1.7 var(--body);color:var(--paper)}.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:10px}
+.ach{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;opacity:.55}.ach.on{opacity:1;border-color:rgba(255,210,58,.6);background:rgba(255,210,58,.1)}.ach b{font:700 13px var(--body)}.ach small{font:500 11px/1.5 var(--body);color:var(--dim)}
 /* games */
 .ph-app.game{background:#111;color:#fff}
 .gm-hud{display:flex;gap:10px;align-items:center;padding:8px 12px;font:600 12px var(--body);flex:none}
@@ -840,6 +842,7 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
     <h2 style="color:#ffcf3a">ماموریت‌ها</h2>
     <p>پول دربیار، رکورد بزن. تو مسابقه‌ها روح بهترین دورت کنارت می‌رونه.</p>
     <div id="mis-list"></div>
+    <div id="ach-list"></div>
     <button id="mis-close" type="button" class="gm-btn">بستن</button>
   </div>
 </div>
