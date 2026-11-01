@@ -577,6 +577,34 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .ph-incoming{position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;align-items:center;gap:6px;padding:70px 20px 40px;background:linear-gradient(180deg,#1d3a5a,#0b121c);color:#fff;text-align:center}
 .ph-incoming b{font:700 26px var(--body)}.ph-incoming .ai-row{margin-top:auto;gap:70px;justify-content:center}
 .ph-incoming [data-r=yes]{animation:phPulse 1s infinite}@keyframes phPulse{50%{transform:scale(1.12)}}
+#gm-paint{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}#gm-paint button{aspect-ratio:1;border-radius:10px;border:2px solid rgba(255,255,255,.35);cursor:pointer}
+/* Safarino */
+.ph-app.sfr{background:#fff;color:#1f1f1f;padding-top:0}
+.sfr-map{flex:1 1 45%;width:100%;min-height:0;display:block}
+.sfr-card{flex:none;max-height:58%;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;margin-top:-18px;position:relative;padding:14px 14px 10px;box-shadow:0 -6px 20px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:8px}
+.sfr-st{font:800 16px var(--body)}.sfr-card p{margin:0;font:500 13px/1.7 var(--body)}
+.sfr-list{display:flex;flex-direction:column}.sfr-list button{display:flex;justify-content:space-between;gap:8px;border:0;border-bottom:1px solid #eee;background:none;padding:10px 2px;text-align:start;cursor:pointer;font:600 13px var(--body);color:#111}.sfr-list small{flex:none;color:#888}
+.sfr .ph-pill{--acc:#ff6a00}.sfr-go{flex:1}.sfr-err{color:#d93025}
+.sfr-drv{display:flex;align-items:center;gap:10px}.sfr-drv span:nth-child(2){flex:1;display:flex;flex-direction:column}.sfr-drv small{color:#777}.sfr-fare{font:800 14px var(--body);color:#ff6a00}
+.sfr-stars{display:flex;gap:6px;justify-content:center}.sfr-stars button{border:0;background:none;font-size:34px;color:#ccc;cursor:pointer}.sfr-stars button.on{color:#ffb400}
+/* Shahrgram */
+.ph-app.gram{background:#fff;color:#111}.ph-scr.dark .ph-app.gram{background:#000;color:#f5f5f5}
+.gram-top{display:flex;align-items:center;gap:10px;padding:8px 14px;flex:none}.gram-top b{flex:1;font:400 26px var(--display)}
+.gram-top button{border:0;background:none;font-size:24px;cursor:pointer;color:inherit;line-height:1}
+.gram-body{flex:1;overflow-y:auto;padding-bottom:10px}
+.gram-prof{display:flex;align-items:center;gap:18px;padding:8px 16px}
+.gram-av{width:78px;height:78px;border-radius:50%;display:grid;place-items:center;font:800 30px var(--body);color:#fff;background:linear-gradient(45deg,#f9a03a,#e1306c 55%,#833ab4);flex:none;box-shadow:0 0 0 3px #fff,0 0 0 5px #e1306c}
+.gram-av.s{width:32px;height:32px;font-size:14px;box-shadow:none}
+.gram-stats{flex:1;display:flex;justify-content:space-around;text-align:center;font:500 12px var(--body)}.gram-stats b{display:block;font:800 17px var(--body)}
+.gram-name{margin:4px 16px 12px;font:500 13px/1.6 var(--body)}
+.gram-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}.gram-grid button{aspect-ratio:1;border:0;background:#ddd center/cover;cursor:pointer;padding:0}
+.gram-ph{display:flex;align-items:center;gap:8px;padding:8px 12px}.gram-ph small{opacity:.6;margin-inline-start:auto}
+.gram-img{width:100%;display:block;max-height:60vh;object-fit:cover}
+.gram-likes{padding:8px 12px 2px;font:800 14px var(--body)}.gram-cap{margin:2px 12px;font:500 13.5px/1.6 var(--body)}
+.gram-cmts{padding:4px 12px}.gram-cmts p{margin:4px 0;font:500 13px/1.6 var(--body)}.gram-ago{display:block;padding:0 12px;opacity:.55;font-size:11px}
+.gram-h{margin:8px 14px;font:800 16px var(--body)}.gram-log{margin:0;padding:9px 14px;border-bottom:1px solid rgba(127,127,127,.15);font:500 13px/1.6 var(--body)}.gram-log small{opacity:.55}
+.gram-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:0 10px}.gram-pick button{aspect-ratio:1;border:3px solid transparent;border-radius:6px;background:#ddd center/cover;cursor:pointer}.gram-pick button.on{border-color:#e1306c}
+.gram-ta{width:calc(100% - 28px);margin:10px 14px;min-height:70px;border:1px solid rgba(127,127,127,.3);border-radius:12px;padding:10px;font:500 14px var(--body);background:transparent;color:inherit;resize:none}
 /* games */
 .ph-app.game{background:#111;color:#fff}
 .gm-hud{display:flex;gap:10px;align-items:center;padding:8px 12px;font:600 12px var(--body);flex:none}
@@ -848,6 +876,8 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
     <button id="gm-tow" type="button" class="gm-btn primary">زنگ بزن یدک‌کش بیاد دنبال ماشینم</button>
     <button id="gm-go" type="button" class="gm-btn">برو به تعمیرگاه (با ماشین یا پیاده)</button>
     <button id="gm-route" type="button" class="gm-btn">مسیر تعمیرگاه را روی نقشه نشان بده</button>
+    <p>رنگ‌کاری ماشین (۱٫۵ میلیون تومان، ماشین باید جلوی تعمیرگاه باشه):</p>
+    <div id="gm-paint"></div>
     <p id="gm-msg" style="color:var(--amber)"></p>
     <button id="gm-close" type="button" class="gm-btn">بستن</button>
   </div>

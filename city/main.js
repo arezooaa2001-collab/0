@@ -5995,6 +5995,8 @@ const PH_IC = {
   flappy: ['#4ec0ca', '<ellipse cx="11" cy="12.5" rx="6.4" ry="5" fill="#f8d43a"/><circle cx="14" cy="10.5" r="2" fill="#fff"/><circle cx="14.6" cy="10.5" r=".9" fill="#111"/><path d="M16.6 12.6l3.4.9-3.3 1.2z" fill="#f2701e"/><ellipse cx="8.4" cy="13.2" rx="2.6" ry="1.6" fill="#fff8d0"/>'],
   breakout: ['#26214a', '<g fill="#ff5a7a"><rect x="3" y="4" width="5" height="2.5" rx=".6"/><rect x="9.5" y="4" width="5" height="2.5" rx=".6"/><rect x="16" y="4" width="5" height="2.5" rx=".6"/></g><g fill="#ffb340"><rect x="6" y="7.8" width="5" height="2.5" rx=".6"/><rect x="12.5" y="7.8" width="5" height="2.5" rx=".6"/></g><circle cx="12" cy="14.5" r="1.5" fill="#fff"/><rect x="7.5" y="18.5" width="9" height="2" rx="1" fill="#7fd0ff"/>'],
   dooz: ['#2b2f6b', '<path d="M9 4v16M15 4v16M4 9h16M4 15h16" stroke="#cdd3ff" stroke-width="1.6"/><path d="M5.2 5.2l2.6 2.6M7.8 5.2l-2.6 2.6" stroke="#ff6a6a" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="none" stroke="#7fd0ff" stroke-width="1.8"/>'],
+  safarino: ['#ff6a00', '<path d="M5 15l1.6-5.2A2 2 0 0 1 8.5 8.4h7a2 2 0 0 1 1.9 1.4L19 15v3.5h-2V17H7v1.5H5z" fill="#fff"/><circle cx="8" cy="14.6" r="1.2" fill="#ff6a00"/><circle cx="16" cy="14.6" r="1.2" fill="#ff6a00"/><path d="M8 11.6h8" stroke="#ff6a00" stroke-width="1.4"/>'],
+  gram: ['linear-gradient(45deg,#f9a03a,#e1306c 55%,#833ab4)', '<rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="3.8" fill="none" stroke="#fff" stroke-width="2"/><circle cx="16.6" cy="7.4" r="1.2" fill="#fff"/>'],
   mines: ['#5a6472', '<circle cx="12" cy="13" r="5.5" fill="#111"/><path d="M12 4.5v3M12 18.5v3M3.5 13h3M17.5 13h3M6 7l2 2M16 17l2 2M18 7l-2 2M6 19l2-2" stroke="#111" stroke-width="1.8"/><circle cx="10" cy="11" r="1.4" fill="#fff"/>']
 };
 const PH_APPS = {
@@ -6241,6 +6243,7 @@ function phStatus(force) {
 /* ---------- every frame ---------- */
 function phoneTick(dt) {
   for (const id in phone.dl) phDlTick(id, dt);
+  rideTick(dt); gramTick(dt);
   if (phone.ring) phRingTick(dt); else if (phOwned().length) { phone.callT = (phone.callT ?? 300 + Math.random() * 300) - dt; if (phone.callT <= 0) { phone.callT = 420 + Math.random() * 600; phRingStart(); } }
   if (phone.alarmAt && Date.now() >= phone.alarmAt) { phone.alarmAt = 0; if (phone.open && !phone.off) phNote('⏰ تایمر تموم شد!'); else toast('⏰ تایمر گوشی تموم شد!'); for (let k = 0; k < 8; k++) Audio.tone(k % 2 ? 1760 : 1320, k * 0.2, 0.15, 0.05, 'square'); }
   for (const k in store.phones || {}) { const s = store.phones[k]; if (!(phone.open && phone.k === k && !phone.off)) s.bat = clamp(s.bat + (phCharging() ? 0.06 : -0.0008) * dt, 0, 100); }
@@ -6917,6 +6920,8 @@ const PH_STORE = {
   breakout: { n: 'آجرشکن', dev: 'استودیو شهر آزاد', kind: 'game', size: 14, rate: '۴٫۳', dls: '۱۰ هزار+', desc: 'با راکت توپ رو برگردون و همهٔ آجرها رو بشکن.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }, { v: '1.1', d: 'مرحله‌های بیشتر: هر بار که همهٔ آجرها رو بشکنی، مرحلهٔ بعد سخت‌تر میاد.' }] },
   dooz: { n: 'دوز', dev: 'استودیو شهر آزاد', kind: 'game', size: 4, rate: '۴٫۰', dls: '۵ هزار+', desc: 'دوز (ایکس او) در برابر گوشی. گوشی هیچ‌وقت اشتباه نمی‌کنه!', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
   mines: { n: 'مین‌روب', dev: 'استودیو شهر آزاد', kind: 'game', size: 5, rate: '۴٫۲', dls: '۲۰ هزار+', desc: 'خونه‌ها رو باز کن ولی رو مین نزن. نگه داشتن انگشت = پرچم.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
+  safarino: { n: 'سفرینو', dev: 'سفرینو', kind: 'app', size: 48, rate: '۴٫۵', dls: '۱۰ میلیون+', desc: 'درخواست خودرو: مقصد رو انتخاب کن، یه راننده با ماشین زرد میاد دنبالت و می‌رسونت. کرایه با کارت پرداخت می‌شه.', vers: [{ v: '3.2', d: 'نسخهٔ فعلی' }] },
+  gram: { n: 'شهرگرام', dev: 'شهرگرام', kind: 'app', size: 62, rate: '۴٫۳', dls: '۵۰ میلیون+', desc: 'عکس‌هایی که با دوربین گوشی گرفتی رو پست کن؛ آدم‌های شهر لایک می‌کنن، نظر می‌دن و دنبالت می‌کنن.', vers: [{ v: '1.0', d: 'نسخهٔ اول' }] },
   wiki: { n: 'ویکی‌پدیا', dev: 'Wikimedia Foundation', kind: 'app', size: 28, rate: '۴٫۷', dls: '۵۰ میلیون+', desc: 'دانشنامهٔ آزاد. نسخهٔ واقعی fa.wikipedia.org را باز می‌کند.', vers: [{ v: '2.7', d: 'نسخهٔ فعلی' }] }
 };
 function phDlKey(id) { return phone.k + ':' + id; }
@@ -7359,6 +7364,186 @@ const PH_GAMES = {
   }
 };
 
+/* ---------- Safarino: order a ride on the phone; a real car with a driver comes to you and drives you there ---------- */
+const ride = { phase: null, car: null, dest: null, fare: 0, t: 0, re: 0, last: null };
+const rideFare = d => Math.round((25000 + d * 450) / 1000) * 1000;
+function rideSpot(minD, maxD) {
+  const P = player;
+  for (let tries = 0; tries < 400; tries++) {
+    const i = Math.floor(Math.random() * (N + 1)), j = Math.floor(Math.random() * (N + 1)), d = Math.floor(Math.random() * 4), pi = i - DIRS[d][0], pj = j - DIRS[d][1];
+    if (!inGrid(pi, pj)) continue;
+    const E = exitPt(pi, pj, d), A = approachPt(i, j, d), x = (E.x + A.x) / 2, z = (E.z + A.z) / 2, dist = Math.hypot(x - P.pos.x, z - P.pos.z);
+    if (dist < minD || dist > maxD || cars.some(c => Math.hypot(c.x - x, c.z - z) < 12)) continue;
+    return { i, j, d, x, z, h: Math.atan2(DIRS[d][0], DIRS[d][1]) };
+  }
+  return null;
+}
+function rideOrder(dest) {
+  const P = player;
+  if (ride.phase) return 'یه سفر فعال داری.';
+  if (P.where !== 'out' || P.state !== 'foot') return 'برای درخواست سفر باید پیاده و توی شهر باشی.';
+  const fare = rideFare(Math.hypot(dest.x - P.pos.x, dest.z - P.pos.z));
+  if (store.money < fare) return 'موجودی کارتت برای این سفر کافی نیست.';
+  const s = rideSpot(90, 260) || rideSpot(40, 400); if (!s) return 'الان راننده‌ای در دسترس نیست، دوباره امتحان کن.';
+  let c = ride.car;
+  const usable = c && cars.includes(c) && !c.player && c.health > 0 && c.driverP && !c.driverP.isPlayer && !c.passengerP;
+  if (!usable) {
+    c = new Car('sedan', 0xf2c12e, s.x, s.z, s.h, { ai: { i: s.i, j: s.j, d: s.d }, taxi: true }); cars.push(c);
+    const dr = staffFor('rideDriver' + Math.floor(Math.random() * 4), 'رانندهٔ سفرینو', 'با سفرینو مسافر جابه‌جا می‌کنم؛ همه‌جای شهر رو بلدم.'); c.setDriver(dr); c.owner = dr;
+    c.plate = fa(10 + Math.floor(Math.random() * 89)) + ' ' + mpick(['ب', 'د', 'ج', 'س', 'ط', 'ق', 'ل', 'م', 'ن', 'و', 'ه', 'ی']) + ' ' + fa(100 + Math.floor(Math.random() * 899)) + ' · ایران ' + fa(10 + Math.floor(Math.random() * 89));
+  } else if (Math.hypot(c.x - P.pos.x, c.z - P.pos.z) > 300) { c.x = s.x; c.z = s.z; c.h = s.h; c.vx = c.vz = c.vf = 0; c.av = 0; c.sync(0); }
+  if (!c.ai) c.ai = new CarAI(c, s.i, s.j, s.d);
+  c.ride = true; c.hasDriver = true; c.inHand = false; c.ai.cruise = 12; c.ai.setDest(P.pos.x, P.pos.z);
+  Object.assign(ride, { phase: 'come', car: c, dest, fare, t: 0, re: 0, tx: P.pos.x, tz: P.pos.z, last: null, sx: P.pos.x, sz: P.pos.z });
+  Audio.tone(988, 0, 0.1, 0.04); Audio.tone(1318, 0.12, 0.14, 0.04);
+  logEvent('یکی با سفرینو ماشین گرفت.');
+  return null;
+}
+function rideCancel(why) {
+  const c = ride.car; if (c && cars.includes(c)) { c.ride = false; if (c.ai && !c.player) { c.inHand = false; c.ai.clearDest(); } }
+  ride.phase = null; if (why) { if (phone.open) phNote(why); else toast(why); }
+}
+function boardRide() {
+  const P = player, c = ride.car; P.state = 'passenger'; P.car = c; P.inCar = c; c.passengerP = P; P.anim.special = 'passenger'; P.anim.sw = 0; P.vel.set(0, 0, 0); Audio.door();
+  ride.phase = 'ride'; ride.t = 0; ride.sx = c.x; ride.sz = c.z; c.inHand = false; c.ai.cruise = 13; c.ai.setDest(ride.dest.x, ride.dest.z);
+  say(c.driverP, mpick([`سلام! به سمت «${ride.dest.name}»، درسته؟`, 'سلام، خوش اومدید! کمربندتون رو ببندید.', 'بفرمایید! آهنگ بذارم براتون؟']), 3);
+  if (phone.open && phone.app !== 'safarino') phoneClose(true);
+}
+function leaveRide() {
+  const P = player, c = ride.car, t = c.T, s = Math.sin(c.h), co = Math.cos(c.h), lz = (t.cab[0] + t.cab[1]) / 2;
+  c.passengerP = null; P.inCar = null; P.state = 'foot'; P.car = null; P.anim.special = null;
+  P.pos.set(c.x - co * (t.wid / 2 + 0.7) + s * lz, 0, c.z + s * (t.wid / 2 + 0.7) + co * lz); P.pos.y = groundH(P.pos.x, P.pos.z); P.facing = c.h - Math.PI / 2; Audio.door();
+  // the fare: the whole price at the destination, the part you rode if you get out early
+  const total = Math.max(1, Math.hypot(ride.dest.x - ride.sx, ride.dest.z - ride.sz)), left = Math.hypot(ride.dest.x - c.x, ride.dest.z - c.z), done = left < 40 || ride.phase === 'arrived';
+  const pay = done ? ride.fare : Math.max(25000, Math.round(ride.fare * clamp(1 - left / total, 0.3, 1) / 1000) * 1000);
+  store.money -= pay; updateWalletHUD(); Audio.beepPay(1);
+  say(c.driverP, done ? mpick(['به سلامت! پنج ستاره یادت نره!', 'رسیدیم! روز خوبی داشته باشید.', 'خوشحال شدم، خدانگهدار!']) : 'باشه، همین‌جا پیاده شید. به سلامت!', 3);
+  setTimeout(() => phoneSms('سفرینو', `سفر به «${ride.last ? ride.last.dest : ''}» تموم شد. کرایه: ${fmtT(pay)} از کارت کم شد.\nمانده: ${fmtT(store.money)}`), 1200);
+  ride.last = { dest: ride.dest.name, pay, driver: c.driverP ? c.driverP.persona.name : '', rated: 0 }; store.stats.rides = (store.stats.rides || 0) + 1;
+  c.ride = false; c.inHand = false; if (c.ai) c.ai.clearDest(); ride.phase = null; saveGame();
+}
+function rideTick(dt) {
+  if (!ride.phase) return; const c = ride.car, P = player; ride.t += dt;
+  if (!c || !cars.includes(c) || c.player || !c.driverP || c.driverP.isPlayer || c.health <= 0) { if (P.car === c && P.state === 'passenger') { c.passengerP = null; P.state = 'foot'; P.car = null; P.inCar = null; P.anim.special = null; } rideCancel('سفر لغو شد؛ راننده دیگه در دسترس نیست.'); return; }
+  if (ride.phase === 'come' || ride.phase === 'wait') {
+    const d = Math.hypot(c.x - P.pos.x, c.z - P.pos.z);
+    if (P.where !== 'out' && ride.t > 200) { rideCancel('راننده خیلی منتظر موند و سفر لغو شد.'); return; }
+    ride.re += dt;
+    if (ride.re > 5) { ride.re = 0; if (P.where === 'out' && Math.hypot(ride.tx - P.pos.x, ride.tz - P.pos.z) > 20) { ride.tx = P.pos.x; ride.tz = P.pos.z; ride.phase = 'come'; c.inHand = false; c.ai.setDest(P.pos.x, P.pos.z); } }
+    if (ride.phase === 'come') {
+      if ((c.ai.arrived && Math.abs(c.vf) < 1) || (d < 14 && Math.abs(c.vf) < 1.2 && ride.t > 3)) { ride.phase = 'wait'; ride.t = 0; c.ai.arrived = true; Audio.horn(true); setTimeout(() => Audio.horn(false), 250); say(c.driverP, 'سفرینو! منتظرتونم.', 3); const m = `راننده رسید! ماشین زرد، پلاک ${c.plate}`; if (phone.open) phNote(m); else toast('🚕 ' + m); }
+      else if (ride.t > 120 && d > 40) { const s = rideSpot(25, 70); if (s) { c.x = s.x; c.z = s.z; c.h = s.h; c.vx = c.vz = c.vf = 0; c.sync(0); c.ai.setDest(P.pos.x, P.pos.z); ride.t = 60; } }
+    } else { c.ai.arrived = true; if (ride.t > 180) rideCancel('راننده منتظر موند و رفت. سفر لغو شد.'); }
+  } else if (ride.phase === 'ride') {
+    const d = Math.hypot(c.x - ride.dest.x, c.z - ride.dest.z);
+    if ((c.ai.arrived && Math.abs(c.vf) < 1) || (d < 18 && Math.abs(c.vf) < 0.8)) { ride.phase = 'arrived'; ride.t = 0; c.ai.arrived = true; say(c.driverP, `رسیدیم «${ride.dest.name}»! بفرمایید.`, 3); }
+    else if (Math.hypot(c.vx, c.vz) < 0.5) { ride.stuck = (ride.stuck || 0) + dt; if (ride.stuck > 25) { ride.stuck = 0; c.ai.resetFromPos(); c.ai.setDest(ride.dest.x, ride.dest.z); } } else ride.stuck = 0;
+  } else if (ride.phase === 'arrived') { c.ai.arrived = true; if (ride.t > 5 && P.car === c) leaveRide(); }
+}
+PH_RUN.safarino = box => {
+  box.classList.add('sfr'); let pick = null, q = '';
+  box.innerHTML = `<canvas class="sfr-map"></canvas><div class="sfr-card"></div>`;
+  const cv = box.querySelector('canvas'), g = cv.getContext('2d'), card = box.querySelector('.sfr-card');
+  const draw = () => {
+    const r = cv.getBoundingClientRect(), k = phone.scale || 1, W = Math.round(r.width / k * 2), H = Math.round(r.height / k * 2); if (W < 10 || H < 10) return;
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    g.fillStyle = '#eef0ec'; g.fillRect(0, 0, W, H); if (!mapBase || player.where !== 'out') return;
+    const P = player.state === 'passenger' || player.state === 'car' ? player.car : player.pos, s = 1024 / MAPW, z = 2.4, X = v => (v + MAPW / 2) * s;
+    g.save(); g.translate(W / 2, H / 2); g.scale(z, z); g.translate(-X(P.x), -X(P.z)); g.drawImage(mapBase, 0, 0);
+    const dst = ride.phase ? ride.dest : pick; if (dst) { g.strokeStyle = '#ff6a00'; g.lineWidth = 3; g.setLineDash([6, 4]); g.beginPath(); g.moveTo(X(P.x), X(P.z)); g.lineTo(X(dst.x), X(dst.z)); g.stroke(); g.setLineDash([]); g.fillStyle = '#ff6a00'; g.beginPath(); g.arc(X(dst.x), X(dst.z), 6, 0, 7); g.fill(); }
+    if (ride.phase && ride.car) { const c = ride.car; g.save(); g.translate(X(c.x), X(c.z)); g.rotate(-c.h); g.fillStyle = '#f2c12e'; g.strokeStyle = '#333'; g.lineWidth = 1; g.fillRect(-4, -7, 8, 14); g.strokeRect(-4, -7, 8, 14); g.restore(); }
+    g.fillStyle = '#1a73e8'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X(P.x), X(P.z), 5, 0, 7); g.fill(); g.stroke(); g.restore();
+  };
+  const stars = n => [1, 2, 3, 4, 5].map(i => `<button type="button" data-star="${i}" class="${i <= n ? 'on' : ''}">★</button>`).join('');
+  const show = () => {
+    const P = player;
+    if (ride.phase) {
+      const c = ride.car, dn = Math.round(Math.hypot(c.x - P.pos.x, c.z - P.pos.z)), left = Math.round(Math.hypot(c.x - ride.dest.x, c.z - ride.dest.z));
+      const st = ride.phase === 'come' ? (ride.t < 2 ? 'در حال پیدا کردن راننده…' : `راننده تو راهه · ${fa(dn)} متر · حدود ${fa(Math.max(1, Math.round(dn / 9 / 60 * 10) / 10))} دقیقه`) : ride.phase === 'wait' ? 'راننده رسید و منتظرته! برو سوار شو' : ride.phase === 'ride' ? `در مسیر «${phEsc(ride.dest.name)}» · ${fa(left)} متر مانده` : 'رسیدی!';
+      card.innerHTML = `<b class="sfr-st">${st}</b><div class="sfr-drv"><span class="dial-av">${phEsc((c.driverP.persona.name || 'ر')[0])}</span><span><b>${phEsc(c.driverP.persona.name)}</b><small>سمند زرد · ${c.plate || ''}</small></span><span class="sfr-fare">${fmtT(ride.fare)}</span></div>
+        ${ride.phase === 'come' || ride.phase === 'wait' ? '<div class="ai-row"><button type="button" class="ph-pill ghost" data-a="call">📞 تماس با راننده</button><button type="button" class="ph-pill ghost" data-a="cancel" style="color:#d93025">لغو سفر</button></div>' : '<p class="sub">کرایه آخر سفر از کارتت کم می‌شه. اگه زودتر پیاده شی، فقط مسیری که رفتی حساب می‌شه.</p>'}`;
+      return;
+    }
+    if (ride.last && !ride.last.rated) { card.innerHTML = `<b class="sfr-st">سفر به «${phEsc(ride.last.dest)}» تموم شد</b><p>کرایه: ${fmtT(ride.last.pay)} · راننده: ${phEsc(ride.last.driver)}</p><p class="sub">به راننده امتیاز بده:</p><div class="sfr-stars">${stars(0)}</div>`; return; }
+    if (pick) { const d = Math.hypot(pick.x - P.pos.x, pick.z - P.pos.z); card.innerHTML = `<b class="sfr-st">${phEsc(pick.name)}</b><p>${fa(Math.round(d))} متر · کرایه حدودی <b>${fmtT(rideFare(d))}</b> · پرداخت با کارت</p><div class="ai-row"><button type="button" class="ph-pill sfr-go" data-a="order">درخواست سفرینو</button><button type="button" class="ph-pill ghost" data-a="back">عوض کردن مقصد</button></div><p class="sfr-err"></p>`; return; }
+    const L = places().filter(p => !q || p.name.includes(q) || p.keys.some(k => k.includes(norm(q)))).sort((a, b) => a.dist - b.dist).slice(0, 14);
+    card.innerHTML = `<b class="sfr-st">سلام! کجا می‌ری؟</b><input class="ph-in" type="search" placeholder="مقصد: پاساژ، پمپ بنزین، نانوایی…" dir="auto" value="${phEsc(q)}"><div class="sfr-list">${L.map((p, i) => `<button type="button" data-i="${i}"><b>${phEsc(p.name)}</b><small>${fa(Math.round(p.dist))} متر · ${fmtT(rideFare(p.dist))}</small></button>`).join('') || '<p class="ph-empty">پیدا نشد</p>'}</div>`;
+    card._L = L; const inp = card.querySelector('input'); inp.oninput = () => { q = inp.value.trim(); const pos = inp.selectionStart; show(); const n = card.querySelector('input'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) { } };
+  };
+  card.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return; Audio.tick();
+    if (b.dataset.i !== undefined) { pick = card._L[+b.dataset.i]; show(); return; }
+    if (b.dataset.star) { ride.last.rated = +b.dataset.star; phNote(`ممنون! به ${ride.last.driver} ${fa(b.dataset.star)} ستاره دادی`); show(); return; }
+    const a = b.dataset.a;
+    if (a === 'back') { pick = null; show(); }
+    else if (a === 'order') { if (!phOnline()) { card.querySelector('.sfr-err').textContent = 'اینترنت گوشی قطعه.'; return; } const err = rideOrder(pick); if (err) card.querySelector('.sfr-err').textContent = err; else { pick = null; show(); } }
+    else if (a === 'cancel') { rideCancel('سفر لغو شد.'); show(); }
+    else if (a === 'call') { phNote(`${ride.car.driverP.persona.name}: ${mpick(['الو؟ دارم میام، چند دقیقه دیگه می‌رسم!', 'سلام، تو ترافیکم، الان می‌رسم.', 'دم در هستید؟ من نزدیکم.'])}`); }
+  };
+  show(); let t = 0, k = '';
+  return { tick(dt) { t += dt; if (t > 0.15) { t = 0; draw(); const key = (ride.phase || '') + (ride.last && ride.last.rated) + Math.round(ride.t); if (key !== k && (ride.phase || k)) { k = key; if (!card.contains(document.activeElement)) show(); } } }, back() { if (pick) { pick = null; show(); return true; } return false; } };
+};
+/* ---------- Shahrgram: post your photos; people of the city like, comment and follow ---------- */
+const GRAM_NAMES = ['سارا', 'علی', 'مریم', 'رضا', 'نگار', 'امیر', 'زهرا', 'حسین', 'نازنین', 'پویا', 'مهسا', 'کیان', 'الهام', 'آرمان', 'فاطمه', 'بهراد', 'یاسمن', 'سینا', 'ترانه', 'میلاد'];
+const GRAM_CMTS = ['چه عکس قشنگی! 😍', 'عالیه 👏👏', 'دمت گرم 🔥', 'کجاست اینجا؟', 'منم می‌خوام برم اونجا!', 'چه نوری! 📸', 'با کدوم گوشی گرفتی؟', 'خیلی خوبه، ادامه بده 💪', 'عاشق این شهرم ❤️', 'وای چقدر قشنگه', 'عکاس حرفه‌ای شدی!', 'دلم تنگ شد برای اینجا', p => p.place ? `«${p.place}» رو عشقه ❤️` : 'محشره!', p => p.night ? 'شب‌های شهر یه چیز دیگه‌ست 🌙' : 'هوا چه خوبه!'];
+function gramState() { return store.gram || (store.gram = { posts: [], followers: 12 + Math.floor(Math.random() * 20), following: 40 + Math.floor(Math.random() * 30), log: [], unread: 0, bio: 'عاشق عکاسی تو شهر آزاد 📸' }); }
+function gramWho() { const met = Object.values(store.residents || {}).map(r => r.persona).filter(p => p && p.met > 0 && p.name).map(p => p.name); return mpick(met.length && Math.random() < 0.5 ? met : GRAM_NAMES); }
+function gramTick(dt) {
+  const G = store.gram; if (!G || !G.posts.length) return; let news = 0;
+  for (const p of G.posts) {
+    if (p.likes < p.tgt && Math.random() < dt * 0.7) { const n = Math.min(p.tgt - p.likes, 1 + Math.floor(Math.random() * 3)); p.likes += n; news += n; if (Math.random() < 0.1 * n) { G.followers++; G.log.unshift({ t: `${gramWho()} دنبالت کرد`, at: Date.now() }); } }
+    if (p.cmts.length < p.ctgt && Math.random() < dt * 0.04) { const c = mpick(GRAM_CMTS), who = gramWho(), t = typeof c === 'function' ? c(p) : c; p.cmts.push({ n: who, t }); G.log.unshift({ t: `${who} نوشت: ${t}`, at: Date.now() }); news++; }
+  }
+  if (news) { G.unread += news; G.log.length = Math.min(G.log.length, 40); }
+  G.noteT = (G.noteT || 0) - dt;
+  if (G.unread >= 3 && G.noteT <= 0) { G.noteT = 25; const m = `شهرگرام: ${fa(G.unread)} لایک و نظر جدید ❤️`; if (phone.open && !phone.off) { if (phone.app !== 'gram') phNote(m); } else if (phOwned().length) toast(m); }
+}
+PH_RUN.gram = box => {
+  const G = gramState(); let view = 'me', cur = null, pickId = null; box.classList.add('gram');
+  const head = `<div class="gram-top"><b>شهرگرام</b><button type="button" data-a="new" aria-label="پست جدید">＋</button><button type="button" data-a="act" aria-label="فعالیت">♡</button></div>`;
+  const ago = at => { const s = (Date.now() - at) / 1000; return s < 60 ? 'همین الان' : s < 3600 ? fa(Math.round(s / 60)) + ' دقیقه پیش' : s < 86400 ? fa(Math.round(s / 3600)) + ' ساعت پیش' : fa(Math.round(s / 86400)) + ' روز پیش'; };
+  const render = () => {
+    const name = phKeys.name || 'من';
+    if (view === 'me') { box.innerHTML = head + `<div class="gram-body"><div class="gram-prof"><span class="gram-av">${phEsc(name[0])}</span><div class="gram-stats"><span><b>${fa(G.posts.length)}</b>پست</span><span><b>${fa(G.followers)}</b>دنبال‌کننده</span><span><b>${fa(G.following)}</b>دنبال‌شونده</span></div></div><p class="gram-name"><b>${phEsc(name)}</b><br>${phEsc(G.bio)}</p>
+      <div class="gram-grid">${G.posts.map((p, i) => `<button type="button" data-p="${i}" style="background-image:url(${p.thumb})"></button>`).join('') || '<p class="ph-empty" style="grid-column:1/-1">هنوز پستی نذاشتی. با دکمهٔ ＋ یکی از عکس‌هات رو بذار!</p>'}</div></div>`; return; }
+    if (view === 'post') { const p = G.posts[cur]; box.innerHTML = head + `<div class="gram-body"><div class="gram-ph"><span class="gram-av s">${phEsc(name[0])}</span><b>${phEsc(name)}</b><small>${phEsc(p.place || '')}</small></div><img class="gram-img" src="${p.thumb}" alt=""><div class="gram-likes">♥ ${fa(p.likes)} لایک</div>${p.cap ? `<p class="gram-cap"><b>${phEsc(name)}</b> ${phEsc(p.cap)}</p>` : ''}
+      <div class="gram-cmts">${p.cmts.map(c => `<p><b>${phEsc(c.n)}</b> ${phEsc(c.t)}</p>`).join('') || '<p class="sub">هنوز نظری نیست</p>'}</div><small class="gram-ago">${ago(p.at)}</small><button type="button" class="ph-pill ghost wide" data-a="del">حذف پست</button></div>`; PDB.get(p.img).then(m => { const im = box.querySelector('.gram-img'); if (m && im) { const u = URL.createObjectURL(m.blob); im.src = u; im.onload = () => URL.revokeObjectURL(u); } }); return; }
+    if (view === 'act') { G.unread = 0; box.innerHTML = head + `<div class="gram-body"><h3 class="gram-h">فعالیت</h3>${G.log.map(l => `<p class="gram-log">${phEsc(l.t)} <small>${ago(l.at)}</small></p>`).join('') || '<p class="ph-empty">خبری نیست</p>'}</div>`; return; }
+    if (view === 'new') { box.innerHTML = head + `<div class="gram-body"><h3 class="gram-h">پست جدید</h3><div class="gram-pick"></div>${pickId ? `<textarea class="gram-ta" dir="auto" placeholder="یه کپشن بنویس…"></textarea><button type="button" class="ph-pill wide" data-a="share">اشتراک‌گذاری</button>` : '<p class="sub">یه عکس از گالریت انتخاب کن:</p>'}</div>`;
+      PDB.list(phone.k).then(l => { const ph = l.filter(m => m.kind === 'photo'); const el = box.querySelector('.gram-pick'); if (!el) return; el.innerHTML = ph.length ? ph.slice(0, 24).map(m => `<button type="button" data-img="${m.id}" class="${m.id === pickId ? 'on' : ''}" style="background-image:url(${m.thumb})"></button>`).join('') : '<p class="ph-empty">گالریت خالیه. اول با دوربین عکس بگیر!</p>'; el._l = ph; }); }
+  };
+  box.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return; Audio.tick();
+    if (b.dataset.p !== undefined) { cur = +b.dataset.p; view = 'post'; render(); return; }
+    if (b.dataset.img) { pickId = b.dataset.img; render(); return; }
+    const a = b.dataset.a;
+    if (a === 'new') { pickId = null; view = 'new'; render(); } else if (a === 'act') { view = 'act'; render(); }
+    else if (a === 'del') { G.posts.splice(cur, 1); view = 'me'; render(); saveGame(); }
+    else if (a === 'share') {
+      if (!phOnline()) { phNote('اینترنت گوشی قطعه', 1); return; }
+      const m = await PDB.get(pickId); if (!m) return; const cap = (box.querySelector('.gram-ta').value || '').trim().slice(0, 300);
+      const q = PHONES[m.k] ? PHONES[m.k].q : 0.5, tgt = Math.round((G.followers * 0.35 + 6) * (0.5 + Math.random() * 1.1) * (0.7 + q * 0.6) * (m.night ? 1.15 : 1) * (cap ? 1.1 : 1));
+      G.posts.unshift({ id: 'g' + Date.now().toString(36), img: m.id, thumb: m.thumb, cap, at: Date.now(), likes: 0, tgt, cmts: [], ctgt: 1 + Math.floor(Math.random() * 3 + G.followers / 90), place: m.place || '', night: !!m.night });
+      G.following += Math.random() < 0.3 ? 1 : 0; view = 'me'; render(); phNote('پستت منتشر شد! 🎉'); saveGame();
+    }
+  };
+  render();
+  return { tick() { if (view === 'post') { const l = box.querySelector('.gram-likes'), p = G.posts[cur]; if (l && p && l.textContent !== `♥ ${fa(p.likes)} لایک`) render(); } }, back() { if (view !== 'me') { view = 'me'; render(); return true; } return false; } };
+};
+/* ---------- the garage paints your car ---------- */
+const PAINTS = [['قرمز آتشی', 0xd8102a], ['مشکی براق', 0x111214], ['سفید صدفی', 0xf2f2ee], ['نقره‌ای', 0xb8bec6], ['آبی کاربنی', 0x1f4fa8], ['سبز یشمی', 0x1f7a4a], ['زرد', 0xf2c12e], ['نارنجی', 0xf06a1a], ['بنفش', 0x6a2fb0], ['صورتی', 0xf06aa8], ['طوسی مات', 0x5a5f66], ['قهوه‌ای', 0x6a4226]];
+const PAINT_COST = 1500000;
+function paintCar(hex) {
+  const P = player, car = P.state === 'car' ? P.car : P.lastCar;
+  if (!car || car.isTow || car.service) return 'ماشینی نداری که رنگش کنیم.';
+  if (Math.hypot(car.x - garage.road.x, car.z - garage.road.z) > 45) return 'ماشینت رو بیار جلوی تعمیرگاه تا رنگش کنیم.';
+  if (store.money < PAINT_COST) return 'موجودی کافی نیست.';
+  store.money -= PAINT_COST; updateWalletHUD(); Audio.beepPay(1); car.paint.color.setHex(hex);
+  for (let k = 0; k < 40; k++) FX.emit(car.x + (Math.random() - 0.5) * 3, car.y + 0.6 + Math.random(), car.z + (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 0.6, 0.3, (Math.random() - 0.5) * 0.6, 1.2, 0.12, 0.6, hex, 0.5, 0.1);
+  logEvent('یکی ماشینش رو تو تعمیرگاه رنگ کرد.'); saveGame();
+  return null;
+}
+
 /* ============================================================
    Audio (synthesised)
    ============================================================ */
@@ -7558,6 +7743,8 @@ $('bag-cap').addEventListener('click', () => { store.capOff = !store.capOff; reb
 for (const ev of ['pointerdown', 'touchstart']) $('bag').addEventListener(ev, e => e.stopPropagation(), { passive: true });
 $('btn-garage').addEventListener('click', () => { $('garage-menu').hidden = false; $('gm-status').textContent = garageStatus(); $('gm-msg').textContent = ''; });
 $('gm-close').addEventListener('click', () => { $('garage-menu').hidden = true; });
+$('gm-paint').innerHTML = PAINTS.map(([n, c]) => `<button type="button" title="${n}" data-c="${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
+$('gm-paint').addEventListener('click', e => { const c = e.target.closest('button')?.dataset.c; if (!c) return; const m = paintCar(+c); $('gm-msg').textContent = m || `ماشینت رنگ شد! (${fmtT(PAINT_COST)})`; });
 $('gm-route').addEventListener('click', () => { $('gm-msg').textContent = goGarage('route'); });
 $('gm-go').addEventListener('click', () => { const m = goGarage('go'); if (m) $('gm-msg').textContent = m; else $('garage-menu').hidden = true; });
 $('gm-tow').addEventListener('click', () => { $('gm-msg').textContent = callTow(); });
@@ -7578,7 +7765,7 @@ $('rbg-route').addEventListener('click', () => { $('rb-go').hidden = true; setWa
 $('rbg-go').addEventListener('click', () => {
   $('rb-go').hidden = true; const P = player;
   if (P.where === 'in') { toast('اول از ساختمان بیرون بیا'); return; } if (P.where === 'test') leaveTest();
-  if (P.state === 'fly') leaveFlyerForce(); if (P.state === 'passenger') { if (P.car === bus) leaveBus(); else leaveTow(); }
+  if (P.state === 'fly') leaveFlyerForce(); if (P.state === 'passenger') { if (P.car === bus) leaveBus(); else if (ride.phase && P.car === ride.car) leaveRide(); else leaveTow(); }
   if (P.state === 'car') { const c = P.car; c.x = rb.door.x + 6; c.z = rb.door.z + 12; c.h = Math.PI; c.vx = c.vz = 0; c.sync(0); }
   else { P.state = 'foot'; P.pos.set(rb.door.x, CURB, rb.door.z + 6); P.vel.set(0, 0, 0); P.facing = Math.PI; }
   cam.yaw = Math.PI; cam.target.set(P.pos.x, P.pos.y + 1.45, P.pos.z); banner('جلوی ساختمان رنگین‌کمان', 'برو داخل در بزرگ');
@@ -7992,7 +8179,7 @@ function snapshot() {
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, gram: store.gram, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
     cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
@@ -8007,7 +8194,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) 
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
   if (sv.shop) Object.assign(store, sv.shop);
-  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
+  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones', 'gram']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
   if (sv.player && sv.player.where === 'rb') resumeRB = true;
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
@@ -8143,6 +8330,11 @@ function updatePlayer(dt) {
         } else if (bus && bus.phase === 'stop' && bus.doorsOpen && Math.hypot(busDoorPos(bus)[0] - P.pos.x, busDoorPos(bus)[1] - P.pos.z) < 2.6) {
           promptTxt = `${key}سوار اتوبوس خط ۱ شو (بلیت ${fmtT(10000)})`; actLabel = 'سوار شو';
           if (input.actQ) { input.actQ = false; boardBus(); }
+        } else if (car && car.ride && ride.car === car && (ride.phase === 'wait' || (ride.phase === 'come' && Math.abs(car.vf) < 1.5))) {
+          promptTxt = `${key}سوار سفرینو شو (به «${ride.dest.name}» · ${fmtT(ride.fare)})`; actLabel = 'سوار شو';
+          if (input.actQ) { input.actQ = false; boardRide(); }
+        } else if (car && car.ride) {
+          promptTxt = 'این ماشین سفرینوئه و مسافر داره';
         } else if (car && car.service) {
           promptTxt = car.service === 'bus' ? 'اتوبوس فقط در ایستگاه، از درِ کنار پیاده‌رو سوار می‌کند' : 'آمبولانس اورژانس — کاری باهاش نداشته باش!';
         } else if (car && car.isTow && car.driverP && !car.player) {
@@ -8184,6 +8376,11 @@ function updatePlayer(dt) {
     setPrompt(t.phase === 'stop' ? `ایستگاه ${streetAt(t.x, t.z)} — ${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو` : `اتوبوس خط ۱ · ایستگاه بعد: ${t.nextName || ''} · وقتی ایستاد پیاده شو`, 'پیاده شو');
     if (input.ejectQ) { input.ejectQ = false; say(t.driverP, 'آقا! رانندهٔ اتوبوس رو که نمی‌شه انداخت پایین!', 2.5); }
     else if (input.actQ) { input.actQ = false; if (t.phase === 'stop') leaveBus(); else setPrompt('صبر کن اتوبوس به ایستگاه برسه', 'پیاده شو', 1.2); }
+  } else if (P.state === 'passenger' && ride.phase && P.car === ride.car) {
+    const t = P.car; P.pos.set(t.x, t.y + 0.6, t.z); const left = Math.round(Math.hypot(t.x - ride.dest.x, t.z - ride.dest.z));
+    setPrompt(ride.phase === 'arrived' ? `رسیدی «${ride.dest.name}» · ${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو` : `سفرینو به «${ride.dest.name}» · ${fa(left)} متر مانده · ${touchUI ? '«پیاده شو»' : '<b>E</b>'} همین‌جا پیاده شو`, 'پیاده شو');
+    if (input.ejectQ) { input.ejectQ = false; say(t.driverP, 'آقا چیکار می‌کنی؟! من رانندهٔ سفرینوام!', 2.5); }
+    else if (input.actQ) { input.actQ = false; if (Math.abs(t.vf) < 2) leaveRide(); else setPrompt('صبر کن ماشین وایسه', 'پیاده شو', 1.2); }
   } else if (P.state === 'passenger') {
     const t = P.car; P.pos.set(t.x, t.y + 0.6, t.z);
     setPrompt(`${touchUI ? '«پیاده شو»' : '<b>E</b>'} پیاده شو · ${touchUI ? '«بنداز پایین»' : '<b>G</b>'} راننده رو بنداز پایین و خودت برون!`, 'پیاده شو');
@@ -8893,7 +9090,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); phoneTick(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
