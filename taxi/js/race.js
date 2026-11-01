@@ -247,6 +247,7 @@ export class Race {
     this.off = -LANE * 0.5;
     this.stuckT = 0;
     this.idleT = 0;
+    if (g.guide && g.guide.custom) g.clearGuide();
     this.prevGuide = g.guideOn;
     const st = this.pointAt(6);
     const h = Math.atan2(st.dx, st.dz);

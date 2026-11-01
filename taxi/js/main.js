@@ -357,8 +357,9 @@ class Game {
     s.xp = (s.xp || 0) + Math.max(0, Math.round(n));
     const lv = levelFor(s.xp);
     if (lv > (s.level || 1)) {
+      let reward = 0;
+      for (let l = (s.level || 1) + 1; l <= lv; l++) reward += l * 5;
       s.level = lv;
-      const reward = lv * 5;
       this.coins += reward;
       this.audio.tone(523, 0.15, 0.15, 'triangle');
       this.audio.tone(659, 0.15, 0.15, 'triangle', 0.12);
@@ -505,12 +506,21 @@ class Game {
 
   /* ---------------- guidance ---------------- */
   setGuide(g) {
+    if (this.guide && this.guide.custom && !g.custom) this.dropCustomGuide();
     this.guide = g;
     this.routeT = 0;
   }
   clearGuide() {
+    if (this.guide && this.guide.custom) this.dropCustomGuide();
     this.guide = null;
     this.route = [];
+  }
+  /** a map waypoint forced the arrow on; put the player's own setting back */
+  dropCustomGuide() {
+    if (this.guidePrev === undefined) return;
+    this.guideOn = this.guidePrev;
+    this.guidePrev = undefined;
+    document.getElementById('btnGuide').classList.toggle('active', this.guideOn);
   }
   toggleGuide() {
     this.guideOn = !this.guideOn;
@@ -617,9 +627,9 @@ class Game {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
     // stranded: roadside help beats every pad except a pump or a garage that can fix it right here
-    const pad = zone && (zone.kind === 'gas' || zone.kind === 'garage');
-    if (!pad && p.fuelTotal() <= 0.01) zone = { kind: 'fuelHelp' };
-    else if (!pad && p.health <= 0) zone = { kind: 'tow' };
+    // a pump fixes an empty tank and a garage fixes a wreck; anything else needs roadside help
+    if (zone?.kind !== 'gas' && p.fuelTotal() <= 0.01) zone = { kind: 'fuelHelp' };
+    else if (zone?.kind !== 'garage' && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
       const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';

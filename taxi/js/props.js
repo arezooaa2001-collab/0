@@ -107,6 +107,7 @@ export class Props {
   }
   kick(it, vx, vz, sp) {
     const g = this.g;
+    const fresh = it.state === 'rest'; // only a standing prop counts as a new smash
     it.state = 'fly';
     it.vx = vx * (1.15 + Math.random() * 0.3) + (Math.random() - 0.5) * 3;
     it.vz = vz * (1.15 + Math.random() * 0.3) + (Math.random() - 0.5) * 3;
@@ -115,6 +116,10 @@ export class Props {
     it.wz = (Math.random() - 0.5) * sp * 0.8;
     it.wy = (Math.random() - 0.5) * sp * 0.4;
     it.t = 0;
+    if (!fresh) {
+      g.audio.burst(0.06, 900, 'lowpass', 0.3);
+      return;
+    }
     const s = g.stats;
     s.smashed = (s.smashed || 0) + 1;
     g.addXp && g.addXp(2);
@@ -222,7 +227,9 @@ export class Props {
       const d = Math.hypot(p.pos.x - gz.x, p.pos.z - gz.z);
       near = Math.max(near, k * Math.max(0, 1 - d / 40));
       // driving through the jet throws the car into the air!
-      if (driving && k > 0.5 && d < 1.8 && !p.air && Math.abs(p.speed) < 22) {
+      if (driving && k > 0.5 && d < 1.8 && !p.air && !gz.launched && Math.abs(p.speed) < 22) {
+        gz.launched = true; // one ride per geyser
+        p.geyserLaunch = true; // not a stunt jump: no prize money for it
         p.air = true;
         p.vy = 7.5;
         p.airT = 0;

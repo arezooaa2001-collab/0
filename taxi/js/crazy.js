@@ -61,6 +61,7 @@ export class Crazy {
     this.earned = 0;
     this.count = 0;
     this.spawnT = 0;
+    if (g.guide && g.guide.custom) g.clearGuide();
     this.prevGuide = g.guideOn;
     g.guideOn = true;
     $('crazyHud').classList.remove('hidden');

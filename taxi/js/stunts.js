@@ -85,7 +85,9 @@ export class Stunts {
     if (p.landed) {
       const L = p.landed;
       p.landed = null;
-      if (driving && L.airT > 0.5) {
+      const free = p.geyserLaunch;
+      p.geyserLaunch = false;
+      if (driving && L.airT > 0.5 && !free) {
         const pts = Math.round(L.airT * 100 + L.height * 25);
         const cash = pts * 150;
         g.money += cash;

@@ -179,7 +179,14 @@ export class Rides {
       if (r.follow && !r.follow.done) return this.updateFollow(dt);
       const d = Math.hypot(car.pos.x - r.o.dest.x, car.pos.z - r.o.dest.z);
       if (r.o.kind === 'robber') {
-        const hot = g.police.state === 'chase' || g.police.state === 'dispatch';
+        // police busy with a fender-bender? the robbery gets reported as soon as they're free
+        if (!r.reported && g.police.state === 'none') this.reportRobbery();
+        else if (!r.reported && (g.police.state === 'dispatch' || g.police.state === 'chase')) {
+          // already wanted for something else: the robbery joins the same chase
+          r.reported = true;
+          g.police.robbery = true;
+        }
+        const hot = g.police.state === 'chase' || g.police.state === 'dispatch' || !r.reported;
         if (hot) r.wasHot = true;
         else if (r.wasHot && !r.freeSaid) {
           r.freeSaid = true;
@@ -219,9 +226,10 @@ export class Rides {
         this.say('دیر شد! گفتم که عجله دارم!');
       }
       if (r.follow && sp < 1.6) {
-        // "stop right here": anywhere is fine once the tail is over
-        r.o.dest.x = car.pos.x;
-        r.o.dest.z = car.pos.z;
+        // "stop right here": anywhere is fine once the tail is over; walk away from the door side
+        const dp = this.doorWorld(r.door || 'rr', 1.4);
+        const nl = Math.hypot(dp.x - car.pos.x, dp.z - car.pos.z) || 1;
+        Object.assign(r.o.dest, { x: car.pos.x, z: car.pos.z, nx: (dp.x - car.pos.x) / nl, nz: (dp.z - car.pos.z) / nl });
         this.startAlight();
       } else if (d < 13 && sp < 1.6) this.startAlight();
     } else if (this.state === 'alighting') {
@@ -302,8 +310,7 @@ export class Rides {
     }
     if (r.o.kind === 'robber') {
       r.chatT = 14;
-      g.police.report(600000, '🚨 یه دزد بانک سوار تاکسی تو شده! پلیس داره میاد!');
-      if (g.police.state === 'dispatch') g.police.robbery = true;
+      this.reportRobbery();
     }
     this.beacon.userData.beamMat.color.setHex(0x34e07a);
     this.beacon.userData.ringMat.color.setHex(0x34e07a);
@@ -359,7 +366,9 @@ export class Rides {
     if (r.follow) stars = r.follow.lost > 8 ? Math.min(stars, 2) : r.follow.spotted ? Math.min(stars, 4) : stars;
     stars = clamp(Math.round(stars), 1, 5);
     let fare = r.o.fare;
-    if (r.follow && r.follow.lost > 8) fare *= 0.35;
+    const failed = r.follow && r.follow.lost > 8;
+    // a lost tail only pays a small call-out fee for the time spent following
+    if (failed) fare = Math.min(r.o.fare * 0.5 * clamp(r.follow.t / r.follow.need, 0, 1), 60000);
     else if (r.follow && r.follow.spotted) fare *= 0.8;
     if (stars <= 1) fare *= 0.6;
     if (r.o.vip && r.t > r.o.expected) {
@@ -370,11 +379,11 @@ export class Rides {
     const total = Math.round(fare / 1000) * 1000 + tip;
     g.money += total;
     g.stats.trips++;
-    g.stats.completed = (g.stats.completed || 0) + 1;
+    if (!failed) g.stats.completed = (g.stats.completed || 0) + 1;
     g.stats.earned += total;
     g.stats.ratingSum += stars;
     if (stars === 5) g.stats.fiveStars = (g.stats.fiveStars || 0) + 1;
-    g.addXp(30 + stars * 10 + (r.o.vip ? 40 : 0) + (r.o.kind ? 80 : 0));
+    g.addXp(failed ? 10 : 30 + stars * 10 + (r.o.vip ? 40 : 0) + (r.o.kind ? 80 : 0));
     if (g.env && g.env.night > 0.5) g.stats.nightRides = (g.stats.nightRides || 0) + 1;
     if (g.weather && g.weather.rain > 0.3) g.stats.rainRides = (g.stats.rainRides || 0) + 1;
     g.player.occupied = false;
@@ -436,6 +445,15 @@ export class Rides {
     this.state = 'idle';
     this.cooldown = 45;
     return { walker: r.walker, door: r.door || 'rr', o: r.o };
+  }
+  reportRobbery() {
+    const g = this.game, r = this.ride;
+    if (!r || g.police.state !== 'none') return;
+    g.police.report(600000, '🚨 یه دزد بانک سوار تاکسی تو شده! پلیس داره میاد!');
+    if (g.police.state === 'dispatch') {
+      g.police.robbery = true;
+      r.reported = true;
+    }
   }
   /** point the arrow at whatever this ride needs next (used after a race borrowed it) */
   restoreGuide() {

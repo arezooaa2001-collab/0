@@ -444,6 +444,9 @@ export class PlayerCar {
       if (rise > 0.5 + 0.45 * Math.hypot(vx, vz) * dt) {
         this.pos.x -= vx * dt;
         this.pos.z -= vz * dt;
+        // turning alone can swing the axle samples onto the ramp: undo the turn as well
+        this.heading = h0;
+        this.yawRate = 0;
         const imp = Math.hypot(vx, vz);
         this.speed *= -0.2;
         this.ext.set(0, 0);
@@ -611,7 +614,11 @@ export class PlayerCar {
         this.vy = climb;
         this.airT = 0;
         this.airMax = 0;
-      } else if (groundY > this.y) this.y = groundY;
+      } else if (groundY > this.y) {
+        // climb with the car, but never pop up a wall in a single frame
+        const moved = Math.hypot(p.x - (this.syncX ?? p.x), p.z - (this.syncZ ?? p.z));
+        this.y = Math.min(groundY, this.y + 0.6 + 0.6 * moved);
+      }
       else this.y += (groundY - this.y) * k;
     }
     if (!this.air) {
@@ -625,6 +632,8 @@ export class PlayerCar {
     }
     let shake = 0;
     if (this.offroad) shake = Math.sin(performance.now() * 0.05) * Math.min(1, Math.abs(this.speed) / 20) * 0.012;
+    this.syncX = p.x;
+    this.syncZ = p.z;
     this.group.position.set(p.x, this.y + shake, p.z);
     this.group.rotation.set(this.pitch + this.bodyPitch, this.heading, this.roll + this.bodyRoll);
     this.p = p;
