@@ -988,6 +988,8 @@ const Game = {
     if (this.race || this.arm || this.photo || this.build || !w.canAct() || this.player.anchor) return null;
     if (w.pickups && w.pickups.nearChest(this.player.ch.root.position)) return { label: '🎁 صندوق گنج رو باز کن', run: () => this.openChest() };
     if (w === this.gym) {
+      const bossHit = this.bossAction();
+      if (bossHit) return bossHit;
       if (w.nearTower() && w.tower.state === 'idle') return { label: '🔨 تست قدرت', run: () => this.strengthTest() };
       if (w.nearArm()) return { label: '💪 مچ‌اندازی', run: () => this.openArm() };
       if (w.nearPortal()) {
@@ -1275,6 +1277,9 @@ const Game = {
       if (this.mode === 'menu') this.world.cam.yaw += dt * 0.12;
       this.tickPowers(dt);
       this.tickMorph(dt);
+      this.tickBoss(dt);
+      this.tickGold(dt);
+      this.tickWeather(dt);
       if (this.arm) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());

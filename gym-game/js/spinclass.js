@@ -456,7 +456,7 @@ Object.assign(Game, {
     const panel = $('spinPanel');
     const w = this.gym;
     const S = w && w.spin;
-    const show = !!(S && this.world === w && this.mode === 'play' && !this.build && (S.state !== 'idle' || this.spinInClass()));
+    const show = !!(S && this.world === w && this.mode === 'play' && !this.build && !w.boss && (S.state !== 'idle' || this.spinInClass()));
     const was = !panel.hidden;
     panel.hidden = !show;
     $('hud').classList.toggle('spin-on', show);

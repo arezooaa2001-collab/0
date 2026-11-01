@@ -988,3 +988,22 @@ kbd {
 .jump-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #173a8c; }
 .hud.arm-on .jump-btn, .hud.build-on .jump-btn { display: none !important; }
 @media (max-width: 720px) { .jump-btn { left: calc(max(14px, var(--safe-l)) + 128px); width: 54px; height: 54px; font-size: 22px; bottom: calc(var(--safe-b) + 24px); } }
+.boss-panel { border-color: rgba(123, 201, 111, 0.7); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(123, 201, 111, 0.35); }
+.boss-panel .spin-head { color: #c8f5bf; }
+.boss-fill { background: linear-gradient(90deg, #e63946, #ff7b00, #7bc96f); }
+.gold-list li { padding: 4px 0; }
+.gold-list li.open { color: #ffe09a; }
+.gold-list { grid-template-columns: 1fr; }
+
+/* phones: five powers in two rows, jump button above the joystick, nothing under the moves panel */
+@media (max-width: 720px) {
+  .powers { flex-wrap: wrap-reverse; width: 150px; bottom: calc(var(--safe-b) + 212px); }
+  .jump-btn { left: max(14px, var(--safe-l)); bottom: calc(var(--safe-b) + 150px); }
+  .ctx-btn { bottom: calc(var(--safe-b) + 318px); }
+}
+/* short landscape screens: the top panels stay narrow and left of the moves panel */
+@media (max-height: 480px) and (orientation: landscape) {
+  .spin-panel { left: 40%; width: 250px; min-width: 0; padding: 6px 10px; gap: 4px; }
+  .spin-panel .spin-info { display: none; }
+  .spin-head { font-size: 15px; }
+}

@@ -156,8 +156,8 @@ Object.assign(Game, {
     if (f) {
       if (!f.userData) f.userData = {};
       if (f.userData.near == null) { f.userData.near = f.near; f.userData.far = f.far; }
-      f.near = f.userData.near * this.fogScale;
-      f.far = f.userData.far * this.fogScale;
+      f.near = f.userData.near * this.fogScale * (f.userData.wx || 1);
+      f.far = f.userData.far * this.fogScale * (f.userData.wx || 1);
     }
     const on = !!this.shadowSize;
     if (!w.sun) w.scene.traverse((o) => { if (!w.sun && o.isDirectionalLight) w.sun = o; });

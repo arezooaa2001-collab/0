@@ -83,6 +83,11 @@
       <div class="energy-bar"><div id="energyFill" class="energy-fill"></div><span id="energyText" class="energy-text"></span></div>
       <div id="runInfo" class="spin-info"></div>
     </div>
+    <div id="bossPanel" class="spin-panel boss-panel" hidden>
+      <b id="bossHead" class="spin-head"></b>
+      <div class="energy-bar boss-bar"><div id="bossFill" class="energy-fill boss-fill"></div><span id="bossHp" class="energy-text"></span></div>
+      <div class="spin-info">کنارش برو و «👊 مشت» بزن (کلید E). قدرت‌ها هم بهش آسیب می‌زنن. حلقه‌ی قرمز یعنی داره می‌پره: تو هم بپر!</div>
+    </div>
     <div id="spinPanel" class="spin-panel" hidden>
       <div class="spin-top"><b id="spinHead" class="spin-head"></b><button id="spinCancel" class="spin-x" type="button">✕ لغو کلاس</button></div>
       <div id="spinInfo" class="spin-info"></div>
@@ -275,6 +280,15 @@
     </div>
   </div>
 
+  <div id="goldModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="goldModal" aria-label="بستن">✕</button>
+      <h2>🏆 دمبل‌های طلایی</h2>
+      <p id="goldHead" class="muted"></p>
+      <ul id="goldList" class="unlock-list gold-list"></ul>
+    </div>
+  </div>
+
   <!-- ===== My level ===== -->
   <div id="levelsModal" class="modal" hidden>
     <div class="card small-card">
@@ -317,6 +331,7 @@
         <li>🏁 تالار انرژی و دو (از در بزرگ دیوار شرقی باشگاه): ته تالار دروازه‌ی پیست یک‌میلیون متریه. تا ۳ نفر دعوت کن، خودت بدو و با 🚀 توربو یا ☄️ خیلی توربو تندتر برو؛ ولی انرژی بیشتری می‌خوره. انرژی تموم بشه غش می‌کنی و مسابقه تموم می‌شه. سطح انرژی رو با زبانه‌ی «⚡ انرژی» بالا ببر.</li>
         <li>🌀 زمین حرکات ویژه (از نقشه): روی زمین شطرنجی برو تا «پرش چرخشی هوایی» باز بشه؛ زورش رو خودت انتخاب می‌کنی (تقلبی حساب می‌شه).</li>
         <li>📉 از منو می‌تونی هر چند سطح بخوای از خودت کم کنی یا همه‌ی زور تقلبی رو یک‌جا پاک کنی.</li>
+        <li>🐉 غول باشگاه: کنارش «👊 مشت» بزن (کلید E)، با قدرت‌ها بکوبش و وقتی می‌پره تو هم بپر. 🏆 ۱۲ دمبل طلایی هم یه جاهایی قایم شدن؛ راهنماش توی منوئه.</li>
         <li>🚲 کلاس اسپینینگ (بال غربی): تنهایی نمی‌شه! باید هر ۱۲ دوچرخه پر باشه. کنار هر ورزشکار برو و «🙋 دعوت» رو بزن؛ قبول می‌کنه و میاد می‌شینه. وقتی ۱۱ نفر نشستن، خودت روی دوچرخه‌ی خالی بشین. مربی هر چند ثانیه یه حرکت جدید می‌کنه (نشسته، ایستاده، اسپرینت، دست‌ها بالا، شنا روی فرمون)؛ همون رو بزن تا زور بیشتری بگیری و حرکت رو یاد بگیری.</li>
       </ul>
       <h3>👑 هدف بازی: مسیر قهرمانی</h3>
@@ -410,6 +425,8 @@
         <button class="menu-btn" type="button" data-menu="music">🎵 موسیقی: <span id="musicState">خاموش</span></button>
         <button class="menu-btn" type="button" data-menu="watch">📺 دوربین‌های زنده</button>
         <button class="menu-btn" type="button" data-menu="photo">📸 حالت عکس</button>
+        <button class="menu-btn hot" type="button" data-menu="boss">🐉 احضار غول باشگاه</button>
+        <button class="menu-btn hot" type="button" data-menu="gold">🏆 دمبل‌های طلایی</button>
         <button class="menu-btn" type="button" data-menu="levels">📉 سطح من و پاک کردن زور تقلبی</button>
         <button class="menu-btn" type="button" data-menu="settings">⚙️ تنظیمات</button>
         <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
@@ -681,5 +698,8 @@
 <script src="js/tricks.js"></script>
 <script src="js/runtrack.js"></script>
 <script src="js/morph.js"></script>
+<script src="js/boss.js"></script>
+<script src="js/collect.js"></script>
+<script src="js/weather.js"></script>
 </body>
 </html>

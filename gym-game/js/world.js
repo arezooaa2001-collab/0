@@ -447,6 +447,8 @@ class WorldBase {
         if (f.t > 0) ch.play(f.anim || 'fanclap');
         else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
       }
+    } else if (n.state === 'boss') {
+      [dirX, dirZ, speed] = this.bossNpc(n, dt);
     } else if (n.state === 'race') {
       [dirX, dirZ, speed] = this.raceNpc(n, dt);
     } else if (n.state === 'class') {

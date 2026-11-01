@@ -507,6 +507,8 @@ Object.assign(Game, {
     else if (a === 'watch') this.openWatch(this.worldKey(this.world) || 'gym');
     else if (a === 'settings') this.openSettings();
     else if (a === 'levels') this.openLevels();
+    else if (a === 'boss') this.spawnBoss(true);
+    else if (a === 'gold') this.openGold();
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }
     else if (a === 'music') {
       this.save.music = !this.save.music;
