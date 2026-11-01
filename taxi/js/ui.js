@@ -870,8 +870,12 @@ export class UI {
           b.onclick = () => {
             const id = b.dataset.car, m = CAR_MODELS[id];
             const r = g.rides;
-            if (r.ride && r.state !== 'toPickup') {
+            if ((r.ride && r.state !== 'toPickup') || g.crazy.ride) {
               this.toast('مسافر توی ماشینه! اول سفر رو تموم کن', 'warn');
+              return;
+            }
+            if (g.race.state !== 'idle' || g.crazy.state !== 'idle') {
+              this.toast('وسط مسابقه که نمیشه ماشین عوض کرد! 😅', 'warn');
               return;
             }
             if (p.burning) return;

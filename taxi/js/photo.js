@@ -75,6 +75,7 @@ export class Photo {
     g.audio.setWater(0);
     g.audio.setRain(0);
     g.audio.setWind(0, false);
+    g.audio.setHeli(0);
     g.ui.toggleBigMap(false);
     g.audio.siren(false);
     document.body.classList.add('photomode');

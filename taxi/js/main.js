@@ -281,6 +281,7 @@ class Game {
       this.audio.setSkid(0);
       this.audio.setWater(0);
       this.audio.setWind(0, false);
+      this.audio.setHeli(0);
     } else if (!on && this.state === 'pause') {
       this.state = 'play';
       if (this.ui.panelOpen) {
@@ -303,6 +304,7 @@ class Game {
     this.audio.setSkid(0);
     this.audio.setWater(0);
     this.audio.setWind(0, false);
+    this.audio.setHeli(0);
     this.audio.setEngine(0, 0, false);
     this.fade(0, 0.8);
   }
