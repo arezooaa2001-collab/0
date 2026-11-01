@@ -29,6 +29,7 @@
       <div id="guideArrow"><svg viewBox="0 0 40 40"><path d="M20 3 L35 24 H26 V37 H14 V24 H5 Z" fill="#35e07c" stroke="#0a3" stroke-width="2"/></svg></div>
       <div class="gtext"><b id="guideTitle"></b><span id="guideDist"></span></div>
     </div>
+    <div id="crazyHud" class="hidden"></div>
     <div id="status" class="hidden"></div>
     <div id="toasts"></div>
   </div>
@@ -39,7 +40,7 @@
     <div class="meter fuel"><span>⛽</span><div class="track"><i id="fuelBar"></i><i id="superBar" class="super"></i></div><em id="fuelText"></em></div>
     <div class="meter health"><span>🔧</span><div class="track"><i id="healthBar"></i></div></div>
     <div class="pill small" id="infoPill"><span id="clock">۰۸:۰۰</span>·روز <b id="day">۱</b>·<span id="stars">★ ۵</span>·<span id="lvl" title="سطح راننده">🎖️۱</span><i id="xpBar"></i></div>
-    <div id="wanted" class="hidden">🚨 تحت تعقیب پلیس
+    <div id="wanted" class="hidden">🚨 تحت تعقیب پلیس <span id="wantedStars">⭐</span>
       <div class="wrow"><small>دستگیری</small><div class="wbar"><i id="arrestBar"></i></div></div>
       <div class="wrow"><small>فرار</small><div class="wbar esc"><i id="escapeBar"></i></div></div>
     </div>
@@ -122,7 +123,7 @@
 </div>
 
 <div id="panel" class="hidden"></div>
-<div id="bigmap" class="hidden"><canvas id="bigmapCanvas" width="1024" height="1024"></canvas><span class="close">✕</span><span class="maphint">📍 روی نقشه بزن تا مقصد دلخواه بذاری • 🏁 مسابقه • 🚀 پارک پرش</span></div>
+<div id="bigmap" class="hidden"><canvas id="bigmapCanvas" width="1024" height="1024"></canvas><span class="close">✕</span><span class="maphint">📍 روی نقشه بزن تا مقصد دلخواه بذاری • 🏁 مسابقه • 🔥 تاکسی دیوانه • 🚀 پارک پرش</span></div>
 
 <div id="jail" class="hidden">
   <div class="jt">🔒 زندان</div>

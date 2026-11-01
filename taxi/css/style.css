@@ -459,3 +459,24 @@ body.photomode #hud, body.photomode #panel, body.photomode .achpop, body.photomo
 #xpBar { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: linear-gradient(90deg, #b04dff, #ff2bd6); transition: width .4s; }
 #lvl { color: #e0b3ff; font-weight: 800; }
 #offer.special { border: 2px solid #b04dff; box-shadow: 0 0 30px rgba(176,77,255,.45), 0 20px 60px rgba(0,0,0,.6); }
+
+/* near misses */
+.nearpop { position: fixed; top: 58%; transform: translateX(-50%); font-size: 18px; font-weight: 900; color: #7df9ff; text-shadow: 0 2px 0 #000, 0 0 14px rgba(0,229,255,.8); z-index: 44; pointer-events: none; white-space: nowrap; animation: nearpop 1.3s ease-out forwards; }
+@keyframes nearpop { 0% { opacity: 0; transform: translateX(-50%) scale(.6); } 15% { opacity: 1; transform: translateX(-50%) scale(1.15); } 100% { opacity: 0; transform: translateX(-50%) translateY(-70px) scale(1); } }
+body.photomode .nearpop { display: none; }
+
+/* crazy taxi */
+#crazyHud { display: flex; gap: 10px; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(255,90,0,.88), rgba(200,20,60,.88)); border: 2px solid #ffd21a; border-radius: 16px; padding: 5px 14px; font-weight: 800; color: #fff; direction: rtl; box-shadow: 0 0 24px rgba(255,100,0,.55); margin-top: 4px; }
+#crazyHud b { font-size: 24px; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
+#crazyHud span { font-size: 13px; }
+#crazyHud .rt { background: rgba(0,0,0,.3); border-radius: 8px; padding: 2px 8px; }
+#crazyHud .rt.warn { background: #b00020; animation: czpulse .6s infinite alternate; }
+#crazyHud.low b { color: #ffe066; animation: czpulse .5s infinite alternate; }
+@keyframes czpulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+@media (max-height: 480px) { #crazyHud b { font-size: 18px; } #crazyHud { padding: 3px 10px; } }
+
+/* daily challenges */
+.daily { background: linear-gradient(135deg, rgba(60,30,120,.55), rgba(20,60,110,.55)); border: 1px solid rgba(176,77,255,.6); border-radius: 14px; padding: 8px 10px; margin-bottom: 10px; }
+.daily h3, h3.achh { margin: 2px 0 8px; font-size: 15px; }
+.daily h3 small { font-weight: 400; opacity: .7; font-size: 11px; }
+.daily .note { margin: 6px 0 0; }

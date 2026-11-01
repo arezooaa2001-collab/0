@@ -150,8 +150,20 @@ export class Police {
     this.light.intensity = 0;
     this.game.audio.siren(false);
   }
+  /** wanted level grows the longer a chase lasts */
+  get stars() {
+    if (this.state !== 'chase') return 0;
+    const t = this.chaseT || 0;
+    return t > 55 ? 3 : t > 25 ? 2 : 1;
+  }
   chase(dt) {
     const g = this.game, pl = g.focus(), u = this.unit, w = g.world;
+    this.chaseT = (this.chaseT || 0) + dt;
+    const stars = this.stars;
+    if (stars !== this.shownStars) {
+      if (this.shownStars && stars > this.shownStars) g.ui.toast(stars >= 3 ? '⭐⭐⭐ اوضاع خیلی خطریه! هلی‌کوپتر هم داره میاد! 🚁' : '⭐⭐ پلیس‌ها جدی‌تر شدن! سریع‌تر میان!', 'bad');
+      this.shownStars = stars;
+    }
     const dx = pl.pos.x - u.pos.x, dz = pl.pos.z - u.pos.z;
     const d = Math.hypot(dx, dz);
     this.repath -= dt;
@@ -174,7 +186,7 @@ export class Police {
       u.speed = damp(u.speed, -6, 3, dt);
       u.heading -= clamp(err * 2, -1, 1) * dt;
     } else {
-      let target = d > 55 ? 46 : Math.max(9, Math.abs(pl.speed) + 7);
+      let target = (d > 55 ? 46 : Math.max(9, Math.abs(pl.speed) + 7)) * (1 + (stars - 1) * 0.12);
       if (Math.abs(err) > 1.1) target = Math.min(target, 10);
       u.speed += clamp(target - u.speed, -10 * dt, 7.5 * dt);
       const maxRate = Math.abs(u.speed) / 5 + 0.5;
@@ -222,15 +234,18 @@ export class Police {
     const car = g.player;
     if ((d < (pl.onFoot ? 6 : 9) && sp < (pl.onFoot ? 5 : 2.5)) || (!pl.onFoot && (car.health <= 0 || car.fuelTotal() <= 0) && d < 60)) this.arrestT += dt;
     else this.arrestT = Math.max(0, this.arrestT - dt * 0.5);
-    if (d > 420) this.escapeT += dt;
+    // the helicopter keeps an eye on you: escaping takes twice as long
+    if (d > 420) this.escapeT += dt * (g.heli && g.heli.state === 'on' ? 0.5 : 1);
     else this.escapeT = Math.max(0, this.escapeT - dt * 2);
-    g.ui.setWanted(true, this.arrestT / 1.6, this.escapeT / 15);
+    g.ui.setWanted(true, this.arrestT / 1.6, this.escapeT / 15, stars);
     if (this.arrestT > 1.6) this.startArrest();
     else if (this.escapeT > 15) {
       this.despawnUnit();
       this.state = 'none';
+      this.robbery = false;
       g.ui.setWanted(false);
       g.ui.toast('🎉 پلیس رو گم کردی! ولی حواست باشه...', 'good');
+      if (stars >= 3) g.stats.heliEscapes = (g.stats.heliEscapes || 0) + 1;
       g.stats.escapes = (g.stats.escapes || 0) + 1;
     }
   }
@@ -273,6 +288,8 @@ export class Police {
         if (this.inc) this.walkBack();
         this.spawnUnit();
         this.state = 'chase';
+        this.chaseT = this.robbery ? 26 : 0;
+        this.shownStars = 0;
         g.ui.toast('🚨 پلیس دنبالته! یا فرار کن یا وایسا تسلیم شو', 'bad');
       }
       return;
@@ -409,6 +426,7 @@ export class Police {
     const paid = Math.min(g.money, this.fine);
     g.money -= paid;
     this.state = 'none';
+    this.robbery = false;
     return paid;
   }
 }

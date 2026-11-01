@@ -125,7 +125,7 @@ export class Race {
   /* ---------------- offer ---------------- */
   offer(spot) {
     const g = this.g, ui = g.ui, t = spot.track;
-    if (this.state !== 'idle') return;
+    if (this.state !== 'idle' || g.crazy.state !== 'idle') return;
     if (g.rides.ride) {
       ui.toast('اول سفر مسافرت رو تموم کن، بعد مسابقه بده! 🧳', 'warn');
       return;
@@ -150,7 +150,7 @@ export class Race {
       <div class="btnrow"><button data-a="go">قبوله! بزن بریم 🔥</button><button data-a="no" class="ghost">بی‌خیال</button></div></div>`, (el) => {
       el.querySelector('[data-a=go]').onclick = () => {
         // things may have changed while the panel was open
-        if (this.state !== 'idle' || g.rides.ride || g.police.state !== 'none' || g.state !== 'play' || g.onfoot.active || g.onfoot.busy || g.player.burning) {
+        if (this.state !== 'idle' || g.crazy.state !== 'idle' || g.rides.ride || g.police.state !== 'none' || g.state !== 'play' || g.onfoot.active || g.onfoot.busy || g.player.burning) {
           ui.closePanel();
           ui.toast(g.rides.ride ? 'اول سفر مسافرت رو تموم کن، بعد مسابقه بده! 🧳' : 'الان نمی‌شه مسابقه داد', 'warn');
           return;
@@ -335,6 +335,8 @@ export class Race {
       if (!s.raceTracks.includes(t.id)) s.raceTracks.push(t.id);
       g.audio.cash();
       g.stunts.banner(`🏆 بردی! +${faMoney(t.prize)} تومان • 🪙 ${fa(t.coins)}`);
+      const f = this.cps[this.cps.length - 1];
+      g.fireworks.show(f.x, f.z, 9);
       g.ui.say(this.rivalName, pick(['باورم نمیشه! دفعه بعد جبران می‌کنم 😤', 'دمت گرم، خوب روندی! 👏', 'شانسی بردی! یه دور دیگه؟ 😠']), { mood: 'grumpy' });
     } else {
       g.audio.bad();

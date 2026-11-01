@@ -517,6 +517,9 @@ export class UI {
       for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
       if (race.rival && race.rival.active) icon(race.rival.pos.x, race.rival.pos.z, '#b04dff', 8);
     }
+    const cz = g.crazy;
+    if (cz.state === 'idle' && race.state === 'idle') icon(cz.spot.padX, cz.spot.padZ, '#ff6a00', 11, '🔥');
+    for (const c of cz.waiting) icon(c.at.x, c.at.z, c.col === 'g' ? '#39e07a' : c.col === 'y' ? '#ffd23a' : '#ff4040', 8, '🧍');
     for (const c2 of g.traffic.cars) if (c2.active && c2.state === 'incident') icon(c2.pos.x, c2.pos.z, '#ff4040', 6);
     icon(w.stuntPark.x, w.stuntPark.z, '#e65100', 10, '🚀');
     if (g.police.unit.active) icon(g.police.unit.pos.x, g.police.unit.pos.z, Math.floor(performance.now() / 200) % 2 ? '#ff3030' : '#3060ff', 9);
@@ -609,6 +612,7 @@ export class UI {
     for (const s of w.garages) dot(s.padX, s.padZ, '#d68910', '🔧');
     dot(w.police.padX, w.police.padZ, '#1f4fa0', '🚓');
     for (const s of g.race.spots) dot(s.padX, s.padZ, '#8e24aa', '🏁');
+    dot(g.crazy.spot.padX, g.crazy.spot.padZ, '#ff6a00', '🔥');
     {
       const sp = w.stuntPark;
       dot(sp.x, sp.z, '#e65100', '🚀', 10);
@@ -708,9 +712,13 @@ export class UI {
   hideIncident() {
     $('incident').classList.add('hidden');
   }
-  setWanted(on, a = 0, e = 0) {
+  setWanted(on, a = 0, e = 0, stars = 1) {
     $('wanted').classList.toggle('hidden', !on);
     if (on) {
+      if (stars !== this.starsShown) {
+        this.starsShown = stars;
+        $('wantedStars').textContent = '⭐'.repeat(Math.max(1, stars));
+      }
       $('arrestBar').style.width = clamp(a, 0, 1) * 100 + '%';
       $('escapeBar').style.width = clamp(e, 0, 1) * 100 + '%';
     }
@@ -986,14 +994,28 @@ export class UI {
     $('btnRadio').classList.toggle('active', !!g.radio);
     this.toast(g.radio ? STATION_NAME[g.radio] : '📻 رادیو خاموش', 'info');
   }
+  /** big reward popups are queued and shown one after another */
   achievement(icon, title, reward, head = '🏆 افتخار جدید!') {
+    (this.achQ = this.achQ || []).push({ icon, title, reward, head });
+    if (!this.achBusy) this.nextAch();
+  }
+  nextAch() {
+    const a = this.achQ.shift();
+    if (!a) {
+      this.achBusy = false;
+      return;
+    }
+    this.achBusy = true;
     const el = document.createElement('div');
     el.className = 'achpop';
-    el.style.top = `calc(18% + ${document.querySelectorAll('.achpop:not(.out)').length * 84}px)`;
-    el.innerHTML = `<span>${icon}</span><div><small>${head}</small><b>${title}</b><em>+${fa(reward)} سکه 🪙</em></div>`;
+    el.innerHTML = `<span>${a.icon}</span><div><small>${a.head}</small><b>${a.title}</b><em>+${fa(a.reward)} سکه 🪙</em></div>`;
     document.body.appendChild(el);
-    setTimeout(() => el.classList.add('out'), 3800);
-    setTimeout(() => el.remove(), 4500);
+    const k = this.achQ.length ? 0.6 : 1; // hurry up when more are waiting
+    setTimeout(() => el.classList.add('out'), 3200 * k);
+    setTimeout(() => {
+      el.remove();
+      this.nextAch();
+    }, 3800 * k);
   }
   openAchievements() {
     const g = this.g;
@@ -1002,6 +1024,8 @@ export class UI {
     const s = g.stats;
     this.panel(`<h2>🏆 افتخارات (${fa(n)} از ${fa(total)})</h2>
       <div class="statrow"><span>🎖️ سطح ${fa(levelFor(s.xp || 0))} • ${levelTitle(levelFor(s.xp || 0))}</span><span>🧳 ${fa(s.completed ?? s.trips)} سفر</span><span>🚀 ${fa(s.jumps || 0)} پرش</span><span>🌀 رکورد دریفت ${fa(Math.round(s.bestDrift || 0))}</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
+      ${g.ach.dailyHtml()}
+      <h3 class="achh">🏆 افتخارات</h3>
       <div class="achs">${g.ach.html()}</div>`);
   }
   openInventory() {

@@ -21,6 +21,9 @@ import { Race } from './race.js';
 import { Skids } from './skids.js';
 import { Photo } from './photo.js';
 import { Props } from './props.js';
+import { Fireworks } from './fireworks.js';
+import { Crazy } from './crazy.js';
+import { Heli } from './heli.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -134,6 +137,9 @@ class Game {
     this.skids = new Skids(this);
     this.photo = new Photo(this);
     this.props = new Props(this);
+    this.fireworks = new Fireworks(this);
+    this.crazy = new Crazy(this);
+    this.heli = new Heli(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -247,16 +253,21 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV4) {
+        this.stats.seenV4 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 🔥 تاکسی دیوانه (روی نقشه)، 😱 «نزدیک بود!»، 🎆 آتش‌بازی، 🚁 هلی‌کوپتر پلیس و 📅 چالش‌های روزانه!', 'info'), 8000);
+      }
       return;
     }
     this.stats.seenV3 = true;
+    this.stats.seenV4 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
       ['دنده دستیه! روی ۱ تا ۷ بزن؛ راننده خودش با دست دنده رو جا می‌زنه 👋', 7.5],
       ['با دکمه 🎥 برو داخل ماشین و از پشت شیشه رانندگی کن', 12],
       ['به‌زودی یه مسافر درخواست میده. آدرس رو می‌گه؛ اگه بلد نبودی 🧭 رو بزن', 16.5],
-      ['روی نقشه 🗺️ دنبال 🏁 مسابقه خیابونی و 🚀 پارک پرش بگرد! با ترمز دستی هم دریفت بزن 🌀', 22],
+      ['روی نقشه 🗺️ دنبال 🏁 مسابقه خیابونی، 🔥 تاکسی دیوانه و 🚀 پارک پرش بگرد! با ترمز دستی هم دریفت بزن 🌀', 22],
     ];
     for (const [t, d] of tips) setTimeout(() => this.ui.toast(t, 'info'), d * 1000);
   }
@@ -352,6 +363,8 @@ class Game {
       this.audio.tone(784, 0.15, 0.15, 'triangle', 0.24);
       this.audio.tone(1047, 0.4, 0.18, 'triangle', 0.36);
       this.ui.achievement('🎖️', `سطح ${fa(lv)}: «${levelTitle(lv)}»`, reward, '⬆️ سطح جدید!');
+      const p = this.player;
+      this.fireworks.show(p.pos.x + Math.sin(p.heading) * 170, p.pos.z + Math.cos(p.heading) * 170, 6);
       this.save();
     }
   }
@@ -558,6 +571,7 @@ class Game {
     else if (z.kind === 'garage') this.ui.openGarage(z);
     else if (z.kind === 'police') this.ui.openPolice();
     else if (z.kind === 'race') this.race.offer(z);
+    else if (z.kind === 'crazy') this.crazy.offer();
     else if (z.kind === 'fuelHelp') {
       const cost = 80000;
       this.topUp(cost);
@@ -596,7 +610,8 @@ class Game {
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
-    for (const s of [...w.stations, ...w.garages, w.police, ...(this.race.state === 'idle' ? this.race.spots : [])]) {
+    const free = this.race.state === 'idle' && this.crazy.state === 'idle';
+    for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot] : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
     // stranded: roadside help beats every pad except a pump or a garage that can fix it right here
@@ -605,7 +620,7 @@ class Game {
     else if (!pad && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
-      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
+      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
       this.ui.zone(txt);
       this.stopT = sp < 0.6 && !this.ui.controlsHeld() ? (this.stopT || 0) + dt : 0;
       if (this.stopT > 0.5 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {
@@ -779,6 +794,7 @@ class Game {
     for (const k in this.fx) this.fx[k].setScale(ph, 65);
     this.arson.setScale(ph, 65);
     if (this.props) this.props.water.setScale(ph, 65);
+    if (this.fireworks) this.fireworks.setScale(ph, 65);
   }
   frame() {
     const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1) * (this.state === 'play' ? this.slowmo || 1 : 1);
@@ -841,6 +857,8 @@ class Game {
     if (this.state === 'jail') return;
     this.arson.update(dt);
     this.race.update(dt);
+    this.crazy.update(dt);
+    this.heli.update(dt);
     if (st === 'play') {
       this.pickups.update(dt);
       this.props.update(dt);
@@ -853,6 +871,7 @@ class Game {
     if (st === 'play') this.updateZones(dt);
     this.updateGuide(dt);
     this.updateFx(dt);
+    this.fireworks.update(dt);
     const p = this.player;
     this.audio.setEngine(p.rpm, p.throttle, p.health > 0 && p.fuelTotal() > 0);
     this.audio.setWind((p.groundSpeed ?? Math.abs(p.speed)), p.offroad);

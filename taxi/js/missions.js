@@ -303,6 +303,7 @@ export class Rides {
     if (r.o.kind === 'robber') {
       r.chatT = 14;
       g.police.report(600000, '🚨 یه دزد بانک سوار تاکسی تو شده! پلیس داره میاد!');
+      if (g.police.state === 'dispatch') g.police.robbery = true;
     }
     this.beacon.userData.beamMat.color.setHex(0x34e07a);
     this.beacon.userData.ringMat.color.setHex(0x34e07a);

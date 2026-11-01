@@ -17,6 +17,9 @@ const LIST = [
   ['drift', '🌀', 'سلطان دریفت', 'یه دریفت ۸۰۰ امتیازی بزن', 25, (g) => [Math.round(g.stats.bestDrift || 0), 800]],
   ['race1', '🏁', 'قهرمان خیابون', 'یه مسابقه خیابونی رو ببر', 25, (g) => [g.stats.racesWon || 0, 1]],
   ['raceAll', '🏆', 'سلطان پیست', 'هر ۴ مسیر مسابقه رو ببر', 80, (g) => [(g.stats.raceTracks || []).length, 4]],
+  ['nearMiss', '😱', 'از بیخ گوشش!', '۲۵ بار با سرعت از بغل ماشین‌ها رد شو (نزدیک بود!)', 20, (g) => [g.stats.nearMiss || 0, 25]],
+  ['crazy', '🔥', 'راننده دیوونه', 'توی یه دور تاکسی دیوانه ۲۵۰ هزار تومن دربیار', 25, (g) => [Math.round((g.stats.crazyBest || 0) / 1000), 250]],
+  ['heli', '🚁', 'گریز از آسمون', 'وقتی هلی‌کوپتر پلیس دنبالته فرار کن', 40, (g) => [g.stats.heliEscapes || 0, 1]],
   ['smash', '💥', 'خراب‌کار شهر', '۳۰ تا مخروط، سطل آشغال یا شیر آتش‌نشانی رو بزن', 15, (g) => [g.stats.smashed || 0, 30]],
   ['nitro', '🔥', 'نیتروباز', '۲۰ ثانیه از نیترو استفاده کن', 10, (g) => [Math.floor(g.stats.nitroSec || 0), 20]],
   ['escape', '🏃', 'فراری', 'از دست پلیس فرار کن', 25, (g) => [g.stats.escapes || 0, 1]],
@@ -25,6 +28,24 @@ const LIST = [
   ['night', '🌙', 'شب‌کار', 'یه سفر رو شب تموم کن', 10, (g) => [g.stats.nightRides || 0, 1]],
   ['rain', '🌧️', 'رانندگی زیر بارون', 'یه سفر رو زیر بارون تموم کن', 15, (g) => [g.stats.rainRides || 0, 1]],
 ];
+
+/** daily challenges: id, icon, text, stat, goal, reward (coins) */
+const DAILY = [
+  ['rides', '🧳', '۳ تا مسافر برسون', 'completed', 3, 15],
+  ['drift', '🌀', '۱۵۰۰ امتیاز دریفت جمع کن', 'driftPts', 1500, 15],
+  ['jumps', '🚀', '۵ تا پرش بزن', 'jumps', 5, 15],
+  ['near', '😱', '۱۰ بار «نزدیک بود!» بگیر', 'nearMiss', 10, 15],
+  ['smash', '💥', '۱۵ تا مخروط و سطل و شیر آتش‌نشانی بزن', 'smashed', 15, 10],
+  ['km', '🛣️', '۱۵ کیلومتر رانندگی کن', 'km', 15, 15],
+  ['coins', '🪙', '۸ تا سکه از جاده جمع کن', 'coinsPicked', 8, 10],
+  ['race', '🏁', 'یه مسابقه خیابونی ببر', 'racesWon', 1, 25],
+  ['crazy', '🔥', 'یه دور تاکسی دیوانه بازی کن', 'crazyRuns', 1, 15],
+  ['five', '⭐', '۲ بار امتیاز ۵ ستاره بگیر', 'fiveStars', 2, 15],
+];
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
 
 export class Achievements {
   constructor(game) {
@@ -60,6 +81,7 @@ export class Achievements {
       s.regions.push(r);
       if (s.regions.length > 1) g.ui.toast(`🧭 منطقه جدید کشف شد!`, 'info');
     }
+    this.checkDaily();
     const done = this.done();
     for (const [id, icon, title, , reward, prog] of LIST) {
       if (done.includes(id)) continue;
@@ -74,6 +96,60 @@ export class Achievements {
         break; // one at a time; the next one pops a second later
       }
     }
+  }
+  /** pick (or keep) today's three challenges */
+  daily() {
+    const s = this.g.stats, key = today();
+    if (!s.daily || s.daily.date !== key || !Array.isArray(s.daily.list)) {
+      let h = 0;
+      for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      const pool = DAILY.slice(), list = [];
+      while (list.length < 3) {
+        h = (h * 1103515245 + 12345) >>> 0;
+        const [id, , , stat] = pool.splice(h % pool.length, 1)[0];
+        list.push({ id, base: s[stat] || 0, done: false });
+      }
+      s.daily = { date: key, list, bonus: false };
+    }
+    return s.daily;
+  }
+  dailyProgress(item) {
+    const d = DAILY.find((x) => x[0] === item.id);
+    const v = (this.g.stats[d[3]] || 0) - item.base;
+    return { def: d, v: Math.max(0, d[3] === 'km' ? Math.floor(v * 10) / 10 : Math.floor(v)), goal: d[4] };
+  }
+  checkDaily() {
+    const g = this.g, D = this.daily();
+    for (const it of D.list) {
+      if (it.done || !DAILY.find((x) => x[0] === it.id)) continue;
+      const { def, v, goal } = this.dailyProgress(it);
+      if (v >= goal) {
+        it.done = true;
+        g.coins += def[5];
+        g.addXp(def[5] * 3);
+        g.audio.cash();
+        g.ui.achievement(def[1], def[2], def[5], '📅 چالش روزانه انجام شد!');
+        g.save();
+        return;
+      }
+    }
+    if (!D.bonus && D.list.every((it) => it.done)) {
+      D.bonus = true;
+      g.coins += 30;
+      g.ui.achievement('🌟', 'هر سه چالش امروز رو زدی!', 30, '📅 جایزه ویژه روزانه');
+      g.fireworks.show(g.player.pos.x + Math.sin(g.player.heading) * 160, g.player.pos.z + Math.cos(g.player.heading) * 160, 6);
+      g.save();
+    }
+  }
+  dailyHtml() {
+    const D = this.daily();
+    return `<div class="daily"><h3>📅 چالش‌های امروز <small>(هر روز عوض میشن)</small></h3>${D.list.map((it) => {
+      if (!DAILY.find((x) => x[0] === it.id)) return '';
+      const { def, v, goal } = this.dailyProgress(it);
+      const k = Math.min(1, v / goal);
+      return `<div class="ach ${it.done ? 'ok' : ''}"><span class="ai">${def[1]}</span><div><b>${def[2]}</b><small>${fa(Math.min(v, goal))} از ${fa(goal)}</small>
+        <div class="ap"><i style="width:${k * 100}%"></i></div></div><span class="ar">${it.done ? '✅' : '🪙 ' + fa(def[5])}</span></div>`;
+    }).join('')}${D.bonus ? '<p class="note">🌟 هر سه رو زدی! فردا چالش‌های جدید میان.</p>' : '<p class="note">هر سه رو بزنی، ۳۰ سکه جایزه ویژه می‌گیری!</p>'}</div>`;
   }
   html() {
     const g = this.g, done = this.done();

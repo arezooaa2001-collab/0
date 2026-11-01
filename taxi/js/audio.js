@@ -70,6 +70,26 @@ export class AudioSys {
     this.skidGain.gain.value = 0;
     sk.connect(this.skidFilter).connect(this.skidGain).connect(this.master);
     sk.start();
+    // helicopter: low noise chopped by a fast LFO
+    const hs = ctx.createBufferSource();
+    hs.buffer = buf;
+    hs.loop = true;
+    const hf2 = ctx.createBiquadFilter();
+    hf2.type = 'lowpass';
+    hf2.frequency.value = 320;
+    const chop = ctx.createGain();
+    chop.gain.value = 0.5;
+    const lfo = ctx.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.value = 13;
+    const lfoG = ctx.createGain();
+    lfoG.gain.value = 0.5;
+    lfo.connect(lfoG).connect(chop.gain);
+    lfo.start();
+    this.heliGain = ctx.createGain();
+    this.heliGain.gain.value = 0;
+    hs.connect(hf2).connect(chop).connect(this.heliGain).connect(this.master);
+    hs.start(0, 1.1);
     // gushing water (broken hydrants)
     const wa = ctx.createBufferSource();
     wa.buffer = buf;
@@ -134,6 +154,10 @@ export class AudioSys {
     const t = this.ctx.currentTime;
     this.skidGain.gain.setTargetAtTime(Math.min(0.5, level) * 0.6, t, 0.06);
     this.skidFilter.frequency.setTargetAtTime(1500 + Math.sin(t * 13) * 180 + level * 300, t, 0.05);
+  }
+  setHeli(level) {
+    if (!this.ctx) return;
+    this.heliGain.gain.setTargetAtTime(Math.min(1, level) * 0.9, this.ctx.currentTime, 0.3);
   }
   setWater(level) {
     if (!this.ctx) return;
