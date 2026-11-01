@@ -229,6 +229,28 @@ body.hsedit-on #hsEdGuide,body.hsedit-on #hsEdInfo{z-index:5}
 #hsNoise{font-size:.75rem;font-weight:700;color:#ffe9ae;white-space:nowrap;padding:.12rem .55rem;border-radius:999px;border:1px solid rgba(255,220,150,.35);background:linear-gradient(90deg,rgba(232,72,58,calc(var(--n,0)*.85)),rgba(255,255,255,.07))}
 #sneakBtn.on{background:linear-gradient(140deg,#3d6b4f,#1f3a2a)!important;border-color:#9ed1b2!important}
 body.hsedit-on #hsAlarm,body.arcade-playing #hsAlarm{display:none!important}
+/* portrait phones: the bar used to become a huge oval that covered the screen */
+@media (max-width:640px){
+ #hsBar{border-radius:16px;flex-wrap:wrap;justify-content:center;width:max-content;max-width:94vw;padding:.3rem .4rem;gap:.3rem .35rem}
+ #hsBar #hsTxt{width:100%;text-align:center}
+ #hsBar #hsScore{width:100%;text-align:center;font-size:.68rem}
+ #hsBar button{padding:.16rem .5rem;font-size:.74rem}
+ #hsBar #hsBuilderBtn,#hsBar #hsSizeDuring{font-size:0!important;padding:.16rem .45rem}
+ #hsBar #hsBuilderBtn::before{content:"🧱";font-size:14px}
+ #hsBar #hsSizeDuring::before{content:"🏗️";font-size:14px}
+ #hsMission{left:8px!important;right:auto!important}
+}
+#hsCompass{background:linear-gradient(140deg,#2f5f73,#173341)!important;border-color:#8fd3ea!important;color:#e6f8ff!important}
+#hsCompass:disabled{opacity:.45}
+#hsBreath{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 120px);transform:translateX(-50%);z-index:9;width:min(330px,90vw);text-align:center;direction:rtl;background:rgba(30,8,8,.92);border:2px solid #ff7a5c;border-radius:18px;padding:12px 14px;color:#fff3e6;box-shadow:0 0 30px rgba(255,80,60,.5);animation:hsBreathIn .25s ease-out}
+#hsBreath b{display:block;font-size:1.05rem;color:#ffd0a8}#hsBreath span{display:block;font-size:.8rem;opacity:.9;margin:.2rem 0 .5rem}
+#hsBreathTrack,#hsBreathTime{height:10px;border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden;margin:.3rem 0}
+#hsBreathFill{display:block;height:100%;width:0;background:linear-gradient(90deg,#7ee0a6,#3fb873)}
+#hsBreathTime i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff5a3c,#ffb347)}
+#hsBreathBtn{margin-top:.5rem;width:100%;min-height:58px;font:800 1.1rem var(--body,inherit);border-radius:14px;border:2px solid #ffd0a8;background:linear-gradient(160deg,#c2412d,#7a1d12);color:#fff;touch-action:manipulation;cursor:pointer}
+#hsBreathBtn:active{transform:scale(.96)}
+@keyframes hsBreathIn{from{transform:translateX(-50%) scale(.7);opacity:0}}
+.hsstars{font-size:1.9rem;letter-spacing:.2rem;margin:.2rem 0!important}.hsrec{color:#ffe08a;font-weight:800}
 /* The single direct-size entry for the hide-and-seek hall. No render-context switch. */
 #hsSizeModal[hidden]{display:none!important}
 #hsSizeModal{position:fixed;inset:0;z-index:120;background:rgba(5,8,10,.76);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;direction:rtl;color:#ffedc9;font-family:var(--body)}
@@ -375,7 +397,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="fade"></div>
 <div id="altChip" class="chip ui" hidden></div>
 <div id="frBubble" hidden></div>
-<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
+<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsCompass" hidden aria-label="راهنمای گرم و سرد">🧭 گرم و سرد</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
 
 <div id="hsMission" hidden aria-live="polite"><b id="hsMissionTitle">🏆 چالش مخفیگاه</b><span id="hsMissionText">آمادهٔ شروع</span><div id="hsMissionTrack"><i id="hsMissionFill"></i></div></div>
 <div id="hsKit" hidden aria-label="ابزار قایم‌موشک و ارتقاها">
@@ -391,7 +413,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="hospitalBar" hidden><span id="hospitalInfo">🏥 بیمارستان</span><button id="hospitalLeave">بازگشت به بازی</button></div>
 <div id="miniBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 72px);left:50%;transform:translateX(-50%);z-index:8;align-items:center;gap:9px;max-width:96vw;background:rgba(18,28,31,.91);border:1px solid #c4bc84;border-radius:14px;padding:9px 13px;direction:rtl"><span id="miniInfo">🎮 ماجراجویی</span><button id="miniLeave" class="rb ghost" style="white-space:nowrap">بازگشت</button></div>
 <div id="mazeBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 68px);left:50%;transform:translateX(-50%);z-index:7;align-items:center;gap:10px;max-width:94vw;background:rgba(18,10,5,.88);border:1px solid #d7a45c;border-radius:18px;padding:9px 12px;box-shadow:0 5px 20px #0008;direction:rtl"><span id="mazeInfo">🔥 هزارتوی مشعل‌ها</span><button id="mazeLeave" class="rb ghost" style="white-space:nowrap">خروج از هزارتو</button></div>
-<div id="hsAlarm" aria-hidden="true"></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
+<div id="hsAlarm" aria-hidden="true"></div><div id="hsBreath" hidden role="alertdialog" aria-live="assertive"><b>🤐 آرش داره مخفیگاهت رو باز می‌کنه!</b><span>تند تند بزن (یا کلید H) تا نفست رو حبس کنی!</span><div id="hsBreathTrack"><i id="hsBreathFill"></i></div><div id="hsBreathTime"><i></i></div><button type="button" id="hsBreathBtn">🫁 نفست رو نگه دار!</button></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
 <div id="crBox" hidden><div class="chead"><b>✨ سازنده</b><span id="crStatus"></span><button id="crClose" aria-label="بستن سازنده">✕</button></div>
 <div class="crbody"><p id="crLog" class="note">بنویس چه چیزی به دنیا اضافه شود؛ ده ثانیه بعد جلویت ساخته می‌شود. می‌توانی عکس هم بفرستی.</p>
 <div class="crex"><button type="button" data-crex="سه تا درخت کاج">سه تا درخت کاج</button><button type="button" data-crex="یه ماشین قرمز">یه ماشین قرمز</button><button type="button" data-crex="یه آدم برفی بزرگ">آدم برفی بزرگ</button><button type="button" data-crex="یه تابلو که روش بنویسه «خانهٔ من»">تابلو با نوشته</button><button type="button" data-crex="یه رنگین کمان">رنگین‌کمان</button><button type="button" data-crex="یه قلعهٔ سنگی">قلعه</button></div>
@@ -3573,6 +3595,8 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
     <div class="wdseg" role="group" aria-label="قانون نوبت‌های قایم‌موشک" style="margin-top:.55rem">${[['me','همیشه من قایم شم'],['friend','همیشه آرش قایم شه'],['alternate','نوبتی']].map(([m,label])=>`<button type="button" data-hs-mode="${m}" class="${HS.turnMode===m?'on':''}" aria-pressed="${HS.turnMode===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div style="width:100%"><b>⏳ زمان قایم‌موشک</b><small>در حالت نامحدود فقط پیدا کردن طرف مقابل دور را تمام می‌کند؛ هیچ‌کس با تمام شدن زمان برنده نمی‌شود. انتخاب ذخیره می‌شود.</small>
     <div class="wdseg" role="group" aria-label="قانون زمان قایم‌موشک" style="margin-top:.55rem">${[['timed','زمان معمولی'],['unlimited','∞ نامحدود؛ تا پیدا کردن']].map(([m,label])=>`<button type="button" data-hs-timer="${m}" class="${HS.timerMode===m?'on':''}" aria-pressed="${HS.timerMode===m}">${label}</button>`).join('')}</div></div></div>
+  <div class="setrow"><div style="width:100%"><b>🎯 سختی آرش در قایم‌موشک</b><small>آسان: گوش و چشمش ضعیف‌تره. سخت: تیزتر می‌شنوه، سریع‌تر می‌دوه و مخفیگاه‌های محبوبت رو یادش می‌مونه.</small>
+    <div class="wdseg" role="group" aria-label="سختی قایم‌موشک" style="margin-top:.55rem">${[['easy','😊 آسان'],['normal','🙂 معمولی'],['hard','😈 سخت']].map(([m,label])=>`<button type="button" data-hs-diff="${m}" class="${HS.diff===m?'on':''}" aria-pressed="${HS.diff===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div><b>🏥 بیمارستان آرش</b><small>${ARASH.phase==='care'?'آرش نیاز به مراقبت داره. با ورود به بیمارستان، ۱۸ ثانیه منتظر بمون تا کمکش کنن.':HOSP.on?'الان داخل بیمارستانی.':'بخش بیمارستان جداگانه برای مراقبت و آشتی؛ صدای بازی و تالار اصلی باقی می‌مونن.'}</small></div><button class="rb" id="hospitalBtn">${HOSP.on?'بازگشت به بازی':'ورود به بیمارستان'}</button></div>
   <div class="setrow"><div><b>🔥 هزارتوی مشعل‌ها (فقط اول‌شخص)</b><small>${MAZE.on?'الان داخل هزارتو هستی. راه خروج را پیدا کن.':'یک تالار ۴۰×۴۰ متریِ ستون‌دار با هزارتوی مرحله‌ای، مشعل‌های روشن، برخورد واقعی دیوارها و ذخیرهٔ مرحله.'}</small></div><button class="rb" id="mazeBtn">${MAZE.on?'بازگشت به تالار':'ورود به هزارتو'}</button></div>
   <div class="setrow"><div><b>💾 پشتیبان کل بازی</b><small>وسایل شهر و قایم‌موشک، مرحله‌های هزارتو، تنظیمات و پیشرفت بازی ذخیره می‌شن. می‌تونی فایل پشتیبان را در فضای ابری خودت نگه داری و در نسخه‌های جدید بازیابی کنی. ذخیره روی تبلت به‌تنهایی همگام‌سازی ابری نیست.</small></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="rb" id="arashBackupDownload">📤 ذخیرهٔ همه</button><button class="rb" id="arashBackupRestore">📥 بازیابی</button></div></div>
@@ -3589,6 +3613,7 @@ function panelClick(e){const t=e.target.closest('button');if(!t)return;
   else if(t.dataset.artStyle){arashArtSet(t.dataset.artStyle);openSettings();}
   else if(t.id==='decoySettingsBtn'){closePanel();decoyStartPlacement();}
   else if(t.dataset.hsMode){HS.turnMode=t.dataset.hsMode;try{localStorage.setItem('needle-hs-role-mode',HS.turnMode);}catch(e){}openSettings();}
+  else if(t.dataset.hsDiff){HS.diff=t.dataset.hsDiff;try{localStorage.setItem('needle-hs-diff',HS.diff);}catch(e){}openSettings();}
   else if(t.dataset.hsTimer){HS.timerMode=t.dataset.hsTimer;try{localStorage.setItem('needle-hs-timer-mode',HS.timerMode);}catch(e){}HS.uiKey='';openSettings();}
   else if(t.dataset.frHit){const part=t.dataset.frHit;closePanel();arashHit(part);}
   else if(t.dataset.frTalk){closePanel();if(ARASH.phase==='care'){toast('اول باید به بیمارستان بروید.',2200);}else{arashReconcile();frSay('باشه، آشتی کردیم! ولی بیا مهربون باشیم. 🙂',4);}}
@@ -4796,11 +4821,11 @@ function initCreator(){
 
 /* ================= HIDE AND SEEK: a second hall where you and your friend take turns hiding ================= */
 Object.assign(HS,{built:false,group:null,cols:[],circs:[],occ:[],spots:[],grid:null,gw:0,gh:0,
-  extN:0,endWall:null,extWalls:[],round:0,role:'seek',turnMode:'alternate',concern:null,phase:'off',t:0,score:{me:0,fr:0},meter:0,mySpot:null,noise:null,noiseT:-9,visited:[],fs:{st:'idle'},
+  diff:'normal',extN:0,endWall:null,extWalls:[],round:0,role:'seek',turnMode:'alternate',concern:null,phase:'off',t:0,score:{me:0,fr:0},meter:0,mySpot:null,noise:null,noiseT:-9,visited:[],fs:{st:'idle'},
   hint:0,frOff:false,endT:0,panelShown:false,msg:'',eyeAt:[0,0],uiKey:'',timerMode:'timed',stageTheme:null,stageDecor:null,stageProps:null,themeTick:0});
 const HSX={W:15,D:12,H:24.6,PREP_HIDE:20,PREP_SEEK:15,PLAY_FR:60,PLAY_ME:90,CELL:.35};
 const HS_BASE_W=15,HS_BASE_D=12,HS_BASE_HEIGHT=24.6,HS_GROW_PER_ROUND=.20;
-try{const m=localStorage.getItem('needle-hs-role-mode');if(['alternate','me','friend'].includes(m))HS.turnMode=m;const tm=localStorage.getItem('needle-hs-timer-mode');if(['timed','unlimited'].includes(tm))HS.timerMode=tm;}catch(e){}
+try{const m=localStorage.getItem('needle-hs-role-mode');if(['alternate','me','friend'].includes(m))HS.turnMode=m;const tm=localStorage.getItem('needle-hs-timer-mode');if(['timed','unlimited'].includes(tm))HS.timerMode=tm;const df=localStorage.getItem('needle-hs-diff');if(['easy','normal','hard'].includes(df))HS.diff=df;}catch(e){}
 const HS_START={me:[6.4,-4.4],fr:[7.6,-4.4],count:[14.05,-8.6],eyes:[14.05,-7.2]};
 let HSB=null;
 
@@ -5849,7 +5874,7 @@ function hsStart(){if(EXTRA.on)miniExit();if(ARASH.phase==='chase'||ARASH.phase=
   LIGHTS.pool.forEach((l,i)=>{const p=HS.lamps[i];if(p){l.position.set(HS.AX+p[0],p[1]-.25,HS.AZ+p[2]);l.intensity=2.4;l.distance=16;l.color.set(0xffe2b8);}});
   hsNextRound();}
 function hsPlace(x,z,yaw){G.pos.set(HS.AX+x,0,HS.AZ+z);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=yaw;G.pitch=-.05;PL.yaw=yaw+Math.PI;}
-function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hsExpandTo(HS.round);}catch(e){console.error('قایم‌موشک: ساخت وسایل اضافی',e);try{hsFinishExtraMeshes();hsGrid();}catch(e2){console.error(e2);}toast('تالار آماده است؛ بعضی وسایل این دور بارگذاری نشدند.',2600);}HS.role=HS.turnMode==='me'?'hide':HS.turnMode==='friend'?'seek':(HS.role==='hide'?'seek':'hide');HS.concern=null;HS.phase='prep';HS.t=0;HS.meter=0;HS.noise=null;HS.alert=null;HS.noiseLvl=0;HS.noiseT=-9;HS.lastHeard=-100;HS.whistle=null;HS.whistleAsked=false;HS.whistleAskedAt=-1;HS.whistleCooldown=-20;HS.whistleAnim=0;hsSearchReset();hsAdventureReset();HS.decoySeen=new Set();HS.hint=0;HS.endT=0;HS.panelShown=false;
+function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hsExpandTo(HS.round);}catch(e){console.error('قایم‌موشک: ساخت وسایل اضافی',e);try{hsFinishExtraMeshes();hsGrid();}catch(e2){console.error(e2);}toast('تالار آماده است؛ بعضی وسایل این دور بارگذاری نشدند.',2600);}HS.role=HS.turnMode==='me'?'hide':HS.turnMode==='friend'?'seek':(HS.role==='hide'?'seek':'hide');HS.concern=null;HS.phase='prep';HS.t=0;HS.meter=0;HS.noise=null;HS.alert=null;HS.noiseLvl=0;hsFeatureReset();HS.noiseT=-9;HS.lastHeard=-100;HS.whistle=null;HS.whistleAsked=false;HS.whistleAskedAt=-1;HS.whistleCooldown=-20;HS.whistleAnim=0;hsSearchReset();hsAdventureReset();HS.decoySeen=new Set();HS.hint=0;HS.endT=0;HS.panelShown=false;
   if(HS.mySpot){HS.mySpot=null;}if(G.pose!=='stand')standUp();
   for(const sp of HS.spots){sp.open=0;sp.pulse=0;if(sp.apply)sp.apply(0);}FR.hsIn=null;FR.pose='stand';FR.vx=FR.vz=0;FR.vy=0;FR.feet=0;
   const F=HS.fs={st:'idle',path:null,pi:0,t0:G.t,sayT:0,n:0};
@@ -5860,22 +5885,22 @@ function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hs
     const opts=HS.spots.filter(s=>s!==HS.lastFrSpot);const sp=opts[(Math.random()*opts.length)|0];HS.lastFrSpot=sp;F.st='tohide';F.spot=sp;hsGo(sp.ent[0],sp.ent[1]);
     toast('🙈 چشم‌هات رو بستی؛ '+FR.name+' داره قایم می‌شه…',2600);}
   hsUI(true);}
-function hsExit(){if(!HS.on)return;hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
+function hsExit(){if(!HS.on)return;hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
   FR.hsIn=null;FR.off=HS.frOff;FR.hsV=0;LIGHTS.pool.forEach((l,i)=>{l.position.copy(LIGHTS.poolHome[i]);l.distance=9;l.color.set(0xffa14a);l.intensity=TODS[TODi].lant;});
   G.pos.set(0,0,PILE.R+2);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=0;G.pitch=-.12;resetFriend();
   for(const id of ['hsBar','hsEyes','hsPeek'])$('#'+id).hidden=true;closePanel();toast('برگشتی به تالار خودت.',2000);}
 function hsBubble(text,sec){FR.bubbleText=text;FR.bubbleT=sec||3;const b=document.getElementById('frBubble');if(b)b.textContent=text;}
 function hsEnd(w,how){if(HS.phase==='end')return;if(w==='me'&&HS.role==='seek'&&HS_ADVENTURE.quest?.type==='seek'&&HS.t<HS_ADVENTURE.quest.target)hsQuestAward();HS.phase='end';HS.endT=0;HS.panelShown=false;HS.score[w]++;HS.lastWin=w;const N=FR.name;
   if(HS.role==='hide'){const sp=HS.mySpot;if(sp){sp.pulse=1.6;hsLeave();}
-    if(w==='fr'){frSay(how==='check'?'پیدات کردم! فکر کردی این‌جا نمیام؟ 😄':how==='tag'?'گرفتمت! 😄':'دیدمت! پیدات کردم! 😄');HS.msg='😅 '+N+' پیدات کرد!';}
+    if(w==='fr'){if(sp)hsMemoryAdd(sp);frSay(how==='breath'?'صدای نفست رو شنیدم! پیدات کردم 😄':how==='check'?'پیدات کردم! فکر کردی این‌جا نمیام؟ 😄':how==='tag'?'گرفتمت! 😄':'دیدمت! پیدات کردم! 😄');HS.msg='😅 '+N+' پیدات کرد!';}
     else{frSay('تسلیم! هر جا رو گشتم نبودی. کجا قایم شده بودی؟');HS.msg='🎉 بردی! '+N+' نتونست پیدات کنه.';}
     HS.fs.st='done';}
   else{const sp=FR.hsIn;if(sp){sp.pulse=1.6;hsFriendOut(sp);}
     if(w==='me'){frSay(how==='peek'?'ای بابا! پیدام کردی! 😄':'وای، دیدیم! چطوری فهمیدی؟ 😄');HS.msg='🎉 '+N+' رو پیدا کردی!';}
     else{frSay('وقت تموم شد! من '+(sp?sp.name:'این‌جا')+' بودم 😄');HS.msg='⏰ وقت تموم شد؛ '+N+' برد!';}}
-  toast(HS.msg,3200);SFX.chime&&SFX.chime();}
+  hsRoundStats(w);toast(HS.msg,3200);SFX.chime&&SFX.chime();}
 function hsResultPanel(){const N=FR.name,nx=HS.turnMode==='me'?'دور بعد هم تو قایم می‌شی و آرش دنبال تو می‌گرده.':HS.turnMode==='friend'?'دور بعد هم آرش قایم می‌شه و تو دنبالش می‌گردی.':HS.role==='hide'?'دور بعد تو چشم می‌ذاری و دنبال '+N+' می‌گردی.':'دور بعد '+N+' چشم می‌ذاره و تو قایم می‌شی.';
-  openPanel('قایم‌موشک',`<div class="hsres"><p class="hsbig">${HS.msg}</p><p>دور ${fa(HS.round)} · ${fa(HS.spots.length)} مخفیگاه · طول تالار ${fa((HS_BASE_W+HSX.W).toFixed(1))} متر · ارتفاع ${fa(HSX.H.toFixed(1))} متر · رشد هر دور ۲۰ سانتی‌متر</p><p>🎭 ${HS.stageTheme?HS.stageTheme.name:'تالار اصلی'} · زمان ${HS.timerMode==='unlimited'?'∞ نامحدود':'معمولی'} · ${fa(HS.extN)} مخفیگاه جدید این دور</p><p>امتیاز: تو <b>${fa(HS.score.me)}</b> — ${N} <b>${fa(HS.score.fr)}</b></p><p class="note">${nx}</p>
+  openPanel('قایم‌موشک',`<div class="hsres"><p class="hsbig">${HS.msg}</p>${hsStatsHtml()}<p>دور ${fa(HS.round)} · ${fa(HS.spots.length)} مخفیگاه · طول تالار ${fa((HS_BASE_W+HSX.W).toFixed(1))} متر · ارتفاع ${fa(HSX.H.toFixed(1))} متر · رشد هر دور ۲۰ سانتی‌متر</p><p>🎭 ${HS.stageTheme?HS.stageTheme.name:'تالار اصلی'} · زمان ${HS.timerMode==='unlimited'?'∞ نامحدود':'معمولی'} · ${fa(HS.extN)} مخفیگاه جدید این دور</p><p>امتیاز: تو <b>${fa(HS.score.me)}</b> — ${N} <b>${fa(HS.score.fr)}</b></p><p class="note">${nx}</p>
   <div class="hsbtns"><button class="rb" data-hs="next">▶ دور بعد</button><button class="rb" data-hs="exit">خروج از بازی</button></div></div>`);}
 
 /* ---- you hiding ---- */
@@ -5883,7 +5908,7 @@ function hsEnter(sp){if(G.pose!=='stand')standUp();HS.mySpot=sp;G.pose='hide';G.
   if(sp.kind==='hay')SFX.rustle&&SFX.rustle(1.5,0,.1);else if(sp.anim!==false)SFX.doorSwing&&SFX.doorSwing(1);
   hsHearSound(sp.ent[0],sp.ent[1],sp.kind==='hay'?12:10,'صدای مخفیگاه');
   toast('🤫 قایم شدی! هر وقت خواستی با حرکت کردن بیا بیرون.',2200);}
-function hsLeave(){const sp=HS.mySpot;if(!sp){if(G.pose==='hide')G.pose='stand';return;}HS.mySpot=null;sp.pulse=Math.max(sp.pulse,.6);G.pose='stand';G.poseAt=null;
+function hsLeave(){if(HS.breath)return;const sp=HS.mySpot;if(!sp){if(G.pose==='hide')G.pose='stand';return;}HS.mySpot=null;sp.pulse=Math.max(sp.pulse,.6);G.pose='stand';G.poseAt=null;
   G.pos.set(sp.ent[0],0,sp.ent[1]);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=sp.entFace+Math.PI;PL.yaw=G.yaw+Math.PI;PL.g.rotation.x=0;collideBody(G.pos);}
 function hsPeek(sp){sp.pulse=1.2;SFX.doorSwing&&SFX.doorSwing(1);hsHearSound(G.pos.x,G.pos.z,12,'باز کردن در');if(FR.hsIn===sp){hsEnd('me','peek');return;}
   toast(pick(['این‌جا نیست!','خالیه!','نه، این‌جا هم نیست.','هیچ‌کس این‌جا نیست.']),1500);}
@@ -5892,7 +5917,7 @@ function hsPose(dt){const k=G.keys;
   if(G.pose==='eyes'){const c=HS.eyeAt;G.pos.set(c[0],0,c[1]);G.feet=0;PL.g.visible=false;camera.position.set(c[0],1.62,c[1]);G.yaw=-Math.PI/2;G.pitch=0;walkCamQuat(camera.quaternion);return true;}
   const sp=HS.mySpot;if(!sp){G.pose='stand';return false;}
   const mv=(k.KeyW||k.KeyA||k.KeyS||k.KeyD||k.ArrowUp||k.ArrowDown||k.ArrowLeft||k.ArrowRight)||(G.joy.id>=0&&Math.hypot(G.joy.x,G.joy.y)>.45)||G.jumpBuf>0;
-  if(mv){G.jumpBuf=0;hsLeave();return false;}
+  if(HS.breath){G.jumpBuf=0;}else if(mv){G.jumpBuf=0;hsLeave();return false;}
   PL.g.visible=false;G.pos.set(sp.c[0],0,sp.c[1]);G.feet=0;
   const d=((G.yaw-sp.camYaw+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;G.yaw=sp.camYaw+clamp(d,-1.15,1.15);G.pitch=clamp(G.pitch,-.55,.45);
   camera.position.set(sp.cam[0],sp.cam[1],sp.cam[2]);walkCamQuat(camera.quaternion);return true;}
@@ -6072,6 +6097,12 @@ function hsChoose(){
        if(Math.random()<.45)hsBubble(pick(['شاید این تو باشی…','این مخفیگاه درست کنار صدا بود!','بذار این‌جا رو هم ببینم… 👀']),1.8);return;}}
  }
  if(F.inv){F.inv=false;F.invQueue=null;if(AL&&G.t-AL.t<35&&Math.random()<.6)hsBubble(pick(['عجیبه… مطمئنم یه صدایی شنیدم.','هوم… شاید اشتباه شنیدم. ولی حواسم هست!']),2.2);}
+ // 3) a hiding place where he "had a feeling" (you held your breath) gets a second look
+ if(HS.recheck&&G.t>=HS.recheck.at){const sp=HS.recheck.spot;HS.recheck=null;
+   if(sp&&hsGo(sp.ent[0],sp.ent[1])){F.st='walk';F.spot=sp;F.fast=true;hsBubble('یه بار دیگه اون‌جا رو ببینم… یه حسی دارم! 🤨',2.4);return;}}
+ // 4) at the start of a round, he first checks the kind of place you like most
+ while(F.memQueue&&F.memQueue.length){const sp=F.memQueue.shift();
+   if(hsGo(sp.ent[0],sp.ent[1])){F.st='walk';F.spot=sp;F.fast=true;return;}}
  if(!HS.spotFailed)HS.spotFailed=new Map();
  if(!HS.visited)HS.visited=[];
  HS.searchTurns=(HS.searchTurns||0)+1;
@@ -6190,7 +6221,7 @@ function hsFriendCtl(dt){const F=HS.fs,o={tx:null,tz:null,face:null,v:0};const p
   if(HS.role==='hide'&&['walk','chase','patrol'].includes(F.st)&&FR.pose!=='stand')frStand();
   if(HS.role==='hide'){
     if(F.st==='count'){o.face=[FR.x+1,FR.z];const n=Math.min(20,Math.floor(HS.t)+1);if(n!==F.n&&HS.phase==='prep'){F.n=n;if(n%2===0||n>17)hsBubble(fa(n)+(n===20?'! اومدم! 👀':'…'),1.4);SFX.tick&&SFX.tick(.4);}
-      if(HS.phase==='play'){hsChoose();}return o;}
+      if(HS.phase==='play'){hsMemoryPlan();hsChoose();}return o;}
     if(F.st==='blocked'){
       o.face=[px,pz];if(G.t-(F.t0||0)>.65){F.st='idle';hsChoose();}return o;
     }
@@ -6201,9 +6232,10 @@ function hsFriendCtl(dt){const F=HS.fs,o={tx:null,tz:null,face:null,v:0};const p
           if(F.spot.kind==='hay')SFX.rustle&&SFX.rustle(1.2,0,.1);else SFX.doorSwing&&SFX.doorSwing(1);}
         else{if(F.st==='patrol'&&F.patrolIdx!==undefined){HS.patrolSeen.add(F.patrolIdx);F.patrolIdx=undefined;}F.st='look';F.t0=G.t;}return o;}
       if(G.t-F.goT>Math.max(10,Math.hypot(F.goal?.[0]-FR.x||0,F.goal?.[1]-FR.z||0)/3.5+5)&&(F.st==='walk'||F.st==='patrol')){if(F.spot)HS.spotFailed?.set(F.spot,G.t);if(F.st==='patrol'&&F.patrolIdx!==undefined)HS.patrolFailed?.set(F.patrolIdx,G.t);F.st='idle';hsChoose();return o;}
-      if(w){o.tx=w[0];o.tz=w[1];o.v=F.st==='chase'?4.05:F.st==='patrol'?4.0:F.inv?3.2:F.fast?3.8:3.0;o.run=F.st==='chase';}return o;}
+      if(w){o.tx=w[0];o.tz=w[1];o.v=F.st==='chase'?hsDiff().chase:F.st==='patrol'?4.0:F.inv?3.2:F.fast?3.8:3.0;o.run=F.st==='chase';}return o;}
     if(F.st==='check'){const s=F.spot;o.face=[s.c[0],s.c[1]];
-      if(G.t-F.t0>.7&&HS.mySpot===s){if(G.pose==='lie'){hsBecomeConcerned();return o;}hsEnd('fr','check');return o;}
+      if(HS.breath){hsBreathTick(dt);return o;}
+      if(G.t-F.t0>.7&&HS.mySpot===s){if(G.pose==='lie'){hsBecomeConcerned();return o;}if(hsBreathStart(s))return o;hsEnd('fr','check');return o;}
       if(G.t-F.t0>1.15){if(FR.pose!=='stand')frStand();if(s&&!HS.visited.includes(s))HS.visited.push(s);if(Math.random()<.35)hsBubble(pick(['این‌جا نیست…','نه، خالیه.','هوم… پس کجاست؟']),1.6);hsChoose();}return o;}
     if(F.st==='look'){const a=(G.t-F.t0)*2.2;o.face=[FR.x+Math.sin(a),FR.z+Math.cos(a)];if(G.t-F.t0>.85)hsChoose();return o;}
     if(F.st==='idle')hsChoose();return o;}
@@ -6222,7 +6254,7 @@ function hsDetect(dt){if(HS.concern||HS.fs.st==='count'||HS.fs.st==='done')retur
   else for(const y of [1.6,1.15,.75,.32])pts.push([G.pos.x,G.feet+y,G.pos.z]);
   let v=0,dh=0;for(const p of pts){const dx=p[0]-ex,dz=p[2]-ez;dh=Math.hypot(dx,dz);if(dh>17)continue;if(dh>2.4&&(dx*fx+dz*fz)/dh<.42)continue;if(hsSeg(ex,ey,ez,p[0],p[1],p[2]))v++;}
   if(v&&G.pose==='lie'){hsBecomeConcerned();return;}
-  if(v){const rate=v/pts.length*(dh<4?2.6:dh<9?1.4:.75);HS.meter=Math.min(1,HS.meter+rate*dt);HS.fs.last=[G.pos.x,G.pos.z];
+  if(v){const rate=v/pts.length*(dh<4?2.6:dh<9?1.4:.75)*hsDiff().sight;HS.meter=Math.min(1,HS.meter+rate*dt);HS.fs.last=[G.pos.x,G.pos.z];
     if(HS.meter>.32&&HS.fs.st!=='chase'&&HS.fs.st!=='check'){HS.fs.st='chase';HS.fs.spot=null;hsGo(G.pos.x,G.pos.z);hsBubble(pick(['اِ! یه چیزی دیدم!','وایسا ببینم… 👀','اون‌جا چی بود؟']),1.6);}}
   else HS.meter=Math.max(0,HS.meter-.3*dt);
   if(HS.meter>=1)hsEnd('fr','seen');
@@ -6246,6 +6278,7 @@ function hsPlayerStep(running,rv){
 function hsHearSound(x,z,radius,kind){
  if(!HS.on||HS.role!=='hide'||HS.phase!=='play'||HS_EDITOR.active||HS.concern)return false;
  const F=HS.fs;if(!F||HS_HEAR_BUSY.includes(F.st)||FR.hsIn)return false;
+ radius*=hsDiff().hear;
  const d=Math.hypot(FR.x-x,FR.z-z),clear=hsLine(FR.x,FR.z,x,z);
  if(d>(clear?radius:radius*.6))return false;
  HS.lastHeard=G.t;HS.noiseT=G.t;
@@ -6311,6 +6344,89 @@ function hsInvCtl(dt,o){
    return o;
  }
  return o;
+}
+/* ===== HIDE-AND-SEEK EXTRAS: difficulty, breath-hold, memory, records, hot/cold, emotes ===== */
+const HS_DIFF={easy:{hear:.65,sight:.7,chase:3.6,taps:5,mem:0},normal:{hear:1,sight:1,chase:4.05,taps:7,mem:2},hard:{hear:1.3,sight:1.35,chase:4.15,taps:9,mem:3}};
+function hsDiff(){return HS_DIFF[HS.diff]||HS_DIFF.normal;}
+function hsLoadJSON(k,d){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v&&typeof v==='object'?v:d;}catch(e){return d;}}
+function hsSaveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function hsFeatureReset(){
+  HS.breath=null;HS.breathUsed=0;HS.recheck=null;HS.recheckSpot=null;HS.compass=3;HS.compassLast=null;HS.lastStars=null;HS.lastRecord='';
+  if(HS.emoteUntil){FR.emote=null;HS.emoteUntil=0;}
+  if(HS.fs)HS.fs.memQueue=null;
+  const b=document.getElementById('hsBreath');if(b)b.hidden=true;
+}
+/* --- 🤐 hold your breath: one last chance when he opens the closed place you're in --- */
+function hsBreathStart(s){
+  if(HS.breathUsed||s.closed===false||HS.recheckSpot===s)return false;
+  HS.breathUsed=1;HS.breath={t0:G.t,taps:0,need:hsDiff().taps,dur:2.5,s};
+  const b=document.getElementById('hsBreath');if(b)b.hidden=false;
+  hsBubble('هوم… یه صدایی از این تو میاد؟ 🤨',2.5);SFX.heart&&SFX.heart(1);
+  return true;
+}
+function hsBreathTap(){const B=HS.breath;if(!B)return;B.taps++;SFX.tick&&SFX.tick(.7);if(navigator.vibrate)try{navigator.vibrate(18);}catch(e){}}
+function hsBreathTick(dt){
+  const B=HS.breath,F=HS.fs;if(!B)return;
+  const el=G.t-B.t0,fill=document.getElementById('hsBreathFill'),time=document.querySelector('#hsBreathTime i');
+  if(fill)fill.style.width=Math.min(100,B.taps/B.need*100)+'%';if(time)time.style.width=Math.max(0,100-el/B.dur*100)+'%';
+  if(HS.heartT!==undefined&&(HS.heartT-=dt)<=0){HS.heartT=.45;SFX.heart&&SFX.heart(1);}
+  if(B.taps>=B.need){
+    HS.breath=null;document.getElementById('hsBreath').hidden=true;
+    HS.recheck={spot:B.s,at:G.t+18+Math.random()*10};HS.recheckSpot=B.s;
+    if(!HS.visited.includes(B.s))HS.visited.push(B.s);
+    hsBubble(pick(['نه… خالیه. ولی یه حسی دارم…','عجیبه، فکر کردم صدای نفس شنیدم!']),2.6);
+    toast('😮‍💨 نفست رو نگه داشتی! آرش رفت… ولی شاید برگرده. بهتره جات رو عوض کنی!',3200);
+    if(HS_ADVENTURE){HS_ADVENTURE.coins=(HS_ADVENTURE.coins||0)+5;hsAdventureUI(true);}
+    F.st='idle';hsChoose();return;
+  }
+  if(el>B.dur){HS.breath=null;document.getElementById('hsBreath').hidden=true;hsEnd('fr','breath');}
+}
+{const bb=document.getElementById('hsBreathBtn');if(bb){bb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();hsBreathTap();});bb.addEventListener('click',e=>e.preventDefault());}
+ addEventListener('keydown',e=>{if(e.code==='KeyH'&&HS.breath&&!e.repeat){e.preventDefault();hsBreathTap();}});}
+/* --- 🧠 Arash remembers which kind of hiding place you like --- */
+function hsMemoryAdd(sp){const m=hsLoadJSON('needle-hs-memory',{});m[sp.kind]=(m[sp.kind]||0)+1;hsSaveJSON('needle-hs-memory',m);}
+function hsMemoryPlan(){
+  const F=HS.fs,n=hsDiff().mem;if(!F||!n)return;
+  const m=hsLoadJSON('needle-hs-memory',{});let best=null,c=1;
+  for(const k in m)if(m[k]>c&&HS.spots.some(s=>s.kind===k)){best=k;c=m[k];}
+  if(!best)return;
+  const list=HS.spots.filter(s=>s.kind===best).sort((a,b)=>Math.hypot(a.ent[0]-FR.x,a.ent[1]-FR.z)-Math.hypot(b.ent[0]-FR.x,b.ent[1]-FR.z)).slice(0,n);
+  F.memQueue=list;const nm=list[0].name||'همون‌جا';
+  setTimeout(()=>{if(HS.on&&HS.phase==='play')hsBubble('تو عاشق «'+nm+'»ی! اول اون‌جاها رو می‌گردم 😏',3);},250);
+}
+/* --- ⭐ stars & personal records --- */
+function hsRoundStats(w){
+  const R=hsLoadJSON('needle-hs-records',{hide:0,seek:0,wins:0,streak:0,best:0});const t=HS.t;let stars=0;HS.lastRecord='';
+  if(HS.role==='hide'){stars=w==='me'?3:t>45?2:t>20?1:0;if(t>(R.hide||0)){R.hide=Math.round(t);if(t>15)HS.lastRecord='🏅 رکورد جدید: '+fa(Math.round(t))+' ثانیه پیدا نشدی!';}}
+  else{stars=w==='me'?(t<25?3:t<50?2:1):0;if(w==='me'&&(!R.seek||t<R.seek)){R.seek=Math.round(t);HS.lastRecord='🏅 رکورد جدید: آرش رو در '+fa(Math.round(t))+' ثانیه پیدا کردی!';}}
+  if(w==='me'){R.wins=(R.wins||0)+1;R.streak=(R.streak||0)+1;R.best=Math.max(R.best||0,R.streak);}else R.streak=0;
+  hsSaveJSON('needle-hs-records',R);HS.lastStars=stars;HS.records=R;
+  // Arash reacts with his whole body
+  FR.emote=w==='fr'?'dance':'wave';HS.emoteUntil=G.t+3.5;
+}
+function hsStatsHtml(){
+  if(HS.lastStars===null||HS.lastStars===undefined)return '';const R=HS.records||{};
+  const st='⭐'.repeat(HS.lastStars)+'☆'.repeat(3-HS.lastStars);
+  return `<p class="hsstars" aria-label="${fa(HS.lastStars)} ستاره">${st}</p>${HS.lastRecord?`<p class="hsrec">${HS.lastRecord}</p>`:''}<p>🔥 بردهای پشت‌سرهم: <b>${fa(R.streak||0)}</b> (بهترین ${fa(R.best||0)}) · بیشترین زمان مخفی‌ماندن: <b>${fa(R.hide||0)}</b> ث · سریع‌ترین پیدا کردن: <b>${R.seek?fa(R.seek)+' ث':'—'}</b> · سختی: ${HS.diff==='easy'?'آسان':HS.diff==='hard'?'سخت':'معمولی'}</p>`;
+}
+/* --- 🧭 hot / cold when YOU are the seeker --- */
+function hsCompassUse(){
+  if(!HS.on||HS.role!=='seek'||HS.phase!=='play'||!FR.hsIn||HS.compass<=0)return;
+  HS.compass--;const sp=FR.hsIn,d=Math.hypot(sp.c[0]-G.pos.x,sp.c[1]-G.pos.z);
+  let msg=d<4?'🔥 داغ داغ! خیلی نزدیکی!':d<8?'♨️ گرمه!':d<15?'🌤️ ولرم…':'❄️ سرده، سرد!';
+  if(HS.compassLast!==null)msg+=d<HS.compassLast-1?' (داری گرم‌تر می‌شی)':d>HS.compassLast+1?' (داری سردتر می‌شی)':'';
+  HS.compassLast=d;SFX.whisper&&SFX.whisper();toast(msg+' · '+fa(HS.compass)+' بار دیگه',2600);
+}
+{const cb=document.getElementById('hsCompass');if(cb)cb.addEventListener('click',e=>{e.stopPropagation();hsCompassUse();});}
+function hsFeatureUI(){
+  if(HS.emoteUntil&&G.t>HS.emoteUntil){FR.emote=null;HS.emoteUntil=0;}
+  const cb=document.getElementById('hsCompass');
+  if(cb){const on=G.mode==='walk'&&HS.role==='seek'&&HS.phase==='play';if(cb.hidden===on)cb.hidden=!on;
+    if(on){const t='🧭 گرم و سرد ('+fa(HS.compass)+')';if(cb.textContent!==t)cb.textContent=t;cb.disabled=HS.compass<=0;}}
+  // keep the challenge card under the bar instead of on top of it
+  const bar=document.getElementById('hsBar'),ms=document.getElementById('hsMission');
+  if(bar&&ms&&!ms.hidden&&innerWidth<=640){const y=Math.round(bar.getBoundingClientRect().bottom+8)+'px';if(ms.style.top!==y)ms.style.top=y;}
+  else if(ms&&ms.style.top&&innerWidth>640)ms.style.top='';
 }
 /* the player's own footsteps only make sound per step now (see hsPlayerStep) */
 function hsNoise(){}
@@ -6651,7 +6767,7 @@ function hsUpdate(dt){if(!HS.on)return;HS.t+=dt;hsAdventureUpdate(dt);
       if(HS.role==='hide'){if(G.t-(HS.lastDecoyScan||0)>.32){HS.lastDecoyScan=G.t;hsDecoySpot();}hsDetect(dt);hsNoise();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_FR)hsEnd('me','time');}
       else{hsSeekCheck();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_ME)hsEnd('fr','time');}}
     else if(HS.phase==='end'){HS.endT+=dt;if(HS.endT>2.8&&!HS.panelShown&&!G.panel){HS.panelShown=true;hsResultPanel();}}}
-  hsSearchWatchdog();hsAlertFx(dt);hsUI();}
+  hsSearchWatchdog();hsAlertFx(dt);hsFeatureUI();hsUI();}
 function hsUI(force){if(!HS.on)return;const bar=$('#hsBar'),eyes=$('#hsEyes'),peek=$('#hsPeek');const show=G.mode==='walk';bar.hidden=!show;
   const tl=(lim)=>{if(HS.timerMode==='unlimited')return '∞';const s=Math.max(0,Math.ceil(lim-HS.t));return fa(Math.floor(s/60))+':'+fa(String(s%60).padStart(2,'0'));};const N=FR.name;let txt;
   if(HS.phase==='prep')txt=HS.role==='hide'?'🙈 قایم شو! '+fa(Math.max(0,Math.ceil(HSX.PREP_HIDE-HS.t))):'🙈 '+N+' داره قایم می‌شه… '+fa(Math.max(0,Math.ceil(HSX.PREP_SEEK-HS.t)));
