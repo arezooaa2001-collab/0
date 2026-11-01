@@ -605,6 +605,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .gram-h{margin:8px 14px;font:800 16px var(--body)}.gram-log{margin:0;padding:9px 14px;border-bottom:1px solid rgba(127,127,127,.15);font:500 13px/1.6 var(--body)}.gram-log small{opacity:.55}
 .gram-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:0 10px}.gram-pick button{aspect-ratio:1;border:3px solid transparent;border-radius:6px;background:#ddd center/cover;cursor:pointer}.gram-pick button.on{border-color:#e1306c}
 .gram-ta{width:calc(100% - 28px);margin:10px 14px;min-height:70px;border:1px solid rgba(127,127,127,.3);border-radius:12px;padding:10px;font:500 14px var(--body);background:transparent;color:inherit;resize:none}
+.pow-r{display:flex;align-items:center;gap:8px;font:600 14px var(--body);color:var(--paper);flex-wrap:wrap}.pow-r input[type=radio]{width:18px;height:18px;accent-color:#ffd23a}
 /* games */
 .ph-app.game{background:#111;color:#fff}
 .gm-hud{display:flex;gap:10px;align-items:center;padding:8px 12px;font:600 12px var(--body);flex:none}
@@ -682,6 +683,8 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
   <button id="btn-rb" class="chip more" type="button" style="background:linear-gradient(90deg,#ff4d4d55,#ffe94d55,#4de26b55,#4db8ff55,#a66bff55)">ساختمان رنگین‌کمان</button>
   <button id="btn-fly" class="chip more" type="button" style="color:#7fd8ff">ماشین پرنده</button>
   <button id="btn-mis" class="chip more" type="button" style="color:#ffcf3a">ماموریت‌ها</button>
+  <button id="btn-pow" class="chip more" type="button" style="color:#ffd23a">💪 زور</button>
+  <span id="pow-hud" class="chip" hidden style="color:#ffd23a"></span>
   <button id="btn-code" class="chip more" type="button" title="کد مخفی">کد</button>
   <button id="btn-settings" class="chip more" type="button">تنظیمات</button>
   <span id="wp" class="chip" hidden style="color:var(--amber)"></span>
@@ -698,6 +701,7 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
   <button id="b-run" class="tbtn" type="button">دویدن</button>
   <button id="b-jump" class="tbtn" type="button">پرش</button>
   <button id="b-turbo" class="tbtn" type="button" hidden style="background:linear-gradient(135deg,#ff4d4d,#ffb340,#4db8ff,#a66bff);color:#111;font-weight:800">توربو</button>
+  <button id="b-lift" class="tbtn" type="button" hidden style="grid-column:span 2;width:auto;border-radius:18px;padding:0 14px;height:46px;background:rgba(255,210,58,.85);color:#2a1a00">بلند کن</button>
   <button id="b-use" class="tbtn" type="button" hidden style="grid-column:span 2;width:auto;border-radius:18px;padding:0 14px;height:46px">استفاده</button>
   <button id="b-act" class="tbtn big" type="button" style="grid-column:span 2">سوار شو</button>
 </div>
@@ -813,6 +817,23 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
     <p style="font-size:12px">کد <b>۱۸۱۸</b> = رفتن به همین محیط آزمایشی · کد <b>۱۷۱۷</b> = برگشت به شهر</p>
   </div>
 </div>
+<div id="pow-panel" class="rb-wrap" hidden>
+  <form id="pow-form" class="gm-card rb-card" autocomplete="off">
+    <h2 style="color:#ffd23a">💪 زور</h2>
+    <p id="pow-now"></p>
+    <p>چقدر زور؟ هر عددی که بخوای (۱ = عادی):</p>
+    <input id="pow-lvl" class="gm-in" type="text" inputmode="numeric" placeholder="مثلاً ۱۰۰">
+    <div class="gm-row"><button type="button" class="gm-btn" data-lv="10">×۱۰</button><button type="button" class="gm-btn" data-lv="100">×۱۰۰</button><button type="button" class="gm-btn" data-lv="1000">×۱۰۰۰</button><button type="button" class="gm-btn" data-lv="1000000">×۱ میلیون</button></div>
+    <p>تا کی بمونه؟</p>
+    <label class="pow-r"><input type="radio" name="pow-m" value="min" checked> بعد از <input id="pow-min" class="gm-in" type="text" inputmode="decimal" value="5" style="flex:0 0 70px;text-align:center"> دقیقه تموم شه</label>
+    <label class="pow-r"><input type="radio" name="pow-m" value="clock"> ساعت بازی که شد <input id="pow-clock" class="gm-in" type="time" style="flex:0 0 120px"> تموم شه</label>
+    <label class="pow-r"><input type="radio" name="pow-m" value="never"> هرگز تموم نشه</label>
+    <button type="submit" class="gm-btn primary">زور بده!</button>
+    <button id="pow-off" type="button" class="gm-btn">زور رو بردار (عادی شو)</button>
+    <p style="font-size:12px">با زور تندتر می‌دوی، بلندتر می‌پری و ماشین‌ها رو با راه رفتن هل می‌دی. از ×۱۷ به بالا ماشین سواری رو با <b>G</b> (روی گوشی دکمهٔ «بلند کن») بالای سرت می‌بری و با <b>G</b> دوباره پرتش می‌کنی؛ <b>E</b> می‌ذارتش زمین. ماشین‌های سنگین‌تر زور بیشتری می‌خوان.</p>
+    <button id="pow-close" type="button" class="gm-btn">بستن</button>
+  </form>
+</div>
 <div id="mis-hud" hidden><div id="mis-t"></div></div>
 <div id="mis-panel" class="rb-wrap" hidden>
   <div class="gm-card rb-card">
@@ -919,6 +940,7 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
         <li><kbd>V</kbd> دید اول شخص · <kbd>I</kbd> کیف · <kbd>Q</kbd> استفاده از چیزی که دستته</li>
         <li><kbd>N</kbd> نیترو · <kbd>X</kbd> توربو (رنگین‌کمان) · <kbd>Space</kbd> چتر نجات</li>
         <li><kbd>P</kbd> گوشی موبایل (از «دیجیتال پیام» در پاساژ بخر)</li>
+        <li>«💪 زور» بالای صفحه · <kbd>G</kbd> بلند کردن و پرتاب ماشین</li>
       </ul></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button id="play" type="button" disabled>ورود به شهر</button><button id="newgame" type="button" class="chip" hidden style="padding:12px 18px">بازی جدید</button></div>

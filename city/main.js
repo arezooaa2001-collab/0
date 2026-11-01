@@ -1717,6 +1717,8 @@ function poseHuman(p, dt, t) {
       Q.shLx = -0.95; Q.shRx = -0.95; Q.elL = -1.25; Q.elR = -1.25; Q.shLz = 0.28; Q.shRz = -0.28; Q.hdX = 0.45 + Math.sin(t * 0.8) * 0.04;
     } else if (sp_ === 'drink') {
       Q.shRx = -1.15; Q.shRz = -0.35; Q.elR = -2.15; Q.hdX = -0.32; Q.shLx = 0.05;
+    } else if (sp_ === 'lift') {
+      Q.shRx = -2.95; Q.shLx = -2.95; Q.elR = -0.35; Q.elL = -0.35; Q.shRz = -0.28; Q.shLz = 0.28; Q.hdX = -0.15; Q.spX = -0.05;
     } else if (sp_ === 'phoneUse') {
       Q.shRx = -0.95; Q.shRz = -0.18; Q.elR = -1.55; Q.shLx = -0.75; Q.elL = -1.5; Q.shLz = 0.25; Q.hdX = 0.42;
     } else if (sp_ === 'shoot') {
@@ -2273,6 +2275,7 @@ function stepCharacter(p, col, dt, outdoor) {
     if (!res) continue;
     const top = car.y + car.topAt(res.lf);
     if (p.pos.y >= top - STEP) { if (top > carTop) { carTop = top; standCar = car; } continue; }
+    if (p === player && POW() > 1 && powShove(car, res)) continue;
     // push the person out (normal from person toward car)
     p.pos.x -= res.nx * res.depth; p.pos.z -= res.nz * res.depth;
     // only the car's own motion toward the person can knock them over
@@ -5501,7 +5504,7 @@ function updatePlayerZone(dt) {
   P.stepH = turbo === 2 ? 4.2 : 0;
   P.vel.x = damp(P.vel.x, dx * tsp, k, dt); P.vel.z = damp(P.vel.z, dz * tsp, k, dt);
   if (cam.fpOn && !chat.open) P.facing += angDiff(P.facing, cam.yaw) * Math.min(1, 18 * dt); else if (tsp > 0.1) P.facing += angDiff(P.facing, Math.atan2(dx, dz)) * Math.min(1, 12 * dt);
-  if (input.jumpQ && P.onGround) { P.vel.y = 6.6; P.onGround = false; Audio.step(true); } input.jumpQ = false;
+  if (input.jumpQ && P.onGround) { P.vel.y = 6.6 * powJump(); P.onGround = false; Audio.step(true); } input.jumpQ = false;
   const nSub = Math.min(48, Math.max(1, Math.ceil(Math.hypot(P.vel.x, P.vel.z) * dt / 0.2)));
   for (let q = 0; q < nSub; q++) stepCharacter(P, col, dt / nSub, false);
   if (P.onGround) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) Audio.step(running); } }
@@ -7545,6 +7548,116 @@ function paintCar(hex) {
 }
 
 /* ============================================================
+   Strength: choose any level, and when it wears off (in N minutes, at a time on the game clock, or never).
+   Stronger = faster, higher jumps, pushing cars aside, lifting a car over your head and throwing it
+   ============================================================ */
+const POW = () => store.power && store.power.lvl > 1 ? store.power.lvl : 1;
+const powSpeed = () => Math.min(4, 1 + Math.log10(POW()) * 0.5);
+const powJump = () => Math.min(9, 1 + Math.log10(POW()) * 0.9);
+const liftNeed = car => Math.ceil(car.mass / 80); // a normal person lifts ~80 kg
+let liftCar = null;
+const thrown = [];
+function setPower(lvl, mode, val) {
+  lvl = Math.max(1, Math.min(1e12, Math.round(+lvl || 1)));
+  if (lvl <= 1) { clearPower(); return; }
+  store.power = { lvl, mode, left: mode === 'min' ? Math.max(0.05, +val) * 60 : null, at: mode === 'clock' ? val : null };
+  Audio.arcade(); burstPower(); updatePowHud();
+  banner(`زور ×${fa(lvl.toLocaleString('en'))}`, mode === 'never' ? 'هیچ‌وقت تموم نمی‌شه' : mode === 'min' ? `تا ${fa(Math.round(+val))} دقیقهٔ دیگه` : `تا ساعت ${fa(fmtClock(val))} بازی`);
+  saveGame();
+}
+function clearPower(why) {
+  if (liftCar) dropLift();
+  const had = store.power && store.power.lvl > 1; store.power = null; updatePowHud();
+  if (had && why) { banner('زورت تموم شد', why); Audio.tone(330, 0, 0.3, 0.05); }
+  saveGame();
+}
+const fmtClock = t => String(Math.floor(t)).padStart(2, '0') + ':' + String(Math.floor((t % 1) * 60)).padStart(2, '0');
+function burstPower() { const P = player; for (let k = 0; k < 40; k++) { const a = Math.random() * 6.28; FX.emit(P.pos.x + Math.cos(a) * 0.5, P.pos.y + 0.2 + Math.random() * 1.6, P.pos.z + Math.sin(a) * 0.5, Math.cos(a) * 2, 1 + Math.random() * 2, Math.sin(a) * 2, 0.9, 0.08, 0.6, 0xffd23a, 0.5, 0.1); } }
+let powHudKey = '';
+function updatePowHud() {
+  const el = $('pow-hud'), p = store.power; if (!el) return;
+  if (!p || p.lvl <= 1) { el.hidden = true; powHudKey = ''; return; }
+  const left = p.mode === 'min' ? `${Math.floor(p.left / 60)}:${String(Math.floor(p.left % 60)).padStart(2, '0')}` : p.mode === 'clock' ? `تا ${fmtClock(p.at)}` : '∞';
+  const k = p.lvl + left; if (k === powHudKey) return; powHudKey = k; el.hidden = false; el.textContent = `💪 ×${fa(p.lvl >= 1e6 ? (p.lvl / 1e6).toFixed(p.lvl >= 1e7 ? 0 : 1) + 'M' : p.lvl.toLocaleString('en'))} · ${fa(left)}`;
+}
+function updatePower(dt) {
+  const p = store.power, P = player;
+  if (P.state === 'foot' && input.ejectQ) { input.ejectQ = false; if (liftCar) throwLift(); else { const c = canLift(); if (c) startLift(c); } }
+  if (liftCar && input.actQ) { input.actQ = false; dropLift(); }
+  { const b = $('b-lift'); if (b) { const show = touchUI && P.state === 'foot' && POW() > 1 && !!(liftCar || canLift()); if (b.hidden === show) b.hidden = !show; if (show) b.textContent = liftCar ? 'پرتاب!' : 'بلند کن'; } }
+  if (p && p.lvl > 1) {
+    if (p.mode === 'min') { p.left -= dt; if (p.left <= 0) { clearPower('زمانش به سر رسید'); return; } }
+    else if (p.mode === 'clock') { const prev = p.prevT ?? tod; p.prevT = tod; const crossed = prev <= tod ? prev < p.at && tod >= p.at : prev < p.at || tod >= p.at; if (crossed) { clearPower(`ساعت ${fa(fmtClock(p.at))} شد`); return; } }
+    if (P.where === 'out' && p.lvl >= 100 && P.state === 'foot' && Math.random() < dt * Math.min(20, Math.log10(p.lvl) * 3)) { const a = Math.random() * 6.28; FX.emit(P.pos.x + Math.cos(a) * 0.4, P.pos.y + Math.random() * 1.7, P.pos.z + Math.sin(a) * 0.4, 0, 0.6, 0, 0.7, 0.05, 0.6, 0xffd23a, 0.5, 0.1); }
+    updatePowHud();
+  }
+  // the car over your head
+  if (liftCar) {
+    const c = liftCar;
+    if (!cars.includes(c) || P.state !== 'foot' || P.where !== 'out' || POW() < liftNeed(c)) { dropLift(); }
+    else {
+      const f = P.facing; c.x = P.pos.x - Math.sin(f) * 0.1; c.z = P.pos.z - Math.cos(f) * 0.1; c.y = P.pos.y + 2.05; c.h = f + Math.PI / 2; c.vx = c.vz = c.vf = 0; c.av = 0; c.carryPitch = Math.sin(simTime * 3) * 0.03; c.sync(0);
+      if (!P.anim.special || P.anim.special === 'lift') P.anim.special = 'lift';
+    }
+  } else if (P.anim.special === 'lift') P.anim.special = null;
+  // thrown cars fly, bounce, hit what they meet
+  for (let i = thrown.length - 1; i >= 0; i--) {
+    const c = thrown[i], T = c.thrown;
+    if (!cars.includes(c)) { thrown.splice(i, 1); continue; }
+    const sub = Math.max(1, Math.ceil(Math.hypot(T.vx, T.vz, T.vy) * dt / 1.2)), h = dt / sub;
+    for (let s = 0; s < sub && c.thrown; s++) {
+      T.vy -= 9.8 * h; c.x += T.vx * h; c.z += T.vz * h; c.y += T.vy * h; c.h += T.spin * h; c.carryPitch = (c.carryPitch || 0) + T.roll * h;
+      world.col.query(c.x - 2.2, c.x + 2.2, c.z - 2.2, c.z + 2.2, _near);
+      for (const k of _near) { if (k.maxY <= c.y + 0.2 || k.minY > c.y + 1.4) continue; if (colPush(k, c.x, c.z, 1.6)) { c.x += _push.nx * _push.pen; c.z += _push.nz * _push.pen; const vn = T.vx * _push.nx + T.vz * _push.nz; if (vn < 0) { T.vx -= 1.6 * vn * _push.nx; T.vz -= 1.6 * vn * _push.nz; T.vx *= 0.5; T.vz *= 0.5; c.health = Math.max(0, c.health - Math.min(40, -vn * 1.5)); Audio.crash ? Audio.crash(-vn, c.x, c.z) : Audio.thud(-vn, c.x, c.z); cam.shake = Math.max(cam.shake, Math.min(0.4, -vn * 0.02)); } } }
+      for (const n of npcs) { if (n.mode === 'down' || n.inCar) continue; const d = Math.hypot(n.pos.x - c.x, n.pos.z - c.z); if (d < 2.4 && Math.abs(n.pos.y + 0.9 - c.y) < 2) { c.vx = T.vx; c.vz = T.vz; knockDown(n, c, Math.max(5, Math.hypot(T.vx, T.vz))); c.vx = c.vz = 0; } }
+      const g = groundH(c.x, c.z);
+      if (c.y <= g && T.vy < 0) {
+        c.y = g; const imp = -T.vy; c.health = Math.max(0, c.health - Math.min(60, imp * 2.2)); if (c.dent) try { c.dent(c.x, c.z, imp); } catch (_) { }
+        Audio.thud(Math.min(30, imp * 2), c.x, c.z); cam.shake = Math.max(cam.shake, Math.min(0.5, imp * 0.03 * Audio.vol(c.x, c.z)));
+        for (let k = 0; k < 14; k++) FX.emit(c.x + (Math.random() - 0.5) * 3, g + 0.2, c.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3, 1.1, 0.25, 0.4, 0x9a9488, 0.4, 0.3);
+        if (imp > 5) { T.vy = imp * 0.25; T.vx *= 0.55; T.vz *= 0.55; T.spin *= 0.5; T.roll *= -0.4; }
+        else { c.glide = false; c.thrown = null; c.carryPitch = 0; c.vx = T.vx * 0.5; c.vz = T.vz * 0.5; c.av = 0; thrown.splice(i, 1); }
+      }
+    }
+    if (Math.abs(c.x) > BOUND + 60 || Math.abs(c.z) > BOUND + 60) { c.x = clamp(c.x, -BOUND, BOUND); c.z = clamp(c.z, -BOUND, BOUND); }
+    if (c.thrown) c.sync(0);
+  }
+}
+function canLift() {
+  const P = player; if (liftCar || P.state !== 'foot' || P.where !== 'out' || POW() <= 1) return null;
+  let best = null, bd = 4.2;
+  for (const c of cars) { if (c.service || c.isTow || c.ride || c.carriedBy || c.locked || c.thrown || c === bus) continue; const d = Math.hypot(c.x - P.pos.x, c.z - P.pos.z); if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function startLift(c) {
+  if (POW() < liftNeed(c)) { say(player, `این ماشین ${fa(c.mass)} کیلوئه! حداقل زور ×${fa(liftNeed(c))} لازمه.`, 3); return; }
+  if (c.driverP && !c.driverP.isPlayer) { const n = ejectDriver(c, true); if (n) say(n, mpick(['وای!!! ماشینم رو بلند کرد!', 'کمک! این آدم چه زوری داره!', 'ماشینمو بذار زمین!']), 3); }
+  if (c.ai) { c.ai = null; } c.hasDriver = false; c.inHand = true; c.carriedBy = player; c.glide = true; liftCar = c; player.lastCar = player.lastCar || null;
+  Audio.thud(8, c.x, c.z); say(player, mpick(['هوووپ!', 'سبک بود!', 'اینم از این!']), 1.6); logEvent('یکی یه ماشین رو با دست بلند کرد!');
+}
+function dropLift() { const c = liftCar; liftCar = null; if (!c) return; c.carriedBy = null; c.glide = true; c.thrown = { vx: 0, vy: 0, vz: 0, spin: 0, roll: 0 }; thrown.push(c); if (player.anim.special === 'lift') player.anim.special = null; }
+function throwLift() {
+  const c = liftCar, P = player; if (!c) return; liftCar = null; c.carriedBy = null; c.glide = true;
+  const sp = Math.min(70, 9 + 5 * Math.log2(Math.max(1, POW() / liftNeed(c)))), f = cam.fpOn ? cam.yaw : P.facing;
+  c.thrown = { vx: Math.sin(f) * sp + P.vel.x, vy: 5 + sp * 0.18, vz: Math.cos(f) * sp + P.vel.z, spin: (Math.random() - 0.5) * 3, roll: (Math.random() - 0.5) * 2 };
+  thrown.push(c); P.anim.special = null; setSpecial(P, 'kick', 0.4); Audio.burst(0.2, 400, 0.4, 'lowpass', 1); say(P, mpick(['برو که رفتی!', 'پرتاب!', 'بفرما!']), 1.6);
+}
+// a strong enough player walking into a car shoves it along instead of stopping
+function powShove(car, res) {
+  const P = player, vin = P.vel.x * res.nx + P.vel.z * res.nz;
+  if (vin < 0.3 || POW() < liftNeed(car) / 3 || car.service || car.isTow) return false;
+  car.x += res.nx * res.depth * 1.05; car.z += res.nz * res.depth * 1.05; car.vx = res.nx * vin * 1.15; car.vz = res.nz * vin * 1.15;
+  if (Math.random() < 0.05) Audio.thud(3, car.x, car.z);
+  return true;
+}
+function openPowPanel() {
+  const p = store.power; $('pow-panel').hidden = false;
+  $('pow-lvl').value = p && p.lvl > 1 ? p.lvl : '';
+  $('pow-now').textContent = p && p.lvl > 1 ? `الان زورت ×${fa(p.lvl.toLocaleString('en'))} است` : 'الان زورت عادیه (×۱)';
+  if (!$('pow-clock').value) $('pow-clock').value = fmtClock((tod + 1) % 24);
+}
+
+/* ============================================================
    Audio (synthesised)
    ============================================================ */
 const Audio = {
@@ -7737,6 +7850,21 @@ holdBtn('b-eject', () => { input.ejectQ = true; });
 holdBtn('b-use', () => { input.useQ = true; });
 $('btn-view').addEventListener('click', () => toggleView());
 $('btn-bag').addEventListener('click', () => toggleBag());
+$('btn-pow').addEventListener('click', () => { $('topbar').classList.remove('open'); openPowPanel(); });
+const powNum = v => +String(v).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٬,\s]/g, '').replace('٫', '.');
+document.querySelectorAll('#pow-panel [data-lv]').forEach(b => b.addEventListener('click', () => { $('pow-lvl').value = b.dataset.lv; }));
+$('pow-form').addEventListener('submit', e => {
+  e.preventDefault(); document.activeElement && document.activeElement.blur();
+  const lvl = powNum($('pow-lvl').value), mode = document.querySelector('#pow-panel [name=pow-m]:checked').value;
+  if (!(lvl >= 1)) { $('pow-now').textContent = 'یه عدد بنویس (مثلاً ۱۰۰)'; return; }
+  let val = null;
+  if (mode === 'min') { val = powNum($('pow-min').value); if (!(val > 0)) { $('pow-now').textContent = 'چند دقیقه؟ یه عدد بنویس'; return; } }
+  else if (mode === 'clock') { const m = ($('pow-clock').value || '').match(/(\d+):(\d+)/); if (!m) { $('pow-now').textContent = 'ساعت رو انتخاب کن'; return; } val = (+m[1] % 24) + (+m[2]) / 60; }
+  setPower(lvl, mode, val); $('pow-panel').hidden = true;
+});
+$('pow-off').addEventListener('click', () => { clearPower(); $('pow-panel').hidden = true; toast('زورت عادی شد'); });
+$('pow-close').addEventListener('click', () => { $('pow-panel').hidden = true; });
+holdBtn('b-lift', () => { input.ejectQ = true; });
 $('btn-phone').addEventListener('click', () => { if (phone.open) phoneClose(); else { toggleBag(false); phoneOpen(); } });
 $('bag-close').addEventListener('click', () => toggleBag(false));
 $('bag-cap').addEventListener('click', () => { store.capOff = !store.capOff; rebuildPlayerLook(); renderBag(); saveGame(); });
@@ -8179,7 +8307,7 @@ function snapshot() {
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, gram: store.gram, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, gram: store.gram, power: store.power, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
     cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
@@ -8194,7 +8322,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) 
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
   if (sv.shop) Object.assign(store, sv.shop);
-  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones', 'gram']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
+  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones', 'gram', 'power']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
   if (sv.player && sv.player.where === 'rb') resumeRB = true;
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
@@ -8277,7 +8405,7 @@ function updatePlayer(dt) {
     }
     P.anim.knock = damp(P.anim.knock, 0, 5, dt); P.anim.getup = damp(P.anim.getup, 0, 6, dt);
     const running = (input.run || (touchUI && mag > 0.93)) && (store.energy > 8 || P.skate);
-    const tsp = mag * (P.skate ? (running ? 10.5 : 7.5) : running ? 6.6 : 2.5);
+    const tsp = mag * (P.skate ? (running ? 10.5 : 7.5) : (running ? 6.6 : 2.5) * powSpeed());
     const k = P.skate ? (P.onGround ? (mag > 0.1 ? 1.5 : 0.45) : 0.3) : P.onGround ? 12 : 2.5;
     if (input.useQ) { input.useQ = false; useHeld(); }
     P.vel.x = damp(P.vel.x, dx * tsp, k, dt); P.vel.z = damp(P.vel.z, dz * tsp, k, dt);
@@ -8286,7 +8414,7 @@ function updatePlayer(dt) {
     else if (chat.open && chat.npc) P.facing += angDiff(P.facing, Math.atan2(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z)) * Math.min(1, 6 * dt);
     if (input.jumpQ && P.onGround && P.anim.prep <= 0) { P.anim.prep = 0.09; P.jumpAt = simTime + 0.09; }
     input.jumpQ = false;
-    if (P.jumpAt && simTime >= P.jumpAt) { P.jumpAt = 0; if (P.onGround) { P.vel.y = 6.6; P.onGround = false; P.standCar = null; Audio.step(true); } }
+    if (P.jumpAt && simTime >= P.jumpAt) { P.jumpAt = 0; if (P.onGround) { P.vel.y = 6.6 * powJump(); P.onGround = false; P.standCar = null; Audio.step(true); } }
     stepCharacter(P, col, dt, outdoor);
     if (outdoor) slideCarry(P, dt);
     if (P.onGround && !P.skate) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) { Audio.step(running); if (outdoor && weather.wet > 0.4) FX.splash(P.pos.x, P.pos.y, P.pos.z); } } }
@@ -8370,6 +8498,8 @@ function updatePlayer(dt) {
       }
     }
     input.actQ = false;
+    if (liftCar) { promptTxt = `${touchUI ? '«پرتاب!»' : '<b>G</b>'} ماشین رو پرت کن · ${touchUI ? '«بذار زمین»' : '<b>E</b>'} بذارش زمین`; actLabel = 'بذار زمین'; }
+    else if (POW() > 1 && !touchUI) { const lc = canLift(); if (lc) promptTxt = (promptTxt ? promptTxt + ' · ' : '') + (POW() >= liftNeed(lc) ? '<b>G</b> ماشین رو با زورت بلند کن' : `برای بلند کردن این ماشین زور ×${fa(liftNeed(lc))} لازمه`); }
     setPrompt(promptTxt, actLabel);
   } else if (P.state === 'passenger' && P.car.service === 'bus') {
     const t = P.car; P.pos.set(t.x, t.y + 0.6, t.z);
@@ -8878,6 +9008,7 @@ function applyPending() {
 function toast(t) { const el = $('saved'); el.textContent = t; el.hidden = false; el.style.opacity = '1'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; el.textContent = 'ذخیره شد'; }, 2600); }
 addEventListener('resize', () => { if (composerAll && composer) { composerAll.setPixelRatio(pixelRatio); composerAll.setSize(innerWidth, innerHeight); } if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } if (FX.pts) FX.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5; });
 function updateWorld(dt) {
+  updatePower(dt);
   simTime += dt; windUniform.value = simTime; skyUniforms.uTime.value = simTime;
   tod = (tod + dt * DAY_SPEED) % 24;
   updateWeather(dt); updateSnow(dt);
@@ -9065,7 +9196,7 @@ async function boot(data) {
   if (!restored) { spawnTraffic(); spawnPeople(); }
   spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); updateBalloons(0); buildFireworks(); buildDog();
   if (restored) rebuildPlayerLook();
-  setView(settings.view === 'first'); updateWalletHUD();
+  setView(settings.view === 'first'); updateWalletHUD(); updatePowHud();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
   if (data && typeof data.tod === 'number') tod = data.tod;
   initFixedLights(); buildRainbow(); buildTest();
@@ -9090,7 +9221,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); phoneTick(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
