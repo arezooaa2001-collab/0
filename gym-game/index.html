@@ -74,11 +74,12 @@
     </div>
     <div id="comboBadge" class="combo" hidden></div>
     <div id="raceHud" class="race-hud" hidden></div>
+    <div id="speedFx" class="speed-fx" hidden></div>
     <div id="toasts" class="toasts" aria-live="polite"></div>
     <button id="ctxBtn" class="ctx-btn" type="button" hidden>🔨 تست قدرت</button>
     <button id="stopBtn" class="ctx-btn stop-btn" type="button" hidden>⏹ توقف</button>
     <div id="runPanel" class="spin-panel run-panel" hidden>
-      <div class="spin-top"><b id="runHead" class="spin-head"></b><button id="runInvite" class="spin-x run-inv" type="button">🙋 دعوت</button><button id="runAgain" class="spin-x run-inv" type="button" hidden>🔁 دوباره</button></div>
+      <div class="spin-top"><b id="runHead" class="spin-head"></b><button id="runInvite" class="spin-x run-inv" type="button">🙋 دعوت</button><button id="runAgain" class="spin-x run-inv" type="button" hidden>🔁 دوباره</button><button id="runStop" class="spin-x run-inv" type="button" hidden>⏹ پایان دویدن</button></div>
       <div class="energy-bar"><div id="energyFill" class="energy-fill"></div><span id="energyText" class="energy-text"></span></div>
       <div id="runInfo" class="spin-info"></div>
     </div>
@@ -88,6 +89,7 @@
       <div id="spinCues" class="spin-cues" hidden></div>
     </div>
     <div id="powers" class="powers"></div>
+    <button id="jumpBtn" class="jump-btn" type="button" aria-label="پرش">⤴️</button>
     <div id="fbHud" class="fb-hud" hidden>
       <div class="fb-score"><span id="fbRed" class="fb-red">۰</span><span id="fbClock" class="fb-clock">۳:۰۰</span><span id="fbBlue" class="fb-blue">۰</span></div>
       <div id="fbMsg" class="fb-msg"></div>
@@ -301,7 +303,8 @@
         <li>دوربین: کشیدن صفحه • زوم: چرخ موس یا دو انگشت</li>
         <li>پرش: <kbd>Space</kbd> • دویدن موقت: نگه داشتن <kbd>Shift</kbd></li>
         <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
-        <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین</li>
+        <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین • <kbd>4</kbd> 🐜 کوچولو • <kbd>5</kbd> 🍄 غول‌پیکر</li>
+        <li>پریدن: <kbd>Space</kbd> یا دکمه‌ی گرد «⤴️» کنار دسته‌ی حرکت (روی گوشی و تبلت)</li>
         <li>فوتبال: <kbd>Space</kbd> شوت یا تکل • <kbd>Q</kbd> پاس</li>
         <li>دوربین آزاد: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> حرکت • <kbd>Q</kbd>/<kbd>E</kbd> پایین و بالا • <kbd>Z</kbd>/<kbd>X</kbd> چرخش</li>
       </ul>
@@ -677,5 +680,6 @@
 <script src="js/levelkit.js"></script>
 <script src="js/tricks.js"></script>
 <script src="js/runtrack.js"></script>
+<script src="js/morph.js"></script>
 </body>
 </html>

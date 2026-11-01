@@ -164,9 +164,13 @@ Object.assign(Game, {
       d.t -= dt;
       const sp = 24;
       ch.root.rotation.y = d.yaw;
-      p.x += Math.sin(d.yaw) * sp * dt;
-      p.z += Math.cos(d.yaw) * sp * dt;
-      w.resolve(p, 0.34);
+      // in small steps, so a fast dash can't skip through anything thin
+      const n = Math.max(1, Math.ceil((sp * dt) / 0.12));
+      for (let k = 0; k < n; k++) {
+        p.x += (Math.sin(d.yaw) * sp * dt) / n;
+        p.z += (Math.cos(d.yaw) * sp * dt) / n;
+        w.resolveBody(p, d.yaw, ch.airY, ch.root.scale.x);
+      }
       for (let i = 0; i < 4; i++) {
         w.fx.emit(p.x + rand(-0.25, 0.25), ch.airY + rand(0.2, 1.7), p.z + rand(-0.25, 0.25), 0, 0, 0, new THREE.Color(pick(['#ffe066', '#7fe0ff', '#ffffff'])), 0.35, 0);
       }

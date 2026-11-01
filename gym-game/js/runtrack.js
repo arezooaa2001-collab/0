@@ -15,6 +15,11 @@ const RUN_TURBO = { turbo: 2.5, superturbo: 5 };
 const RUN_DRAIN = { walk: 0.5, run: 1, jumprun: 1.1, turbo: 2.3, superturbo: 4.2 };
 const RUN_PRIZE = { 1: 1000000, 2: 20000, 3: 100, 4: 50, 5: 10, 10: 0 };
 const RUN_MAX_GUESTS = 3;
+// hurdle rows across the whole track, twice every 100 m (jump them!)
+const RUN_HURDLES = [-25, -75];
+// something to grab every 30 m: coins, and now and then an energy drink
+const RUN_ITEM_GAP = 30;
+const hash01 = (k) => { const x = Math.sin(k * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
 
 const energyMax = (L) => Math.round(100 + 80 * (L - 1) + 2 * (L - 1) * (L - 1));
 const energyNeed = (L) => Math.round(30 + 12 * L);
@@ -213,6 +218,21 @@ class RunWorld extends EnvWorld {
     for (let x = -18; x <= 18; x += 4) bw.box(1.2, 0.5, 0.05, x, 0.8, 16.99, x % 8 ? '#ffd34d' : '#e63946');
     this.startGate.add(new THREE.Mesh(mergeParts(bw.parts, false), MATTE_MAT));
     this.finishGate = this.arch('🏆 پایان • ۱٬۰۰۰٬۰۰۰ متر', '#ffd34d');
+    // hurdles: real solids, so you have to jump them (or squeeze through the gaps when tiny)
+    for (let base = 100; base > T.z2; base -= 100) {
+      for (const hz of RUN_HURDLES) {
+        const z = base + hz;
+        if (z < T.z2 + 2 || z > T.z1 - 2) continue;
+        for (let x = -17.5; x <= 17.5; x += 5) {
+          // one unbroken bar from wall to wall: no gap to slip through
+          for (const sx of [-1, 1]) {
+            this.metal.box(0.06, 0.5, 0.06, x + sx * 2.2, 0.25, z, '#c9ced6');
+            this.metal.box(0.06, 0.03, 0.5, x + sx * 2.2, 0.015, z + 0.2, '#c9ced6');
+          }
+          for (let i = 0; i < 5; i++) m.box(1.0, 0.12, 0.05, x - 2 + i, 0.45, z, i % 2 ? '#ffffff' : '#e63946');
+        }
+      }
+    }
     this.exitPad = { x: 0, z: 14 };
     glow.box(6, 0.01, 2, 0, 0.005, 14, '#7fe0ff');
     this.sign('🏋️ برگشت به تالار', 'اینجا بایست', 0, 3, 14.5, '#7fe0ff');
@@ -315,6 +335,16 @@ class RunWorld extends EnvWorld {
         ch.setLabel(n.name, `😵 ${fa(Math.floor(r.dist))} متر`, '#ff9aa2');
         return [0, 0, 0];
       }
+      // jump the next hurdle row just in time
+      if (ch.grounded && !ch.busy) {
+        const lead = r.speed * 0.3 + 0.35;
+        for (let base = Math.ceil(pos.z / 100) * 100; base > pos.z - 200; base -= 100) {
+          for (const hz of RUN_HURDLES) {
+            const ahead = pos.z - (base + hz);
+            if (ahead > 0 && ahead < lead) ch.jump(6.2);
+          }
+        }
+      }
       const dx = (r.lane - pos.x) * 0.3;
       return [dx, -1, r.speed];
     }
@@ -323,6 +353,17 @@ class RunWorld extends EnvWorld {
 }
 
 ENV_BUILDERS.runtrack = () => new RunWorld();
+
+/** A can of energy drink: grab it to refill a quarter of your energy. */
+function drinkMesh() {
+  const b = new Batch();
+  b.cyl(0.16, 0.42, 0, 0, 0, '#2ecc71', 0, 0, 0, 14);
+  b.cyl(0.165, 0.1, 0, 0.05, 0, '#ffd34d', 0, 0, 0, 14);
+  b.cyl(0.13, 0.03, 0, 0.225, 0, '#c9ced6', 0, 0, 0, 14);
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(mergeParts(b.parts, false), GLOW_MAT));
+  return g;
+}
 
 /* ---------------- you: energy, turbo, the race ---------------- */
 
@@ -460,6 +501,8 @@ Object.assign(Game, {
     } else if (R.state === 'running') {
       R.t += dt;
       R.d = Math.max(R.d, d);
+      R.traceT -= dt;
+      if (R.traceT <= 0 && R.trace.length < 60000) { R.traceT = 0.2; R.trace.push(Math.round(R.t * 10) / 10, Math.round(d * 10) / 10, Math.round(pos.x * 10) / 10); }
       const sp = P.vel.length();
       if (sp > 0.2) {
         const key = RUN_TURBO[P.mode] ? P.mode : (P.mode === 'walk' && !this.keys.has('ShiftLeft') ? 'walk' : P.mode);
@@ -478,6 +521,8 @@ Object.assign(Game, {
       return;
     }
     if (Math.hypot(pos.x - w.exitPad.x, pos.z - w.exitPad.z) > 2.5) this.runExitArmed = false;
+    this.tickRunItems(w, R, P, e, max);
+    this.tickGhost(w, R, dt);
     this.renderRunPanel(d, e, max);
   },
 
@@ -493,6 +538,10 @@ Object.assign(Game, {
     R.state = 'running';
     R.t = 0;
     R.d = 0;
+    R.trace = [];
+    R.traceT = 0;
+    this.runBestBefore = this.save.runBest || 0;
+    this.spawnGhost();
     const base = runSpeedFor(this.runLv());
     for (const n of R.guests) {
       if (!n.run || n.world !== w) continue;
@@ -511,13 +560,15 @@ Object.assign(Game, {
   },
 
   /** Out of energy (or past the million): the race is decided. */
-  finishRunRace(finished) {
+  finishRunRace(finished, byChoice) {
     const R = this.runState();
     const w = this.world;
     const P = this.player;
     R.state = 'done';
     const me = Math.floor(R.d);
-    if (!finished) {
+    if (byChoice) {
+      this.toast('⏹ دویدن رو تموم کردی؛ همین فاصله حساب شد.');
+    } else if (!finished) {
       this.stopLoop(true);
       P.ch.stopAction();
       P.vel.set(0, 0);
@@ -550,10 +601,28 @@ Object.assign(Game, {
       prize = Math.floor((RUN_PRIZE[rank] || 0) * Math.min(1, me / RUN_TRACK.goal));
       if (prize < 1 && rank <= 5 && me >= 100) prize = 1;
     }
+    if (rank === 1 && rows.length > 1) this.save.stats.runWins = (this.save.stats.runWins || 0) + 1;
+    // a new record: next time your ghost runs it again beside you
+    const G = this.save.runGhost;
+    if (me > 30 && (!G || me > G.d) && R.trace && R.trace.length >= 6) {
+      const n = R.trace.length / 3;
+      const step = Math.max(1, Math.ceil(n / 1500));
+      const pts = [];
+      for (let i = 0; i < n; i += step) pts.push(R.trace[i * 3], R.trace[i * 3 + 1], R.trace[i * 3 + 2]);
+      pts.push(R.trace[(n - 1) * 3], R.trace[(n - 1) * 3 + 1], R.trace[(n - 1) * 3 + 2]);
+      this.save.runGhost = { d: me, pts };
+      if (G) setTimeout(() => this.toast('👻 رکورد جدید! دفعه‌ی بعد روحِ همین دویدنت کنارت می‌دوه.', 'gold'), 2600);
+    }
     this.save.runBest = Math.max(this.save.runBest || 0, me);
+    this.checkAchievements();
     if (prize > 0) this.addLevels(prize, false);
     this.persist();
-    setTimeout(() => this.showRunResult(rows, rank, prize, finished, me), finished ? 400 : 2200);
+    const record = me > (this.runBestBefore || 0) && me > 30;
+    setTimeout(() => {
+      this.showRunResult(rows, rank, prize, finished, me);
+      if (rank === 1 || finished || record) this.confetti();
+      if (record) this.toast(`🎉 رکورد جدید: ${fa(me)} متر!`, 'gold');
+    }, finished ? 400 : 2200);
   },
 
   showRunResult(rows, rank, prize, finished, me) {
@@ -594,6 +663,8 @@ Object.assign(Game, {
     P.vel.set(0, 0);
     R.state = 'ready';
     R.d = 0;
+    this.clearRunItems(w);
+    this.removeGhost();
     const e = this.energy();
     e.now = energyMax(e.level);
     R.guests.forEach((n, i) => {
@@ -608,8 +679,118 @@ Object.assign(Game, {
   leaveRun() {
     const R = this.run;
     this.run = null;
+    this.runItems = null;
+    this.removeGhost();
     if (!R) return;
     for (const n of R.guests) if (n.run) this.sendRunnerHome(n);
+  },
+
+  /* ---- coins and energy drinks along the track ---- */
+
+  tickRunItems(w, R, P, e, max) {
+    if (!this.runItems) this.runItems = new Map();
+    if (!R.taken) R.taken = new Set();
+    const pos = P.ch.root.position;
+    const pd = w.distAt(pos.z);
+    const lo = Math.max(1, Math.floor((pd - 40) / RUN_ITEM_GAP));
+    const hi = Math.floor((pd + 280) / RUN_ITEM_GAP);
+    for (const [k, it] of this.runItems) {
+      if (k >= lo && k <= hi) continue;
+      if (it.mesh) w.scene.remove(it.mesh);
+      this.runItems.delete(k);
+    }
+    for (let k = lo; k <= hi; k++) {
+      if (this.runItems.has(k) || R.taken.has(k)) continue;
+      const h = hash01(k);
+      const kind = h < 0.2 ? 'drink' : h < 0.75 ? 'coin' : null;
+      const it = { kind, d: k * RUN_ITEM_GAP + 12, x: -17.5 + 5 * Math.floor(hash01(k * 7.31 + 3) * 8) };
+      if (kind) {
+        it.mesh = kind === 'coin' ? new THREE.Mesh(COIN_GEO, COIN_MAT) : drinkMesh();
+        it.mesh.userData.noSolid = true;
+        if (kind === 'coin') it.mesh.scale.setScalar(1.6);
+        w.scene.add(it.mesh);
+      }
+      this.runItems.set(k, it);
+    }
+    const t = this.clock;
+    for (const [k, it] of this.runItems) {
+      if (!it.mesh) continue;
+      it.mesh.position.set(it.x, 1.0 + Math.sin(t * 3 + k) * 0.12, w.offset - it.d);
+      it.mesh.rotation.y = t * 3 + k;
+      const p = it.mesh.position;
+      // grabbed when the body passes through it (jumping counts)
+      if (Math.abs(p.x - pos.x) < 0.9 && Math.abs(p.z - pos.z) < 0.9 && P.ch.airY + pos.y < 1.8) {
+        w.scene.remove(it.mesh);
+        it.mesh = null;
+        R.taken.add(k);
+        if (it.kind === 'coin') {
+          this.addCoins(2);
+          this.floatText('+۲ 🪙', '');
+          Sfx.play('coin');
+        } else {
+          const add = Math.round(max * 0.25);
+          e.now = Math.min(max, e.now + add);
+          this.floatText(`+${fa(add)} ⚡`, 'fl-run');
+          Sfx.play('xp');
+          w.fx.ring({ x: pos.x, y: 0.4, z: pos.z }, { count: 30, color: '#a7e22e', radius: 0.4, speed: 3, life: 0.5 });
+        }
+      }
+    }
+  },
+
+  clearRunItems(w) {
+    if (this.runItems) for (const it of this.runItems.values()) if (it.mesh) w.scene.remove(it.mesh);
+    this.runItems = new Map();
+    if (this.run) this.run.taken = new Set();
+  },
+
+  /* ---- the ghost of your best run ---- */
+
+  spawnGhost() {
+    this.removeGhost();
+    const G = this.save.runGhost;
+    if (!G || !Array.isArray(G.pts) || G.pts.length < 6) return;
+    const ch = new Character(Object.assign({}, this.player.ch.o));
+    const mat = CHAR_MAT.clone();
+    mat.transparent = true;
+    mat.opacity = 0.42;
+    mat.depthWrite = false;
+    ch.mesh.material = mat;
+    ch.setLabel('👻 رکوردت', `${fa(Math.floor(G.d))} متر`, '#c8b6ff');
+    ch.onEvent = null;
+    this.world.scene.add(ch.root);
+    this.ghost = { ch, pts: G.pts, i: 0, done: false };
+  },
+
+  removeGhost() {
+    const g = this.ghost;
+    if (!g) return;
+    if (g.ch.root.parent) g.ch.root.parent.remove(g.ch.root);
+    g.ch.mesh.material.dispose();
+    this.ghost = null;
+  },
+
+  tickGhost(w, R, dt) {
+    const g = this.ghost;
+    if (!g) return;
+    const P = g.pts;
+    const t = R.state === 'running' ? R.t : g.lastT || 0;
+    g.lastT = t;
+    while (g.i + 3 < P.length - 3 && P[g.i + 3] <= t) g.i += 3;
+    const i = g.i;
+    const t0 = P[i], t1 = P[i + 3] ?? t0;
+    const k = t1 > t0 ? clamp((t - t0) / (t1 - t0), 0, 1) : 1;
+    const d = lerp(P[i + 1], P[i + 4] ?? P[i + 1], k);
+    const x = lerp(P[i + 2], P[i + 5] ?? P[i + 2], k);
+    const ch = g.ch;
+    ch.root.position.set(x, 0, w.offset - d);
+    ch.root.rotation.y = Math.PI;
+    const end = t >= P[P.length - 3];
+    ch.speed = !end && t1 > t0 ? (P[i + 4] - P[i + 1]) / (t1 - t0) : 0;
+    if (end && !g.done) { g.done = true; ch.play('faint'); }
+    const z = ch.root.position.z;
+    ch.root.visible = z < RUN_TRACK.z1 - 1 && z > RUN_TRACK.z2 + 1;
+    ch.update(dt);
   },
 
   renderRunPanel(d, e, max) {
@@ -629,7 +810,8 @@ Object.assign(Game, {
       info = 'خودت با دسته‌ی حرکت بدو؛ از خط سفید که رد بشی مسابقه شروع می‌شه. 🚀 توربو و ☄️ خیلی توربو تندترن ولی انرژی بیشتری می‌خورن.';
     } else if (R.state === 'running') {
       const place = 1 + R.guests.filter((n) => n.run && n.run.dist > R.d).length;
-      head = `🏃 ${fa(Math.floor(R.d))} متر • ⏱️ ${fa(Math.floor(R.t))} ثانیه${R.guests.length ? ` • الان نفر ${fa(place)}` : ''}`;
+      const kmh = Math.round(this.player.vel.length() * 3.6);
+      head = `🏃 ${fa(Math.floor(R.d))} متر • 🚀 ${fa(kmh)} کیلومتر بر ساعت${R.guests.length ? ` • نفر ${fa(place)}` : ''}`;
       info = `تا یک میلیون متر: ${fa(Math.max(0, RUN_TRACK.goal - Math.floor(R.d)))} متر مونده`;
     } else {
       head = '😵 مسابقه تموم شد';
@@ -639,6 +821,7 @@ Object.assign(Game, {
     if ($('runInfo').textContent !== info) $('runInfo').textContent = info;
     $('runInvite').hidden = R.state === 'running';
     $('runAgain').hidden = R.state !== 'done';
+    $('runStop').hidden = R.state !== 'running';
   },
 
   tickRunBoard(dt) {

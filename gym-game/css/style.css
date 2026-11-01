@@ -966,3 +966,25 @@ kbd {
 .run-res li.me { color: #ffd34d; }
 .hud.run-on .toasts { top: calc(var(--safe-t) + 196px); }
 @media (max-width: 720px) { .hud.run-on .toasts { top: calc(var(--safe-t) + 300px); } }
+
+/* speed lines when running really fast */
+.speed-fx {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0;
+  background: repeating-conic-gradient(from 0deg at 50% 55%, rgba(255, 255, 255, 0.55) 0deg 0.6deg, transparent 0.6deg 7deg);
+  -webkit-mask-image: radial-gradient(circle at 50% 55%, transparent 0 32%, #000 70%);
+  mask-image: radial-gradient(circle at 50% 55%, transparent 0 32%, #000 70%);
+  animation: speedSpin 0.35s linear infinite;
+}
+@keyframes speedSpin { from { transform: rotate(0deg) scale(1.2); } to { transform: rotate(7deg) scale(1.2); } }
+.hud.photo-on .speed-fx { display: none; }
+
+/* jump button next to the joystick */
+.jump-btn {
+  position: absolute; left: calc(max(18px, var(--safe-l)) + 150px); bottom: calc(var(--safe-b) + 26px);
+  width: 62px; height: 62px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.5);
+  background: radial-gradient(circle at 35% 30%, #7fe0ff, #2f6fed); font-size: 26px; line-height: 1;
+  box-shadow: 0 5px 0 #173a8c, 0 0 16px rgba(127, 224, 255, 0.45); touch-action: none;
+}
+.jump-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #173a8c; }
+.hud.arm-on .jump-btn, .hud.build-on .jump-btn { display: none !important; }
+@media (max-width: 720px) { .jump-btn { left: calc(max(14px, var(--safe-l)) + 128px); width: 54px; height: 54px; font-size: 22px; bottom: calc(var(--safe-b) + 24px); } }

@@ -7,7 +7,8 @@
  * A person is a capsule as wide as the shoulders and as deep as the body.
  */
 
-const SOLID = { low: 0.025, high: 1.9, step: 0.42, cell: 4 };
+// solids are kept up to `band` high (tall enough for a giant); `high` is a normal person's head
+const SOLID = { low: 0.025, high: 1.9, band: 5.2, step: 0.42, cell: 4 };
 // the core of the body (always inside the real body); arms, legs and head touch things by their real surface
 const BODY = { half: 0.12, r: 0.1 };
 const EXT_DIRS = (() => {
@@ -148,7 +149,7 @@ function partSolids(part, out) {
     if (_sv.y > top) top = _sv.y;
     if (_sv.y < bottom) bottom = _sv.y;
   }
-  if (top < SOLID.low || bottom > SOLID.high) return;
+  if (top < SOLID.low || bottom > SOLID.band) return;
   const stepTris = (vs) => {
     // upward faces, to know how high the surface is under a foot
     const idx = part.geo.index;
@@ -170,8 +171,8 @@ function partSolids(part, out) {
   };
   // the part of it inside the body's height range: corners in range plus edges cut at its limits
   let use = verts;
-  if (top > SOLID.high || bottom < SOLID.low) {
-    use = verts.filter((v) => v[1] >= SOLID.low && v[1] <= SOLID.high);
+  if (top > SOLID.band || bottom < SOLID.low) {
+    use = verts.filter((v) => v[1] >= SOLID.low && v[1] <= SOLID.band);
     const idx = part.geo.index;
     const n = idx ? idx.count : P.count;
     const at = (i) => verts[idx ? idx.getX(i) : i];
@@ -179,7 +180,7 @@ function partSolids(part, out) {
       for (let e = 0; e < 3; e++) {
         const a = at(i + e);
         const b = at(i + (e + 1) % 3);
-        for (const yc of [SOLID.low, SOLID.high]) {
+        for (const yc of [SOLID.low, SOLID.band]) {
           if ((a[1] - yc) * (b[1] - yc) >= 0) continue;
           const t = (yc - a[1]) / (b[1] - a[1]);
           use.push([a[0] + (b[0] - a[0]) * t, yc, a[2] + (b[2] - a[2]) * t]);
@@ -401,14 +402,14 @@ Object.assign(WorldBase.prototype, {
   },
 
   /** Push one circle (x, z, r) at height y out of every solid it overlaps. */
-  pushCircle(pos, ox, oz, r, y) {
+  pushCircle(pos, ox, oz, r, y, head = SOLID.high) {
     let moved = false;
     const x = pos.x + ox;
     const z = pos.z + oz;
     const near = this.solidsNear(x, z);
     for (let k = 0; k < near.length + this.activeColliders.length; k++) {
       const s = k < near.length ? near[k] : this.activeColliders[k - near.length];
-      if (s.step || s.bottom > y + SOLID.high || s.top < y + SOLID.low) continue;
+      if (s.step || s.bottom > y + head || s.top < y + SOLID.low) continue;
       const p = pushOut(s, pos.x + ox, pos.z + oz, r);
       if (p) { pos.x += p[0]; pos.z += p[1]; moved = true; }
     }
@@ -423,18 +424,33 @@ Object.assign(WorldBase.prototype, {
     this.clampBounds(pos, r);
   },
 
-  /** A person: a capsule across the shoulders, turned with the body. */
-  resolveBody(pos, yaw) {
+  /**
+   * A person: a capsule across the shoulders, turned with the body. air: how high they are
+   * jumping (hurdles pass under), size: how big they are (giant and tiny powers).
+   */
+  resolveBody(pos, yaw, air = 0, size = 1) {
     this.ensureSolids();
-    const sx = Math.cos(yaw) * BODY.half;
-    const sz = -Math.sin(yaw) * BODY.half;
-    this.clampBounds(pos, BODY.r);
+    const sx = Math.cos(yaw) * BODY.half * size;
+    const sz = -Math.sin(yaw) * BODY.half * size;
+    const r = BODY.r * size;
+    const y = (pos.y || 0) + air;
+    this.clampBounds(pos, r);
     for (let it = 0; it < 4; it++) {
       let moved = false;
-      for (const o of BODY_OFFS) if (this.pushCircle(pos, sx * o, sz * o, BODY.r, pos.y || 0)) moved = true;
+      for (const o of BODY_OFFS) if (this.pushCircle(pos, sx * o, sz * o, r, y, SOLID.high * size)) moved = true;
       if (!moved) break;
     }
-    this.clampBounds(pos, BODY.r);
+    this.clampBounds(pos, r);
+  },
+
+  /** Move by (dx, dz) in steps no longer than a hand's width, so speed never skips through anything. */
+  moveBody(pos, dx, dz, yaw, air = 0, size = 1) {
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12));
+    for (let k = 0; k < n; k++) {
+      pos.x += dx / n;
+      pos.z += dz / n;
+      this.resolveBody(pos, yaw, air, size);
+    }
   },
 
   clampBounds(pos, r) {

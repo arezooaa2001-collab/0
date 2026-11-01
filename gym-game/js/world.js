@@ -481,14 +481,12 @@ class WorldBase {
     if (!n.anchored) {
       const px = pos.x;
       const pz = pos.z;
-      pos.x += n.vel.x * dt;
-      pos.z += n.vel.y * dt;
-      this.resolveBody(pos, ch.root.rotation.y);
+      this.moveBody(pos, n.vel.x * dt, n.vel.y * dt, ch.root.rotation.y, ch.airY, ch.root.scale.x);
       // blocked by something: really stop (no legs walking on the spot into it)
       if (dt > 0) { n.vel.x = (pos.x - px) / dt; n.vel.y = (pos.z - pz) / dt; }
       if (ch.rootSpeed || ch.rootSide) {
         this.rootMotion(ch, pos, dt);
-        this.resolveBody(pos, ch.root.rotation.y);
+        this.resolveBody(pos, ch.root.rotation.y, ch.airY, ch.root.scale.x);
       }
       this.settleY(pos, dt);
     }
@@ -770,14 +768,12 @@ class WorldBase {
     } else {
       const px = pos.x;
       const pz = pos.z;
-      pos.x += P.vel.x * dt;
-      pos.z += P.vel.y * dt;
-      this.resolveBody(pos, ch.root.rotation.y);
+      this.moveBody(pos, P.vel.x * dt, P.vel.y * dt, ch.root.rotation.y, ch.airY, ch.root.scale.x);
       // blocked by something: really stop (no legs walking on the spot into it)
       if (dt > 0) { P.vel.x = (pos.x - px) / dt; P.vel.y = (pos.z - pz) / dt; }
       if (ch.rootSpeed || ch.rootSide) {
         this.rootMotion(ch, pos, dt);
-        this.resolveBody(pos, ch.root.rotation.y);
+        this.resolveBody(pos, ch.root.rotation.y, ch.airY, ch.root.scale.x);
       }
       this.settleY(pos, dt);
     }
@@ -844,7 +840,7 @@ class WorldBase {
 
   separate() {
     const all = [this.player.ch, ...this.npcs.map((n) => n.ch)];
-    const R = 0.62;
+    const R0 = 0.31;
     for (let i = 0; i < all.length; i++) {
       const A = all[i];
       const a = A.root.position;
@@ -854,6 +850,8 @@ class WorldBase {
         const dx = b.x - a.x;
         const dz = b.z - a.z;
         const d2 = dx * dx + dz * dz;
+        // people keep apart by their real size (a giant and a tiny one too)
+        const R = R0 * (A.root.scale.x + Bc.root.scale.x);
         if (d2 >= R * R || d2 < 1e-6) continue;
         if (A.anchored && Bc.anchored) continue;
         const d = Math.sqrt(d2);
@@ -866,7 +864,7 @@ class WorldBase {
         b.x += dx * push * wb; b.z += dz * push * wb;
       }
     }
-    for (const c of all) if (!c.anchored) this.resolveBody(c.root.position, c.root.rotation.y);
+    for (const c of all) if (!c.anchored) this.resolveBody(c.root.position, c.root.rotation.y, c.airY, c.root.scale.x);
   }
 
   cameraLimits(x, y, z) {
@@ -893,12 +891,15 @@ class WorldBase {
     const k = damp(8, dt);
     c.tx += (p.x - c.tx) * k;
     c.tz += (p.z - c.tz) * k;
-    c.ty += (1.25 + p.y + ch.airY * 0.5 + Math.max(0, ch.cur.y) * 0.5 - c.ty) * k;
+    // a giant is followed from further back, a tiny one from closer
+    const S = ch.root.scale.x;
+    c.ty += (p.y + (1.25 + ch.airY * 0.5 + Math.max(0, ch.cur.y) * 0.5) * S - c.ty) * k;
+    const dist = c.dist * (S > 1 ? 0.5 + 0.5 * S : 0.45 + 0.55 * S);
     const cp = Math.cos(c.pitch);
     const [x, y, z] = this.cameraLimits(
-      c.tx + Math.sin(c.yaw) * cp * c.dist,
-      c.ty + Math.sin(c.pitch) * c.dist + 0.5,
-      c.tz + Math.cos(c.yaw) * cp * c.dist,
+      c.tx + Math.sin(c.yaw) * cp * dist,
+      c.ty + Math.sin(c.pitch) * dist + 0.5 * S,
+      c.tz + Math.cos(c.yaw) * cp * dist,
     );
     camera.position.set(x, y, z);
     if (this.shake > 0) {

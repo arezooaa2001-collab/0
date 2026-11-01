@@ -110,7 +110,7 @@ const Game = {
   need(L) { return this.track === 'g2' ? Math.round(xpNeed(L) * G2_HARD) : xpNeed(L); },
   mult() { return xpMult(this.prog().level); },
   boostActive() { return Date.now() < (this.save.boost.until || 0); },
-  stats() { return { level: this.lv(), runLevel: this.runLv(), speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) * this.turboMult() }; },
+  stats() { return { level: this.lv(), runLevel: this.runLv(), speedMult: (this.owns('shoes') ? 1.15 : 1) * (this.starActive() ? 1.4 : 1) * this.turboMult() * this.morphSpeed() }; },
   envKey() { return this.where === 'env' ? this.envId : this.where; },
 
   /* ---------------- boot ---------------- */
@@ -346,6 +346,7 @@ const Game = {
         if (r) this.world.guideTo(r.s);
         return;
       }
+      if (this.morphSize() !== 1) { Sfx.play('error'); this.toast('با این اندازه روی وسیله جا نمی‌شی! صبر کن به اندازه‌ی عادی برگردی (یا دوباره دکمه‌ی قدرت رو بزن).', 'warn'); return; }
       if (m.zone && this.lv() < m.zone) { this.zoneFail(m, st); return; }
       if (this.spinBlock && this.spinBlock(m, st)) return;
       started = this.startLoop({ m, st, anim: m.anim || m.id, done: () => this.exerciseDone(m) });
@@ -1072,7 +1073,9 @@ const Game = {
     on('cheatBtn', () => this.purgeCheats());
     on('trickGo', () => this.startTrick());
     on('runInvite', () => this.openRunInvite());
+    $('jumpBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); if (this.inFootball()) this.fbShoot(); else this.pendingJump = true; });
     on('runAgain', () => this.resetRun());
+    on('runStop', () => { if (this.run && this.run.state === 'running') this.finishRunRace(false, true); });
     on('runResAgain', () => this.resetRun());
     on('runResHome', () => { this.closeModal('runResultModal'); this.travel('gym'); });
     document.querySelectorAll('#trickQuick button').forEach((b) => b.addEventListener('click', () => { $('trickAmt').value = b.dataset.n; }));
@@ -1150,6 +1153,8 @@ const Game = {
       if (e.code === 'Digit1' || e.code === 'Numpad1') this.usePower('superjump');
       if (e.code === 'Digit2' || e.code === 'Numpad2') this.usePower('dash');
       if (e.code === 'Digit3' || e.code === 'Numpad3') this.usePower('slam');
+      if (e.code === 'Digit4' || e.code === 'Numpad4') this.usePower('tiny');
+      if (e.code === 'Digit5' || e.code === 'Numpad5') this.usePower('giant');
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
       if (e.code === 'KeyE') this.runContext();
       if (e.code === 'KeyR') this.onMove(MOVE_BY_ID.run);
@@ -1269,6 +1274,7 @@ const Game = {
       }
       if (this.mode === 'menu') this.world.cam.yaw += dt * 0.12;
       this.tickPowers(dt);
+      this.tickMorph(dt);
       if (this.arm) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());
@@ -1295,6 +1301,7 @@ const Game = {
       if (this.mode === 'play' || this.mode === 'transition') this.tickRun(dt);
       this.tickWall(dt);
       this.tickShadows();
+      this.tickSpeedFx(dt);
       if (this.watch) this.stepWatch(dt);
       else this.renderer.render(this.world.scene, this.camera);
     } catch (e) {
