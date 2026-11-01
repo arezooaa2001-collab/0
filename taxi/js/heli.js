@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { damp, dampAngle } from './util.js';
 
+const DOWN = new THREE.Vector3(0, -1, 0);
+
 /** Police helicopter that joins long chases, with a searchlight sweeping over the taxi. */
 export class Heli {
   constructor(game) {
@@ -117,7 +119,11 @@ export class Heli {
         g.ui.toast('🚁 هلی‌کوپتر پلیس اومد! از بالا داره می‌بینتت!', 'bad');
       }
       this.state = 'on';
-    } else if (!want && this.state === 'on') this.state = 'leave';
+    } else if (!want && this.state === 'on') {
+      // climb away along the current heading (a fixed direction, so it never runs away with itself)
+      this.state = 'leave';
+      this.leaveDir = { x: Math.sin(this.group.rotation.y), z: Math.cos(this.group.rotation.y) };
+    }
     if (this.state === 'off') {
       g.audio.setHeli && g.audio.setHeli(0);
       return;
@@ -132,8 +138,8 @@ export class Heli {
       ty = Math.max(fy, g.world.heightAt(tx, tz)) + 30;
     } else {
       // climb away
-      tx = this.pos.x + this.vel.x * 3;
-      tz = this.pos.z + this.vel.z * 3;
+      tx = this.pos.x + this.leaveDir.x * 40;
+      tz = this.pos.z + this.leaveDir.z * 40;
       ty = this.pos.y + 25;
     }
     const k = this.state === 'on' ? 1.1 : 0.6;
@@ -158,12 +164,12 @@ export class Heli {
     const on = this.state === 'on';
     this.cone.visible = this.pool.visible = on;
     if (on) {
-      const top = new THREE.Vector3(this.pos.x, this.pos.y - 1.3, this.pos.z);
-      const dir = new THREE.Vector3().subVectors(this.aim, top);
+      const top = (this._top = this._top || new THREE.Vector3()).set(this.pos.x, this.pos.y - 1.3, this.pos.z);
+      const dir = (this._dir = this._dir || new THREE.Vector3()).subVectors(this.aim, top);
       const len = dir.length();
       this.cone.position.copy(top);
       this.cone.scale.set(1, len, 1);
-      this.cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir.normalize());
+      this.cone.quaternion.setFromUnitVectors(DOWN, dir.normalize());
       this.coneMat.opacity = 0.03 + night * 0.16;
       this.pool.position.set(this.aim.x, g.world.heightAt(this.aim.x, this.aim.z) + 0.12, this.aim.z);
       this.poolMat.opacity = 0.15 + night * 0.5;

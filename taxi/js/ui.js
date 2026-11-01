@@ -278,7 +278,7 @@ export class UI {
     const g = this.g;
     const c = $('bigmapCanvas'), r = c.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width) * HALF * 2 - HALF, z = ((e.clientY - r.top) / r.height) * HALF * 2 - HALF;
-    if (g.rides.ride || g.race.state !== 'idle') {
+    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle') {
       this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
       return;
     }
@@ -988,6 +988,7 @@ export class UI {
         g.money -= g.police.fine;
         g.police.despawnUnit();
         g.police.state = 'none';
+        g.police.robbery = false;
         this.setWanted(false);
         this.toast('جریمه رو دادی و آزاد شدی ✅', 'good');
         g.audio.cash();

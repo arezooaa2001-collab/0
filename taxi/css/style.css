@@ -487,3 +487,15 @@ body.photomode .nearpop { display: none; }
 #parkHud span { font-size: 13px; }
 #parkHud.low b { color: #ffe066; animation: czpulse .5s infinite alternate; }
 @media (max-height: 480px) { #parkHud b { font-size: 17px; } #parkHud { padding: 3px 10px; } }
+
+/* timed-mode HUDs sit just above the speedometer, clear of the top bars and the button grid */
+#crazyHud, #parkHud { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(96px + var(--safe-b)); margin: 0; white-space: nowrap; pointer-events: none; }
+@media (max-height: 480px) { #crazyHud, #parkHud { bottom: calc(80px + var(--safe-b)); } }
+/* during a timed mode the big reward popups stay out of the way of the timer */
+body.timedmode .achpop { top: 44%; transform: translateX(-50%) scale(.85); }
+#wanted { white-space: nowrap; }
+#wantedStars { font-size: 11px; letter-spacing: -2px; }
+@media (max-height: 480px) {
+  /* keep the guide/toasts column between the minimap and the button grid */
+  #topCenter { left: calc(128px + var(--safe-l, 0px)); right: calc(318px + var(--safe-r, 0px)); width: auto; transform: none; }
+}

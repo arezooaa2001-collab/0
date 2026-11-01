@@ -84,6 +84,10 @@ export class Walker {
   }
   dispose() {
     if (this.root.parent) this.root.parent.remove(this.root);
+    // merged body parts belong to this person only; cached parts and materials are shared
+    this.root.traverse((o) => {
+      if (o.isMesh && o.geometry.userData.owned) o.geometry.dispose();
+    });
   }
 }
 

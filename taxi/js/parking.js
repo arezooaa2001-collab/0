@@ -123,6 +123,7 @@ export class Parking {
     g.setGuide({ x: this.bay.x, z: this.bay.z, label: '🅿️ جای پارک', addr: 'دقیق بین خط‌ها وایسا', direct: true });
     g.rides.cooldown = Math.max(g.rides.cooldown, 10);
     $('parkHud').classList.remove('hidden');
+    document.body.classList.add('timedmode');
     g.audio.tone(660, 0.15, 0.15, 'square');
   }
   end(ok, reason) {
@@ -131,6 +132,7 @@ export class Parking {
     this.state = 'idle';
     this.mark.visible = false;
     $('parkHud').classList.add('hidden');
+    document.body.classList.remove('timedmode');
     g.guideOn = this.prevGuide;
     if (!g.rides.ride) g.clearGuide();
     if (!ok) {
@@ -187,8 +189,10 @@ export class Parking {
     this.arrow.position.y = 2.6 + Math.sin(g.time * 4) * 0.25;
     this.arrow.visible = !inside;
     const hud = $('parkHud');
-    hud.className = this.time < 10 ? 'low' : '';
-    hud.innerHTML = `<b>🅿️ ⏱ ${fa(Math.max(0, Math.ceil(this.time)))}</b><span>💥 ${fa(this.bumps)}/۳</span><span>${inside ? (still ? '✅ نگه دار...' : '🛑 وایسا!') : '↔️ برو توی خط‌ها'}</span>`;
+    const cls = this.time < 10 ? 'low' : '';
+    if (hud.className !== cls) hud.className = cls;
+    const html = `<b>🅿️ ⏱ ${fa(Math.max(0, Math.ceil(this.time)))}</b><span>💥 ${fa(this.bumps)}/۳</span><span>${inside ? (still ? '✅ نگه دار...' : '🛑 وایسا!') : '↔️ برو توی خط‌ها'}</span>`;
+    if (html !== this.hudText) hud.innerHTML = this.hudText = html;
     if (this.holdT > 1) return this.end(true);
     if (this.time <= 0) this.end(false, '⏱ وقت تموم شد! پارک نشد');
   }

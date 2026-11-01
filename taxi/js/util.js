@@ -177,6 +177,7 @@ export function mergeDirect(group) {
   for (const o of rm) group.remove(o);
   for (const [mat, gs] of buckets) {
     const m = new THREE.Mesh(concatGeometries(gs), mat);
+    m.geometry.userData.owned = true; // unique to this group: free it on dispose
     m.castShadow = true;
     group.add(m);
   }

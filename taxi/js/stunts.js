@@ -25,8 +25,6 @@ export class Stunts {
   /** passing traffic very closely at speed: combo bonus */
   nearMiss(dt) {
     const g = this.g, p = g.player, s = g.stats;
-    this.comboT -= dt;
-    if (this.comboT <= 0) this.combo = 0;
     const sp = p.groundSpeed ?? Math.abs(p.speed);
     const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
     const crashed = p.events.some((e) => e.type === 'crash');
@@ -53,7 +51,7 @@ export class Stunts {
       s.nearMiss = (s.nearMiss || 0) + 1;
       s.bestCombo = Math.max(s.bestCombo || 0, this.combo);
       g.addXp(3 + this.combo);
-      if (g.crazy.ride) g.crazy.ride.tips += cash;
+      g.crazy.tip(Math.round(cash / 2000) * 1000, '😱 نزدیک بود!');
       g.audio.tone(700 + this.combo * 90, 0.12, 0.12, 'triangle');
       this.pop(`😱 نزدیک بود!${this.combo > 1 ? ' ×' + fa(this.combo) : ''} +${faMoney(cash)}`);
     }
@@ -73,6 +71,8 @@ export class Stunts {
   }
   update(dt) {
     const g = this.g, p = g.player, s = g.stats;
+    this.comboT -= dt;
+    if (this.comboT <= 0) this.combo = 0;
     const driving = g.state === 'play' && !g.onfoot.active;
     // ---------- jumps ----------
     let slowTarget = 1;

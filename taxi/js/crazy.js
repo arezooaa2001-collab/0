@@ -27,6 +27,7 @@ export class Crazy {
     this.destBeacon.visible = false;
     game.scene.add(this.destBeacon);
     this.waiting = [];
+    this.beaconPool = [];
     this.ride = null;
   }
   canStart() {
@@ -64,6 +65,9 @@ export class Crazy {
     if (g.guide && g.guide.custom) g.clearGuide();
     this.prevGuide = g.guideOn;
     g.guideOn = true;
+    document.getElementById('btnGuide').classList.add('active');
+    document.body.classList.add('timedmode');
+    this.hudText = '';
     $('crazyHud').classList.remove('hidden');
     g.ui.toast('🔥 تاکسی دیوانه شروع شد! برو دنبال مسافرها!', 'good');
     g.audio.tone(523, 0.15, 0.2, 'square');
@@ -91,7 +95,9 @@ export class Crazy {
     const col = len < 450 ? 'g' : len < 750 ? 'y' : 'r';
     const walker = new Walker(g.scene, { female: Math.random() < 0.5 });
     walker.setPos(at.x, at.z, Math.atan2(-at.nx, -at.nz));
-    const beacon = buildBeacon(RING[col]);
+    const beacon = this.beaconPool.pop() || buildBeacon(RING[col]);
+    beacon.userData.beamMat.color.setHex(RING[col]);
+    beacon.userData.ringMat.color.setHex(RING[col]);
     beacon.children[0].scale.y = 0.2;
     beacon.position.set(at.x, w.heightAt(at.x, at.z), at.z);
     g.scene.add(beacon);
@@ -100,6 +106,7 @@ export class Crazy {
   removeWaiting(c) {
     c.walker.dispose();
     this.g.scene.remove(c.beacon);
+    this.beaconPool.push(c.beacon);
     this.waiting = this.waiting.filter((x) => x !== c);
   }
   /** stunt bonus while a passenger is aboard */
@@ -118,23 +125,18 @@ export class Crazy {
     g.guideOn = this.prevGuide;
     if (!g.rides.ride) g.clearGuide();
     g.rides.cooldown = Math.max(g.rides.cooldown, 10);
-    s.crazyRuns = (s.crazyRuns || 0) + 1;
+    if (this.count > 0 || START_TIME - this.time > 10) s.crazyRuns = (s.crazyRuns || 0) + 1;
     const record = this.earned > (s.crazyBest || 0);
     if (record) s.crazyBest = this.earned;
     g.addXp(this.count * 15);
     g.audio.tone(392, 0.2, 0.2, 'square');
     g.audio.tone(330, 0.4, 0.2, 'square', 0.2);
     if (reason) g.ui.toast(reason, 'warn');
-    g.ui.panel(`<h2>🔥 تاکسی دیوانه تموم شد!</h2>
-      <div class="raceoffer"><div class="rv">${record ? '🏆' : '🚕'}<b>${faMoney(this.earned)} تومان</b><small>${record ? 'رکورد جدید!! 🎉' : `رکورد: ${faMoney(s.crazyBest || 0)} تومان`}</small></div>
-      <div class="statrow"><span>🧍 ${fa(this.count)} مسافر رسوندی</span></div>
-      <div class="btnrow"><button data-a="again">یه دور دیگه! 🔥</button><button data-a="no" class="ghost">بستن</button></div></div>`, (el) => {
-      el.querySelector('[data-a=again]').onclick = () => {
-        g.ui.closePanel();
-        if (this.canStart()) this.start();
-      };
-      el.querySelector('[data-a=no]').onclick = () => g.ui.closePanel();
-    });
+    // results as a banner + toast: never a modal panel while the player may still be driving
+    g.stunts.banner(`🔥 تاکسی دیوانه تموم شد! ${faMoney(this.earned)} تومان${record && this.earned > 0 ? ' • رکورد جدید! 🏆' : ''}`);
+    g.ui.toast(`🧍 ${fa(this.count)} مسافر رسوندی • رکورد: ${faMoney(s.crazyBest || 0)} تومان • برای یه دور دیگه برو سر 🔥`, 'info');
+    document.body.classList.remove('timedmode');
+    document.getElementById('btnGuide').classList.toggle('active', g.guideOn);
     if (record && this.earned > 0) g.fireworks.show(g.player.pos.x + Math.sin(g.player.heading) * 160, g.player.pos.z + Math.cos(g.player.heading) * 160, 7);
     g.save();
   }
@@ -154,6 +156,7 @@ export class Crazy {
   }
   removeWaitingOnly(c) {
     this.g.scene.remove(c.beacon);
+    this.beaconPool.push(c.beacon);
     this.waiting = this.waiting.filter((x) => x !== c);
   }
   dropOff(ok, silent = false) {
@@ -169,6 +172,7 @@ export class Crazy {
     g.audio.door();
     if (!ok) {
       if (!silent) g.ui.say('مسافر', 'دیر شد! همینجا پیاده میشم 😤', { mood: 'grumpy' });
+      g.clearGuide();
       return;
     }
     const fast = r.t < r.limit * 0.6;
@@ -240,8 +244,12 @@ export class Crazy {
     }
     const hud = $('crazyHud');
     const r = this.ride;
-    hud.className = this.time < 10 ? 'low' : '';
-    hud.innerHTML = `<b>⏱ ${fa(Math.ceil(this.time))}</b><span>💰 ${faMoney(this.earned)}</span><span>🧍 ${fa(this.count)}</span>${r ? `<span class="rt ${r.limit - r.t < 8 ? 'warn' : ''}">🚕 ${fa(Math.max(0, Math.ceil(r.limit - r.t)))} ث</span>` : ''}`;
+    const html = `<b>⏱ ${fa(Math.ceil(this.time))}</b><span>💰 ${faMoney(this.earned)}</span><span>🧍 ${fa(this.count)}</span>${r ? `<span class="rt ${r.limit - r.t < 8 ? 'warn' : ''}">🚕 ${fa(Math.max(0, Math.ceil(r.limit - r.t)))} ث</span>` : ''}`;
+    if (html !== this.hudText) {
+      this.hudText = html;
+      hud.className = this.time < 10 ? 'low' : '';
+      hud.innerHTML = html;
+    }
     if (this.time < 10 && Math.ceil(this.time) !== this.lastBeep) {
       this.lastBeep = Math.ceil(this.time);
       g.audio.beep();

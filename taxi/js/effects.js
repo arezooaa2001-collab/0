@@ -53,6 +53,7 @@ export class Particles {
   }
   update(dt, gravity = 0) {
     const P = this.parts;
+    if (!P.length && !this.drawn) return; // nothing alive and nothing on screen: skip the uploads
     let n = 0;
     for (let i = 0; i < P.length; i++) {
       const p = P[i];
@@ -70,6 +71,7 @@ export class Particles {
       n++;
     }
     P.length = n;
+    this.drawn = n > 0;
     this.geo.setDrawRange(0, n);
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.aSize.needsUpdate = true;
