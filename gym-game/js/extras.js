@@ -140,7 +140,9 @@ class Race {
     }
     const P = this.player.ch.root.position;
     const a = this.angleOf(P.x, P.z);
-    this.progress += wrapAngle(a - this.lastA);
+    // only running on the track counts (a little circle in the middle is not a lap)
+    const rr = Math.hypot((P.x - TRACK.cx) / TRACK.a, (P.z - TRACK.cz) / TRACK.b);
+    if (rr > 0.8) this.progress += wrapAngle(a - this.lastA);
     this.lastA = a;
     this.progress = Math.max(this.progress, -1);
     if (this.progress >= TAU) return { place: this.finished.length + 1 };

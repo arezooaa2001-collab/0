@@ -462,6 +462,8 @@ class WorldBase {
       }
     } else if (n.state === 'dodge') {
       [dirX, dirZ, speed] = this.dodgeNpc(n, dt);
+    } else if (n.state === 'party') {
+      [dirX, dirZ, speed] = this.partyNpc(n, dt);
     } else if (n.state === 'buddy') {
       [dirX, dirZ, speed] = this.buddyNpc(n, dt);
     } else if (n.state === 'boss') {

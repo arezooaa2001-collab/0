@@ -1058,3 +1058,13 @@ kbd {
   .powers { bottom: calc(var(--safe-b) + 160px); }
   .radar { top: auto; left: calc(max(12px, var(--safe-l)) + 236px); bottom: calc(var(--safe-b) + 12px); width: 92px; height: 92px; }
 }
+
+/* round 11 */
+.moon-fx { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 40%, transparent 50%, rgba(160, 120, 255, 0.28)); animation: slowPulse 2s ease-in-out infinite; }
+.hunt-panel { border-color: rgba(255, 211, 77, 0.75); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(255, 211, 77, 0.35); }
+.hunt-panel .spin-head { color: #ffe09a; }
+@media (max-height: 480px) and (orientation: landscape) {
+  /* nine powers in one row that ends before the moves panel (narrow phones wrap a second row) */
+  .powers { gap: 6px; max-width: calc(56vw - 40px); flex-wrap: wrap-reverse; }
+  .pw-btn { width: 42px; height: 42px; font-size: 19px; }
+}

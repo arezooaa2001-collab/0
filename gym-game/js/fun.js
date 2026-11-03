@@ -186,7 +186,7 @@ Object.assign(Game, {
         w.fx.emit(p.x + rand(-0.25, 0.25), ch.airY + rand(0.2, 1.7), p.z + rand(-0.25, 0.25), 0, 0, 0, new THREE.Color(pick(['#ffe066', '#7fe0ff', '#ffffff'])), 0.35, 0);
       }
       for (const n of w.npcs) {
-        if (d.hit.has(n) || n.state === 'knocked' || n.anchored || !n.ch.grounded) continue;
+        if (d.hit.has(n) || ['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge'].includes(n.state) || n.anchored || !n.ch.grounded) continue;
         const q = n.ch.root.position;
         if (Math.hypot(q.x - p.x, q.z - p.z) < 1.3) { d.hit.add(n); w.knockNpc(n, p.x, p.z); }
       }
@@ -199,7 +199,7 @@ Object.assign(Game, {
     // the golden star knocks over anyone you run into
     if (this.starActive() && P.vel.length() > 2) {
       for (const n of w.npcs) {
-        if (n.state === 'knocked' || n.anchored || !n.ch.grounded) continue;
+        if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge'].includes(n.state) || n.anchored || !n.ch.grounded) continue;
         const q = n.ch.root.position;
         if (Math.hypot(q.x - p.x, q.z - p.z) < 0.85) { w.knockNpc(n, p.x, p.z); Sfx.play('punch'); }
       }
@@ -241,7 +241,8 @@ Object.assign(Game, {
     const w = this.world;
     if (!w.fx || w.env === 'football') return;
     if (!w.pickups) w.pickups = new Pickups(w);
-    const auto = this.mode === 'play' && !this.arm;
+    // nothing spawns on the million-metre track (it would land millions of metres away)
+    const auto = this.mode === 'play' && !this.arm && !(w instanceof RunWorld);
     const got = w.pickups.update(dt, this.player, auto, w === this.gym ? 12 : 9, this.starActive() ? 6 : 0);
     for (const it of got) this.onPickup(it);
     if (!auto || this.race) return;

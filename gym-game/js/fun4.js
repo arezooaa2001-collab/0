@@ -28,7 +28,7 @@ const LOOK_NAMES = { skin: 'رنگ پوست', hair: 'رنگ مو', shorts: 'شل
 ACHIEVEMENTS.push(
   { id: 'board', name: 'موج‌سوار', icon: '🛹', desc: 'سوار هاوربرد شو و یه ترفند هوایی بزن', test: (s) => (s.stats.boardTricks || 0) >= 1 },
   { id: 'jet', name: 'خلبان', icon: '🎒', desc: 'با جت‌پک بالای ۶ متر پرواز کن', test: (s) => (s.stats.jetHigh || 0) >= 1 },
-  { id: 'lava', name: 'پای نسوز', icon: '🌋', desc: 'از «زمین گدازه‌ست» سالم بیرون بیا', test: (s) => (s.stats.lavaWins || 0) >= 1 },
+  { id: 'lava', name: 'پای نسوز', icon: '🌋', desc: '«زمین گدازه‌ست» رو با کمتر از ۳ سوختگی رد کن', test: (s) => (s.stats.lavaWins || 0) >= 1 },
   { id: 'dodge', name: 'جاخالی‌باز', icon: '🎯', desc: 'بازی جاخالی رو تا آخر دووم بیار', test: (s) => (s.stats.dodgeWins || 0) >= 1 },
   { id: 'fireboss', name: 'آتش‌نشان', icon: '🔥', desc: 'غول آتشین رو شکست بده', test: (s) => (s.stats.fireBossWins || 0) >= 1 },
   { id: 'beam', name: 'پرتوی قهرمان', icon: '🌟', desc: 'با پرتو نهایی ۵ نفر رو یه‌جا بنداز', test: (s) => (s.stats.beamMax || 0) >= 5 },
@@ -85,11 +85,11 @@ function jetpackMesh() {
 Object.assign(Game, {
   /* ---------- hoverboard ---------- */
 
-  toggleBoard() {
+  toggleBoard(quiet) {
     const P = this.player;
     if (P.board) { this.endBoard(); return; }
     if (this.loop) this.stopLoop(true);
-    if (P.anchor || P.ch.busy || this.race || this.arm) { this.toast('الان نمی‌شه سوار شد.', 'warn'); return; }
+    if (P.anchor || P.ch.busy || this.race || this.arm || this.inFootball() || this.world.allowTurbo) { this.toast('الان یا این‌جا نمی‌شه سوار هاوربرد شد.', 'warn'); return; }
     if (P.jet) this.endJet();
     P.board = { mesh: boardMesh(), trick: 0 };
     P.ch.root.add(P.board.mesh);
@@ -98,8 +98,10 @@ Object.assign(Game, {
     P.board.mesh.rotation.y = 0.9;
     P.ch.manual = true;
     P.ch.manualSnap = false;
-    Sfx.play('whoosh');
-    this.toast('🛹 سوار هاوربرد شدی! تندتر می‌ری؛ وسط پرش یه ترفند می‌زنه. دوباره بزن تا پیاده شی.');
+    if (!quiet) {
+      Sfx.play('whoosh');
+      this.toast('🛹 سوار هاوربرد شدی! تندتر می‌ری؛ وسط پرش یه ترفند می‌زنه. دوباره بزن تا پیاده شی.');
+    }
     this.refreshMoves();
   },
 
@@ -118,7 +120,10 @@ Object.assign(Game, {
     const B = P && P.board;
     if (!B) return;
     if (P.anchor || this.race || this.arm || this.mode === 'arena') { this.endBoard(); return; }
+    if (this.inFootball() || this.world.allowTurbo) { this.endBoard(); this.toast('🛹 این‌جا هاوربرد ممنوعه!', 'warn'); return; }
     const ch = P.ch;
+    // an animation (a knock-down, a dance, a punch) plays normally; then you are back on the board
+    ch.manual = !ch.action;
     boardPose(ch.manualPose, -ch.turn * 0.12, this.clock);
     // a kickflip on every jump
     if (!ch.grounded) {
@@ -143,17 +148,17 @@ Object.assign(Game, {
 
   /* ---------- jetpack ---------- */
 
-  toggleJet() {
+  toggleJet(quiet, fuel = 1) {
     const P = this.player;
     if (P.jet) { this.endJet(); return; }
     if (this.loop) this.stopLoop(true);
-    if (P.anchor || P.ch.busy || this.race || this.arm) { this.toast('الان نمی‌شه جت‌پک بست.', 'warn'); return; }
+    if (P.anchor || P.ch.busy || this.race || this.arm || this.inFootball() || this.world.allowTurbo) { this.toast('الان یا این‌جا نمی‌شه جت‌پک بست.', 'warn'); return; }
     if (P.board) this.endBoard();
-    P.jet = { mesh: jetpackMesh(), fuel: 1, flameT: 0 };
+    P.jet = { mesh: jetpackMesh(), fuel, flameT: 0 };
     P.ch.B.spine.add(P.jet.mesh);
     P.jet.mesh.position.set(0, 0.3, -0.2);
-    Sfx.play('charge');
-    this.toast('🎒 جت‌پک بستی! پرش رو نگه دار (Space یا دکمه‌ی ⤴️) تا بری بالا. سوختش روی زمین پر می‌شه.');
+    if (!quiet) Sfx.play('charge');
+    if (!quiet) this.toast('🎒 جت‌پک بستی! پرش رو نگه دار (Space یا دکمه‌ی ⤴️) تا بری بالا. سوختش روی زمین پر می‌شه.');
     $('jetFuel').hidden = false;
     this.refreshMoves();
   },
@@ -175,6 +180,7 @@ Object.assign(Game, {
     const J = P && P.jet;
     if (!J) return;
     if (P.anchor || this.race || this.arm || this.mode === 'arena') { this.endJet(); return; }
+    if (this.inFootball() || this.world.allowTurbo) { this.endJet(); this.toast('🎒 این‌جا جت‌پک ممنوعه!', 'warn'); return; }
     const ch = P.ch;
     const w = this.world;
     P.dj = true; // no double jump with a jetpack: holding jump flies
@@ -206,6 +212,7 @@ Object.assign(Game, {
     if (this.powerCd.beam > 0 || P.anchor || P.ch.busy || !P.ch.grounded || this.loop) return;
     this.powerCd.beam = pw.cd;
     this.save.stats.powers++;
+    this.missionProgress('power', 1);
     P.vel.set(0, 0);
     P.ch.play('e_heart');
     Sfx.play('charge');
@@ -230,7 +237,7 @@ Object.assign(Game, {
       // everyone in its path falls over
       let n = 0;
       for (const q of w.npcs) {
-        if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave'].includes(q.state) || q.anchored) continue;
+        if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge'].includes(q.state) || q.anchored) continue;
         const dx = q.ch.root.position.x - p.x;
         const dz = q.ch.root.position.z - p.z;
         const along = dx * Math.sin(yaw) + dz * Math.cos(yaw);
@@ -292,6 +299,8 @@ Object.assign(Game, {
   tickBalls(dt) {
     const list = this.balls;
     if (!list || !list.length) return;
+    // menus, the camera room and photos pause everything flying
+    if (this.modals.size || this.watch || this.photo) return;
     const P = this.player;
     for (const b of [...list]) {
       const done = () => { b.m.removeFromParent(); b.m.geometry.dispose(); b.m.material.dispose(); list.splice(list.indexOf(b), 1); };
@@ -315,7 +324,7 @@ Object.assign(Game, {
     const P = this.player;
     Sfx.play('punch');
     this.world.shake = Math.max(this.world.shake, 0.3);
-    if (this.dodge) {
+    if (this.dodge && kind === 'ball') {
       this.dodge.lives--;
       this.floatText('💔', '');
       if (this.dodge.lives <= 0) { this.endDodge(false); return; }
@@ -328,7 +337,7 @@ Object.assign(Game, {
   startDodge() {
     this.closeModal('menuModal');
     const w = this.world;
-    if (w !== this.gym || this.mode !== 'play' || this.race || this.arm || this.dodge || this.lava || this.gym.boss) {
+    if (w !== this.gym || this.mode !== 'play' || this.race || this.arm || this.dodge || this.lava || this.hunt || this.gym.boss) {
       this.toast('بازی جاخالی توی باشگاه اصلی، وقتی کار دیگه‌ای نمی‌کنی، شروع می‌شه.', 'warn');
       return;
     }
@@ -355,6 +364,9 @@ Object.assign(Game, {
     const D = this.dodge;
     if (!D) return;
     if (this.world !== this.gym) { this.endDodge(null); return; }
+    // on a machine, in a race or arm wrestling the game is off (no free wins)
+    if (this.player.anchor || this.arm || this.race) { this.endDodge(null); this.toast('🎯 بازی جاخالی تموم شد (رفتی سراغ کار دیگه).', 'warn'); return; }
+    if (this.modals.size || this.watch || this.photo) return;
     D.t -= dt;
     $('dodgeHead').textContent = `🎯 جاخالی • ⏱️ ${fa(Math.ceil(Math.max(0, D.t)))} • ${'❤️'.repeat(Math.max(0, D.lives))}`;
     if (D.t <= 0) { this.endDodge(true); return; }
@@ -397,12 +409,13 @@ Object.assign(Game, {
     const L = this.lava;
     const here = this.world === g && this.mode === 'play';
     if (!L) {
-      if (!here || this.race || this.arm || this.dodge || this.build || g.boss || this.lv() < 15) return;
+      if (!here || this.race || this.arm || this.dodge || this.build || g.boss || this.hunt || this.modals.size || this.watch || this.photo || this.lv() < 15) return;
       this.lavaTimer = (this.lavaTimer ?? rand(240, 360)) - dt;
       if (this.lavaTimer <= 0) { this.lavaTimer = rand(360, 540); this.startLava(); }
       return;
     }
-    if (!here) { this.endLava(null); return; }
+    if (!here || this.race) { this.endLava(null); return; }
+    if (this.modals.size || this.watch || this.photo) return;
     L.t -= dt;
     const mat = g.floorMesh.material;
     if (!L.color) { L.color = mat.color.clone(); }
@@ -410,7 +423,7 @@ Object.assign(Game, {
     if (L.phase === 'warn') {
       mat.emissive.set('#ff3300');
       mat.emissiveIntensity = 0.25 + 0.25 * Math.sin(this.clock * 10);
-      if (L.t <= 0) { L.phase = 'hot'; L.t = 20; Sfx.play('boom'); this.showBanner('روی زمین نمون: تشک، سکو یا وسیله!', '🌋 زمین گدازه‌ست!'); }
+      if (L.t <= 0) { L.phase = 'hot'; L.t = 20; Sfx.play('boom'); this.showBanner('روی زمین نمون: تشک، سکو، وسیله یا هاوربرد!', '🌋 زمین گدازه‌ست!'); }
       return;
     }
     mat.emissive.set('#ff3300');
@@ -420,7 +433,7 @@ Object.assign(Game, {
     if (Math.random() < dt * 30) g.fx.emit(p.x + rand(-6, 6), 0.05, p.z + rand(-6, 6), 0, rand(1, 2.5), 0, new THREE.Color(pick(['#ff3300', '#ff7b00', '#ffd34d'])), 0.8, -0.3);
     // standing on the bare floor burns (mats, platforms, machines and being in the air are safe)
     L.burnT -= dt;
-    const onFloor = !P.anchor && P.ch.grounded && P.ch.airY <= 0.01 && p.y < 0.02 && !P.board && !P.jet;
+    const onFloor = !P.anchor && P.ch.grounded && P.ch.airY <= 0.01 && p.y < 0.02 && !P.board;
     if (onFloor && L.burnT <= 0) {
       L.burnT = 1;
       L.burns++;
@@ -451,7 +464,7 @@ Object.assign(Game, {
       this.save.stats.lavaWins = (this.save.stats.lavaWins || 0) + 1;
       this.addCoins(150);
       this.confetti();
-      this.showBanner('🪙 ۱۵۰ سکه', '🌋 زمین سرد شد! سالم موندی');
+      this.showBanner(`🪙 ۱۵۰ سکه • ${fa(L.burns)} بار سوختی`, '🌋 زمین سرد شد! دووم آوردی');
       this.checkAchievements();
     } else this.showBanner(`${fa(L.burns)} بار پات سوخت`, '🌋 زمین سرد شد');
   },
@@ -498,31 +511,49 @@ Object.assign(Game, {
 
   /* ---------- a treasure chest every 100 levels ---------- */
 
-  levelChest(from, to) {
-    if (Math.floor(to / 100) <= Math.floor(from / 100) || from < 1) return;
+  /** Each hundred of levels earned by exercise gives one chest, once (keyed on the real level). */
+  levelChest() {
+    const s = this.save;
+    const h = Math.floor(s.level / 100);
+    if (s.chestHundred == null) { s.chestHundred = h; return; }
+    if (h <= s.chestHundred) return;
+    s.chestHundred = h;
+    const w = this.world;
+    setTimeout(() => {
+      const pk = this.world === w && w.pickups;
+      if (!pk || this.mode !== 'play') { this.chestOwed = (this.chestOwed || 0) + 1; return; }
+      this.spawnLevelChest(h * 100);
+    }, 1500);
+  },
+
+  /** A chest right next to you (an older chest elsewhere is moved over). */
+  spawnLevelChest(lv) {
     const w = this.world;
     const pk = w.pickups;
+    if (!pk) return false;
+    const p = this.player.ch.root.position;
+    let spot = null;
+    for (let i = 0; i < 12 && !spot; i++) {
+      const a = this.player.ch.root.rotation.y + (i / 12) * TAU;
+      const x = p.x + Math.sin(a) * 2.5, z = p.z + Math.cos(a) * 2.5;
+      if (w.inBounds(x, z, 0.8) && w.spotFree(x, z, 0.6)) spot = { x, z };
+    }
+    if (!spot) return false;
+    const c = pk.chest && !pk.chest.opening ? pk.chest : pk.spawnChestAt ? pk.spawnChestAt(spot.x, spot.z) : pk.spawnChest();
+    if (!c) return false;
+    c.x = spot.x; c.z = spot.z; c.g.position.set(spot.x, 0, spot.z);
+    w.fx.burst({ x: c.x, y: 1, z: c.z }, { count: 60, colors: ['#ffd34d', '#ffffff'], speed: 3, up: 4, life: 1 });
     this.save.stats.levelChests = (this.save.stats.levelChests || 0) + 1;
-    setTimeout(() => {
-      if (pk && !pk.chest) {
-        const c = pk.spawnChest();
-        if (c) {
-          const p = this.player.ch.root.position;
-          const yaw = this.player.ch.root.rotation.y;
-          let x = p.x + Math.sin(yaw) * 2.5, z = p.z + Math.cos(yaw) * 2.5;
-          if (!w.spotFree(x, z, 0.6)) { x = p.x - Math.sin(yaw) * 2.5; z = p.z - Math.cos(yaw) * 2.5; }
-          if (w.spotFree(x, z, 0.6)) { c.x = x; c.z = z; c.g.position.set(x, 0, z); }
-          w.fx.burst({ x: c.x, y: 1, z: c.z }, { count: 60, colors: ['#ffd34d', '#ffffff'], speed: 3, up: 4, life: 1 });
-        }
-      }
-      this.toast(`🎁 سطح ${fa(Math.floor(to / 100) * 100)}! یه صندوق جایزه کنارت ظاهر شد؛ برو بازش کن.`, 'gold');
-      this.checkAchievements();
-    }, 1500);
+    this.toast(`🎁 ${lv ? `سطح ${fa(lv)}! ` : ''}یه صندوق جایزه کنارت ظاهر شد؛ برو بازش کن.`, 'gold');
+    this.checkAchievements();
+    return true;
   },
 
   /* ---------- every frame ---------- */
 
   tickFun4(dt) {
+    if (this.save && this.save.chestHundred == null) this.save.chestHundred = Math.floor(this.save.level / 100);
+    if (this.chestOwed && this.mode === 'play' && this.world.pickups && !(this.world instanceof RunWorld) && this.spawnLevelChest(0)) this.chestOwed--;
     this.tickBoard(dt);
     this.tickJet(dt);
     this.tickBeam(dt);
@@ -584,7 +615,7 @@ Game.outfit = function () {
 const _levelsGained4 = Game.levelsGained;
 Game.levelsGained = function (from, to, quiet, track = 'main') {
   _levelsGained4.call(this, from, to, quiet, track);
-  if (track === 'main' && !this.levelTemp) this.levelChest(from, to);
+  if (track === 'main' && !this.levelTemp) this.levelChest();
 };
 
 /* the player object is rebuilt on travel and outfit changes: the board and jetpack go with the old one */
@@ -595,8 +626,8 @@ Game.rebuildPlayer = function () {
   if (board) this.endBoard();
   if (jet) this.endJet();
   _rebuild4.call(this);
-  if (board) this.toggleBoard();
-  if (jet) this.toggleJet();
+  if (board) this.toggleBoard(true);
+  if (jet) this.toggleJet(true, jet.fuel);
 };
 const _release4 = Game.releasePlayer;
 Game.releasePlayer = function () {

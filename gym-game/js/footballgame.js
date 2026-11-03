@@ -22,7 +22,8 @@ Object.assign(Game, {
     w.onGoal = (team, scorer) => {
       // a match only watched on a screen pays nothing and shows nothing
       if (this.world !== w) return;
-      const mine = scorer && scorer.user;
+      // an own goal pays nothing
+      const mine = team === 0 && scorer && scorer.user;
       this.showBanner(team === 0 ? 'گل!' : 'گل خوردیم!', `${fa(w.score[0])} – ${fa(w.score[1])}`);
       if (team === 0) this.confetti();
       if (mine) {

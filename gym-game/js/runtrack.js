@@ -468,7 +468,8 @@ Object.assign(Game, {
     if (n.world) n.world.dropNpc(n);
     n.loc = 'runtrack';
     w.adoptNpc(n, { x: rand(-6, 6), z: 12 });
-    const lane = [-6, 6, -12][R.guests.length] ?? rand(-14, 14);
+    // the first lane nobody else is using
+    const lane = [-6, 6, -12].find((l) => !R.guests.some((g) => g.run && g.run.lane === l)) ?? rand(-14, 14);
     n.state = 'race';
     n.run = { phase: 'ready', lane, back: 0, dist: 0, energy: 0, speed: 0, drain: 0, react: 0 };
     n.ch.setLabel(n.name, '🏁 «باشه، بریم بدویم!»', '#ffd34d');
@@ -853,7 +854,7 @@ Object.assign(Game, {
       info = `تا یک میلیون متر: ${fa(Math.max(0, RUN_TRACK.goal - Math.floor(R.d)))} متر مونده`;
     } else {
       head = '😵 مسابقه تموم شد';
-      info = 'دکمه‌ی «دوباره» رو بزن یا روی سکوی آبی پشت خط شروع برو تا برگردی تالار.';
+      info = 'دکمه‌ی «دوباره» رو بزن؛ بعد سکوی آبی پشت خط شروع (یا نقشه) تو رو به تالار برمی‌گردونه.';
     }
     if ($('runHead').textContent !== head) $('runHead').textContent = head;
     if ($('runInfo').textContent !== info) $('runInfo').textContent = info;

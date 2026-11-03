@@ -30,9 +30,10 @@ Object.assign(Game, {
       if (s.goals[g.id] || !g.test(s)) continue;
       s.goals[g.id] = Date.now();
       got++;
+      // the coins are saved with the goal (a reload in the next seconds must not lose them)
+      this.addCoins(g.reward, false);
       setTimeout(() => {
         Sfx.play('medal');
-        this.addCoins(g.reward, true);
         this.toast(`🎯 هدف «${g.text}» انجام شد! +${fa(g.reward)} 🪙`, 'gold');
         this.confetti();
       }, 900 + got * 1200);

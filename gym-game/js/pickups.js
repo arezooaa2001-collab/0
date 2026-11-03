@@ -106,6 +106,12 @@ class Pickups {
   spawnChest() {
     const p = this.spot();
     if (!p || this.chest) return null;
+    return this.spawnChestAt(p.x, p.z);
+  }
+
+  spawnChestAt(x, z) {
+    if (this.chest) return null;
+    const p = { x, z };
     const g = chestMesh();
     g.userData.noSolid = true;
     g.position.set(p.x, 0, p.z);

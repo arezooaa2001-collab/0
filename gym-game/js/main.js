@@ -283,7 +283,8 @@ const Game = {
         b.classList.toggle('placedmv', placed.has(m.equip));
         sub = near ? `آماده • ${fa(Math.round(m.xp * mult))} زور` : local ? `📍 ${EQUIP[m.equip].name}` : `🗺️ ${this.envName(env)}`;
         if (m.zone && !near) sub = `${this.lv() >= m.zone ? '✅' : '⛔'} فقط سطح ${fa(m.zone)}+`;
-      } else sub = `${fa(Math.round(m.xp * mult))} زور`;
+      } else if (m.cat === 'energy') sub = `+${fa(m.ex || 0)} ⚡ انرژی`;
+      else sub = `${fa(Math.round(m.xp * mult))} زور`;
       const subEl = b.querySelector('.mv-sub');
       if (subEl.textContent !== sub) subEl.textContent = sub;
     }
@@ -1192,6 +1193,8 @@ const Game = {
       if (e.code === 'Digit5' || e.code === 'Numpad5') this.usePower('giant');
       if (e.code === 'Digit6' || e.code === 'Numpad6') this.usePower('slowmo');
       if (e.code === 'Digit7' || e.code === 'Numpad7') this.usePower('beam');
+      if (e.code === 'Digit8' || e.code === 'Numpad8') this.usePower('shield');
+      if (e.code === 'Digit9' || e.code === 'Numpad9') this.usePower('moon');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1321,6 +1324,7 @@ const Game = {
       this.tickWeather(dt);
       this.tickFun3(dt);
       this.tickFun4(dt);
+      this.tickFun5(dt);
       if (this.arm) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());

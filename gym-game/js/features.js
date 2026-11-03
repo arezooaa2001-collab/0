@@ -373,7 +373,7 @@ Object.assign(Game, {
   attachPet() {
     const id = this.save.shop.pet;
     if (!id || !this.owns(id)) { this.pet = null; return; }
-    if (!this.pet || this.pet.kind !== id) this.pet = new Pet(id);
+    if (!this.pet || this.pet.kind !== id) this.pet = id === 'dragon' ? new DragonPet() : new Pet(id);
     this.pet.root.userData.noSolid = true;
     this.world.scene.add(this.pet.root);
     this.pet.place(this.player.ch.root.position);
@@ -513,13 +513,19 @@ Object.assign(Game, {
     else if (a === 'wheel') this.openWheel();
     else if (a === 'challenges') this.openChallenges();
     else if (a === 'photo') this.enterPhoto();
-    else if (a === 'watch') this.openWatch(this.worldKey(this.world) || 'gym');
+    else if (a === 'watch') {
+      // places without fixed cameras (the million-metre track) open the gym's
+      const k = this.worldKey(this.world);
+      this.openWatch(k && this.watchPlaces().includes(k) ? k : 'gym');
+    }
     else if (a === 'settings') this.openSettings();
     else if (a === 'levels') this.openLevels();
     else if (a === 'boss') this.spawnBoss(true);
     else if (a === 'gold') this.openGold();
     else if (a === 'travel') this.openQuickTravel();
     else if (a === 'dodge') this.startDodge();
+    else if (a === 'hunt') this.startHunt();
+    else if (a === 'disco') this.startDisco(true);
     else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }

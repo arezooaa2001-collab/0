@@ -284,8 +284,11 @@ class FootballWorld extends EnvWorld {
   }
 
   whistle(text, long) {
-    Sfx.play('whistle');
-    if (long) setTimeout(() => Sfx.play('whistle'), 350);
+    // a match only shown on a screen somewhere else is silent
+    if (Game.world === this) {
+      Sfx.play('whistle');
+      if (long) setTimeout(() => Sfx.play('whistle'), 350);
+    }
     if (this.onEvent) this.onEvent(text);
   }
 
@@ -299,7 +302,7 @@ class FootballWorld extends EnvWorld {
     B.pos.y = Math.max(B.pos.y, 0.12);
     e.kickCd = 0.45;
     if (e.ch && !e.ch.busy && e.ch.grounded) e.ch.play('fkick');
-    Sfx.play('punch');
+    if (Game.world === this) Sfx.play('punch');
   }
 
   passTarget(e) {

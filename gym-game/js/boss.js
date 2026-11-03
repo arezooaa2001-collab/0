@@ -80,7 +80,7 @@ Object.assign(Game, {
       if (byHand) this.toast(this.world !== this.gym ? 'غول فقط توی باشگاه اصلی میاد.' : 'غول همین الان این‌جاست!', 'warn');
       return;
     }
-    if (this.race || this.arm || this.build) { if (byHand) this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
+    if (this.race || this.arm || this.build || this.dodge || this.lava) { if (byHand) this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
     if (byHand) this.closeModal('menuModal');
     // every other fight is the fire monster, which also throws fireballs
     const fire = (this.save.stats.bossWins || 0) % 2 === 1;
@@ -96,7 +96,8 @@ Object.assign(Game, {
     g.shake = Math.max(g.shake, 0.8);
     g.fx.burst({ x: BOSS.spot.x, y: 2, z: BOSS.spot.z }, { count: 120, colors: ['#7bc96f', '#5a2a82', '#ffd34d'], speed: 6, up: 5, life: 1.3 });
     Sfx.play('boom');
-    this.showBanner('مشتش بزن، با قدرت‌ها بکوبش، و وقتی می‌پره تو هم بپر!', '🐉 غول باشگاه اومد!');
+    if (fire) this.showBanner('گلوله‌های آتیشش رو جاخالی بده، مشتش بزن و وقتی می‌پره تو هم بپر!', '🔥 غول آتشین اومد!');
+    else this.showBanner('مشتش بزن، با قدرت‌ها بکوبش، و وقتی می‌پره تو هم بپر!', '🐉 غول باشگاه اومد!');
     this.recruitBossHelpers();
   },
 
@@ -151,7 +152,7 @@ Object.assign(Game, {
     const here = this.world === g && this.mode === 'play';
     if (!g.boss) {
       $('bossPanel').hidden = true;
-      if (!here || this.race || this.arm || this.build || this.modals.size || this.watch || this.photo || this.lv() < 10) return;
+      if (!here || this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.modals.size || this.watch || this.photo || this.lv() < 10) return;
       this.bossTimer = (this.bossTimer ?? BOSS.first) - dt;
       if (this.bossTimer <= 0) { this.bossTimer = rand(...BOSS.every); this.spawnBoss(false); }
       return;
@@ -204,7 +205,7 @@ Object.assign(Game, {
       g.fx.burst({ x: bp.x, y: 2, z: bp.z }, { count: 80, colors: ['#7bc96f', '#5a2a82'], speed: 5, up: 4, life: 1 });
       ch.dispose();
       g.boss = null;
-      this.toast('🐉 غول خسته شد و رفت! دفعه‌ی بعد سریع‌تر بزنش.', 'warn');
+      this.toast(`${B.fire ? '🔥' : '🐉'} غول خسته شد و رفت! دفعه‌ی بعد سریع‌تر بزنش.`, 'warn');
       return;
     }
     // the fire monster throws a fireball every few seconds

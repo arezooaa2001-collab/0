@@ -396,7 +396,7 @@ Object.assign(Game, {
     let best = null;
     let bd = 2.4;
     for (const n of w.npcs) {
-      if (n.state === 'class' || n.state === 'leave' || n.state === 'knocked' || n.anchored) continue;
+      if (['class', 'leave', 'knocked', 'dodge', 'race', 'boss', 'buddy'].includes(n.state) || n.anchored) continue;
       const d = Math.hypot(n.ch.root.position.x - p.x, n.ch.root.position.z - p.z);
       if (d < bd) { bd = d; best = n; }
     }

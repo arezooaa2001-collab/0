@@ -942,7 +942,7 @@ class Character {
       p.anR = -(p.hpRX + p.knR);
     }
     if (!this.grounded) {
-      this.vy -= 20 * dt;
+      this.vy -= (this.grav || 20) * dt; // moon gravity makes it lighter
       this.airY += this.vy * dt;
       if (this.airY <= 0) {
         this.airY = 0;

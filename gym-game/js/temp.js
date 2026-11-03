@@ -29,10 +29,11 @@ Object.assign(Game, {
     const T = this.save.temp;
     const from = this.lv();
     const last = T[T.length - 1];
-    if (last && last.src === src && last.kind === kind && now - last.at < 15000) {
+    // levels from the same source within 15 s share a batch, but its end never moves later
+    if (last && last.src === src && last.kind === kind && now - (last.first || last.at) < 15000) {
+      last.first = last.first || last.at;
       last.n += n;
       last.at = now;
-      last.until = now + TEMP_SECONDS * 1000;
     } else T.push({ n, src, kind, at: now, until: now + TEMP_SECONDS * 1000 });
     if (kind === 'str') {
       this.levelTemp = true;
