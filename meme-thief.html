@@ -84,7 +84,7 @@ input,select{font-family:inherit}
 
 /* ---------- corners ---------- */
 #minimapWrap{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));left:calc(8px + env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:4px;align-items:flex-start}
-#minimap{width:clamp(96px,15vw,140px);height:clamp(96px,15vw,140px);border-radius:16px;border:2px solid var(--line);background:#2d5a2d;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+#minimap{width:clamp(150px,22vw,200px);height:clamp(78px,11.44vw,104px);border-radius:16px;border:2px solid var(--line);background:#2d5a2d;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 #fps{font-size:11px;font-weight:800;background:var(--glass);padding:1px 8px;border-radius:8px;color:var(--mint)}
 #menuBtns{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));right:calc(8px + env(safe-area-inset-right,0px));display:flex;gap:6px;direction:ltr}
 .mbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--glass);font-size:19px;display:grid;place-items:center;
@@ -231,7 +231,7 @@ input,select{font-family:inherit}
 <div id="touch"></div>
 
 <div class="hud" id="hud" hidden>
-  <div id="minimapWrap"><canvas id="minimap" width="140" height="140"></canvas><div id="fps" hidden>FPS ۰</div></div>
+  <div id="minimapWrap"><canvas id="minimap" width="200" height="104"></canvas><div id="fps" hidden>FPS ۰</div></div>
   <div id="topCenter">
     <div class="moneyPill"><div class="coinIco">$</div><b id="moneyVal">۰</b><span id="incomeVal">+۰ در ثانیه</span></div>
     <div class="chips">
@@ -250,7 +250,6 @@ input,select{font-family:inherit}
     <button class="mbtn pe" id="mbLeader" type="button" title="جدول برترها" aria-label="جدول برترها">🏆</button>
     <button class="mbtn pe" id="mbBook" type="button" title="دانشنامه‌ی میم‌ها" aria-label="دانشنامه">📖</button>
     <button class="mbtn pe" id="mbInv" type="button" title="کلکسیون من" aria-label="کلکسیون من">🎒</button>
-    <button class="mbtn pe" id="mbShop" type="button" title="فروشگاه و ارتقا" aria-label="فروشگاه">🛒</button>
     <button class="mbtn pe" id="mbPause" type="button" title="توقف" aria-label="توقف">⏸</button>
   </div>
   <div id="prompt" hidden></div>
@@ -460,8 +459,10 @@ const secDuration = (o) => 25 + o.up.secDur * 10;
 const secCooldown = (o) => 70 - o.up.secCd * 8;
 const rebirthCost = (r) => 1000000 * Math.pow(5, r);
 const DAILY = [500, 1000, 2500, 5000, 10000, 25000, 60000];
-const OWNER_COLORS = ['#2fe08a', '#ff5252', '#4f8cff', '#ffa31a', '#b061ff', '#ff6fcf'];
-const NPC_NAMES = ['شاهین', 'رها', 'بابک', 'نازی', 'کوروش'];
+const OWNER_COLORS = ['#2fe08a', '#ff5252', '#4f8cff', '#ffa31a', '#b061ff', '#ff6fcf', '#00c2d1', '#ffd23f'];
+// plot indices: 0-5 south row (west→east), 6-11 north row
+const PLAYER_PLOT = 2, NPC_PLOTS = [0, 4, 5, 6, 7, 9, 11], SALE_PLOTS = [1, 3, 8, 10];
+const NPC_NAMES = ['شاهین', 'رها', 'بابک', 'نازی', 'کوروش', 'سارا', 'آرش'];
 const EVENTS = [
   { id: 'golden', name: 'باران طلایی', desc: 'همه‌ی درآمدها دو برابر!', emoji: '🌧️💰' },
   { id: 'lucky', name: 'ساعت شانس', desc: 'میم‌های کمیاب بیشتر می‌آیند!', emoji: '🍀' },
@@ -959,7 +960,7 @@ const FX = (() => {
 
 // ------------------------------------------------------------------ collision world (AABB + vertical cylinders, spatial hash)
 const STEP_UP = 0.52, GRAVITY = -30;
-const WORLD = { minX: -96, maxX: 96, minZ: -74, maxZ: 74 };
+const WORLD = { minX: -160, maxX: 160, minZ: -80, maxZ: 80 };
 const PHYS = { boxes: [], circles: [], cells: new Map(), cs: 8, stamp: 1, constraints: [] };
 function cellKey(ix, iz) { return ix * 1000 + iz; }
 function insertCol(c, minX, minZ, maxX, maxZ) {
@@ -1120,7 +1121,7 @@ function findPath(sx, sz, tx, tz) {
   g[s] = 0; seen[s] = gen; par[s] = -1; F[s] = hfn(s); push(s);
   let iter = 0, found = false;
   const DX = [1, -1, 0, 0, 1, 1, -1, -1], DZ = [0, 0, 1, -1, 1, -1, 1, -1];
-  while (hs > 0 && iter++ < 30000) {
+  while (hs > 0 && iter++ < 70000) {
     const c = pop(); if (closed[c] === gen) continue; closed[c] = gen;
     if (c === t) { found = true; break; }
     const cx = c % W, cz = Math.floor(c / W);
@@ -1146,9 +1147,10 @@ function findPath(sx, sz, tx, tz) {
 }
 
 // ------------------------------------------------------------------ world construction
-const W = { bases: [], reserved: [], anim: [], detail: new THREE.Group(), clouds: null, beltTex: null, shopPos: new THREE.Vector3(-72.5, 0, 0), boardPos: new THREE.Vector3(77, 0, 0), buildings: [], fountains: [] };
+const W = { bases: [], reserved: [], anim: [], detail: new THREE.Group(), clouds: null, beltTex: null, shopPos: new THREE.Vector3(-127.5, 0, 0), boardPos: new THREE.Vector3(132, 0, 0), buildings: [], fountains: [] };
 scene.add(W.detail);
-const BELT = { x0: -60, x1: 59.5, z: 0, halfW: 1.9, top: 0.4, speed: 2.4 };
+const BELT = { x0: -108, x1: 107.5, z: 0, halfW: 1.9, top: 0.4, speed: 3.0 };
+const LAYOUT = { baseXs: [-125, -75, -25, 25, 75, 125], baseZ: 36, plazaX: 150, ringZ: 56, roadXs: [-100, -50, 0, 50, 100], bldZ: 69.5 };
 const BASE_HX = 12, BASE_HZ = 10, FLOOR_Y = 0.3, PED_Y = 0.55;
 const SLOT_LOCAL = [];
 for (const lz of [-1.8, 2.8, 7.2]) for (const lx of [-8, -2.7, 2.7, 8]) SLOT_LOCAL.push([lx, lz]);
@@ -1165,15 +1167,16 @@ function buildGround() {
   const g = new THREE.Mesh(new THREE.PlaneGeometry(WORLD.maxX - WORLD.minX + 60, WORLD.maxZ - WORLD.minZ + 60), new THREE.MeshStandardMaterial({ map: TEX.grass, roughness: 0.95 }));
   g.rotation.x = -Math.PI / 2; g.receiveShadow = true; scene.add(g);
   // plaza
-  groundQuad(-90, -18, 90, 18, flatMat(texRep(TEX.tiles, 45, 9), '#ffffff', -1), 0.012); reserve(-90, -18, 90, 18);
-  // ring roads + connectors
-  const roadH = flatMat(texRep(TEX.road, 31, 1), '#ffffff', -2);
-  for (const zc of [-52, 52]) { groundQuad(-93, zc - 3, 93, zc + 3, roadH, 0.02); reserve(-93, zc - 3, 93, zc + 3); }
-  const roadV = flatMat(texRep(TEX.road, 5.2, 1, Math.PI / 2), '#ffffff', -2);
-  for (const xc of [-23, 23]) for (const s of [-1, 1]) { groundQuad(xc - 3, s * 18, xc + 3, s * 49, roadV, 0.021); reserve(xc - 3, s * 18, xc + 3, s * 49); }
+  const PX = LAYOUT.plazaX, RZ = LAYOUT.ringZ;
+  groundQuad(-PX, -18, PX, 18, flatMat(texRep(TEX.tiles, PX / 2, 9), '#ffffff', -1), 0.012); reserve(-PX, -18, PX, 18);
+  // ring roads + connectors between the bases
+  const roadH = flatMat(texRep(TEX.road, (PX + 3) / 3, 1), '#ffffff', -2);
+  for (const zc of [-RZ, RZ]) { groundQuad(-PX - 3, zc - 3, PX + 3, zc + 3, roadH, 0.02); reserve(-PX - 3, zc - 3, PX + 3, zc + 3); }
+  const roadV = flatMat(texRep(TEX.road, (RZ - 21) / 6, 1, Math.PI / 2), '#ffffff', -2);
+  for (const xc of LAYOUT.roadXs) for (const s of [-1, 1]) { groundQuad(xc - 3, s * 18, xc + 3, s * (RZ - 3), roadV, 0.021); reserve(xc - 3, s * 18, xc + 3, s * (RZ - 3)); }
   // short tiled paths into each base
   const pathMat = flatMat(texRep(TEX.tiles, 3, 3), '#fff4e0', -2);
-  for (const bx of [-46, 0, 46]) for (const s of [-1, 1]) { groundQuad(bx - 3.5, s * 18, bx + 3.5, s * 24.5, pathMat, 0.022); reserve(bx - 3.5, s * 18, bx + 3.5, s * 24.5); }
+  for (const bx of LAYOUT.baseXs) for (const s of [-1, 1]) { groundQuad(bx - 3.5, s * 18, bx + 3.5, s * (LAYOUT.baseZ - 9.5), pathMat, 0.022); reserve(bx - 3.5, s * 18, bx + 3.5, s * (LAYOUT.baseZ - 9.5)); }
   // perimeter hedge (visible, solid)
   const hedgeMat = new THREE.MeshStandardMaterial({ map: TEX.hedge, roughness: 1 });
   const hedge = (x0, z0, x1, z1) => {
@@ -1239,9 +1242,11 @@ class BaseVis {
   toWorld(lx, lz) { return { x: this.cx + lx * this.f, z: this.cz + lz * this.f }; }
   toLocal(x, z) { return { lx: (x - this.cx) * this.f, lz: (z - this.cz) * this.f }; }
   contains(x, z, m = 0) { const l = this.toLocal(x, z); return Math.abs(l.lx) < BASE_HX - 0.4 + m && l.lz > -BASE_HZ + 0.3 - m && l.lz < BASE_HZ - 0.4 + m; }
-  lbox(lx0, lz0, lx1, lz1, y0, y1, o) { const a = this.toWorld(lx0, lz0), b = this.toWorld(lx1, lz1); return addBox(a.x, y0, a.z, b.x, y1, b.z, o); }
-  build(color, name) {
-    const g = this.group, col = new THREE.Color(color), b = new Batcher();
+  lbox(lx0, lz0, lx1, lz1, y0, y1, o) { if (this.colDone) return null; const a = this.toWorld(lx0, lz0), b = this.toWorld(lx1, lz1); return addBox(a.x, y0, a.z, b.x, y1, b.z, o); }
+  build(color, name, forSale) {
+    if (this.vis) { this.group.remove(this.vis); this.vis.traverse((o) => { if (o.material && o.material.map && o.material.map.isCanvasTexture) o.material.map.dispose(); }); }
+    this.vis = new THREE.Group(); this.group.add(this.vis); this.forSale = !!forSale;
+    const g = this.vis, col = new THREE.Color(color), b = new Batcher();
     const floorMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.tiles, 6, 5), color: new THREE.Color('#ffffff').lerp(col, 0.25), roughness: 0.7 });
     mesh(rbox(24, 0.3, 20, 0.06), floorMat, 0, 0.15, 0, 1, 1, 1, g).castShadow = false;
     this.lbox(-BASE_HX, -BASE_HZ, BASE_HX, BASE_HZ, 0, FLOOR_Y, { tag: 'base' + this.index, cam: false });
@@ -1287,7 +1292,7 @@ class BaseVis {
       const ringM = new THREE.Mesh(GEO.torus, addMat(color, 0.85)); ringM.rotation.x = Math.PI / 2; ringM.position.set(lx, 0.56, lz); ringM.scale.set(1, 1, 0.4); g.add(ringM);
       const lock = spriteFromCanvas(labelCanvas([{ t: '🔒', size: 120 }], { w: 128, h: 128, bg: false }), 0.9, 0.9); lock.position.set(lx, 1.1, lz); g.add(lock);
       this.ped.push({ ring: ringM, lock });
-      const w = this.toWorld(lx, lz); addBoxC(w.x, 0.3, w.z, 1.6, 0.5, 1.6, { cam: false, tag: 'ped' });
+      const w = this.toWorld(lx, lz); if (!this.colDone) addBoxC(w.x, 0.3, w.z, 1.6, 0.5, 1.6, { cam: false, tag: 'ped' });
     });
     // collect pad
     const padMat = mat('#2fe08a', { e: '#2fe08a', ei: 0.6, r: 0.3 });
@@ -1316,7 +1321,9 @@ class BaseVis {
     b.build(g);
     // owner banner high above (visible from afar)
     this.ownerTag = new LiveLabel(512, 128, 5.4, 1.35); this.ownerTag.sprite.position.set(0, 9.2, 0); g.add(this.ownerTag.sprite);
-    this.color = color;
+    this.color = color; this.colDone = true;
+    if (forSale) { this.padLabel.sprite.visible = false; this.secLabel.sprite.visible = false; this.coin.visible = false; this.btn.visible = false; }
+    this.setBarrier(this.barrierActive); this.setCapacity(forSale ? 0 : this.owner ? this.owner.cap : 4);
   }
   setCapacity(cap) { this.ped.forEach((p, i) => { p.lock.visible = i >= cap; p.ring.visible = i < cap; }); }
   setBarrier(on) { this.barrierActive = on; this.laser.visible = on; }
@@ -1333,42 +1340,42 @@ class BaseVis {
 }
 
 function buildBases() {
-  const spots = [[0, 34], [-46, 34], [46, 34], [-46, -34], [0, -34], [46, -34]];
-  spots.forEach(([x, z], i) => W.bases.push(new BaseVis(i, x, z)));
+  // 12 plots: south row (front faces -z) and north row; index order is used by saves
+  for (const z of [LAYOUT.baseZ, -LAYOUT.baseZ]) for (const x of LAYOUT.baseXs) W.bases.push(new BaseVis(W.bases.length, x, z));
 }
 
 function buildShopAndBoard() {
   // shop kiosk (open toward +x)
-  const g = new THREE.Group(); g.position.set(-80, 0, 0); scene.add(g);
+  const SX = -135, g = new THREE.Group(); g.position.set(SX, 0, 0); scene.add(g);
   const wall = new THREE.MeshStandardMaterial({ map: texRep(TEX.brick, 3, 1), color: '#ffe1ef', roughness: 0.8 });
   const b = new Batcher();
   b.add(GEO.box, wall, -5.8, 2.5, 0, 0.4, 5, 14); b.add(GEO.box, wall, 0, 2.5, -7, 12, 5, 0.4); b.add(GEO.box, wall, 0, 2.5, 7, 12, 5, 0.4);
-  addBox(-86, 0, -7.2, -85.6, 5, 7.2); addBox(-86, 0, -7.2, -74, 5, -6.8); addBox(-86, 0, 6.8, -74, 5, 7.2);
+  addBox(SX - 6, 0, -7.2, SX - 5.6, 5, 7.2); addBox(SX - 6, 0, -7.2, SX + 6, 5, -6.8); addBox(SX - 6, 0, 6.8, SX + 6, 5, 7.2);
   b.add(rbox(12.6, 0.5, 14.8, 0.15), mat('#ff4f8b', { r: 0.5 }), 0, 5.2, 0, 1, 1, 1);
   const stripe = canvasTex(64, 64, (gg) => { for (let i = 0; i < 4; i++) { gg.fillStyle = i % 2 ? '#ffffff' : '#ff4f8b'; gg.fillRect(i * 16, 0, 16, 64); } }, [6, 1]);
   const awn = mesh(GEO.box, new THREE.MeshStandardMaterial({ map: stripe, roughness: 0.6 }), 7, 4.4, 0, 3, 0.12, 14.6, g); awn.rotation.z = -0.35;
   b.add(rbox(1.4, 1.1, 9, 0.1), mat('#8a5a35', { r: 0.6, map: undefined }), 3.6, 0.55, 0, 1, 1, 1);
   b.add(GEO.box, mat('#ffd23f', { m: 0.6, r: 0.3 }), 3.6, 1.14, 0, 1.5, 0.08, 9.1);
-  addBox(-77.1, 0, -4.5, -75.7, 1.1, 4.5);
+  addBox(SX + 2.9, 0, -4.5, SX + 4.3, 1.1, 4.5);
   for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) b.add(GEO.box, mat('#b07a4e'), -5.2, 1 + j * 1.6, -4.5 + i * 3, 1, 0.12, 2.6);
   b.add(GEO.box, mat('#e8f5ff', { m: 0.2, r: 0.2 }), 0, 0.05, 0, 11.6, 0.1, 13.6);
   b.build(g);
   // goods on shelves
   const goods = ['#ff6b6b', '#ffd23f', '#3df2b0', '#58c4ff', '#b061ff'];
   for (let i = 0; i < 16; i++) mesh(i % 2 ? GEO.sphere : GEO.box, mat(goods[i % 5], { r: 0.4 }), -5, 1.3 + (i % 2) * 1.6, -5.4 + Math.floor(i / 2) * 1.5, 0.35, 0.35, 0.35, g);
-  const sign = spriteFromCanvas(labelCanvas([{ t: '🛒 فروشگاه ارتقا', size: 74, color: '#fff', weight: 900, stroke: 6 }], { w: 640, h: 160, bg: 'rgba(255,79,139,.92)' }), 8, 2); sign.position.set(-77, 7.2, 0); scene.add(sign);
-  const coin = mesh(GEO.cyl, mat('#ffd23f', { m: 1, r: 0.2, e: '#6a4400', ei: 0.3 }), -77, 9.6, 0, 1, 0.15, 1, scene); coin.rotation.x = Math.PI / 2;
+  const sign = spriteFromCanvas(labelCanvas([{ t: '🛒 فروشگاه ارتقا', size: 74, color: '#fff', weight: 900, stroke: 6 }], { w: 640, h: 160, bg: 'rgba(255,79,139,.92)' }), 8, 2); sign.position.set(SX + 3, 7.2, 0); scene.add(sign);
+  const coin = mesh(GEO.cyl, mat('#ffd23f', { m: 1, r: 0.2, e: '#6a4400', ei: 0.3 }), SX + 3, 9.6, 0, 1, 0.15, 1, scene); coin.rotation.x = Math.PI / 2;
   W.anim.push((dt, t) => { coin.rotation.z = t * 1.6; });
-  reserve(-87, -8, -72, 8);
+  reserve(SX - 7, -8, SX + 8, 8);
   // leaderboard screen
-  const lb = new THREE.Group(); lb.position.set(83, 0, 0); scene.add(lb);
+  const BX = 138, lb = new THREE.Group(); lb.position.set(BX, 0, 0); scene.add(lb);
   const steel = mat('#4a5163', { m: 0.8, r: 0.3 });
-  for (const s of [-1, 1]) { mesh(rbox(1, 11, 1, 0.12), steel, 0, 5.5, s * 7.5, 1, 1, 1, lb); addBoxC(83, 5.5, s * 7.5, 1, 11, 1); }
-  mesh(rbox(1, 8, 15.4, 0.2), steel, 0.3, 6.6, 0, 1, 1, 1, lb); addBoxC(83.3, 6.6, 0, 1, 8, 15.4);
+  for (const s of [-1, 1]) { mesh(rbox(1, 11, 1, 0.12), steel, 0, 5.5, s * 7.5, 1, 1, 1, lb); addBoxC(BX, 5.5, s * 7.5, 1, 11, 1); }
+  mesh(rbox(1, 8, 15.4, 0.2), steel, 0.3, 6.6, 0, 1, 1, 1, lb); addBoxC(BX + 0.3, 6.6, 0, 1, 8, 15.4);
   W.board = new LiveLabel(1024, 512, 14, 7);
   const scr = new THREE.Mesh(GEO.plane, new THREE.MeshBasicMaterial({ map: W.board.tex, toneMapped: false })); scr.position.set(-0.25, 6.6, 0); scr.rotation.y = -Math.PI / 2; scr.scale.set(14.6, 7.3, 1); lb.add(scr);
-  const ls = spriteFromCanvas(labelCanvas([{ t: '🏆 جدول برترها', size: 70, color: '#fff', weight: 900, stroke: 6 }], { w: 640, h: 160, bg: 'rgba(255,170,0,.92)' }), 7, 1.75); ls.position.set(82, 11.8, 0); scene.add(ls);
-  reserve(78, -9, 86, 9);
+  const ls = spriteFromCanvas(labelCanvas([{ t: '🏆 جدول برترها', size: 70, color: '#fff', weight: 900, stroke: 6 }], { w: 640, h: 160, bg: 'rgba(255,170,0,.92)' }), 7, 1.75); ls.position.set(BX - 1, 11.8, 0); scene.add(ls);
+  reserve(BX - 5, -9, BX + 3, 9);
 }
 
 function buildBuilding(x, z, w, d, h, color, faceSign) {
@@ -1419,17 +1426,19 @@ function buildFountain(x, z) {
 function buildDecor() {
   // buildings along both outer rows
   const pal = ['#ffd6a5', '#bde0fe', '#ffc8dd', '#caffbf', '#fdffb6', '#e0c3fc', '#ffadad', '#a0c4ff'];
-  [-77, -55, -33, -11, 11, 33, 55, 77].forEach((x, i) => {
-    buildBuilding(x + rand(-1, 1), 63.5, rand(12, 16), rand(8, 9.5), pick([7, 9, 13, 16, 19]), pal[i % 8], -1);
-    if (i === 7) buildWindmill(x, -63); else buildBuilding(x + rand(-1, 1), -63.5, rand(12, 16), rand(8, 9.5), pick([7, 9, 13, 16, 19]), pal[(i + 3) % 8], 1);
+  const BZ = LAYOUT.bldZ, xs = [];
+  for (let x = -140; x <= 140.1; x += 23.33) xs.push(Math.round(x));
+  xs.forEach((x, i) => {
+    buildBuilding(x + rand(-1, 1), BZ, rand(12, 16), rand(8, 9.5), pick([7, 9, 13, 16, 19]), pal[i % 8], -1);
+    if (i === 3 || i === 10) buildWindmill(x, -BZ + 0.5); else buildBuilding(x + rand(-1, 1), -BZ, rand(12, 16), rand(8, 9.5), pick([7, 9, 13, 16, 19]), pal[(i + 3) % 8], 1);
   });
-  buildFountain(-23, 10); buildFountain(23, -10);
+  buildFountain(-50, 10); buildFountain(50, -10); buildFountain(-100, -10); buildFountain(100, 10);
   // trees (instanced trunks + foliage blobs)
   const trunkMat = new THREE.MeshStandardMaterial({ map: TEX.wood, color: '#9b6a42', roughness: 0.9 });
   const leafMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, flatShading: true });
   const trees = [];
   let guard = 0;
-  while (trees.length < 90 && guard++ < 5000) {
+  while (trees.length < 170 && guard++ < 9000) {
     const x = srand() * (WORLD.maxX - WORLD.minX - 6) + WORLD.minX + 3, z = srand() * (WORLD.maxZ - WORLD.minZ - 6) + WORLD.minZ + 3;
     if (isReserved(x, z, 2.2) || trees.some((t) => (t.x - x) ** 2 + (t.z - z) ** 2 < 25)) continue;
     trees.push({ x, z, s: 0.8 + srand() * 0.6, kind: srand() < 0.3 ? 1 : 0 });
@@ -1455,13 +1464,13 @@ function buildDecor() {
   leafIM.count = li; pineIM.count = pi;
   for (const im of [trunkIM, leafIM, pineIM]) { im.castShadow = true; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); scene.add(im); }
   // bushes + flowers (detail group, hidden on LOW)
-  const bushIM = new THREE.InstancedMesh(GEO.ico, leafMat, 140); let bi = 0;
-  const flowerIM = new THREE.InstancedMesh(GEO.sphere, mat('#ffffff', { r: 0.6 }), 400); let fi = 0;
-  const addBush = (x, z, s) => { if (bi >= 140) return; p.set(x, 0.4 * s, z); sc.set(0.9 * s, 0.7 * s, 0.9 * s); q.identity(); m4.compose(p, q, sc); bushIM.setMatrixAt(bi, m4); c.set(pick(['#3f9e45', '#4caf50', '#5cb85c', '#2e8b57'])); bushIM.setColorAt(bi++, c); };
+  const bushIM = new THREE.InstancedMesh(GEO.ico, leafMat, 300); let bi = 0;
+  const flowerIM = new THREE.InstancedMesh(GEO.sphere, mat('#ffffff', { r: 0.6 }), 700); let fi = 0;
+  const addBush = (x, z, s) => { if (bi >= 300) return; p.set(x, 0.4 * s, z); sc.set(0.9 * s, 0.7 * s, 0.9 * s); q.identity(); m4.compose(p, q, sc); bushIM.setMatrixAt(bi, m4); c.set(pick(['#3f9e45', '#4caf50', '#5cb85c', '#2e8b57'])); bushIM.setColorAt(bi++, c); };
   W.bases.forEach((bs) => { for (const s of [-1, 1]) for (let k = -3; k <= 3; k++) { const w = bs.toWorld(s * 13, k * 2.8); addBush(w.x, w.z, rand(0.8, 1.2)); } });
-  guard = 0; while (bi < 140 && guard++ < 3000) { const x = rand(-92, 92), z = rand(-70, 70); if (!isReserved(x, z, 0.8)) addBush(x, z, rand(0.6, 1.3)); }
-  guard = 0; while (fi < 400 && guard++ < 6000) {
-    const x = rand(-92, 92), z = rand(-70, 70); if (isReserved(x, z, 0.4)) continue;
+  guard = 0; while (bi < 300 && guard++ < 5000) { const x = rand(-155, 155), z = rand(-76, 76); if (!isReserved(x, z, 0.8)) addBush(x, z, rand(0.6, 1.3)); }
+  guard = 0; while (fi < 700 && guard++ < 9000) {
+    const x = rand(-155, 155), z = rand(-76, 76); if (isReserved(x, z, 0.4)) continue;
     p.set(x, 0.15, z); sc.setScalar(rand(0.09, 0.16)); q.identity(); m4.compose(p, q, sc); flowerIM.setMatrixAt(fi, m4); c.set(pick(['#ff6b9d', '#ffd23f', '#ffffff', '#b28cff', '#ff8a3d'])); flowerIM.setColorAt(fi++, c);
   }
   bushIM.count = bi; flowerIM.count = fi;
@@ -1469,30 +1478,30 @@ function buildDecor() {
   // streetlights, benches, flower pots (instanced batch)
   const b = new Batcher(), pole = mat('#2d3142', { m: 0.7, r: 0.35 }), lamp = mat('#fff6c8', { e: '#ffe9a0', ei: 1.3 });
   const light = (x, z) => { b.add(GEO.cylLow, pole, x, 2.4, z, 0.1, 4.8, 0.1); b.add(GEO.box, pole, x, 4.85, z, 0.9, 0.1, 0.16); b.add(GEO.sphere, lamp, x + 0.4, 4.7, z, 0.24, 0.2, 0.24); addCircle(x, z, 0.18, 0, 5); };
-  for (let x = -84; x <= 84; x += 14) for (const s of [-1, 1]) { light(x, s * 48.3); }
-  for (let x = -80; x <= 80; x += 16) for (const s of [-1, 1]) { if ([-46, 0, 46].some((bx) => Math.abs(bx - x) < 6)) continue; light(x, s * 17.4); }
+  for (let x = -147; x <= 147; x += 14) for (const s of [-1, 1]) { if (LAYOUT.roadXs.some((rx) => Math.abs(rx - x) < 4)) continue; light(x, s * (LAYOUT.ringZ - 3.7)); }
+  for (let x = -144; x <= 144; x += 16) for (const s of [-1, 1]) { if (LAYOUT.baseXs.some((bx) => Math.abs(bx - x) < 6) || LAYOUT.roadXs.some((rx) => Math.abs(rx - x) < 4)) continue; light(x, s * 17.4); }
   const benchWood = new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.8 });
   const bench = (x, z, ry) => { b.add(GEO.box, benchWood, x, 0.5, z, 2.2, 0.1, 0.6, ry); b.add(GEO.box, benchWood, x - Math.sin(ry) * 0.28, 0.85, z - Math.cos(ry) * 0.28, 2.2, 0.5, 0.08, ry); for (const s of [-1, 1]) b.add(GEO.box, pole, x + Math.cos(ry) * s * 0.9, 0.25, z - Math.sin(ry) * s * 0.9, 0.1, 0.5, 0.5, ry); };
-  for (const [x, z, ry] of [[-34, 15.5, Math.PI], [-12, 15.5, Math.PI], [12, -15.5, 0], [34, -15.5, 0], [-60, 15.5, Math.PI], [60, -15.5, 0], [60, 15.5, Math.PI], [-60, -15.5, 0]]) { bench(x, z, ry); addBoxC(x, 0.5, z, 2.2, 1, 0.8, { cam: false }); }
+  for (const [x, z, ry] of [-112, -88, -62, -38, -12, 12, 38, 62, 88, 112].flatMap((x) => [[x, 15.5, Math.PI], [x, -15.5, 0]])) { bench(x, z, ry); addBoxC(x, 0.5, z, 2.2, 1, 0.8, { cam: false }); }
   const pot = mat('#d9774a', { r: 0.7 });
-  for (const [x, z] of [[-30, 5.5], [30, 5.5], [-30, -5.5], [30, -5.5], [-70, 5], [70, 5], [-70, -5], [70, -5]]) { b.add(GEO.cyl, pot, x, 0.4, z, 0.7, 0.8, 0.7); b.add(GEO.ico, leafMat, x, 1.1, z, 0.8, 0.6, 0.8, 0, 0, 0, '#5cb85c'); addCircle(x, z, 0.75, 0, 0.8); }
+  for (const [x, z] of [-80, -30, 30, 80].flatMap((x) => [[x, 5.5], [x, -5.5]])) { b.add(GEO.cyl, pot, x, 0.4, z, 0.7, 0.8, 0.7); b.add(GEO.ico, leafMat, x, 1.1, z, 0.8, 0.6, 0.8, 0, 0, 0, '#5cb85c'); addCircle(x, z, 0.75, 0, 0.8); }
   b.build(scene);
   // welcome sign over the plaza
   const ws = spriteFromCanvas(labelCanvas([{ t: 'به میدان میم‌ها خوش آمدی!', size: 64, color: '#fff', weight: 900, stroke: 6 }, { t: 'بخر · جمع کن · بدزد', size: 40, color: '#ffd23f', weight: 800 }], { w: 768, h: 220, bg: 'rgba(43,31,105,.9)' }), 11, 3.15);
   ws.position.set(0, 9, 0); scene.add(ws);
   // balloons
-  const balloons = new THREE.Group(); balloons.position.set(-23, 0, 10); scene.add(balloons);
+  const balloons = new THREE.Group(); balloons.position.set(-50, 0, 10); scene.add(balloons);
   const bcols = ['#ff4f8b', '#ffd23f', '#3df2b0', '#58c4ff', '#b061ff'];
   for (let i = 0; i < 5; i++) { const bm = mesh(GEO.sphere, mat(bcols[i], { r: 0.25, m: 0.1 }), Math.cos(i * 1.3) * 0.8, 6 + i * 0.3, Math.sin(i * 1.3) * 0.8, 0.55, 0.7, 0.55, balloons); bm.userData.ph = i; }
-  const b2 = balloons.clone(); b2.position.set(23, 0, -10); scene.add(b2);
+  const b2 = balloons.clone(); b2.position.set(50, 0, -10); scene.add(b2);
   W.anim.push((dt, t) => { for (const grp of [balloons, b2]) grp.children.forEach((m) => { m.position.y = 6 + m.userData.ph * 0.3 + Math.sin(t * 1.4 + m.userData.ph) * 0.25; }); });
   // clouds
   const cloudIM = new THREE.InstancedMesh(GEO.ico, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, emissive: '#dbe9ff', emissiveIntensity: 0.35, flatShading: true }), 26 * 5);
   const clouds = []; let ci = 0;
-  for (let i = 0; i < 26; i++) { const cx = rand(-260, 260), cz = rand(-220, 220), cy = rand(55, 95), s = rand(4, 9); for (let k = 0; k < 5; k++) clouds.push({ i: ci++, ox: (k - 2) * s * 0.9, oy: (k % 2) * s * 0.3, oz: rand(-1, 1) * s * 0.4, r: s * (k === 2 ? 1.3 : rand(0.7, 1)), cx, cy, cz }); }
+  for (let i = 0; i < 26; i++) { const cx = rand(-320, 320), cz = rand(-220, 220), cy = rand(55, 95), s = rand(4, 9); for (let k = 0; k < 5; k++) clouds.push({ i: ci++, ox: (k - 2) * s * 0.9, oy: (k % 2) * s * 0.3, oz: rand(-1, 1) * s * 0.4, r: s * (k === 2 ? 1.3 : rand(0.7, 1)), cx, cy, cz }); }
   cloudIM.castShadow = false; cloudIM.frustumCulled = false; scene.add(cloudIM); W.clouds = { im: cloudIM, list: clouds };
   W.anim.push((dt) => {
-    for (const c of clouds) { c.cx += dt * 1.6; if (c.cx > 280) c.cx -= 560; p.set(c.cx + c.ox, c.cy + c.oy, c.cz + c.oz); sc.set(c.r, c.r * 0.6, c.r); q.identity(); m4.compose(p, q, sc); cloudIM.setMatrixAt(c.i, m4); }
+    for (const c of clouds) { c.cx += dt * 1.6; if (c.cx > 340) c.cx -= 680; p.set(c.cx + c.ox, c.cy + c.oy, c.cz + c.oz); sc.set(c.r, c.r * 0.6, c.r); q.identity(); m4.compose(p, q, sc); cloudIM.setMatrixAt(c.i, m4); }
     cloudIM.instanceMatrix.needsUpdate = true;
   });
 }
@@ -1992,6 +2001,7 @@ function animateAvatar(av, dt, st) {
   let lL = s * amp, lR = -s * amp, aL = -s * amp * 0.9, aR = s * amp * 0.9, azL = 0.08, azR = -0.08;
   if (!st.grounded) { lL = -0.6; lR = 0.35; aL = -2.6; aR = -2.6; azL = 0.5; azR = -0.5; }
   if (st.carrying) { aL = -2.9 + Math.sin(st.t * 6) * 0.05; aR = -2.9 - Math.sin(st.t * 6) * 0.05; azL = 0.25; azR = -0.25; }
+  if (st.receive && !st.carrying) { aL = -1.35; aR = -1.35; azL = 0.15; azR = -0.15; }
   if (st.stunned) { aL = -1.2 + Math.sin(st.t * 20) * 0.6; aR = -1.2 - Math.sin(st.t * 20) * 0.6; azL = 1; azR = -1; }
   const d = 18;
   av.legL.rotation.x = damp(av.legL.rotation.x, lL, d, dt); av.legR.rotation.x = damp(av.legR.rotation.x, lR, d, dt);
@@ -2018,17 +2028,25 @@ const beltPrice = (u) => Math.round(u.price * (G.event && G.event.id === 'sale' 
 const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
 
 class Owner {
-  constructor(id, name, color, isPlayer) {
+  constructor(id, name, color, isPlayer, base) {
     this.id = id; this.name = name; this.color = color; this.isPlayer = isPlayer; this.money = START_MONEY; this.rebirths = 0;
     this.up = Object.fromEntries(UP_KEYS.map((k) => [k, 0]));
-    this.slots = Array.from({ length: MAX_SLOTS }, (_, i) => ({ i, unit: null, pending: 0 }));
-    this.base = W.bases[id]; this.base.owner = this; this.agent = null; this.secT = 0; this.secCd = 0; this.magnetT = 0;
+    this.slots = []; this.bases = []; this.base = null; this.addBase(base);
+    this.agent = null; this.secT = 0; this.secCd = 0; this.magnetT = 0;
   }
-  get cap() { return Math.min(MAX_SLOTS, 4 + this.up.cap); }
+  addBase(b) { b.owner = this; this.bases.push(b); if (!this.base) this.base = b; for (let li = 0; li < MAX_SLOTS; li++) this.slots.push({ i: this.slots.length, base: b, li, unit: null, pending: 0 }); }
+  get cap() { return Math.min(MAX_SLOTS, 4 + this.up.cap); } // unlocked slots in EACH owned base
+  get totalCap() { return this.cap * this.bases.length; }
+  applyCap() { for (const b of this.bases) { b.setCapacity(this.cap); b.trap.visible = this.up.trap > 0; } }
+  baseAt(x, z, m = 0) { for (const b of this.bases) if (b.contains(x, z, m)) return b; return null; }
   incomeMult() { return (1 + 0.1 * this.up.income) * (1 + 0.5 * this.rebirths) * (G.event && G.event.id === 'golden' ? 2 : 1) * (this.isPlayer ? 1 : 0.65); }
   weakest() { let w = null; for (const s of this.slots) if (s.unit && s.unit.state === 'slotted' && (!w || s.unit.income < w.income)) w = s.unit; return w; }
   incomePerSec() { let s = 0; for (const sl of this.slots) if (sl.unit && sl.unit.state === 'slotted') s += sl.unit.income; return s * this.incomeMult(); }
-  freeSlot() { for (let i = 0; i < this.cap; i++) if (!this.slots[i].unit) return this.slots[i]; return null; }
+  freeSlot(pref) {
+    const cap = this.cap;
+    if (pref) for (const s of this.slots) if (s.base === pref && s.li < cap && !s.unit) return s;
+    for (const s of this.slots) if (s.li < cap && !s.unit) return s; return null;
+  }
   unitCount() { return this.slots.reduce((n, s) => n + (s.unit ? 1 : 0), 0); }
   pending() { return this.slots.reduce((n, s) => n + s.pending, 0); }
   netWorth() { return this.money + this.slots.reduce((n, s) => n + (s.unit ? s.unit.price : 0), 0); }
@@ -2067,7 +2085,7 @@ class Unit {
     this.plate.scale.set(2.6, mode === 'shop' ? 1.17 : 0.96, 1);
   }
   placeAtSlot() {
-    const p = this.owner.base.slotPos[this.slot.i]; this.pos.copy(p); this.yaw = this.owner.base.frontYaw; this.root.rotation.y = this.yaw; this.vis.root.scale.setScalar(this.sc);
+    const p = this.slot.base.slotPos[this.slot.li]; this.pos.copy(p); this.yaw = this.slot.base.frontYaw; this.root.rotation.y = this.yaw; this.vis.root.scale.setScalar(this.sc);
   }
   dispose(poof = true) {
     if (poof) { FX.burst(tmpV.set(this.pos.x, this.pos.y + 1, this.pos.z), { count: 18, color: ['#ffffff', RARITIES[this.c.rarity].color], speed: 4, life: 0.7 }); }
@@ -2193,7 +2211,7 @@ function tryBuy(owner, u) {
   const price = beltPrice(u); if (owner.money < price) return 'money';
   owner.money -= price; const i = G.belt.indexOf(u); if (i >= 0) G.belt.splice(i, 1);
   u.state = 'transit'; u.owner = owner; u.slot = slot; slot.unit = u; slot.pending = 0; u.transitT = 0;
-  const tp = owner.base.slotPos[slot.i]; u.pos.y = BELT.top;
+  const tp = slot.base.slotPos[slot.li]; u.pos.y = BELT.top;
   u.path = findPath(u.pos.x, u.pos.z, tp.x, tp.z) || [{ x: tp.x, z: tp.z }]; u.pi = 0;
   u.setPlate('base');
   FX.burst(tmpV.set(u.pos.x, 1.6, u.pos.z), { count: 22, color: ['#ffd23f', '#ffffff', owner.color], speed: 5, life: 0.8 });
@@ -2204,13 +2222,14 @@ function tryBuy(owner, u) {
   return 'ok';
 }
 function discover(id) { if (!G.discovered.has(id)) { G.discovered.add(id); if (G.playing && G.discovered.size > 1) UI.toast('📖 میم جدید به دانشنامه اضافه شد!', ''); } }
-function collectOwner(o, auto) {
-  let s = 0; for (const sl of o.slots) { s += sl.pending; sl.pending = 0; }
+function pendingOf(o, base) { let s = 0; for (const sl of o.slots) if (!base || sl.base === base) s += sl.pending; return s; }
+function collectOwner(o, auto, base) {
+  let s = 0; for (const sl of o.slots) if (!base || sl.base === base) { s += sl.pending; sl.pending = 0; }
   s = Math.floor(s); if (s < 1) return 0;
-  o.money += s;
+  o.money += s; const cp = (base || o.base).collectPos;
   if (o.isPlayer) {
-    Sound.play('coin'); UI.floatText(tmpV.copy(o.base.collectPos).setY(1.8), '+' + fmt(s), '#3df2b0');
-    FX.burst(tmpV.copy(o.base.collectPos).setY(1.2), { count: auto ? 8 : 24, color: ['#ffd23f', '#fff3a0'], speed: 4.5, up: true, life: 0.9, grav: -9 });
+    Sound.play('coin'); UI.floatText(tmpV.copy(cp).setY(1.8), '+' + fmt(s), '#3df2b0');
+    FX.burst(tmpV.copy(cp).setY(1.2), { count: auto ? 8 : 24, color: ['#ffd23f', '#fff3a0'], speed: 4.5, up: true, life: 0.9, grav: -9 });
     G.stats.collected += s; Tutorial.event('collect');
   }
   return s;
@@ -2223,14 +2242,14 @@ function sellUnit(o, slot) {
 }
 function activateSecurity(o) {
   if (o.secT > 0 || o.secCd > 0) return false;
-  o.secT = secDuration(o); o.base.setBarrier(true);
+  o.secT = secDuration(o); for (const b of o.bases) { b.setBarrier(true); FX.burst(tmpV.copy(b.entrancePos).setY(1.5), { count: 20, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.7 }); }
   FX.burst(tmpV.copy(o.base.entrancePos).setY(1.5), { count: 30, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.7 });
   if (o.isPlayer) { Sound.play('laser'); UI.toast('🛡️ سپر لیزری فعال شد!', 'good'); Tutorial.event('security'); }
   else if (G.player && dist2(G.player.body.pos, o.base.entrancePos) < 900) Sound.play('laser');
   return true;
 }
 function updateSecurity(o, dt) {
-  if (o.secT > 0) { o.secT -= dt; if (o.secT <= 0) { o.secT = 0; o.secCd = secCooldown(o); o.base.setBarrier(false); if (o.isPlayer) UI.toast('🛡️ سپر خاموش شد', ''); } }
+  if (o.secT > 0) { o.secT -= dt; if (o.secT <= 0) { o.secT = 0; o.secCd = secCooldown(o); for (const b of o.bases) b.setBarrier(false); if (o.isPlayer) UI.toast('🛡️ سپر خاموش شد', ''); } }
   else if (o.secCd > 0) { o.secCd = Math.max(0, o.secCd - dt); if (o.secCd === 0 && o.isPlayer) UI.toast('🛡️ سپر دوباره آماده است', 'good'); }
 }
 // barrier constraint: non-owners can't cross the entrance from outside while active (inside -> outside is allowed)
@@ -2267,9 +2286,9 @@ function returnUnit(u) {
   u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
   FX.burst(tmpV.set(u.pos.x, u.pos.y + 1, u.pos.z), { count: 16, color: ['#ffffff', u.owner.color], speed: 3, up: true, life: 0.7 });
 }
-function deliver(a) {
+function deliver(a, base) {
   const u = a.carrying; if (!u) return false;
-  const slot = a.owner.freeSlot(); if (!slot) return false;
+  const slot = a.owner.freeSlot(base); if (!slot) return false;
   const from = u.owner; u.slot.unit = null; u.slot.pending = 0; G.metrics.delivered++;
   u.owner = a.owner; u.slot = slot; slot.unit = u; slot.pending = 0; u.carrier = null; a.carrying = null; u.state = 'slotted';
   G.alerts.forEach((v, k) => { if (v === u) G.alerts.delete(k); });
@@ -2294,10 +2313,11 @@ function updateSteals(dt) {
         continue;
       }
     }
-    if (a.owner.base.contains(a.body.pos.x, a.body.pos.z)) {
+    const home = a.owner.baseAt(a.body.pos.x, a.body.pos.z);
+    if (home) {
       if (!a.isPlayer && !a.owner.freeSlot()) { const wk = a.owner.weakest(); if (wk && wk.income < u.income) sellUnit(a.owner, wk.slot); }
-      if (!deliver(a)) {
-        if (a.isPlayer) { if (!a.fullWarn || G.time - a.fullWarn > 3) { a.fullWarn = G.time; UI.toast('📦 جای خالی نداری! ظرفیت را ارتقا بده یا یک میم بفروش', 'bad'); Sound.play('error'); } }
+      if (!deliver(a, home)) {
+        if (a.isPlayer) { if (!a.fullWarn || G.time - a.fullWarn > 3) { a.fullWarn = G.time; UI.toast('📦 جای خالی نداری! ظرفیت را ارتقا بده، یک میم بفروش یا یک پایگاه جدید بخر', 'bad'); Sound.play('error'); } }
         else returnUnit(u);
       }
     } else if (!a.isPlayer && a.carryT > 80) returnUnit(u);
@@ -2312,6 +2332,8 @@ const LOOKS = [
   { skin: '#c68642', shirt: '#ffa31a', pants: '#3b2f2f', shoes: '#111', hair: 'phones', hairC: '#1a1a1a', accent: '#3df2b0' },
   { skin: '#ffe0bd', shirt: '#b061ff', pants: '#1b1446', shoes: '#ffd23f', hair: 'crown', hairC: '#e8c07a', accent: '#ffd23f' },
   { skin: '#8d5524', shirt: '#ff6fcf', pants: '#2b3a67', shoes: '#ffffff', hair: 'spiky', hairC: '#2a1a10', accent: '#58c4ff' },
+  { skin: '#f3d1b0', shirt: '#00c2d1', pants: '#3a2f5a', shoes: '#ff4f8b', hair: 'buns', hairC: '#c0392b', accent: '#ffd23f' },
+  { skin: '#e0ac69', shirt: '#ffd23f', pants: '#1b1446', shoes: '#2fe08a', hair: 'cap', hairC: '#111', accent: '#ff5252', hat: '#ff5252' },
 ];
 class Agent {
   constructor(owner, look, isPlayer) {
@@ -2330,8 +2352,8 @@ class Agent {
     let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : (this.brain.run ? 5.75 : 5.0);
     v *= 1 + 0.07 * this.owner.up.speed;
     if (this.carrying) {
-      v *= this.isPlayer ? 1.15 : 0.75; const vb = this.carrying.owner.base; // the player gets an adrenaline boost while carrying
-      if (vb.contains(this.body.pos.x, this.body.pos.z, 0.5)) v *= 1 - (this.isPlayer ? 0.05 : 0.1) * this.carrying.owner.up.trap;
+      v *= this.isPlayer ? 1.15 : 0.75; // the player gets an adrenaline boost while carrying
+      if (this.carrying.owner.baseAt(this.body.pos.x, this.body.pos.z, 0.5)) v *= 1 - (this.isPlayer ? 0.05 : 0.1) * this.carrying.owner.up.trap;
     }
     return this.stunned ? 0 : v;
   }
@@ -2356,7 +2378,8 @@ class Agent {
     if (b.landed) { this.av.squash = Math.min(1, b.landed * 1.4); b.landed = 0; if (this.isPlayer) Sound.play('land'); }
     if (this.stunT > 0) { this.stunT -= dt; if (Math.random() < 0.3) FX.one(b.pos.x + Math.cos(t * 8) * 0.5, b.pos.y + 2.3, b.pos.z + Math.sin(t * 8) * 0.5, { vx: 0, vy: 0, vz: 0, life: 0.4, size: 0.25, color: '#ffd23f' }); }
     this.zapT = Math.max(0, this.zapT - dt);
-    animateAvatar(this.av, dt, { speed: sp, grounded: b.grounded, carrying: !!this.carrying, turn: this.turn, t, stunned: this.stunned });
+    this.receiveT = Math.max(0, (this.receiveT || 0) - dt);
+    animateAvatar(this.av, dt, { speed: sp, grounded: b.grounded, carrying: !!this.carrying, turn: this.turn, t, stunned: this.stunned, receive: this.receiveT > 0 });
     if (this.label) this.label.visible = dist2(b.pos, camera.position) < 1800;
   }
 }
@@ -2433,13 +2456,13 @@ class Brain {
     if (target) { this.set('buy', { unit: target }); this.run = true; return; }
     // wander
     if (Math.random() < 0.55) { const lx = rand(-9, 9), lz = rand(-5, 8), w = base.toWorld(lx, lz); this.set('wander'); this.goTo(w.x, w.z); }
-    else { const pts = [[rand(-50, 50), rand(4, 15) * Math.sign(base.cz)], [-23, 14], [23, -14], [rand(-40, 40), Math.sign(base.cz) * 3.2]]; const q = pick(pts); this.set('wander'); this.goTo(q[0], q[1]); }
+    else { const pts = [[base.cx + rand(-40, 40), rand(4, 15) * Math.sign(base.cz)], [rand(-120, 120), rand(-15, 15)], [base.cx + rand(-30, 30), Math.sign(base.cz) * 3.2]]; const q = pick(pts); this.set('wander'); this.goTo(q[0], q[1]); }
   }
   tryUpgrade() {
     const o = this.o, base = o.base;
     {
       const opts = ['cap', 'income', 'secDur', 'trap', 'speed', 'secCd'].filter((k) => o.up[k] < UPGRADES[k].max && UPGRADES[k].cost(o.up[k]) < o.money * (k === 'cap' && !o.freeSlot() ? 0.8 : 0.35));
-      if (opts.length) { const k = opts.includes('cap') && !o.freeSlot() ? 'cap' : pick(opts); o.money -= UPGRADES[k].cost(o.up[k]); o.up[k]++; if (k === 'cap') base.setCapacity(o.cap); base.trap.visible = o.up.trap > 0; FX.burst(tmpV.copy(base.insidePos).setY(3), { count: 20, color: [o.color, '#ffffff'], speed: 4, up: true }); }
+      if (opts.length) { const k = opts.includes('cap') && !o.freeSlot() ? 'cap' : pick(opts); o.money -= UPGRADES[k].cost(o.up[k]); o.up[k]++; o.applyCap(); FX.burst(tmpV.copy(base.insidePos).setY(3), { count: 20, color: [o.color, '#ffffff'], speed: 4, up: true }); }
     }
   }
   pickBelt() {
@@ -2459,11 +2482,11 @@ class Brain {
   pickVictim() {
     const cands = []; let tot = 0;
     for (const v of G.owners) {
-      if (v === this.o || v.base.barrierActive) continue;
+      if (v === this.o) continue;
       if (v.isPlayer && (!G.playing || G.graceT > 0 || !G.tutorialDone)) continue;
-      const units = v.slots.filter((s) => s.unit && s.unit.state === 'slotted').map((s) => s.unit).sort((x, y) => y.income - x.income);
+      const units = v.slots.filter((s) => s.unit && s.unit.state === 'slotted' && !s.base.barrierActive).map((s) => s.unit).sort((x, y) => y.income - x.income);
       if (!units.length) continue;
-      const away = v.agent ? Math.sqrt(dist2(v.agent.body.pos, v.base.insidePos)) : 99; // rivals prefer bases whose owner is away
+      const away = v.agent ? Math.sqrt(dist2(v.agent.body.pos, units[0].slot.base.insidePos)) : 99; // rivals prefer bases whose owner is away
       const w = (away > 30 ? 3 : away > 15 ? 1.4 : 0.5) * (v.isPlayer ? 1.6 : 1);
       cands.push([Math.random() < 0.7 ? units[0] : pick(units.slice(0, 3)), w]); tot += w;
     }
@@ -2517,8 +2540,9 @@ class Brain {
       case 'steal': {
         const u = this.unit, v = this.victim;
         if (!u || u.state !== 'slotted' || u.owner !== v || this.t > 40 || a.carrying) { this.set('return'); break; }
-        if (v.base.barrierActive && !v.base.contains(p.x, p.z)) { this.set('return'); break; }
-        if (!this.path) { const sp = v.base.slotPos[u.slot.i]; if (!this.goTo(sp.x, sp.z)) { this.set('return'); break; } }
+        const sb = u.slot.base;
+        if (sb.barrierActive && !sb.contains(p.x, p.z)) { this.set('return'); break; }
+        if (!this.path) { const sp = sb.slotPos[u.slot.li]; if (!this.goTo(sp.x, sp.z)) { this.set('return'); break; } }
         if (dist2(p, u.pos) < 1.7 * 1.7) {
           a.move.x = a.move.z = 0; this.grab = (this.grab || 0) + dt;
           if (this.grab > 0.45) { this.grab = 0; if (startSteal(a, u)) { this.set('escape'); this.run = true; } else this.set('return'); }
@@ -2585,18 +2609,83 @@ function updateEconomy(dt) {
     if (o.isPlayer && o.up.magnet) { o.magnetT -= dt; if (o.magnetT <= 0) { o.magnetT = 5; collectOwner(o, true); } }
   }
 }
-function upgrade(o, key) {
-  const U = UPGRADES[key]; const lvl = o.up[key]; if (lvl >= U.max) return 'max';
-  const cost = U.cost(lvl); if (o.money < cost) return 'money';
-  o.money -= cost; o.up[key]++; if (key === 'cap') o.base.setCapacity(o.cap); o.base.trap.visible = o.up.trap > 0;
-  if (o.isPlayer) { Sound.play('upgrade'); UI.toast('⬆️ ' + U.name + ' ارتقا یافت! (سطح ' + fa(o.up[key]) + ')', 'good'); FX.burst(tmpV.copy(o.base.insidePos).setY(3), { count: 30, color: ['#3df2b0', '#ffd23f', '#ffffff'], speed: 5, up: true }); scheduleSave(); }
+function applyUpgrade(o, key) {
+  const U = UPGRADES[key]; o.up[key] = Math.min(U.max, o.up[key] + 1); o.applyCap();
+  if (o.isPlayer) { Sound.play('upgrade'); scheduleSave(); }
   return 'ok';
 }
+// ------------------------------------------------------------------ shop: you order at the counter, the shopkeeper hands the item over
+const Shop = {
+  busy: null, item: null, label: null,
+  ensureItem() {
+    if (this.item) return;
+    const g = new THREE.Group();
+    mesh(rbox(0.55, 0.45, 0.55, 0.06), mat('#ff4f8b', { r: 0.4 }), 0, 0, 0, 1, 1, 1, g);
+    mesh(GEO.box, mat('#ffd23f', { m: 0.5, r: 0.3 }), 0, 0, 0, 0.58, 0.47, 0.1, g); mesh(GEO.box, mat('#ffd23f', { m: 0.5, r: 0.3 }), 0, 0, 0, 0.1, 0.47, 0.58, g);
+    for (const s of [-1, 1]) { const bw = mesh(GEO.torus, mat('#ffd23f', { m: 0.5, r: 0.3 }), s * 0.12, 0.3, 0, 0.14, 0.14, 0.3, g); bw.rotation.y = Math.PI / 2; }
+    this.label = new LiveLabel(128, 128, 0.7, 0.7); this.label.sprite.position.y = 0.75; g.add(this.label.sprite);
+    g.visible = false; scene.add(g); this.item = g;
+  },
+  order(key) {
+    const o = G.player.owner, U = UPGRADES[key], l = o.up[key];
+    if (l >= U.max) return;
+    if (this.busy) { Sound.play('error'); UI.toast('⏳ مغازه‌دار هنوز سفارش قبلی‌ات را می‌آورد…', 'bad'); return; }
+    const cost = U.cost(l); if (o.money < cost) { Sound.play('error'); UI.toast('💸 پولت برای «' + U.name + '» کافی نیست (' + fmt(cost) + ')', 'bad'); return; }
+    o.money -= cost; this.ensureItem();
+    this.busy = { key, t: 0 }; this.label.set(key, [{ t: U.emoji, size: 96 }], { bg: false });
+    UI.closePanel(); Sound.play('click'); UI.toast('🛍️ مغازه‌دار دارد «' + U.name + '» را برایت می‌آورد…', '');
+  },
+  hand(p) { // shopkeeper's hands, in front of the counter
+    const sk = shopkeeper.root.position, y = shopkeeper.root.rotation.y; return p.set(sk.x + Math.sin(y) * 0.75, 1.35, sk.z + Math.cos(y) * 0.75);
+  },
+  update(dt) {
+    if (!shopkeeper) return;
+    const sk = shopkeeper;
+    if (!this.busy) { sk.root.rotation.y = damp(sk.root.rotation.y, Math.PI / 2, 4, dt); sk.armR.rotation.x = -2.5 + Math.sin(G.time * 5) * 0.4; sk.armR.rotation.z = -0.4; return; }
+    const b = this.busy, pp = G.player.body.pos; b.t += dt;
+    const face = Math.atan2(pp.x - sk.root.position.x, pp.z - sk.root.position.z); sk.root.rotation.y += angDiff(sk.root.rotation.y, face) * Math.min(1, dt * 8);
+    sk.armL.rotation.x = sk.armR.rotation.x = -1.45; sk.armL.rotation.z = 0.2; sk.armR.rotation.z = -0.2;
+    const it = this.item; it.visible = true; it.rotation.y += dt * 3;
+    const hand = this.hand(tmpV);
+    if (b.t < 0.8) { const k = b.t / 0.8; it.position.copy(hand); it.position.y += Math.sin(k * Math.PI) * 0.15; it.scale.setScalar(0.3 + 0.7 * Math.min(1, k * 2)); if (b.t < dt * 1.5) FX.burst(hand, { count: 10, color: ['#ffd23f', '#ffffff'], speed: 2, life: 0.5 }); }
+    else if (b.t < 1.7) {
+      const k = (b.t - 0.8) / 0.9, target = tmpV2.set(pp.x, pp.y + 1.25, pp.z);
+      it.position.lerpVectors(hand, target, k); it.position.y += Math.sin(k * Math.PI) * 1.4; it.scale.setScalar(1);
+      G.player.receiveT = 0.4; if (Math.random() < 0.5) FX.one(it.position.x, it.position.y, it.position.z, { vx: 0, vy: 0.5, vz: 0, life: 0.5, size: 0.25, color: '#ffd23f' });
+    } else this.finish();
+  },
+  finish() {
+    const b = this.busy; if (!b) return; this.busy = null; if (this.item) this.item.visible = false;
+    const o = G.player.owner; applyUpgrade(o, b.key);
+    FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.3), { count: 26, color: ['#ffd23f', '#3df2b0', '#ffffff'], speed: 4, up: true, life: 0.8 });
+    UI.toast('🎁 مغازه‌دار «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
+  },
+};
+// ------------------------------------------------------------------ extra plots the player can buy once the first base fills up
+const plotPrice = (o) => Math.round(5000 * Math.pow(10, o.bases.length - 1));
+function claimPlot(o, b, silent) {
+  if (b.owner || !b.forSale) return false;
+  o.addBase(b); b.build(o.color, o.name + ' ' + fa(o.bases.length), false); o.applyCap(); if (o.secT > 0) b.setBarrier(true);
+  UI.mapBg = null;
+  if (!silent) { Sound.play('success'); UI.banner('🏠 پایگاه جدید خریدی!', 'حالا ' + fa(o.totalCap) + ' جا برای میم داری'); FX.burst(tmpV.copy(b.insidePos).setY(3), { count: 50, color: [o.color, '#ffd23f', '#ffffff'], speed: 7, up: true, life: 1.2 }); }
+  return true;
+}
+function buyPlot(o, b) {
+  const price = plotPrice(o); if (o.money < price) { Sound.play('error'); UI.toast('💸 برای این زمین ' + fmt(price) + ' سکه لازم داری', 'bad'); return false; }
+  if (!b.forSale || b.owner) return false;
+  o.money -= price; claimPlot(o, b, false); scheduleSave(true); return true;
+}
+function releasePlot(o, b) { // used when a cloud save with fewer plots replaces this one
+  const i = o.bases.indexOf(b); if (i <= 0) return;
+  o.bases.splice(i, 1); o.slots = o.slots.filter((s) => s.base !== b); o.slots.forEach((s, k) => { s.i = k; });
+  b.owner = null; b.setBarrier(false); b.build('#9aa3ae', 'زمین برای فروش', true); UI.mapBg = null;
+}
+
 function rebirth() {
   const o = G.player.owner, cost = rebirthCost(o.rebirths);
   if (o.money < cost || G.player.carrying) return false;
   for (const s of o.slots) { if (s.unit) { if (s.unit.state === 'carried') returnUnitToVictimless(s.unit); s.unit.dispose(true); s.unit = null; } s.pending = 0; }
-  o.rebirths++; o.money = START_MONEY * (1 + o.rebirths * 2); for (const k of UP_KEYS) o.up[k] = 0; o.base.setCapacity(o.cap); o.base.trap.visible = false;
+  o.rebirths++; o.money = START_MONEY * (1 + o.rebirths * 2); for (const k of UP_KEYS) o.up[k] = 0; o.applyCap();
   Sound.play('rebirth'); UI.banner('♻️ تولد دوباره!', 'درآمد دائمی ×' + fa((1 + 0.5 * o.rebirths).toFixed(1))); scheduleSave(true);
   return true;
 }
@@ -2609,16 +2698,16 @@ function serialize() {
   return {
     v: 1, t: Date.now(), name: G.name, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn),
-    owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending)] : null)) })),
+    owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending)] : null)) })),
   };
 }
-function doSave() { if (!G.owners.length) return; saveQueued = false; G.lastSave = G.time; lsSet(SAVE_KEY, JSON.stringify(serialize())); }
+function doSave() { if (!G.owners.length) return; if (Shop.busy) Shop.finish(); saveQueued = false; G.lastSave = G.time; lsSet(SAVE_KEY, JSON.stringify(serialize())); }
 function num(v, d, lo = 0, hi = 1e18) { v = Number(v); return isFinite(v) ? clamp(v, lo, hi) : d; }
 function loadSave() {
   const raw = lsGet(SAVE_KEY); if (!raw) return null;
   try {
     const s = JSON.parse(raw);
-    if (!s || s.v !== 1 || !Array.isArray(s.owners) || s.owners.length !== 6) throw new Error('bad shape');
+    if (!s || s.v !== 1 || !Array.isArray(s.owners) || (s.owners.length !== 6 && s.owners.length !== 8)) throw new Error('bad shape');
     return s;
   } catch (e) { console.warn('save corrupt, backing up', e); lsSet(SAVE_KEY + '.bak', raw); lsDel(SAVE_KEY); return null; }
 }
@@ -2632,8 +2721,9 @@ function applySave(s) {
     const o = G.owners[i]; if (!so) return;
     o.money = num(so.money, START_MONEY); o.rebirths = Math.floor(num(so.rebirths, 0, 0, 50)); o.secCd = num(so.secCd, 0, 0, 120);
     if (so.up) for (const k of UP_KEYS) o.up[k] = Math.floor(num(so.up[k], 0, 0, UPGRADES[k].max));
-    if (Array.isArray(so.slots)) so.slots.slice(0, MAX_SLOTS).forEach((e, si) => {
-      if (!Array.isArray(e) || !CHAR_BY_ID[e[0]] || si >= o.cap) return;
+    if (o.isPlayer && Array.isArray(so.bases)) so.bases.slice(1).forEach((bi) => { const b = W.bases[bi]; if (b && !b.owner && b.forSale) claimPlot(o, b, true); });
+    if (Array.isArray(so.slots)) so.slots.slice(0, o.slots.length).forEach((e, si) => {
+      if (!Array.isArray(e) || !CHAR_BY_ID[e[0]] || o.slots[si].li >= o.cap) return;
       const mut = Math.floor(num(e[1], 0, 0, MUTATIONS.length - 1)); const u = new Unit(CHAR_BY_ID[e[0]], mut);
       u.owner = o; u.slot = o.slots[si]; o.slots[si].unit = u; o.slots[si].pending = num(e[2], 0); u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
     });
@@ -2641,9 +2731,9 @@ function applySave(s) {
   if (G.player) G.player.owner.name = G.name;
   return num(s.t, Date.now());
 }
-function seedRivals() {
+function seedRivals(from = 0) {
   for (const o of G.owners) {
-    if (o.isPlayer) continue;
+    if (o.isPlayer || o.id < from) continue;
     o.money = randi(200, 1500); o.up.cap = randi(0, 2);
     const n = randi(3, Math.min(o.cap, 5));
     for (let i = 0; i < n; i++) {
@@ -2747,7 +2837,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyG': doDrop(); break;
     case 'KeyC': toggleCamMode(); break;
     case 'KeyQ': doSecurity(); break;
-    case 'KeyB': UI.openShop(); break;
+    case 'KeyB': if (INTERACT.kind === 'shop') UI.openShop(); else UI.toast('🛒 برای خرید باید خودت به فروشگاه (غرب میدان، کنار مغازه‌دار) بروی', 'bad'); break;
     case 'KeyI': UI.openInventory(); break;
     case 'KeyK': UI.openBook(); break;
     case 'KeyL': UI.openLeader(); break;
@@ -2787,15 +2877,18 @@ function computeInteract(dt) {
   if (best) { const pr = beltPrice(best); R = { kind: 'buy', unit: best, ok: o.money >= pr && !!o.freeSlot(), price: pr }; }
   for (const ag of G.agents) if (ag.carrying && ag.carrying.owner === o && dist2(p, ag.body.pos) < 2.8 * 2.8) R = { kind: 'catch', target: ag };
   let sd = 2.5 * 2.5;
-  for (const ow of G.owners) {
-    if (ow === o || !ow.base.contains(p.x, p.z, 1.5)) continue;
-    for (const s of ow.slots) if (s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < sd && Math.abs(p.y - s.unit.pos.y) < 2) { sd = d; STEAL_U = s.unit; } }
+  for (const b of W.bases) {
+    if (!b.owner || b.owner === o || !b.contains(p.x, p.z, 1.5)) continue;
+    for (const s of b.owner.slots) if (s.base === b && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < sd && Math.abs(p.y - s.unit.pos.y) < 2) { sd = d; STEAL_U = s.unit; } }
   }
+  const myBase = o.baseAt(p.x, p.z, 0.5);
   if (!R.kind) {
-    if (dist2(p, o.base.consolePos) < 2.4 * 2.4) R = { kind: 'security' };
-    else if (dist2(p, o.base.collectPos) < 2 * 2) R = { kind: 'collect' };
+    const plot = W.bases.find((b) => b.forSale && !b.owner && (b.contains(p.x, p.z, 0.5) || dist2(p, b.entrancePos) < 6 * 6));
+    if (plot) R = { kind: 'plot', base: plot, price: plotPrice(o), ok: o.money >= plotPrice(o) };
+    else if (myBase && dist2(p, myBase.consolePos) < 2.4 * 2.4) R = { kind: 'security' };
+    else if (myBase && dist2(p, myBase.collectPos) < 2 * 2) R = { kind: 'collect', base: myBase };
     else {
-      let od = 1.9 * 1.9, ou = null; if (o.base.contains(p.x, p.z)) for (const s of o.slots) if (s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < od) { od = d; ou = s; } }
+      let od = 1.9 * 1.9, ou = null; if (myBase) for (const s of o.slots) if (s.base === myBase && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < od) { od = d; ou = s; } }
       if (ou) R = { kind: 'info', slot: ou };
       else if (dist2(p, W.shopPos) < 5 * 5) R = { kind: 'shop' };
       else if (dist2(p, W.boardPos) < 7 * 7) R = { kind: 'board' };
@@ -2804,7 +2897,7 @@ function computeInteract(dt) {
   INTERACT = R;
   // stepping on the collect pad collects automatically
   padCd -= dt;
-  if (padCd <= 0 && Math.abs(p.x - o.base.collectPos.x) < 1.4 && Math.abs(p.z - o.base.collectPos.z) < 1.4 && o.pending() >= 1) { padCd = 0.6; collectOwner(o); }
+  if (padCd <= 0 && myBase && Math.abs(p.x - myBase.collectPos.x) < 1.4 && Math.abs(p.z - myBase.collectPos.z) < 1.4 && pendingOf(o, myBase) >= 1) { padCd = 0.6; collectOwner(o, false, myBase); }
 }
 function doInteract() {
   const a = G.player, o = a.owner, R = INTERACT;
@@ -2812,13 +2905,14 @@ function doInteract() {
     case 'buy': {
       const r = tryBuy(o, R.unit);
       if (r === 'money') { Sound.play('error'); UI.toast('💸 پولت کافی نیست! قیمت: ' + fmt(R.price) + ' — موجودی: ' + fmt(o.money), 'bad'); }
-      else if (r === 'full') { Sound.play('error'); UI.toast('🏠 پایگاهت پر است! ظرفیت را ارتقا بده یا یک میم بفروش', 'bad'); }
+      else if (r === 'full') { Sound.play('error'); UI.toast('🏠 پایگاه‌هایت پر است! ظرفیت را ارتقا بده، یک میم بفروش یا یک زمین «برای فروش» بخر', 'bad'); }
       else if (r === 'gone') Sound.play('error');
       break;
     }
     case 'catch': { const th = R.target; if (th.carrying) { const u = th.carrying; returnUnit(u); th.stun(2.2); const bounty = Math.max(10, Math.floor(u.price * 0.05)); o.money += bounty; Sound.play('success'); UI.toast('👋 دزد را زدی! ' + u.c.name + ' برگشت. جایزه: ' + fmt(bounty), 'good'); G.stats.caught++; } break; }
     case 'security': doSecurity(); break;
-    case 'collect': if (!collectOwner(o)) UI.toast('هنوز پولی جمع نشده', ''); break;
+    case 'collect': if (!collectOwner(o, false, R.base)) UI.toast('هنوز پولی جمع نشده', ''); break;
+    case 'plot': UI.confirm('خرید پایگاه جدید', 'این زمین را به قیمت ' + fmt(R.price) + ' سکه می‌خری؟ ۱۲ جای تازه برای میم‌هایت (با ظرفیت فعلی ' + fa(o.cap) + ' جای باز) می‌گیری.', () => buyPlot(o, R.base)); break;
     case 'info': UI.openUnit(R.slot); break;
     case 'shop': UI.openShop(); break;
     case 'board': UI.openLeader(); break;
@@ -2844,7 +2938,7 @@ function doDrop() {
 const camDir = new THREE.Vector3(), camTarget = new THREE.Vector3();
 function updateCamera(dt, menuT) {
   if (!G.playing) { // cinematic orbit for the main menu
-    const t = menuT * 0.06; camera.position.set(Math.sin(t) * 70, 34 + Math.sin(t * 0.7) * 6, Math.cos(t) * 70); camera.lookAt(0, 2, 0); return;
+    const t = menuT * 0.06; camera.position.set(Math.sin(t) * 120, 48 + Math.sin(t * 0.7) * 8, Math.cos(t) * 95); camera.lookAt(0, 2, 0); return;
   }
   const sens = S.sens;
   CAM.yaw -= IN.camDX * 0.0055 * sens; CAM.pitch += IN.camDY * 0.0045 * sens * (S.invertY ? -1 : 1);
@@ -2917,7 +3011,7 @@ const UI = {
     const mv = $('moneyVal'), txt = fmt(this.shownMoney);
     if (mv.textContent !== txt) { mv.textContent = txt; if (this.shownMoney > prev + 0.5) { mv.classList.remove('bump'); void mv.offsetWidth; mv.classList.add('bump'); } }
     $('incomeVal').textContent = fmtInc(o.incomePerSec());
-    $('slotChip').textContent = '🏠 ' + fa(o.unitCount()) + '/' + fa(o.cap);
+    $('slotChip').textContent = (o.bases.length > 1 ? '🏘️ ' : '🏠 ') + fa(o.unitCount()) + '/' + fa(o.totalCap);
     const sc = $('secChip');
     if (o.secT > 0) { sc.textContent = '🛡️ فعال ' + fmtTime(o.secT); sc.className = 'chip on'; }
     else if (o.secCd > 0) { sc.textContent = '🛡️ ' + fmtTime(o.secCd); sc.className = 'chip cd'; }
@@ -2927,7 +3021,8 @@ const UI = {
     // carry indicator + home arrow
     const a = G.player, cb = $('carryBar'); cb.hidden = !a.carrying;
     if (a.carrying) {
-      const h = o.base.insidePos, ang = Math.atan2(h.x - a.body.pos.x, h.z - a.body.pos.z), fwd = CAM.yaw + Math.PI;
+      let h = o.base.insidePos; for (const b of o.bases) if (dist2(b.insidePos, a.body.pos) < dist2(h, a.body.pos) && o.freeSlot(b) && o.freeSlot(b).base === b) h = b.insidePos;
+      const ang = Math.atan2(h.x - a.body.pos.x, h.z - a.body.pos.z), fwd = CAM.yaw + Math.PI;
       $('homeArrow').style.transform = `rotate(${-angDiff(fwd, ang)}rad)`;
     }
     let alert = null; G.alerts.forEach((u, ag) => { if (ag.carrying === u && u.state === 'carried' && u.owner === o) alert = [ag, u]; else G.alerts.delete(ag); });
@@ -2940,7 +3035,8 @@ const UI = {
       case 'buy': text = 'خرید «' + esc(R.unit.c.name) + '» — ' + fmt(R.price) + ' ' + k('E'); lbl = 'خرید'; cant = !R.ok; break;
       case 'catch': text = 'دزد را بزن و میمت را پس بگیر! ' + k('E'); lbl = 'بگیرش'; break;
       case 'security': text = 'روشن کردن سپر لیزری ' + k('E'); lbl = 'امنیت'; break;
-      case 'collect': text = 'جمع‌آوری ' + fmt(o.pending()) + ' سکه ' + k('E'); lbl = 'جمع کن'; break;
+      case 'collect': text = 'جمع‌آوری ' + fmt(pendingOf(o, R.base)) + ' سکه ' + k('E'); lbl = 'جمع کن'; break;
+      case 'plot': text = '🏠 خرید این زمین به‌عنوان پایگاه جدید — ' + fmt(R.price) + ' سکه ' + k('E'); lbl = 'خرید زمین'; cant = !R.ok; break;
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
       case 'shop': text = 'ورود به فروشگاه ارتقا ' + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
@@ -2960,8 +3056,10 @@ const UI = {
   worldLabelsT: 0, boardT: 0,
   worldLabels(dt) {
     this.worldLabelsT -= dt; if (this.worldLabelsT > 0) return; this.worldLabelsT = 0.3;
-    for (const o of G.owners) {
-      const b = o.base, pend = o.pending(), pk = fmt(pend);
+    for (const b of W.bases) {
+      const o = b.owner;
+      if (!o) { const pr = G.owners.length ? fmt(plotPrice(G.owners[0])) : ''; b.ownerTag.set('sale' + pr, [{ t: '🏷️ زمین برای فروش', size: 52, color: '#fff', weight: 900, stroke: 5 }, { t: '💰 ' + pr + ' سکه', size: 34, color: '#ffd23f', weight: 800 }], { bg: 'rgba(90,96,110,.9)', border: '#ffd23f' }); continue; }
+      const pend = pendingOf(o, b), pk = fmt(pend);
       b.padLabel.set(pk, [{ t: '💰 ' + pk, size: 58, color: '#ffd23f', weight: 900, stroke: 4 }, { t: o.isPlayer ? 'روی سکو برو' : 'صندوق ' + o.name, size: 30, color: '#ffffff', weight: 700 }], { bg: 'rgba(10,60,40,.82)', border: '#2fe08a' });
       const st = o.secT > 0 ? ['🛡️ فعال ' + fmtTime(o.secT), '#3df2b0'] : o.secCd > 0 ? ['⏳ ' + fmtTime(o.secCd), '#b9b2e6'] : ['🛡️ آماده', '#ffffff'];
       b.secLabel.set(st[0], [{ t: st[0], size: 50, color: st[1], weight: 900 }, { t: 'سپر لیزری', size: 28, color: '#ffffffaa' }], { bg: 'rgba(60,10,20,.8)', border: '#ff4a4a' });
@@ -2972,41 +3070,42 @@ const UI = {
     if (this.boardT <= 0) {
       this.boardT = 3;
       const rows = [...G.owners].sort((x, y) => y.netWorth() - x.netWorth());
-      const lines = [{ t: '🏆 برترین‌های میدان میم', size: 60, color: '#ffd23f', weight: 900 }];
-      rows.forEach((o, i) => lines.push({ t: fa(i + 1) + '. ' + o.name + ' — ' + fmt(o.netWorth()) + ' سکه', size: 44, color: o.isPlayer ? '#3df2b0' : '#ffffff', weight: o.isPlayer ? 900 : 700 }));
+      const lines = [{ t: '🏆 برترین‌های میدان میم', size: 50, color: '#ffd23f', weight: 900 }];
+      rows.forEach((o, i) => lines.push({ t: fa(i + 1) + '. ' + o.name + ' — ' + fmt(o.netWorth()) + ' سکه', size: 38, color: o.isPlayer ? '#3df2b0' : '#ffffff', weight: o.isPlayer ? 900 : 700 }));
       W.board.set(rows.map((o) => o.id + ':' + Math.floor(o.netWorth())).join(','), lines, { bg: 'rgba(14,10,40,.95)', border: '#ffd23f' });
     }
   },
   // ---------------- minimap
   mapBg: null,
   buildMapBg() {
-    const c = $('minimap'), dpr = Math.min(2, window.devicePixelRatio || 1), N = 140 * dpr; c.width = c.height = N;
-    const bg = document.createElement('canvas'); bg.width = bg.height = N; const g = bg.getContext('2d');
-    const s = N / (WORLD.maxX - WORLD.minX), oy = (N - (WORLD.maxZ - WORLD.minZ) * s) / 2;
-    this.mapS = s; this.mapOY = oy; this.mapN = N;
-    const X = (x) => (x - WORLD.minX) * s, Z = (z) => (z - WORLD.minZ) * s + oy;
-    g.fillStyle = '#1b1446'; g.fillRect(0, 0, N, N);
+    const c = $('minimap'), dpr = Math.min(2, window.devicePixelRatio || 1), NW = 200 * dpr, NH = 104 * dpr; c.width = NW; c.height = NH;
+    const bg = document.createElement('canvas'); bg.width = NW; bg.height = NH; const g = bg.getContext('2d');
+    const s = Math.min(NW / (WORLD.maxX - WORLD.minX), NH / (WORLD.maxZ - WORLD.minZ)), ox = (NW - (WORLD.maxX - WORLD.minX) * s) / 2, oy = (NH - (WORLD.maxZ - WORLD.minZ) * s) / 2;
+    this.mapS = s; this.mapOY = oy; this.mapN = NW;
+    const X = (x) => (x - WORLD.minX) * s + ox, Z = (z) => (z - WORLD.minZ) * s + oy;
+    g.fillStyle = '#1b1446'; g.fillRect(0, 0, NW, NH);
     g.fillStyle = '#4c9a3c'; g.fillRect(X(WORLD.minX), Z(WORLD.minZ), (WORLD.maxX - WORLD.minX) * s, (WORLD.maxZ - WORLD.minZ) * s);
-    g.fillStyle = '#d9c9a8'; g.fillRect(X(-90), Z(-18), 180 * s, 36 * s);
-    g.fillStyle = '#555a66'; for (const zc of [-52, 52]) g.fillRect(X(-93), Z(zc - 3), 186 * s, 6 * s); for (const xc of [-23, 23]) { g.fillRect(X(xc - 3), Z(-49), 6 * s, 31 * s); g.fillRect(X(xc - 3), Z(18), 6 * s, 31 * s); }
+    const PX = LAYOUT.plazaX, RZ = LAYOUT.ringZ;
+    g.fillStyle = '#d9c9a8'; g.fillRect(X(-PX), Z(-18), 2 * PX * s, 36 * s);
+    g.fillStyle = '#555a66'; for (const zc of [-RZ, RZ]) g.fillRect(X(-PX - 3), Z(zc - 3), (2 * PX + 6) * s, 6 * s); for (const xc of LAYOUT.roadXs) { g.fillRect(X(xc - 3), Z(-RZ + 3), 6 * s, (RZ - 21) * s); g.fillRect(X(xc - 3), Z(18), 6 * s, (RZ - 21) * s); }
     g.fillStyle = '#26262e'; g.fillRect(X(BELT.x0), Z(-2.4), (BELT.x1 - BELT.x0) * s, 4.8 * s);
     for (const b of W.buildings) { g.fillStyle = '#8b8fa8'; g.fillRect(X(b.x - b.w / 2), Z(b.z - b.d / 2), b.w * s, b.d * s); }
     for (const f of W.fountains) { g.fillStyle = '#3fb7ff'; g.beginPath(); g.arc(X(f.x), Z(f.z), 3 * s, 0, TAU); g.fill(); }
-    g.fillStyle = '#ff4f8b'; g.fillRect(X(-86), Z(-7), 12 * s, 14 * s); g.fillStyle = '#ffd23f'; g.fillRect(X(82), Z(-8), 2 * s, 16 * s);
-    for (const b of W.bases) { g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
+    g.fillStyle = '#ff4f8b'; g.fillRect(X(W.shopPos.x - 13.5), Z(-7), 12 * s, 14 * s); g.font = (11 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🛒', X(W.shopPos.x - 7.5), Z(-12)); g.fillStyle = '#ffd23f'; g.fillRect(X(W.boardPos.x + 5), Z(-8), 2 * s, 16 * s);
+    for (const b of W.bases) { if (!b.owner) { g.fillStyle = '#ffffff'; g.fillText('🏷️', X(b.cx), Z(b.cz)); } g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
     this.mapBg = bg; this.mapX = X; this.mapZ = Z;
   },
   minimap(dt) {
     if (!S.minimap) return; this.mapT -= dt; if (this.mapT > 0) return; this.mapT = 0.1;
     if (!this.mapBg) this.buildMapBg();
-    const c = $('minimap'), g = c.getContext('2d'), X = this.mapX, Z = this.mapZ, s = this.mapS, dpr = this.mapN / 140;
+    const c = $('minimap'), g = c.getContext('2d'), X = this.mapX, Z = this.mapZ, s = this.mapS, dpr = this.mapN / 200;
     g.drawImage(this.mapBg, 0, 0);
     for (const b of W.bases) if (b.barrierActive) { const w1 = b.toWorld(-3, -10), w2 = b.toWorld(3, -10); g.strokeStyle = '#ff2a3a'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(X(w1.x), Z(w1.z)); g.lineTo(X(w2.x), Z(w2.z)); g.stroke(); }
-    for (const u of G.belt) { g.fillStyle = RARITIES[u.c.rarity].color; const r = (u.c.rarity >= 4 ? 2.6 : 1.5) * dpr; g.beginPath(); g.arc(X(u.pos.x), Z(u.pos.z), r, 0, TAU); g.fill(); }
+    for (const u of G.belt) { g.fillStyle = RARITIES[u.c.rarity].color; const r = (u.c.rarity >= 4 ? 2.4 : 1.2) * dpr; g.beginPath(); g.arc(X(u.pos.x), Z(u.pos.z), r, 0, TAU); g.fill(); }
     const flash = Math.floor(G.time * 4) % 2 === 0;
     for (const ag of G.agents) {
       if (ag.isPlayer) continue; const p = ag.body.pos;
-      g.fillStyle = ag.owner.color; g.beginPath(); g.arc(X(p.x), Z(p.z), 3 * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.stroke();
+      g.fillStyle = ag.owner.color; g.beginPath(); g.arc(X(p.x), Z(p.z), 2.4 * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.stroke();
       if (ag.carrying && ag.carrying.owner === G.player.owner && flash) { g.strokeStyle = '#ff2a3a'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(X(p.x), Z(p.z), 7 * dpr, 0, TAU); g.stroke(); }
     }
     const p = G.player.body.pos, y = G.player.yaw, dx = Math.sin(y), dz = Math.cos(y), px = X(p.x), pz = Z(p.z), L = 6 * dpr;
@@ -3033,7 +3132,7 @@ const UI = {
     const rc = rebirthCost(o.rebirths);
     const reb = '<div class="upRow" style="border-color:var(--candy)"><div class="emo">♻️</div><div class="txt"><b>تولد دوباره (سطح ' + fa(o.rebirths) + ')</b><small>پول، میم‌ها و ارتقاها صفر می‌شوند؛ در عوض درآمدت برای همیشه ×' + fa((1 + 0.5 * (o.rebirths + 1)).toFixed(1)) + ' می‌شود و با پول بیشتری شروع می‌کنی.</small></div>' +
       '<button class="act red" type="button" data-act="rebirth"' + (o.money < rc ? ' disabled' : '') + '>💰 ' + fmt(rc) + '</button></div>';
-    const html = '<p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + reb;
+    const html = '<p class="note">🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + reb;
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', '🛒 فروشگاه ارتقا', html);
   },
   unitCard(s, o) {
@@ -3044,9 +3143,14 @@ const UI = {
       '<button class="act red" type="button" data-sell="' + s.i + '"' + (u.state !== 'slotted' ? ' disabled' : '') + '>فروش (+' + fmt(Math.floor(u.price * 0.5)) + ')</button></div>';
   },
   openInventory(re) {
-    const o = G.player.owner; let cards = '';
-    for (let i = 0; i < o.cap; i++) { const s = o.slots[i]; cards += s.unit ? this.unitCard(s, o) : '<div class="card" style="opacity:.55;justify-content:center;text-align:center"><div class="emo" style="margin:auto">➕</div><small>جای خالی — از نوار نقاله بخر یا بدزد</small></div>'; }
-    const html = '<p class="note">' + fa(o.unitCount()) + ' از ' + fa(o.cap) + ' جا پر است · ' + fa(MAX_SLOTS - o.cap) + ' جای قفل‌شده (از فروشگاه باز کن). فروش، نصف ارزش میم را برمی‌گرداند.</p><div class="grid">' + cards + '</div>';
+    const o = G.player.owner; let groups = '';
+    o.bases.forEach((b, bi) => {
+      let cards = '';
+      for (const s of o.slots) if (s.base === b && s.li < o.cap) cards += s.unit ? this.unitCard(s, o) : '<div class="card" style="opacity:.55;justify-content:center;text-align:center"><div class="emo" style="margin:auto">➕</div><small>جای خالی — از نوار نقاله بخر یا بدزد</small></div>';
+      groups += '<b style="color:var(--coin)">🏠 پایگاه ' + fa(bi + 1) + '</b><div class="grid">' + cards + '</div>';
+    });
+    const next = o.bases.length < W.bases.length ? ' · زمین بعدی: ' + fmt(plotPrice(o)) + ' سکه (کنار تابلوی «برای فروش» برو)' : '';
+    const html = '<p class="note">' + fa(o.unitCount()) + ' از ' + fa(o.totalCap) + ' جا پر است · ' + fa(o.bases.length) + ' پایگاه · ظرفیت هر پایگاه را از فروشگاه بیشتر کن' + next + '. فروش، نصف ارزش میم را برمی‌گرداند.</p>' + groups;
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('inv', '🎒 کلکسیون من', html);
   },
   openUnit(slot) { const o = G.player.owner; if (!slot.unit) return; this.openPanel('unit', 'میم تو', '<div class="grid">' + this.unitCard(slot, o) + '</div><p class="note">این میم هر ثانیه برایت پول می‌سازد. پول‌ها روی سکوی سبز جمع می‌شوند.</p>'); },
@@ -3107,10 +3211,12 @@ const UI = {
   openHelp() {
     this.openPanel('help', '❔ راهنمای بازی', '<div class="help"><p>🎯 <b>هدف:</b> ثروتمندترین صاحب پایگاه شو! میم‌ها را از نوار نقاله‌ی وسط بخر؛ هر میم توی پایگاهت هر ثانیه پول می‌سازد.</p>' +
       '<p>💰 پول‌ها روی <b>سکوی سبز</b> پایگاهت جمع می‌شوند؛ رویش برو تا برداری.</p>' +
+      '<p>🏠 <b>پایگاه بیشتر:</b> وقتی پایگاهت پر شد، کنار یکی از زمین‌های «برای فروش» برو و «خرید زمین» را بزن. هر پایگاه ۱۲ جای میم دارد.</p>' +
+      '<p>🛒 <b>فروشگاه:</b> ارتقاها را فقط باید حضوری از مغازه‌ی غرب میدان بخری؛ مغازه‌دار سفارشت را دستت می‌دهد.</p>' +
       '<p>🦹 <b>دزدی:</b> وارد پایگاه حریف شو، کنار یک میم «دزدی» را بزن و میم را تا پایگاه خودت ببر. موقع حمل میم آدرنالین داری و ۱۵٪ سریع‌تر می‌دوی. اگر صاحبش لمست کند، میم برمی‌گردد.</p>' +
       '<p>🛡️ <b>سپر لیزری:</b> برای مدتی ورود حریف‌ها را می‌بندد (خودت آزادانه رد می‌شوی). بعد از خاموشی باید صبر کنی تا دوباره آماده شود.</p>' +
       '<p>📱 <b>لمسی:</b> جوی‌استیک سمت چپ = حرکت · کشیدن سمت راست = چرخش دوربین · دو انگشت = زوم · دکمه‌های راست = پرش، دویدن، تعامل، دزدی، رها کردن، دوربین، امنیت.</p>' +
-      '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
+      '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه (کنار مغازه) · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
       '<p>✨ رویدادهای ویژه مثل «باران طلایی» و «ساعت شانس» گاهی پیش می‌آیند. با «تولد دوباره» درآمد دائمی بیشتری بگیر.</p></div>');
   },
   openPause() {
@@ -3142,7 +3248,7 @@ const UI = {
 $('panelBody').addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t || t.disabled) return; const o = G.player.owner;
   Sound.init();
-  if (t.dataset.up) { const r = upgrade(o, t.dataset.up); if (r === 'money') { Sound.play('error'); } UI.openShop(true); return; }
+  if (t.dataset.up) { Shop.order(t.dataset.up); return; }
   if (t.dataset.sell !== undefined) { const s = o.slots[+t.dataset.sell]; if (s && s.unit) UI.confirm('فروش میم', 'مطمئنی می‌خواهی «' + s.unit.c.name + '» را به قیمت ' + fmt(Math.floor(s.unit.price * 0.5)) + ' بفروشی؟', () => { sellUnit(o, s); if (UI.panelKind === 'unit') UI.closePanel(); else UI.openInventory(true); }); return; }
   if (t.dataset.seg) return;
   if (t.parentElement && t.parentElement.dataset.seg) {
@@ -3172,7 +3278,6 @@ $('panel').addEventListener('pointerdown', (e) => { if (e.target === $('panel'))
 $('confirmYes').addEventListener('click', () => UI.confirmClose(true));
 $('confirmNo').addEventListener('click', () => UI.confirmClose(false));
 $('mbPause').addEventListener('click', () => UI.openPause());
-$('mbShop').addEventListener('click', () => UI.openShop());
 $('mbInv').addEventListener('click', () => UI.openInventory());
 $('mbBook').addEventListener('click', () => UI.openBook());
 $('mbLeader').addEventListener('click', () => UI.openLeader());
@@ -3261,7 +3366,7 @@ const Cloud = {
     }
   },
   parse(d) {
-    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && s.owners.length === 6) return s; } catch (e) { /* invalid */ }
+    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && (s.owners.length === 6 || s.owners.length === 8)) return s; } catch (e) { /* invalid */ }
     return null;
   },
   offer(d) {
@@ -3313,13 +3418,16 @@ const Cloud = {
 // replace the whole world state with a save (used when a newer cloud copy arrives)
 function resetWorldTo(s) {
   for (const a of G.agents) { if (a.carrying) { const u = a.carrying; a.carrying = null; u.carrier = null; } a.stunT = 0; if (a.brain) a.brain.set('idle'); }
+  if (Shop.busy) { Shop.busy = null; if (Shop.item) Shop.item.visible = false; }
   for (const o of G.owners) {
     for (const sl of o.slots) { if (sl.unit) { sl.unit.dispose(false); sl.unit = null; } sl.pending = 0; }
-    o.money = START_MONEY; o.rebirths = 0; for (const k of UP_KEYS) o.up[k] = 0; o.secT = 0; o.secCd = 0; o.base.setBarrier(false);
+    o.money = START_MONEY; o.rebirths = 0; for (const k of UP_KEYS) o.up[k] = 0; o.secT = 0; o.secCd = 0; for (const b of o.bases) b.setBarrier(false);
+    for (const b of o.bases.slice(1)) releasePlot(o, b);
   }
   G.alerts.clear(); G.discovered.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
   applySave(s);
-  G.owners.forEach((o) => { o.base.setCapacity(o.cap); o.base.trap.visible = o.up.trap > 0; });
+  seedRivals(s.owners.length);
+  G.owners.forEach((o) => o.applyCap());
   for (const a of G.agents) a.respawn();
   setPlayerName(G.name); $('nameInput').value = G.name; menuInfo();
   if (G.tutorialDone) { Tutorial.step = -1; Tutorial.show(); }
@@ -3347,6 +3455,7 @@ function setPlayerName(n) {
   n = (n || '').trim().slice(0, 14) || 'قهرمان'; G.name = n; const o = G.owners[0]; o.name = n;
   const c = labelCanvas([{ t: n, size: 92, color: '#fff', weight: 900, stroke: 8 }, { t: 'پایگاه', size: 44, color: '#fff8', weight: 800 }], { w: 768, h: 256, bg: o.color, border: 'rgba(255,255,255,.75)' });
   const old = o.base.signMat.map; o.base.signMat.map = texFromCanvas(c); o.base.signMat.needsUpdate = true; if (old) old.dispose();
+  o.bases.slice(1).forEach((b, i) => { const cc = labelCanvas([{ t: n + ' ' + fa(i + 2), size: 92, color: '#fff', weight: 900, stroke: 8 }, { t: 'پایگاه', size: 44, color: '#fff8', weight: 800 }], { w: 768, h: 256, bg: o.color, border: 'rgba(255,255,255,.75)' }); const om = b.signMat.map; b.signMat.map = texFromCanvas(cc); b.signMat.needsUpdate = true; if (om) om.dispose(); });
 }
 function menuInfo() {
   const o = G.owners[0]; const has = o.unitCount() > 0 || o.money !== START_MONEY || G.playTime > 5;
@@ -3390,20 +3499,21 @@ async function init() {
   buildTemplates();
   setLoad(76, 'در حال آماده‌سازی حریف‌ها…');
   const save = loadSave();
-  G.owners = W.bases.map((b, i) => new Owner(i, i === 0 ? 'قهرمان' : NPC_NAMES[i - 1], OWNER_COLORS[i], i === 0));
+  G.owners = [PLAYER_PLOT, ...NPC_PLOTS].map((pi, i) => new Owner(i, i === 0 ? 'قهرمان' : NPC_NAMES[i - 1], OWNER_COLORS[i], i === 0, W.bases[pi]));
   G.owners.forEach((o) => o.base.build(o.color, o.name));
+  for (const pi of SALE_PLOTS) W.bases[pi].build('#9aa3ae', 'زمین برای فروش', true);
   G.player = new Agent(G.owners[0], LOOKS[0], true);
-  for (let i = 1; i < 6; i++) new Agent(G.owners[i], LOOKS[i], false);
+  for (let i = 1; i < G.owners.length; i++) new Agent(G.owners[i], LOOKS[i], false);
   shopkeeper = buildAvatar({ skin: '#ffcf9e', shirt: '#ff4f8b', pants: '#2b3a67', shoes: '#111', hair: 'cap', hairC: '#222', accent: '#ffd23f', hat: '#ffd23f' });
-  shopkeeper.root.position.set(-78.6, 0.1, 0); shopkeeper.root.rotation.y = Math.PI / 2; scene.add(shopkeeper.root);
+  shopkeeper.root.position.set(W.shopPos.x - 6.1, 0.1, 0); shopkeeper.root.rotation.y = Math.PI / 2; scene.add(shopkeeper.root);
   let savedAt = 0;
   if (save) { try { savedAt = applySave(save); } catch (e) { console.warn('save apply failed', e); } }
-  if (!save) seedRivals();
-  G.owners.forEach((o) => { o.base.setCapacity(o.cap); o.base.trap.visible = o.up.trap > 0; });
+  seedRivals(save ? save.owners.length : 0); // older saves had fewer rivals: give the new ones a starting base
+  G.owners.forEach((o) => o.applyCap());
   $('nameInput').value = G.name; setPlayerName(G.name);
   if (savedAt) { const away = clamp((Date.now() - savedAt) / 1000, 0, 7200); G.offline = Math.floor(G.owners[0].incomePerSec() * away * 0.25); for (const o of G.owners) if (!o.isPlayer) o.money += o.incomePerSec() * away * 0.25; }
   // fill the belt so the world is alive from the first frame
-  for (let i = 0; i < 420; i++) { updateBelt(0.1); for (const u of G.belt) u.pos.x += BELT.speed * 0.1; }
+  for (let i = 0; i < 760; i++) { updateBelt(0.1); for (const u of G.belt) u.pos.x += BELT.speed * 0.1; }
   for (const u of [...G.belt]) if (u.pos.x > BELT.x1) { G.belt.splice(G.belt.indexOf(u), 1); u.dispose(false); }
   G.spawnCount = 0;
   setLoad(90, 'در حال گرم کردن موتور گرافیکی…');
@@ -3446,7 +3556,7 @@ function simulate(dt) {
     for (const f of W.anim) f(dt, G.time);
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
-    if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); shopkeeper.armR.rotation.x = -2.5 + Math.sin(G.time * 5) * 0.4; shopkeeper.armR.rotation.z = -0.4; }
+    if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
