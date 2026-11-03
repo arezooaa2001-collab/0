@@ -110,7 +110,8 @@ Object.assign(Game, {
       el.style.opacity = o.toFixed(2);
       el.hidden = o === 0;
     }
-    const fov = 55 + 16 * this.speedK;
+    // phones held upright see wider (as resize() sets it)
+    const fov = (this.camera.aspect < 1 ? 68 : 55) + 16 * this.speedK;
     if (Math.abs(this.camera.fov - fov) > 0.05) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();

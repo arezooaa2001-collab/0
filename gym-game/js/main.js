@@ -200,7 +200,7 @@ const Game = {
     b.className = 'mv-btn' + (m.toggle ? ' toggle' : '') + (m.equip ? ' equip' : '') + (m.custom ? ' custom' : '');
     b.dataset.id = m.id;
     b.dataset.cat = m.custom ? 'ai' : m.cat;
-    b.innerHTML = `<span class="mv-icon"></span><span class="mv-name"></span><span class="mv-sub"></span><span class="mv-lock">🔒 سطح ${fa(m.level || 1)}</span>`;
+    b.innerHTML = `<span class="mv-icon"></span><span class="mv-name"></span><span class="mv-sub"></span><span class="mv-lock">${m.cat === 'energy' ? '🔒⚡ انرژی' : '🔒 سطح'} ${fa(m.level || 1)}</span>`;
     b.querySelector('.mv-icon').textContent = m.icon;
     b.querySelector('.mv-name').textContent = m.name;
     b.addEventListener('click', () => this.onMove(m));
@@ -242,6 +242,7 @@ const Game = {
       this.moveBtns[m.id] = b;
     }
     $('tabAi').hidden = !this.customMoves.length;
+    if (!this.customMoves.length && this.save.tab === 'ai') this.setTab('base');
     this.refreshMoves();
   },
 
@@ -302,7 +303,7 @@ const Game = {
     if (m.emote) { if (this.loop) this.stopLoop(true); this.doEmote(m); return; }
     if (!this.isUnlocked(m)) {
       Sfx.play('error');
-      this.toast(`🔒 «${m.name}» در سطح ${fa(m.level)} باز می‌شه. تمرین کن!`, 'warn');
+      this.toast(m.cat === 'energy' ? `🔒 «${m.name}» در سطح انرژی ${fa(m.level)} باز می‌شه. توی تالار انرژی تمرین کن!` : `🔒 «${m.name}» در سطح ${fa(m.level)} باز می‌شه. تمرین کن!`, 'warn');
       this.shakeBtn(m.id);
       return;
     }
@@ -317,7 +318,7 @@ const Game = {
       P.mode = P.mode === m.id ? 'walk' : m.id;
       this.save.mode = P.mode;
       Sfx.play('click');
-      this.toast(P.mode === 'walk' ? 'حالت راه رفتن' : (P.mode === 'run' ? '🏃 دویدن روشن شد' : '🦘 دویدن پرشی روشن شد. حالا راه برو!'));
+      this.toast(P.mode === 'walk' ? 'حالت راه رفتن' : (P.mode === 'run' ? '🏃 دویدن روشن شد' : `${m.icon} «${m.name}» روشن شد. حالا راه برو!`));
       this.refreshMoves();
       return;
     }
@@ -868,11 +869,14 @@ const Game = {
       else if (target === 'env' && ENV_BY_ID[item].gym) this.gymWelcome(ENV_BY_ID[item]);
       else if (target === 'env') {
         const e = ENV_BY_ID[item];
-        this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «مکان‌ها» هستن.`, 'gold');
+        // the running track and the trick field have their own tabs
+        const tab = item === 'runtrack' ? 'energy' : item === 'tricks' ? 'field' : 'env';
+        const tabName = { energy: '⚡ انرژی', field: '🌀 حرکت ویژه', env: 'مکان‌ها' }[tab];
+        this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «${tabName}» هستن.`, 'gold');
         if (!this.save.stats.visited.includes(item)) this.save.stats.visited.push(item);
         this.missionProgress('visit', 1, item);
         this.checkAchievements();
-        this.setTab('env');
+        this.setTab(tab);
       } else this.toast('برگشتی باشگاه 💪');
       this.persist();
     });
@@ -1099,7 +1103,8 @@ const Game = {
     on('camBtn', () => { Sfx.init(); this.cycleCamera(); });
     $('snowBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); this.throwSnowball(); });
     on('runInvite', () => this.openRunInvite());
-    $('jumpBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); if (this.inFootball()) this.fbShoot(); else this.pendingJump = true; });
+    $('jumpBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); this.jumpHeld = true; if (this.inFootball()) this.fbShoot(); else this.pendingJump = true; });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('jumpBtn').addEventListener(ev, () => { this.jumpHeld = false; });
     on('runAgain', () => this.resetRun());
     on('runStop', () => { if (this.run && this.run.state === 'running') this.finishRunRace(false, true); });
     on('runResAgain', () => this.resetRun());
@@ -1151,8 +1156,10 @@ const Game = {
 
   bindInput() {
     window.addEventListener('keydown', (e) => {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+      if (typing && e.code !== 'Escape') return;
       if (e.code === 'Escape') {
+        if (typing) e.target.blur();
         const open = [...this.modals].filter((id) => id !== 'startModal' && id !== 'resultModal');
         if (open.length) open.forEach((id) => this.closeModal(id));
         else if (this.photo) this.exitPhoto();
@@ -1184,6 +1191,7 @@ const Game = {
       if (e.code === 'Digit4' || e.code === 'Numpad4') this.usePower('tiny');
       if (e.code === 'Digit5' || e.code === 'Numpad5') this.usePower('giant');
       if (e.code === 'Digit6' || e.code === 'Numpad6') this.usePower('slowmo');
+      if (e.code === 'Digit7' || e.code === 'Numpad7') this.usePower('beam');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1312,6 +1320,7 @@ const Game = {
       this.tickGold(dt);
       this.tickWeather(dt);
       this.tickFun3(dt);
+      this.tickFun4(dt);
       if (this.arm) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());

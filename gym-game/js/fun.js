@@ -45,6 +45,13 @@ Object.assign(Game, {
     $('volInput').addEventListener('input', () => { this.save.settings.vol = clamp(Number($('volInput').value), 0, 1); this.applySettings(); this.persist(); });
     $('mvolInput').addEventListener('input', () => { this.save.settings.mvol = clamp(Number($('mvolInput').value), 0, 1); this.applySettings(); this.persist(); });
     $('radarInput').addEventListener('change', () => { this.save.settings.radar = $('radarInput').checked; this.persist(); });
+    document.querySelectorAll('#songSeg button').forEach((b) => b.addEventListener('click', () => {
+      this.save.settings.song = Number(b.dataset.song);
+      this.applySettings();
+      this.openSettings(true);
+      this.persist();
+      if (!this.save.music) this.toast('🎵 آهنگ عوض شد؛ از منو موسیقی رو روشن کن تا بشنوی.');
+    }));
     this.applySettings();
   },
 
@@ -789,6 +796,7 @@ Object.assign(Game, {
     $('volInput').value = String(st.vol ?? 1);
     $('mvolInput').value = String(st.mvol ?? 1);
     $('radarInput').checked = st.radar !== false;
+    document.querySelectorAll('#songSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.song) === (st.song || 0)));
     if (keep) return;
     this.closeModal('menuModal');
     this.openModal('settingsModal');
@@ -800,6 +808,7 @@ Object.assign(Game, {
     WorldBase.shakeScale = st.shake ? 1 : 0;
     Sfx.setVolume(st.vol ?? 1);
     Sfx.setMusicVolume(st.mvol ?? 1);
+    Sfx.setSong(st.song || 0);
     this.applyGraphics();
     if (this.player) this.labelPlayer();
   },

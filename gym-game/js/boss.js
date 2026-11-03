@@ -29,6 +29,8 @@ ANIMS.bosspunch = {
   },
 };
 
+const FIRE_OUTFIT = { skin: '#e2582b', hair: '#ffd34d', shirt: '#2c1810', accent: '#ff7b00', band: '#ffd34d', socks: '#ff7b00' };
+
 ACHIEVEMENTS.push(
   { id: 'boss', name: 'غول‌کش', icon: '🐉', desc: 'غول باشگاه رو شکست بده', test: (s) => (s.stats.bossWins || 0) >= 1 },
   { id: 'boss5', name: 'شکارچی غول', icon: '⚔️', desc: '۵ بار غول باشگاه رو شکست بده', test: (s) => (s.stats.bossWins || 0) >= 5 },
@@ -78,16 +80,19 @@ Object.assign(Game, {
       if (byHand) this.toast(this.world !== this.gym ? 'غول فقط توی باشگاه اصلی میاد.' : 'غول همین الان این‌جاست!', 'warn');
       return;
     }
+    if (this.race || this.arm || this.build) { if (byHand) this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
     if (byHand) this.closeModal('menuModal');
-    const ch = new Character(Object.assign({}, BOSS_OUTFIT));
+    // every other fight is the fire monster, which also throws fireballs
+    const fire = (this.save.stats.bossWins || 0) % 2 === 1;
+    const ch = new Character(Object.assign({}, BOSS_OUTFIT, fire ? FIRE_OUTFIT : {}));
     ch.root.scale.setScalar(BOSS.scale);
     ch.root.position.set(BOSS.spot.x, 0, BOSS.spot.z);
     ch.root.rotation.y = Math.PI;
     g.scene.add(ch.root);
     const max = Math.round(220 * (1 + 0.6 * (this.bossLv() - 1)) + this.lv() * 0.6);
-    g.boss = { ch, hp: max, max, t: BOSS.secs, stompT: 6, warnT: 0, dead: false, flash: 0, walkT: 0, recruitT: 0 };
+    g.boss = { ch, hp: max, max, t: BOSS.secs, stompT: 6, warnT: 0, dead: false, flash: 0, walkT: 0, recruitT: 0, fire, fireT: 4 };
     g.onBossHurt = (dmg) => this.bossHit(dmg);
-    ch.setLabel(`🐉 غول باشگاه • مرحله‌ی ${fa(this.bossLv())}`, 'بزنش!', '#7bc96f');
+    ch.setLabel(`${fire ? '🔥 غول آتشین' : '🐉 غول باشگاه'} • مرحله‌ی ${fa(this.bossLv())}`, fire ? 'گلوله‌هاش رو جاخالی بده!' : 'بزنش!', fire ? '#ff7b00' : '#7bc96f');
     g.shake = Math.max(g.shake, 0.8);
     g.fx.burst({ x: BOSS.spot.x, y: 2, z: BOSS.spot.z }, { count: 120, colors: ['#7bc96f', '#5a2a82', '#ffd34d'], speed: 6, up: 5, life: 1.3 });
     Sfx.play('boom');
@@ -146,7 +151,7 @@ Object.assign(Game, {
     const here = this.world === g && this.mode === 'play';
     if (!g.boss) {
       $('bossPanel').hidden = true;
-      if (!here || this.race || this.arm || this.build || this.lv() < 10) return;
+      if (!here || this.race || this.arm || this.build || this.modals.size || this.watch || this.photo || this.lv() < 10) return;
       this.bossTimer = (this.bossTimer ?? BOSS.first) - dt;
       if (this.bossTimer <= 0) { this.bossTimer = rand(...BOSS.every); this.spawnBoss(false); }
       return;
@@ -183,12 +188,16 @@ Object.assign(Game, {
       }
     }
     if (B.dead) {
+      // no red hurt flash left on while it shrinks away
+      if (B.flash) { B.flash = 0; ch.mesh.material = CHAR_MAT; }
       B.deadT -= dt;
       ch.root.scale.setScalar(BOSS.scale * clamp(B.deadT / 1.5, 0.01, 1));
       ch.update(dt);
       if (B.deadT <= 0) { ch.dispose(); g.boss = null; $('bossPanel').hidden = true; }
       return;
     }
+    // menus, the camera room and photos pause the fight (you can't move then)
+    if (this.modals.size || this.watch || this.photo) { ch.speed = 0; ch.update(dt); return; }
     B.t -= dt;
     if (B.t <= 0) {
       // bored: it leaves
@@ -197,6 +206,16 @@ Object.assign(Game, {
       g.boss = null;
       this.toast('🐉 غول خسته شد و رفت! دفعه‌ی بعد سریع‌تر بزنش.', 'warn');
       return;
+    }
+    // the fire monster throws a fireball every few seconds
+    if (B.fire && here && !B.inAir && B.warnT <= 0) {
+      B.fireT -= dt;
+      if (B.fireT <= 0) {
+        B.fireT = rand(3, 4.5);
+        const yaw = ch.root.rotation.y;
+        this.throwAt({ x: bp.x + Math.sin(yaw) * 1.2, y: bp.y + 4.2, z: bp.z + Math.cos(yaw) * 1.2 }, 'fire');
+      }
+      if (Math.random() < dt * 20) g.fx.emit(bp.x + rand(-1, 1), bp.y + rand(1, 5), bp.z + rand(-1, 1), 0, 1.5, 0, new THREE.Color(pick(['#ff6a00', '#ffd34d'])), 0.6, -0.4);
     }
     B.recruitT -= dt;
     if (B.recruitT <= 0) { B.recruitT = 6; this.recruitBossHelpers(); }
@@ -268,6 +287,7 @@ Object.assign(Game, {
     const levels = 2 + lvl * 2;
     const coins = 150 + 100 * lvl;
     this.save.stats.bossWins = (this.save.stats.bossWins || 0) + 1;
+    if (B.fire) this.save.stats.fireBossWins = (this.save.stats.fireBossWins || 0) + 1;
     const p = B.ch.root.position;
     g.fx.burst({ x: p.x, y: 2.5, z: p.z }, { count: 160, colors: ['#ffd34d', '#7bc96f', '#ff4da6', '#ffffff'], speed: 7, up: 6, life: 1.5 });
     g.shake = Math.max(g.shake, 0.9);
@@ -287,7 +307,7 @@ Object.assign(Game, {
     const el = $('bossPanel');
     el.hidden = false;
     $('bossFill').style.width = `${(B.hp / B.max) * 100}%`;
-    const t = `🐉 غول باشگاه • مرحله‌ی ${fa(this.bossLv())} • ⏱️ ${fa(Math.ceil(B.t))} ثانیه`;
+    const t = `${B.fire ? '🔥 غول آتشین' : '🐉 غول باشگاه'} • مرحله‌ی ${fa(this.bossLv())} • ⏱️ ${fa(Math.ceil(B.t))} ثانیه`;
     if ($('bossHead').textContent !== t) $('bossHead').textContent = t;
     $('bossHp').textContent = `${fa(Math.ceil(B.hp))} / ${fa(B.max)}`;
   },

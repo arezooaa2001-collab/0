@@ -460,6 +460,8 @@ class WorldBase {
         if (f.t > 0) ch.play(f.anim || 'fanclap');
         else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
       }
+    } else if (n.state === 'dodge') {
+      [dirX, dirZ, speed] = this.dodgeNpc(n, dt);
     } else if (n.state === 'buddy') {
       [dirX, dirZ, speed] = this.buddyNpc(n, dt);
     } else if (n.state === 'boss') {
@@ -607,7 +609,7 @@ class WorldBase {
     let count = 0;
     for (const n of this.npcs) {
       // people with a job right now (a class, a race, the monster fight, training with you, leaving) stay on it
-      if (n === skip || ['knocked', 'class', 'race', 'boss', 'buddy', 'leave'].includes(n.state)) continue;
+      if (n === skip || ['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge'].includes(n.state)) continue;
       const p = n.ch.root.position;
       const d = Math.hypot(p.x - x, p.z - z);
       if (d > r || !n.ch.grounded) continue;
@@ -759,7 +761,7 @@ class WorldBase {
     }
     const mag = Math.min(1, Math.hypot(mx, mz));
     const running = P.mode !== 'walk' || input.run;
-    const maxSpeed = running ? runSpeedFor(stats.runLevel) * (stats.speedMult || 1) : 2.5;
+    const maxSpeed = running ? runSpeedFor(stats.runLevel) * (stats.speedMult || 1) : 2.5 * (stats.walkMult || 1);
     let gained = 0;
     if (ch.busy || P.anchor) {
       P.vel.multiplyScalar(Math.max(0, 1 - 12 * dt));

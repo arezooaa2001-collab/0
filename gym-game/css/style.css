@@ -1021,3 +1021,40 @@ kbd {
   .snow-btn { left: calc(max(14px, var(--safe-l)) + 62px); bottom: calc(var(--safe-b) + 150px); }
 }
 .hud.build-on .radar, .hud.build-on .snow-btn { display: none !important; }
+
+/* round 10 */
+.jet-fuel { position: absolute; left: calc(max(18px, var(--safe-l)) + 150px); bottom: calc(var(--safe-b) + 96px); display: flex; align-items: center; gap: 6px; font-size: 18px; }
+.jet-bar { width: 90px; height: 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+.jet-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff7b00, #ffd34d); }
+.dodge-panel { border-color: rgba(255, 123, 0, 0.7); }
+.look-rows { display: grid; gap: 10px; }
+.look-row { display: grid; gap: 6px; font-weight: 700; }
+.look-sw { display: flex; gap: 8px; flex-wrap: wrap; }
+.look-sw .swatch { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.25); }
+.look-sw .swatch.on { border-color: #ffd34d; box-shadow: 0 0 10px rgba(255, 211, 77, 0.7); }
+@media (max-width: 720px) { .jet-fuel { left: max(14px, var(--safe-l)); bottom: calc(var(--safe-b) + 372px); } }
+
+/* round 10 layout fixes: nothing on top of anything else on phones */
+/* the goal chip makes way while a class, race, boss or dodgeball panel is up */
+.hud:has(.spin-panel:not([hidden])) .goal-chip { display: none; }
+@media (max-width: 720px) {
+  /* seven powers need three rows: the stop button moves above them and stays left of the moves panel */
+  .ctx-btn { bottom: calc(var(--safe-b) + 372px); max-width: 148px; }
+  .radar { top: calc(var(--safe-t) + 242px); }
+}
+@media (max-width: 420px) {
+  /* six tool buttons and the strength card fit side by side */
+  .strength { flex: none; width: 150px; }
+  .icon-btn { width: 31px; height: 31px; font-size: 16px; border-radius: 10px; }
+  .tools { gap: 4px; }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  /* the strength card keeps its top: the moves panel starts below it */
+  .strength { padding: 5px 10px 6px; }
+  .strength .st-title, .strength .run-row { display: none; }
+  .move-grid { max-height: calc(100vh - 262px); }
+  /* the stop button sits right of the challenge button, the powers above the joystick */
+  .ctx-btn { left: calc(max(16px, var(--safe-l)) + 58px); bottom: calc(var(--safe-b) + 208px); }
+  .powers { bottom: calc(var(--safe-b) + 160px); }
+  .radar { top: auto; left: calc(max(12px, var(--safe-l)) + 236px); bottom: calc(var(--safe-b) + 12px); width: 92px; height: 92px; }
+}

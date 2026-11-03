@@ -519,6 +519,8 @@ Object.assign(Game, {
     else if (a === 'boss') this.spawnBoss(true);
     else if (a === 'gold') this.openGold();
     else if (a === 'travel') this.openQuickTravel();
+    else if (a === 'dodge') this.startDodge();
+    else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }
@@ -540,7 +542,7 @@ Object.assign(Game, {
       const a = document.createElement('span');
       a.textContent = `${m.icon} ${m.name}${m.equip ? ' 📍' : ''}`;
       const b = document.createElement('span');
-      b.textContent = `${m.level <= 1 ? 'از اول' : 'سطح ' + fa(m.level)} ${un ? '✅' : '🔒'}`;
+      b.textContent = `${m.level <= 1 ? 'از اول' : (m.cat === 'energy' ? 'سطح انرژی ' : 'سطح ') + fa(m.level)} ${un ? '✅' : '🔒'}`;
       li.append(a, b);
       list.appendChild(li);
     }

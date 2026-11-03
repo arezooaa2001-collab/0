@@ -15,7 +15,8 @@ const WEATHERS = {
 
 Object.assign(Game, {
   isOutdoor(w) {
-    if (!w || w === this.gym || w.ceiling) return false;
+    // the Cosmic Olympus floats in space: no sunsets or rain there
+    if (!w || w === this.gym || w.ceiling || w.env === 'gym4') return false;
     return w instanceof EnvWorld || w === this.island || w === this.lucky;
   },
 

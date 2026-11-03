@@ -238,7 +238,7 @@ Object.assign(GymWorld.prototype, {
     const J = WING.juice;
     m.box(10, 1.1, 1.0, J.x, 0.55, J.z - 1.6, '#ff7b00');
     m.box(10.2, 0.08, 1.2, J.x, 1.12, J.z - 1.6, '#f1faee');
-    m.box(10, 2.6, 0.3, J.x, 2.3, J.z + 0.3, '#2a9d8f');
+    m.box(10, 3.6, 0.3, J.x, 1.8, J.z + 0.3, '#2a9d8f'); // the back wall stands on the floor (it used to float 1 m up)
     for (let i = 0; i < 30; i++) {
       const x = J.x - 4.6 + (i % 15) * 0.65;
       const y = 1.6 + Math.floor(i / 15) * 0.7;

@@ -175,7 +175,9 @@ Object.assign(Game, {
     const from = this.lv();
     s.level += n;
     s.cheatLv = (s.cheatLv || 0) + n;
-    this.levelsGained(from, this.lv(), n < 5, 'main');
+    // chosen levels are not earned: no missions, goal prizes or level chests from them
+    this.levelTemp = true;
+    try { this.levelsGained(from, this.lv(), n < 5, 'main'); } finally { this.levelTemp = false; }
     this.floatText(`+${fa(n)} 🌀`, 'fl-combo');
     this.refreshHud(true);
     this.persist();

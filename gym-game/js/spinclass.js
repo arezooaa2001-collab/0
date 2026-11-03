@@ -396,7 +396,7 @@ Object.assign(Game, {
     let best = null;
     let bd = 2.4;
     for (const n of w.npcs) {
-      if (n.state === 'class' || n.state === 'leave' || n.state === 'knocked') continue;
+      if (n.state === 'class' || n.state === 'leave' || n.state === 'knocked' || n.anchored) continue;
       const d = Math.hypot(n.ch.root.position.x - p.x, n.ch.root.position.z - p.z);
       if (d < bd) { bd = d; best = n; }
     }
@@ -438,6 +438,12 @@ Object.assign(Game, {
         S.state = 'forming';
         this.toast(`📣 مربی: «سلام! کلاس وقتی شروع می‌شه که هر ${fa(w.spinNeed() + 1)} دوچرخه پر باشه. برو بقیه رو دعوت کن!»`, 'gold');
       }
+      // away from the bikes for a minute without inviting anyone: the coach stops gathering
+      if (!inArea && S.state === 'forming' && !S.members.length) {
+        const now = performance.now();
+        if (S.formSince == null) S.formSince = now;
+        if (now - S.formSince > 60000) { S.state = 'idle'; S.formSince = null; this.toast('📣 مربی: «کسی نیومد؛ هر وقت خواستی دوباره بیا کلاس.»'); }
+      } else S.formSince = null;
       this.spinWasIn = inArea;
       // everyone sat down: show the way to the last bike
       const full = S.state === 'forming' && w.spinSeated() >= w.spinNeed();

@@ -152,6 +152,7 @@ class GymWorld extends WorldBase {
     );
     floor.rotation.x = -Math.PI / 2;
     this.scene.add(floor);
+    this.floorMesh = floor;
 
     const m = this.matte;
     const wall = '#c7d0e2';
@@ -248,8 +249,11 @@ class GymWorld extends WorldBase {
     const mt = this.metal;
     m.box(12.6, 0.03, ROOM.z * 2 - 0.4, -23.7, 0.015, 0, '#2a2d34');
     for (let i = 0; i < 6; i++) m.box(0.3, 0.032, ROOM.z * 2 - 0.4, -17.6 - i * 0.02, 0.016, 0, ['#e63946', '#ff7b00', '#ffd34d', '#2ecc71', '#2f6fed', '#9b5de5'][i]);
-    // mirror wall
-    mt.box(0.05, 2.0, 50, -29.9, 2.45, 0, '#bcd6ea');
+    // a free-standing mirror behind the racks (it used to hang in mid-air where the old wall was)
+    mt.box(0.05, 2.4, 30, -29.9, 1.35, 0, '#bcd6ea');
+    m.box(0.22, 0.15, 30.2, -29.9, 0.075, 0, '#2c3140');
+    m.box(0.12, 0.12, 30.2, -29.9, 2.6, 0, '#2c3140');
+    for (const ez of [-15.05, 15.05]) m.box(0.14, 2.66, 0.14, -29.9, 1.33, ez, '#2c3140');
     // dumbbell racks
     for (const zc of [-9, 9]) {
       const len = 9;

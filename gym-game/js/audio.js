@@ -132,12 +132,20 @@ const Sfx = (() => {
 
   /* simple upbeat loop: kick, hat, bass and a short melody, scheduled ahead of time */
   let music = null;
+  let song = 0;
+  // three loops to choose from: the gym groove, a fast power track and a calm one
+  const SONGS = [
+    { bpm: 112, bass: [55, 55, 65.4, 49, 55, 55, 73.4, 65.4], lead: [440, 0, 523, 0, 659, 587, 523, 0, 440, 0, 392, 0, 440, 523, 587, 0], wave: 'square' },
+    { bpm: 138, bass: [73.4, 73.4, 87.3, 73.4, 98, 87.3, 65.4, 73.4], lead: [587, 659, 784, 0, 880, 784, 659, 0, 587, 0, 659, 784, 988, 880, 784, 0], wave: 'sawtooth' },
+    { bpm: 84, bass: [49, 49, 55, 55, 41.2, 41.2, 55, 61.7], lead: [392, 0, 0, 440, 494, 0, 440, 0, 392, 0, 330, 0, 349, 0, 392, 0], wave: 'triangle' },
+  ];
   function startMusic() {
     if (!ctx || music) return;
-    const bpm = 112;
+    const S = SONGS[song] || SONGS[0];
+    const bpm = S.bpm;
     const step = 60 / bpm / 2;
-    const bass = [55, 55, 65.4, 49, 55, 55, 73.4, 65.4];
-    const lead = [440, 0, 523, 0, 659, 587, 523, 0, 440, 0, 392, 0, 440, 523, 587, 0];
+    const bass = S.bass;
+    const lead = S.lead;
     let n = 0;
     let next = ctx.currentTime + 0.1;
     const gain = ctx.createGain();
@@ -172,7 +180,7 @@ const Sfx = (() => {
         }
         if (n % 2 === 0) note(bass[(n / 2) % 8], next, step * 1.8, 'triangle', 0.25);
         const l = lead[n % 16];
-        if (l && Math.floor(n / 16) % 2 === 1) note(l, next, step * 0.9, 'square', 0.05);
+        if (l && Math.floor(n / 16) % 2 === 1) note(l, next, step * 0.9, S.wave, S.wave === 'square' ? 0.05 : 0.07);
         next += step;
         n++;
       }
@@ -199,6 +207,11 @@ const Sfx = (() => {
     setVolume(v) {
       vol = Math.max(0, Math.min(1, v));
       if (master) master.gain.value = muted ? 0 : 0.55 * vol;
+    },
+    /** Pick a song (0..2); a playing loop switches at once. */
+    setSong(i) {
+      song = Math.max(0, Math.min(SONGS.length - 1, i | 0));
+      if (music) { stopMusic(); startMusic(); }
     },
     setMusicVolume(v) {
       mvol = Math.max(0, Math.min(1, v));

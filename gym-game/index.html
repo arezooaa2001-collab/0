@@ -99,6 +99,8 @@
     <button id="snowBtn" class="jump-btn snow-btn" type="button" aria-label="گلوله برفی (کلید Q)" hidden>❄️</button>
     <canvas id="radar" class="radar" width="120" height="120" hidden></canvas>
     <div id="slowFx" class="slow-fx" hidden></div>
+    <div id="jetFuel" class="jet-fuel" hidden><span>🎒</span><div class="jet-bar"><div id="jetFill" class="jet-fill"></div></div></div>
+    <div id="dodgePanel" class="spin-panel dodge-panel" hidden><b id="dodgeHead" class="spin-head"></b><div class="spin-info">توپ‌ها رو جاخالی بده: بدو، بپر، پرش دوبل بزن!</div></div>
     <div id="fbHud" class="fb-hud" hidden>
       <div class="fb-score"><span id="fbRed" class="fb-red">۰</span><span id="fbClock" class="fb-clock">۳:۰۰</span><span id="fbBlue" class="fb-blue">۰</span></div>
       <div id="fbMsg" class="fb-msg"></div>
@@ -153,7 +155,7 @@
     <div id="watchPad" class="w-pad" hidden>
       <button type="button" data-k="tl" aria-label="چرخش به چپ">↺</button><button type="button" data-k="f" aria-label="جلو">⬆</button><button type="button" data-k="tr" aria-label="چرخش به راست">↻</button><button type="button" data-k="u" aria-label="بالا">🔼</button>
       <button type="button" data-k="l" aria-label="چپ">⬅</button><button type="button" data-k="b" aria-label="عقب">⬇</button><button type="button" data-k="r" aria-label="راست">➡</button><button type="button" data-k="d" aria-label="پایین">🔽</button>
-      <div class="w-hint">صفحه رو بکش تا دوربین بچرخه • کیبورد: WASD، Q/E بالا پایین، Z/X چرخش</div>
+      <div class="w-hint">صفحه رو بکش تا دوربین بچرخه • کیبورد: WASD، Q/E پایین و بالا، Z/X چرخش</div>
     </div>
   </div>
   <div id="levelBanner" class="level-banner"></div>
@@ -313,6 +315,14 @@
       <div id="qtList" class="menu-list"></div>
     </div>
   </div>
+  <div id="lookModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="lookModal" aria-label="بستن">✕</button>
+      <h2>🎨 ظاهر من</h2>
+      <p class="muted">رنگ پوست، مو، شلوارک و کفشت رو انتخاب کن. لباس و هدبند رو از فروشگاه بخر.</p>
+      <div id="lookRows" class="look-rows"></div>
+    </div>
+  </div>
   <div id="statsModal" class="modal" hidden>
     <div class="card small-card">
       <button class="x" type="button" data-close="statsModal" aria-label="بستن">✕</button>
@@ -351,7 +361,8 @@
         <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
         <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین • <kbd>4</kbd> 🐜 کوچولو • <kbd>5</kbd> 🍄 غول‌پیکر</li>
         <li>پریدن: <kbd>Space</kbd> یا دکمه‌ی گرد «⤴️» کنار دسته‌ی حرکت (روی گوشی و تبلت). وسط هوا دوباره بزن: پرش دوبل!</li>
-        <li>🐢 حرکت آهسته: <kbd>6</kbd> • 🎥 نمای دوربین: <kbd>C</kbd> • ❄️ گلوله برفی (توی برف): <kbd>Q</kbd></li>
+        <li>🐢 حرکت آهسته: <kbd>6</kbd> • 🌟 پرتو نهایی: <kbd>7</kbd> • 🎥 نمای دوربین: <kbd>C</kbd> • ❄️ گلوله برفی (توی برف): <kbd>Q</kbd></li>
+        <li>🛹 هاوربرد و 🎒 جت‌پک توی زبانه‌ی «پایه»‌ان؛ با جت‌پک پرش رو نگه دار تا پرواز کنی.</li>
         <li>فوتبال: <kbd>Space</kbd> شوت یا تکل • <kbd>Q</kbd> پاس</li>
         <li>دوربین آزاد: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> حرکت • <kbd>Q</kbd>/<kbd>E</kbd> پایین و بالا • <kbd>Z</kbd>/<kbd>X</kbd> چرخش</li>
       </ul>
@@ -461,6 +472,8 @@
         <button class="menu-btn hot" type="button" data-menu="boss">🐉 احضار غول باشگاه</button>
         <button class="menu-btn hot" type="button" data-menu="gold">🏆 دمبل‌های طلایی</button>
         <button class="menu-btn hot" type="button" data-menu="travel">🧭 رفتن سریع توی باشگاه</button>
+        <button class="menu-btn hot" type="button" data-menu="dodge">🎯 بازی جاخالی</button>
+        <button class="menu-btn" type="button" data-menu="look">🎨 ظاهر من</button>
         <button class="menu-btn" type="button" data-menu="stats">📊 آمار من</button>
         <button class="menu-btn" type="button" data-menu="fireworks">🎆 آتش‌بازی</button>
         <button class="menu-btn" type="button" data-menu="levels">📉 سطح من و پاک کردن زور تقلبی</button>
@@ -570,6 +583,9 @@
       <label class="set-row" for="volInput"><span>🔊 صدای بازی</span><input id="volInput" type="range" min="0" max="1" step="0.05"></label>
       <label class="set-row" for="mvolInput"><span>🎵 صدای موسیقی</span><input id="mvolInput" type="range" min="0" max="1" step="0.05"></label>
       <label class="set-row" for="radarInput"><span>📡 رادار</span><input id="radarInput" type="checkbox"></label>
+      <div class="set-row"><span>🎵 آهنگ</span>
+        <div class="seg" id="songSeg"><button type="button" data-song="0">باشگاهی</button><button type="button" data-song="1">پرانرژی</button><button type="button" data-song="2">آروم</button></div>
+      </div>
     </div>
   </div>
 
@@ -741,5 +757,6 @@
 <script src="js/collect.js"></script>
 <script src="js/weather.js"></script>
 <script src="js/fun3.js"></script>
+<script src="js/fun4.js"></script>
 </body>
 </html>

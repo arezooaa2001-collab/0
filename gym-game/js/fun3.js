@@ -22,6 +22,7 @@ SHOP.push(
 );
 for (const it of SHOP) SHOP_BY_ID[it.id] = it;
 const TRAIL_COLORS = { trail_star: ['#ffd34d', '#fff1b0', '#ffffff'], trail_heart: ['#ff4da6', '#ff8fab', '#ffffff'] };
+const CAM_VIEWS = [['معمولی', 7.2, 0.3], ['نزدیک', 4.2, 0.18], ['دور', 12, 0.45], ['از بالا', 17, 1.05]];
 
 POWERS.push({ id: 'slowmo', name: 'حرکت آهسته', icon: '🐢', level: 60, cd: 30, xp: 40, key: '6' });
 POWER_BY_ID.slowmo = POWERS[POWERS.length - 1];
@@ -147,7 +148,8 @@ Object.assign(Game, {
     s.cheatLv = (s.cheatLv || 0) + n;
     setPlayerLevelLook(this.player, this.lv());
     this.labelPlayer();
-    this.levelsGained(from, this.lv(), false, 'main');
+    this.levelTemp = true;
+    try { this.levelsGained(from, this.lv(), false, 'main'); } finally { this.levelTemp = false; }
     this.toast(`🔑 +${fa(n)} سطح زور با کد ۲۹۲۹ (تقلبی حساب می‌شه؛ از منو با «پاک کردن زور تقلبی» برمی‌گرده).`, 'gold');
     this.refreshPowers(true);
     this.refreshMoves();
@@ -174,8 +176,10 @@ Object.assign(Game, {
 
   quickTravel(x, z, special) {
     this.closeModal('qtModal');
-    if (this.loop) this.stopLoop(true);
+    // no teleporting mid-race (a lap could be "run" that way), arm wrestling, building or photos
+    if (this.race || this.arm || this.build || this.photo) { this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
     const g = this.gym;
+    if (this.world === g && this.loop) this.stopLoop(true);
     if (special === 'arm') { x = ARM_TABLE.x; z = ARM_TABLE.z + 2.2; }
     const go = () => {
       const P = this.player;
@@ -232,15 +236,23 @@ Object.assign(Game, {
   /* ---------- camera views ---------- */
 
   cycleCamera() {
-    const views = [['معمولی', 7.2, 0.3], ['نزدیک', 4.2, 0.18], ['دور', 12, 0.45], ['از بالا', 17, 1.05]];
-    const i = ((this.save.settings.cam || 0) + 1) % views.length;
+    const i = ((this.save.settings.cam || 0) + 1) % CAM_VIEWS.length;
     this.save.settings.cam = i;
-    const [name, dist, pitch] = views[i];
-    const c = this.world.cam;
-    c.dist = dist;
-    c.pitch = pitch;
-    this.toast(`🎥 دوربین: ${name}`);
+    this.applyCamView();
+    this.toast(`🎥 دوربین: ${CAM_VIEWS[i][0]}`);
     this.persist();
+  },
+
+  /** The chosen view follows you to every place (and after reloading). */
+  applyCamView() {
+    const w = this.world;
+    this.camWorld = w;
+    const v = CAM_VIEWS[this.save.settings.cam || 0];
+    if (!w || !w.cam || !v) return;
+    if (!w.cam0) w.cam0 = { dist: w.cam.dist, pitch: w.cam.pitch };
+    // "normal" is each place's own view
+    w.cam.dist = this.save.settings.cam ? v[1] : w.cam0.dist;
+    w.cam.pitch = this.save.settings.cam ? v[2] : w.cam0.pitch;
   },
 
   /* ---------- slow motion ---------- */
@@ -250,6 +262,7 @@ Object.assign(Game, {
     if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
     if (!this.powerUnlocked(pw)) { Sfx.play('error'); this.toast(`🔒 قدرت «${pw.name}» در سطح ${fa(pw.level)} باز می‌شه.`, 'warn'); return; }
     if (this.powerCd.slowmo > 0 || this.slowmo) return;
+    Sfx.init();
     this.slowmo = { t: 6 };
     this.powerCd.slowmo = pw.cd;
     this.save.stats.slowmo = (this.save.stats.slowmo || 0) + 1;
@@ -257,6 +270,7 @@ Object.assign(Game, {
     $('slowFx').hidden = false;
     Sfx.play('charge');
     this.showBanner('همه‌چیز آهسته شد...', '🐢 حرکت آهسته');
+    this.missionProgress('power', 1);
     this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
     this.checkAchievements();
     this.refreshPowers();
@@ -411,7 +425,7 @@ Object.assign(Game, {
           this.floatText('❄️ بزن!', 'fl-combo');
           this.checkAchievements();
           // they throw one back after getting up
-          if (Math.random() < 0.5) setTimeout(() => { if (hit.world === this.world && this.snowyHere()) { const a = hit.ch.root.position; const me = this.player.ch.root.position; hit.ch.root.rotation.y = Math.atan2(me.x - a.x, me.z - a.z); if (hit.ch.play('throwball')) setTimeout(() => this.launchSnowball(hit.ch, false), 330); } }, 3300);
+          if (Math.random() < 0.5) setTimeout(() => { if (hit.world === this.world && this.snowyHere() && this.mode === 'play' && !this.modals.size && !hit.anchored && ['idle', 'walk', 'fan', 'jog', 'chat'].includes(hit.state)) { const a = hit.ch.root.position; const me = this.player.ch.root.position; hit.ch.root.rotation.y = Math.atan2(me.x - a.x, me.z - a.z); if (hit.ch.play('throwball')) setTimeout(() => this.launchSnowball(hit.ch, false), 330); } }, 3300);
         }
         done();
       }
@@ -425,8 +439,8 @@ Object.assign(Game, {
     if (!P) return;
     const sh = this.save.shop;
     const want = sh.hat && this.owns(sh.hat) ? sh.hat : (this.save.level >= 1000 ? 'hat_crown' : null);
-    if (P.hatId === want && P.hatMesh && P.hatMesh.parent) return;
-    if (P.hatMesh && P.hatMesh.parent) P.hatMesh.parent.remove(P.hatMesh);
+    if (P.hatId === want && P.hatMesh && P.hatMesh.parent === P.ch.B.head) return;
+    if (P.hatMesh) { if (P.hatMesh.parent) P.hatMesh.parent.remove(P.hatMesh); P.hatMesh.geometry.dispose(); }
     P.hatMesh = null;
     P.hatId = want;
     if (!want) return;
@@ -586,6 +600,7 @@ Object.assign(Game, {
 
   tickFun3(dt) {
     if (this.mode === 'play') {
+      if (this.camWorld !== this.world && !this.watch) this.applyCamView();
       const st = this.save.stats;
       st.playSec = (st.playSec || 0) + dt;
       if (Math.floor(st.playSec) % 60 === 0 && Math.floor(st.playSec - dt) % 60 !== 0) this.checkAchievements();
