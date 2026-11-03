@@ -127,7 +127,8 @@ input,select{font-family:inherit}
 #bDrop{right:186px;bottom:70px;width:56px;height:56px;background:radial-gradient(circle at 40% 30%,rgba(255,170,120,.85),rgba(200,70,20,.78))}
 #bCam{right:22px;bottom:206px;width:52px;height:52px;background:radial-gradient(circle at 40% 30%,rgba(220,220,255,.7),rgba(90,80,170,.75))}
 #bSec{right:84px;bottom:180px;width:56px;height:56px;background:radial-gradient(circle at 40% 30%,rgba(255,120,120,.85),rgba(170,0,40,.8))}
-#bSec .cdRing{position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(rgba(255,255,255,.75) var(--p,0%),transparent 0);
+#bSlap{right:176px;bottom:140px;width:58px;height:58px;background:radial-gradient(circle at 40% 30%,rgba(255,200,120,.9),rgba(230,90,30,.8))}
+#bSec .cdRing,#bSlap .cdRing{position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(rgba(255,255,255,.75) var(--p,0%),transparent 0);
   -webkit-mask:radial-gradient(circle,transparent 62%,#000 63%);mask:radial-gradient(circle,transparent 62%,#000 63%);pointer-events:none}
 .noTouch #joyBase,.noTouch #btns{display:none}
 @media (max-height:430px){:root{--ui-scale:.86}}
@@ -237,6 +238,7 @@ input,select{font-family:inherit}
     <div class="chips">
       <span class="chip" id="slotChip">🏠 ۰/۴</span>
       <span class="chip" id="secChip">🛡️ آماده</span>
+      <span class="chip" id="dayChip">☀️ روز</span>
       <span class="chip" id="rebChip" hidden>♻️ ۰</span>
       <span class="chip event" id="eventChip" hidden></span>
     </div>
@@ -246,6 +248,7 @@ input,select{font-family:inherit}
     <div id="toasts"></div>
   </div>
   <div id="menuBtns">
+    <button class="mbtn pe" id="mbMissions" type="button" title="ماموریت‌ها" aria-label="ماموریت‌ها">📜<span class="dot"></span></button>
     <button class="mbtn pe" id="mbDaily" type="button" title="جایزه‌ی روزانه" aria-label="جایزه‌ی روزانه">🎁<span class="dot"></span></button>
     <button class="mbtn pe" id="mbLeader" type="button" title="جدول برترها" aria-label="جدول برترها">🏆</button>
     <button class="mbtn pe" id="mbBook" type="button" title="دانشنامه‌ی میم‌ها" aria-label="دانشنامه">📖</button>
@@ -264,6 +267,7 @@ input,select{font-family:inherit}
     <button class="tbtn pe off" id="bDrop" type="button"><i>📦</i>رها کن</button>
     <button class="tbtn pe" id="bCam" type="button"><i>🎥</i>دوربین</button>
     <button class="tbtn pe" id="bSec" type="button"><span class="cdRing"></span><i>🛡️</i>امنیت</button>
+    <button class="tbtn pe" id="bSlap" type="button"><span class="cdRing"></span><i>🥊</i>سیلی</button>
   </div>
 </div>
 
@@ -453,8 +457,24 @@ const UPGRADES = {
   secCd: { name: 'خنک‌کننده‌ی سپر', emoji: '❄️', max: 5, desc: (l) => 'آماده‌سازی: ' + fa(70 - l * 8) + ' → ' + fa(62 - l * 8) + ' ثانیه', cost: (l) => Math.round(800 * Math.pow(3, l)) },
   trap: { name: 'تله‌ی چسبناک', emoji: '🕸️', max: 3, desc: (l) => 'دزدها توی پایگاهت ' + fa(l * 10) + '٪ → ' + fa((l + 1) * 10) + '٪ کندتر', cost: (l) => Math.round(3000 * Math.pow(4, l)) },
   magnet: { name: 'آهن‌ربای سکه', emoji: '🧲', max: 1, desc: () => 'هر ۵ ثانیه پول‌ها خودکار جمع می‌شوند', cost: () => 6000 },
+  jump: { name: 'کفش فنری', emoji: '🦘', max: 1, desc: () => 'پرش دوبل: وسط هوا دوباره بپر', cost: () => 15000 },
+  slap: { name: 'دستکش سیلی', emoji: '🥊', max: 3, desc: (l) => 'زمان استراحت ضربه: ' + fa((3.5 - l * 0.8).toFixed(1)) + ' → ' + fa((2.7 - l * 0.8).toFixed(1)) + ' ثانیه', cost: (l) => Math.round(2500 * Math.pow(4, l)) },
 };
 const UP_KEYS = Object.keys(UPGRADES);
+const slapCooldown = (o) => 3.5 - o.up.slap * 0.8;
+// missions: three active at a time; reward scales with the player's income
+const MISSION_DEFS = [
+  { id: 'buy', emoji: '🛒', t: (n) => 'از نوار نقاله ' + fa(n) + ' میم بخر', n: [3, 5, 8] },
+  { id: 'steal', emoji: '🦹', t: (n) => fa(n) + ' میم از پایگاه حریف‌ها بدزد', n: [1, 2, 3] },
+  { id: 'collect', emoji: '💰', t: (n) => fmt(n) + ' سکه از سکوهای سبز جمع کن', n: 'income' },
+  { id: 'catch', emoji: '👮', t: (n) => fa(n) + ' دزد را بگیر', n: [1, 2] },
+  { id: 'slap', emoji: '🥊', t: (n) => fa(n) + ' بار با سیلی یک حریف را گیج کن', n: [2, 4, 6] },
+  { id: 'rare', emoji: '💎', t: () => 'یک میم «کمیاب» یا بهتر بخر', n: [1] },
+  { id: 'shield', emoji: '🛡️', t: (n) => fa(n) + ' بار سپر لیزری را روشن کن', n: [1, 2] },
+  { id: 'shop', emoji: '🎁', t: (n) => fa(n) + ' ارتقا از مغازه بخر', n: [1, 2] },
+  { id: 'fuse', emoji: '⚗️', t: () => 'در دستگاه ترکیب، ۳ میم یکسان را ترکیب کن', n: [1] },
+  { id: 'djump', emoji: '🦘', t: (n) => fa(n) + ' بار پرش دوبل بزن', n: [3, 6], needs: 'jump' },
+];
 const secDuration = (o) => 25 + o.up.secDur * 10;
 const secCooldown = (o) => 70 - o.up.secCd * 8;
 const rebirthCost = (r) => 1000000 * Math.pow(5, r);
@@ -551,6 +571,11 @@ const Sound = {
       case 'poof': this.noise(0.2, 0.15, 900, 0.7, 0, -600); break;
       case 'event': [440, 554, 659, 880].forEach((f, i) => this.tone(f, 0.25, 'square', 0.1, 0, i * 0.1)); break;
       case 'upgrade': [392, 523, 784].forEach((f, i) => this.tone(f, 0.2, 'triangle', 0.2, 60, i * 0.07)); break;
+      case 'slap': this.noise(0.12, 0.35, 1800, 1.5); this.tone(220, 0.12, 'square', 0.18, -120); break;
+      case 'whoosh': this.noise(0.18, 0.12, 900, 0.8, 0, 1500); break;
+      case 'djump': this.tone(520, 0.14, 'sine', 0.16, 600); break;
+      case 'fuse': [262, 392, 523, 784, 1046, 1568].forEach((f, i) => this.tone(f, 0.3, 'sawtooth', 0.07, 0, i * 0.12)); this.noise(1.2, 0.08, 400, 0.5, 0, 3000); break;
+      case 'mission': [659, 880, 1175].forEach((f, i) => this.tone(f, 0.18, 'triangle', 0.18, 0, i * 0.08)); break;
     }
   },
   // simple cheerful procedural loop: bass + plucked chords + lead
@@ -1476,7 +1501,7 @@ function buildDecor() {
   bushIM.count = bi; flowerIM.count = fi;
   for (const im of [bushIM, flowerIM]) { im.castShadow = im === bushIM; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.computeBoundingSphere(); W.detail.add(im); }
   // streetlights, benches, flower pots (instanced batch)
-  const b = new Batcher(), pole = mat('#2d3142', { m: 0.7, r: 0.35 }), lamp = mat('#fff6c8', { e: '#ffe9a0', ei: 1.3 });
+  const b = new Batcher(), pole = mat('#2d3142', { m: 0.7, r: 0.35 }), lamp = new THREE.MeshStandardMaterial({ color: '#fff6c8', emissive: '#ffe9a0', emissiveIntensity: 1.3 }); W.lampMat = lamp;
   const light = (x, z) => { b.add(GEO.cylLow, pole, x, 2.4, z, 0.1, 4.8, 0.1); b.add(GEO.box, pole, x, 4.85, z, 0.9, 0.1, 0.16); b.add(GEO.sphere, lamp, x + 0.4, 4.7, z, 0.24, 0.2, 0.24); addCircle(x, z, 0.18, 0, 5); };
   for (let x = -147; x <= 147; x += 14) for (const s of [-1, 1]) { if (LAYOUT.roadXs.some((rx) => Math.abs(rx - x) < 4)) continue; light(x, s * (LAYOUT.ringZ - 3.7)); }
   for (let x = -144; x <= 144; x += 16) for (const s of [-1, 1]) { if (LAYOUT.baseXs.some((bx) => Math.abs(bx - x) < 6) || LAYOUT.roadXs.some((rx) => Math.abs(rx - x) < 4)) continue; light(x, s * 17.4); }
@@ -1506,8 +1531,39 @@ function buildDecor() {
   });
 }
 
+// fusion machine: three identical memes in, one upgraded variant out
+function buildFusion() {
+  const P0 = W.fusionPos = new THREE.Vector3(0, 0, 11.5);
+  const g = new THREE.Group(); g.position.copy(P0); scene.add(g);
+  const steel = mat('#3a3f58', { m: 0.8, r: 0.3 }), neon = mat('#b061ff', { e: '#a040ff', ei: 1.6 }), gold = mat('#ffd23f', { m: 1, r: 0.2 });
+  mesh(GEO.cyl, steel, 0, 0.3, 0, 2.6, 0.6, 2.6, g); mesh(GEO.torus, neon, 0, 0.62, 0, 2.55, 2.55, 1, g).rotation.x = Math.PI / 2;
+  mesh(GEO.cyl, steel, 0, 1.0, 0, 1.5, 0.8, 1.5, g);
+  const dome = mesh(GEO.hemi, glassMat('#d9b8ff'), 0, 1.4, 0, 1.45, 1.6, 1.45, g); dome.userData.solo = true;
+  const core = mesh(GEO.ico, mat('#ff6fcf', { e: '#ff2af0', ei: 2 }), 0, 2.1, 0, 0.45, 0.45, 0.45, g);
+  const rings = []; for (let i = 0; i < 3; i++) { const r = mesh(GEO.torusThin, addMat(['#ff6fcf', '#7af7ff', '#ffd23f'][i], 0.9), 0, 2.1, 0, 0.9 + i * 0.25, 0.9 + i * 0.25, 0.9 + i * 0.25, g, false); rings.push(r); }
+  for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + Math.PI / 2; const x = Math.cos(a) * 2.1, z = Math.sin(a) * 2.1; mesh(GEO.cyl, steel, x, 1.2, z, 0.35, 2.4, 0.35, g); mesh(GEO.sphere, neon, x, 2.55, z, 0.32, 0.32, 0.32, g); mesh(GEO.cyl, gold, x * 0.55, 2.55, z * 0.55, 0.06, 1.6, 0.06, g).rotation.set(0, -a, Math.PI / 2); }
+  const sign = spriteFromCanvas(labelCanvas([{ t: '⚗️ دستگاه ترکیب', size: 66, color: '#fff', weight: 900, stroke: 6 }, { t: '۳ میم یکسان ← ۱ میم کمیاب‌تر', size: 34, color: '#ffd23f', weight: 800 }], { w: 640, h: 200, bg: 'rgba(90,30,160,.92)' }), 6.4, 2); sign.position.set(P0.x, 5.6, P0.z); scene.add(sign);
+  addCircle(P0.x, P0.z, 2.65, 0, 3.2, { cam: true });
+  W.fusion = { core, rings, boost: 0 };
+  W.anim.push((dt, t) => {
+    const f = W.fusion, k = 1 + f.boost * 4; f.boost = Math.max(0, f.boost - dt * 0.4);
+    rings.forEach((r, i) => { r.rotation.x = t * (0.8 + i * 0.5) * k; r.rotation.y = t * (0.5 + i * 0.3) * k; });
+    core.rotation.y = t * 2 * k; core.scale.setScalar(0.45 + Math.sin(t * 4) * 0.05 + f.boost * 0.3);
+    if (Math.random() < dt * (3 + f.boost * 40)) FX.one(P0.x + rand(-1, 1), 2.1 + rand(-0.6, 0.6), P0.z + rand(-1, 1), { vx: rand(-0.5, 0.5), vy: rand(0.5, 2), vz: rand(-0.5, 0.5), life: 1, size: 0.3, color: pick(['#ff6fcf', '#7af7ff', '#ffd23f']), grav: 0, drag: 0.5 });
+  });
+  reserve(P0.x - 4, P0.z - 4, P0.x + 4, P0.z + 4);
+}
+// night sky stars (faded in by the day/night cycle)
+function buildStars() {
+  const n = 600, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const th = Math.random() * TAU, ph = Math.acos(rand(0.05, 1)), r = 450; pos[i * 3] = Math.sin(ph) * Math.cos(th) * r; pos[i * 3 + 1] = Math.cos(ph) * r; pos[i * 3 + 2] = Math.sin(ph) * Math.sin(th) * r; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.PointsMaterial({ color: '#ffffff', size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false });
+  W.stars = new THREE.Points(geo, m); W.stars.frustumCulled = false; W.stars.renderOrder = -9; scene.add(W.stars);
+}
+
 function buildWorld() {
-  buildGround(); buildConveyor(); buildBases(); buildShopAndBoard(); buildDecor(); buildNav();
+  buildGround(); buildConveyor(); buildBases(); buildShopAndBoard(); buildFusion(); buildDecor(); buildStars(); buildNav();
   W.detail.visible = QS.decor;
 }
 
@@ -2002,6 +2058,7 @@ function animateAvatar(av, dt, st) {
   if (!st.grounded) { lL = -0.6; lR = 0.35; aL = -2.6; aR = -2.6; azL = 0.5; azR = -0.5; }
   if (st.carrying) { aL = -2.9 + Math.sin(st.t * 6) * 0.05; aR = -2.9 - Math.sin(st.t * 6) * 0.05; azL = 0.25; azR = -0.25; }
   if (st.receive && !st.carrying) { aL = -1.35; aR = -1.35; azL = 0.15; azR = -0.15; }
+  if (st.slap > 0) { aR = -1.9 + (0.32 - st.slap) * 4; azR = -1.1; }
   if (st.stunned) { aL = -1.2 + Math.sin(st.t * 20) * 0.6; aR = -1.2 - Math.sin(st.t * 20) * 0.6; azL = 1; azR = -1; }
   const d = 18;
   av.legL.rotation.x = damp(av.legL.rotation.x, lL, d, dt); av.legR.rotation.x = damp(av.legR.rotation.x, lR, d, dt);
@@ -2102,7 +2159,7 @@ class Unit {
       this.transitT += dt; const sp = this.path && this.path[this.pi];
       if (!sp || this.transitT > 30) { this.arrive(); }
       else {
-        const dx = sp.x - this.pos.x, dz = sp.z - this.pos.z, d = Math.hypot(dx, dz), step = 6 * dt;
+        const dx = sp.x - this.pos.x, dz = sp.z - this.pos.z, d = Math.hypot(dx, dz), step = (this.tSpeed || 6) * dt;
         if (d <= step) { this.pos.x = sp.x; this.pos.z = sp.z; this.pi++; if (this.pi >= this.path.length) this.arrive(); }
         else { this.pos.x += dx / d * step; this.pos.z += dz / d * step; this.yaw = Math.atan2(dx, dz); this.moving = true; }
         if (this.state === 'transit') { const f = floorAt(this.pos.x, this.pos.z, 0.2, this.pos.y + 0.3); this.pos.y = damp(this.pos.y, f.y, 20, dt); }
@@ -2212,12 +2269,12 @@ function tryBuy(owner, u) {
   owner.money -= price; const i = G.belt.indexOf(u); if (i >= 0) G.belt.splice(i, 1);
   u.state = 'transit'; u.owner = owner; u.slot = slot; slot.unit = u; slot.pending = 0; u.transitT = 0;
   const tp = slot.base.slotPos[slot.li]; u.pos.y = BELT.top;
-  u.path = findPath(u.pos.x, u.pos.z, tp.x, tp.z) || [{ x: tp.x, z: tp.z }]; u.pi = 0;
+  setTransit(u, tp);
   u.setPlate('base');
   FX.burst(tmpV.set(u.pos.x, 1.6, u.pos.z), { count: 22, color: ['#ffd23f', '#ffffff', owner.color], speed: 5, life: 0.8 });
   if (owner.isPlayer) {
     Sound.play('buy'); UI.toast('🎉 خریدی: ' + u.c.name + ' (' + fmt(price) + ')', 'good'); UI.floatText(u.pos, '-' + fmt(price), '#ffd23f');
-    G.stats.bought++; discover(u.c.id); Tutorial.event('buy'); scheduleSave();
+    G.stats.bought++; discover(u.c.id); Tutorial.event('buy'); Missions.event('buy'); if (u.c.rarity >= 2) Missions.event('rare'); scheduleSave();
   }
   return 'ok';
 }
@@ -2230,7 +2287,7 @@ function collectOwner(o, auto, base) {
   if (o.isPlayer) {
     Sound.play('coin'); UI.floatText(tmpV.copy(cp).setY(1.8), '+' + fmt(s), '#3df2b0');
     FX.burst(tmpV.copy(cp).setY(1.2), { count: auto ? 8 : 24, color: ['#ffd23f', '#fff3a0'], speed: 4.5, up: true, life: 0.9, grav: -9 });
-    G.stats.collected += s; Tutorial.event('collect');
+    G.stats.collected += s; Tutorial.event('collect'); Missions.event('collect', s);
   }
   return s;
 }
@@ -2244,7 +2301,7 @@ function activateSecurity(o) {
   if (o.secT > 0 || o.secCd > 0) return false;
   o.secT = secDuration(o); for (const b of o.bases) { b.setBarrier(true); FX.burst(tmpV.copy(b.entrancePos).setY(1.5), { count: 20, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.7 }); }
   FX.burst(tmpV.copy(o.base.entrancePos).setY(1.5), { count: 30, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.7 });
-  if (o.isPlayer) { Sound.play('laser'); UI.toast('🛡️ سپر لیزری فعال شد!', 'good'); Tutorial.event('security'); }
+  if (o.isPlayer) { Sound.play('laser'); UI.toast('🛡️ سپر لیزری فعال شد!', 'good'); Tutorial.event('security'); Missions.event('shield'); }
   else if (G.player && dist2(G.player.body.pos, o.base.entrancePos) < 900) Sound.play('laser');
   return true;
 }
@@ -2309,7 +2366,7 @@ function updateSteals(dt) {
         returnUnit(u); a.stun(1.6); G.metrics.caught++;
         tmpV.subVectors(a.body.pos, d.body.pos).setY(0).normalize(); a.body.vel.set(tmpV.x * 9, 6, tmpV.z * 9);
         if (a.isPlayer) { Sound.play('caught'); UI.toast('😵 ' + d.owner.name + ' گرفتت! میم برگشت به صاحبش', 'bad'); }
-        if (d.isPlayer) { const bounty = Math.max(10, Math.floor(u.price * 0.05)); d.owner.money += bounty; Sound.play('success'); UI.toast('💪 دزد را گرفتی! جایزه: ' + fmt(bounty), 'good'); UI.floatText(d.body.pos, '+' + fmt(bounty), '#3df2b0'); G.stats.caught++; }
+        if (d.isPlayer) { const bounty = Math.max(10, Math.floor(u.price * 0.05)); d.owner.money += bounty; Sound.play('success'); UI.toast('💪 دزد را گرفتی! جایزه: ' + fmt(bounty), 'good'); UI.floatText(d.body.pos, '+' + fmt(bounty), '#3df2b0'); G.stats.caught++; Missions.event('catch'); }
         continue;
       }
     }
@@ -2363,7 +2420,16 @@ class Agent {
     const dx = tx - b.vel.x, dz = tz - b.vel.z, dl = Math.hypot(dx, dz), stepA = acc * dt;
     if (dl <= stepA) { b.vel.x = tx; b.vel.z = tz; } else { b.vel.x += dx / dl * stepA; b.vel.z += dz / dl * stepA; }
     if (b.grounded) this.coyote = 0.12; else this.coyote -= dt;
-    if (this.jumpQ > 0) { this.jumpQ -= dt; if (this.coyote > 0 && !this.stunned) { b.vel.y = 10.2; this.coyote = 0; this.jumpQ = 0; b.grounded = false; if (this.isPlayer) Sound.play('jump'); } }
+    if (b.grounded) this.dj = false;
+    this.slapCd = Math.max(0, (this.slapCd || 0) - dt);
+    if (this.jumpQ > 0) {
+      this.jumpQ -= dt;
+      if (this.coyote > 0 && !this.stunned) { b.vel.y = 10.2; this.coyote = 0; this.jumpQ = 0; b.grounded = false; this.jumpHeld = true; if (this.isPlayer) Sound.play('jump'); }
+      else if (this.isPlayer && this.owner.up.jump && !this.dj && !b.grounded && !this.jumpHeld && !this.stunned) {
+        b.vel.y = 9.6; this.dj = true; this.jumpQ = 0; Sound.play('djump'); Missions.event('djump');
+        FX.burst(tmpV.copy(b.pos).setY(b.pos.y + 0.2), { count: 16, color: ['#7af7ff', '#ffffff'], speed: 3, life: 0.5, grav: 0 });
+      }
+    } else this.jumpHeld = false;
     stepBody(b, dt);
     if (b.groundTag === 'belt') { b.pos.x += beltSpeed() * dt; if (b.pos.x > BELT.x1 - 0.5) b.pos.x = BELT.x1 - 0.5; }
   }
@@ -2379,7 +2445,8 @@ class Agent {
     if (this.stunT > 0) { this.stunT -= dt; if (Math.random() < 0.3) FX.one(b.pos.x + Math.cos(t * 8) * 0.5, b.pos.y + 2.3, b.pos.z + Math.sin(t * 8) * 0.5, { vx: 0, vy: 0, vz: 0, life: 0.4, size: 0.25, color: '#ffd23f' }); }
     this.zapT = Math.max(0, this.zapT - dt);
     this.receiveT = Math.max(0, (this.receiveT || 0) - dt);
-    animateAvatar(this.av, dt, { speed: sp, grounded: b.grounded, carrying: !!this.carrying, turn: this.turn, t, stunned: this.stunned, receive: this.receiveT > 0 });
+    this.slapT = Math.max(0, (this.slapT || 0) - dt);
+    animateAvatar(this.av, dt, { speed: sp, grounded: b.grounded, carrying: !!this.carrying, turn: this.turn, t, stunned: this.stunned, receive: this.receiveT > 0, slap: this.slapT });
     if (this.label) this.label.visible = dist2(b.pos, camera.position) < 1800;
   }
 }
@@ -2424,7 +2491,7 @@ class Brain {
     }
     return 'moving';
   }
-  onTheft(thief, u) { if (this.a.carrying) return; this.set('defend', { thief, unit: u }); this.react = 0.35 + Math.sqrt(dist2(this.a.body.pos, thief.body.pos)) / 45; this.run = true; }
+  onTheft(thief, u) { if (this.a.carrying) return; this.set('defend', { thief, unit: u }); this.react = 0.35 + Math.sqrt(dist2(this.a.body.pos, thief.body.pos)) / 45 + (1 - Day.k) * 0.7; this.run = true; }
   intruder() {
     for (const ag of G.agents) if (ag !== this.a && !ag.stunned && this.o.base.contains(ag.body.pos.x, ag.body.pos.z) && (ag.isPlayer ? G.playing : true)) return ag;
     return null;
@@ -2469,7 +2536,7 @@ class Brain {
     const o = this.o, slot = o.freeSlot(); let best = null, bestScore = 0;
     let weakest = null; for (const s of o.slots) if (s.unit && s.unit.state === 'slotted' && (!weakest || s.unit.income < weakest.income)) weakest = s.unit;
     for (const u of G.belt) {
-      if (u.pos.x > 30) continue; const pr = beltPrice(u);
+      if (u.pos.x > Math.min(BELT.x1 - 14, o.base.cx + 20)) continue; const pr = beltPrice(u);
       if (pr > o.money * (slot ? 1 : 0.9)) continue;
       if (!slot && (!weakest || u.income < weakest.income * 2)) continue;
       const score = u.income * (1 + Math.random() * 0.3) - Math.abs(u.pos.x - this.a.body.pos.x) * 0.02 * u.income;
@@ -2553,6 +2620,7 @@ class Brain {
       }
       case 'escape': {
         if (!a.carrying) { this.set('return'); break; }
+        if (!a.slapCd) { const ch = a.carrying.owner.agent; if (ch && !ch.stunned && dist2(ch.body.pos, p) < 2.1 * 2.1) { if (Math.random() < 0.4) slap(a, 1.0); else a.slapCd = 1.5; } }
         this.run = true; this.repath -= dt;
         if (!this.path || this.repath <= 0) { this.repath = 3; const ip = o.base.insidePos; this.goTo(ip.x + rand(-2, 2), ip.z); }
         if (this.follow(dt) === 'fail') this.path = null;
@@ -2597,7 +2665,7 @@ function updateEvents(dt) {
   }
   const tint = G.event && G.event.id === 'raid' ? [0.72, 0.6, 0.95] : G.event && G.event.id === 'golden' ? [1.08, 0.98, 0.8] : [1, 1, 1];
   const tc = skyMat.uniforms.tint.value; tc.r = damp(tc.r, tint[0], 1, dt); tc.g = damp(tc.g, tint[1], 1, dt); tc.b = damp(tc.b, tint[2], 1, dt);
-  sun.intensity = 2.7 * (0.55 + 0.45 * tc.g);
+  G.sunTint = 0.55 + 0.45 * tc.g;
 }
 
 // ------------------------------------------------------------------ economy tick
@@ -2656,11 +2724,146 @@ const Shop = {
   },
   finish() {
     const b = this.busy; if (!b) return; this.busy = null; if (this.item) this.item.visible = false;
-    const o = G.player.owner; applyUpgrade(o, b.key);
+    const o = G.player.owner; applyUpgrade(o, b.key); Missions.event('shop');
     FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.3), { count: 26, color: ['#ffd23f', '#3df2b0', '#ffffff'], speed: 4, up: true, life: 0.8 });
     UI.toast('🎁 مغازه‌دار «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
   },
 };
+// walk a unit to a slot, quickly when the slot is far away (it always follows the navigation path)
+function setTransit(u, tp) {
+  u.path = findPath(u.pos.x, u.pos.z, tp.x, tp.z);
+  if (!u.path) { const mid = findPath(u.pos.x, u.pos.z, u.slot.base.entrancePos.x, u.slot.base.entrancePos.z); u.path = (mid || []).concat([{ x: u.slot.base.insidePos.x, z: u.slot.base.insidePos.z }, { x: tp.x, z: tp.z }]); }
+  let len = 0, px = u.pos.x, pz = u.pos.z; for (const q of u.path) { len += Math.hypot(q.x - px, q.z - pz); px = q.x; pz = q.z; }
+  u.pi = 0; u.tSpeed = clamp(len / 14, 6, 16); u.transitT = 0;
+}
+
+// ------------------------------------------------------------------ slap: stun anyone in front of you; a stunned thief drops what he carries
+function slap(a, stunTime = 2.2) {
+  if (a.slapCd > 0 || a.stunned) return 'cd';
+  a.slapCd = a.isPlayer ? slapCooldown(a.owner) : 8; a.slapT = 0.32;
+  const p = a.body.pos, fx = Math.sin(a.yaw), fz = Math.cos(a.yaw);
+  let best = null, bd = 1e9;
+  for (const t of G.agents) {
+    if (t === a) continue; const dx = t.body.pos.x - p.x, dz = t.body.pos.z - p.z, d2 = dx * dx + dz * dz;
+    if (d2 > 2.9 * 2.9 || Math.abs(t.body.pos.y - p.y) > 1.8) continue;
+    const d = Math.sqrt(d2) || 1; if (d > 1.6 && (dx * fx + dz * fz) / d < 0.3) continue;
+    if (d2 < bd) { bd = d2; best = t; }
+  }
+  if (!best) { if (a.isPlayer) Sound.play('whoosh'); return 'miss'; }
+  a.yaw = Math.atan2(best.body.pos.x - p.x, best.body.pos.z - p.z);
+  best.stun(stunTime); tmpV.subVectors(best.body.pos, p).setY(0).normalize(); best.body.vel.set(tmpV.x * 8, 5, tmpV.z * 8);
+  FX.burst(tmpV.copy(best.body.pos).setY(best.body.pos.y + 1.6), { count: 22, color: ['#ffd23f', '#ffffff', '#ff4f8b'], speed: 5, life: 0.6 });
+  const near = G.player && dist2(G.player.body.pos, p) < 900; if (near) Sound.play('slap');
+  if (best.isPlayer) { CAM.shake = 0.25; UI.toast('🥊 ' + a.owner.name + ' بهت سیلی زد! چند لحظه گیج شدی', 'bad'); }
+  if (a.isPlayer) {
+    CAM.shake = 0.12; Missions.event('slap');
+    let msg = '💥 ' + best.owner.name + ' گیج شد!';
+    if (best.carrying) {
+      const u = best.carrying; returnUnit(u);
+      if (u.owner === a.owner) { const bounty = Math.max(10, Math.floor(u.price * 0.05)); a.owner.money += bounty; msg = '👋 دزد را زدی! «' + u.c.name + '» برگشت · جایزه ' + fmt(bounty); G.stats.caught++; Missions.event('catch'); Sound.play('success'); }
+      else msg += ' میمی که دزدیده بود برگشت سر جایش';
+    }
+    UI.toast(msg, 'good');
+  } else if (best.carrying && best.carrying.owner !== a.owner) returnUnit(best.carrying);
+  return 'hit';
+}
+
+// ------------------------------------------------------------------ missions
+const Missions = {
+  list: [],
+  inc() { return G.player ? G.player.owner.incomePerSec() : 0; },
+  make() {
+    const o = G.player ? G.player.owner : null, active = this.list.map((m) => m.id);
+    const defs = MISSION_DEFS.filter((d) => !active.includes(d.id) && (!d.needs || (o && o.up[d.needs])));
+    const d = pick(defs.length ? defs : MISSION_DEFS), inc = this.inc(), reb = o ? 1 + o.rebirths : 1;
+    let n, diff;
+    if (d.n === 'income') { n = Math.max(300, Math.round(inc * 90 / 50) * 50); diff = 1.5; }
+    else { const i = randi(0, d.n.length - 1); n = d.n[i]; diff = 1 + i * 0.8; }
+    const reward = Math.round((Math.max(250, inc * 40 * diff) + 120 * diff) * reb);
+    return { id: d.id, n, prog: 0, reward, done: false };
+  },
+  ensure() { while (this.list.length < 3) this.list.push(this.make()); },
+  event(id, amt = 1) {
+    if (!G.playing) return;
+    for (const m of this.list) if (m.id === id && !m.done) {
+      m.prog = Math.min(m.n, m.prog + amt);
+      if (m.prog >= m.n) { m.done = true; Sound.play('mission'); UI.toast('📜 ماموریت انجام شد: ' + this.text(m) + ' — جایزه‌ات را از دکمه‌ی 📜 بگیر', 'rare'); }
+    }
+  },
+  text(m) { const d = MISSION_DEFS.find((x) => x.id === m.id); return d ? d.t(m.n) : m.id; },
+  def(m) { return MISSION_DEFS.find((x) => x.id === m.id) || MISSION_DEFS[0]; },
+  claim(i) {
+    const m = this.list[i]; if (!m || !m.done) return;
+    G.player.owner.money += m.reward; Sound.play('success'); UI.floatText(G.player.body.pos, '+' + fmt(m.reward), '#ffd23f');
+    UI.toast('🎉 جایزه‌ی ماموریت: ' + fmt(m.reward) + ' سکه', 'good');
+    this.list.splice(i, 1, this.make()); scheduleSave(true);
+  },
+  load(arr) {
+    this.list = [];
+    if (Array.isArray(arr)) for (const m of arr.slice(0, 3)) {
+      if (!m || !MISSION_DEFS.some((d) => d.id === m.id)) continue;
+      const n = Math.max(1, Math.floor(num(m.n, 1, 1, 1e15)));
+      this.list.push({ id: m.id, n, prog: Math.floor(num(m.prog, 0, 0, n)), reward: Math.floor(num(m.reward, 250, 0, 1e18)), done: !!m.done });
+    }
+  },
+  ready() { return this.list.some((m) => m.done); },
+};
+
+// ------------------------------------------------------------------ fusion machine
+const Fusion = {
+  busy: null,
+  groups(o) {
+    const g = new Map();
+    for (const s of o.slots) { const u = s.unit; if (!u || u.state !== 'slotted' || u.mut >= 3) continue; const k = u.c.id + ':' + u.mut; if (!g.has(k)) g.set(k, []); g.get(k).push(u); }
+    return g;
+  },
+  fuse(key) {
+    const o = G.player.owner, list = this.groups(o).get(key);
+    if (this.busy) { Sound.play('error'); UI.toast('⚗️ دستگاه هنوز مشغول ترکیب قبلی است', 'bad'); return; }
+    if (!list || list.length < 3) { Sound.play('error'); UI.toast('⚗️ برای ترکیب ۳ میم کاملاً یکسان لازم است', 'bad'); return; }
+    const c = list[0].c, mut = list[0].mut;
+    for (const u of list.slice(0, 3)) { o.money += Math.floor(u.slot.pending); u.slot.pending = 0; u.slot.unit = null; u.dispose(true); }
+    this.busy = { c, mut: mut + 1, t: 0 }; W.fusion.boost = 1; Sound.play('fuse');
+    UI.closePanel(); UI.toast('⚗️ دستگاه دارد سه «' + c.name + '» را ترکیب می‌کند…', '');
+  },
+  update(dt) {
+    const b = this.busy; if (!b) return; b.t += dt; W.fusion.boost = 1;
+    const P0 = W.fusionPos;
+    if (Math.random() < dt * 30) { const a = Math.random() * TAU; FX.one(P0.x + Math.cos(a) * 2.1, 2.6, P0.z + Math.sin(a) * 2.1, { vx: -Math.cos(a) * 2.4, vy: -0.2, vz: -Math.sin(a) * 2.4, life: 0.8, size: 0.35, color: pick(['#ff6fcf', '#7af7ff', '#ffd23f']), grav: 0, drag: 0 }); }
+    if (b.t > 2.4) this.finish();
+  },
+  finish() {
+    const b = this.busy; if (!b) return; this.busy = null;
+    const o = G.player.owner, slot = o.freeSlot(), P0 = W.fusionPos;
+    const u = new Unit(b.c, b.mut);
+    if (!slot) { o.money += u.price; u.dispose(false); UI.toast('⚗️ جای خالی نبود؛ ارزش میم به پولت اضافه شد', ''); return; }
+    u.owner = o; u.slot = slot; slot.unit = u; slot.pending = 0; u.state = 'transit'; u.pos.set(P0.x, 0.05, P0.z + 3); u.setPlate('base');
+    setTransit(u, slot.base.slotPos[slot.li]);
+    FX.burst(tmpV.set(P0.x, 2.2, P0.z), { count: 60, color: [MUTATIONS[b.mut].color, '#ffffff', '#ffd23f'], speed: 8, up: true, life: 1.3 });
+    Sound.play('success'); UI.banner('⚗️ ترکیب موفق!', MUTATIONS[b.mut].name + ' · ' + b.c.name + ' — درآمد ×' + fa(MUTATIONS[b.mut].mult));
+    discover(b.c.id); Missions.event('fuse'); scheduleSave(true);
+  },
+};
+
+// ------------------------------------------------------------------ day / night cycle (6 minutes)
+const NIGHT_TOP = new THREE.Color('#0a0f2e'), NIGHT_HOR = new THREE.Color('#2b2f6e'), MOON = new THREE.Color('#9fb4ff'), SUNC = new THREE.Color('#fff0d8');
+const Day = {
+  t: 0.3, len: 480, k: 1,
+  label() { const s = Math.sin(this.t * TAU), c = Math.cos(this.t * TAU); void s; return this.k > 0.75 ? '☀️ روز' : this.k < 0.25 ? '🌙 شب' : c < 0 ? '🌇 غروب' : '🌅 طلوع'; },
+  update(dt) {
+    this.t = (this.t + dt / this.len) % 1;
+    const s = Math.sin(this.t * TAU), x = clamp((s + 0.55) / 0.4, 0, 1), k = x * x * (3 - 2 * x); this.k = k;
+    const u = skyMat.uniforms; u.top.value.copy(NIGHT_TOP).lerp(SKY_TOP, k); u.hor.value.copy(NIGHT_HOR).lerp(SKY_HOR, k);
+    scene.fog.color.copy(u.hor.value); renderer.setClearColor(u.hor.value, 1);
+    hemi.intensity = 0.75 * (0.2 + 0.8 * k); fill.intensity = 0.45 * (0.3 + 0.7 * k);
+    sun.color.copy(MOON).lerp(SUNC, k); sun.intensity = 2.7 * (G.sunTint || 1) * (0.1 + 0.9 * k);
+    renderer.toneMappingExposure = 1.05 * (0.52 + 0.48 * k);
+    if (W.lampMat) W.lampMat.emissiveIntensity = 0.4 + 4.5 * (1 - k);
+    if (W.stars) { W.stars.material.opacity = clamp((0.55 - k) * 1.8, 0, 1); W.stars.position.copy(camera.position); }
+    if (k < 0.4 && G.player && Math.random() < dt * 14 * (1 - k)) { const p = G.player.body.pos; FX.one(p.x + rand(-22, 22), rand(0.5, 3), p.z + rand(-22, 22), { vx: rand(-0.4, 0.4), vy: rand(-0.1, 0.3), vz: rand(-0.4, 0.4), life: 2.5, size: 0.22, color: pick(['#d8ff6a', '#fff27a']), grav: 0, drag: 0.2 }); }
+  },
+};
+
 // ------------------------------------------------------------------ extra plots the player can buy once the first base fills up
 const plotPrice = (o) => Math.round(5000 * Math.pow(10, o.bases.length - 1));
 function claimPlot(o, b, silent) {
@@ -2697,11 +2900,11 @@ function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQu
 function serialize() {
   return {
     v: 1, t: Date.now(), name: G.name, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
-    nextEventIn: Math.floor(G.nextEventIn),
+    nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending)] : null)) })),
   };
 }
-function doSave() { if (!G.owners.length) return; if (Shop.busy) Shop.finish(); saveQueued = false; G.lastSave = G.time; lsSet(SAVE_KEY, JSON.stringify(serialize())); }
+function doSave() { if (!G.owners.length) return; if (Shop.busy) Shop.finish(); if (Fusion.busy) Fusion.finish(); saveQueued = false; G.lastSave = G.time; lsSet(SAVE_KEY, JSON.stringify(serialize())); }
 function num(v, d, lo = 0, hi = 1e18) { v = Number(v); return isFinite(v) ? clamp(v, lo, hi) : d; }
 function loadSave() {
   const raw = lsGet(SAVE_KEY); if (!raw) return null;
@@ -2713,6 +2916,7 @@ function loadSave() {
 }
 function applySave(s) {
   G.name = typeof s.name === 'string' ? s.name.slice(0, 14) : G.name;
+  Day.t = num(s.dayT, 0.3, 0, 1); Missions.load(s.missions);
   G.playTime = num(s.playTime, 0); G.tutorialDone = !!s.tutorialDone; G.nextEventIn = num(s.nextEventIn, 150, 20, 400);
   if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(G.stats)) G.stats[k] = num(s.stats[k], 0);
   if (Array.isArray(s.discovered)) s.discovered.forEach((id) => { if (CHAR_BY_ID[id]) G.discovered.add(id); });
@@ -2820,6 +3024,7 @@ bindBtn('bSteal', () => doSteal());
 bindBtn('bDrop', () => doDrop());
 bindBtn('bCam', () => toggleCamMode());
 bindBtn('bSec', () => doSecurity());
+bindBtn('bSlap', () => doSlap());
 
 const KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
 window.addEventListener('keydown', (e) => {
@@ -2837,6 +3042,8 @@ window.addEventListener('keydown', (e) => {
     case 'KeyG': doDrop(); break;
     case 'KeyC': toggleCamMode(); break;
     case 'KeyQ': doSecurity(); break;
+    case 'KeyR': doSlap(); break;
+    case 'KeyJ': UI.openMissions(); break;
     case 'KeyB': if (INTERACT.kind === 'shop') UI.openShop(); else UI.toast('🛒 برای خرید باید خودت به فروشگاه (غرب میدان، کنار مغازه‌دار) بروی', 'bad'); break;
     case 'KeyI': UI.openInventory(); break;
     case 'KeyK': UI.openBook(); break;
@@ -2848,6 +3055,10 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) IN.keys.delete(KEYMAP[e.code]); if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.keys.delete('sprint'); });
 window.addEventListener('blur', () => { IN.keys.clear(); IN.camPtrs.clear(); IN.joy.id = null; IN.joy.x = IN.joy.y = 0; joyRest(); });
 
+function doSlap() {
+  const r = slap(G.player);
+  if (r === 'cd') { Sound.play('click'); UI.toast('🥊 دستت هنوز خسته است (' + fa(G.player.slapCd.toFixed(1)) + ' ثانیه)', ''); }
+}
 function toggleCamMode() { S.firstPerson = !S.firstPerson; saveSettings(); UI.toast(S.firstPerson ? '🎥 دوربین اول‌شخص' : '🎥 دوربین سوم‌شخص', ''); }
 function doSecurity() {
   const o = G.player.owner;
@@ -2890,6 +3101,7 @@ function computeInteract(dt) {
     else {
       let od = 1.9 * 1.9, ou = null; if (myBase) for (const s of o.slots) if (s.base === myBase && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < od) { od = d; ou = s; } }
       if (ou) R = { kind: 'info', slot: ou };
+      else if (dist2(p, W.fusionPos) < 4.6 * 4.6) R = { kind: 'fuse' };
       else if (dist2(p, W.shopPos) < 5 * 5) R = { kind: 'shop' };
       else if (dist2(p, W.boardPos) < 7 * 7) R = { kind: 'board' };
     }
@@ -2915,6 +3127,7 @@ function doInteract() {
     case 'plot': UI.confirm('خرید پایگاه جدید', 'این زمین را به قیمت ' + fmt(R.price) + ' سکه می‌خری؟ ۱۲ جای تازه برای میم‌هایت (با ظرفیت فعلی ' + fa(o.cap) + ' جای باز) می‌گیری.', () => buyPlot(o, R.base)); break;
     case 'info': UI.openUnit(R.slot); break;
     case 'shop': UI.openShop(); break;
+    case 'fuse': UI.openFusion(); break;
     case 'board': UI.openLeader(); break;
     case 'carry': UI.toast('🏃 میم را به پایگاه خودت برسان! (یا رها کن)', ''); break;
     default: if (!a.carrying) { Sound.play('click'); UI.toast('اینجا چیزی برای تعامل نیست — کنار نوار نقاله برو تا میم بخری', ''); }
@@ -3040,6 +3253,7 @@ const UI = {
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
       case 'shop': text = 'ورود به فروشگاه ارتقا ' + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
+      case 'fuse': text = '⚗️ دستگاه ترکیب: ۳ میم یکسان را یکی کن ' + k('E'); lbl = 'ترکیب'; break;
       case 'carry': text = '🏃 به پایگاهت برگرد! ' + k('G') + ' رها کردن'; lbl = 'تعامل'; break;
     }
     if (STEAL_U && !a.carrying) text = (text ? text + ' · ' : '') + 'دزدیدن «' + esc(STEAL_U.c.name) + '» ' + k('F');
@@ -3050,6 +3264,9 @@ const UI = {
     const sb = $('bSec'), pct = o.secT > 0 ? (o.secT / secDuration(o)) * 100 : o.secCd > 0 ? (1 - o.secCd / secCooldown(o)) * 100 : 0;
     sb.style.setProperty('--p', pct + '%'); sb.classList.toggle('off', o.secCd > 0); sb.classList.toggle('lit', o.secT > 0);
     $('mbDaily').classList.toggle('notify', G.daily.last !== todayKey());
+    $('mbMissions').classList.toggle('notify', Missions.ready());
+    $('dayChip').textContent = Day.label();
+    const sl = $('bSlap'), scd = slapCooldown(o); sl.style.setProperty('--p', (a.slapCd > 0 ? (1 - a.slapCd / scd) * 100 : 0) + '%'); sl.classList.toggle('off', a.slapCd > 0);
     this.updateFloats(dt);
   },
   // ---------------- world labels (pads, consoles, owner tags, billboard)
@@ -3215,12 +3432,37 @@ const UI = {
     this.openPanel('help', '❔ راهنمای بازی', '<div class="help"><p>🎯 <b>هدف:</b> ثروتمندترین صاحب پایگاه شو! میم‌ها را از نوار نقاله‌ی وسط بخر؛ هر میم توی پایگاهت هر ثانیه پول می‌سازد.</p>' +
       '<p>💰 پول‌ها روی <b>سکوی سبز</b> پایگاهت جمع می‌شوند؛ رویش برو تا برداری.</p>' +
       '<p>🏠 <b>پایگاه بیشتر:</b> وقتی پایگاهت پر شد، کنار یکی از زمین‌های «برای فروش» برو و «خرید زمین» را بزن. هر پایگاه ۱۲ جای میم دارد.</p>' +
+      '<p>🥊 <b>سیلی:</b> با دکمه‌ی «سیلی» (کلید <kbd>R</kbd>) حریف جلویت را چند ثانیه گیج کن. اگر دزد باشد، میمی که برده برمی‌گردد. حواست باشد دزدها هم گاهی سیلی می‌زنند!</p>' +
+      '<p>⚗️ <b>دستگاه ترکیب:</b> وسط میدان، ۳ میم یکسان را به یک نسخه‌ی طلایی، الماسی یا رنگین‌کمانی تبدیل کن.</p>' +
+      '<p>📜 <b>ماموریت‌ها:</b> سه ماموریت همیشه فعال است؛ انجامشان بده و جایزه بگیر.</p>' +
+      '<p>🌙 <b>شب:</b> هر چند دقیقه شب می‌شود؛ شب‌ها صاحب‌خانه‌ها دیرتر می‌فهمند که دزد آمده.</p>' +
       '<p>🛒 <b>فروشگاه:</b> ارتقاها را فقط باید حضوری از مغازه‌ی غرب میدان بخری؛ مغازه‌دار سفارشت را دستت می‌دهد.</p>' +
       '<p>🦹 <b>دزدی:</b> وارد پایگاه حریف شو، کنار یک میم «دزدی» را بزن و میم را تا پایگاه خودت ببر. موقع حمل میم آدرنالین داری و ۱۵٪ سریع‌تر می‌دوی. اگر صاحبش لمست کند، میم برمی‌گردد.</p>' +
       '<p>🛡️ <b>سپر لیزری:</b> برای مدتی ورود حریف‌ها را می‌بندد (خودت آزادانه رد می‌شوی). بعد از خاموشی باید صبر کنی تا دوباره آماده شود.</p>' +
       '<p>📱 <b>لمسی:</b> جوی‌استیک سمت چپ = حرکت · کشیدن سمت راست = چرخش دوربین · دو انگشت = زوم · دکمه‌های راست = پرش، دویدن، تعامل، دزدی، رها کردن، دوربین، امنیت.</p>' +
-      '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه (کنار مغازه) · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
+      '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>R</kbd> سیلی · <kbd>J</kbd> ماموریت‌ها · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه (کنار مغازه) · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
       '<p>✨ رویدادهای ویژه مثل «باران طلایی» و «ساعت شانس» گاهی پیش می‌آیند. با «تولد دوباره» درآمد دائمی بیشتری بگیر.</p></div>');
+  },
+  openMissions(re) {
+    Missions.ensure();
+    const rows = Missions.list.map((m, i) => {
+      const d = Missions.def(m), pct = Math.round(m.prog / m.n * 100);
+      return '<div class="upRow"' + (m.done ? ' style="border-color:var(--mint)"' : '') + '><div class="emo">' + d.emoji + '</div><div class="txt"><b>' + esc(Missions.text(m)) + '</b><small>' + (m.id === 'collect' ? fmt(m.prog) + ' / ' + fmt(m.n) : fa(m.prog) + ' / ' + fa(m.n)) + ' · جایزه: ' + fmt(m.reward) + ' سکه</small>' +
+        '<div style="height:6px;border-radius:4px;background:rgba(255,255,255,.12);margin-top:5px;overflow:hidden"><span style="display:block;height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--mint),var(--coin))"></span></div></div>' +
+        '<button class="act buy" type="button" data-claim="' + i + '"' + (m.done ? '' : ' disabled') + '>' + (m.done ? '🎉 دریافت' : '⏳') + '</button></div>';
+    }).join('');
+    const html = '<p class="note">هر ماموریت که تمام شود، جایزه‌اش را بگیر تا یک ماموریت تازه بیاید.</p>' + rows;
+    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('missions', '📜 ماموریت‌ها', html);
+  },
+  openFusion() {
+    const o = G.player.owner, g = Fusion.groups(o);
+    const cards = [...g.entries()].sort((x, y) => y[1].length - x[1].length || y[1][0].price - x[1][0].price).map(([key, list]) => {
+      const u = list[0], mu = MUTATIONS[u.mut], nx = MUTATIONS[u.mut + 1], ok = list.length >= 3, r = RARITIES[u.c.rarity];
+      return '<div class="card"' + (ok ? ' style="border-color:' + nx.color + '"' : ' style="opacity:.6"') + '><div class="top"><div class="emo">' + u.c.emoji + '</div><div style="min-width:0"><b>' + (mu.name ? mu.name + ' · ' : '') + esc(u.c.name) + '</b><span class="rar" style="background:' + r.color + '">' + r.name + '</span></div></div>' +
+        '<small>داری: ' + fa(list.length) + ' از ۳ · نتیجه: <b style="color:' + nx.color + ';display:inline">' + nx.name + '</b> (درآمد ×' + fa(nx.mult) + ')</small>' +
+        '<button class="act buy" type="button" data-fuse="' + key + '"' + (ok ? '' : ' disabled') + '>' + (ok ? '⚗️ ترکیب کن' : 'هنوز ' + fa(3 - list.length) + ' تا کم داری') + '</button></div>';
+    }).join('');
+    this.openPanel('fusion', '⚗️ دستگاه ترکیب', '<p class="note">سه میم کاملاً یکسان (هم‌نوع و هم‌جنس) را بده تا یک نسخه‌ی بهتر بگیری: معمولی ← طلایی (×۲) ← الماسی (×۳) ← رنگین‌کمانی (×۶). میم جدید خودش تا پایگاهت راه می‌رود.</p>' + (cards ? '<div class="grid">' + cards + '</div>' : '<p class="note">هنوز میمی در پایگاهت نداری.</p>'));
   },
   openPause() {
     if (!G.playing) return;
@@ -3252,6 +3494,8 @@ $('panelBody').addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t || t.disabled) return; const o = G.player.owner;
   Sound.init();
   if (t.dataset.up) { Shop.order(t.dataset.up); return; }
+  if (t.dataset.claim !== undefined) { Missions.claim(+t.dataset.claim); UI.openMissions(true); return; }
+  if (t.dataset.fuse) { Fusion.fuse(t.dataset.fuse); return; }
   if (t.dataset.sell !== undefined) { const s = o.slots[+t.dataset.sell]; if (s && s.unit) UI.confirm('فروش میم', 'مطمئنی می‌خواهی «' + s.unit.c.name + '» را به قیمت ' + fmt(Math.floor(s.unit.price * 0.5)) + ' بفروشی؟', () => { sellUnit(o, s); if (UI.panelKind === 'unit') UI.closePanel(); else UI.openInventory(true); }); return; }
   if (t.dataset.seg) return;
   if (t.parentElement && t.parentElement.dataset.seg) {
@@ -3288,6 +3532,7 @@ $('mbInv').addEventListener('click', () => UI.openInventory());
 $('mbBook').addEventListener('click', () => UI.openBook());
 $('mbLeader').addEventListener('click', () => UI.openLeader());
 $('mbDaily').addEventListener('click', () => UI.openDaily());
+$('mbMissions').addEventListener('click', () => UI.openMissions());
 
 // ------------------------------------------------------------------ interactive tutorial
 const Tutorial = {
@@ -3463,7 +3708,7 @@ function resetWorldTo(s) {
     for (const b of o.bases.slice(1)) releasePlot(o, b);
   }
   G.alerts.clear(); G.discovered.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
-  applySave(s);
+  applySave(s); Missions.ensure();
   seedRivals(s.owners.length);
   G.owners.forEach((o) => o.applyCap());
   for (const a of G.agents) a.respawn();
@@ -3502,7 +3747,7 @@ function menuInfo() {
 }
 function startPlay() {
   Sound.init(); setPlayerName($('nameInput').value);
-  $('menu').hidden = true; $('hud').hidden = false; G.playing = true;
+  $('menu').hidden = true; $('hud').hidden = false; G.playing = true; Missions.ensure();
   const a = G.player; CAM.yaw = a.yaw + Math.PI; CAM.pitch = 0.36; CAM.pivot.set(a.body.pos.x, a.body.pos.y + 1.65, a.body.pos.z); CAM.cur = S.zoom;
   UI.applySettings(); UI.buildMapBg(); joyRest(); checkOrientation();
   if (IS_TOUCH && document.documentElement.requestFullscreen && !document.fullscreenElement) {
@@ -3557,6 +3802,7 @@ async function init() {
   setLoad(90, 'در حال گرم کردن موتور گرافیکی…');
   await new Promise((r) => setTimeout(r, 0));
   try { renderer.compile(scene, camera); } catch (e) { /* optional */ }
+  Missions.ensure(); Day.update(0);
   UI.applySettings(false); menuInfo();
   setLoad(100, 'آماده!');
   setTimeout(() => { $('loading').hidden = true; $('menu').hidden = false; }, 250);
@@ -3595,6 +3841,7 @@ function simulate(dt) {
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
     if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
+    Fusion.update(dt); Day.update(dt);
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
@@ -3620,7 +3867,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { Unit, CHARS, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
