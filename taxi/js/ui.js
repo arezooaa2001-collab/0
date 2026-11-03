@@ -365,6 +365,19 @@ export class UI {
       $('cracks').style.opacity = crack;
       $('cracks').classList.toggle('hidden', !crack);
     }
+    // taximeter: the fare ticks up as you get closer to the destination
+    const rd = g.rides, rr = rd.ride;
+    let meter = '';
+    if (rr && rd.state === 'toDest') {
+      if (!rr.o.kind && rr.o.len > 0 && g.guide) meter = Math.round((rr.o.fare * clamp(1 - (g.guideDist || 0) / rr.o.len, 0.05, 1)) / 500) * 500;
+      else meter = rr.o.fare;
+    } else if (g.crazy.ride) meter = g.crazy.ride.fare + g.crazy.ride.tips;
+    const mt = meter === '' ? '' : `🚕 ${faMoney(meter)}`;
+    if (mt !== this.meterShown) {
+      this.meterShown = mt;
+      $('meter').textContent = mt;
+      $('meter').classList.toggle('hidden', !mt);
+    }
     $('money').textContent = faMoney(g.money);
     $('coinPill').classList.toggle('hidden', !g.coins);
     $('coins').textContent = fa(g.coins);
@@ -1113,7 +1126,7 @@ export class UI {
       <div class="menu">
         <button data-a="resume" class="big">▶ ادامه بازی</button>
         <label>کیفیت گرافیک <select data-s="quality"><option value="low">پایین</option><option value="medium">متوسط</option><option value="high">بالا</option></select></label>
-        <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option></select></label>
+        <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option><option value="bumper">دوربین سپر</option><option value="tv">🎬 دوربین تلویزیونی</option></select></label>
         <label>گیربکس <select data-s="auto"><option value="0">دستی</option><option value="1">خودکار</option></select></label>
         <label>حساسیت فرمان <input type="range" min="0.5" max="2" step="0.1" data-s="sens"></label>
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>

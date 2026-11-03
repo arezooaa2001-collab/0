@@ -231,7 +231,7 @@ export class Traffic {
     for (const c of this.cars) if (c.active && c.state !== 'incident' && Math.hypot(c.pos.x - x, c.pos.z - z) < r) c.deactivate();
   }
   init(p) {
-    for (let i = 0; i < this.cars.length * 0.8; i++) this.spawnNear(p, 30, 320);
+    for (let i = 0; i < (this.limit ?? this.cars.length) * 0.8; i++) this.spawnNear(p, 30, 320);
   }
   onHit(car, impact, by) {
     if (car.isFleet && by === this.game.player) {

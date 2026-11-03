@@ -27,6 +27,7 @@ import { Heli } from './heli.js';
 import { Thrills } from './thrills.js';
 import { Parking } from './parking.js';
 import { Fleet } from './fleet.js';
+import { Ambient } from './ambient.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -125,7 +126,10 @@ class Game {
     this.ui = new UI(this);
     setLoad('ماشین‌ها و آدم‌ها دارن میان تو خیابون...', 0.75);
     await nextFrame();
-    this.traffic = new Traffic(this, q === 'low' ? 16 : q === 'medium' ? 22 : 28);
+    this.trafficBase = q === 'low' ? 16 : q === 'medium' ? 22 : 28;
+    // the pool has room for rush hour; how many drive at once depends on the time of day
+    this.traffic = new Traffic(this, Math.round(this.trafficBase * 1.4));
+    this.traffic.setCount(this.trafficBase);
     this.police = new Police(this);
     this.rides = new Rides(this);
     this.peds = new Pedestrians(this, q === 'low' ? 8 : 14);
@@ -146,6 +150,7 @@ class Game {
     this.thrills = new Thrills(this);
     this.parking = new Parking(this);
     this.fleet = new Fleet(this);
+    this.ambient = new Ambient(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -269,6 +274,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV7) {
+        this.stats.seenV7 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 🎬 دوربین تلویزیونی و دوربین سپر (دکمه 🎥)، 🚕 تاکسیمتر، 🚦 ساعت شلوغی، ✈️ هواپیما، 🐦 پرنده‌ها و 🎈 بالن‌های کویر!', 'info'), 21500);
+      }
       if (!this.stats.seenV6) {
         this.stats.seenV6 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 💼 شرکت تاکسیرانی خودت، 🧽 کارواش، 📯 بوق‌های باحال، 📸 مسافر توریست، 👻 ماشین شبح توی مسابقه، 🌪️ طوفان شن و 📡 هشدار دوربین!', 'info'), 17000);
@@ -287,6 +296,7 @@ class Game {
     this.stats.seenV4 = true;
     this.stats.seenV5 = true;
     this.stats.seenV6 = true;
+    this.stats.seenV7 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -359,7 +369,7 @@ class Game {
 
   /* ---------------- camera ---------------- */
   cycleCamera() {
-    const order = ['third', 'first', 'far'];
+    const order = ['third', 'first', 'far', 'bumper', 'tv'];
     this.setCamera(order[(order.indexOf(this.camMode) + 1) % order.length]);
   }
   setCamera(mode, silent) {
@@ -373,7 +383,8 @@ class Game {
     this.arrow.group.position.set(0, fp ? 1.02 : 2.6, fp ? 0.62 : 0);
     this.arrow.group.scale.setScalar(fp ? 0.075 : 0.85);
     this.camInit = true;
-    if (!silent) this.ui.toast(fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : '🎥 دید سوم شخص', 'info');
+    this.tvCam = null;
+    if (!silent) this.ui.toast(fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : mode === 'bumper' ? '🎥 دوربین سپر — خیلی نزدیک به جاده!' : mode === 'tv' ? '🎬 دوربین تلویزیونی — مثل پخش زنده مسابقه!' : '🎥 دید سوم شخص', 'info');
     this.saveSettings();
   }
   /** total buying power: cash plus coins (1 coin = 10,000 tomans) */
@@ -486,7 +497,16 @@ class Game {
       }
     }
     const spd = Math.abs(p.speed);
-    if (this.camMode === 'first') {
+    if (this.camMode === 'bumper') {
+      // low camera on the front bumper
+      const f = new THREE.Vector3(0, 0.62, p.car.P.len / 2 + 0.15).applyQuaternion(p.group.quaternion).add(p.group.position);
+      cam.position.copy(f);
+      const q = p.group.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.04 + this.lookPitch, Math.PI + this.lookYaw, 0, 'YXZ')));
+      cam.quaternion.copy(q);
+      cam.fov = damp(cam.fov, 72 + spd * 0.3 + (p.nitroOn ? 14 : 0), 3, dt);
+    } else if (this.camMode === 'tv') {
+      this.updateTvCamera(dt);
+    } else if (this.camMode === 'first') {
       const eye = p.driver.head.localToWorld(new THREE.Vector3(0, 0.12, 0.09));
       cam.position.copy(eye);
       const q = p.group.quaternion.clone();
@@ -529,6 +549,48 @@ class Game {
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
     cam.updateProjectionMatrix();
+  }
+
+  /** busy streets at rush hour, quiet roads late at night */
+  updateRushHour(dt) {
+    this.rushT = (this.rushT || 0) - dt;
+    if (this.rushT > 0 || this.state !== 'play') return;
+    this.rushT = 3;
+    const h = this.hour;
+    const rush = (h >= 7 && h < 9.5) || (h >= 17 && h < 20);
+    const k = rush ? 1.4 : h >= 23 || h < 5 ? 0.5 : 1;
+    this.traffic.setCount(Math.round(this.trafficBase * k));
+    if (rush !== this.wasRush) {
+      if (rush && this.wasRush !== undefined) this.ui.toast('🚦 ساعت شلوغی! خیابون‌ها پر از ماشینه', 'info');
+      this.wasRush = rush;
+    }
+  }
+  /** roadside "live broadcast" cameras: one waits ahead, follows the car past, then cuts to the next */
+  updateTvCamera(dt) {
+    const cam = this.camera, p = this.player, w = this.world;
+    const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+    const tc = this.tvCam;
+    const d = tc ? Math.hypot(tc.x - p.pos.x, tc.z - p.pos.z) : Infinity;
+    const behind = tc ? (tc.x - p.pos.x) * fx + (tc.z - p.pos.z) * fz < -45 : true;
+    if (!tc || behind || d > 160 || this.camInit) {
+      // place the next camera ahead, off to one side
+      const ahead = 35 + Math.min(60, Math.abs(p.speed) * 1.6);
+      const side = Math.random() < 0.5 ? 1 : -1;
+      let x = p.pos.x + fx * ahead + fz * side * (8 + Math.random() * 6), z = p.pos.z + fz * ahead - fx * side * (8 + Math.random() * 6);
+      let h = 1.6 + Math.random() * 3.5;
+      const q = [];
+      w.statics.query(x, z, 2, q);
+      if (q.some((o) => o.building)) h = 22 + Math.random() * 10; // rooftop camera in the city
+      this.tvCam = { x, z, y: w.heightAt(x, z) + h };
+      cam.position.set(this.tvCam.x, this.tvCam.y, this.tvCam.z);
+    }
+    const T = this.tvCam;
+    cam.position.set(T.x, T.y, T.z);
+    const look = new THREE.Vector3(p.pos.x, p.y + 0.9, p.pos.z);
+    cam.lookAt(look);
+    // telephoto zoom: keep the car a similar size on screen
+    const dist = Math.max(4, cam.position.distanceTo(look));
+    cam.fov = damp(cam.fov, THREE.MathUtils.clamp((Math.atan(5 / dist) * 360) / Math.PI, 14, 70), 4, dt);
   }
 
   /* ---------------- guidance ---------------- */
@@ -913,6 +975,8 @@ class Game {
     this.crazy.update(dt);
     this.parking.update(dt);
     this.fleet.update(dt);
+    this.ambient.update(dt);
+    this.updateRushHour(dt);
     this.heli.update(dt);
     if (st === 'play') {
       this.pickups.update(dt);

@@ -506,3 +506,6 @@ body.timedmode .achpop { top: 44%; transform: translateX(-50%) scale(.85); }
 .hornrow button { flex: 1 1 30%; display: flex; flex-direction: column; align-items: center; gap: 2px; background: rgba(255,255,255,.1) !important; }
 .hornrow button.cur { background: rgba(255,210,26,.35) !important; border: 1px solid var(--yellow); }
 .hornrow small { font-size: 10px; opacity: .8; font-weight: 400; }
+
+/* taximeter */
+#meter { margin-top: 3px; font: 800 13px/1.2 'Vazirmatn', Tahoma, sans-serif; color: #ff5252; background: #140404; border: 1px solid #5a1010; border-radius: 6px; padding: 2px 8px; text-shadow: 0 0 6px rgba(255,60,60,.8); letter-spacing: 1px; direction: rtl; }
