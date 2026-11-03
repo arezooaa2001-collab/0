@@ -609,6 +609,13 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .ach-h{margin:10px 0 6px;font:600 13px/1.7 var(--body);color:var(--paper)}.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:10px}
 .ach{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;opacity:.55}.ach.on{opacity:1;border-color:rgba(255,210,58,.6);background:rgba(255,210,58,.1)}.ach b{font:700 13px var(--body)}.ach small{font:500 11px/1.5 var(--body);color:var(--dim)}
 #wanted{color:#ff5a5a;letter-spacing:2px;font-size:15px;border-color:rgba(255,90,90,.6)}#wanted.flash{color:#7aa8ff;border-color:rgba(90,140,255,.7)}
+.rlt-list{flex:1;overflow-y:auto}.rlt-row{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid rgba(127,127,127,.15);background:none;padding:10px 14px;text-align:start;cursor:pointer;color:inherit}
+.rlt-row span:nth-child(2){flex:1;display:flex;flex-direction:column;min-width:0}.rlt-row b{font:700 13.5px var(--body)}.rlt-row small{opacity:.6;font:500 11.5px var(--body)}.rlt-row i{font:800 12px var(--body);color:#a62a2a;font-style:normal;white-space:nowrap}.rlt-row.mine i{color:#2a8a4a}
+.rlt-ic{font-size:26px}.rlt-sort{display:flex;gap:6px;padding:0 12px 6px}.rlt-sort button{border:1px solid rgba(127,127,127,.3);background:none;border-radius:999px;padding:5px 12px;font:600 12px var(--body);cursor:pointer;color:inherit}.rlt-sort button.on{background:#a62a2a;color:#fff;border-color:#a62a2a}
+.rlt-mine{margin:0 12px 8px;border:0;border-radius:14px;background:#e6f4ea;color:#1e6a3a;padding:10px;font:700 13px var(--body);cursor:pointer;text-align:start}
+.rlt-det{flex:1;overflow-y:auto;padding:0 14px 14px}.rlt-det p{font:500 13px/1.8 var(--body);margin:8px 0}.rlt-pic{height:150px;border-radius:16px;display:grid;place-items:center;font-size:70px}
+.rlt-price{font:800 20px var(--body);color:#a62a2a;margin:10px 0 4px}.rlt-tags{display:flex;flex-wrap:wrap;gap:6px}.rlt-tags span{background:rgba(127,127,127,.12);border-radius:999px;padding:4px 10px;font:600 11.5px var(--body)}
+.rlt .ph-pill{--acc:#a62a2a}.rlt-buy{flex:1}.rlt-err{color:#d93025}
 /* games */
 .ph-app.game{background:#111;color:#fff}
 .gm-hud{display:flex;gap:10px;align-items:center;padding:8px 12px;font:600 12px var(--body);flex:none}
@@ -903,6 +910,8 @@ body.ph-cam .hud,body.ph-cam #bubbles,body.ph-cam #pad,body.ph-cam #joy-hint,bod
     <button id="gm-tow" type="button" class="gm-btn primary">زنگ بزن یدک‌کش بیاد دنبال ماشینم</button>
     <button id="gm-go" type="button" class="gm-btn">برو به تعمیرگاه (با ماشین یا پیاده)</button>
     <button id="gm-route" type="button" class="gm-btn">مسیر تعمیرگاه را روی نقشه نشان بده</button>
+    <p>تیونینگ (ماشین جلوی تعمیرگاه): <span id="gm-tune-s"></span></p>
+    <div class="gm-row"><button id="gm-eng" type="button" class="gm-btn">🔧 تیون موتور</button><button id="gm-spoiler" type="button" class="gm-btn">اسپویلر (۲ میلیون)</button></div>
     <p>رنگ‌کاری ماشین (۱٫۵ میلیون تومان، ماشین باید جلوی تعمیرگاه باشه):</p>
     <div id="gm-paint"></div>
     <p id="gm-msg" style="color:var(--amber)"></p>

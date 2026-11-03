@@ -2711,10 +2711,13 @@ function buildInterior(door) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.025, 8, 28), new THREE.MeshStandardMaterial({ color: 0x3a2a1a })); rim.position.copy(ck.position); interiorScene.add(rim);
       interior.clock = { g: c.getContext('2d'), tex, last: -1 }; }
     lights.push([-3, H - 0.4, 1.5, 0xffe0b8, 26], [3, H - 0.4, -1.5, 0xffe0b8, 26]);
+    if (store.myHome === key) { setTimeout(() => banner('خونهٔ خودت 🏠', 'استراحت کن؛ تختت آماده‌ست'), 400); }
+    else {
     const res = residentFor(key); res.mode = 'wander'; res.spots = [[0, 3], [1.2, 1.2], [-0.2, -1.5], [1.6, -2.8], [-1.8, -2.4], [0.5, 0.3]];
     res.pos.set(1.2, 0, 1.2); interiorPool.attach(res); interior.npcs.push(res);
     const pp = res.persona; pp.met++;
     say(res, pp.mem.carTaken ? 'تو؟! تو خونهٔ من چیکار می‌کنی؟' : pp.met > 1 ? `${pp.mem.playerName ? pp.mem.playerName + '! ' : ''}باز هم اومدی؟ خوش اومدی!` : mpick([`سلام! من ${pp.name}م، خوش اومدی`, 'به به! بفرما داخل', 'سلام همسایه!', 'چای می‌خوری؟']), 3);
+    }
     // things in the house you can use
     const it = (id, x, z, r, label, use) => interior.items.push({ id, x, z, r, label, use });
     const bz = -D / 2 + 1.15;
@@ -5992,6 +5995,7 @@ const PH_IC = {
   clock: ['#20262e', '<circle cx="12" cy="12" r="8.6" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 6.8V12l3.6 2.2" stroke="#7fd0ff" stroke-width="2" fill="none" stroke-linecap="round"/>'],
   calc: ['#2fa35a', '<path d="M5 8h5M7.5 5.5v5M14 8h5M5.6 15.6l3.8 3.8M9.4 15.6l-3.8 3.8M14 15.6h5M14 19.2h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>'],
   notes: ['#f39a1e', '<path d="M5 19.5l1.1-4.2L16.3 5.1l3.1 3.1L9.2 18.4z" fill="#fff"/><path d="M5 21h14" stroke="#fff" stroke-width="1.6"/>'],
+  realty: ['#a62a2a', '<path d="M4 11.5L12 5l8 6.5V20h-5.5v-5h-5v5H4z" fill="#fff"/><circle cx="17.5" cy="7" r="2.6" fill="#ffd23a"/>'],
   maps: ['#ffffff', '<path d="M2 6l6-2 8 3 6-2v13l-6 2-8-3-6 2z" fill="#e8f0e4"/><path d="M8 4v15M16 7v15" stroke="#9ec98f" stroke-width="1.4"/><path d="M12 3a5 5 0 0 0-5 5c0 3.7 5 9.5 5 9.5s5-5.8 5-9.5a5 5 0 0 0-5-5z" fill="#ea4335"/><circle cx="12" cy="8" r="1.9" fill="#a3221a"/>'],
   weather: ['#3a8be0', '<circle cx="9" cy="9" r="4" fill="#ffd23a"/><path d="M8.5 19h8.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.4 1.4A2.8 2.8 0 0 0 8.5 19z" fill="#fff"/>'],
   youtube: ['#ffffff', '<rect x="2.5" y="6" width="19" height="12.5" rx="4" fill="#ff0033"/><path d="M10 9.2v6.1l5.2-3.05z" fill="#fff"/>'],
@@ -6012,9 +6016,9 @@ const PH_IC = {
 };
 const PH_APPS = {
   phone: { n: 'تلفن' }, messages: { n: 'پیام‌ها' }, camera: { n: 'دوربین' }, gallery: { n: 'گالری' }, chrome: { n: 'Chrome' }, google: { n: 'Google' }, play: { n: 'Play Store' },
-  gemini: { n: 'Gemini', store: 1 }, chatgpt: { n: 'ChatGPT', store: 1 }, youtube: { n: 'YouTube' }, maps: { n: 'نقشه' }, weather: { n: 'هوا' }, clock: { n: 'ساعت' }, calc: { n: 'ماشین‌حساب' }, notes: { n: 'یادداشت' }, settings: { n: 'تنظیمات' }
+  realty: { n: 'املاک' }, gemini: { n: 'Gemini', store: 1 }, chatgpt: { n: 'ChatGPT', store: 1 }, youtube: { n: 'YouTube' }, maps: { n: 'نقشه' }, weather: { n: 'هوا' }, clock: { n: 'ساعت' }, calc: { n: 'ماشین‌حساب' }, notes: { n: 'یادداشت' }, settings: { n: 'تنظیمات' }
 };
-const PH_DOCK = ['phone', 'messages', 'chrome', 'camera'], PH_HOME = ['google', 'gemini', 'chatgpt', 'play', 'gallery', 'youtube', 'maps', 'weather', 'clock', 'calc', 'notes', 'settings'];
+const PH_DOCK = ['phone', 'messages', 'chrome', 'camera'], PH_HOME = ['google', 'gemini', 'chatgpt', 'play', 'gallery', 'youtube', 'maps', 'realty', 'weather', 'clock', 'calc', 'notes', 'settings'];
 const PH_WALLS = {
   oneui: ['linear-gradient(165deg,#0d1b4a 0%,#3b2a8a 45%,#c0508a 80%,#f2a07a 100%)', 'radial-gradient(120% 70% at 30% 20%,#2f7dd1 0%,#122a5a 55%,#060b1d 100%)', 'linear-gradient(180deg,#f6d0c4,#c9a0e8 55%,#6a7ae0)', 'linear-gradient(160deg,#0f3d2e,#1d7a5a 50%,#d6e8a0)'],
   lg: ['radial-gradient(90% 60% at 70% 30%,#c8102e 0%,#5a0a1e 55%,#14060a 100%)', 'linear-gradient(170deg,#1a2a3a,#3a6a7a 60%,#a8d8d0)', 'linear-gradient(160deg,#2a2a2a,#6a6a6a)', 'linear-gradient(180deg,#ffd8a8,#ff8a6a 60%,#7a2a5a)'],
@@ -7806,6 +7810,8 @@ const ACH = [
   { id: 'hero', n: 'سوپرمن', d: 'با زورت پرواز کن', t: () => (store.stats.heroFly || 0) >= 1 },
   { id: 'wanted5', n: 'تحت تعقیب', d: 'پنج ستاره تحت تعقیب پلیس شو', t: () => (store.stats.wanted || 0) >= 5 },
   { id: 'escape', n: 'فراری', d: 'از دست پلیس فرار کن', t: () => (store.stats.escapes || 0) >= 1 },
+  { id: 'home', n: 'صاحب‌خونه', d: 'یه خونه یا آپارتمان بخر', t: () => store.myHome != null },
+  { id: 'tune3', n: 'ماشین مسابقه‌ای', d: 'موتور ماشینت رو تا مرحلهٔ ۳ تیون کن', t: () => cars.some(c => c.tune && c.tune.eng >= 3) },
   { id: 'rich', n: 'پولدار', d: '۲۰۰ میلیون تومان پول داشته باش', t: () => store.money >= 200000000 }
 ];
 let achT = 0;
@@ -7895,11 +7901,11 @@ function busted(c) {
     if (P.state === 'car') exitCar(); if (P.state === 'passenger') { if (P.car === bus) leaveBus(); else if (ride.phase && P.car === ride.car) leaveRide(); else leaveTow(); }
     if (P.state === 'fly') leaveFlyerForce(); P.hero = false; P.hover = false; if (liftCar) dropLift();
     store.money -= fine; updateWalletHUD(); police.stars = 0; police.calm = 0; store.stats.busted = (store.stats.busted || 0) + 1;
-    const st = world.doors.find(d => /پلیس|کلانتری/.test(d.name)); const x = st ? st.x + st.nx * 2 : -6, z = st ? st.z + st.nz * 2 : 6;
+    const st = myHomeDoor() || world.doors.find(d => /پلیس|کلانتری/.test(d.name)); const x = st ? st.x + st.nx * 2 : -6, z = st ? st.z + st.nz * 2 : 6;
     P.pos.set(x, groundH(x, z) + 0.05, z); P.vel.set(0, 0, 0); P.state = 'foot'; P.anim.special = null;
     for (const k of police.cars) { k.chase = false; if (k.ai) k.ai.clearDest(); }
     tod = (tod + 8) % 24; envTod = -99;
-    banner('دستگیر شدی! 🚔', `جریمه: ${fmtT(fine)} · یه شب تو کلانتری موندی و صبح آزادت کردن`); logEvent('پلیس یه خلافکار رو تو شهر دستگیر کرد!'); saveGame();
+    banner('دستگیر شدی! 🚔', `جریمه: ${fmtT(fine)} · یه شب تو کلانتری موندی و صبح آزادت کردن${myHomeDoor() ? '؛ الان جلوی خونه‌تی' : ''}`); logEvent('پلیس یه خلافکار رو تو شهر دستگیر کرد!'); saveGame();
   });
 }
 /* ---------- Superman flight: with strength on and flight enabled, press jump again while in the air ---------- */
@@ -7915,6 +7921,88 @@ function heroStep(dt, dx, dz, mag, running) {
   P.anim.special = 'hero'; P.anim.sw = 1;
   if (Math.random() < dt * 30) FX.emit(P.pos.x, P.pos.y + 0.6, P.pos.z, -P.vel.x * 0.05, -P.vel.y * 0.05, -P.vel.z * 0.05, 0.5, 0.05, 0.5, 0xffe08a, 0.4, 0.1);
 }
+
+/* ============================================================
+   Real estate: buy a house or flat on the phone; it becomes your home (no tenant, your bed, released there by the police)
+   ============================================================ */
+function homeInfo(d) {
+  const key = world.doors.indexOf(d), r = makeRng(key * 7919 + 13), dc = Math.hypot(d.x, d.z), flat = d.kind === 'apt';
+  const area = Math.round(flat ? 65 + r() * 70 : 140 + r() * 220), rooms = flat ? 1 + Math.floor(area / 55) : 2 + Math.floor(area / 80);
+  const per = (flat ? 0.7 : 0.62) * (1.25 - Math.min(0.5, dc / 900)) * (0.85 + r() * 0.3);
+  return { key, d, name: d.name, flat, area, rooms, year: 1375 + Math.floor(r() * 28), price: Math.round(area * per * 1000000 / 1000000) * 1000000, parking: !flat || r() < 0.6 };
+}
+function homeList() { return world.doors.filter(d => (d.kind === 'house' || d.kind === 'apt') && !d.dead).map(homeInfo); }
+function buyHome(h) {
+  if (store.myHome === h.key) return 'این خونه مال خودته!';
+  const old = store.myHome != null ? homeInfo(world.doors[store.myHome]) : null, refund = old ? Math.round(old.price * 0.8 / 1000000) * 1000000 : 0;
+  if (store.money + refund < h.price) return `موجودی کافی نیست (${fmtT(h.price)} لازمه${refund ? '، با فروش خونهٔ قبلی ' + fmtT(refund) : ''})`;
+  store.money += refund - h.price; store.myHome = h.key; updateWalletHUD(); Audio.beepPay(3);
+  const rs = store.residents[h.key]; if (rs && rs.persona) logEvent(`${rs.persona.name} خونه‌اش رو فروخت و از ${h.name} رفت.`);
+  setTimeout(() => phoneSms('دفتر املاک', `مبارک باشه! «${h.name}» (${fa(h.area)} متر) به نامت شد. مبلغ: ${fmtT(h.price)}${refund ? `\nخونهٔ قبلی فروخته شد: ${fmtT(refund)}` : ''}`), 1000);
+  banner('صاحب‌خونه شدی! 🏠', `${h.name} · ${fa(h.area)} متر · ${fa(h.rooms)} خوابه`); store.stats.homes = (store.stats.homes || 0) + 1; saveGame();
+  return null;
+}
+function myHomeDoor() { return store.myHome != null ? world.doors[store.myHome] : null; }
+PH_RUN.realty = box => {
+  box.classList.add('rlt'); let sort = 'near', sel = null;
+  const render = () => {
+    const P = player, mine = store.myHome, L = homeList().map(h => Object.assign(h, { dist: Math.hypot(h.d.x - P.pos.x, h.d.z - P.pos.z) }));
+    L.sort((a, b) => sort === 'cheap' ? a.price - b.price : sort === 'big' ? b.area - a.area : a.dist - b.dist);
+    if (sel) {
+      const h = L.find(x => x.key === sel); const own = mine === h.key;
+      box.innerHTML = `<div class="ph-head"><button type="button" class="ph-backb" data-a="back">‹</button><b>${phEsc(h.name)}</b></div><div class="rlt-det">
+        <div class="rlt-pic" style="background:linear-gradient(160deg,${h.flat ? '#6a8ab0,#2a3a5a' : '#c98a5a,#5a3a2a'})">${h.flat ? '🏢' : '🏡'}</div>
+        <div class="rlt-price">${own ? 'مال خودت' : fmtT(h.price)}</div>
+        <div class="rlt-tags"><span>${fa(h.area)} متر</span><span>${fa(h.rooms)} خواب</span><span>ساخت ${fa(h.year)}</span><span>${h.parking ? 'پارکینگ دارد' : 'بدون پارکینگ'}</span><span>${fa(Math.round(h.dist))} متر از تو</span></div>
+        <p>${h.flat ? 'آپارتمان دنج و نورگیر' : 'خونهٔ ویلایی حیاط‌دار'} در ${phEsc(streetAt(h.d.x, h.d.z))}. بعد از خرید، خونه کاملاً مال خودته: می‌تونی توش بخوابی، گوشیت اونجا شارژ می‌شه و اگه پلیس بگیرتت، از کلانتری می‌فرستنت همین‌جا.</p>
+        <div class="ai-row"><button type="button" class="ph-pill" data-a="go">مسیر روی نقشه</button>${own ? '' : `<button type="button" class="ph-pill rlt-buy" data-a="buy">خرید ${fmtT(h.price)}</button>`}</div><p class="rlt-err"></p></div>`;
+      box._h = h; return;
+    }
+    const my = mine != null ? L.find(x => x.key === mine) : null;
+    box.innerHTML = `<div class="ph-head"><b>املاک شهر</b></div>${my ? `<button type="button" class="rlt-mine" data-k="${my.key}">🏠 خونهٔ من: ${phEsc(my.name)} · ${fa(my.area)} متر</button>` : ''}
+      <div class="rlt-sort"><button type="button" data-s="near" class="${sort === 'near' ? 'on' : ''}">نزدیک‌ترین</button><button type="button" data-s="cheap" class="${sort === 'cheap' ? 'on' : ''}">ارزان‌ترین</button><button type="button" data-s="big" class="${sort === 'big' ? 'on' : ''}">بزرگ‌ترین</button></div>
+      <div class="rlt-list">${L.slice(0, 40).map(h => `<button type="button" class="rlt-row${h.key === mine ? ' mine' : ''}" data-k="${h.key}"><span class="rlt-ic">${h.flat ? '🏢' : '🏡'}</span><span><b>${phEsc(h.name)}</b><small>${fa(h.area)} متر · ${fa(h.rooms)} خواب · ${fa(Math.round(h.dist))} متر</small></span><i>${h.key === mine ? 'مال تو' : fmtT(h.price)}</i></button>`).join('')}</div>`;
+  };
+  box.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return; Audio.tick();
+    if (b.dataset.s) { sort = b.dataset.s; render(); return; }
+    if (b.dataset.k) { sel = +b.dataset.k; render(); return; }
+    const a = b.dataset.a, h = box._h;
+    if (a === 'back') { sel = null; render(); } else if (a === 'go') { setWaypoint({ name: h.name, x: h.d.x, z: h.d.z }); phNote('مسیر روی نقشه و فلش راهنما'); }
+    else if (a === 'buy') { const err = buyHome(h); if (err) box.querySelector('.rlt-err').textContent = err; else render(); }
+  };
+  render();
+  return { back() { if (sel) { sel = null; render(); return true; } return false; } };
+};
+/* ============================================================
+   Tuning at the garage: engine stages and a spoiler, per car, saved with the car
+   ============================================================ */
+const TUNE_COST = [0, 3000000, 8000000, 20000000], SPOILER_COST = 2000000;
+function applyTune(c) {
+  const base = CAR_TYPES[c.type], st = (c.tune && c.tune.eng) || 0;
+  c.T = st ? Object.assign({}, base, { engine: base.engine * (1 + 0.28 * st), vmax: base.vmax * (1 + 0.2 * st) }) : base;
+  if (c.tune && c.tune.spoiler && !c.spoilerMesh) {
+    const t = c.T, m = new THREE.Group(), mat = c.paint, blk = CarMats.black;
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(t.wid * 0.9, 0.05, 0.36), mat); wing.position.y = 0.32; m.add(wing);
+    for (const s of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.12), blk); leg.position.set(s * t.wid * 0.3, 0.16, 0); m.add(leg); }
+    m.position.set(0, t.tailY + 0.32, t.rear + 0.35); c.body.add(m); c.spoilerMesh = m;
+  }
+}
+function tuneCar(what) {
+  const P = player, car = P.state === 'car' ? P.car : P.lastCar;
+  if (!car || car.isTow || car.service || car.police) return 'ماشین شخصی نداری که تیون کنیم.';
+  if (Math.hypot(car.x - garage.road.x, car.z - garage.road.z) > 45) return 'ماشینت رو بیار جلوی تعمیرگاه.';
+  car.tune = car.tune || { eng: 0, spoiler: false };
+  let cost;
+  if (what === 'eng') { if (car.tune.eng >= 3) return 'موتور این ماشین تا آخرین مرحله تیون شده!'; cost = TUNE_COST[car.tune.eng + 1]; }
+  else { if (car.tune.spoiler) return 'این ماشین اسپویلر داره.'; cost = SPOILER_COST; }
+  if (store.money < cost) return 'موجودی کافی نیست.';
+  store.money -= cost; updateWalletHUD(); Audio.beepPay(2); Audio.drill && Audio.drill(car.x, car.z);
+  if (what === 'eng') car.tune.eng++; else car.tune.spoiler = true;
+  applyTune(car); store.stats.tunes = (store.stats.tunes || 0) + 1; saveGame();
+  return what === 'eng' ? `موتور مرحلهٔ ${fa(car.tune.eng)} شد! حداکثر سرعت حدود ${fa(Math.round(car.T.vmax * 3.6))} کیلومتر · ${fmtT(cost)}` : `اسپویلر نصب شد · ${fmtT(cost)}`;
+}
+function tuneStatus() { const P = player, car = P.state === 'car' ? P.car : P.lastCar; if (!car || car.isTow || car.service) return 'ماشینی نداری'; const e = (car.tune && car.tune.eng) || 0; return `موتور: مرحلهٔ ${fa(e)} از ۳${e < 3 ? ` (بعدی ${fmtT(TUNE_COST[e + 1])})` : ''} · اسپویلر: ${car.tune && car.tune.spoiler ? 'دارد' : 'ندارد'}`; }
 
 /* ============================================================
    Audio (synthesised)
@@ -8128,7 +8216,9 @@ $('btn-phone').addEventListener('click', () => { if (phone.open) phoneClose(); e
 $('bag-close').addEventListener('click', () => toggleBag(false));
 $('bag-cap').addEventListener('click', () => { store.capOff = !store.capOff; rebuildPlayerLook(); renderBag(); saveGame(); });
 for (const ev of ['pointerdown', 'touchstart']) $('bag').addEventListener(ev, e => e.stopPropagation(), { passive: true });
-$('btn-garage').addEventListener('click', () => { $('garage-menu').hidden = false; $('gm-status').textContent = garageStatus(); $('gm-msg').textContent = ''; });
+$('btn-garage').addEventListener('click', () => { $('garage-menu').hidden = false; $('gm-status').textContent = garageStatus(); $('gm-msg').textContent = ''; $('gm-tune-s').textContent = tuneStatus(); });
+$('gm-eng').addEventListener('click', () => { $('gm-msg').textContent = tuneCar('eng'); $('gm-tune-s').textContent = tuneStatus(); });
+$('gm-spoiler').addEventListener('click', () => { $('gm-msg').textContent = tuneCar('spoiler'); $('gm-tune-s').textContent = tuneStatus(); });
 $('gm-close').addEventListener('click', () => { $('garage-menu').hidden = true; });
 $('gm-paint').innerHTML = PAINTS.map(([n, c]) => `<button type="button" title="${n}" data-c="${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('');
 $('gm-paint').addEventListener('click', e => { const c = e.target.closest('button')?.dataset.c; if (!c) return; const m = paintCar(+c); $('gm-msg').textContent = m || `ماشینت رنگ شد! (${fmtT(PAINT_COST)})`; });
@@ -8477,6 +8567,7 @@ function places() {
     for (const [k, syn] of SYN) if (d.name.includes(k)) keys.push(...syn.split(' '));
     out.push({ name: d.name, keys, x: d.x, z: d.z, dist: Math.hypot(d.x - player.pos.x, d.z - player.pos.z) });
   }
+  { const hd = myHomeDoor(); if (hd) out.push({ name: 'خانهٔ من', keys: ['خانه', 'خونه', 'منزل', 'خانهٔ من'], x: hd.x, z: hd.z, dist: Math.hypot(hd.x - player.pos.x, hd.z - player.pos.z) }); }
   out.push({ name: 'تعمیرگاه مرکزی شهر', keys: ['تعمیرگاه', 'مکانیک', 'تعمیر', 'یدک', 'جرثقیل', 'صافکاری'], x: roadX(1) - RH - 2, z: 0, dist: Math.hypot(roadX(1) - RH - 2 - player.pos.x, player.pos.z) });
   out.push({ name: 'پاساژ آزادی (مرکز خرید)', keys: ['پاساژ', 'مرکز خرید', 'مال', 'خرید', 'فروشگاه', 'هایپر', 'فودکورت', 'لباس', 'کفش', 'موبایل', 'گوشی'], x: mall.x0 - 3, z: 0, dist: Math.hypot(mall.x0 - 3 - player.pos.x, player.pos.z) });
   for (const S of mall.shops) out.push({ name: `${S.name} (پاساژ آزادی، ${S.floor ? 'طبقهٔ اول' : 'همکف'})`, keys: S.name.split(/\s+/).filter(w => w.length > 2).map(w => norm(w)), x: mall.x0 - 3, z: 0, dist: Math.hypot(mall.x0 - 3 - player.pos.x, player.pos.z) + 1 });
@@ -8560,16 +8651,16 @@ let lastSave = 0, restored = false;
 const serPersona = p => ({ ...p, mem: { ...p.mem, used: [...(p.mem.used || [])] }, hist: (p.hist || []).slice(-10) });
 const deserPersona = o => { o.mem = o.mem || {}; o.mem.used = new Set(o.mem.used || []); o.mem.facts = o.mem.facts || {}; o.hist = o.hist || []; return o; };
 function snapshot() {
-  const P = player, list = cars.filter(c => !c.isTow && !c.service);
+  const P = player, list = cars.filter(c => !c.isTow && !c.service && ((!c.police && !c.ride) || c.player));
   const r2 = v => Math.round(v * 100) / 100;
   return {
     v: 1, time: Date.now(), tod, weather: settings.weather, events, waypoint,
     stats: store.stats, homes: store.homes,
     residents: Object.fromEntries(Object.entries(store.residents).map(([k, r]) => [k, { look: r.look, persona: serPersona(r.persona) }])),
     player: P.where === 'rb' || P.where === 'test' ? { x: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.x ?? -3), y: CURB, z: r2((P.where === 'rb' ? P.rbFrom : P.testFrom)?.z ?? roadX(2) + RH + 2.2), facing: 0, where: P.where === 'rb' ? 'rb' : 'out', door: -1, car: -1, lastCar: list.indexOf(P.lastCar) } : { x: r2(P.pos.x), y: r2(P.pos.y), z: r2(P.pos.z), facing: r2(P.facing), where: P.where, door: P.where === 'in' ? interior.key : -1, car: P.state === 'car' ? list.indexOf(P.car) : -1, lastCar: list.indexOf(P.lastCar) },
-    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, gram: store.gram, power: store.power, coins: store.coins, ach: store.ach, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
+    ext: { invited: store.invited || [], rbSet: store.rbSet, rbPlaced: store.rbPlaced || [], rbCam: store.rbCam, fly: store.fly, dog: store.dog, races: store.races, raceGhost: store.raceGhost, phones: store.phones, gram: store.gram, power: store.power, coins: store.coins, ach: store.ach, myHome: store.myHome, rbVer: store.rbVer || 3, rbPos: P.where === 'rb' ? { f: rb.floor, x: r2(P.pos.x), y: r2(Math.max(0, P.pos.y)), z: r2(P.pos.z) } : null },
     shop: { money: store.money, inv: store.inv, worn: store.worn, held: store.held, energy: Math.round(store.energy), cart: store.cart, capOff: store.capOff },
-    cars: list.map(c => ({ type: c.type, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
+    cars: list.map(c => ({ type: c.type, tune: c.tune || undefined, color: c.paint.color.getHex(), taxi: c.taxi, x: r2(c.x), z: r2(c.z), h: r2(c.h), health: Math.round(c.health), fuel: Math.round(c.fuel), dents: c.dentLog || [], ai: !!c.ai,
       driver: c.driverP && !c.driverP.isPlayer ? { look: c.driverP.look, persona: serPersona(c.driverP.persona) } : null })),
     npcs: npcs.filter(n => !n.mech && !n.school).map(n => ({ look: n.look, persona: serPersona(n.persona), x: r2(n.pos.x), z: r2(n.pos.z) }))
   };
@@ -8582,7 +8673,7 @@ function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) 
 function restoreFromSave(sv) {
   tod = sv.tod ?? tod; if (sv.weather) settings.weather = sv.weather;
   if (sv.shop) Object.assign(store, sv.shop);
-  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones', 'gram', 'power', 'coins', 'ach']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
+  if (sv.ext) { if (!sv.ext.rbVer) store.rbVer = 1; for (const k of ['invited', 'rbSet', 'rbPlaced', 'rbCam', 'fly', 'rbVer', 'rbPos', 'dog', 'races', 'raceGhost', 'phones', 'gram', 'power', 'coins', 'ach', 'myHome']) if (sv.ext[k] !== undefined && sv.ext[k] !== null) store[k] = sv.ext[k]; }
   if (sv.player && sv.player.where === 'rb') resumeRB = true;
   events.push(...(sv.events || []).slice(-10)); Object.assign(store.stats, sv.stats || {}); Object.assign(store.homes, sv.homes || {});
   for (const [k, r] of Object.entries(sv.residents || {})) store.residents[k] = { look: r.look, persona: deserPersona(r.persona) };
@@ -8591,6 +8682,7 @@ function restoreFromSave(sv) {
     const car = new Car(c.type, c.color, c.x, c.z, c.h, c.ai ? { ai: { i: 0, j: 0, d: 0 }, taxi: c.taxi } : { taxi: c.taxi });
     if (c.ai) { car.ai.resetFromPos(); if (c.driver) { const d = makePerson(c.driver.look, false); d.persona = deserPersona(c.driver.persona); car.setDriver(d); car.owner = d; } }
     for (const d of c.dents || []) car.dent(...d);
+    if (c.tune) { car.tune = c.tune; applyTune(car); }
     car.health = c.health ?? 100; car.fuel = c.fuel ?? car.fuel; cars.push(car); made.push(car);
     if (inMall(car.x, car.z, 2) || world.newPlaces.some(([pl, cx, cz]) => pl !== 'gas' && Math.abs(car.x - cx) < LOT && Math.abs(car.z - cz) < LOT)) { const sp = mpick(world.parking); car.x = sp.x; car.z = sp.z; car.h = sp.h; }
   }
@@ -9486,7 +9578,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { police, addWanted, busted, heroStart, heroEnd, coins, collectCoin, startDeliv, ACH, updateAch, setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { homeList, buyHome, myHomeDoor, tuneCar, applyTune, police, addWanted, busted, heroStart, heroEnd, coins, collectCoin, startDeliv, ACH, updateAch, setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); phoneTick(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
