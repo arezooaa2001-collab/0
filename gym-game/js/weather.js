@@ -59,8 +59,9 @@ Object.assign(Game, {
       f.userData.wx = W.fogNear || 1;
     }
     // falling rain or snow around the camera; stars far above
-    if (w.wxFx) { w.scene.remove(w.wxFx); w.wxFx.geometry.dispose(); w.wxFx = null; }
-    if (w.wxStars) { w.scene.remove(w.wxStars); w.wxStars = null; }
+    // free the old rain/snow and stars, not just hide them (a new set is made on every visit)
+    if (w.wxFx) { w.scene.remove(w.wxFx); w.wxFx.geometry.dispose(); w.wxFx.material.dispose(); w.wxFx = null; }
+    if (w.wxStars) { w.scene.remove(w.wxStars); w.wxStars.geometry.dispose(); w.wxStars.material.dispose(); w.wxStars = null; }
     if (W.rain || W.snow) w.wxFx = this.makePrecip(W.snow);
     if (w.wxFx) w.scene.add(w.wxFx);
     if (W.stars) {

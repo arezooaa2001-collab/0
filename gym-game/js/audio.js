@@ -5,6 +5,8 @@ const Sfx = (() => {
   let ctx = null;
   let master = null;
   let muted = false;
+  let vol = 1;
+  let mvol = 1;
   let noiseBuf = null;
   let crowd = null;
 
@@ -15,7 +17,7 @@ const Sfx = (() => {
         if (!AC) return;
         ctx = new AC();
         master = ctx.createGain();
-        master.gain.value = muted ? 0 : 0.55;
+        master.gain.value = muted ? 0 : 0.55 * vol;
         master.connect(ctx.destination);
         noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
         const d = noiseBuf.getChannelData(0);
@@ -139,7 +141,7 @@ const Sfx = (() => {
     let n = 0;
     let next = ctx.currentTime + 0.1;
     const gain = ctx.createGain();
-    gain.gain.value = 0.35;
+    gain.gain.value = 0.35 * mvol;
     gain.connect(master);
     const note = (f, t, d, type, v) => {
       const o = ctx.createOscillator();
@@ -191,7 +193,16 @@ const Sfx = (() => {
     play(name) { try { if (sounds[name]) sounds[name](); } catch (e) { /* ignore audio failures */ } },
     setMuted(m) {
       muted = m;
-      if (master) master.gain.value = m ? 0 : 0.55;
+      if (master) master.gain.value = m ? 0 : 0.55 * vol;
+    },
+    /** Sound effects loudness 0..1 (also scales the music, which plays through the same output). */
+    setVolume(v) {
+      vol = Math.max(0, Math.min(1, v));
+      if (master) master.gain.value = muted ? 0 : 0.55 * vol;
+    },
+    setMusicVolume(v) {
+      mvol = Math.max(0, Math.min(1, v));
+      if (music) music.gain.gain.value = 0.35 * mvol;
     },
     isMuted() { return muted; },
     crowd(on, level = 0.05) {

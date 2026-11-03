@@ -20,6 +20,8 @@ Object.assign(Game, {
     Sfx.crowd(true, 0.05);
     w.onEvent = (text) => this.fbMessage(text);
     w.onGoal = (team, scorer) => {
+      // a match only watched on a screen pays nothing and shows nothing
+      if (this.world !== w) return;
       const mine = scorer && scorer.user;
       this.showBanner(team === 0 ? 'گل!' : 'گل خوردیم!', `${fa(w.score[0])} – ${fa(w.score[1])}`);
       if (team === 0) this.confetti();
@@ -31,6 +33,7 @@ Object.assign(Game, {
       }
     };
     w.onOver = (score) => {
+      if (this.world !== w) return;
       const [a, b] = score;
       const res = a > b ? 'win' : a === b ? 'draw' : 'lose';
       const coins = { win: 200, draw: 80, lose: 30 }[res];

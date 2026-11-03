@@ -36,6 +36,9 @@ Object.assign(Game, {
     P.vel.set(0, 0);
     g.onSmash = (ch) => {
       if (ch !== P.ch) return;
+      // only a punch at the machine counts (other moves use the same 'smash' event)
+      const pp = P.ch.root.position;
+      if (Math.hypot(pp.x - (WING.punch.x + 1.25), pp.z - WING.punch.z) > 1.5) return;
       const lv = this.lv();
       const score = Math.min(99999, Math.round(60 + lv * 9 + this.save.runLevel * 2 + rand(0, 25 + lv * 3)));
       const rec = this.save.records;
@@ -130,7 +133,8 @@ Object.assign(Game, {
 
   toggleDj() {
     const g = this.gym;
-    g.party = !g.party;
+    // party and music go together: if the music was switched off elsewhere, this starts it again
+    g.party = !(g.party && this.save.music);
     this.save.music = g.party;
     Sfx.music(g.party);
     if (g.party) {

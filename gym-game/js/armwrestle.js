@@ -98,7 +98,7 @@ class ArmMatch {
   }
 
   dispose() {
-    this.gym.scene.remove(this.oc.root);
+    this.oc.dispose();
     const P = this.player;
     P.ch.manual = false;
     if (P.anchor && P.anchor.arm) {

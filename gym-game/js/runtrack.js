@@ -233,9 +233,14 @@ class RunWorld extends EnvWorld {
         }
       }
     }
+    // the blue pad back to the hall sits behind the start line and moves with it
     this.exitPad = { x: 0, z: 14 };
-    glow.box(6, 0.01, 2, 0, 0.005, 14, '#7fe0ff');
-    this.sign('🏋️ برگشت به تالار', 'اینجا بایست', 0, 3, 14.5, '#7fe0ff');
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(6, 0.01, 2), new THREE.MeshBasicMaterial({ color: '#7fe0ff', toneMapped: false }));
+    pad.position.set(0, 0.005, 14);
+    this.startGate.add(pad);
+    const padSign = labelSprite('🏋️ برگشت به تالار', 'اینجا بایست', '#7fe0ff', 4);
+    padSign.position.set(0, 3, 14.5);
+    this.startGate.add(padSign);
     this.finishBatches();
     this.labelGantries();
   }
@@ -321,6 +326,11 @@ class RunWorld extends EnvWorld {
       ch.root.rotation.y = angleLerp(ch.root.rotation.y, Math.PI, damp(6, dt));
       return [0, 0, 0];
     }
+    if (r.phase === 'down') {
+      // ran out in mid-air: fall over once they land
+      if (!r.fainted && ch.grounded && !ch.busy) r.fainted = ch.play('faint', () => { r.phase = 'out'; });
+      return [0, 0, 0];
+    }
     if (r.phase === 'go') {
       r.react -= dt;
       if (r.react > 0) return [0, 0, 0];
@@ -331,7 +341,7 @@ class RunWorld extends EnvWorld {
         r.energy = 0;
         n.vel.set(0, 0);
         ch.stopAction();
-        ch.play('faint', () => { r.phase = 'out'; });
+        r.fainted = ch.play('faint', () => { r.phase = 'out'; });
         ch.setLabel(n.name, `😵 ${fa(Math.floor(r.dist))} متر`, '#ff9aa2');
         return [0, 0, 0];
       }
@@ -353,6 +363,12 @@ class RunWorld extends EnvWorld {
 }
 
 ENV_BUILDERS.runtrack = () => new RunWorld();
+
+/** Take a coin or drink off the track; a drink's own geometry is freed (coins share theirs). */
+function disposeRunItem(m) {
+  if (m.parent) m.parent.remove(m);
+  if (m.isGroup) m.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+}
 
 /** A can of energy drink: grab it to refill a quarter of your energy. */
 function drinkMesh() {
@@ -486,6 +502,11 @@ Object.assign(Game, {
       this.tickRunBoard(dt);
       return;
     }
+    if (!this.run && w.offset !== 0) {
+      // a new visit starts at the start line, not where the last run ended
+      w.offset = 0;
+      w.labelGantries();
+    }
     const R = this.runState();
     w.recenter(this);
     const e = this.energy();
@@ -515,12 +536,19 @@ Object.assign(Game, {
       e.now = Math.min(max, e.now + max * 0.04 * dt);
     }
     // can't leave without walking out; standing on the blue pad takes you back to the hall
-    if (R.state !== 'running' && Math.hypot(pos.x - w.exitPad.x, pos.z - (w.exitPad.z + w.offset * 0)) < 1.5 && w.offset === 0 && !this.runExitArmed) {
+    const padD = Math.hypot(pos.x - w.exitPad.x, pos.z - (w.exitPad.z + w.offset));
+    if (R.state !== 'running' && padD < 1.5 && !this.runExitArmed) {
       this.runExitArmed = true;
       this.travel('gym');
       return;
     }
-    if (Math.hypot(pos.x - w.exitPad.x, pos.z - w.exitPad.z) > 2.5) this.runExitArmed = false;
+    if (padD > 2.5) this.runExitArmed = false;
+    // out of energy in the middle of a jump: faint as soon as the feet touch the ground
+    if (this.runFaintPending && P.ch.grounded && !P.ch.busy) {
+      this.runFaintPending = false;
+      P.vel.set(0, 0);
+      P.ch.play('faint');
+    }
     this.tickRunItems(w, R, P, e, max);
     this.tickGhost(w, R, dt);
     this.renderRunPanel(d, e, max);
@@ -572,7 +600,7 @@ Object.assign(Game, {
       this.stopLoop(true);
       P.ch.stopAction();
       P.vel.set(0, 0);
-      P.ch.play('faint');
+      this.runFaintPending = !P.ch.play('faint');
       this.toast('😵 انرژیت تموم شد و غش کردی! یه کم استراحت می‌کنی و دوباره پا می‌شی.', 'warn');
     }
     // where the others will end up: they keep going until their own energy is gone
@@ -585,6 +613,7 @@ Object.assign(Game, {
     }
     rows.sort((a, b) => b.d - a.d);
     const place = rows.findIndex((r) => r.me) + 1;
+    // rank is the prize tier (far behind counts as 5 or 10); place is where you actually finished
     let rank = 0;
     let prize = 0;
     if (finished) {
@@ -601,7 +630,7 @@ Object.assign(Game, {
       prize = Math.floor((RUN_PRIZE[rank] || 0) * Math.min(1, me / RUN_TRACK.goal));
       if (prize < 1 && rank <= 5 && me >= 100) prize = 1;
     }
-    if (rank === 1 && rows.length > 1) this.save.stats.runWins = (this.save.stats.runWins || 0) + 1;
+    if (place === 1 && rows.length > 1) this.save.stats.runWins = (this.save.stats.runWins || 0) + 1;
     // a new record: next time your ghost runs it again beside you
     const G = this.save.runGhost;
     if (me > 30 && (!G || me > G.d) && R.trace && R.trace.length >= 6) {
@@ -618,14 +647,17 @@ Object.assign(Game, {
     if (prize > 0) this.addLevels(prize, false);
     this.persist();
     const record = me > (this.runBestBefore || 0) && me > 30;
-    setTimeout(() => {
-      this.showRunResult(rows, rank, prize, finished, me);
-      if (rank === 1 || finished || record) this.confetti();
+    clearTimeout(this.runResultT);
+    this.runResultT = setTimeout(() => {
+      // only if this race is still the one on screen
+      if (this.run !== R || R.state !== 'done' || !(this.world instanceof RunWorld)) return;
+      this.showRunResult(rows, rank, prize, finished, me, place);
+      if (rank === 1 || finished || record) { this.confetti(); this.fireworks(6); this.victoryDance(400); }
       if (record) this.toast(`🎉 رکورد جدید: ${fa(me)} متر!`, 'gold');
     }, finished ? 400 : 2200);
   },
 
-  showRunResult(rows, rank, prize, finished, me) {
+  showRunResult(rows, rank, prize, finished, me, place) {
     const list = $('runResultList');
     list.innerHTML = '';
     rows.forEach((r, i) => {
@@ -634,7 +666,7 @@ Object.assign(Game, {
       li.textContent = `${fa(i + 1)}. ${r.name}: ${fa(r.d)} متر${r.me ? ' (تو)' : ''}`;
       list.appendChild(li);
     });
-    $('runResultTitle').textContent = finished ? '🏆 یک میلیون متر رو تموم کردی!' : rank ? `🏁 رتبه‌ی ${fa(rank)}` : '🏃 تمرین تموم شد';
+    $('runResultTitle').textContent = finished ? '🏆 یک میلیون متر رو تموم کردی!' : rank ? `🏁 نفر ${fa(place)}${rank !== place ? ` (جایزه‌ی رتبه‌ی ${fa(rank)})` : ''}` : '🏃 تمرین تموم شد';
     $('runResultSub').textContent = finished
       ? `+${fa(prize)} سطح زور! قهرمان واقعی دو استقامتی!`
       : rank ? `${fa(me)} متر دویدی • جایزه: ${prize ? '+' + fa(prize) + ' سطح زور' : 'این بار جایزه‌ای نشد'} (جایزه‌ی هر رتبه برای کل یک میلیون متره و به اندازه‌ای که دویدی بهت می‌رسه)`
@@ -646,6 +678,8 @@ Object.assign(Game, {
   /** Back to the start line with full energy, everyone lined up again. */
   resetRun() {
     this.closeModal('runResultModal');
+    clearTimeout(this.runResultT);
+    this.runFaintPending = false;
     const w = this.world;
     if (!(w instanceof RunWorld)) return;
     const R = this.runState();
@@ -679,6 +713,10 @@ Object.assign(Game, {
   leaveRun() {
     const R = this.run;
     this.run = null;
+    clearTimeout(this.runResultT);
+    this.runFaintPending = false;
+    // coins and drinks go too (they live in the track's scene, not the one you are in now)
+    if (this.runItems) for (const it of this.runItems.values()) if (it.mesh) disposeRunItem(it.mesh);
     this.runItems = null;
     this.removeGhost();
     if (!R) return;
@@ -696,7 +734,7 @@ Object.assign(Game, {
     const hi = Math.floor((pd + 280) / RUN_ITEM_GAP);
     for (const [k, it] of this.runItems) {
       if (k >= lo && k <= hi) continue;
-      if (it.mesh) w.scene.remove(it.mesh);
+      if (it.mesh) disposeRunItem(it.mesh);
       this.runItems.delete(k);
     }
     for (let k = lo; k <= hi; k++) {
@@ -720,7 +758,7 @@ Object.assign(Game, {
       const p = it.mesh.position;
       // grabbed when the body passes through it (jumping counts)
       if (Math.abs(p.x - pos.x) < 0.9 && Math.abs(p.z - pos.z) < 0.9 && P.ch.airY + pos.y < 1.8) {
-        w.scene.remove(it.mesh);
+        disposeRunItem(it.mesh);
         it.mesh = null;
         R.taken.add(k);
         if (it.kind === 'coin') {
@@ -739,7 +777,7 @@ Object.assign(Game, {
   },
 
   clearRunItems(w) {
-    if (this.runItems) for (const it of this.runItems.values()) if (it.mesh) w.scene.remove(it.mesh);
+    if (this.runItems) for (const it of this.runItems.values()) if (it.mesh) disposeRunItem(it.mesh);
     this.runItems = new Map();
     if (this.run) this.run.taken = new Set();
   },
@@ -765,8 +803,8 @@ Object.assign(Game, {
   removeGhost() {
     const g = this.ghost;
     if (!g) return;
-    if (g.ch.root.parent) g.ch.root.parent.remove(g.ch.root);
     g.ch.mesh.material.dispose();
+    g.ch.dispose();
     this.ghost = null;
   },
 

@@ -96,7 +96,8 @@ Object.assign(Game, {
 
   selectCam(i) {
     const W = this.watch;
-    W.follow = -1;
+    // pressing "follow" again moves on to the next person, so only the other cameras reset it
+    if (i !== 'follow') W.follow = -1;
     if (i === 'free') {
       const c = this.watchCam;
       const d = new THREE.Vector3();
@@ -119,6 +120,10 @@ Object.assign(Game, {
 
   renderWatchUi() {
     const W = this.watch;
+    // rebuild the buttons only when something on them changed (a rebuild under a finger loses the tap)
+    const key = [W.key, W.cam, W.follow, ...this.watchPlaces().map((k) => k + (k === 'football' ? '' : this.peopleIn(k).length))].join('|');
+    if (key === W.uiKey) return;
+    W.uiKey = key;
     const pl = $('watchPlaces');
     pl.innerHTML = '';
     for (const key of this.watchPlaces()) {
@@ -270,6 +275,7 @@ Object.assign(Game, {
       L.t = 7;
       this.drawWallCaption();
     }
+    this.wallSimWorld = L.world !== this.world && L.world !== this.watchWorld ? L.world : null;
     if (L.world !== this.world && L.world && L.world !== this.watchWorld) {
       L.simT += dt;
       if (L.simT > 0.1) { L.world.simulate(L.simT); L.simT = 0; }

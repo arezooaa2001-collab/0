@@ -83,6 +83,7 @@ const Game = {
     v.settings.quality = { low: 'go', auto: defaultGraphics(), high: 'pro' }[v.settings.quality] || v.settings.quality;
     if (!GRAPHICS[v.settings.quality]) v.settings.quality = defaultGraphics();
     v.cheatLv = Math.max(0, Math.floor(Number(v.cheatLv) || 0));
+    if (v.settings.radar == null) v.settings.radar = !((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || navigator.maxTouchPoints > 1);
     v.settings.sens = clamp(Number(v.settings.sens) || 1, 0.4, 2);
     v.settings.names = v.settings.names !== false;
     v.settings.shake = v.settings.shake !== false;
@@ -538,7 +539,8 @@ const Game = {
       this.world.fx.burst({ x: p.x, y: 1.4, z: p.z }, { count: 60, colors: ['#ffc23d', '#ffffff', '#ff7b00'], speed: 3, up: 4, life: 1.4 });
     }
     if (!this.save.unlocked && !this.boostActive()) {
-      const opened = MOVES.filter((m) => m.cat !== 'g2' && m.level > from && m.level <= to);
+      // only moves your strength level opens (energy moves follow the energy level)
+      const opened = MOVES.filter((m) => m.cat !== 'g2' && m.cat !== 'energy' && !m.custom && m.level > from && m.level <= to);
       if (opened.length === 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 «${opened[0].name}» باز شد!`, 'gold'); }, 700);
       else if (opened.length > 1) setTimeout(() => { Sfx.play('unlock'); this.toast(`🔓 ${fa(opened.length)} حرکت جدید باز شد!`, 'gold'); }, 700);
       const envs = ENVS.filter((e) => !e.secret && !e.track && e.level > from && e.level <= to);
@@ -667,14 +669,25 @@ const Game = {
     const old = this.player;
     const pos = old.ch.root.position.clone();
     const yaw = old.ch.root.rotation.y;
+    const size = old.ch.root.scale.x;
     this.releasePlayer();
-    this.world.scene.remove(old.ch.root);
     this.world.scene.remove(old.arrow);
+    // free the old body, its label, marker, ring and arrow (a new set is made every change)
+    old.ch.dispose();
+    for (const m of [old.marker, old.ring, old.arrow]) {
+      if (!m) continue;
+      m.geometry.dispose();
+      if (m.material.map) m.material.map.dispose();
+      m.material.dispose();
+    }
     this.player = createPlayer(this.outfit(), this.lv());
     this.player.mode = old.mode;
     const cam = Object.assign({}, this.world.cam);
-    this.world.enter(this.player, { x: pos.x, z: pos.z, yaw });
+    // just swap the body: a place's own enter() may restart things (a football match, say)
+    WorldBase.prototype.enter.call(this.world, this.player, { x: pos.x, z: pos.z, yaw });
     Object.assign(this.world.cam, cam);
+    this.player.ch.root.scale.setScalar(size);
+    if (this.morph) this.morph.player = this.player;
     this.labelPlayer();
   },
 
@@ -726,7 +739,11 @@ const Game = {
     const f = $('fade');
     f.classList.add('on');
     setTimeout(() => {
-      try { fn(); } catch (e) { console.error(e); }
+      try { fn(); } catch (e) {
+        console.error(e);
+        // never stay stuck between places: back to playing where you are
+        if (this.mode === 'transition') { this.mode = 'play'; $('hud').hidden = false; }
+      }
       setTimeout(() => f.classList.remove('on'), 80);
     }, 420);
   },
@@ -804,6 +821,9 @@ const Game = {
     const fromEnv = this.envId;
     this.closeModal('mapModal');
     this.cancelChallenge();
+    // leave build mode and the camera room while the old place is still the current one
+    if (this.build) this.exitBuild();
+    if (this.watch && this.closeWatch) this.closeWatch();
     this.releasePlayer();
     this.dash = null;
     this.powerAir = null;
@@ -1029,7 +1049,7 @@ const Game = {
       const item = r.s.custom;
       return { label: `${item.icon} ${item.name}`, run: () => this.useCustom(r.s) };
     }
-    return null;
+    return this.highFiveAction();
   },
 
   useCustom(st) {
@@ -1074,6 +1094,10 @@ const Game = {
     on('lvCutBtn', () => this.cutLevels());
     on('cheatBtn', () => this.purgeCheats());
     on('trickGo', () => this.startTrick());
+    on('cheatGo', () => this.addCheatStrength());
+    document.querySelectorAll('#cheatQuick button').forEach((b) => b.addEventListener('click', () => { $('cheatAmt').value = b.dataset.n; }));
+    on('camBtn', () => { Sfx.init(); this.cycleCamera(); });
+    $('snowBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); this.throwSnowball(); });
     on('runInvite', () => this.openRunInvite());
     $('jumpBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); Sfx.init(); if (this.inFootball()) this.fbShoot(); else this.pendingJump = true; });
     on('runAgain', () => this.resetRun());
@@ -1135,6 +1159,8 @@ const Game = {
         else if (this.loop) this.stopLoop();
         return;
       }
+      // the camera room has its own keys; the hidden player must not use powers or travel meanwhile
+      if (this.watch) return;
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if (this.modals.size) return;
       if (this.mode === 'arena') {
@@ -1157,6 +1183,9 @@ const Game = {
       if (e.code === 'Digit3' || e.code === 'Numpad3') this.usePower('slam');
       if (e.code === 'Digit4' || e.code === 'Numpad4') this.usePower('tiny');
       if (e.code === 'Digit5' || e.code === 'Numpad5') this.usePower('giant');
+      if (e.code === 'Digit6' || e.code === 'Numpad6') this.usePower('slowmo');
+      if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
+      if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
       if (e.code === 'KeyE') this.runContext();
       if (e.code === 'KeyR') this.onMove(MOVE_BY_ID.run);
@@ -1164,7 +1193,7 @@ const Game = {
       if (e.code === 'KeyM') this.openMap();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.resetJoy(); this.camDrag.clear(); });
+    window.addEventListener('blur', () => { this.keys.clear(); this.resetJoy(); this.camDrag.clear(); if (this.watch) this.watch.held.clear(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) { this.keys.clear(); this.resetJoy(); this.persist(); } });
     document.addEventListener('contextmenu', (e) => { if (!(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'))) e.preventDefault(); });
 
@@ -1266,6 +1295,8 @@ const Game = {
   },
 
   step(dt) {
+    // slow motion: the whole world runs slower for a few seconds
+    dt = this.timeScale(dt);
     this.clock += dt;
     try {
       this.tickLoop();
@@ -1280,6 +1311,7 @@ const Game = {
       this.tickBoss(dt);
       this.tickGold(dt);
       this.tickWeather(dt);
+      this.tickFun3(dt);
       if (this.arm) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());
@@ -1347,7 +1379,8 @@ const Game = {
     const fps = this.fpsN / this.fpsT;
     this.fpsT = 0;
     this.fpsN = 0;
-    if (fps < 38 && this.pixelRatio > 0.75 && this.save.settings.quality === 'auto') {
+    // a slow device that never picked a preset itself gets a lighter picture
+    if (fps < 38 && this.pixelRatio > 0.75 && !this.save.settings.qualityChosen) {
       this.pixelRatio = Math.max(0.75, this.pixelRatio - 0.35);
       this.renderer.setPixelRatio(this.pixelRatio);
       this.resize();

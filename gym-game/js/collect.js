@@ -96,6 +96,7 @@ Object.assign(Game, {
     this.addCoins(all ? 3000 : 150);
     if (all) {
       this.confetti();
+      this.fireworks(12);
       this.showBanner('+۳٬۰۰۰ سکه و مدال «گنج‌یاب»', '🏆 هر ۱۲ دمبل طلایی!');
     } else this.toast(`🏆 دمبل طلایی پیدا کردی! (${fa(n)} از ${fa(GOLD_SPOTS.length)}) • 🪙 ۱۵۰`, 'gold');
     this.checkAchievements();

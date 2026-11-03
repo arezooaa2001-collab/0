@@ -89,6 +89,7 @@ Object.assign(Game, {
         this.boostWasOn = false;
         this.toast('⚡ زمان کد ۱۹۱۹ تموم شد و زور اضافه رفت.', 'warn');
         setPlayerLevelLook(this.player, this.lv());
+        this.labelPlayer();
         this.refreshHud(true);
         this.refreshMoves();
       }
@@ -171,7 +172,8 @@ Object.assign(Game, {
     const ms = this.save.missions;
     for (let i = ms.length - 1; i >= 0; i--) {
       const m = ms[i];
-      if (!m || !MISSION_TYPES.some((t) => t.type === m.type) || (m.type === 'move' && (!MOVE_BY_ID[m.key] || MOVE_BY_ID[m.key].emote)) || (m.type === 'visit' && !ENV_BY_ID[m.key])) ms.splice(i, 1);
+      // finished ones are replaced (a reload can happen before the delayed swap)
+      if (!m || m.done || !MISSION_TYPES.some((t) => t.type === m.type) || (m.type === 'move' && (!MOVE_BY_ID[m.key] || MOVE_BY_ID[m.key].emote)) || (m.type === 'visit' && !ENV_BY_ID[m.key])) ms.splice(i, 1);
     }
     while (ms.length < 3) ms.push(this.newMission());
   },
@@ -293,10 +295,10 @@ Object.assign(Game, {
     const g = $('shopGrid');
     g.innerHTML = '';
     const sh = this.save.shop;
-    const cats = { boost: 'نوشیدنی', gear: 'وسیله', pet: 'حیوون', aura: 'هاله', shirt: 'لباس', band: 'هدبند', trail: 'رد پا' };
+    const cats = { boost: 'نوشیدنی', gear: 'وسیله', pet: 'حیوون', aura: 'هاله', shirt: 'لباس', band: 'هدبند', trail: 'رد پا', hat: 'کلاه' };
     for (const it of SHOP) {
       const owned = it.once && this.owns(it.id);
-      const equipped = ['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat) && sh[it.cat] === it.id;
+      const equipped = ['shirt', 'band', 'aura', 'pet', 'trail', 'hat'].includes(it.cat) && sh[it.cat] === it.id;
       const card = document.createElement('div');
       card.className = 'shop-card' + (equipped ? ' on' : '');
       const ic = document.createElement('div');
@@ -310,7 +312,7 @@ Object.assign(Game, {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'shop-btn';
-      const equipable = ['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat);
+      const equipable = ['shirt', 'band', 'aura', 'pet', 'trail', 'hat'].includes(it.cat);
       if (owned && equipable) {
         btn.textContent = equipped ? 'برش دار' : 'بپوش / استفاده کن';
         btn.addEventListener('click', () => this.equipItem(it, !equipped));
@@ -341,7 +343,7 @@ Object.assign(Game, {
       this.toast('🥛 +۲ سطح زور برای ۵ دقیقه!', 'gold');
     } else if (it.id === 'shoes') this.toast('👟 کفش سرعت رو پوشیدی! سریع‌تر می‌دوی.', 'gold');
     else if (it.id === 'magnet') this.toast('👛 از این به بعد سکه‌ها دوبرابرن!', 'gold');
-    if (['shirt', 'band', 'aura', 'pet', 'trail'].includes(it.cat)) this.equipItem(it, true);
+    if (['shirt', 'band', 'aura', 'pet', 'trail', 'hat'].includes(it.cat)) this.equipItem(it, true);
     this.checkAchievements();
     this.persist();
     this.refreshHud(true);
@@ -350,6 +352,12 @@ Object.assign(Game, {
 
   equipItem(it, on) {
     const sh = this.save.shop;
+    // changing clothes rebuilds you, which a race or arm match in progress can't follow
+    if ((it.cat === 'shirt' || it.cat === 'band') && (this.race || this.arm || this.inFootball())) {
+      Sfx.play('error');
+      this.toast('اول مسابقه یا مچ‌اندازی رو تموم کن، بعد لباس عوض کن.', 'warn');
+      return;
+    }
     sh[it.cat] = on ? it.id : null;
     if (it.cat === 'shirt' || it.cat === 'band') this.rebuildPlayer();
     if (it.cat === 'pet') {
@@ -426,6 +434,7 @@ Object.assign(Game, {
     $('raceHud').hidden = true;
     if (place === 1) {
       this.save.stats.raceWins++;
+      this.victoryDance(1200);
       Sfx.play('win');
       this.showBanner('🥇 اول شدی!', '🏁');
     } else {
@@ -509,6 +518,9 @@ Object.assign(Game, {
     else if (a === 'levels') this.openLevels();
     else if (a === 'boss') this.spawnBoss(true);
     else if (a === 'gold') this.openGold();
+    else if (a === 'travel') this.openQuickTravel();
+    else if (a === 'stats') this.openStats();
+    else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }
     else if (a === 'board') { this.closeModal('menuModal'); this.openBoard(); }
     else if (a === 'music') {
       this.save.music = !this.save.music;

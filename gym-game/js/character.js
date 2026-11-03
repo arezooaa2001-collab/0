@@ -749,6 +749,13 @@ class Character {
     return true;
   }
 
+  /** Take it out of the scene and free its GPU memory (body, label, props). */
+  dispose() {
+    if (this.root.parent) this.root.parent.remove(this.root);
+    this.mesh.geometry.dispose();
+    if (this.label) { if (this.label.material.map) this.label.material.map.dispose(); this.label.material.dispose(); }
+  }
+
   stopAction(silent = true) {
     if (!this.action) return;
     const a = this.action;

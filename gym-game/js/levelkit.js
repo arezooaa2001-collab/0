@@ -69,8 +69,9 @@ Object.assign(Game, {
   cutLevels() {
     const n = Math.floor(Number(digitsOnly($('lvCut').value)) || 0);
     if (!(n > 0)) { this.toast('یه عدد بنویس: چند سطح کم بشه؟', 'warn'); return; }
-    if (!this.cutArmed) {
-      this.cutArmed = true;
+    // the second tap confirms exactly the number that was shown on the first
+    if (this.cutArmed !== n) {
+      this.cutArmed = n;
       $('lvCutBtn').textContent = `مطمئنی؟ ${fa(n)} سطح کم بشه`;
       return;
     }
@@ -152,6 +153,8 @@ Object.assign(Game, {
 
   /** Fog distance and shadows for one world (on entering it and when the preset changes). */
   dressWorld(w) {
+    // without real shadows everyone gets their round shadow back (people come and go between places)
+    if (!this.shadowSize) for (const n of w.npcs) if (n.ch.shadow) n.ch.shadow.visible = true;
     const f = w.scene.fog;
     if (f) {
       if (!f.userData) f.userData = {};

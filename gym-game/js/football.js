@@ -424,6 +424,8 @@ class FootballWorld extends EnvWorld {
 
   goal(team) {
     this.score[team]++;
+    // the team that conceded kicks off
+    this.kickNext = 1 - team;
     this.state = 'goal';
     this.stateT = 3.5;
     this.lastScorer = this.ball.last;
@@ -665,7 +667,7 @@ class FootballWorld extends EnvWorld {
     } else if (this.state === 'goal') {
       this.stateT -= dt;
       if (this.stateT <= 0) {
-        this.resetKickoff(this.score[0] > this.score[1] ? 1 : 0);
+        this.resetKickoff(this.kickNext ?? 0);
         this.state = 'kickoff';
         this.stateT = 2;
       }

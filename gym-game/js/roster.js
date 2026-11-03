@@ -82,7 +82,8 @@ Object.assign(Game, {
 
   /** All places people may live, in map order. */
   rosterPlaces() {
-    return ['gym', ...ENVS.filter((e) => !e.secret).map((e) => e.id), 'island', 'lucky'];
+    // the million-metre track has nobody living there and no fixed cameras
+    return ['gym', ...ENVS.filter((e) => !e.secret && !e.noVisit).map((e) => e.id), 'island', 'lucky'];
   },
 
   pickDestination(n) {
@@ -167,7 +168,8 @@ Object.assign(Game, {
     for (const n of this.people) {
       n.stayT -= step;
       n.travelCd -= step;
-      const live = n.world && (n.world === this.world || n.world === this.watchWorld);
+      // places being shown (here, the camera room, the gym's wall screen) already live on their own
+      const live = n.world && (n.world === this.world || n.world === this.watchWorld || (this.world === this.gym && n.world === this.wallSimWorld));
       if (live) continue;
       // background training
       n.xp += 4 * n.rate * xpMult(n.level) * NPC_GROWTH * step * 0.5;

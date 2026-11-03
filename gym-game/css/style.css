@@ -1007,3 +1007,17 @@ kbd {
   .spin-panel .spin-info { display: none; }
   .spin-head { font-size: 15px; }
 }
+
+/* round 9: radar, slow motion, snowball button, stats */
+.radar { position: absolute; left: max(12px, var(--safe-l)); top: calc(var(--safe-t) + 214px); width: 120px; height: 120px; pointer-events: none; }
+.slow-fx { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 50%, transparent 45%, rgba(80, 140, 255, 0.35)); animation: slowPulse 1.2s ease-in-out infinite; }
+@keyframes slowPulse { 50% { opacity: 0.6; } }
+.snow-btn { left: calc(max(18px, var(--safe-l)) + 222px); background: radial-gradient(circle at 35% 30%, #ffffff, #9fc6ff); }
+.stats-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; max-height: 60vh; overflow: auto; }
+.stats-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); font: 600 14px/1.4 var(--body); }
+.stats-list b { color: #ffd34d; }
+@media (max-width: 720px) {
+  .radar { width: 92px; height: 92px; top: calc(var(--safe-t) + 214px); }
+  .snow-btn { left: calc(max(14px, var(--safe-l)) + 62px); bottom: calc(var(--safe-b) + 150px); }
+}
+.hud.build-on .radar, .hud.build-on .snow-btn { display: none !important; }

@@ -51,7 +51,7 @@ Object.assign(Game, {
     if (!key || this.mode !== 'play' || this.race || this.arm || this.photo) return;
     this.cancelChallenge();
     if (!this.world.placed) this.world.placed = new Map();
-    this.build = { key, mode: 'browse', ghost: null, item: null, sel: null };
+    this.build = { key, world: this.world, mode: 'browse', ghost: null, item: null, sel: null };
     $('hud').classList.add('build-on');
     $('buildBar').hidden = false;
     $('bTheme').hidden = key !== 'gym2';
@@ -64,8 +64,11 @@ Object.assign(Game, {
 
   exitBuild() {
     if (!this.build) return;
+    const B = this.build;
     this.dropGhost();
-    if (this.build.marker) this.world.scene.remove(this.build.marker);
+    // a piece picked up to move goes back where it was
+    if (B.carried) { B.carried.group.visible = true; B.carried = null; }
+    if (B.marker) dropMesh(B.marker);
     this.build = null;
     $('hud').classList.remove('build-on');
     $('buildBar').hidden = true;
@@ -138,7 +141,7 @@ Object.assign(Game, {
   dropGhost() {
     const B = this.build;
     if (!B) return;
-    for (const k of ['ghostOk', 'ghostBad']) if (B[k]) { this.world.scene.remove(B[k].group); B[k] = null; }
+    for (const k of ['ghostOk', 'ghostBad']) if (B[k]) { dropMesh(B[k].group); B[k] = null; }
   },
 
   /** Where the piece would go: a few steps ahead of you, on a 0.5 m grid. */
@@ -173,7 +176,7 @@ Object.assign(Game, {
       const want = why ? 'ghostBad' : 'ghostOk';
       const other = why ? 'ghostOk' : 'ghostBad';
       if (!B[want] || B[want].rot !== B.item.rot) {
-        if (B[want]) w.scene.remove(B[want].group);
+        if (B[want]) dropMesh(B[want].group);
         B[want] = w.addPlaced(Object.assign({}, B.item), why ? _ghostBad : _ghostOk);
         B[want].rot = B.item.rot;
       }
@@ -194,7 +197,7 @@ Object.assign(Game, {
     const id = best ? best.item.id : null;
     if (id !== B.sel) {
       B.sel = id;
-      if (B.marker) { w.scene.remove(B.marker); B.marker = null; }
+      if (B.marker) { dropMesh(B.marker); B.marker = null; }
       if (best) {
         const r = w.placedRect(best.item);
         const g = new THREE.Mesh(new THREE.PlaneGeometry(r.x2 - r.x1 + 0.3, r.z2 - r.z1 + 0.3), new THREE.MeshBasicMaterial({ color: '#ffd34d', transparent: true, opacity: 0.28, depthWrite: false }));
@@ -282,7 +285,7 @@ Object.assign(Game, {
     if (!pl) return;
     const def = PLACEABLES[pl.item.type];
     this.world.removePlaced(pl.item.id);
-    if (B.marker) { this.world.scene.remove(B.marker); B.marker = null; }
+    if (B.marker) { dropMesh(B.marker); B.marker = null; }
     B.sel = null;
     Sfx.play('clank');
     this.toast(`🗑️ «${def.name}» برداشته شد.`);
@@ -341,6 +344,8 @@ Object.assign(Game, {
     // residents move over to the new building
     for (const n of [...old.npcs]) old.dropNpc && old.dropNpc(n);
     this.envs.delete('gym2');
+    // the old building's big merged geometry is freed, not left behind in memory
+    old.scene.traverse((o) => { if (o.userData.batch || (o.isMesh && o.userData.placedPart)) o.geometry.dispose(); });
     const w = this.getEnv('gym2');
     w.enter(P, { x: pos.x, z: pos.z, yaw, camYaw: old.cam.yaw });
     this.world = w;
@@ -351,3 +356,13 @@ Object.assign(Game, {
     if (wasBuilding) this.toggleBuild();
   },
 });
+
+/** Remove a build-mode helper (ghost or marker) from whatever scene it is in and free its geometry. */
+function dropMesh(o) {
+  if (o.parent) o.parent.remove(o);
+  o.traverse((k) => {
+    if (!k.isMesh || k.isSkinnedMesh) return;
+    k.geometry.dispose();
+    if (k.material && k.material !== _ghostOk && k.material !== _ghostBad && !k.material.isShared) k.material.dispose();
+  });
+}

@@ -129,7 +129,8 @@ Object.assign(Game, {
     const ch = this.chal;
     if (ch.round >= ch.c.rounds) { this.endChallenge(); return; }
     ch.round++;
-    const opts = MOVES.filter((m) => !m.toggle && !m.equip && !m.emote && !m.custom && this.isUnlocked(m) && m.level <= Math.max(3, this.lv()));
+    // only moves you can do anywhere (not the Trick Field's special jump)
+    const opts = MOVES.filter((m) => !m.toggle && !m.equip && !m.emote && !m.custom && !m.field && this.isUnlocked(m) && m.level <= Math.max(3, this.lv()));
     ch.target = pick(opts);
     ch.roundT = 8;
     Sfx.play('whistle');
@@ -234,7 +235,8 @@ Object.assign(Game, {
     const valid = !c.lower || score > 0;
     const tier = valid ? this.challengeTier(c, score) : 0;
     const rec = this.save.challenges[c.id] || { best: 0, tier: 0 };
-    const better = valid && (!rec.best || (c.lower ? score < rec.best : score > rec.best));
+    // a zero or an unfinished run is never a record
+    const better = valid && score > 0 && (!rec.best || (c.lower ? score < rec.best : score > rec.best));
     if (better) rec.best = score;
     let coins = 10;
     const newTier = tier > rec.tier;
@@ -242,7 +244,7 @@ Object.assign(Game, {
       for (let t = rec.tier; t < tier; t++) coins += TIER_COINS[t];
       rec.tier = tier;
     }
-    this.save.challenges[c.id] = rec;
+    if (better || newTier || this.save.challenges[c.id]) this.save.challenges[c.id] = rec;
     const scoreText = valid ? `${fa(score)} ${c.unit}` : 'به خط پایان نرسیدی';
     if (tier) {
       Sfx.play(tier === 3 ? 'jackpot' : 'win');

@@ -154,6 +154,7 @@ class Race {
   }
 
   dispose() {
-    for (const r of this.racers) this.gym.scene.remove(r.ch.root);
+    // free their bodies and labels too, not just hide them (every race made three new ones)
+    for (const r of this.racers) r.ch.dispose();
   }
 }

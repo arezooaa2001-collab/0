@@ -34,6 +34,7 @@ Object.assign(Game, {
     $('armTap').addEventListener('click', (e) => { if (e.detail === 0) this.armTap(); });
     document.querySelectorAll('#gfxSeg button').forEach((b) => b.addEventListener('click', () => {
       this.save.settings.quality = b.dataset.q;
+      this.save.settings.qualityChosen = true;
       this.applySettings();
       this.openSettings(true);
       this.persist();
@@ -41,6 +42,9 @@ Object.assign(Game, {
     $('sensInput').addEventListener('input', () => { this.save.settings.sens = clamp(Number($('sensInput').value) || 1, 0.4, 2); this.persist(); });
     $('namesInput').addEventListener('change', () => { this.save.settings.names = $('namesInput').checked; this.applySettings(); this.persist(); });
     $('shakeInput').addEventListener('change', () => { this.save.settings.shake = $('shakeInput').checked; this.applySettings(); this.persist(); });
+    $('volInput').addEventListener('input', () => { this.save.settings.vol = clamp(Number($('volInput').value), 0, 1); this.applySettings(); this.persist(); });
+    $('mvolInput').addEventListener('input', () => { this.save.settings.mvol = clamp(Number($('mvolInput').value), 0, 1); this.applySettings(); this.persist(); });
+    $('radarInput').addEventListener('change', () => { this.save.settings.radar = $('radarInput').checked; this.persist(); });
     this.applySettings();
   },
 
@@ -390,6 +394,7 @@ Object.assign(Game, {
     let c;
     if (id === 'trail_rainbow') c = new THREE.Color().setHSL((this.clock * 0.6) % 1, 0.9, 0.6);
     else if (id === 'trail_fire') c = new THREE.Color(pick(['#ff5a1f', '#ffb347', '#ffd34d']));
+    else if (TRAIL_COLORS[id]) c = new THREE.Color(pick(TRAIL_COLORS[id]));
     else c = new THREE.Color(pick(['#7fe0ff', '#ffffff', '#4d8bff']));
     for (let i = 0; i < 2; i++) {
       this.world.fx.emit(p.x + rand(-0.15, 0.15), 0.1 + P.ch.airY + rand(0, 0.3), p.z + rand(-0.15, 0.15), rand(-0.3, 0.3), id === 'trail_fire' ? 1.2 : 0.3, rand(-0.3, 0.3), c, 0.7, id === 'trail_fire' ? -0.5 : 0.5);
@@ -408,7 +413,10 @@ Object.assign(Game, {
     const f = this.save.fun;
     const today = this.dayKey();
     if (f.lastDay === today) return;
-    f.streak = f.lastDay === this.dayKey(Date.now() - 864e5) ? f.streak + 1 : 1;
+    // yesterday by the calendar (a day minus 24 h can skip a day when the clocks change)
+    const d = new Date();
+    const yesterday = this.dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1, 12).getTime());
+    f.streak = f.lastDay === yesterday ? f.streak + 1 : 1;
     f.lastDay = today;
     const coins = 30 * Math.min(7, f.streak);
     setTimeout(() => {
@@ -778,6 +786,9 @@ Object.assign(Game, {
     $('sensInput').value = String(st.sens);
     $('namesInput').checked = st.names;
     $('shakeInput').checked = st.shake;
+    $('volInput').value = String(st.vol ?? 1);
+    $('mvolInput').value = String(st.mvol ?? 1);
+    $('radarInput').checked = st.radar !== false;
     if (keep) return;
     this.closeModal('menuModal');
     this.openModal('settingsModal');
@@ -787,6 +798,8 @@ Object.assign(Game, {
     const st = this.save.settings;
     WorldBase.hideNames = !st.names;
     WorldBase.shakeScale = st.shake ? 1 : 0;
+    Sfx.setVolume(st.vol ?? 1);
+    Sfx.setMusicVolume(st.mvol ?? 1);
     this.applyGraphics();
     if (this.player) this.labelPlayer();
   },

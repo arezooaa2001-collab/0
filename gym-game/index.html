@@ -42,6 +42,7 @@
       </div>
       <div class="tools">
         <button id="soundBtn" class="icon-btn" type="button" aria-label="صدا">🔊</button>
+        <button id="camBtn" class="icon-btn" type="button" aria-label="نمای دوربین (کلید C)">🎥</button>
         <button id="mapBtn" class="icon-btn" type="button" aria-label="نقشه">🗺️</button>
         <button id="shopBtn" class="icon-btn" type="button" aria-label="فروشگاه">🛒</button>
         <button id="menuBtn" class="icon-btn" type="button" aria-label="منو: مأموریت‌ها، مدال‌ها، کد، راهنما">☰</button>
@@ -95,6 +96,9 @@
     </div>
     <div id="powers" class="powers"></div>
     <button id="jumpBtn" class="jump-btn" type="button" aria-label="پرش">⤴️</button>
+    <button id="snowBtn" class="jump-btn snow-btn" type="button" aria-label="گلوله برفی (کلید Q)" hidden>❄️</button>
+    <canvas id="radar" class="radar" width="120" height="120" hidden></canvas>
+    <div id="slowFx" class="slow-fx" hidden></div>
     <div id="fbHud" class="fb-hud" hidden>
       <div class="fb-score"><span id="fbRed" class="fb-red">۰</span><span id="fbClock" class="fb-clock">۳:۰۰</span><span id="fbBlue" class="fb-blue">۰</span></div>
       <div id="fbMsg" class="fb-msg"></div>
@@ -239,7 +243,7 @@
     <form id="codeForm" class="card small-card" autocomplete="off">
       <button class="x" type="button" data-close="codeModal" aria-label="بستن">✕</button>
       <h2>🔑 کد مخفی</h2>
-      <p class="muted">کد ۱۸۱۸ همه‌ی حرکت‌ها رو باز می‌کنه. کد ۱۹۱۹ (از سطح ۳ به بعد، فقط یک بار) برای ۲ دقیقه ۱۰۰ سطح زور بهت می‌ده.</p>
+      <p class="muted">کد ۱۸۱۸ همه‌ی حرکت‌ها رو باز می‌کنه. کد ۱۹۱۹ (از سطح ۳ به بعد، فقط یک بار) برای ۲ دقیقه ۱۰۰ سطح زور بهت می‌ده. کد ۲۹۲۹ هر چقدر زور که بخوای اضافه می‌کنه (تقلبی حساب می‌شه).</p>
       <input id="codeInput" class="code-input" inputmode="numeric" maxlength="12" placeholder="کد" dir="ltr" aria-label="کد مخفی">
       <div id="codeMsg" class="code-msg"></div>
       <button id="codeSubmit" class="big-btn gold" type="submit">باز کن</button>
@@ -289,6 +293,34 @@
     </div>
   </div>
 
+  <div id="cheatModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="cheatModal" aria-label="بستن">✕</button>
+      <h2>🔑 کد ۲۹۲۹</h2>
+      <p class="muted">هر چقدر سطح زور که بخوای اضافه کن. این زور تقلبی حساب می‌شه؛ هر وقت خواستی از منو «📉 سطح من و پاک کردن زور تقلبی» یک‌جا پاکش کن.</p>
+      <div class="seg quick-seg" id="cheatQuick">
+        <button type="button" data-n="10">۱۰</button><button type="button" data-n="100">۱۰۰</button><button type="button" data-n="1000">۱٬۰۰۰</button><button type="button" data-n="1000000">یک میلیون</button><button type="button" data-n="1000000000">یک میلیارد</button>
+      </div>
+      <input id="cheatAmt" class="code-input" inputmode="numeric" maxlength="13" placeholder="چند سطح؟" dir="ltr" aria-label="چند سطح زور">
+      <button id="cheatGo" class="big-btn gold" type="button">➕ اضافه کن</button>
+    </div>
+  </div>
+  <div id="qtModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="qtModal" aria-label="بستن">✕</button>
+      <h2>🧭 رفتن سریع توی باشگاه</h2>
+      <p class="muted">باشگاه خیلی بزرگه! یه جا رو انتخاب کن تا یه‌دفعه اون‌جا باشی.</p>
+      <div id="qtList" class="menu-list"></div>
+    </div>
+  </div>
+  <div id="statsModal" class="modal" hidden>
+    <div class="card small-card">
+      <button class="x" type="button" data-close="statsModal" aria-label="بستن">✕</button>
+      <h2>📊 آمار من</h2>
+      <ul id="statsList" class="stats-list"></ul>
+    </div>
+  </div>
+
   <!-- ===== My level ===== -->
   <div id="levelsModal" class="modal" hidden>
     <div class="card small-card">
@@ -318,7 +350,8 @@
         <li>پرش: <kbd>Space</kbd> • دویدن موقت: نگه داشتن <kbd>Shift</kbd></li>
         <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
         <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین • <kbd>4</kbd> 🐜 کوچولو • <kbd>5</kbd> 🍄 غول‌پیکر</li>
-        <li>پریدن: <kbd>Space</kbd> یا دکمه‌ی گرد «⤴️» کنار دسته‌ی حرکت (روی گوشی و تبلت)</li>
+        <li>پریدن: <kbd>Space</kbd> یا دکمه‌ی گرد «⤴️» کنار دسته‌ی حرکت (روی گوشی و تبلت). وسط هوا دوباره بزن: پرش دوبل!</li>
+        <li>🐢 حرکت آهسته: <kbd>6</kbd> • 🎥 نمای دوربین: <kbd>C</kbd> • ❄️ گلوله برفی (توی برف): <kbd>Q</kbd></li>
         <li>فوتبال: <kbd>Space</kbd> شوت یا تکل • <kbd>Q</kbd> پاس</li>
         <li>دوربین آزاد: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> حرکت • <kbd>Q</kbd>/<kbd>E</kbd> پایین و بالا • <kbd>Z</kbd>/<kbd>X</kbd> چرخش</li>
       </ul>
@@ -427,6 +460,9 @@
         <button class="menu-btn" type="button" data-menu="photo">📸 حالت عکس</button>
         <button class="menu-btn hot" type="button" data-menu="boss">🐉 احضار غول باشگاه</button>
         <button class="menu-btn hot" type="button" data-menu="gold">🏆 دمبل‌های طلایی</button>
+        <button class="menu-btn hot" type="button" data-menu="travel">🧭 رفتن سریع توی باشگاه</button>
+        <button class="menu-btn" type="button" data-menu="stats">📊 آمار من</button>
+        <button class="menu-btn" type="button" data-menu="fireworks">🎆 آتش‌بازی</button>
         <button class="menu-btn" type="button" data-menu="levels">📉 سطح من و پاک کردن زور تقلبی</button>
         <button class="menu-btn" type="button" data-menu="settings">⚙️ تنظیمات</button>
         <button class="menu-btn" type="button" data-menu="help">❓ راهنما</button>
@@ -531,6 +567,9 @@
       <label class="set-row" for="sensInput"><span>سرعت چرخش دوربین</span><input id="sensInput" type="range" min="0.4" max="2" step="0.1"></label>
       <label class="set-row" for="namesInput"><span>اسم ورزشکارها</span><input id="namesInput" type="checkbox"></label>
       <label class="set-row" for="shakeInput"><span>لرزش دوربین</span><input id="shakeInput" type="checkbox"></label>
+      <label class="set-row" for="volInput"><span>🔊 صدای بازی</span><input id="volInput" type="range" min="0" max="1" step="0.05"></label>
+      <label class="set-row" for="mvolInput"><span>🎵 صدای موسیقی</span><input id="mvolInput" type="range" min="0" max="1" step="0.05"></label>
+      <label class="set-row" for="radarInput"><span>📡 رادار</span><input id="radarInput" type="checkbox"></label>
     </div>
   </div>
 
@@ -701,5 +740,6 @@
 <script src="js/boss.js"></script>
 <script src="js/collect.js"></script>
 <script src="js/weather.js"></script>
+<script src="js/fun3.js"></script>
 </body>
 </html>

@@ -142,6 +142,8 @@ class IslandWorld extends WorldBase {
       ch.traverse((o) => { if (o.isSprite && o.material.map) o.material.map.dispose(); });
     }
     this.colliders.length = this.baseColliders;
+    // the new equipment is solid, the removed is not any more
+    this.solids = null;
     for (const n of this.npcs) if (n.station && this.stations.indexOf(n.station) >= this.baseStations) { this.leaveStation(n); n.state = 'idle'; n.timer = 0.5; }
     this.stations.length = this.baseStations;
     if (this.player && this.player.anchor && this.player.anchor.custom) this.player.anchor = null;

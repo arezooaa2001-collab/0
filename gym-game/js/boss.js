@@ -153,6 +153,14 @@ Object.assign(Game, {
     }
     const B = g.boss;
     const ch = B.ch;
+    // you left the gym: it leaves too (no sounds, panel or pushes in other places)
+    if (this.world !== g && this.mode !== 'transition') {
+      ch.dispose();
+      g.boss = null;
+      for (const n of g.npcs) if (n.state === 'boss') { n.state = 'idle'; n.timer = 1; n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff'); }
+      $('bossPanel').hidden = true;
+      return;
+    }
     const bp = ch.root.position;
     const P = this.player;
     const pp = P.ch.root.position;
@@ -178,14 +186,14 @@ Object.assign(Game, {
       B.deadT -= dt;
       ch.root.scale.setScalar(BOSS.scale * clamp(B.deadT / 1.5, 0.01, 1));
       ch.update(dt);
-      if (B.deadT <= 0) { g.scene.remove(ch.root); g.boss = null; $('bossPanel').hidden = true; }
+      if (B.deadT <= 0) { ch.dispose(); g.boss = null; $('bossPanel').hidden = true; }
       return;
     }
     B.t -= dt;
     if (B.t <= 0) {
       // bored: it leaves
       g.fx.burst({ x: bp.x, y: 2, z: bp.z }, { count: 80, colors: ['#7bc96f', '#5a2a82'], speed: 5, up: 4, life: 1 });
-      g.scene.remove(ch.root);
+      ch.dispose();
       g.boss = null;
       this.toast('🐉 غول خسته شد و رفت! دفعه‌ی بعد سریع‌تر بزنش.', 'warn');
       return;
@@ -268,6 +276,8 @@ Object.assign(Game, {
     this.showBanner(`+${fa(levels)} سطح زور • 🪙 ${fa(coins)}`, '🏆 غول رو شکست دادی!');
     this.addLevels(levels);
     this.addCoins(coins);
+    this.fireworks(8);
+    this.victoryDance(1700);
     for (const n of g.npcs) if (n.state === 'boss') { n.state = 'fan'; n.fan = { x: p.x, z: p.z, t: 4, anim: 'cheer' }; n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff'); }
     this.checkAchievements();
     this.persist();

@@ -282,7 +282,9 @@ Object.assign(WorldBase.prototype, {
     def.build(t);
     for (const [b, mat] of [[t.m, MATTE_MAT], [t.mt, METAL_MAT], [t.gl, GLOW_MAT]]) {
       if (!b.parts.length) continue;
-      group.add(new THREE.Mesh(mergeParts(b.parts, false), ghostMat || mat));
+      const part = new THREE.Mesh(mergeParts(b.parts, false), ghostMat || mat);
+      part.userData.placedPart = true;
+      group.add(part);
     }
     for (const o of t.objs) {
       if (ghostMat) o.traverse((k) => { if (k.isMesh) k.material = ghostMat; });
@@ -325,7 +327,8 @@ Object.assign(WorldBase.prototype, {
     const p = this.placed && this.placed.get(id);
     if (!p) return;
     this.scene.remove(p.group);
-    p.group.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && o.geometry) o.geometry.dispose(); });
+    // only the piece's own merged shapes; statues' shadows share one geometry with every person
+    p.group.traverse((o) => { if (o.isMesh && o.userData.placedPart) o.geometry.dispose(); else if (o.isSkinnedMesh) o.geometry.dispose(); });
     this.colliders = this.colliders.filter((c) => c.placed !== id);
     this.solids = null;
     for (const s of p.stations) {

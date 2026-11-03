@@ -119,7 +119,7 @@ class WorldBase {
   finishBatches() {
     for (const [b, mat] of [[this.matte, MATTE_MAT], [this.metal, METAL_MAT], [this.glow, GLOW_MAT]]) {
       const mesh = b.build(mat);
-      if (mesh) { mesh.userData.noSolid = true; this.scene.add(mesh); }
+      if (mesh) { mesh.userData.noSolid = true; mesh.userData.batch = true; this.scene.add(mesh); }
     }
     this.matte = this.metal = this.glow = null;
     this.fx = new Particles(this.scene, 700, 0.2);
@@ -387,7 +387,20 @@ class WorldBase {
           if (moved < 0.4) {
             this.leaveStation(n);
             n.target = this.freeSpot();
-          }
+            // stuck again and again in a nook: step out to the nearest clear spot and rest
+            n.stuckN = (n.stuckN || 0) + 1;
+            if (n.stuckN >= 3) {
+              n.stuckN = 0;
+              outer: for (let r = 0.5; r < 6; r += 0.5) {
+                for (let a = 0; a < TAU; a += Math.PI / 6) {
+                  const x = pos.x + Math.cos(a) * r, z = pos.z + Math.sin(a) * r;
+                  if (this.inBounds(x, z, 0.6) && this.spotFree(x, z, 0.5)) { pos.x = x; pos.z = z; break outer; }
+                }
+              }
+              n.state = 'idle';
+              n.timer = rand(0.5, 1.5);
+            }
+          } else n.stuckN = 0;
         }
       }
     } else if (n.state === 'jog') {
@@ -447,6 +460,8 @@ class WorldBase {
         if (f.t > 0) ch.play(f.anim || 'fanclap');
         else { n.state = 'idle'; n.timer = rand(0.3, 1.5); }
       }
+    } else if (n.state === 'buddy') {
+      [dirX, dirZ, speed] = this.buddyNpc(n, dt);
     } else if (n.state === 'boss') {
       [dirX, dirZ, speed] = this.bossNpc(n, dt);
     } else if (n.state === 'race') {
@@ -514,6 +529,8 @@ class WorldBase {
     const p = at ? { x: at.x + rand(-0.8, 0.8), z: at.z + rand(-0.8, 0.8) } : this.freeSpot();
     ch.root.position.set(p.x, 0, p.z);
     ch.root.rotation.y = rand(-Math.PI, Math.PI);
+    // the running track hides people far down the track; arriving anywhere shows them again
+    ch.root.visible = true;
     Object.assign(n, { station: null, anchored: false, chat: null, fan: null, forceAct: null, stuckT: 0, leaveT: 0 });
     n.vel.set(0, 0);
     n.lastPos.set(p.x, p.z);
@@ -589,7 +606,8 @@ class WorldBase {
   knockAround(x, z, r, skip) {
     let count = 0;
     for (const n of this.npcs) {
-      if (n === skip || n.state === 'knocked' || n.state === 'class') continue;
+      // people with a job right now (a class, a race, the monster fight, training with you, leaving) stay on it
+      if (n === skip || ['knocked', 'class', 'race', 'boss', 'buddy', 'leave'].includes(n.state)) continue;
       const p = n.ch.root.position;
       const d = Math.hypot(p.x - x, p.z - z);
       if (d > r || !n.ch.grounded) continue;
@@ -754,6 +772,15 @@ class WorldBase {
       P.vel.y += (tz - P.vel.y) * damp(acc, dt);
       if (mag > 0.05) ch.root.rotation.y = angleLerp(ch.root.rotation.y, Math.atan2(mx, mz), damp(10, dt));
       if (input.jump && ch.grounded) { ch.jump(6); Sfx.play('whoosh'); }
+      // a second jump in the air, with a flip
+      else if (input.jump && !ch.grounded && !P.dj && ch.airY > 0.15 && !ch.airFlip) {
+        P.dj = true;
+        ch.vy = 6;
+        ch.airFlip = { t: 0, dur: 0.55, turns: 1, dir: 1 };
+        Sfx.play('whoosh');
+        if (this.onDoubleJump) this.onDoubleJump();
+      }
+      if (ch.grounded) P.dj = false;
       const moving = P.vel.length() > 1.2;
       if (P.mode === 'jumprun' && moving) {
         P.hopTimer -= dt;
