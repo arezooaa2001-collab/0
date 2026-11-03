@@ -40,7 +40,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--ink);color:var(-
 button{font-family:inherit;color:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
 input,select{font-family:inherit}
-#game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;background:linear-gradient(180deg,#2f7cf0,#cdeeff)}
 #touch{position:fixed;inset:0;z-index:2;touch-action:none}
 .hud{position:fixed;inset:0;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums}
 .hud > *{pointer-events:none}
@@ -474,7 +474,7 @@ const SETTINGS_KEY = 'memeThief3D.settings.v1';
 const SAVE_KEY = 'memeThief3D.save.v1';
 const DEFAULT_SETTINGS = {
   quality: IS_TOUCH ? 'medium' : 'high', sens: 1, deadzone: 0.12, music: true, sfx: true, volume: 0.7,
-  fps: false, minimap: true, invertY: false, zoom: 7.5, btnOpacity: 0.78, touch: 'auto', firstPerson: false,
+  fps: false, autoRes: false, minimap: true, invertY: false, zoom: 7.5, btnOpacity: 0.78, touch: 'auto', firstPerson: false,
 };
 const S = Object.assign({}, DEFAULT_SETTINGS);
 try {
@@ -589,6 +589,7 @@ const MAX_ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 let pixelRatio = Math.min(window.devicePixelRatio || 1, QS.pr);
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight, false);
+renderer.setClearColor(0xcdeeff, 1); // any cleared frame shows sky colour instead of a dark flash
 
 const scene = new THREE.Scene();
 const SKY_TOP = new THREE.Color('#2f7cf0'), SKY_HOR = new THREE.Color('#cdeeff');
@@ -3094,8 +3095,9 @@ const UI = {
       '<div class="setRow"><span>معکوس کردن محور عمودی</span>' + this.tgl('invertY', S.invertY) + '</div>' +
       '<div class="setRow"><span>نقشه‌ی کوچک</span>' + this.tgl('minimap', S.minimap) + '</div>' +
       '<div class="setRow"><span>نمایش FPS</span>' + this.tgl('fps', S.fps) + '</div>' +
+      '<div class="setRow"><span>کاهش خودکار وضوح (فقط برای گوشی‌های ضعیف)</span>' + this.tgl('autoRes', S.autoRes) + '</div>' +
       '<div class="setRow"><span>کنترل لمسی</span>' + this.seg('touch', [['auto', 'خودکار'], ['on', 'روشن'], ['off', 'خاموش']], S.touch) + '</div>' +
-      '<p class="note">لبه‌نرمی (Anti-aliasing) بعد از بارگذاری دوباره‌ی صفحه با کیفیت جدید هماهنگ می‌شود. وضوح تصویر هم خودکار با سرعت دستگاهت تنظیم می‌شود.</p>' +
+      '<p class="note">لبه‌نرمی (Anti-aliasing) بعد از بارگذاری دوباره‌ی صفحه با کیفیت جدید هماهنگ می‌شود. وضوح تصویر همیشه همان کیفیتی است که انتخاب کرده‌ای، مگر اینکه «کاهش خودکار وضوح» را روشن کنی.</p>' +
       '<div class="rowBtns"><button class="act red" type="button" data-act="reset">🗑 پاک کردن کل پیشرفت</button></div>';
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('settings', '⚙️ تنظیمات', html);
   },
@@ -3224,9 +3226,13 @@ $('tutSkip').addEventListener('click', () => Tutorial.skip());
 // ------------------------------------------------------------------ boot, menu, main loop
 let maxPR = Math.min(window.devicePixelRatio || 1, QS.pr);
 let rotateDismissed = false, shopkeeper = null;
+let appliedSize = '';
 function onResize() {
   const w = window.innerWidth, h = window.innerHeight; camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
-  renderer.setPixelRatio(pixelRatio); renderer.setSize(w, h, false); FX.resize(); joyRest(); checkOrientation();
+  const key = w + 'x' + h + '@' + pixelRatio;
+  // resizing a canvas clears it; only resize when something really changed, then redraw in the same task so no blank frame is ever shown
+  if (key !== appliedSize) { appliedSize = key; renderer.setPixelRatio(pixelRatio); renderer.setSize(w, h, false); if (G.owners.length) renderer.render(scene, camera); }
+  FX.resize(); joyRest(); checkOrientation();
 }
 function checkOrientation() { const portrait = window.innerHeight > window.innerWidth * 1.05; $('rotate').hidden = !(portrait && IS_TOUCH && G.playing && !rotateDismissed); }
 window.addEventListener('resize', onResize);
@@ -3341,6 +3347,14 @@ function simulate(dt) {
   }
 }
 function presentFrame(dt) {
+  // optional adaptive resolution (off by default so the chosen quality stays sharp); applied BEFORE rendering
+  adaptT += dt;
+  if (!S.autoRes) { if (pixelRatio !== maxPR) { pixelRatio = maxPR; onResize(); } }
+  else if (adaptT > 4 && G.playing && !document.hidden) {
+    adaptT = 0;
+    if (fpsVal < 32 && pixelRatio > maxPR * 0.6) { pixelRatio = Math.max(maxPR * 0.6, pixelRatio - 0.1); onResize(); }
+    else if (fpsVal > 55 && pixelRatio < maxPR - 0.01) { pixelRatio = Math.min(maxPR, pixelRatio + 0.1); onResize(); }
+  }
   sky.position.copy(camera.position);
   // keep the shadow frustum centred on the action, snapped to texels to avoid shimmering
   const fc = G.playing ? G.player.body.pos : tmpV.set(0, 0, 0); const tx = (2 * 38) / QS.shadowSize;
@@ -3350,13 +3364,6 @@ function presentFrame(dt) {
   UI.worldLabels(dt);
   lightT -= dt; if (lightT <= 0) { lightT = 0.4; updateLights(camera.position); }
   renderer.render(scene, camera);
-  // adaptive resolution keeps mid-range phones smooth
-  adaptT += dt;
-  if (adaptT > 2.5 && G.playing && !document.hidden) {
-    adaptT = 0;
-    if (fpsVal < 40 && pixelRatio > 0.6) { pixelRatio = Math.max(0.6, pixelRatio - 0.15); onResize(); }
-    else if (fpsVal > 57 && pixelRatio < maxPR - 0.01) { pixelRatio = Math.min(maxPR, pixelRatio + 0.1); onResize(); }
-  }
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
 if (/[?&]debug/.test(location.search)) window.__dbg = { Unit, CHARS, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
