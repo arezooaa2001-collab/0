@@ -2823,7 +2823,7 @@ bindBtn('bSec', () => doSecurity());
 
 const KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
 window.addEventListener('keydown', (e) => {
-  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
   if (e.code === 'Escape') { e.preventDefault(); if (!$('confirm').hidden) { UI.confirmClose(false); } else if (UI.modalOpen()) UI.closePanel(); else if (G.playing) UI.openPause(); return; }
   if (!G.playing || UI.modalOpen()) return;
   Sound.init();
@@ -3203,6 +3203,9 @@ const UI = {
       '<div class="setRow"><span>کاهش خودکار وضوح (فقط برای گوشی‌های ضعیف)</span>' + this.tgl('autoRes', S.autoRes) + '</div>' +
       '<div class="setRow"><span>کنترل لمسی</span>' + this.seg('touch', [['auto', 'خودکار'], ['on', 'روشن'], ['off', 'خاموش']], S.touch) + '</div>' +
       '<p class="note">لبه‌نرمی (Anti-aliasing) بعد از بارگذاری دوباره‌ی صفحه با کیفیت جدید هماهنگ می‌شود. وضوح تصویر همیشه همان کیفیتی است که انتخاب کرده‌ای، مگر اینکه «کاهش خودکار وضوح» را روشن کنی.</p>' +
+      '<div class="setRow" style="flex-wrap:wrap"><span>📦 کد پیشرفت (انتقال بین فایل، نسخه‌ی ابری و دستگاه‌ها)</span><div class="rowBtns"><button class="act" type="button" data-act="codecopy">کپی کد</button><button class="act buy" type="button" data-act="codeload">وارد کردن کد</button></div></div>' +
+      '<textarea id="codeBox" rows="2" placeholder="کد پیشرفت را اینجا بچسبان (با MEME1: شروع می‌شود)" style="width:100%;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;padding:8px;font:12px monospace;direction:ltr;-webkit-user-select:text;user-select:text;touch-action:auto"></textarea>' +
+      (Cloud.standalone ? '<a class="softBtn" style="text-align:center;text-decoration:none;color:var(--coin)" href="' + CLOUD_URL + '" target="_blank" rel="noopener">☁️ باز کردن نسخه‌ی ابری بازی</a>' : '') +
       '<div class="setRow" style="flex-wrap:wrap"><span>☁️ فضای ابری</span><div class="rowBtns"><button class="act" type="button" data-act="cloudsave"' + (Cloud.state === 'on' ? '' : ' disabled') + '>ذخیره الان</button><button class="act buy" type="button" data-act="cloudload"' + (Cloud.state === 'on' ? '' : ' disabled') + '>بارگذاری از ابر</button></div></div>' +
       '<p class="note" id="cloudPanelInfo">' + esc(Cloud.label()) + '</p>' +
       '<div class="rowBtns"><button class="act red" type="button" data-act="reset">🗑 پاک کردن کل پیشرفت</button></div>';
@@ -3261,6 +3264,9 @@ $('panelBody').addEventListener('click', (e) => {
     case 'reset': UI.confirm('پاک کردن پیشرفت', 'همه‌ی پیشرفت بازی (روی این دستگاه و در فضای ابری) برای همیشه پاک می‌شود. ادامه می‌دهی؟', () => Cloud.wipeAndReload()); break;
     case 'cloudsave': Cloud.push(true).then((ok) => UI.toast(ok ? '☁️ در فضای ابری ذخیره شد' : '☁️ ' + Cloud.label(), ok ? 'good' : 'bad')); break;
     case 'cloudload': Cloud.pull(); break;
+    case 'codecopy': SaveCode.copy(); break;
+    case 'codeload': SaveCode.load(); break;
+    case 'opencloud': break;
     case 'resume': UI.closePanel(); break;
     case 'settings': UI.openSettings(); break;
     case 'help': UI.openHelp(); break;
@@ -3335,6 +3341,33 @@ const Tutorial = {
 $('tutSkip').addEventListener('click', () => Tutorial.skip());
 
 // ------------------------------------------------------------------ cloud save (private per-player document in the artifact's store)
+const CLOUD_URL = 'https://claude.ai/artifact/5c2DxPkLLmhda8WEirvTbb';
+// progress code: moves a save between the standalone file and the cloud version (or between devices) by copy/paste
+const SaveCode = {
+  make() {
+    const bytes = new TextEncoder().encode(JSON.stringify(serialize())); let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return 'MEME1:' + btoa(bin);
+  },
+  read(code) {
+    try {
+      code = String(code || '').trim().replace(/\s+/g, ''); if (!code.startsWith('MEME1:')) return null;
+      const bin = atob(code.slice(6)), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return Cloud.parse({ json: new TextDecoder().decode(bytes) });
+    } catch (e) { return null; }
+  },
+  copy() {
+    const code = this.make(), box = document.getElementById('codeBox'); if (box) { box.value = code; }
+    const done = () => UI.toast('📋 کد پیشرفت کپی شد؛ در نسخه‌ی دیگر در «تنظیمات ← وارد کردن کد» بچسبان', 'good');
+    const fallback = () => { if (box) { box.focus(); box.select(); } UI.toast('📋 کد در کادر پایین آماده است؛ انتخابش کن و کپی کن', ''); };
+    try { const p = navigator.clipboard && navigator.clipboard.writeText(code); if (p && p.then) p.then(done, fallback); else fallback(); } catch (e) { fallback(); }
+  },
+  load() {
+    const box = document.getElementById('codeBox'), s = this.read(box && box.value);
+    if (!s) { Sound.play('error'); UI.toast('❌ این کد معتبر نیست؛ کل کد را (که با MEME1: شروع می‌شود) بچسبان', 'bad'); return; }
+    UI.confirm('وارد کردن کد پیشرفت', 'پیشرفت فعلی با پیشرفت داخل کد (' + fmt(s.owners[0].money) + ' سکه) جایگزین شود؟', () => { resetWorldTo(s); Cloud.push(true); UI.closePanel(); UI.toast('✅ پیشرفت از کد بارگذاری شد', 'good'); });
+  },
+};
 const Cloud = {
   state: 'checking', msg: 'در حال اتصال به فضای ابری…', ref: null, lastKey: '', lastAt: 0, busy: false, pending: false, timer: 25, toldOnce: false,
   set(state, msg) { this.state = state; this.msg = msg; this.render(); },
@@ -3342,13 +3375,18 @@ const Cloud = {
     if (this.state === 'on') return '☁️ ذخیره‌ی ابری فعال است' + (this.lastAt ? ' · آخرین ذخیره ' + fa(new Date(this.lastAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })) : '');
     return (this.state === 'checking' ? '⏳ ' : '☁️ ') + this.msg;
   },
+  standalone: false,
   render() {
-    const el = $('cloudInfo'); if (el) { el.textContent = this.label(); el.style.color = this.state === 'on' ? 'var(--mint)' : 'var(--muted)'; }
+    const el = $('cloudInfo');
+    if (el) {
+      el.textContent = this.label(); el.style.color = this.state === 'on' ? 'var(--mint)' : 'var(--muted)';
+      if (this.standalone) { const a = document.createElement('a'); a.href = CLOUD_URL; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' ← باز کردن نسخه‌ی ابری'; a.style.color = 'var(--coin)'; el.appendChild(a); }
+    }
     const pl = document.getElementById('cloudPanelInfo'); if (pl) pl.textContent = this.label();
   },
   async init(localT) {
     try {
-      if (!window.claude || typeof window.claude.use !== 'function') { this.set('off', 'ذخیره‌ی ابری فقط در نسخه‌ی آنلاین بازی فعال است؛ اینجا پیشرفت روی همین دستگاه می‌ماند'); return; }
+      if (!window.claude || typeof window.claude.use !== 'function') { this.standalone = true; this.set('off', 'این فایل به حساب Claude وصل نیست، پس فضای ابری ندارد. برای ذخیره‌ی ابری بازی را از لینک آنلاین باز کن و با «کد پیشرفت» (تنظیمات) پیشرفتت را منتقل کن.'); return; }
       const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
       if (!db || !user) { this.set('off', 'فضای ابری در این نما در دسترس نیست؛ پیشرفت روی همین دستگاه ذخیره می‌شود'); return; }
       const id = await user.id();
