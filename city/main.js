@@ -1717,6 +1717,9 @@ function poseHuman(p, dt, t) {
       Q.shLx = -0.95; Q.shRx = -0.95; Q.elL = -1.25; Q.elR = -1.25; Q.shLz = 0.28; Q.shRz = -0.28; Q.hdX = 0.45 + Math.sin(t * 0.8) * 0.04;
     } else if (sp_ === 'drink') {
       Q.shRx = -1.15; Q.shRz = -0.35; Q.elR = -2.15; Q.hdX = -0.32; Q.shLx = 0.05;
+    } else if (sp_ === 'hero') {
+      const hs = Math.min(1, Math.hypot(p.vel.x, p.vel.z) / 18);
+      Q.rigX = -1.25 * hs; Q.shRx = -2.95; Q.elR = -0.05; Q.shRz = -0.1; Q.shLx = 0.2 - hs * 0.2; Q.elL = -0.15; Q.shLz = 0.15; Q.thLx = -0.05; Q.thRx = 0.15; Q.knL = 0.1; Q.knR = 0.35; Q.hdX = -0.5 * hs;
     } else if (sp_ === 'lift') {
       Q.shRx = -2.95; Q.shLx = -2.95; Q.elR = -0.35; Q.elL = -0.35; Q.shRz = -0.28; Q.shLz = 0.28; Q.hdX = -0.15; Q.spX = -0.05;
     } else if (sp_ === 'phoneUse') {
@@ -2255,7 +2258,7 @@ function onImpact(car, s, px, pz, nx, nz, other) {
 const GRAV = 19, STEP = 0.36;
 function stepCharacter(p, col, dt, outdoor) {
   if (p.standCar) { const c = p.standCar; const dx = p.pos.x - c.x, dz = p.pos.z - c.z, a = c.av * dt, ca = Math.cos(a), sa = Math.sin(a); p.pos.x = c.x + dx * ca + dz * sa + c.vx * dt; p.pos.z = c.z - dx * sa + dz * ca + c.vz * dt; p.facing += a; }
-  p.vel.y -= GRAV * dt;
+  if (!p.hover) p.vel.y -= GRAV * dt; if (p.slowFall) p.vel.y = Math.max(p.vel.y, -9);
   p.pos.x += p.vel.x * dt; p.pos.z += p.vel.z * dt;
   const r = p.radius, ST = p.stepH || STEP; p.hitWall = false;
   for (let it = 0; it < 2; it++) {
@@ -2315,6 +2318,7 @@ function separatePeople(list) {
   }
 }
 function knockDown(p, car, imp) {
+  if (p.npc && typeof police !== 'undefined' && player && ((car === player.car && player.state === 'car') || car.thrownBy === player)) addWanted(1, car.thrownBy === player ? 'با ماشینی که پرت کردی یه نفر رو زدی' : 'با ماشین به یه عابر زدی');
   if (p.npc && imp > 7) injure(p, imp);
   p.mode = 'down'; p.knockT = 0; p.onGround = false; p.standCar = null;
   p.vel.set(car.vx * 0.85, 2.5 + imp * 0.22, car.vz * 0.85);
@@ -7561,16 +7565,16 @@ const powJump = () => Math.min(9, 1 + Math.log10(POW()) * 0.9);
 const liftNeed = car => Math.ceil(car.mass / 80); // a normal person lifts ~80 kg
 let liftCar = null;
 const thrown = [];
-function setPower(lvl, mode, val) {
+function setPower(lvl, mode, val, flyOn) {
   lvl = Math.max(1, Math.min(1e12, Math.round(+lvl || 1)));
   if (lvl <= 1) { clearPower(); return; }
-  store.power = { lvl, mode, left: mode === 'min' ? Math.max(0.05, +val) * 60 : null, at: mode === 'clock' ? val : null };
+  store.power = { lvl, mode, left: mode === 'min' ? Math.max(0.05, +val) * 60 : null, at: mode === 'clock' ? val : null, fly: !!flyOn };
   Audio.arcade(); burstPower(); updatePowHud();
   banner(`زور ×${fa(lvl.toLocaleString('en'))}`, mode === 'never' ? 'هیچ‌وقت تموم نمی‌شه' : mode === 'min' ? `تا ${fa(Math.round(+val))} دقیقهٔ دیگه` : `تا ساعت ${fa(fmtClock(val))} بازی`);
   saveGame();
 }
 function clearPower(why) {
-  if (liftCar) dropLift();
+  if (liftCar) dropLift(); if (player && player.hero) heroEnd(true);
   const had = store.power && store.power.lvl > 1; store.power = null; updatePowHud();
   if (had && why) { banner('زورت تموم شد', why); Audio.tone(330, 0, 0.3, 0.05); }
   saveGame();
@@ -7635,7 +7639,7 @@ function canLift() {
 }
 function startLift(c) {
   if (POW() < liftNeed(c)) { say(player, `این ماشین ${fa(c.mass)} کیلوئه! حداقل زور ×${fa(liftNeed(c))} لازمه.`, 3); return; }
-  if (c.driverP && !c.driverP.isPlayer) { const n = ejectDriver(c, true); if (n) say(n, mpick(['وای!!! ماشینم رو بلند کرد!', 'کمک! این آدم چه زوری داره!', 'ماشینمو بذار زمین!']), 3); }
+  if (c.driverP && !c.driverP.isPlayer) { addWanted(c.police ? 2 : 1, 'ماشین یه نفر رو با دست بلند کردی'); const n = ejectDriver(c, true); if (n) say(n, mpick(['وای!!! ماشینم رو بلند کرد!', 'کمک! این آدم چه زوری داره!', 'ماشینمو بذار زمین!']), 3); }
   if (c.ai) { c.ai = null; } c.hasDriver = false; c.inHand = true; c.carriedBy = player; c.glide = true; liftCar = c; player.lastCar = player.lastCar || null;
   store.stats.lifts = (store.stats.lifts || 0) + 1; Audio.thud(8, c.x, c.z); say(player, mpick(['هوووپ!', 'سبک بود!', 'اینم از این!']), 1.6); logEvent('یکی یه ماشین رو با دست بلند کرد!');
 }
@@ -7644,7 +7648,7 @@ function throwLift() {
   const c = liftCar, P = player; if (!c) return; liftCar = null; c.carriedBy = null; c.glide = true;
   const sp = Math.min(70, 9 + 5 * Math.log2(Math.max(1, POW() / liftNeed(c)))), f = cam.fpOn ? cam.yaw : P.facing;
   c.thrown = { vx: Math.sin(f) * sp + P.vel.x, vy: 5 + sp * 0.18, vz: Math.cos(f) * sp + P.vel.z, spin: (Math.random() - 0.5) * 3, roll: (Math.random() - 0.5) * 2 };
-  thrown.push(c); store.stats.throws = (store.stats.throws || 0) + 1; P.anim.special = null; setSpecial(P, 'kick', 0.4); Audio.burst(0.2, 400, 0.4, 'lowpass', 1); say(P, mpick(['برو که رفتی!', 'پرتاب!', 'بفرما!']), 1.6);
+  c.thrownBy = player; thrown.push(c); store.stats.throws = (store.stats.throws || 0) + 1; P.anim.special = null; setSpecial(P, 'kick', 0.4); Audio.burst(0.2, 400, 0.4, 'lowpass', 1); say(P, mpick(['برو که رفتی!', 'پرتاب!', 'بفرما!']), 1.6);
 }
 // a strong enough player walking into a car shoves it along instead of stopping
 function powShove(car, res) {
@@ -7656,7 +7660,7 @@ function powShove(car, res) {
 }
 function openPowPanel() {
   const p = store.power; $('pow-panel').hidden = false;
-  $('pow-lvl').value = p && p.lvl > 1 ? p.lvl : '';
+  $('pow-lvl').value = p && p.lvl > 1 ? p.lvl : ''; $('pow-fly').checked = !!(p && p.fly);
   $('pow-now').textContent = p && p.lvl > 1 ? `الان زورت ×${fa(p.lvl.toLocaleString('en'))} است` : 'الان زورت عادیه (×۱)';
   if (!$('pow-clock').value) $('pow-clock').value = fmtClock((tod + 1) % 24);
 }
@@ -7799,6 +7803,9 @@ const ACH = [
   { id: 'dog', n: 'رفیق چهارپا', d: 'سگ شهر رو با خودت ببر', t: () => !!(store.dog && store.dog.adopted) },
   { id: 'sky', n: 'چترباز', d: 'از ماشین پرنده بپر و فرود بیا', t: () => (store.stats.skyLand || 0) >= 1 },
   { id: 'paint', n: 'نقاش ماشین', d: 'ماشینت رو رنگ کن', t: () => (store.stats.paints || 0) >= 1 },
+  { id: 'hero', n: 'سوپرمن', d: 'با زورت پرواز کن', t: () => (store.stats.heroFly || 0) >= 1 },
+  { id: 'wanted5', n: 'تحت تعقیب', d: 'پنج ستاره تحت تعقیب پلیس شو', t: () => (store.stats.wanted || 0) >= 5 },
+  { id: 'escape', n: 'فراری', d: 'از دست پلیس فرار کن', t: () => (store.stats.escapes || 0) >= 1 },
   { id: 'rich', n: 'پولدار', d: '۲۰۰ میلیون تومان پول داشته باش', t: () => store.money >= 200000000 }
 ];
 let achT = 0;
@@ -7809,6 +7816,104 @@ function updateAch(dt) {
 function renderAch() {
   const el = $('ach-list'); if (!el) return; const got = store.ach || {}, n = ACH.filter(a => got[a.id]).length;
   el.innerHTML = `<p class="ach-h">🪙 سکه‌های طلا: <b>${fa((store.coins || []).length)} از ${fa(coins.list.length)}</b> — دنبال ستون‌های نور طلایی بگرد؛ بعضی‌ها روی پشت‌بوم‌ها هستن.</p><p class="ach-h">🏆 دستاوردها: <b>${fa(n)} از ${fa(ACH.length)}</b></p><div class="ach-grid">${ACH.map(a => `<div class="ach${got[a.id] ? ' on' : ''}"><b>${got[a.id] ? '🏆' : '🔒'} ${a.n}</b><small>${a.d}</small></div>`).join('')}</div>`;
+}
+
+/* ============================================================
+   Police: crimes raise a wanted level (1–5 stars); police cars with flashing lights and sirens chase you.
+   Stay out of their sight to cool down, or get caught: a fine and a night at the station
+   ============================================================ */
+const police = { stars: 0, calm: 0, cars: [], catchT: 0, lastAdd: -99, nodes: null, flash: 0 };
+let polMats = null;
+function policeMats() { if (!polMats) polMats = { red: new THREE.MeshBasicMaterial({ color: 0x400000, toneMapped: false }), blue: new THREE.MeshBasicMaterial({ color: 0x000a40, toneMapped: false }), bar: new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4 }), stripe: new THREE.MeshStandardMaterial({ color: 0x1f4fa8, roughness: 0.35 }) }; return polMats; }
+function makePoliceCar(x, z, h, ai) {
+  const c = new Car('sedan', 0xf4f6f8, x, z, h, { ai }); const M = policeMats(), t = c.T, top = t.roofY + 0.04;
+  const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); c.body.add(m); return m; };
+  add(new THREE.BoxGeometry(t.wid * 0.62, 0.09, 0.32), M.bar, 0, top, -0.15);
+  c.polL = add(new THREE.BoxGeometry(t.wid * 0.28, 0.12, 0.28), M.red, -t.wid * 0.16, top + 0.08, -0.15);
+  c.polR = add(new THREE.BoxGeometry(t.wid * 0.28, 0.12, 0.28), M.blue, t.wid * 0.16, top + 0.08, -0.15);
+  for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.02, 0.16, t.len * 0.8), M.stripe, s * (t.wid / 2 + 0.005), t.beltY - 0.12, 0);
+  const k = police.cars.length, dr = staffFor('police' + k, 'مأمور پلیس', 'وظیفهٔ من حفظ امنیت شهره. قانون رو رعایت کن!');
+  const rs = store.residents['police' + k]; if (rs && rs.look) { rs.look.shirt = '#1f3a6b'; rs.look.pants = '#1a2238'; }
+  c.setDriver(dr); c.owner = dr; c.police = true; c.chase = false; cars.push(c); police.cars.push(c);
+  return c;
+}
+// two patrol cars drive around the city from the start
+function buildPolice() { for (let k = 0; k < 2; k++) { const s = rideSpot(60, 400) || { x: 0, z: 0, h: 0, i: 2, j: 2, d: 0 }; makePoliceCar(s.x, s.z, s.h, { i: s.i, j: s.j, d: s.d }); } }
+function addWanted(n, why) {
+  if (player.where !== 'out') return;
+  police.calm = 0; if (simTime - police.lastAdd < 4) return; police.lastAdd = simTime;
+  const before = police.stars; police.stars = Math.min(5, police.stars + n);
+  if (police.stars > before) { toast(`🚨 ${why} — پلیس دنبالته! ${'★'.repeat(police.stars)}`); Audio.alarm(0.5); store.stats.wanted = Math.max(store.stats.wanted || 0, police.stars); }
+  policeDispatch();
+}
+function policeDispatch() {
+  const want = Math.min(4, police.stars);
+  for (const c of police.cars) if (!c.player && c.driverP && !c.driverP.isPlayer && c.health > 0) c.chase = true;
+  let active = police.cars.filter(c => c.chase).length;
+  while (active < want) { const s = rideSpot(90, 220); if (!s) break; makePoliceCar(s.x, s.z, s.h, { i: s.i, j: s.j, d: s.d }).chase = true; active++; }
+}
+function policeTarget() { const P = player; return P.state === 'car' || P.state === 'passenger' ? P.car : P.state === 'fly' && fly.obj ? fly.obj : P.pos; }
+function updatePolice(dt) {
+  const P = player; police.flash += dt;
+  const on = Math.floor(police.flash * 5) % 2 === 0;
+  let nearest = 1e9, nearCar = null;
+  for (const c of police.cars) {
+    const lit = c.chase && c.driverP && !c.driverP.isPlayer;
+    if (c.polL) { c.polL.material = lit && on ? polRedOn() : policeMats().red; c.polR.material = lit && !on ? polBlueOn() : policeMats().blue; }
+    if (!cars.includes(c) || c.player || !c.driverP || c.driverP.isPlayer || c.health <= 0) continue;
+    if (!c.ai) { c.ai = new CarAI(c, 1, 1, 0); c.ai.resetFromPos(); }
+    const T = policeTarget(), d = Math.hypot(c.x - T.x, c.z - T.z);
+    if (c.chase && police.stars > 0 && P.where === 'out') {
+      c.reT = (c.reT || 0) - dt; c.ai.cruise = 15 + police.stars * 2.5; c.inHand = false;
+      if (c.reT <= 0) { c.reT = d < 40 ? 0.8 : 2.5; c.ai.setDest(T.x, T.z); }
+      // close in: drive straight at you off the road grid
+      if (d < 26) { const a = Math.atan2(T.x - c.x, T.z - c.z); c.ai.arrived = d < 7; if (d >= 7) { c.h += angDiff(c.h, a) * Math.min(1, 3 * dt); const v = Math.min(c.ai.cruise, d * 0.9); c.vx = damp(c.vx, Math.sin(c.h) * v, 2, dt); c.vz = damp(c.vz, Math.cos(c.h) * v, 2, dt); } }
+      if (d < nearest) { nearest = d; nearCar = c; }
+    } else if (c.chase) { c.chase = false; c.ai.clearDest(); c.ai.cruise = 10; }
+  }
+  // the siren of the nearest chasing car
+  if (Audio.ctx) {
+    if (!police.nodes) { const a = Audio.ctx, o = a.createOscillator(), lfo = a.createOscillator(), lg = a.createGain(), g = a.createGain(), f = a.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.value = 900; lfo.frequency.value = 0.9; lg.gain.value = 320; lfo.connect(lg); lg.connect(o.frequency); f.type = 'lowpass'; f.frequency.value = 1800; o.connect(f); f.connect(g); g.gain.value = 0; g.connect(Audio.master); o.start(); lfo.start(); police.nodes = { g }; }
+    const v = nearCar ? Audio.vol(nearCar.x, nearCar.z) * 0.05 : 0; police.nodes.g.gain.setTargetAtTime(v >= 0 ? v : 0, Audio.ctx.currentTime, 0.2);
+  }
+  if (police.stars <= 0) { $('wanted').hidden = true; return; }
+  // getting away: out of their reach for long enough lowers the level one star at a time
+  if (P.where !== 'out' || nearest > 110) police.calm += dt * (P.where !== 'out' ? 2 : 1); else police.calm = Math.max(0, police.calm - dt * 0.5);
+  if (police.calm > 20) { police.calm = 0; police.stars--; toast(police.stars ? `پلیس ردت رو گم کرد… ${'★'.repeat(police.stars)}` : 'از دست پلیس فرار کردی! 😎'); if (!police.stars) { store.stats.escapes = (store.stats.escapes || 0) + 1; policeDispatch(); } }
+  // caught: a police car right next to you while you're on foot or stopped
+  const slow = P.state === 'foot' || (P.state === 'car' && Math.abs(P.car.vf) < 2.5) || P.state === 'passenger';
+  if (P.where === 'out' && nearCar && nearest < (P.state === 'foot' ? 7 : 9) && slow) { police.catchT += dt; if (police.catchT > (P.state === 'foot' ? 1.5 : 3)) busted(nearCar); } else police.catchT = Math.max(0, police.catchT - dt);
+  const el = $('wanted'); el.hidden = false; const txt = '★'.repeat(police.stars) + '☆'.repeat(5 - police.stars) + (police.catchT > 0.3 ? ' · داری دستگیر می‌شی!' : ''); if (el.textContent !== txt) el.textContent = txt; el.classList.toggle('flash', on);
+}
+let polRedM = null, polBlueM = null;
+function polRedOn() { return polRedM || (polRedM = new THREE.MeshBasicMaterial({ color: 0xff2020, toneMapped: false })); }
+function polBlueOn() { return polBlueM || (polBlueM = new THREE.MeshBasicMaterial({ color: 0x2a6aff, toneMapped: false })); }
+function busted(c) {
+  const P = player, fine = Math.min(store.money, police.stars * 2000000); police.catchT = 0;
+  say(c.driverP, mpick(['ایست! پلیس! دستا بالا!', 'تکون نخور! دستگیری!', 'بالاخره گرفتیمت!']), 3);
+  fadeTo(() => {
+    if (P.state === 'car') exitCar(); if (P.state === 'passenger') { if (P.car === bus) leaveBus(); else if (ride.phase && P.car === ride.car) leaveRide(); else leaveTow(); }
+    if (P.state === 'fly') leaveFlyerForce(); P.hero = false; P.hover = false; if (liftCar) dropLift();
+    store.money -= fine; updateWalletHUD(); police.stars = 0; police.calm = 0; store.stats.busted = (store.stats.busted || 0) + 1;
+    const st = world.doors.find(d => /پلیس|کلانتری/.test(d.name)); const x = st ? st.x + st.nx * 2 : -6, z = st ? st.z + st.nz * 2 : 6;
+    P.pos.set(x, groundH(x, z) + 0.05, z); P.vel.set(0, 0, 0); P.state = 'foot'; P.anim.special = null;
+    for (const k of police.cars) { k.chase = false; if (k.ai) k.ai.clearDest(); }
+    tod = (tod + 8) % 24; envTod = -99;
+    banner('دستگیر شدی! 🚔', `جریمه: ${fmtT(fine)} · یه شب تو کلانتری موندی و صبح آزادت کردن`); logEvent('پلیس یه خلافکار رو تو شهر دستگیر کرد!'); saveGame();
+  });
+}
+/* ---------- Superman flight: with strength on and flight enabled, press jump again while in the air ---------- */
+function heroStart() { const P = player; P.hero = true; P.hover = true; P.heroT = 0; P.onGround = false; P.standCar = null; Audio.burst(0.15, 600, 0.5, 'lowpass', 1); say(P, mpick(['پرواز!', 'برو که رفتیم!', 'به سوی آسمون!']), 1.6); syncTouchUI(true); store.stats.heroFly = (store.stats.heroFly || 0) + 1; }
+function heroEnd(slow) { const P = player; P.hero = false; P.hover = false; if (slow) P.slowFall = true; if (P.anim.special === 'hero') P.anim.special = null; syncTouchUI(true); }
+function heroStep(dt, dx, dz, mag, running) {
+  const P = player; P.heroT += dt;
+  const up = (keys.has('Space') || input.fUp ? 1 : 0) - (keys.has('KeyC') || keys.has('ControlLeft') || input.fDown ? 1 : 0);
+  if (P.onGround && up <= 0 && P.heroT > 0.6) { heroEnd(); return; }
+  const sp = (running ? 55 : 20) * Math.min(2.5, 1 + Math.log10(POW()) * 0.25);
+  P.vel.x = damp(P.vel.x, dx * mag * sp, 2.5, dt); P.vel.z = damp(P.vel.z, dz * mag * sp, 2.5, dt); P.vel.y = damp(P.vel.y, up * (running ? 26 : 14), 3, dt);
+  if (P.pos.y > 900) P.vel.y = Math.min(P.vel.y, 0);
+  P.anim.special = 'hero'; P.anim.sw = 1;
+  if (Math.random() < dt * 30) FX.emit(P.pos.x, P.pos.y + 0.6, P.pos.z, -P.vel.x * 0.05, -P.vel.y * 0.05, -P.vel.z * 0.05, 0.5, 0.05, 0.5, 0xffe08a, 0.4, 0.1);
 }
 
 /* ============================================================
@@ -7941,11 +8046,11 @@ function showTouchUI() { if (touchUI) return; touchUI = true; syncTouchUI(true);
 let lastUiMode = '';
 function syncTouchUI(force) {
   if (!touchUI) return;
-  const mode = chat.open ? 'chat' : player && player.state === 'fly' ? 'fly' : player && rb.build ? 'build' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? (player.car && player.car.service ? 'bus' : 'pass') : 'foot';
-  if (mode === lastUiMode && !force) return; lastUiMode = mode;
-  $('pad').hidden = mode !== 'foot'; $('joy-hint').hidden = mode !== 'foot'; updateUseBtn(); if (mode !== 'foot') { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
+  const mode = chat.open ? 'chat' : player && player.state === 'fly' ? 'fly' : player && rb.build ? 'build' : player && (player.state === 'car' || player.state === 'entering') ? 'car' : player && player.state === 'passenger' ? (player.car && player.car.service ? 'bus' : 'pass') : player && player.hero ? 'hero' : 'foot';
+  if (mode === lastUiMode && !force) return; lastUiMode = mode; const footish = mode === 'foot' || mode === 'hero';
+  $('pad').hidden = !footish; $('joy-hint').hidden = mode !== 'foot'; updateUseBtn(); if (!footish) { $('joy').hidden = true; joyId = null; input.jx = input.jy = 0; }
   for (const id of ['drive-l', 'drive-r']) $(id).hidden = mode !== 'car' && mode !== 'fly';
-  $('fly-ud').hidden = mode !== 'fly'; if (mode === 'build') { $('pad').hidden = true; $('joy-hint').hidden = true; }
+  $('fly-ud').hidden = mode !== 'fly' && mode !== 'hero'; if (mode === 'build') { $('pad').hidden = true; $('joy-hint').hidden = true; }
   $('drive-x').hidden = mode !== 'car' && mode !== 'pass' && mode !== 'bus' && mode !== 'fly'; $('b-hand').hidden = $('b-horn').hidden = $('b-nitro').hidden = mode !== 'car'; $('b-eject').hidden = mode !== 'pass'; $('b-horn').hidden = $('b-hand').hidden = mode !== 'car';
   if (mode !== 'car') { input.cGas = input.cBrake = input.cLeft = input.cRight = false; input.hornBtn = input.handBtn = false; for (const b of document.querySelectorAll('.dbtn')) b.classList.remove('down'); }
 }
@@ -8014,7 +8119,7 @@ $('pow-form').addEventListener('submit', e => {
   let val = null;
   if (mode === 'min') { val = powNum($('pow-min').value); if (!(val > 0)) { $('pow-now').textContent = 'چند دقیقه؟ یه عدد بنویس'; return; } }
   else if (mode === 'clock') { const m = ($('pow-clock').value || '').match(/(\d+):(\d+)/); if (!m) { $('pow-now').textContent = 'ساعت رو انتخاب کن'; return; } val = (+m[1] % 24) + (+m[2]) / 60; }
-  setPower(lvl, mode, val); $('pow-panel').hidden = true;
+  setPower(lvl, mode, val, $('pow-fly').checked); $('pow-panel').hidden = true; if ($('pow-fly').checked) toast('برای پرواز: بپر و وسط هوا دوباره پرش رو بزن');
 });
 $('pow-off').addEventListener('click', () => { clearPower(); $('pow-panel').hidden = true; toast('زورت عادی شد'); });
 $('pow-close').addEventListener('click', () => { $('pow-panel').hidden = true; });
@@ -8298,6 +8403,7 @@ function enterCar(car) {
   if (car.health <= 0) { setPrompt('این ماشین خراب شده و روشن نمی‌شود.', '', 2); return; }
   player.state = 'entering'; player.car = car; player.lastCar = car; player.enterT = 0; car.doorT = 1; car.inHand = true; Audio.door();
   if (car.ai) {
+    if (car.driverP && !car.driverP.isPlayer) addWanted(car.police ? 2 : 1, car.police ? 'ماشین پلیس رو دزدیدی!' : 'ماشین یه نفر رو دزدیدی');
     car.ai = null; car.inThrottle = 0; car.hazardT = 0; car.blink = null;
     const n = ejectDriver(car, true);
     if (n) { n.persona.mem.carTaken = true; n.persona.rel -= 3; n.persona.mood = 0.2; say(n, mpick(['ماشینم!', 'دزد! دزد!', 'هی! اون ماشین منه!', 'کمک! ماشینمو بردن!']), 3); logEvent(`یکی ماشین ${n.persona.name} رو تو ${streetAt(car.x, car.z)} دزدید!`); }
@@ -8566,10 +8672,14 @@ function updatePlayer(dt) {
     if (cam.fpOn && !chat.open) P.facing += angDiff(P.facing, cam.yaw) * Math.min(1, 18 * dt);
     else if (tsp > 0.1) P.facing += angDiff(P.facing, Math.atan2(dx, dz)) * Math.min(1, 12 * dt);
     else if (chat.open && chat.npc) P.facing += angDiff(P.facing, Math.atan2(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z)) * Math.min(1, 6 * dt);
+    if (P.slowFall && P.onGround) P.slowFall = false;
+    if (input.jumpQ && !P.onGround && !P.hero && store.power && store.power.fly && POW() > 1 && outdoor) { input.jumpQ = false; heroStart(); }
+    if (P.hero) { if (!outdoor || !store.power || !store.power.fly) heroEnd(true); else heroStep(dt, dx, dz, mag, running); }
     if (input.jumpQ && P.onGround && P.anim.prep <= 0) { P.anim.prep = 0.09; P.jumpAt = simTime + 0.09; }
     input.jumpQ = false;
     if (P.jumpAt && simTime >= P.jumpAt) { P.jumpAt = 0; if (P.onGround) { P.vel.y = 6.6 * powJump(); P.onGround = false; P.standCar = null; Audio.step(true); } }
-    stepCharacter(P, col, dt, outdoor);
+    if (P.hero) { const n = Math.min(12, Math.ceil(Math.hypot(P.vel.x, P.vel.y, P.vel.z) * dt / 0.5) || 1); for (let i = 0; i < n; i++) stepCharacter(P, col, dt / n, outdoor); }
+    else stepCharacter(P, col, dt, outdoor);
     if (outdoor) slideCarry(P, dt);
     if (P.onGround && !P.skate) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) { Audio.step(running); if (outdoor && weather.wet > 0.4) FX.splash(P.pos.x, P.pos.y, P.pos.z); } } }
     if (chat.open) { input.actQ = false; if (!chat.npc || Math.hypot(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z) > 5 || chat.npc.mode === 'down') closeChat(); return; }
@@ -9039,7 +9149,7 @@ function throwDriver() {
   const d = tow.driverP; if (!d) return;
   const n = ejectDriver(tow, false);
   if (n) { n.mode = 'down'; n.knockT = 0; n.onGround = false; const s = Math.sin(tow.h), c = Math.cos(tow.h); n.vel.set(c * 3.5, 3.2, -s * 3.5); n.persona.rel -= 4; n.persona.mood = 0.1; n.persona.mem.carTaken = true; say(n, mpick(['هوی!! چرا هلم دادی؟!', 'آی کمرم! یدک‌کشمو کجا می‌بری؟!', 'دزد! یدک‌کش تعمیرگاهو بردن!']), 3.5); }
-  logEvent('یکی رانندهٔ یدک‌کش رو از ماشین انداخت پایین!');
+  logEvent('یکی رانندهٔ یدک‌کش رو از ماشین انداخت پایین!'); addWanted(1, 'رانندهٔ یدک‌کش رو انداختی پایین');
   tow.passengerP = null; tow.ai = null; towJob = null; tow.blink = null;
   const P = player; P.state = 'car'; P.inCar = null; tow.setDriver(P); tow.player = true; tow.hasDriver = true; tow.inHand = false; P.car = tow; addCarLights(tow); Audio.door();
   banner('حالا یدک‌کش دست خودته!', tow.carrying ? 'ماشین روی یدک‌کش رو جلوی تعمیرگاه نگه دار تا تحویل بدی' : 'با احتیاط برون');
@@ -9092,7 +9202,7 @@ function drawMap() {
   g.translate(W / 2, W / 2); g.rotate(rot); g.scale(zoom, zoom); g.translate(-(px + MAPW / 2) * s, -(pz + MAPW / 2) * s);
   g.drawImage(mapBase, 0, 0);
   const X = v => (v + MAPW / 2) * s;
-  for (const c of cars) { if (c.player) continue; g.save(); g.translate(X(c.x), X(c.z)); g.rotate(-c.h); g.fillStyle = c.service === 'bus' ? '#3ad87a' : c.service === 'amb' ? (c.sirenOn && (simTime * 3) % 1 < 0.5 ? '#2a6aff' : '#ff4a4a') : c.taxi ? '#ffd23a' : c.ai ? '#e8e8e8' : '#9fb4c8'; g.fillRect(-c.T.wid * s / 2, -c.T.len * s / 2, c.T.wid * s, c.T.len * s); g.restore(); }
+  for (const c of cars) { if (c.player) continue; g.save(); g.translate(X(c.x), X(c.z)); g.rotate(-c.h); g.fillStyle = c.police ? (c.chase && (simTime * 4) % 1 < 0.5 ? '#ff3a3a' : '#3a7aff') : c.service === 'bus' ? '#3ad87a' : c.service === 'amb' ? (c.sirenOn && (simTime * 3) % 1 < 0.5 ? '#2a6aff' : '#ff4a4a') : c.taxi ? '#ffd23a' : c.ai ? '#e8e8e8' : '#9fb4c8'; g.fillRect(-c.T.wid * s / 2, -c.T.len * s / 2, c.T.wid * s, c.T.len * s); g.restore(); }
   g.fillStyle = '#ffcf7a'; for (const n of npcs) { if (n.mode === 'inside') continue; g.beginPath(); g.arc(X(n.pos.x), X(n.pos.z), 2.2, 0, 7); g.fill(); }
   if (tow) { g.save(); g.translate(X(tow.x), X(tow.z)); g.rotate(-tow.h); g.fillStyle = tow.beaconOn && (simTime * 3) % 1 < 0.5 ? '#ffd23a' : '#e2661c'; g.fillRect(-6, -10, 12, 20); g.restore(); }
   if (towJob && towJob.car) { g.strokeStyle = '#e2661c'; g.lineWidth = 3; g.beginPath(); g.arc(X(towJob.car.x), X(towJob.car.z), 9, 0, 7); g.stroke(); }
@@ -9163,7 +9273,7 @@ function applyPending() {
 function toast(t) { const el = $('saved'); el.textContent = t; el.hidden = false; el.style.opacity = '1'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; el.textContent = 'ذخیره شد'; }, 2600); }
 addEventListener('resize', () => { if (composerAll && composer) { composerAll.setPixelRatio(pixelRatio); composerAll.setSize(innerWidth, innerHeight); } if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } if (FX.pts) FX.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5; });
 function updateWorld(dt) {
-  updatePower(dt); updateCoins(dt); updateAch(dt);
+  updatePower(dt); updateCoins(dt); updateAch(dt); updatePolice(dt);
   simTime += dt; windUniform.value = simTime; skyUniforms.uTime.value = simTime;
   tod = (tod + dt * DAY_SPEED) % 24;
   updateWeather(dt); updateSnow(dt);
@@ -9349,7 +9459,7 @@ async function boot(data) {
   const sv = loadSave();
   if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
   if (!restored) { spawnTraffic(); spawnPeople(); }
-  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); updateBalloons(0); buildFireworks(); buildDog(); buildCoins();
+  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); updateBalloons(0); buildFireworks(); buildDog(); buildCoins(); buildPolice();
   if (restored) rebuildPlayerLook();
   setView(settings.view === 'first'); updateWalletHUD(); updatePowHud();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
@@ -9376,7 +9486,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { coins, collectCoin, startDeliv, ACH, updateAch, setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { police, addWanted, busted, heroStart, heroEnd, coins, collectCoin, startDeliv, ACH, updateAch, setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); phoneTick(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
