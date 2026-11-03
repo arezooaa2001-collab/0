@@ -283,6 +283,7 @@ input,select{font-family:inherit}
     </label>
     <button class="bigBtn" id="playBtn" type="button">▶ بازی کن</button>
     <div class="saveInfo" id="saveInfo"></div>
+    <div class="saveInfo" id="cloudInfo">⏳ در حال اتصال به فضای ابری…</div>
     <div class="rowBtns">
       <button class="softBtn" id="menuSettings" type="button">⚙️ تنظیمات</button>
       <button class="softBtn" id="menuHelp" type="button">❔ راهنما</button>
@@ -2603,7 +2604,7 @@ function returnUnitToVictimless(u) { const c = u.carrier; if (c) c.carrying = nu
 
 // ------------------------------------------------------------------ save / load
 let saveQueued = false;
-function scheduleSave(now) { if (now) { doSave(); return; } saveQueued = true; }
+function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
     v: 1, t: Date.now(), name: G.name, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
@@ -3098,6 +3099,8 @@ const UI = {
       '<div class="setRow"><span>کاهش خودکار وضوح (فقط برای گوشی‌های ضعیف)</span>' + this.tgl('autoRes', S.autoRes) + '</div>' +
       '<div class="setRow"><span>کنترل لمسی</span>' + this.seg('touch', [['auto', 'خودکار'], ['on', 'روشن'], ['off', 'خاموش']], S.touch) + '</div>' +
       '<p class="note">لبه‌نرمی (Anti-aliasing) بعد از بارگذاری دوباره‌ی صفحه با کیفیت جدید هماهنگ می‌شود. وضوح تصویر همیشه همان کیفیتی است که انتخاب کرده‌ای، مگر اینکه «کاهش خودکار وضوح» را روشن کنی.</p>' +
+      '<div class="setRow" style="flex-wrap:wrap"><span>☁️ فضای ابری</span><div class="rowBtns"><button class="act" type="button" data-act="cloudsave"' + (Cloud.state === 'on' ? '' : ' disabled') + '>ذخیره الان</button><button class="act buy" type="button" data-act="cloudload"' + (Cloud.state === 'on' ? '' : ' disabled') + '>بارگذاری از ابر</button></div></div>' +
+      '<p class="note" id="cloudPanelInfo">' + esc(Cloud.label()) + '</p>' +
       '<div class="rowBtns"><button class="act red" type="button" data-act="reset">🗑 پاک کردن کل پیشرفت</button></div>';
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('settings', '⚙️ تنظیمات', html);
   },
@@ -3115,6 +3118,7 @@ const UI = {
     this.openPanel('pause', '⏸ بازی متوقف شد', '<div style="display:flex;flex-direction:column;gap:8px"><button class="bigBtn" type="button" data-act="resume">▶ ادامه</button>' +
       '<div class="rowBtns"><button class="softBtn" type="button" data-act="settings">⚙️ تنظیمات</button><button class="softBtn" type="button" data-act="help">❔ راهنما</button><button class="softBtn" type="button" data-act="save">💾 ذخیره</button></div>' +
       '<div class="rowBtns"><button class="softBtn" type="button" data-act="tutorial">🎓 آموزش دوباره</button><button class="softBtn" type="button" data-act="menu">🏠 منوی اصلی</button><button class="softBtn" type="button" data-act="restart">🔄 شروع دوباره</button></div>' +
+      '<p class="note" id="cloudPanelInfo">' + esc(Cloud.label()) + '</p>' +
       '<p class="note">زمان بازی: ' + fmtTime(G.playTime) + ' · پیشرفتت خودکار ذخیره می‌شود.</p></div>');
   },
   confirm(title, text, cb) { $('confirmTitle').textContent = title; $('confirmText').textContent = text; this.confirmCb = cb; $('confirm').hidden = false; },
@@ -3148,14 +3152,16 @@ $('panelBody').addEventListener('click', (e) => {
   switch (t.dataset.act) {
     case 'rebirth': UI.confirm('تولد دوباره؟', 'همه‌ی پول، میم‌ها و ارتقاهای تو صفر می‌شوند ولی درآمدت برای همیشه بیشتر می‌شود.', () => { if (rebirth()) UI.closePanel(); }); break;
     case 'claim': UI.claimDaily(); break;
-    case 'reset': UI.confirm('پاک کردن پیشرفت', 'همه‌ی پیشرفت بازی برای همیشه پاک می‌شود. ادامه می‌دهی؟', () => { lsDel(SAVE_KEY); G.resetting = true; location.reload(); }); break;
+    case 'reset': UI.confirm('پاک کردن پیشرفت', 'همه‌ی پیشرفت بازی (روی این دستگاه و در فضای ابری) برای همیشه پاک می‌شود. ادامه می‌دهی؟', () => Cloud.wipeAndReload()); break;
+    case 'cloudsave': Cloud.push(true).then((ok) => UI.toast(ok ? '☁️ در فضای ابری ذخیره شد' : '☁️ ' + Cloud.label(), ok ? 'good' : 'bad')); break;
+    case 'cloudload': Cloud.pull(); break;
     case 'resume': UI.closePanel(); break;
     case 'settings': UI.openSettings(); break;
     case 'help': UI.openHelp(); break;
-    case 'save': doSave(); UI.closePanel(); UI.toast('💾 ذخیره شد', 'good'); break;
+    case 'save': doSave(); UI.closePanel(); Cloud.push(true).then((ok) => UI.toast(ok ? '💾 ذخیره شد (روی دستگاه و فضای ابری)' : '💾 روی همین دستگاه ذخیره شد', 'good')); break;
     case 'tutorial': UI.closePanel(); Tutorial.start(true); break;
     case 'menu': doSave(); UI.closePanel(); backToMenu(); break;
-    case 'restart': UI.confirm('شروع دوباره', 'بازی از اول شروع می‌شود و پیشرفت فعلی پاک می‌شود.', () => { lsDel(SAVE_KEY); G.resetting = true; location.reload(); }); break;
+    case 'restart': UI.confirm('شروع دوباره', 'بازی از اول شروع می‌شود و پیشرفت فعلی (روی این دستگاه و در فضای ابری) پاک می‌شود.', () => Cloud.wipeAndReload()); break;
   }
 });
 $('panelBody').addEventListener('input', (e) => {
@@ -3223,6 +3229,104 @@ const Tutorial = {
 };
 $('tutSkip').addEventListener('click', () => Tutorial.skip());
 
+// ------------------------------------------------------------------ cloud save (private per-player document in the artifact's store)
+const Cloud = {
+  state: 'checking', msg: 'در حال اتصال به فضای ابری…', ref: null, lastKey: '', lastAt: 0, busy: false, pending: false, timer: 25, toldOnce: false,
+  set(state, msg) { this.state = state; this.msg = msg; this.render(); },
+  label() {
+    if (this.state === 'on') return '☁️ ذخیره‌ی ابری فعال است' + (this.lastAt ? ' · آخرین ذخیره ' + fa(new Date(this.lastAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })) : '');
+    return (this.state === 'checking' ? '⏳ ' : '☁️ ') + this.msg;
+  },
+  render() {
+    const el = $('cloudInfo'); if (el) { el.textContent = this.label(); el.style.color = this.state === 'on' ? 'var(--mint)' : 'var(--muted)'; }
+    const pl = document.getElementById('cloudPanelInfo'); if (pl) pl.textContent = this.label();
+  },
+  async init(localT) {
+    try {
+      if (!window.claude || typeof window.claude.use !== 'function') { this.set('off', 'ذخیره‌ی ابری فقط در نسخه‌ی آنلاین بازی فعال است؛ اینجا پیشرفت روی همین دستگاه می‌ماند'); return; }
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      if (!db || !user) { this.set('off', 'فضای ابری در این نما در دسترس نیست؛ پیشرفت روی همین دستگاه ذخیره می‌شود'); return; }
+      const id = await user.id();
+      if (!id) { this.set('off', 'برای ذخیره‌ی ابری وارد حساب Claude شو'); return; }
+      this.ref = db.doc('data/users/' + id + '/save');
+      const snap = await Promise.race([this.ref.get(), new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), 10000))]);
+      this.set('on', '');
+      const d = snap.exists ? snap.data() : null;
+      if (d && typeof d.json === 'string' && Number(d.savedAt) > localT + 1500) this.offer(d);
+      else this.push(true);
+    } catch (e) {
+      if (e && e.code === 'timeout') this.set('error', 'فضای ابری فعلاً جواب نمی‌دهد؛ پیشرفت روی همین دستگاه ذخیره می‌شود');
+      else this.set('error', 'اتصال به فضای ابری برقرار نشد؛ پیشرفت روی همین دستگاه ذخیره می‌شود');
+      console.warn('cloud init', e);
+    }
+  },
+  parse(d) {
+    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && s.owners.length === 6) return s; } catch (e) { /* invalid */ }
+    return null;
+  },
+  offer(d) {
+    const s = this.parse(d); if (!s) { this.push(true); return; }
+    const o = s.owners[0] || {}, cnt = Array.isArray(o.slots) ? o.slots.filter(Boolean).length : 0;
+    const apply = () => { resetWorldTo(s); this.lastKey = ''; this.lastAt = Number(d.savedAt) || Date.now(); this.render(); UI.toast('☁️ پیشرفت از فضای ابری بارگذاری شد', 'good'); };
+    const localProgress = G.owners[0].unitCount() > 0 || G.playTime > 30;
+    if (!G.playing && !localProgress) { apply(); $('saveInfo').textContent = '☁️ پیشرفتت از فضای ابری بارگذاری شد · ' + $('saveInfo').textContent; return; }
+    UI.confirm('ذخیره‌ی ابری جدیدتر', 'در فضای ابری پیشرفت جدیدتری پیدا شد (' + fmt(o.money) + ' سکه · ' + fa(cnt) + ' میم). جایگزین پیشرفت همین دستگاه شود؟', apply);
+  },
+  key() { const o = serialize(); delete o.t; return [JSON.stringify(o), o]; },
+  async push(force) {
+    if (this.state !== 'on' || !this.ref || G.resetting) return false;
+    const [k, body] = this.key(); if (!force && k === this.lastKey) return true;
+    if (this.busy) { this.pending = true; return false; }
+    this.busy = true;
+    try {
+      body.t = Date.now();
+      await this.ref.set({ v: 1, savedAt: body.t, name: G.name, json: JSON.stringify(body) });
+      this.lastKey = k; this.lastAt = body.t; this.render();
+      if (!this.toldOnce && G.playing) { this.toldOnce = true; UI.toast('☁️ پیشرفتت در فضای ابری ذخیره شد', 'good'); }
+      return true;
+    } catch (e) {
+      const c = e && e.code;
+      if (c === 'invalid_argument' || c === 'not_granted' || c === 'revoked' || c === 'capability_disabled') this.set('off', 'این حساب اجازه‌ی ذخیره‌ی ابری ندارد؛ پیشرفت روی همین دستگاه ذخیره می‌شود');
+      else if (c === 'quota_exceeded') this.set('error', 'فضای ابری پر است؛ پیشرفت روی همین دستگاه ذخیره می‌شود');
+      else this.timer = 8 + Math.random() * 6; // transient: try again a little later
+      console.warn('cloud save', e); return false;
+    } finally {
+      this.busy = false;
+      if (this.pending) { this.pending = false; setTimeout(() => this.push(), 500); }
+    }
+  },
+  async pull() {
+    if (this.state !== 'on' || !this.ref) { UI.toast(this.label(), 'bad'); return; }
+    try {
+      const snap = await this.ref.get(); const d = snap.exists ? snap.data() : null; const s = d && this.parse(d);
+      if (!s) { UI.toast('☁️ هنوز چیزی در فضای ابری ذخیره نشده', ''); return; }
+      UI.confirm('بارگذاری از فضای ابری', 'پیشرفت همین دستگاه با نسخه‌ی ذخیره‌شده در فضای ابری (' + fmt(s.owners[0].money) + ' سکه) جایگزین شود؟', () => { resetWorldTo(s); this.lastKey = ''; this.lastAt = Number(d.savedAt) || 0; this.render(); UI.closePanel(); UI.toast('☁️ پیشرفت از فضای ابری بارگذاری شد', 'good'); });
+    } catch (e) { UI.toast('☁️ فضای ابری فعلاً در دسترس نیست', 'bad'); }
+  },
+  tick(dt) { if (this.state !== 'on' || !G.playing) return; this.timer -= dt; if (this.timer <= 0) { this.timer = 25; this.push(); } },
+  async wipeAndReload() {
+    G.resetting = true; lsDel(SAVE_KEY);
+    if (this.state === 'on' && this.ref) { try { await Promise.race([this.ref.delete(), new Promise((r) => setTimeout(r, 4000))]); } catch (e) { /* best effort */ } }
+    location.reload();
+  },
+};
+// replace the whole world state with a save (used when a newer cloud copy arrives)
+function resetWorldTo(s) {
+  for (const a of G.agents) { if (a.carrying) { const u = a.carrying; a.carrying = null; u.carrier = null; } a.stunT = 0; if (a.brain) a.brain.set('idle'); }
+  for (const o of G.owners) {
+    for (const sl of o.slots) { if (sl.unit) { sl.unit.dispose(false); sl.unit = null; } sl.pending = 0; }
+    o.money = START_MONEY; o.rebirths = 0; for (const k of UP_KEYS) o.up[k] = 0; o.secT = 0; o.secCd = 0; o.base.setBarrier(false);
+  }
+  G.alerts.clear(); G.discovered.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
+  applySave(s);
+  G.owners.forEach((o) => { o.base.setCapacity(o.cap); o.base.trap.visible = o.up.trap > 0; });
+  for (const a of G.agents) a.respawn();
+  setPlayerName(G.name); $('nameInput').value = G.name; menuInfo();
+  if (G.tutorialDone) { Tutorial.step = -1; Tutorial.show(); }
+  else if (G.playing && Tutorial.step < 0) Tutorial.start();
+  UI.shownMoney = G.owners[0].money; doSave();
+}
+
 // ------------------------------------------------------------------ boot, menu, main loop
 let maxPR = Math.min(window.devicePixelRatio || 1, QS.pr);
 let rotateDismissed = false, shopkeeper = null;
@@ -3271,9 +3375,9 @@ $('playBtn').addEventListener('click', startPlay);
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') startPlay(); });
 $('menuSettings').addEventListener('click', () => { Sound.init(); UI.openSettings(); });
 $('menuHelp').addEventListener('click', () => UI.openHelp());
-$('menuReset').addEventListener('click', () => UI.confirm('شروع از اول', 'همه‌ی پیشرفت ذخیره‌شده پاک می‌شود. مطمئنی؟', () => { lsDel(SAVE_KEY); G.resetting = true; location.reload(); }));
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.owners.length && !G.resetting) doSave(); });
-window.addEventListener('pagehide', () => { if (G.owners.length && !G.resetting) doSave(); });
+$('menuReset').addEventListener('click', () => UI.confirm('شروع از اول', 'همه‌ی پیشرفت ذخیره‌شده (روی این دستگاه و در فضای ابری) پاک می‌شود. مطمئنی؟', () => Cloud.wipeAndReload()));
+document.addEventListener('visibilitychange', () => { if (document.hidden && G.owners.length && !G.resetting) { doSave(); Cloud.push(); } });
+window.addEventListener('pagehide', () => { if (G.owners.length && !G.resetting) { doSave(); Cloud.push(); } });
 
 async function init() {
   setLoad(32, 'در حال بارگذاری فونت فارسی…');
@@ -3308,6 +3412,7 @@ async function init() {
   UI.applySettings(false); menuInfo();
   setLoad(100, 'آماده!');
   setTimeout(() => { $('loading').hidden = true; $('menu').hidden = false; }, 250);
+  Cloud.init(savedAt || 0);
   requestAnimationFrame(frame);
 }
 
@@ -3347,6 +3452,7 @@ function simulate(dt) {
   }
 }
 function presentFrame(dt) {
+  Cloud.tick(dt);
   // optional adaptive resolution (off by default so the chosen quality stays sharp); applied BEFORE rendering
   adaptT += dt;
   if (!S.autoRes) { if (pixelRatio !== maxPR) { pixelRatio = maxPR; onResize(); } }
