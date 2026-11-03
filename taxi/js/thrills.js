@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { Particles } from './effects.js';
 import { LANE, regionAt } from './world.js';
-import { fa, faMoney, mulberry32, collideCircle } from './util.js';
+import { fa, faMoney, mulberry32, collideCircle, circleCol } from './util.js';
+
+const circleColAt = (x, z) => circleCol(x, z, 0.3);
 
 export const GOLD = 0xd4af37;
 const STATUES = 12;
@@ -14,6 +16,101 @@ export class Thrills {
     this.buildHoops();
     this.buildPads();
     this.buildStatues();
+    this.buildTraps();
+  }
+
+  /* ---------------- speed traps (Burnout style, no fines) ---------------- */
+  buildTraps() {
+    const g = this.g, w = g.world;
+    this.traps = [];
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.6, roughness: 0.4 });
+    w.roads.filter((r) => r.type === 'highway').forEach((r, i) => {
+      if (i % 2 !== 1 || r.pts.length < 12) return;
+      const k = Math.floor(r.pts.length * 0.35);
+      const a = r.pts[k], b = r.pts[k + 1];
+      const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      const dx = (b.x - a.x) / l, dz = (b.z - a.z) / l;
+      const y = w.heightAt(a.x, a.z);
+      const grp = new THREE.Group();
+      grp.position.set(a.x, y, a.z);
+      grp.rotation.y = Math.atan2(dx, dz);
+      for (const s of [-8, 8]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.35, 7, 0.35), postMat);
+        post.position.set(s, 3.5, 0);
+        grp.add(post);
+        w.statics.insert(circleColAt(a.x + Math.cos(grp.rotation.y) * s, a.z - Math.sin(grp.rotation.y) * s));
+      }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(16.4, 0.4, 0.4), postMat);
+      beam.position.y = 6.8;
+      grp.add(beam);
+      const cv = document.createElement('canvas');
+      cv.width = 256;
+      cv.height = 72;
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const board = new THREE.Mesh(new THREE.BoxGeometry(6, 1.7, 0.2), [postMat, postMat, postMat, postMat, new THREE.MeshBasicMaterial({ map: tex }), new THREE.MeshBasicMaterial({ map: tex })]);
+      board.position.y = 5.7;
+      grp.add(board);
+      g.scene.add(grp);
+      const trap = { id: 't' + i, name: r.name, x: a.x, z: a.z, dx, dz, cv, tex, prev: null, showT: 0 };
+      this.drawTrap(trap, null);
+      this.traps.push(trap);
+    });
+  }
+  drawTrap(t, kmh) {
+    const c = t.cv.getContext('2d');
+    c.fillStyle = '#050505';
+    c.fillRect(0, 0, 256, 72);
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    if (kmh === null) {
+      const best = (this.g.stats.speedTraps || {})[t.id];
+      c.fillStyle = '#ffb300';
+      c.font = 'bold 26px Vazirmatn, Tahoma, sans-serif';
+      c.fillText('📸 تله سرعت', 128, 24);
+      c.font = 'bold 20px Vazirmatn, Tahoma, sans-serif';
+      c.fillStyle = '#66ff88';
+      c.fillText(best ? `رکورد: ${fa(best)} km/h` : 'سریع رد شو!', 128, 54);
+    } else {
+      c.fillStyle = kmh >= 200 ? '#ff4040' : kmh >= 150 ? '#ffb300' : '#66ff88';
+      c.font = 'bold 48px Vazirmatn, Tahoma, sans-serif';
+      c.fillText(`${fa(kmh)} km/h`, 128, 38);
+    }
+    t.tex.needsUpdate = true;
+  }
+  updateTraps(dt) {
+    const g = this.g, p = g.player;
+    for (const t of this.traps) {
+      if (t.showT > 0) {
+        t.showT -= dt;
+        if (t.showT <= 0) this.drawTrap(t, null);
+      }
+      const rx = p.pos.x - t.x, rz = p.pos.z - t.z;
+      if (rx * rx + rz * rz > 900) {
+        t.prev = null;
+        continue;
+      }
+      const along = rx * t.dx + rz * t.dz, lat = Math.abs(rx * t.dz - rz * t.dx);
+      const prev = t.prev;
+      t.prev = along;
+      if (prev === null || Math.sign(prev) === Math.sign(along) || along === 0 || lat > 8 || g.state !== 'play' || g.onfoot.active) continue;
+      const kmh = Math.round((p.groundSpeed ?? Math.abs(p.speed)) * 3.6);
+      if (kmh < 30) continue;
+      this.drawTrap(t, kmh);
+      t.showT = 6;
+      const S = (g.stats.speedTraps = g.stats.speedTraps || {});
+      const best = S[t.id] || 0;
+      g.stats.maxTrap = Math.max(g.stats.maxTrap || 0, kmh);
+      g.audio.burst(0.08, 3000, 'highpass', 0.5);
+      if (kmh > best) {
+        S[t.id] = kmh;
+        const cash = Math.round((kmh * kmh * 2) / 1000) * 1000; // 100 km/h → 20k, 200 km/h → 80k
+        g.money += cash;
+        g.addXp(kmh / 6);
+        g.audio.cash();
+        g.stunts.banner(`📸 تله سرعت ${t.name}: ${fa(kmh)} km/h • رکورد جدید! +${faMoney(cash)}`);
+      } else g.stunts.pop(`📸 ${fa(kmh)} km/h (رکورد ${fa(best)})`);
+    }
   }
 
   /* ---------------- fire hoops ---------------- */
@@ -242,6 +339,7 @@ export class Thrills {
     this.sparkle.setScale(h, fov);
   }
   update(dt) {
+    this.updateTraps(dt);
     this.updateHoops(dt);
     this.updatePads(dt);
     this.updateStatues(dt);
