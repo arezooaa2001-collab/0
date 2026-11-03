@@ -452,7 +452,7 @@ const UPGRADES = {
   speed: { name: 'کتونی فشفشه', emoji: '👟', max: 5, desc: (l) => 'سرعت +' + fa(l * 7) + '٪ → +' + fa((l + 1) * 7) + '٪', cost: (l) => Math.round(400 * Math.pow(3, l)) },
   secDur: { name: 'باتری لیزر', emoji: '🔋', max: 5, desc: (l) => 'مدت سپر: ' + fa(25 + l * 10) + ' → ' + fa(35 + l * 10) + ' ثانیه', cost: (l) => Math.round(500 * Math.pow(3, l)) },
   secCd: { name: 'خنک‌کننده‌ی سپر', emoji: '❄️', max: 5, desc: (l) => 'آماده‌سازی: ' + fa(70 - l * 8) + ' → ' + fa(62 - l * 8) + ' ثانیه', cost: (l) => Math.round(800 * Math.pow(3, l)) },
-  trap: { name: 'تله‌ی چسبناک', emoji: '🕸️', max: 3, desc: (l) => 'دزدها توی پایگاهت ' + fa(l * 15) + '٪ → ' + fa((l + 1) * 15) + '٪ کندتر', cost: (l) => Math.round(3000 * Math.pow(4, l)) },
+  trap: { name: 'تله‌ی چسبناک', emoji: '🕸️', max: 3, desc: (l) => 'دزدها توی پایگاهت ' + fa(l * 10) + '٪ → ' + fa((l + 1) * 10) + '٪ کندتر', cost: (l) => Math.round(3000 * Math.pow(4, l)) },
   magnet: { name: 'آهن‌ربای سکه', emoji: '🧲', max: 1, desc: () => 'هر ۵ ثانیه پول‌ها خودکار جمع می‌شوند', cost: () => 6000 },
 };
 const UP_KEYS = Object.keys(UPGRADES);
@@ -2330,8 +2330,8 @@ class Agent {
     let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : (this.brain.run ? 5.75 : 5.0);
     v *= 1 + 0.07 * this.owner.up.speed;
     if (this.carrying) {
-      v *= 0.62; const vb = this.carrying.owner.base;
-      if (vb.contains(this.body.pos.x, this.body.pos.z, 0.5)) v *= 1 - 0.15 * this.carrying.owner.up.trap;
+      v *= this.isPlayer ? 0.88 : 0.75; const vb = this.carrying.owner.base; // carrying slows you only a little
+      if (vb.contains(this.body.pos.x, this.body.pos.z, 0.5)) v *= 1 - 0.1 * this.carrying.owner.up.trap;
     }
     return this.stunned ? 0 : v;
   }
@@ -2341,7 +2341,7 @@ class Agent {
     const dx = tx - b.vel.x, dz = tz - b.vel.z, dl = Math.hypot(dx, dz), stepA = acc * dt;
     if (dl <= stepA) { b.vel.x = tx; b.vel.z = tz; } else { b.vel.x += dx / dl * stepA; b.vel.z += dz / dl * stepA; }
     if (b.grounded) this.coyote = 0.12; else this.coyote -= dt;
-    if (this.jumpQ > 0) { this.jumpQ -= dt; if (this.coyote > 0 && !this.stunned) { b.vel.y = 10.2 * (this.carrying ? 0.85 : 1); this.coyote = 0; this.jumpQ = 0; b.grounded = false; if (this.isPlayer) Sound.play('jump'); } }
+    if (this.jumpQ > 0) { this.jumpQ -= dt; if (this.coyote > 0 && !this.stunned) { b.vel.y = 10.2 * (this.carrying ? 0.95 : 1); this.coyote = 0; this.jumpQ = 0; b.grounded = false; if (this.isPlayer) Sound.play('jump'); } }
     stepBody(b, dt);
     if (b.groundTag === 'belt') { b.pos.x += beltSpeed() * dt; if (b.pos.x > BELT.x1 - 0.5) b.pos.x = BELT.x1 - 0.5; }
   }
@@ -3107,7 +3107,7 @@ const UI = {
   openHelp() {
     this.openPanel('help', '❔ راهنمای بازی', '<div class="help"><p>🎯 <b>هدف:</b> ثروتمندترین صاحب پایگاه شو! میم‌ها را از نوار نقاله‌ی وسط بخر؛ هر میم توی پایگاهت هر ثانیه پول می‌سازد.</p>' +
       '<p>💰 پول‌ها روی <b>سکوی سبز</b> پایگاهت جمع می‌شوند؛ رویش برو تا برداری.</p>' +
-      '<p>🦹 <b>دزدی:</b> وارد پایگاه حریف شو، کنار یک میم «دزدی» را بزن و میم را تا پایگاه خودت ببر. سرعتت موقع حمل کم می‌شود. اگر صاحبش لمست کند، میم برمی‌گردد.</p>' +
+      '<p>🦹 <b>دزدی:</b> وارد پایگاه حریف شو، کنار یک میم «دزدی» را بزن و میم را تا پایگاه خودت ببر. سرعتت موقع حمل کمی کم می‌شود. اگر صاحبش لمست کند، میم برمی‌گردد.</p>' +
       '<p>🛡️ <b>سپر لیزری:</b> برای مدتی ورود حریف‌ها را می‌بندد (خودت آزادانه رد می‌شوی). بعد از خاموشی باید صبر کنی تا دوباره آماده شود.</p>' +
       '<p>📱 <b>لمسی:</b> جوی‌استیک سمت چپ = حرکت · کشیدن سمت راست = چرخش دوربین · دو انگشت = زوم · دکمه‌های راست = پرش، دویدن، تعامل، دزدی، رها کردن، دوربین، امنیت.</p>' +
       '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
