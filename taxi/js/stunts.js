@@ -51,7 +51,7 @@ export class Stunts {
       s.nearMiss = (s.nearMiss || 0) + 1;
       s.bestCombo = Math.max(s.bestCombo || 0, this.combo);
       g.addXp(3 + this.combo);
-      g.crazy.tip(Math.round(cash / 2000) * 1000, '😱 نزدیک بود!');
+      g.crazy.tip(Math.round(cash / 2000) * 1000, '😱 نزدیک بود!', true);
       g.audio.tone(700 + this.combo * 90, 0.12, 0.12, 'triangle');
       this.pop(`😱 نزدیک بود!${this.combo > 1 ? ' ×' + fa(this.combo) : ''} +${faMoney(cash)}`);
     }

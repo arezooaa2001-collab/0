@@ -110,10 +110,10 @@ export class Crazy {
     this.waiting = this.waiting.filter((x) => x !== c);
   }
   /** stunt bonus while a passenger is aboard */
-  tip(amount, label) {
+  tip(amount, label, silent = false) {
     if (this.state !== 'run' || !this.ride) return;
     this.ride.tips += amount;
-    this.g.ui.toast(`🔥 ${label} انعام +${faMoney(amount)}`, 'good');
+    if (!silent) this.g.ui.toast(`🔥 ${label} انعام +${faMoney(amount)}`, 'good');
   }
   end(reason) {
     const g = this.g, s = g.stats;
@@ -189,7 +189,7 @@ export class Crazy {
   }
   update(dt) {
     const g = this.g, p = g.player;
-    this.beacon.visible = this.state === 'idle';
+    this.beacon.visible = this.state === 'idle' && g.race.state === 'idle' && g.parking.state === 'idle';
     this.beacon.userData.ring.rotation.z += dt;
     this.destBeacon.userData.ring.rotation.z -= dt * 2;
     for (const w of (this.leaving || []).slice()) {

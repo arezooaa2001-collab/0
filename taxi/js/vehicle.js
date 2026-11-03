@@ -235,7 +235,8 @@ export class PlayerCar {
   }
   /** wipers sweep across the windshield while it rains (or when switched on) */
   updateWipers(dt) {
-    const on = this.wipersOn || (this.game.weather && this.game.weather.rain > 0.2);
+    const W = this.game.weather;
+    const on = this.wipersOn || (W && (W.wet ?? W.rain) + W.snow > 0.2);
     this.wiperT = on ? (this.wiperT || 0) + dt * 2.6 : 0;
     const a = on ? -1.55 * (0.5 - 0.5 * Math.cos(this.wiperT)) : 0;
     for (const arm of this.car.wipers) arm.quaternion.setFromAxisAngle(this.car.wsN, a);

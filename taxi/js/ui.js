@@ -529,7 +529,9 @@ export class UI {
     for (const s of w.garages) icon(s.padX, s.padZ, '#d68910', 11, '🔧');
     icon(w.police.padX, w.police.padZ, '#1f4fa0', 11, '🚓');
     const race = g.race;
-    if (race.state === 'idle') for (const s of race.spots) icon(s.padX, s.padZ, '#8e24aa', 11, '🏁');
+    if (race.state === 'idle') {
+      if (g.crazy.state === 'idle' && g.parking.state === 'idle') for (const s of race.spots) icon(s.padX, s.padZ, '#8e24aa', 11, '🏁');
+    }
     else {
       for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
       if (race.rival && race.rival.active) icon(race.rival.pos.x, race.rival.pos.z, '#b04dff', 8);
@@ -537,11 +539,11 @@ export class UI {
     // golden statues show up as a sparkle when you're close
     const got = g.stats.statues || [];
     for (const s of g.thrills.statues) if (!got.includes(s.id) && Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 160) icon(s.x, s.z, '#ffd54a', 7, '✨');
-    const pk = g.parking;
-    if (pk.state === 'idle') icon(pk.spot.padX, pk.spot.padZ, '#1565c0', 10, '🅿️');
-    else icon(pk.bay.x, pk.bay.z, '#39e07a', 7);
-    const cz = g.crazy;
-    if (cz.state === 'idle' && race.state === 'idle') icon(cz.spot.padX, cz.spot.padZ, '#ff6a00', 11, '🔥');
+    const pk = g.parking, cz = g.crazy;
+    const modesIdle = pk.state === 'idle' && cz.state === 'idle' && race.state === 'idle';
+    if (modesIdle) icon(pk.spot.padX, pk.spot.padZ, '#1565c0', 10, '🅿️');
+    else if (pk.state !== 'idle') icon(pk.bay.x, pk.bay.z, '#39e07a', 7);
+    if (modesIdle) icon(cz.spot.padX, cz.spot.padZ, '#ff6a00', 11, '🔥');
     for (const c of cz.waiting) icon(c.at.x, c.at.z, c.col === 'g' ? '#39e07a' : c.col === 'y' ? '#ffd23a' : '#ff4040', 8, '🧍');
     for (const c2 of g.traffic.cars) if (c2.active && c2.state === 'incident') icon(c2.pos.x, c2.pos.z, '#ff4040', 6);
     icon(w.stuntPark.x, w.stuntPark.z, '#e65100', 10, '🚀');
@@ -674,7 +676,9 @@ export class UI {
     el.className = 'toast ' + kind;
     el.textContent = msg;
     $('toasts').appendChild(el);
-    while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
+    // short (phone) screens keep only two toasts so they never reach the passenger bubble
+    const max = innerHeight <= 480 ? 2 : 4;
+    while ($('toasts').children.length > max) $('toasts').firstChild.remove();
     setTimeout(() => el.classList.add('out'), 3600);
     setTimeout(() => el.remove(), 4200);
   }

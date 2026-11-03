@@ -699,6 +699,7 @@ export class World {
   }
   surfaceAt(x, z) {
     if (this.roadDist(x, z) < 7.5) return 'road';
+    if (this.lot && Math.abs(x - this.lot.x) < this.lot.w / 2 && Math.abs(z - this.lot.z) < this.lot.d / 2) return 'pave';
     if (Math.abs(x) < 410 && Math.abs(z) < 410) return 'pave';
     const r = regionAt(x, z);
     return r === 'desert' ? 'sand' : r === 'city' ? 'grass' : 'grass';

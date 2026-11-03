@@ -88,7 +88,7 @@ export class Weather {
     this.rain = damp(this.rain, this.target.rain, 0.3, dt);
     // up in the mountains the clouds bring snow instead of rain
     const f = g.focus();
-    const cold = regionAt(f.pos.x, f.pos.z) === 'lake' && this.target.cloud >= 0.6;
+    const cold = regionAt(f.pos.x, f.pos.z) === 'lake' && this.target.rain > 0;
     this.snow = damp(this.snow, cold ? 1 : 0, 0.4, dt);
     if (cold && !this.snowSaid && this.snow > 0.3 && g.state === 'play') {
       this.snowSaid = true;

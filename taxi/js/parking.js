@@ -83,6 +83,7 @@ export class Parking {
   canStart() {
     const g = this.g;
     if (this.state !== 'idle' || g.race.state !== 'idle' || g.crazy.state !== 'idle') return false;
+    if (g.time < (this.nextT || 0)) return g.ui.toast(`🅿️ پارکینگ‌بان: یه کم استراحت کن! ${fa(Math.ceil(this.nextT - g.time))} ثانیه دیگه بیا`, 'warn'), false;
     if (g.rides.ride) return g.ui.toast('اول سفر مسافرت رو تموم کن 🧳', 'warn'), false;
     if (g.police.state !== 'none') return g.ui.toast('با پلیس پشت سرت؟! 🚨', 'warn'), false;
     if (g.player.burning || g.onfoot.active || g.onfoot.busy) return false;
@@ -112,7 +113,8 @@ export class Parking {
     this.bumpT = 0;
     this.holdT = 0;
     // a bay away from the entrance
-    const far = this.empty.filter((b) => b.x < L.x + 12);
+    // always a bay well away from the start pad, so every run means real driving
+    const far = this.empty.filter((b) => Math.hypot(b.x - this.spot.padX, b.z - this.spot.padZ) > 20);
     this.bay = far[Math.floor(Math.random() * far.length)] || this.empty[0];
     this.mark.position.set(this.bay.x, w.heightAt(this.bay.x, this.bay.z), this.bay.z);
     this.mark.visible = true;
@@ -130,6 +132,7 @@ export class Parking {
     const g = this.g, s = g.stats;
     if (this.state !== 'run') return;
     this.state = 'idle';
+    this.nextT = g.time + 75;
     this.mark.visible = false;
     $('parkHud').classList.add('hidden');
     document.body.classList.remove('timedmode');

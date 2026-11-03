@@ -160,7 +160,7 @@ export class Thrills {
       if (prev === null || h.cool > 0 || !(prev < 0 && along >= 0)) continue;
       const lat = dx * h.rx + dz * h.rz, up = p.y + 0.7 - h.y;
       if (g.state !== 'play' || g.onfoot.active || Math.hypot(lat, up) > 3.1) continue;
-      h.cool = 3;
+      h.cool = 45; // each ring pays once in a while, not on every lap
       const cash = 60000;
       g.money += cash;
       g.stats.hoops = (g.stats.hoops || 0) + 1;
@@ -189,6 +189,8 @@ export class Thrills {
         const dir = rnd() < 0.5 ? 1 : -1;
         const fx = dx * dir, fz = dz * dir;
         const x = (a.x + b.x) / 2 - fz * LANE, z = (a.z + b.z) / 2 + fx * LANE;
+        // never right before a speed camera: that would be a trap, not a boost
+        if (w.speedCams.some((c) => Math.hypot(c.x - x, c.z - z) < 150)) continue;
         this.pads.push({ x, z, fx, fz, y: w.heightAt(x, z), cool: 0 });
       }
     }
@@ -248,7 +250,7 @@ export class Thrills {
       if (Math.abs(along) > 3.6 || Math.abs(lat) > 2.2) continue;
       if (hx * pd.fx + hz * pd.fz < 0.5 || p.speed < 3) continue;
       pd.cool = 2;
-      p.speed = Math.min(p.speed + 14, p.topSpeed() * 1.3);
+      p.speed = Math.max(p.speed, Math.min(p.speed + 14, p.topSpeed() * 1.3));
       g.shake = Math.max(g.shake || 0, 0.4);
       g.audio.burst(0.7, 1400, 'bandpass', 0.6);
       g.audio.tone(440, 0.4, 0.1, 'sawtooth');
