@@ -146,6 +146,7 @@ export class Race {
       <div class="raceoffer"><div class="rv">🏎️ <b>${name}</b><small>«${taunt}»</small></div>
       <div class="statrow"><span>📏 ${fa(km).replace('.', '٫')} کیلومتر</span><span>🚩 ${fa(this.cps.length)} چک‌پوینت</span><span>🎟️ ورودی ${faMoney(t.fee)}</span></div>
       <p class="prize">🏆 جایزه: ${faMoney(t.prize)} تومان + 🪙 ${fa(t.coins)} سکه${won ? ' <small>(این مسیر رو قبلاً بردی)</small>' : ''}</p>
+      ${this.ghosts()[t.id] ? `<p class="note">👻 رکوردت: ${this.fmt(this.ghosts()[t.id].time)} • ماشین شبحِ بهترین دورت هم باهات مسابقه میده!</p>` : ''}
       <p class="note">از توی حلقه‌های نارنجی رد شو و زودتر از رقیب به خط پایان برس. با فلش 🧭 راه رو گم نمی‌کنی!</p>
       <div class="btnrow"><button data-a="go">قبوله! بزن بریم 🔥</button><button data-a="no" class="ghost">بی‌خیال</button></div></div>`, (el) => {
       el.querySelector('[data-a=go]').onclick = () => {
@@ -216,6 +217,65 @@ export class Race {
     return { s: bs, i: bi, d: best };
   }
 
+  /* ---------------- ghost of your best run ---------------- */
+  fmt(sec) {
+    return `${fa(Math.floor(sec / 60))}:${fa((sec % 60).toFixed(1).padStart(4, '0')).replace('.', '٫')}`;
+  }
+  ghosts() {
+    if (!this._ghosts) {
+      try {
+        this._ghosts = JSON.parse(localStorage.getItem('taxiCity.ghosts.v1') || '{}') || {};
+      } catch (e) {
+        this._ghosts = {};
+      }
+    }
+    return this._ghosts;
+  }
+  saveGhost() {
+    const all = this.ghosts(), id = this.track.id, old = all[id];
+    if (old && old.time <= this.time) return;
+    all[id] = { time: +this.time.toFixed(2), pts: this.rec };
+    try {
+      localStorage.setItem('taxiCity.ghosts.v1', JSON.stringify(all));
+    } catch (e) { /* storage full or blocked: the ghost just isn't kept */ }
+    if (old) setTimeout(() => this.g.ui.toast(`👻 رکورد جدید این مسیر: ${this.fmt(this.time)} (قبلی ${this.fmt(old.time)})`, 'good'), 2500);
+  }
+  ghostMesh() {
+    if (this.ghost) return this.ghost;
+    const root = buildCar({ type: 'sport', color: 0x66e0ff }).root;
+    const mat = new THREE.MeshBasicMaterial({ color: 0x7fe8ff, transparent: true, opacity: 0.32, depthWrite: false });
+    root.traverse((o) => {
+      if (o.isMesh) {
+        o.material = mat;
+        o.castShadow = false;
+      }
+    });
+    const tag = labelSprite('👻 بهترین دور تو', 'rgba(20,90,120,0.85)');
+    tag.position.y = 2.25;
+    tag.scale.multiplyScalar(0.42);
+    root.add(tag);
+    root.visible = false;
+    this.g.scene.add(root);
+    this.ghost = root;
+    return root;
+  }
+  playGhost() {
+    const gh = this.ghostData;
+    if (!gh) return;
+    const G = this.ghostMesh(), P = gh.pts, n = P.length / 3;
+    const f = this.time / 0.1, i = Math.floor(f);
+    if (i >= n - 1) {
+      G.visible = false;
+      return;
+    }
+    const k = f - i, a = i * 3, b = a + 3;
+    const x = P[a] + (P[b] - P[a]) * k, z = P[a + 1] + (P[b + 1] - P[a + 1]) * k;
+    let dh = P[b + 2] - P[a + 2];
+    dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+    G.visible = true;
+    G.position.set(x, this.g.world.heightAt(x, z), z);
+    G.rotation.y = P[a + 2] + dh * k;
+  }
   /* ---------------- race ---------------- */
   start(t, pts, name, color) {
     const g = this.g, p = g.player;
@@ -235,6 +295,9 @@ export class Race {
     this.rival = r;
     this.state = 'countdown';
     this.placed = false;
+    this.rec = [];
+    this.recT = 0;
+    this.ghostData = this.ghosts()[t.id] || null;
     this.cd = 4.2;
     this.cdShown = -1;
     this.cp = 0;
@@ -309,6 +372,7 @@ export class Race {
     const g = this.g, t = this.track;
     this.state = 'idle';
     this.gate.visible = this.gate2.visible = this.arch.visible = false;
+    if (this.ghost) this.ghost.visible = false;
     $('raceHud').classList.add('hidden');
     $('countdown').classList.add('hidden');
     g.guideOn = this.prevGuide;
@@ -328,6 +392,7 @@ export class Race {
     }
     const s = g.stats;
     if (win) {
+      this.saveGhost();
       g.money += t.prize;
       g.coins += t.coins;
       s.racesWon = (s.racesWon || 0) + 1;
@@ -401,6 +466,12 @@ export class Race {
     }
     // racing
     this.time += dt;
+    this.recT = (this.recT || 0) + dt;
+    if (this.recT >= 0.1) {
+      this.recT -= 0.1;
+      this.rec.push(Math.round(p.pos.x * 10) / 10, Math.round(p.pos.z * 10) / 10, Math.round(p.heading * 100) / 100);
+    }
+    this.playGhost();
     if (this.time > 1 && this.time - dt <= 1) $('countdown').classList.add('hidden');
     const pr = this.project(p.pos.x, p.pos.z, this.pi);
     this.pi = pr.i;
@@ -430,7 +501,7 @@ export class Race {
     if (this.idleT > 25) return this.abort('وایسادی؟! رقیب مسخره‌ت کرد و رفت 🏳️');
     const first = this.ps >= this.rs;
     const mm = Math.floor(this.time / 60), ss = (this.time % 60).toFixed(1).padStart(4, '0');
-    hud.innerHTML = `<b class="${first ? 'p1' : 'p2'}">${first ? '🥇 نفر اول' : '🥈 نفر دوم'}</b><span>🚩 ${fa(this.cp)}/${fa(this.cps.length)}</span><span>⏱ ${fa(mm)}:${fa(ss).replace('.', '٫')}</span><span class="gap">${fa(Math.round(Math.abs(this.ps - this.rs)))} متر ${first ? 'جلوتر' : 'عقب‌تر'}</span>`;
+    hud.innerHTML = `<b class="${first ? 'p1' : 'p2'}">${first ? '🥇 نفر اول' : '🥈 نفر دوم'}</b><span>🚩 ${fa(this.cp)}/${fa(this.cps.length)}</span><span>⏱ ${fa(mm)}:${fa(ss).replace('.', '٫')}</span><span class="gap">${fa(Math.round(Math.abs(this.ps - this.rs)))} متر ${first ? 'جلوتر' : 'عقب‌تر'}</span>${this.ghostData ? `<span class="gap">👻 رکورد ${this.fmt(this.ghostData.time)}</span>` : ''}`;
   }
   /** pure-pursuit rival following the race path, with rubber banding and overtaking */
   driveRival(dt, leaving) {

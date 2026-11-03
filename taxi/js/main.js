@@ -26,6 +26,7 @@ import { Crazy } from './crazy.js';
 import { Heli } from './heli.js';
 import { Thrills } from './thrills.js';
 import { Parking } from './parking.js';
+import { Fleet } from './fleet.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -144,6 +145,7 @@ class Game {
     this.heli = new Heli(this);
     this.thrills = new Thrills(this);
     this.parking = new Parking(this);
+    this.fleet = new Fleet(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -188,7 +190,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -210,6 +212,13 @@ class Game {
       const paint = p.paints[p.model] ?? d.paint;
       if (paint !== null && paint !== undefined) p.setPaint(paint);
       if (d.neon) p.setNeon(d.neon);
+      if (d.dirt) {
+        p.dirt = d.dirt;
+        p.dirtWarned = d.dirt > 0.6;
+        p.applyDirt();
+      }
+      if (Array.isArray(d.horns)) p.horns = d.horns;
+      if (d.horn && p.horns.includes(d.horn)) p.setHorn(d.horn);
       if (d.nitro !== undefined) p.nitro = d.nitro;
       this.hasSave = true;
       if (this.world.roadDist(d.x, d.z) < 9) {
@@ -220,7 +229,10 @@ class Game {
     p.placeAt(3, 160, Math.PI);
   }
   resetSave() {
-    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+    try {
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem('taxiCity.ghosts.v1');
+    } catch (e) { /* ignore */ }
     location.reload();
   }
 
@@ -257,6 +269,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV6) {
+        this.stats.seenV6 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 💼 شرکت تاکسیرانی خودت، 🧽 کارواش، 📯 بوق‌های باحال، 📸 مسافر توریست، 👻 ماشین شبح توی مسابقه، 🌪️ طوفان شن و 📡 هشدار دوربین!', 'info'), 17000);
+      }
       if (!this.stats.seenV5) {
         this.stats.seenV5 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 🅿️ چالش پارک، 🔥 حلقه‌های آتیش توی پارک پرش، ⚡ سکوهای بوست، 🗿 ۱۲ مجسمه طلایی مخفی، ❄️ برف توی کوهستان و 📻 رادیو الکترو!', 'info'), 12500);
@@ -270,6 +286,7 @@ class Game {
     this.stats.seenV3 = true;
     this.stats.seenV4 = true;
     this.stats.seenV5 = true;
+    this.stats.seenV6 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -427,6 +444,7 @@ class Game {
       try {
         localStorage.removeItem(SAVE_KEY);
         localStorage.removeItem(SET_KEY);
+        localStorage.removeItem('taxiCity.ghosts.v1');
       } catch (e) { /* storage may be blocked */ }
       this.fade(1, 1, () => location.reload());
       return true;
@@ -653,9 +671,21 @@ class Game {
     if (!zone) this.zoneAuto = null;
 
     // speed cameras
+    this.radarT = (this.radarT || 0) - dt;
     for (const c of w.speedCams) {
       const d = Math.hypot(p.pos.x - c.x, p.pos.z - c.z);
       const kmh = sp * 3.6;
+      // 📡 radar detector: beeps faster as you close in on a camera while speeding
+      if (d < 160 && d > 18 && kmh > c.limit && (c.x - p.pos.x) * Math.sin(p.heading) + (c.z - p.pos.z) * Math.cos(p.heading) > 0) {
+        if (this.radarT <= 0) {
+          this.radarT = Math.max(0.15, (d / 160) * 0.9);
+          this.audio.tone(1500, 0.07, 0.1, 'square');
+        }
+        if (this.radarCam !== c) {
+          this.radarCam = c;
+          this.ui.toast(`📡 دوربین سرعت جلوته! حداکثر ${fa(c.limit)} km/h`, 'warn');
+        }
+      } else if (this.radarCam === c && d > 200) this.radarCam = null;
       if (d < 18 && kmh > c.limit + 10 && !this.fineCooling('cam' + c.x, 20)) this.fine(120000, `📸 دوربین سرعت! ${fa(Math.round(kmh))} km/h در ${c.name}`);
     }
     // red light cameras
@@ -882,6 +912,7 @@ class Game {
     this.race.update(dt);
     this.crazy.update(dt);
     this.parking.update(dt);
+    this.fleet.update(dt);
     this.heli.update(dt);
     if (st === 'play') {
       this.pickups.update(dt);

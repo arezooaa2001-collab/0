@@ -172,7 +172,30 @@ export class AudioSys {
   }
   horn(on) {
     if (!this.ctx) return;
-    this.hGain.gain.setTargetAtTime(on ? 0.16 : 0, this.ctx.currentTime, 0.02);
+    const type = this.hornType || 'classic';
+    if (type === 'classic') {
+      this.hGain.gain.setTargetAtTime(on ? 0.16 : 0, this.ctx.currentTime, 0.02);
+      return;
+    }
+    // melody horns play once per press
+    this.hGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02);
+    if (on && this.ctx.currentTime > (this.hornBusy || 0)) this.hornBusy = this.ctx.currentTime + this.playHorn(type);
+  }
+  /** returns the melody length in seconds */
+  playHorn(type) {
+    const M = {
+      bike: [[2350, 0.12, 'sine', 0.12], [2350, 0.35, 'sine', 0.12]],
+      dingdong: [[784, 0.3, 'triangle', 0.2], [622, 0.55, 'triangle', 0.2]],
+      duck: [[620, 0.11, 'square', 0.1], [470, 0.16, 'square', 0.1], [0, 0.08], [620, 0.11, 'square', 0.1], [470, 0.18, 'square', 0.1]],
+      ship: [[98, 1.1, 'sawtooth', 0.18]],
+      cucaracha: [[392, 0.11], [392, 0.11], [392, 0.11], [523, 0.28], [659, 0.3], [0, 0.08], [392, 0.11], [392, 0.11], [392, 0.11], [523, 0.28], [659, 0.4]],
+    }[type] || [];
+    let t = 0;
+    for (const [f, d, wave = 'square', gain = 0.12] of M) {
+      if (f) this.tone(f, d * 0.95, gain, wave, t);
+      t += d;
+    }
+    return t;
   }
   siren(on, vol = 1) {
     this.sirenOn = on;

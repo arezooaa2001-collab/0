@@ -40,6 +40,16 @@ export class Weather {
     this.snowPts.frustumCulled = false;
     this.snowPts.visible = false;
     game.scene.add(this.snowPts);
+    // sandstorm dust for the desert
+    this.sand = 0;
+    const dg = new THREE.BufferGeometry();
+    dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FL * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    this.dustMat = new THREE.PointsMaterial({ color: 0xc9a46a, size: 0.45, map: this.snowMat.map, transparent: true, opacity: 0, depthWrite: false });
+    this.dustPts = new THREE.Points(dg, this.dustMat);
+    this.dustPts.frustumCulled = false;
+    this.dustPts.visible = false;
+    game.scene.add(this.dustPts);
+    this.sandColor = new THREE.Color(0xc29a62);
     this.timer = 90 + Math.random() * 120;
     this.thunderT = 8;
     const pos = new Float32Array(DROPS * 6);
@@ -84,7 +94,14 @@ export class Weather {
       this.snowSaid = true;
       g.ui.toast('❄️ داره برف میاد! جاده لیز شده، آروم برون', 'info');
     } else if (!cold && this.snow < 0.05) this.snowSaid = false;
-    const c = this.cloud, r = this.rain * (1 - this.snow);
+    // ...and in the desert they whip up a sandstorm
+    const dusty = regionAt(f.pos.x, f.pos.z) === 'desert' && this.target.cloud >= 0.85;
+    this.sand = damp(this.sand, dusty ? 1 : 0, 0.35, dt);
+    if (dusty && !this.sandSaid && this.sand > 0.3 && g.state === 'play') {
+      this.sandSaid = true;
+      g.ui.toast('🌪️ طوفان شن! جلوت رو درست نمی‌بینی، آروم برون', 'warn');
+    } else if (!dusty && this.sand < 0.05) this.sandSaid = false;
+    const c = this.cloud, r = this.rain * (1 - this.snow) * (1 - this.sand);
     this.wet = r;
     // darken the world
     g.sun.intensity *= 1 - 0.75 * c;
@@ -95,7 +112,7 @@ export class Weather {
     u.horizon.value.lerp(gc, c * 0.8);
     u.sunColor.value.multiplyScalar(1 - 0.85 * c);
     g.scene.fog.color.lerp(gc, c * 0.8);
-    g.scene.fog.far = g.fogFar * (1 - 0.55 * r);
+    g.scene.fog.far = g.fogFar * (1 - 0.55 * r) * (1 - 0.72 * this.sand);
     // wet roads reflect
     for (const k in g.world.roadMats) {
       const m = g.world.roadMats[k];
@@ -107,6 +124,12 @@ export class Weather {
     this.lines.visible = r > 0.05;
     // snowy whiteout
     if (this.snow > 0.01) g.scene.fog.color.lerp(this.white || (this.white = new THREE.Color(0xe8eef4)), 0.55 * this.snow * (1 - g.env.night * 0.8));
+    if (this.sand > 0.01) {
+      const k = 0.8 * this.sand * (1 - g.env.night * 0.7);
+      g.scene.fog.color.lerp(this.sandColor, k);
+      u.horizon.value.lerp(this.sandColor, k);
+      u.top.value.lerp(this.sandColor, k * 0.7);
+    }
     if (this.lines.visible) {
       const cam = g.camera.position;
       const p = this.lines.geometry.attributes.position.array;
@@ -122,8 +145,9 @@ export class Weather {
       }
       this.lines.geometry.attributes.position.needsUpdate = true;
     }
-    g.audio.setRain(r);
+    g.audio.setRain(Math.max(r, this.sand * 0.75));
     this.updateSnow(dt);
+    this.updateDust(dt);
     // thunder in storms
     if (this.kind === 'storm' && r > 0.6) {
       this.thunderT -= dt;
@@ -151,8 +175,27 @@ export class Weather {
     }
     this.snowPts.geometry.attributes.position.needsUpdate = true;
   }
+  updateDust(dt) {
+    const s = this.sand, g = this.g;
+    this.dustPts.visible = s > 0.02;
+    this.dustMat.opacity = 0.75 * s;
+    if (!this.dustPts.visible) return;
+    const cam = g.camera.position, F = this.flakes;
+    const p = this.dustPts.geometry.attributes.position.array, t = g.time;
+    // sand blows sideways, fast
+    const wx = 14 * dt, half = BOX / 2;
+    for (let i = 0; i < F.length / 3; i++) {
+      let x = F[i * 3] + wx;
+      if (x > half) x -= BOX;
+      F[i * 3] = x;
+      p[i * 3] = cam.x + x;
+      p[i * 3 + 1] = cam.y - 8 + ((F[i * 3 + 1] * 0.5 + Math.sin(t * 2 + i) * 0.8 + HEIGHT) % (HEIGHT * 0.6));
+      p[i * 3 + 2] = cam.z + F[i * 3 + 2];
+    }
+    this.dustPts.geometry.attributes.position.needsUpdate = true;
+  }
   grip() {
-    return 1 - 0.12 * this.rain * (1 - this.snow) - 0.22 * this.snow;
+    return 1 - 0.12 * this.rain * (1 - this.snow) * (1 - this.sand) - 0.22 * this.snow - 0.08 * this.sand;
   }
 }
 export { clamp };

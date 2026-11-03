@@ -499,3 +499,10 @@ body.timedmode .achpop { top: 44%; transform: translateX(-50%) scale(.85); }
   /* keep the guide/toasts column between the minimap and the button grid */
   #topCenter { left: calc(128px + var(--safe-l, 0px)); right: calc(318px + var(--safe-r, 0px)); width: auto; transform: none; }
 }
+
+/* horn shop */
+.card.horns { grid-column: 1 / -1; }
+.hornrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.hornrow button { flex: 1 1 30%; display: flex; flex-direction: column; align-items: center; gap: 2px; background: rgba(255,255,255,.1) !important; }
+.hornrow button.cur { background: rgba(255,210,26,.35) !important; border: 1px solid var(--yellow); }
+.hornrow small { font-size: 10px; opacity: .8; font-weight: 400; }

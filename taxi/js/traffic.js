@@ -234,6 +234,13 @@ export class Traffic {
     for (let i = 0; i < this.cars.length * 0.8; i++) this.spawnNear(p, 30, 320);
   }
   onHit(car, impact, by) {
+    if (car.isFleet && by === this.game.player) {
+      if (impact > 3 && (!this.fleetHitT || this.game.time - this.fleetHitT > 5)) {
+        this.fleetHitT = this.game.time;
+        this.game.ui.toast('😅 زدی به تاکسی شرکت خودت! راننده‌ت چیزی نگفت...', 'warn');
+      }
+      return;
+    }
     if (car.isTarget) {
       if (by === this.game.player) this.game.rides.onTargetHit();
       return;

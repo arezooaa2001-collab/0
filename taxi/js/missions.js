@@ -79,6 +79,27 @@ export class Rides {
         fuelNeed: Math.ceil((hl + toPick) / 120), rating: '۱٫۲', expected: hl / 14 + 60, vip: false,
       };
     }
+    if (roll >= 0.17 && roll < 0.24) {
+      // a tourist who wants to see three landmarks, one after another
+      const pool = w.places.filter((pl) => Math.hypot(pl.x - pickup.x, pl.z - pickup.z) > 250);
+      const stops = [];
+      while (stops.length < 3 && pool.length) stops.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      if (stops.length === 3) {
+        let tl = 0, from = pickup;
+        for (const st of stops) {
+          tl += w.routeLength(w.route(from.x, from.z, st.x, st.z));
+          from = st;
+        }
+        const tf = Math.random() < 0.5;
+        return {
+          kind: 'tour', name: 'توریست ' + pick(['ژاپنی', 'آلمانی', 'ایتالیایی', 'فرانسوی', 'اسپانیایی', 'برزیلی']) + ' ' + (tf ? pick(['ماریا', 'یوکی', 'آنا', 'سوفی']) : pick(['هانس', 'لوکا', 'پیر', 'کارلوس'])), female: tf, mood: 'chatty', pickup, dest: stops[0], stops, len: tl, toPick,
+          fare: Math.round(((35000 + tl * 78) * 1.6) / 1000) * 1000,
+          pickupAddr: w.addressOf(pickup.roadX, pickup.roadZ),
+          destAddr: '📸 تور: ' + stops.map((st) => st.name).join(' ← '),
+          fuelNeed: Math.ceil((tl + toPick) / 120), rating: (4.3 + Math.random() * 0.7).toFixed(1), expected: tl / 14 + 60, vip: false,
+        };
+      }
+    }
     if (roll < 0.17 && pickup.region === 'city') {
       return {
         kind: 'follow', name: pick(['کارآگاه ', 'بازرس ']) + (female ? pick(FEMALE) : pick(MALE)), female, mood: 'normal', pickup, dest: pickup, len: 0, toPick,
@@ -207,6 +228,11 @@ export class Rides {
         return;
       }
       if (r.follow) this.updateTargetLeaving(dt);
+      if (!r.dirtSaid && r.t > 6 && (car.dirt || 0) > 0.6) {
+        r.dirtSaid = true;
+        r.complaints++;
+        this.say(pick(['ببخشیدا، ولی ماشینتون چقدر کثیفه! 😒', 'اوه، این صندلی‌ها چرا گلیه؟ 🤢', 'یه کارواش هم بد نیست بری‌ها!']));
+      }
       r.chatT -= dt;
       if (r.o.mood === 'chatty' && r.chatT <= 0) {
         r.chatT = 22 + Math.random() * 15;
@@ -231,6 +257,8 @@ export class Rides {
         const nl = Math.hypot(dp.x - car.pos.x, dp.z - car.pos.z) || 1;
         Object.assign(r.o.dest, { x: car.pos.x, z: car.pos.z, nx: (dp.x - car.pos.x) / nl, nz: (dp.z - car.pos.z) / nl });
         this.startAlight();
+      } else if (r.o.kind === 'tour' && (r.photoT > 0 || r.stop < r.o.stops.length - 1)) {
+        this.updateTour(dt, d, sp);
       } else if (d < 13 && sp < 1.6) this.startAlight();
     } else if (this.state === 'alighting') {
       if (r.follow) this.updateTargetLeaving(dt);
@@ -323,7 +351,11 @@ export class Rides {
       chatty: `سلااام! چه ماشین تمیزی! بریم ${r.o.dest.name} توی ${REGION_NAMES[r.o.dest.region]}، راه درازیه، کلی حرف داریم!`,
       grumpy: `برو ${r.o.dest.name}. ${REGION_NAMES[r.o.dest.region]}. زودم برو.`,
     };
-    if (r.o.kind === 'robber') this.say('برو برو برو!! 💰 همین الان بانک رو زدم! پلیس تو راهه! منو برسون مخفیگاه، کرایه‌ت چند برابر! 😈', true);
+    if (r.o.kind === 'tour') {
+      r.stop = 0;
+      r.photoT = 0;
+      this.say(`هِلو! سلام! 😊 من اولین بارمه ایرانم! می‌خوام اینا رو ببینم: ${r.o.stops.map((st) => st.name).join('، ')}. اول بریم ${r.o.stops[0].name}!`, true);
+    } else if (r.o.kind === 'robber') this.say('برو برو برو!! 💰 همین الان بانک رو زدم! پلیس تو راهه! منو برسون مخفیگاه، کرایه‌ت چند برابر! 😈', true);
     else this.say(lines[r.o.mood], true);
     g.ui.toast(`مقصد: ${r.o.dest.name} • ${faDist(r.o.len)}`, 'info');
   }
@@ -380,12 +412,13 @@ export class Rides {
     g.money += total;
     g.stats.trips++;
     if (!failed) g.stats.completed = (g.stats.completed || 0) + 1;
+    if (r.o.kind === 'tour') g.stats.tours = (g.stats.tours || 0) + 1;
     g.stats.earned += total;
     g.stats.ratingSum += stars;
     if (stars === 5) g.stats.fiveStars = (g.stats.fiveStars || 0) + 1;
     g.addXp(failed ? 10 : 30 + stars * 10 + (r.o.vip ? 40 : 0) + (r.o.kind ? 80 : 0));
     if (g.env && g.env.night > 0.5) g.stats.nightRides = (g.stats.nightRides || 0) + 1;
-    if (g.weather && g.weather.rain > 0.3) g.stats.rainRides = (g.stats.rainRides || 0) + 1;
+    if (g.weather && (g.weather.wet ?? g.weather.rain) > 0.3) g.stats.rainRides = (g.stats.rainRides || 0) + 1;
     g.player.occupied = false;
     const msg = stars >= 4 ? 'مرسی! عالی رانندگی کردید. 🌟' : stars >= 3 ? 'ممنون، رسیدیم.' : 'دیگه هیچ‌وقت با شما نمیام!';
     this.say(msg);
@@ -462,6 +495,36 @@ export class Rides {
     if (this.state === 'toPickup' || this.state === 'boarding') g.setGuide({ x: r.o.pickup.x, z: r.o.pickup.z, label: 'مسافر: ' + r.o.name, addr: r.o.pickupAddr });
     else if (r.follow && !r.follow.done && this.target) g.setGuide({ x: this.target.pos.x, z: this.target.pos.z, label: '🚗 ماشین هدف', addr: 'تعقیبش کن!', follow: true });
     else g.setGuide({ x: r.o.dest.x, z: r.o.dest.z, label: r.o.dest.name, addr: r.o.destAddr || '' });
+  }
+  /* ---------- sightseeing tour ---------- */
+  updateTour(dt, d, sp) {
+    const g = this.game, r = this.ride;
+    if (r.photoT > 0) {
+      r.photoT -= dt;
+      if (sp > 3 && !r.rushSaid) {
+        r.rushSaid = true;
+        r.complaints++;
+        this.say('صبر کن! هنوز عکسم رو نگرفتم! 😩');
+      }
+      if (r.photoT <= 0) {
+        // on to the next landmark
+        r.stop++;
+        r.rushSaid = false;
+        const st = r.o.stops[r.stop];
+        r.o.dest = st;
+        this.beacon.position.set(st.x, g.world.heightAt(st.x, st.z), st.z);
+        g.setGuide({ x: st.x, z: st.z, label: st.name, addr: `📸 جای ${fa(r.stop + 1)} از ${fa(r.o.stops.length)}` });
+        this.say(pick(['عالی بود! حالا بریم ', 'وااای! مرسی! بعدی: ', 'چه عکسایی شد! حالا ']) + st.name + '! 🚕');
+      }
+      return;
+    }
+    if (d < 14 && sp < 1.6) {
+      r.photoT = 4;
+      g.ui.flash();
+      g.audio.burst(0.06, 3000, 'highpass', 0.4);
+      g.stats.tourStops = (g.stats.tourStops || 0) + 1;
+      this.say(pick(['📸 وای چه جای قشنگی! چند تا عکس بگیرم...', '📸 بیوتیفول! یه سلفی هم بگیرم!', '📸 عجب معماری‌ای! صبر کن عکس بگیرم']));
+    }
   }
   /* ---------- "follow that car" ---------- */
   spawnTarget() {
@@ -562,6 +625,7 @@ export class Rides {
       return `🕵️ تعقیب ${fa(Math.min(99, Math.floor((f.t / f.need) * 100)))}٪ • فاصله ${fa(Math.round(d))} متر${d > 130 ? ' • ⚠️ داره گمت می‌کنه!' : d < 9 ? ' • ⚠️ خیلی نزدیکی!' : ''}`;
     }
     if (this.state === 'toDest' && r.follow) return '🛑 همینجا نگه دار تا مسافر پیاده شه';
+    if (this.state === 'toDest' && r.o.kind === 'tour') return `📸 ${r.o.name} • جای ${fa(r.stop + 1)} از ${fa(r.o.stops.length)} ← ${r.o.dest.name}${r.photoT > 0 ? ' • داره عکس می‌گیره...' : ''}`;
     if (this.state === 'toDest' && r.o.kind === 'robber') {
       const hot = this.game.police.state === 'chase' || this.game.police.state === 'dispatch';
       return `🕶️ ${r.o.name} ← مخفیگاه${hot ? ' • 🚨 اول پلیس رو گم کن!' : ''}`;

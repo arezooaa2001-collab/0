@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { buildCar, buildPerson, poseSit, armIK, sharedMats } from './models.js';
 import { clamp, lerp, damp, easeInOut, collideCircle } from './util.js';
 
+const MUD = new THREE.Color(0x6b5a43);
+
 // H-pattern: [column, row]; column -1 = left gate (1/2), row +1 = forward
 // 7-speed gate: 1-2 | 3-4 | 5-6 | 7-R
 export const GEAR_POS = { '-1': [1.5, -1], 0: [0, 0], 1: [-1.5, 1], 2: [-1.5, -1], 3: [-0.5, 1], 4: [-0.5, -1], 5: [0.5, 1], 6: [0.5, -1], 7: [1.5, 1] };
@@ -34,6 +36,8 @@ export class PlayerCar {
     this.model = 'taxi';
     this.owned = ['taxi'];
     this.paints = {}; // paint job per car model
+    this.horns = ['classic'];
+    this.horn = 'classic';
     this.buildModel('taxi');
     this.pos = new THREE.Vector3();
     this.heading = 0;
@@ -192,14 +196,32 @@ export class PlayerCar {
   setPaint(hex) {
     this.paintHex = hex;
     this.paints[this.model] = hex;
-    this.car.paint.color.setHex(hex);
     this.paintFinish(hex);
+  }
+  setHorn(id) {
+    this.horn = id;
+    this.game.audio.hornType = id;
+  }
+  wash() {
+    this.dirt = 0;
+    this.dirtWarned = false;
+    this.applyDirt();
   }
   /** the golden reward paint is real metal; everything else is glossy car paint */
   paintFinish(hex) {
     const gold = hex === 0xd4af37;
     this.paintMatObj.metalness = gold ? 0.95 : 0.35;
     this.paintMatObj.roughness = gold ? 0.2 : 0.32;
+    this.applyDirt();
+  }
+  /** mud dulls and browns the paint; a car wash brings the shine back */
+  applyDirt() {
+    const base = this.paintHex ?? (this.spec ? this.spec.color : 0xf3c614), d = this.dirt || 0;
+    const m = this.paintMatObj;
+    m.color.setHex(base).lerp(MUD, d * 0.55);
+    m.roughness = (base === 0xd4af37 ? 0.2 : 0.32) + d * 0.5;
+    m.clearcoat = 1 - d * 0.85;
+    this.dirtShown = d;
   }
   /** nitro: hold the NOS button with throttle; slowly recharges */
   updateNitro(dt, inp, alive) {
@@ -387,6 +409,16 @@ export class PlayerCar {
 
     const surf = world.surfaceAt(this.pos.x, this.pos.z);
     this.offroad = surf === 'sand' || surf === 'grass';
+    // dirt: sand and grass splash the car, wet roads too
+    if (absV > 2 && controllable) {
+      const wet = this.game.weather ? this.game.weather.wet ?? this.game.weather.rain : 0;
+      this.dirt = Math.min(1, (this.dirt || 0) + dt * absV * (this.offroad ? (surf === 'sand' ? 0.0009 : 0.0006) : wet * 0.00025));
+      if (Math.abs(this.dirt - (this.dirtShown || 0)) > 0.01) this.applyDirt();
+      if (this.dirt > 0.6 && !this.dirtWarned) {
+        this.dirtWarned = true;
+        this.game.ui.toast('🧽 ماشینت حسابی کثیف شده! مسافرها خوششون نمیاد؛ برو کارواش (پمپ بنزین‌ها)', 'warn');
+      }
+    }
     let decel = this.brake * 10;
     if (inp.handbrake) decel += absV > 8 ? 3.2 : 6.5;
     decel += (surf === 'sand' ? 1.7 : surf === 'grass' ? 0.8 : 0.16) + 0.00042 * absV * absV;
@@ -434,7 +466,7 @@ export class PlayerCar {
       this.ext.set(nfz * vl, -nfx * vl);
     } else {
       // wet roads: a little of the velocity keeps its old direction
-      const slip = this.air ? 0 : this.game.weather ? this.game.weather.rain * 0.2 : 0;
+      const slip = this.air ? 0 : this.game.weather ? (this.game.weather.wet ?? this.game.weather.rain) * 0.2 : 0;
       if (slip > 0) {
         this.speed *= 1 - Math.min(0.5, slip * Math.abs(this.heading - h0) * 0.5);
         this.ext.x += (Math.sin(h0) - Math.sin(this.heading)) * this.speed * slip;

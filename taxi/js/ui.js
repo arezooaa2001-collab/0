@@ -4,6 +4,8 @@ import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
 const $ = (id) => document.getElementById(id);
+const WASH_COST = 40000;
+const HORNS = [['classic', '📯', 'بوق معمولی', 0], ['bike', '🚲', 'زنگ دوچرخه', 60000], ['dingdong', '🔔', 'دینگ دانگ', 80000], ['duck', '🦆', 'اردکی', 100000], ['ship', '🚢', 'بوق کشتی', 150000], ['cucaracha', '🎺', 'کوکاراچا', 250000]];
 const PAINT_COST = 120000, NOS_COST = 60000, NEON_COST = 250000, RAINBOW_COST = 600000;
 const NEONS = [[0x00e5ff, 'آبی یخی'], [0xff2bd6, 'صورتی'], [0x39ff14, 'سبز فسفری'], [0xa040ff, 'بنفش'], [0xff2a2a, 'قرمز'], [0xffd21a, 'طلایی'], ['rainbow', 'رنگین‌کمان 🌈']];
 const PAINTS = [[0xf3c614, 'زرد تاکسی'], [0x1f8a4c, 'سبز تاکسی'], [0xf2f2f2, 'سفید'], [0x15171a, 'مشکی'], [0xc62828, 'قرمز'], [0x1f5fbf, 'آبی'], [0xff7a1a, 'نارنجی'], [0x8e44ad, 'بنفش'], [0xb8bcc2, 'نقره‌ای']];
@@ -112,6 +114,7 @@ export class UI {
     $('btnBag').addEventListener('click', () => this.openInventory());
     $('btnRadio').addEventListener('click', () => this.cycleRadio());
     $('btnAch').addEventListener('click', () => this.openAchievements());
+    $('btnFleet').addEventListener('click', () => g.fleet.open());
     $('btnGuide').addEventListener('click', () => g.toggleGuide());
     $('btnLights').addEventListener('click', () => {
       g.player.lights = !g.player.lights;
@@ -209,6 +212,7 @@ export class UI {
       if (e.code === 'KeyV') g.onfoot.toggle();
       if (e.code === 'KeyK') this.cycleRadio();
       if (e.code === 'KeyX') g.state === 'photo' ? g.photo.close() : g.state === 'play' && !this.panelOpen && g.photo.open();
+      if (e.code === 'KeyJ' && g.state === 'play') this.panelOpen ? this.closePanel() : g.fleet.open();
       if (e.code === 'KeyO' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openAchievements();
       if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
       const walking = g.onfoot.active || g.onfoot.busy;
@@ -673,7 +677,7 @@ export class UI {
     const el = $('offer');
     const md = MOODS[o.mood];
     el.innerHTML = `
-      <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.vip ? '⭐ VIP • ' : o.kind === 'robber' ? '🕶️ مسافر مشکوک • ' : o.kind === 'follow' ? '🕵️ ' : ''}${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}${o.vip ? ' • کرایه ۳ برابر، ولی باید سریع برسی!' : o.kind === 'robber' ? ' • کرایه خیلی بالا... ولی یه کیف پر پول دستشه! 💰' : o.kind === 'follow' ? ' • یه ماشین رو باید تعقیب کنی!' : ''}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
+      <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.vip ? '⭐ VIP • ' : o.kind === 'robber' ? '🕶️ مسافر مشکوک • ' : o.kind === 'follow' ? '🕵️ ' : o.kind === 'tour' ? '📸 ' : ''}${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}${o.vip ? ' • کرایه ۳ برابر، ولی باید سریع برسی!' : o.kind === 'robber' ? ' • کرایه خیلی بالا... ولی یه کیف پر پول دستشه! 💰' : o.kind === 'follow' ? ' • یه ماشین رو باید تعقیب کنی!' : o.kind === 'tour' ? ' • تور گردشگری: ۳ جای دیدنی، کرایه خوب!' : ''}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
       <div class="orow"><i>🧍</i><div><small>مبدا (${faDist(o.toPick)} از تو)</small><b>${o.pickupAddr}</b></div></div>
       <div class="orow"><i>${o.kind === 'follow' ? '🚗' : '🏁'}</i><div><small>${o.kind === 'follow' ? 'ماموریت' : 'مقصد • ' + faDist(o.len)}</small><b>${o.destAddr}</b></div></div>
       <div class="ometa">⛽ حدود ${fa(o.fuelNeed)} لیتر بنزین لازمه ${o.fuelNeed > this.g.player.fuelTotal() ? '<em>— بنزینت کمه!</em>' : ''}</div>
@@ -808,12 +812,32 @@ export class UI {
           <div class="card r"><h3>بنزین معمولی</h3><p>${faMoney(PR)} تومان / لیتر</p>
             <button data-a="r10">+۱۰ لیتر • ${faMoney(Math.min(10, Math.ceil(space)) * PR)}</button>
             <button data-a="rf">باک رو پر کن • ${faMoney(fullR)}</button></div>
+          <div class="card wash"><h3>🧽 کارواش</h3><div class="hb"><i style="width:${(1 - (p.dirt || 0)) * 100}%"></i></div><p>تمیزی: ${fa(Math.round((1 - (p.dirt || 0)) * 100))}٪ • ماشین تمیز = مسافر راضی</p>
+            <button data-wash="1" ${(p.dirt || 0) < 0.03 ? 'disabled' : ''}>شستن ماشین • ${faMoney(WASH_COST)}</button></div>
           <div class="card s"><h3>🚀 بنزین سوپر</h3><p>${faMoney(PS)} تومان / لیتر</p>
             <button data-a="s10">+۱۰ لیتر • ${faMoney(Math.min(10, Math.ceil(space)) * PS)}</button>
             <button data-a="sf">باک رو پر کن • ${faMoney(fullS)}</button></div>
         </div>
         <p class="note">بنزین سوپر تا وقتی توی باکه، سرعت ماشین رو تا ۲۰٪ و شتاب رو تا ۳۰٪ بیشتر می‌کنه. برای سفرهای خیلی دور عالیه!</p>
         <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
+        const wb = el.querySelector('[data-wash]');
+        if (wb) wb.onclick = () => {
+          g.topUp(WASH_COST);
+          if (g.money < WASH_COST) {
+            this.toast('پول کافی نداری 😟', 'warn');
+            return;
+          }
+          g.money -= WASH_COST;
+          g.audio.burst(1.2, 2500, 'highpass', 0.3);
+          g.fade(1, 0.35, () => {
+            p.wash();
+            g.stats.washes = (g.stats.washes || 0) + 1;
+            g.fade(0, 0.5);
+            this.toast('✨ ماشینت برق می‌زنه! مسافرها کیف می‌کنن', 'good');
+            g.save();
+            render();
+          });
+        };
         el.querySelectorAll('[data-a]').forEach((b) => {
           b.onclick = () => {
             const a = b.dataset.a;
@@ -867,6 +891,7 @@ export class UI {
           <div class="card neon"><h3>💡 نئون زیر ماشین</h3><p>هر رنگ ${faMoney(NEON_COST)} • رنگین‌کمان ${faMoney(RAINBOW_COST)} تومان</p>
             <div class="swatches">${NEONS.map(([v, name]) => `<button data-neon="${v}" title="${name}" class="${p.neon === v ? 'cur' : ''} ${v === 'rainbow' ? 'rainbow' : ''}" style="${v === 'rainbow' ? '' : `background:#${v.toString(16).padStart(6, '0')};box-shadow:0 0 12px #${v.toString(16).padStart(6, '0')}`}"></button>`).join('')}
             <button data-neon="off" class="off ${p.neon ? '' : 'cur'}" title="خاموش">✕</button></div></div>
+          <div class="card horns"><h3>📯 بوق ماشین</h3><div class="hornrow">${HORNS.map(([id, icon, name, price]) => `<button data-horn="${id}" class="${p.horn === id ? 'cur' : ''}">${icon} ${name}<small>${p.horns.includes(id) ? (p.horn === id ? '✓ فعال' : 'انتخاب') : faMoney(price)}</small></button>`).join('')}</div></div>
           <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
             <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
           <div class="card"><h3>باک بزرگ‌تر</h3><p>ظرفیت فعلی ${fa(p.tank)} لیتر</p>
@@ -900,6 +925,29 @@ export class UI {
             }
             p.setModel(id);
             this.toast(`${m.icon} سوار ${m.name} شدی`, 'info');
+            g.save();
+            render();
+          };
+        });
+        el.querySelectorAll('[data-horn]').forEach((b) => {
+          b.onclick = () => {
+            const h = HORNS.find((x) => x[0] === b.dataset.horn);
+            if (!h) return;
+            if (!p.horns.includes(h[0])) {
+              g.topUp(h[3]);
+              if (g.money < h[3]) {
+                this.toast('پول کافی نداری 😟', 'warn');
+                g.audio.bad();
+                return;
+              }
+              g.money -= h[3];
+              p.horns.push(h[0]);
+              g.audio.cash();
+            }
+            p.setHorn(h[0]);
+            g.audio.init();
+            g.audio.horn(true);
+            setTimeout(() => g.audio.horn(false), 400);
             g.save();
             render();
           };
@@ -1071,7 +1119,7 @@ export class UI {
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
-        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • X عکاسی • F ورود به پمپ/تعمیرگاه</div>
+        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • X عکاسی • J شرکت تاکسیرانی • F ورود به پمپ/تعمیرگاه</div>
         <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
         <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
         <button data-a="photo">📸 حالت عکاسی (X)</button>
