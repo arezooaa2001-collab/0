@@ -223,6 +223,9 @@ input,select{font-family:inherit}
 #rotate .ph{font-size:64px;animation:rot 2s infinite}
 @keyframes rot{50%{transform:rotate(90deg)}}
 #fatal{z-index:40;background:#1b1446;flex-direction:column;gap:12px;text-align:center;line-height:1.9}
+#flash{position:fixed;inset:0;z-index:15;pointer-events:none;background:radial-gradient(circle,#fff 0%,#ffb38a 60%,#ff3d00 100%);opacity:0}
+#flash.go{animation:flashGo 1.1s ease-out}
+@keyframes flashGo{0%{opacity:1}100%{opacity:0}}
 #errBox{position:fixed;bottom:4px;left:4px;z-index:50;max-width:60vw;font:11px monospace;color:#ffb3b3;background:rgba(0,0,0,.7);padding:4px 6px;border-radius:6px;pointer-events:none;direction:ltr;text-align:left}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -323,6 +326,7 @@ input,select{font-family:inherit}
   <div id="fatalMsg"></div>
   <button class="bigBtn" type="button" onclick="location.reload()">تلاش دوباره</button>
 </div>
+<div id="flash"></div>
 <div id="errBox" hidden></div>
 <script type="module">
 // ===================================================================
@@ -412,6 +416,8 @@ const MUTATIONS = [
   { id: 1, name: 'طلایی', mult: 2, chance: 0.09, color: '#ffd23f' },
   { id: 2, name: 'الماسی', mult: 3, chance: 0.04, color: '#9ff0ff' },
   { id: 3, name: 'رنگین‌کمانی', mult: 6, chance: 0.01, color: '#ff7cf0' },
+  { id: 4, name: 'گدازه‌ای', mult: 200, chance: 0, color: '#ff7a2a' },   // lava planet only
+  { id: 5, name: 'کهکشانی', mult: 600, chance: 0, color: '#c08cff' },  // lava planet only (rare)
 ];
 // id, name, emoji, rarity, price, income/s
 const CHARS = [
@@ -443,9 +449,17 @@ const CHARS = [
   ['cosmiccat', 'گربه‌ی کیهانی', '🌌', 6, 15000000, 110000],
   ['simorgh', 'سیمرغ نئونی', '🕊️', 7, 60000000, 400000],
   ['memeking', 'پادشاه میم‌ها', '👑', 7, 120000000, 750000],
-].map((a, i) => ({ idx: i, id: a[0], name: a[1], emoji: a[2], rarity: a[3], price: a[4], income: a[5] }));
+  // lava-planet exclusives
+  ['golem', 'غول گدازه‌ای', '🌋', 6, 2200000, 16000, true],
+  ['jelly', 'عروس دریایی کیهانی', '🪼', 6, 4000000, 28000, true],
+  ['phoenix', 'ققنوس آتشین', '🔥', 7, 30000000, 200000, true],
+].map((a, i) => ({ idx: i, id: a[0], name: a[1], emoji: a[2], rarity: a[3], price: a[4], income: a[5], w2: !!a[6] }));
 const CHAR_BY_ID = Object.fromEntries(CHARS.map((c) => [c.id, c]));
-const BY_RARITY = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id));
+const BY_RARITY = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && !c.w2));
+// lava planet belt: only epic and above, plus its exclusives
+const W2_WEIGHTS = [0, 0, 0, 40, 30, 17, 9, 4];
+const W2_POOL = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && (c.w2 || c.rarity >= 3)));
+const PORTAL_WORTH = 550000000;
 
 const MAX_SLOTS = 12;
 const START_MONEY = 100;
@@ -575,6 +589,8 @@ const Sound = {
       case 'whoosh': this.noise(0.18, 0.12, 900, 0.8, 0, 1500); break;
       case 'djump': this.tone(520, 0.14, 'sine', 0.16, 600); break;
       case 'fuse': [262, 392, 523, 784, 1046, 1568].forEach((f, i) => this.tone(f, 0.3, 'sawtooth', 0.07, 0, i * 0.12)); this.noise(1.2, 0.08, 400, 0.5, 0, 3000); break;
+      case 'boom': this.noise(0.6, 0.45, 180, 0.6, 0, -120); this.tone(70, 0.5, 'sine', 0.35, -40); break;
+      case 'portal': this.tone(200, 0.9, 'sawtooth', 0.12, 1400); this.tone(300, 0.9, 'sine', 0.16, 900, 0.05); this.noise(0.8, 0.12, 600, 0.6, 0, 3000); break;
       case 'mission': [659, 880, 1175].forEach((f, i) => this.tone(f, 0.18, 'triangle', 0.18, 0, i * 0.08)); break;
     }
   },
@@ -986,6 +1002,10 @@ const FX = (() => {
 // ------------------------------------------------------------------ collision world (AABB + vertical cylinders, spatial hash)
 const STEP_UP = 0.52, GRAVITY = -30;
 const WORLD = { minX: -160, maxX: 160, minZ: -80, maxZ: 80 };
+// second world (lava planet) lives far to the east in the same coordinate space
+const X2 = 1000, WORLD2 = { minX: X2 - 125, maxX: X2 + 125, minZ: -70, maxZ: 70 };
+const inW2 = (x) => x > 500;
+const boundsOf = (x) => (inW2(x) ? WORLD2 : WORLD);
 const PHYS = { boxes: [], circles: [], cells: new Map(), cs: 8, stamp: 1, constraints: [] };
 function cellKey(ix, iz) { return ix * 1000 + iz; }
 function insertCol(c, minX, minZ, maxX, maxZ) {
@@ -1058,11 +1078,11 @@ function collideBody(b) {
   }
   for (const fn of PHYS.constraints) fn(b);
   // world bounds (backup for perimeter hedge)
-  p.x = clamp(p.x, WORLD.minX + 1, WORLD.maxX - 1); p.z = clamp(p.z, WORLD.minZ + 1, WORLD.maxZ - 1);
+  const WB = boundsOf(p.x); p.x = clamp(p.x, WB.minX + 1, WB.maxX - 1); p.z = clamp(p.z, WB.minZ + 1, WB.maxZ - 1);
 }
 function stepBody(b, dt) {
   const wasGrounded = b.grounded; b.prev.copy(b.pos);
-  b.vel.y = Math.max(-45, b.vel.y + GRAVITY * dt);
+  b.vel.y = Math.max(-45, b.vel.y + GRAVITY * (inW2(b.pos.x) ? 0.6 : 1) * dt); // low gravity on the lava planet
   const dx = b.vel.x * dt, dy = b.vel.y * dt, dz = b.vel.z * dt;
   const n = Math.max(1, Math.ceil(Math.max(Math.hypot(dx, dz), Math.abs(dy)) / 0.18));
   for (let i = 0; i < n; i++) { b.pos.x += dx / n; b.pos.z += dz / n; b.pos.y += dy / n; collideBody(b); }
@@ -1097,47 +1117,55 @@ function rayCast(o, d, maxT) {
   return best;
 }
 
-// ------------------------------------------------------------------ navigation grid + A*
-const NAV = { minX: WORLD.minX, minZ: WORLD.minZ, cs: 1, w: 0, h: 0, blocked: null };
-function buildNav() {
-  NAV.w = Math.ceil((WORLD.maxX - WORLD.minX) / NAV.cs); NAV.h = Math.ceil((WORLD.maxZ - WORLD.minZ) / NAV.cs);
-  const N = NAV.w * NAV.h; NAV.blocked = new Uint8Array(N);
-  NAV.g = new Float32Array(N); NAV.par = new Int32Array(N); NAV.seen = new Uint32Array(N); NAV.closed = new Uint32Array(N); NAV.gen = 0;
-  NAV.heap = new Int32Array(N); NAV.f = new Float32Array(N);
+// ------------------------------------------------------------------ navigation grids (one per world) + A*
+const NAV = { minX: WORLD.minX, minZ: WORLD.minZ, cs: 1, w: 0, h: 0, blocked: null, B: WORLD };
+const NAV2 = { minX: WORLD2.minX, minZ: WORLD2.minZ, cs: 1, w: 0, h: 0, blocked: null, B: WORLD2 };
+let NV = NAV; // grid used by the current query
+function pickNav(x) { NV = inW2(x) && NAV2.blocked ? NAV2 : NAV; return NV; }
+function buildNav(N = NAV, extraBlocked = null) {
+  const B = N.B;
+  N.w = Math.ceil((B.maxX - B.minX) / N.cs); N.h = Math.ceil((B.maxZ - B.minZ) / N.cs);
+  const C = N.w * N.h; N.blocked = new Uint8Array(C);
+  N.g = new Float32Array(C); N.par = new Int32Array(C); N.seen = new Uint32Array(C); N.closed = new Uint32Array(C); N.gen = 0;
+  N.heap = new Int32Array(C); N.f = new Float32Array(C);
   const inf = 0.62;
-  for (let iz = 0; iz < NAV.h; iz++) for (let ix = 0; ix < NAV.w; ix++) {
-    const x = NAV.minX + (ix + 0.5) * NAV.cs, z = NAV.minZ + (iz + 0.5) * NAV.cs; let bl = 0;
-    if (x < WORLD.minX + 2 || x > WORLD.maxX - 2 || z < WORLD.minZ + 2 || z > WORLD.maxZ - 2) bl = 1;
+  for (let iz = 0; iz < N.h; iz++) for (let ix = 0; ix < N.w; ix++) {
+    const x = N.minX + (ix + 0.5) * N.cs, z = N.minZ + (iz + 0.5) * N.cs; let bl = 0;
+    if (x < B.minX + 2 || x > B.maxX - 2 || z < B.minZ + 2 || z > B.maxZ - 2 || (extraBlocked && extraBlocked(x, z))) bl = 1;
     else for (const c of queryCols(x, z, inf + 0.5)) {
       if (c.maxY <= 0.62 || c.minY > 1.7) continue;
       if (c.kind === 0) { const cx = clamp(x, c.minX, c.maxX), cz = clamp(z, c.minZ, c.maxZ); if ((x - cx) ** 2 + (z - cz) ** 2 < inf * inf) { bl = 1; break; } }
       else if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + inf) ** 2) { bl = 1; break; }
     }
-    NAV.blocked[iz * NAV.w + ix] = bl;
+    N.blocked[iz * N.w + ix] = bl;
   }
 }
-function navIdx(x, z) { const ix = Math.floor((x - NAV.minX) / NAV.cs), iz = Math.floor((z - NAV.minZ) / NAV.cs); if (ix < 0 || iz < 0 || ix >= NAV.w || iz >= NAV.h) return -1; return iz * NAV.w + ix; }
-function navOpen(x, z) { const i = navIdx(x, z); return i >= 0 && !NAV.blocked[i]; }
+function navIdx(x, z) { const ix = Math.floor((x - NV.minX) / NV.cs), iz = Math.floor((z - NV.minZ) / NV.cs); if (ix < 0 || iz < 0 || ix >= NV.w || iz >= NV.h) return -1; return iz * NV.w + ix; }
+function navOpen(x, z) { const i = navIdx(x, z); return i >= 0 && !NV.blocked[i]; }
 function nearestOpen(idx) {
-  if (idx >= 0 && !NAV.blocked[idx]) return idx;
-  const ix0 = idx >= 0 ? idx % NAV.w : 0, iz0 = idx >= 0 ? Math.floor(idx / NAV.w) : 0;
+  if (idx >= 0 && !NV.blocked[idx]) return idx;
+  const ix0 = idx >= 0 ? idx % NV.w : 0, iz0 = idx >= 0 ? Math.floor(idx / NV.w) : 0;
   for (let rad = 1; rad < 8; rad++) for (let dz = -rad; dz <= rad; dz++) for (let dx = -rad; dx <= rad; dx++) {
     if (Math.abs(dx) !== rad && Math.abs(dz) !== rad) continue;
-    const ix = ix0 + dx, iz = iz0 + dz; if (ix < 0 || iz < 0 || ix >= NAV.w || iz >= NAV.h) continue;
-    const i = iz * NAV.w + ix; if (!NAV.blocked[i]) return i;
+    const ix = ix0 + dx, iz = iz0 + dz; if (ix < 0 || iz < 0 || ix >= NV.w || iz >= NV.h) continue;
+    const i = iz * NV.w + ix; if (!NV.blocked[i]) return i;
   }
   return -1;
 }
 function lineOpen(x0, z0, x1, z1) {
+  pickNav(x0); if (inW2(x0) !== inW2(x1)) return false;
   const d = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(d / 0.35);
   for (let i = 1; i <= n; i++) { const t = i / n; if (!navOpen(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t)) return false; }
   return true;
 }
 function findPath(sx, sz, tx, tz) {
+  if (inW2(sx) !== inW2(tx)) return null; // no walking between worlds: only the portal connects them
+  pickNav(sx);
   let s = nearestOpen(navIdx(sx, sz)), t = nearestOpen(navIdx(tx, tz));
   if (s < 0 || t < 0) return null;
   if (lineOpen(sx, sz, tx, tz)) return [{ x: tx, z: tz }];
-  const W = NAV.w, gen = ++NAV.gen, g = NAV.g, par = NAV.par, seen = NAV.seen, closed = NAV.closed, heap = NAV.heap, F = NAV.f;
+  pickNav(sx);
+  const N = NV, W = N.w, gen = ++N.gen, g = N.g, par = N.par, seen = N.seen, closed = N.closed, heap = N.heap, F = N.f;
   const tix = t % W, tiz = Math.floor(t / W);
   const hfn = (i) => { const dx = Math.abs(i % W - tix), dz = Math.abs(Math.floor(i / W) - tiz); return Math.max(dx, dz) + 0.4142 * Math.min(dx, dz); };
   let hs = 0;
@@ -1151,16 +1179,16 @@ function findPath(sx, sz, tx, tz) {
     if (c === t) { found = true; break; }
     const cx = c % W, cz = Math.floor(c / W);
     for (let k = 0; k < 8; k++) {
-      const nx = cx + DX[k], nz = cz + DZ[k]; if (nx < 0 || nz < 0 || nx >= W || nz >= NAV.h) continue;
-      const ni = nz * W + nx; if (NAV.blocked[ni] || closed[ni] === gen) continue;
-      if (k >= 4 && (NAV.blocked[cz * W + nx] || NAV.blocked[nz * W + cx])) continue; // no corner cutting
+      const nx = cx + DX[k], nz = cz + DZ[k]; if (nx < 0 || nz < 0 || nx >= W || nz >= N.h) continue;
+      const ni = nz * W + nx; if (N.blocked[ni] || closed[ni] === gen) continue;
+      if (k >= 4 && (N.blocked[cz * W + nx] || N.blocked[nz * W + cx])) continue; // no corner cutting
       const ng = g[c] + (k >= 4 ? 1.4142 : 1);
       if (seen[ni] !== gen || ng < g[ni]) { seen[ni] = gen; g[ni] = ng; par[ni] = c; F[ni] = ng + hfn(ni) * 1.05; push(ni); }
     }
   }
   if (!found) return null;
   const raw = []; for (let i = t; i !== -1; i = par[i]) raw.push(i); raw.reverse();
-  const pts = raw.map((i) => ({ x: NAV.minX + (i % W + 0.5) * NAV.cs, z: NAV.minZ + (Math.floor(i / W) + 0.5) * NAV.cs }));
+  const pts = raw.map((i) => ({ x: N.minX + (i % W + 0.5) * N.cs, z: N.minZ + (Math.floor(i / W) + 0.5) * N.cs }));
   pts[pts.length - 1] = navOpen(tx, tz) ? { x: tx, z: tz } : pts[pts.length - 1];
   // string pulling
   const out = []; let cx = sx, cz = sz, i = 0;
@@ -1253,7 +1281,7 @@ function buildConveyor() {
 
 class BaseVis {
   constructor(index, cx, cz) {
-    this.index = index; this.cx = cx; this.cz = cz; this.f = cz > 0 ? 1 : -1;
+    this.index = index; this.cx = cx; this.cz = cz; this.f = cz > 0 ? 1 : -1; this.world = inW2(cx) ? 2 : 1;
     this.group = new THREE.Group(); this.group.position.set(cx, 0, cz); this.group.rotation.y = this.f === 1 ? 0 : Math.PI; scene.add(this.group);
     this.owner = null; this.barrierActive = false; this.slotPos = SLOT_LOCAL.map(([lx, lz]) => { const w = this.toWorld(lx, lz); return new THREE.Vector3(w.x, PED_Y, w.z); });
     const cp = this.toWorld(7.5, -6.2); this.collectPos = new THREE.Vector3(cp.x, FLOOR_Y, cp.z);
@@ -1272,13 +1300,14 @@ class BaseVis {
     if (this.vis) { this.group.remove(this.vis); this.vis.traverse((o) => { if (o.material && o.material.map && o.material.map.isCanvasTexture) o.material.map.dispose(); }); }
     this.vis = new THREE.Group(); this.group.add(this.vis); this.forSale = !!forSale;
     const g = this.vis, col = new THREE.Color(color), b = new Batcher();
-    const floorMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.tiles, 6, 5), color: new THREE.Color('#ffffff').lerp(col, 0.25), roughness: 0.7 });
+    const dark = this.world === 2, baseTint = new THREE.Color(dark ? '#3a3038' : '#ffffff');
+    const floorMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.tiles, 6, 5), color: baseTint.clone().lerp(col, dark ? 0.18 : 0.25), roughness: dark ? 0.45 : 0.7, metalness: dark ? 0.3 : 0 });
     mesh(rbox(24, 0.3, 20, 0.06), floorMat, 0, 0.15, 0, 1, 1, 1, g).castShadow = false;
     this.lbox(-BASE_HX, -BASE_HZ, BASE_HX, BASE_HZ, 0, FLOOR_Y, { tag: 'base' + this.index, cam: false });
     const trim = mat(color, { e: color, ei: 0.35, r: 0.4 });
     b.add(GEO.box, trim, 0, 0.31, -BASE_HZ + 0.12, 24, 0.04, 0.24); b.add(GEO.box, trim, 0, 0.31, BASE_HZ - 0.12, 24, 0.04, 0.24);
     // walls: lower painted brick, glass band, neon top beam, pillars
-    const wallMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.brick, 4, 1), color: new THREE.Color('#ffffff').lerp(col, 0.45), roughness: 0.8 });
+    const wallMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.brick, 4, 1), color: (dark ? new THREE.Color('#2a2026') : new THREE.Color('#ffffff')).lerp(col, dark ? 0.3 : 0.45), roughness: 0.8, emissive: dark ? col : '#000000', emissiveIntensity: dark ? 0.12 : 0 });
     const glass = glassMat('#cfefff'), metal = mat('#dfe6ee', { m: 0.85, r: 0.25 }), beam = mat(color, { e: color, ei: 0.55, m: 0.3, r: 0.35 });
     const segs = [[-12, 9.6, 12, 10], [-12, -10, -11.6, 10], [11.6, -10, 12, 10], [-12, -10, -3, -9.6], [3, -10, 12, -9.6]];
     for (const [x0, z0, x1, z1] of segs) {
@@ -1952,6 +1981,39 @@ const BUILDERS = {
     for (let i = 0; i < 7; i++) { const f = P(GEO.sphere, neon(['#ff2af0', '#ffd23f', '#29d9ff', '#3df2b0', '#ff8a3d', '#7a5cff', '#ff2af0'][i]), (i - 3) * 0.2, -0.4, -0.9, 0.09, 0.08, 0.95, t); f.rotation.y = (i - 3) * 0.18; f.rotation.x = 0.35; }
     return { type: 'fly', hover: 0.8, bigWings: true, neon: true };
   },
+  golem(b, r) {
+    const rock = mat('#3a2a2a', { r: 0.9, flat: true }), lava = mat('#ff6a00', { e: '#ff4a00', ei: 2.2 });
+    P(GEO.dodec, rock, 0, 1.3, 0, 0.85, 0.9, 0.7, b); P(GEO.dodec, rock, 0, 2.15, 0.1, 0.45, 0.42, 0.42, b);
+    for (let i = 0; i < 12; i++) { const a = i * 2.3; keepM(P(GEO.box, lava, Math.cos(a) * 0.62, 0.8 + (i % 6) * 0.18, Math.sin(a) * 0.5 + 0.12, 0.06, 0.28, 0.05, b)).rotation.z = a; }
+    for (const s of [-1, 1]) keepM(P(GEO.sphere, mat('#ffe14a', { e: '#ffb000', ei: 2.5 }), s * 0.16, 2.2, 0.48, 0.08, 0.06, 0.05, b));
+    keepM(P(GEO.box, lava, 0, 2.0, 0.5, 0.26, 0.05, 0.04, b));
+    for (const s of [-1, 1]) P(GEO.dodec, rock, s * 0.6, 2.0, -0.1, 0.25, 0.22, 0.25, b);
+    const a1 = arm(b, 'A1', -0.85, 1.7, 0.7, '#4a3434', null, 0.14, 0.35), a2 = arm(b, 'A2', 0.85, 1.7, 0.7, '#4a3434', null, 0.14, 0.35);
+    for (const a of [a1, a2]) { P(GEO.dodec, rock, 0, -0.82, 0, 0.3, 0.3, 0.3, a); keepM(P(GEO.sphere, lava, 0, -0.82, 0.2, 0.08, 0.08, 0.08, a)); }
+    leg(r, 'L1', -0.3, 0, 0.55, '#3a2a2a', '#1a1010', 0.16); leg(r, 'L2', 0.3, 0, 0.55, '#3a2a2a', '#1a1010', 0.16);
+    return { type: 'biped', karate: true, lava: true };
+  },
+  jelly(b) {
+    const bell = mat('#ff6fcf', { e: '#ff2af0', ei: 0.8, t: 0.78, r: 0.2 });
+    P(GEO.hemi, bell, 0, 1.6, 0, 0.9, 0.75, 0.9, b); P(GEO.torus, mat('#ffd0f5', { e: '#ff8ae8', ei: 1.2 }), 0, 1.6, 0, 0.88, 0.88, 0.6, b).rotation.x = Math.PI / 2;
+    keepM(P(GEO.sphere, mat('#7af7ff', { e: '#29d9ff', ei: 2 }), 0, 1.85, 0, 0.35, 0.3, 0.35, b));
+    eyes(b, 1.85, 0.72, 0.24, 0.11, { pupil: 0.5 }); smile(b, 1.68, 0.8, 0.1, '#7a0a4a');
+    const te = pivot(b, 'TE', 0, 1.55, 0);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, tg = new THREE.Group(); tg.position.set(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55); tg.rotation.y = -a; te.add(tg); for (let k = 0; k < 5; k++) P(GEO.sphere, mat(k % 2 ? '#ff9ae8' : '#7af7ff', { e: k % 2 ? '#ff4fd8' : '#29d9ff', ei: 1.2, t: 0.85 }), 0.05, -0.22 - k * 0.2, 0, 0.08 - k * 0.008, 0.12, 0.08 - k * 0.008, tg); }
+    return { type: 'fly', hover: 0.7, floaty: true };
+  },
+  phoenix(b) {
+    const fire = (c) => mat(c, { e: c, ei: 1.5, r: 0.4 });
+    P(GEO.sphere, fire('#ff6a00'), 0, 1.55, 0, 0.5, 0.6, 0.75, b);
+    P(GEO.sphere, fire('#ffb000'), 0, 2.25, 0.45, 0.33, 0.33, 0.33, b);
+    const bk = keepM(P(GEO.cone, '#ffe14a', 0, 2.2, 0.82, 0.08, 0.26, 0.08, b)); bk.rotation.x = Math.PI / 2 + 0.3;
+    for (const s of [-1, 1]) eye(b, s * 0.14, 2.33, 0.7, 0.07, { iris: '#ffffff', glow: true });
+    for (let i = 0; i < 5; i++) { const c = P(GEO.cone, fire(['#ffe14a', '#ff6a00', '#ff2a00', '#ffb000', '#ffe14a'][i]), (i - 2) * 0.09, 2.62, 0.3, 0.05, 0.4, 0.05, b); c.rotation.z = (i - 2) * 0.25; }
+    wing(b, 'W1', -0.45, 1.8, 0, 2.0, 1.3, fire('#ff4a00'), fire('#ffd23f')); wing(b, 'W2', 0.45, 1.8, 0, 2.0, 1.3, fire('#ff4a00'), fire('#ffd23f'));
+    const t = pivot(b, 'T', 0, 1.4, -0.65);
+    for (let i = 0; i < 7; i++) { const f = P(GEO.cone, fire(['#ff2a00', '#ffb000', '#ff6a00', '#ffe14a', '#ff6a00', '#ffb000', '#ff2a00'][i]), (i - 3) * 0.16, -0.3, -0.9, 0.12, 1.6, 0.05, t); f.rotation.x = -Math.PI / 2 + 0.35; f.rotation.y = (i - 3) * 0.12; }
+    return { type: 'fly', hover: 0.9, bigWings: true, fire: true };
+  },
   memeking(b, r) {
     P(GEO.sphere, mat('#ffcf3f', { m: 0.7, r: 0.25 }), 0, 1.35, 0, 0.95, 0.9, 0.85, b);
     const cape = new THREE.Mesh(new THREE.CylinderGeometry(0.98, 1.25, 1.6, 20, 1, true, Math.PI * 0.6, Math.PI * 0.8), mat('#c0143c', { r: 0.6, side: true })); cape.position.set(0, 1.15, -0.05); cape.castShadow = true; b.add(cape);
@@ -1989,6 +2051,8 @@ function mutMaterial(id) {
   if (MUT_MATS[id]) return MUT_MATS[id];
   let m;
   if (id === 1) m = new THREE.MeshStandardMaterial({ color: '#ffc93c', metalness: 1, roughness: 0.22, envMapIntensity: 1.7 });
+  else if (id === 4) m = new THREE.MeshStandardMaterial({ color: '#2a1414', metalness: 0.2, roughness: 0.55, emissive: '#ff4a00', emissiveIntensity: 0.55, flatShading: true });
+  else if (id === 5) m = new THREE.MeshStandardMaterial({ color: '#2a1060', metalness: 0.6, roughness: 0.15, emissive: '#7a3cff', emissiveIntensity: 0.6, envMapIntensity: 2 });
   else if (id === 2) m = new THREE.MeshStandardMaterial({ color: '#c8f6ff', metalness: 0.35, roughness: 0.04, envMapIntensity: 2.6, emissive: '#3fb0ff', emissiveIntensity: 0.18, flatShading: true });
   else m = new THREE.MeshStandardMaterial({ color: '#ff66cc', metalness: 0.3, roughness: 0.25, emissive: '#ff00aa', emissiveIntensity: 0.25 });
   MUT_MATS[id] = m; return m;
@@ -2080,7 +2144,9 @@ const G = {
   discovered: new Set(), name: 'قهرمان', offline: 0, resetting: false, metrics: { steals: 0, delivered: 0, caught: 0, fromPlayer: 0 }, tutorialDone: false, daily: { last: '', streak: 0 }, playTime: 0, lastSave: 0, alerts: new Map(),
 };
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
-const beltSpeed = () => BELT.speed * (G.event && G.event.id === 'turbo' ? 1.6 : 1);
+const beltSpeed = (B = BELT) => B.speed * (G.event && G.event.id === 'turbo' ? 1.6 : 1);
+BELT.list = G.belt; BELT.w = 1; BELT.tag = 'belt'; BELT.spawnT = 1;
+const beltOfTag = (tag) => (tag === 'belt2' ? BELT2 : BELT);
 const beltPrice = (u) => Math.round(u.price * (G.event && G.event.id === 'sale' ? 0.7 : 1));
 const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
 
@@ -2089,7 +2155,7 @@ class Owner {
     this.id = id; this.name = name; this.color = color; this.isPlayer = isPlayer; this.money = START_MONEY; this.rebirths = 0;
     this.up = Object.fromEntries(UP_KEYS.map((k) => [k, 0]));
     this.slots = []; this.bases = []; this.base = null; this.addBase(base);
-    this.agent = null; this.secT = 0; this.secCd = 0; this.magnetT = 0;
+    this.agent = null; this.guards = []; this.hard = false; this.secT = 0; this.secCd = 0; this.magnetT = 0;
   }
   addBase(b) { b.owner = this; this.bases.push(b); if (!this.base) this.base = b; for (let li = 0; li < MAX_SLOTS; li++) this.slots.push({ i: this.slots.length, base: b, li, unit: null, pending: 0 }); }
   get cap() { return Math.min(MAX_SLOTS, 4 + this.up.cap); } // unlocked slots in EACH owned base
@@ -2099,10 +2165,10 @@ class Owner {
   incomeMult() { return (1 + 0.1 * this.up.income) * (1 + 0.5 * this.rebirths) * (G.event && G.event.id === 'golden' ? 2 : 1) * (this.isPlayer ? 1 : 0.65); }
   weakest() { let w = null; for (const s of this.slots) if (s.unit && s.unit.state === 'slotted' && (!w || s.unit.income < w.income)) w = s.unit; return w; }
   incomePerSec() { let s = 0; for (const sl of this.slots) if (sl.unit && sl.unit.state === 'slotted') s += sl.unit.income; return s * this.incomeMult(); }
-  freeSlot(pref) {
+  freeSlot(pref, world) {
     const cap = this.cap;
     if (pref) for (const s of this.slots) if (s.base === pref && s.li < cap && !s.unit) return s;
-    for (const s of this.slots) if (s.li < cap && !s.unit) return s; return null;
+    for (const s of this.slots) if (s.li < cap && !s.unit && (!world || s.base.world === world)) return s; return null;
   }
   unitCount() { return this.slots.reduce((n, s) => n + (s.unit ? 1 : 0), 0); }
   pending() { return this.slots.reduce((n, s) => n + s.pending, 0); }
@@ -2152,9 +2218,10 @@ class Unit {
   update(dt, t, camPos) {
     this.moving = false;
     if (this.state === 'belt') {
-      this.pos.x += beltSpeed() * dt; this.pos.y = BELT.top; this.yaw = Math.PI / 2; this.moving = true;
+      const B = this.belt || BELT;
+      this.pos.x += beltSpeed(B) * dt; this.pos.y = B.top; this.yaw = Math.PI / 2; this.moving = true;
       this.setPlate('shop');
-      if (this.pos.x > BELT.x1) { const i = G.belt.indexOf(this); if (i >= 0) G.belt.splice(i, 1); Sound.play(dist2(this.pos, G.player.body.pos) < 400 ? 'poof' : ''); this.dispose(true); return; }
+      if (this.pos.x > B.x1) { const i = B.list.indexOf(this); if (i >= 0) B.list.splice(i, 1); Sound.play(dist2(this.pos, G.player.body.pos) < 400 ? 'poof' : ''); this.dispose(true); return; }
     } else if (this.state === 'transit') {
       this.transitT += dt; const sp = this.path && this.path[this.pi];
       if (!sp || this.transitT > 30) { this.arrive(); }
@@ -2242,33 +2309,39 @@ function updateLights(camPos) {
 }
 
 // ------------------------------------------------------------------ conveyor
-function rollRarity() {
+function rollRarity(B = BELT) {
   const lucky = G.event && G.event.id === 'lucky';
-  if (G.spawnCount < 4) return G.spawnCount === 3 ? 1 : 0;
-  const w = RARITIES.map((r) => r.weight * (lucky && r.id >= 2 ? 4 : 1)); const tot = w.reduce((a, b) => a + b, 0);
+  if (B.w === 1 && G.spawnCount < 4) return G.spawnCount === 3 ? 1 : 0;
+  const w = (B.w === 2 ? W2_WEIGHTS : RARITIES.map((r) => r.weight)).map((x, i) => x * (lucky && i >= 2 ? 4 : 1)); const tot = w.reduce((a, b) => a + b, 0);
   let x = Math.random() * tot; for (let i = 0; i < w.length; i++) { x -= w[i]; if (x <= 0) return i; } return 0;
 }
 function rollMut() { let x = Math.random(); for (let i = MUTATIONS.length - 1; i > 0; i--) { if (x < MUTATIONS[i].chance) return i; x -= MUTATIONS[i].chance; } return 0; }
-function spawnBelt() {
-  const r = rollRarity(), c = pick(BY_RARITY[r]), u = new Unit(c, G.spawnCount < 4 ? 0 : rollMut());
-  u.state = 'belt'; u.pos.set(BELT.x0 + 0.5, BELT.top, rand(-0.35, 0.35)); u.yaw = Math.PI / 2; u.root.rotation.y = u.yaw; u.setPlate('shop');
-  G.belt.push(u); G.spawnCount++;
-  FX.burst(tmpV.set(u.pos.x, 1.5, u.pos.z), { count: 16, color: ['#c79bff', '#ffffff', RARITIES[r].color], speed: 3.5, life: 0.6 });
-  if (r >= 4 && G.playing) { UI.toast('🌟 یک میم ' + RARITIES[r].name + ' روی نوار آمد: ' + c.name + '!', 'rare'); Sound.play('rare'); if (r >= 6) UI.banner(RARITIES[r].name + '!', c.name + ' ظاهر شد'); }
+function spawnBelt(B = BELT) {
+  const r = rollRarity(B), w2 = B.w === 2;
+  const c = pick(w2 ? W2_POOL[r] : BY_RARITY[r]), u = new Unit(c, w2 ? (Math.random() < 0.15 ? 5 : 4) : G.spawnCount < 4 ? 0 : rollMut());
+  u.belt = B; u.state = 'belt'; u.pos.set(B.x0 + 0.5, B.top, rand(-0.35, 0.35)); u.yaw = Math.PI / 2; u.root.rotation.y = u.yaw; u.setPlate('shop');
+  B.list.push(u); if (!w2) G.spawnCount++;
+  FX.burst(tmpV.set(u.pos.x, 1.5, u.pos.z), { count: 16, color: w2 ? ['#ff5a1f', '#ffd23f', RARITIES[r].color] : ['#c79bff', '#ffffff', RARITIES[r].color], speed: 3.5, life: 0.6 });
+  const here = G.player && inW2(G.player.body.pos.x) === w2;
+  if (r >= (w2 ? 6 : 4) && G.playing && here) { UI.toast('🌟 یک میم ' + RARITIES[r].name + ' روی نوار آمد: ' + c.name + '!', 'rare'); Sound.play('rare'); if (r >= 6) UI.banner(RARITIES[r].name + '!', c.name + ' ظاهر شد'); }
 }
 function updateBelt(dt) {
-  G.spawnT -= dt * (G.event && G.event.id === 'turbo' ? 1.6 : 1);
-  const last = G.belt[G.belt.length - 1];
-  if (G.spawnT <= 0 && (!last || last.pos.x - BELT.x0 > 3.4)) { spawnBelt(); G.spawnT = rand(2.2, 3.1); }
+  for (const B of BELTS) {
+    if (!B.active) continue;
+    B.spawnT -= dt * (G.event && G.event.id === 'turbo' ? 1.6 : 1);
+    const last = B.list[B.list.length - 1];
+    if (B.spawnT <= 0 && (!last || last.pos.x - B.x0 > 3.4)) { spawnBelt(B); B.spawnT = B.w === 2 ? rand(2.6, 3.6) : rand(2.2, 3.1); }
+  }
 }
 function tryBuy(owner, u) {
   if (!u || u.state !== 'belt') return 'gone';
   if (owner.agent && owner.agent.carrying) return 'busy';
-  const slot = owner.freeSlot(); if (!slot) return 'full';
+  const B = u.belt || BELT;
+  const slot = owner.freeSlot(null, B.w); if (!slot) return 'full';
   const price = beltPrice(u); if (owner.money < price) return 'money';
-  owner.money -= price; const i = G.belt.indexOf(u); if (i >= 0) G.belt.splice(i, 1);
+  owner.money -= price; const i = B.list.indexOf(u); if (i >= 0) B.list.splice(i, 1);
   u.state = 'transit'; u.owner = owner; u.slot = slot; slot.unit = u; slot.pending = 0; u.transitT = 0;
-  const tp = slot.base.slotPos[slot.li]; u.pos.y = BELT.top;
+  const tp = slot.base.slotPos[slot.li]; u.pos.y = B.top;
   setTransit(u, tp);
   u.setPlate('base');
   FX.burst(tmpV.set(u.pos.x, 1.6, u.pos.z), { count: 22, color: ['#ffd23f', '#ffffff', owner.color], speed: 5, life: 0.8 });
@@ -2343,9 +2416,9 @@ function returnUnit(u) {
   u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
   FX.burst(tmpV.set(u.pos.x, u.pos.y + 1, u.pos.z), { count: 16, color: ['#ffffff', u.owner.color], speed: 3, up: true, life: 0.7 });
 }
-function deliver(a, base) {
+function deliver(a, base, world) {
   const u = a.carrying; if (!u) return false;
-  const slot = a.owner.freeSlot(base); if (!slot) return false;
+  const slot = a.owner.freeSlot(base, world); if (!slot) return false;
   const from = u.owner; u.slot.unit = null; u.slot.pending = 0; G.metrics.delivered++;
   u.owner = a.owner; u.slot = slot; slot.unit = u; slot.pending = 0; u.carrier = null; a.carrying = null; u.state = 'slotted';
   G.alerts.forEach((v, k) => { if (v === u) G.alerts.delete(k); });
@@ -2359,13 +2432,17 @@ function updateSteals(dt) {
   for (const a of G.agents) {
     const u = a.carrying; if (!u) continue; a.carryT += dt;
     // caught by owner?
-    const d = u.owner.agent;
-    if (d && d !== a && !d.stunned && !d.carrying) {
-      const dd = dist2(a.body.pos, d.body.pos);
-      if (dd < 1.5 * 1.5 && Math.abs(a.body.pos.y - d.body.pos.y) < 1.6) {
+    let caughtBy = null;
+    for (const d of [u.owner.agent, ...u.owner.guards]) {
+      if (!d || d === a || d.stunned || d.carrying) continue;
+      if (dist2(a.body.pos, d.body.pos) < 1.5 * 1.5 && Math.abs(a.body.pos.y - d.body.pos.y) < 1.6) { caughtBy = d; break; }
+    }
+    if (caughtBy) {
+      const d = caughtBy;
+      {
         returnUnit(u); a.stun(1.6); G.metrics.caught++;
         tmpV.subVectors(a.body.pos, d.body.pos).setY(0).normalize(); a.body.vel.set(tmpV.x * 9, 6, tmpV.z * 9);
-        if (a.isPlayer) { Sound.play('caught'); UI.toast('😵 ' + d.owner.name + ' گرفتت! میم برگشت به صاحبش', 'bad'); }
+        if (a.isPlayer) { Sound.play('caught'); UI.toast('😵 ' + (d.isGuard ? 'نگهبانِ ' : '') + d.owner.name + ' گرفتت! میم برگشت به صاحبش', 'bad'); }
         if (d.isPlayer) { const bounty = Math.max(10, Math.floor(u.price * 0.05)); d.owner.money += bounty; Sound.play('success'); UI.toast('💪 دزد را گرفتی! جایزه: ' + fmt(bounty), 'good'); UI.floatText(d.body.pos, '+' + fmt(bounty), '#3df2b0'); G.stats.caught++; Missions.event('catch'); }
         continue;
       }
@@ -2373,7 +2450,7 @@ function updateSteals(dt) {
     const home = a.owner.baseAt(a.body.pos.x, a.body.pos.z);
     if (home) {
       if (!a.isPlayer && !a.owner.freeSlot()) { const wk = a.owner.weakest(); if (wk && wk.income < u.income) sellUnit(a.owner, wk.slot); }
-      if (!deliver(a, home)) {
+      if (!deliver(a, home, home.world)) {
         if (a.isPlayer) { if (!a.fullWarn || G.time - a.fullWarn > 3) { a.fullWarn = G.time; UI.toast('📦 جای خالی نداری! ظرفیت را ارتقا بده، یک میم بفروش یا یک پایگاه جدید بخر', 'bad'); Sound.play('error'); } }
         else returnUnit(u);
       }
@@ -2393,12 +2470,13 @@ const LOOKS = [
   { skin: '#e0ac69', shirt: '#ffd23f', pants: '#1b1446', shoes: '#2fe08a', hair: 'cap', hairC: '#111', accent: '#ff5252', hat: '#ff5252' },
 ];
 class Agent {
-  constructor(owner, look, isPlayer) {
-    this.owner = owner; owner.agent = this; this.isPlayer = isPlayer; this.av = buildAvatar(look); scene.add(this.av.root);
-    const sp = owner.base.spawnPos; this.body = new Body(sp.x, sp.y, sp.z); this.body.agent = this; this.body.ownerId = owner.id;
+  constructor(owner, look, isPlayer, opts = {}) {
+    this.owner = owner; if (!opts.guard) owner.agent = this; this.isPlayer = isPlayer; this.isGuard = !!opts.guard; this.av = buildAvatar(look); scene.add(this.av.root);
+    const sp = owner.base.spawnPos; this.body = new Body(sp.x + (opts.guard ? 3 : 0), sp.y, sp.z); this.body.agent = this; this.body.ownerId = owner.id;
     this.yaw = owner.base.frontYaw; this.move = { x: 0, z: 0 }; this.sprint = false; this.jumpQ = 0; this.coyote = 0; this.carrying = null; this.stunT = 0; this.carryT = 0;
-    this.renderY = sp.y; this.turn = 0; this.zapT = 0; this.brain = isPlayer ? null : new Brain(this);
-    if (!isPlayer) { const lab = spriteFromCanvas(labelCanvas([{ t: owner.name, size: 64, color: '#fff', weight: 900, stroke: 6 }], { w: 384, h: 110, bg: owner.color }), 1.9, 0.55); lab.position.y = 2.75; this.av.root.add(lab); this.label = lab; }
+    this.renderY = sp.y; this.turn = 0; this.zapT = 0; this.brain = isPlayer ? null : opts.guard ? new GuardBrain(this, opts.guard) : new Brain(this);
+    if (opts.guard) owner.guards.push(this);
+    if (!isPlayer) { const lab = spriteFromCanvas(labelCanvas([{ t: opts.guard ? '🤖 نگهبان ' + owner.name : owner.name, size: opts.guard ? 46 : 64, color: '#fff', weight: 900, stroke: 6 }], { w: 384, h: 110, bg: owner.color }), 1.9, 0.55); lab.position.y = 2.75; this.av.root.add(lab); this.label = lab; }
     G.agents.push(this);
   }
   get stunned() { return this.stunT > 0; }
@@ -2406,7 +2484,7 @@ class Agent {
   zap() { if (this.zapT > 0) return; this.zapT = 0.6; FX.burst(tmpV.copy(this.body.pos).setY(this.body.pos.y + 1), { count: 14, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.4 }); if (this.isPlayer) { Sound.play('zap'); UI.toast('⚡ سپر لیزری فعال است! نمی‌شود وارد شد', 'bad'); } }
   respawn() { const sp = this.owner.base.spawnPos; this.body.pos.copy(sp).setY(sp.y + 0.5); this.body.vel.set(0, 0, 0); if (this.carrying) returnUnit(this.carrying); }
   maxSpeed() {
-    let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : (this.brain.run ? 5.75 : 5.0);
+    let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : this.isGuard ? (this.brain.run ? 7.6 : 4.2) : this.owner.hard ? (this.brain.run ? 6.9 : 5.6) : (this.brain.run ? 5.75 : 5.0);
     v *= 1 + 0.07 * this.owner.up.speed;
     if (this.carrying) {
       v *= this.isPlayer ? 1.15 : 0.75; // the player gets an adrenaline boost while carrying
@@ -2431,7 +2509,7 @@ class Agent {
       }
     } else this.jumpHeld = false;
     stepBody(b, dt);
-    if (b.groundTag === 'belt') { b.pos.x += beltSpeed() * dt; if (b.pos.x > BELT.x1 - 0.5) b.pos.x = BELT.x1 - 0.5; }
+    if (b.groundTag === 'belt' || b.groundTag === 'belt2') { const B = beltOfTag(b.groundTag); b.pos.x += beltSpeed(B) * dt; if (b.pos.x > B.x1 - 0.5) b.pos.x = B.x1 - 0.5; }
   }
   visual(dt, t) {
     const b = this.body;
@@ -2491,9 +2569,9 @@ class Brain {
     }
     return 'moving';
   }
-  onTheft(thief, u) { if (this.a.carrying) return; this.set('defend', { thief, unit: u }); this.react = 0.35 + Math.sqrt(dist2(this.a.body.pos, thief.body.pos)) / 45 + (1 - Day.k) * 0.7; this.run = true; }
+  onTheft(thief, u) { if (this.a.carrying) return; this.set('defend', { thief, unit: u }); this.react = 0.35 + Math.sqrt(dist2(this.a.body.pos, thief.body.pos)) / 45 + (1 - Day.k) * 0.7; if (this.o.hard) this.react *= 0.45; this.run = true; }
   intruder() {
-    for (const ag of G.agents) if (ag !== this.a && !ag.stunned && this.o.base.contains(ag.body.pos.x, ag.body.pos.z) && (ag.isPlayer ? G.playing : true)) return ag;
+    for (const ag of G.agents) if (ag !== this.a && ag.owner !== this.o && !ag.stunned && this.o.base.contains(ag.body.pos.x, ag.body.pos.z) && (ag.isPlayer ? G.playing : true)) return ag;
     return null;
   }
   decide() {
@@ -2507,7 +2585,7 @@ class Brain {
         if (ag === a || ag.owner === o || (ag.isPlayer && !G.playing)) continue;
         const near = dist2(ag.body.pos, base.entrancePos) < 15 * 15 && !base.contains(ag.body.pos.x, ag.body.pos.z);
         const hostile = ag.isPlayer || (ag.brain && ag.brain.state === 'steal' && ag.brain.victim === o);
-        if (near && hostile && Math.random() < (ag.isPlayer ? 0.22 : 0.3)) { activateSecurity(o); break; }
+        if (near && hostile && Math.random() < (o.hard ? 0.5 : ag.isPlayer ? 0.22 : 0.3)) { activateSecurity(o); break; }
       }
     }
     const inc = o.incomePerSec();
@@ -2523,7 +2601,7 @@ class Brain {
     if (target) { this.set('buy', { unit: target }); this.run = true; return; }
     // wander
     if (Math.random() < 0.55) { const lx = rand(-9, 9), lz = rand(-5, 8), w = base.toWorld(lx, lz); this.set('wander'); this.goTo(w.x, w.z); }
-    else { const pts = [[base.cx + rand(-40, 40), rand(4, 15) * Math.sign(base.cz)], [rand(-120, 120), rand(-15, 15)], [base.cx + rand(-30, 30), Math.sign(base.cz) * 3.2]]; const q = pick(pts); this.set('wander'); this.goTo(q[0], q[1]); }
+    else { const w2 = base.world === 2, cxw = w2 ? X2 : 0, pz = w2 ? 9 : 15; const pts = [[base.cx + rand(-40, 40), rand(4, pz) * Math.sign(base.cz)], [cxw + rand(w2 ? -70 : -120, w2 ? 70 : 120), rand(-pz, pz)], [base.cx + rand(-30, 30), Math.sign(base.cz) * 3.2]]; const q = pick(pts); this.set('wander'); this.goTo(q[0], q[1]); }
   }
   tryUpgrade() {
     const o = this.o, base = o.base;
@@ -2535,8 +2613,9 @@ class Brain {
   pickBelt() {
     const o = this.o, slot = o.freeSlot(); let best = null, bestScore = 0;
     let weakest = null; for (const s of o.slots) if (s.unit && s.unit.state === 'slotted' && (!weakest || s.unit.income < weakest.income)) weakest = s.unit;
-    for (const u of G.belt) {
-      if (u.pos.x > Math.min(BELT.x1 - 14, o.base.cx + 20)) continue; const pr = beltPrice(u);
+    const B = o.base.world === 2 ? BELT2 : BELT;
+    for (const u of B.list) {
+      if (u.pos.x > Math.min(B.x1 - 14, o.base.cx + 20)) continue; const pr = beltPrice(u);
       if (pr > o.money * (slot ? 1 : 0.9)) continue;
       if (!slot && (!weakest || u.income < weakest.income * 2)) continue;
       const score = u.income * (1 + Math.random() * 0.3) - Math.abs(u.pos.x - this.a.body.pos.x) * 0.02 * u.income;
@@ -2551,7 +2630,7 @@ class Brain {
     for (const v of G.owners) {
       if (v === this.o) continue;
       if (v.isPlayer && (!G.playing || G.graceT > 0 || !G.tutorialDone)) continue;
-      const units = v.slots.filter((s) => s.unit && s.unit.state === 'slotted' && !s.base.barrierActive).map((s) => s.unit).sort((x, y) => y.income - x.income);
+      const units = v.slots.filter((s) => s.unit && s.unit.state === 'slotted' && !s.base.barrierActive && s.base.world === this.o.base.world).map((s) => s.unit).sort((x, y) => y.income - x.income);
       if (!units.length) continue;
       const away = v.agent ? Math.sqrt(dist2(v.agent.body.pos, units[0].slot.base.insidePos)) : 99; // rivals prefer bases whose owner is away
       const w = (away > 30 ? 3 : away > 15 ? 1.4 : 0.5) * (v.isPlayer ? 1.6 : 1);
@@ -2586,14 +2665,15 @@ class Brain {
       }
       case 'buy': {
         const u = this.unit;
-        if (!u || u.state !== 'belt' || this.t > 28 || u.pos.x > BELT.x1 - 3) { this.set('idle', { think: 0.3 }); break; }
+        const UB = (u && u.belt) || BELT;
+        if (!u || u.state !== 'belt' || this.t > 28 || u.pos.x > UB.x1 - 3) { this.set('idle', { think: 0.3 }); break; }
         if (dist2(p, u.pos) < 3.2 * 3.2) {
           const r = tryBuy(o, u); this.set(r === 'ok' ? 'return' : 'idle', { think: 0.4 }); break;
         }
         this.repath -= dt;
         if (this.repath <= 0 || !this.path) {
           this.repath = 1.1; const d = Math.sqrt(dist2(p, u.pos)), tt = d / 6.3;
-          const ax = Math.min(BELT.x1 - 2, u.pos.x + beltSpeed() * tt * 0.9), az = Math.sign(o.base.cz) * 2.8;
+          const ax = Math.min(UB.x1 - 2, u.pos.x + beltSpeed(UB) * tt * 0.9), az = Math.sign(o.base.cz) * 2.8;
           if (!this.goTo(ax, az)) { this.set('idle'); break; }
         }
         if (this.follow(dt) === 'fail') this.set('idle');
@@ -2654,14 +2734,14 @@ class Brain {
 function startEvent() {
   const e = pick(EVENTS); G.event = { id: e.id, def: e, t: 45, max: 45 };
   UI.banner(e.emoji + ' ' + e.name, e.desc); Sound.play('event'); UI.toast(e.emoji + ' رویداد ویژه: ' + e.name + ' — ' + e.desc, 'rare');
-  G.belt.forEach((u) => u.setPlate('shop'));
+  for (const B of BELTS) B.list.forEach((u) => u.setPlate('shop'));
 }
 function updateEvents(dt) {
   if (!G.event) { G.nextEventIn -= dt; if (G.nextEventIn <= 0) startEvent(); }
   else {
     G.event.t -= dt;
     if (G.event.id === 'golden' && G.player && Math.random() < dt * 40) { const p = G.player.body.pos; FX.one(p.x + rand(-18, 18), p.y + rand(10, 16), p.z + rand(-18, 18), { vx: 0, vy: -6, vz: 0, life: 2.4, size: 0.35, color: '#ffd23f', grav: 0, drag: 0 }); }
-    if (G.event.t <= 0) { UI.toast('رویداد «' + G.event.def.name + '» تمام شد', ''); G.event = null; G.nextEventIn = rand(110, 200); G.belt.forEach((u) => u.setPlate('shop')); }
+    if (G.event.t <= 0) { UI.toast('رویداد «' + G.event.def.name + '» تمام شد', ''); G.event = null; G.nextEventIn = rand(110, 200); for (const B of BELTS) B.list.forEach((u) => u.setPlate('shop')); }
   }
   const tint = G.event && G.event.id === 'raid' ? [0.72, 0.6, 0.95] : G.event && G.event.id === 'golden' ? [1.08, 0.98, 0.8] : [1, 1, 1];
   const tc = skyMat.uniforms.tint.value; tc.r = damp(tc.r, tint[0], 1, dt); tc.g = damp(tc.g, tint[1], 1, dt); tc.b = damp(tc.b, tint[2], 1, dt);
@@ -2849,7 +2929,7 @@ const Fusion = {
 const NIGHT_TOP = new THREE.Color('#0a0f2e'), NIGHT_HOR = new THREE.Color('#2b2f6e'), MOON = new THREE.Color('#9fb4ff'), SUNC = new THREE.Color('#fff0d8');
 const Day = {
   t: 0.3, len: 480, k: 1,
-  label() { const s = Math.sin(this.t * TAU), c = Math.cos(this.t * TAU); void s; return this.k > 0.75 ? '☀️ روز' : this.k < 0.25 ? '🌙 شب' : c < 0 ? '🌇 غروب' : '🌅 طلوع'; },
+  label() { if (G.player && inW2(G.player.body.pos.x)) return '🌋 سیاره‌ی گدازه'; const s = Math.sin(this.t * TAU), c = Math.cos(this.t * TAU); void s; return this.k > 0.75 ? '☀️ روز' : this.k < 0.25 ? '🌙 شب' : c < 0 ? '🌇 غروب' : '🌅 طلوع'; },
   update(dt) {
     this.t = (this.t + dt / this.len) % 1;
     const s = Math.sin(this.t * TAU), x = clamp((s + 0.55) / 0.4, 0, 1), k = x * x * (3 - 2 * x); this.k = k;
@@ -2860,12 +2940,20 @@ const Day = {
     renderer.toneMappingExposure = 1.05 * (0.52 + 0.48 * k);
     if (W.lampMat) W.lampMat.emissiveIntensity = 0.4 + 4.5 * (1 - k);
     if (W.stars) { W.stars.material.opacity = clamp((0.55 - k) * 1.8, 0, 1); W.stars.position.copy(camera.position); }
+    const lavaSky = inW2(camera.position.x);
+    if (W2.planet) { W2.planet.visible = lavaSky; if (lavaSky) W2.planet.position.set(camera.position.x - 170, camera.position.y + 150, camera.position.z - 330); }
+    if (lavaSky) { // eternal crimson dusk
+      u.top.value.set('#14040c'); u.hor.value.set('#6a1a20'); scene.fog.color.set('#3a0e14'); renderer.setClearColor(u.hor.value, 1);
+      hemi.intensity = 0.42; fill.intensity = 0.25; sun.color.set('#ff9a6a'); sun.intensity = 2.0 * (G.sunTint || 1); renderer.toneMappingExposure = 0.98;
+      if (W.stars) W.stars.material.opacity = 0.9;
+      return;
+    }
     if (k < 0.4 && G.player && Math.random() < dt * 14 * (1 - k)) { const p = G.player.body.pos; FX.one(p.x + rand(-22, 22), rand(0.5, 3), p.z + rand(-22, 22), { vx: rand(-0.4, 0.4), vy: rand(-0.1, 0.3), vz: rand(-0.4, 0.4), life: 2.5, size: 0.22, color: pick(['#d8ff6a', '#fff27a']), grav: 0, drag: 0.2 }); }
   },
 };
 
 // ------------------------------------------------------------------ extra plots the player can buy once the first base fills up
-const plotPrice = (o) => Math.round(5000 * Math.pow(10, o.bases.length - 1));
+const plotPrice = (o) => Math.round(5000 * Math.pow(10, o.bases.filter((b) => b.world === 1).length - 1));
 function claimPlot(o, b, silent) {
   if (b.owner || !b.forSale) return false;
   o.addBase(b); b.build(o.color, o.name + ' ' + fa(o.bases.length), false); o.applyCap(); if (o.secT > 0) b.setBarrier(true);
@@ -2899,7 +2987,7 @@ let saveQueued = false;
 function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
-    v: 1, t: Date.now(), name: G.name, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
+    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending)] : null)) })),
   };
@@ -2910,19 +2998,20 @@ function loadSave() {
   const raw = lsGet(SAVE_KEY); if (!raw) return null;
   try {
     const s = JSON.parse(raw);
-    if (!s || s.v !== 1 || !Array.isArray(s.owners) || (s.owners.length !== 6 && s.owners.length !== 8)) throw new Error('bad shape');
+    if (!s || s.v !== 1 || !Array.isArray(s.owners) || ![6, 8, 13].includes(s.owners.length)) throw new Error('bad shape');
     return s;
   } catch (e) { console.warn('save corrupt, backing up', e); lsSet(SAVE_KEY + '.bak', raw); lsDel(SAVE_KEY); return null; }
 }
 function applySave(s) {
   G.name = typeof s.name === 'string' ? s.name.slice(0, 14) : G.name;
   Day.t = num(s.dayT, 0.3, 0, 1); Missions.load(s.missions);
+  G.portalUnlocked = !!s.portal;
   G.playTime = num(s.playTime, 0); G.tutorialDone = !!s.tutorialDone; G.nextEventIn = num(s.nextEventIn, 150, 20, 400);
   if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(G.stats)) G.stats[k] = num(s.stats[k], 0);
   if (Array.isArray(s.discovered)) s.discovered.forEach((id) => { if (CHAR_BY_ID[id]) G.discovered.add(id); });
   if (s.daily && typeof s.daily === 'object') G.daily = { last: String(s.daily.last || ''), streak: num(s.daily.streak, 0, 0, 7) };
   s.owners.forEach((so, i) => {
-    const o = G.owners[i]; if (!so) return;
+    const o = G.owners[i]; if (!so || !o) return;
     o.money = num(so.money, START_MONEY); o.rebirths = Math.floor(num(so.rebirths, 0, 0, 50)); o.secCd = num(so.secCd, 0, 0, 120);
     if (so.up) for (const k of UP_KEYS) o.up[k] = Math.floor(num(so.up[k], 0, 0, UPGRADES[k].max));
     if (o.isPlayer && Array.isArray(so.bases)) so.bases.slice(1).forEach((bi) => { const b = W.bases[bi]; if (b && !b.owner && b.forSale) claimPlot(o, b, true); });
@@ -2938,6 +3027,7 @@ function applySave(s) {
 function seedRivals(from = 0) {
   for (const o of G.owners) {
     if (o.isPlayer || o.id < from) continue;
+    if (o.base.world === 2) { seedW2Owner(o); continue; }
     o.money = randi(200, 1500); o.up.cap = randi(0, 2);
     const n = randi(3, Math.min(o.cap, 5));
     for (let i = 0; i < n; i++) {
@@ -2946,6 +3036,299 @@ function seedRivals(from = 0) {
     }
   }
 }
+
+// ===================================================================
+//  World 2 — «سیاره‌ی گدازه» (lava planet): unlocked by a portal at 550 million net worth
+// ===================================================================
+const BELT2 = { x0: X2 - 85, x1: X2 + 84.5, z: 0, halfW: 1.9, top: 0.4, speed: 3.6, w: 2, tag: 'belt2', list: [], spawnT: 1, active: false };
+const BELTS = [BELT, BELT2];
+BELT.active = true;
+const W2 = { built: false, lava: [], bridges: [], anim: [], baseXs: [X2 - 70, X2, X2 + 70], baseZ: 34, moat: [12, 22], plazaX: 112 };
+const W2_NAMES = ['غول گدازه', 'ملکه‌ی آتش', 'شبح سیاه', 'ربات X-9', 'جادوگر سرخ'];
+const W2_COLORS = ['#ff3d00', '#ff1f8e', '#7d5cff', '#00e5ff', '#c0ff00'];
+const W2_LOOKS = [
+  { skin: '#7a4a3a', shirt: '#3a0d0d', pants: '#120808', shoes: '#ff3d00', hair: 'crown', hairC: '#1a0a0a', accent: '#ff3d00' },
+  { skin: '#ffd8c0', shirt: '#8a0f3a', pants: '#1a0814', shoes: '#ff1f8e', hair: 'buns', hairC: '#ff1f8e', accent: '#ffd23f' },
+  { skin: '#b9b2e6', shirt: '#1a1430', pants: '#0a0814', shoes: '#7d5cff', hair: 'spiky', hairC: '#0a0814', accent: '#7d5cff' },
+  { skin: '#9aa3ae', shirt: '#1d2a33', pants: '#11161b', shoes: '#00e5ff', hair: 'phones', hairC: '#11161b', accent: '#00e5ff' },
+  { skin: '#e0ac69', shirt: '#4a1a00', pants: '#1b0c05', shoes: '#c0ff00', hair: 'cap', hairC: '#111', accent: '#c0ff00', hat: '#c0ff00' },
+];
+const GUARD_LOOK = { skin: '#aab3bf', shirt: '#2d3142', pants: '#1b1e2a', shoes: '#ff2a3a', hair: 'cap', hairC: '#111', accent: '#ff2a3a', hat: '#ff2a3a' };
+const PORTAL1 = new THREE.Vector3(118, 0, -12), PORTAL2 = new THREE.Vector3(X2 - 103, 0, 0);
+const inLava = (x, z) => { for (const r of W2.lava) if (x > r[0] && x < r[2] && z > r[1] && z < r[3]) return true; return false; };
+
+const TEX2 = {};
+function buildTex2() {
+  TEX2.rock = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#231a1e'; g.fillRect(0, 0, w, h); speckle(g, w, h, 3500, ['#2e2228', '#1a1316', '#3a2a30', '#140e10'], 1, 3);
+    g.strokeStyle = '#ff5a1f'; g.lineWidth = 2; for (let i = 0; i < 9; i++) { g.beginPath(); let x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-30, 30); y += rand(-30, 30); g.lineTo(x, y); } g.stroke(); }
+  }, [70, 45]);
+  TEX2.rockGlow = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ff6a1f'; g.lineWidth = 3;
+    for (let i = 0; i < 9; i++) { g.beginPath(); let x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-30, 30); y += rand(-30, 30); g.lineTo(x, y); } g.stroke(); }
+  }, [70, 45]);
+  TEX2.lava = canvasTex(256, 256, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, w, h); grd.addColorStop(0, '#ff3d00'); grd.addColorStop(0.5, '#ffb000'); grd.addColorStop(1, '#ff3d00'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(60,10,0,' + rand(0.3, 0.7) + ')'; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, rand(8, 30), rand(4, 14), rand(0, 3), 0, TAU); g.fill(); }
+  }, [40, 2]);
+  TEX2.obsidian = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#16121c'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = ['#221c2c', '#1c1724', '#2a2236'][(x + y * 2) % 3]; g.fillRect(x * 32 + 2, y * 32 + 2, 28, 28); }
+    g.fillStyle = 'rgba(255,90,31,.5)'; for (let i = 0; i < 9; i++) g.fillRect(i * 32, 0, 2, h);
+  }, [1, 1]);
+  TEX2.belt = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#120c18'; g.fillRect(0, 0, w, h); g.fillStyle = '#ff5a1f';
+    for (let i = 0; i < 2; i++) { const x = i * 64; g.beginPath(); g.moveTo(x + 12, 20); g.lineTo(x + 40, 64); g.lineTo(x + 12, 108); g.lineTo(x + 26, 108); g.lineTo(x + 54, 64); g.lineTo(x + 26, 20); g.fill(); }
+  }, [1, 1]);
+}
+
+// a portal ring (used in both worlds)
+function makePortal(pos, colors, label) {
+  const g = new THREE.Group(); g.position.copy(pos); scene.add(g);
+  const frame = mat('#1a1020', { m: 0.7, r: 0.3, e: colors[0], ei: 0.4 });
+  for (const s of [-1, 1]) mesh(rbox(1.1, 7.6, 1.1, 0.2), frame, 0, 3.8, s * 3.9, 1, 1, 1, g);
+  const ring = mesh(GEO.torus, mat(colors[0], { e: colors[0], ei: 2 }), 0, 3.8, 0, 3.4, 3.4, 4, g); ring.rotation.y = Math.PI / 2;
+  const ring2 = mesh(GEO.torusThin, addMat(colors[1], 0.95), 0, 3.8, 0, 2.9, 2.9, 2.9, g, false); ring2.rotation.y = Math.PI / 2;
+  const swirl = canvasTex(128, 128, (gg) => { for (let i = 0; i < 7; i++) { gg.strokeStyle = i % 2 ? colors[0] : colors[1]; gg.globalAlpha = 0.75; gg.lineWidth = 7; gg.beginPath(); for (let a = 0; a < 9; a += 0.1) { const r = a * 6.5; gg.lineTo(64 + Math.cos(a + i) * r, 64 + Math.sin(a + i) * r); } gg.stroke(); } });
+  const disc = mesh(new THREE.CircleGeometry(3.2, 40), new THREE.MeshBasicMaterial({ map: swirl, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 3.8, 0, 1, 1, 1, g, false); disc.rotation.y = Math.PI / 2;
+  const sp = spriteFromCanvas(labelCanvas([{ t: label, size: 58, color: '#fff', weight: 900, stroke: 6 }], { w: 640, h: 140, bg: 'rgba(40,10,30,.9)', border: colors[0] }), 7, 1.55); sp.position.y = 9; g.add(sp);
+  return { g, ring, ring2, disc, colors };
+}
+function animPortal(P, dt, t) {
+  P.ring.rotation.x = t * 0.8; P.ring2.rotation.x = -t * 1.6; P.disc.rotation.x = t * 2.4;
+  if (P.g.visible && Math.random() < dt * 25) { const a = Math.random() * TAU, p = P.g.position; FX.one(p.x, p.y + 3.8 + Math.sin(a) * 3, p.z + Math.cos(a) * 3, { vx: rand(-1, 1), vy: rand(-0.5, 0.5), vz: -Math.cos(a) * 2, life: 0.8, size: 0.4, color: pick(P.colors), grav: 0, drag: 0.4 }); }
+}
+
+function buildWorld2() {
+  if (W2.built) return; W2.built = true;
+  buildTex2();
+  const PX = W2.plazaX, [m0, m1] = W2.moat;
+  // ground (black rock with glowing cracks) — same physics floor as world 1 (y = 0)
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD2.maxX - WORLD2.minX + 80, WORLD2.maxZ - WORLD2.minZ + 80), new THREE.MeshStandardMaterial({ map: TEX2.rock, emissiveMap: TEX2.rockGlow, emissive: '#ff5a1f', emissiveIntensity: 0.7, roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.x = X2; ground.receiveShadow = true; scene.add(ground);
+  groundQuad(X2 - PX, -m0, X2 + PX, m0, flatMat(texRep(TEX2.obsidian, PX / 2, 6), '#ffffff', -1), 0.012);
+  // lava moats with bridges in front of every base
+  const lavaMat = new THREE.MeshStandardMaterial({ map: TEX2.lava, emissiveMap: TEX2.lava, emissive: '#ffffff', emissiveIntensity: 1.1, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -2 });
+  W2.lavaMat = lavaMat;
+  const bridgeMat = flatMat(texRep(TEX2.obsidian, 2, 3), '#ffb38a', -3), rail = mat('#2a1a22', { m: 0.6, e: '#ff5a1f', ei: 0.5 });
+  const b2 = new Batcher();
+  for (const s of [-1, 1]) {
+    const z0 = s > 0 ? m0 : -m1, z1 = s > 0 ? m1 : -m0;
+    groundQuad(X2 - PX - 6, z0, X2 + PX + 6, z1, lavaMat, 0.03);
+    let x = X2 - PX - 6;
+    for (const bx of W2.baseXs) { W2.lava.push([x, z0, bx - 3, z1]); x = bx + 3; groundQuad(bx - 3, z0, bx + 3, z1, bridgeMat, 0.06); W2.bridges.push([bx - 3, z0, bx + 3, z1]); for (const e of [-1, 1]) b2.add(GEO.box, rail, bx + e * 2.9, 0.45, (z0 + z1) / 2, 0.2, 0.5, z1 - z0); }
+    W2.lava.push([x, z0, X2 + PX + 6, z1]);
+    // short paths from bridge to base door
+    for (const bx of W2.baseXs) groundQuad(bx - 3.5, s * m1, bx + 3.5, s * (W2.baseZ - 9.5), bridgeMat, 0.05);
+  }
+  b2.build(scene);
+  W2.anim.push((dt, t) => { TEX2.lava.offset.x = t * 0.04; TEX2.lava.offset.y = Math.sin(t * 0.3) * 0.1; lavaMat.emissiveIntensity = 1 + Math.sin(t * 2) * 0.15;
+    if (G.player && inW2(G.player.body.pos.x) && Math.random() < dt * 25) { const r = pick(W2.lava); FX.one(rand(r[0], r[2]), 0.2, rand(r[1], r[3]), { vx: rand(-0.3, 0.3), vy: rand(1, 3), vz: rand(-0.3, 0.3), life: 1.4, size: rand(0.2, 0.4), color: pick(['#ffb000', '#ff5a1f', '#ffe14a']), grav: -1, drag: 0.3 }); } });
+  // boundary: jagged obsidian walls
+  const wallM = mat('#1a1018', { r: 0.5, m: 0.3, e: '#ff3d00', ei: 0.15, flat: true }), wb = new Batcher();
+  const B = WORLD2;
+  for (let x = B.minX; x <= B.maxX; x += 6) for (const z of [B.minZ, B.maxZ]) wb.add(GEO.cone4, wallM, x, 3, z, 3.4, rand(5, 9), 2, rand(0, 1));
+  for (let z = B.minZ; z <= B.maxZ; z += 6) for (const x of [B.minX, B.maxX]) wb.add(GEO.cone4, wallM, x, 3, z, 2, rand(5, 9), 3.4, rand(0, 1));
+  wb.build(scene);
+  addBox(B.minX - 2, 0, B.minZ - 2, B.maxX + 2, 6, B.minZ + 0.8); addBox(B.minX - 2, 0, B.maxZ - 0.8, B.maxX + 2, 6, B.maxZ + 2);
+  addBox(B.minX - 2, 0, B.minZ, B.minX + 0.8, 6, B.maxZ); addBox(B.maxX - 0.8, 0, B.minZ, B.maxX + 2, 6, B.maxZ);
+  // crystal belt
+  const len = BELT2.x1 - BELT2.x0 + 0.5, cx = (BELT2.x0 + BELT2.x1) / 2;
+  mesh(GEO.box, mat('#1a1020', { m: 0.7, r: 0.35 }), cx, 0.17, 0, len, 0.34, 4.8, scene);
+  W2.beltTex = texRep(TEX2.belt, len / 2, 1);
+  mesh(GEO.box, new THREE.MeshStandardMaterial({ map: W2.beltTex, roughness: 0.4, metalness: 0.3, emissiveMap: W2.beltTex, emissive: '#ffffff', emissiveIntensity: 0.35 }), cx, 0.37, 0, len, 0.06, 3.8, scene).castShadow = false;
+  for (const s of [-1, 1]) mesh(GEO.box, mat('#7af7ff', { e: '#29d9ff', ei: 1.4 }), cx, 0.4, s * 2.15, len, 0.06, 0.18, scene);
+  addBox(BELT2.x0 - 0.25, 0, -2.4, BELT2.x1 + 0.25, BELT2.top, 2.4, { tag: 'belt2', cam: false });
+  const rift = makePortal(new THREE.Vector3(BELT2.x0 - 2.4, 0, 0), ['#ff3d00', '#ffd23f'], '🔥 شکاف گدازه'); rift.g.scale.setScalar(0.85);
+  for (const s of [-1, 1]) addBoxC(BELT2.x0 - 2.4, 3.2, s * 3.3, 1, 6.4, 1);
+  W2.anim.push((dt, t) => animPortal(rift, dt, t));
+  const furn = new THREE.Group(); furn.position.set(BELT2.x1 + 3.5, 0, 0); scene.add(furn);
+  mesh(rbox(5.4, 5, 6.6, 0.3), mat('#2a1a22', { m: 0.6, r: 0.4 }), 0, 2.5, 0, 1, 1, 1, furn);
+  mesh(GEO.box, mat('#ff6a00', { e: '#ff4a00', ei: 2.5 }), -2.65, 1.4, 0, 0.15, 2.2, 4.2, furn);
+  addBoxC(BELT2.x1 + 3.5, 2.5, 0, 5.4, 5, 6.6);
+  W2.anim.push((dt) => { if (Math.random() < dt * 8) FX.one(BELT2.x1 + 4, 5.6, rand(-2, 2), { vx: rand(-0.3, 0.3), vy: rand(1.5, 2.5), vz: rand(-0.3, 0.3), life: 2, size: 0.9, color: '#3a2028', grow: 0.7, drag: 0.4 }); });
+  // volcanoes, crystals, floating rocks
+  const rockM = mat('#2a1c22', { r: 0.95, flat: true }), glow = mat('#ff5a1f', { e: '#ff4a00', ei: 2.4 });
+  for (const [vx, vz, r, h] of [[X2 - 100, 55, 11, 18], [X2 + 100, -55, 12, 20], [X2 - 30, -58, 8, 13], [X2 + 40, 58, 9, 15], [X2 + 108, 48, 7, 11], [X2 - 108, -48, 7, 11]]) {
+    const v = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.28, r, h, 12, 1), rockM); v.position.set(vx, h / 2, vz); v.castShadow = v.receiveShadow = true; scene.add(v);
+    mesh(new THREE.CylinderGeometry(r * 0.26, r * 0.26, 0.4, 12), glow, vx, h + 0.1, vz, 1, 1, 1, scene, false);
+    addCircle(vx, vz, r * 0.85, 0, h);
+    W2.anim.push((dt) => { if (Math.random() < dt * 10) FX.one(vx + rand(-1, 1), h + 0.5, vz + rand(-1, 1), { vx: rand(-1.5, 1.5), vy: rand(4, 8), vz: rand(-1.5, 1.5), life: 1.8, size: rand(0.3, 0.6), color: pick(['#ff5a1f', '#ffb000', '#ffe14a']), grav: -5, drag: 0.2 }); if (Math.random() < dt * 3) FX.one(vx, h + 1, vz, { vx: rand(-0.4, 0.4), vy: 2.5, vz: rand(-0.4, 0.4), life: 3, size: 2, color: '#3a2a30', grow: 1, drag: 0.3 }); });
+  }
+  const cryIM = new THREE.InstancedMesh(GEO.oct, new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#5a2a9a', emissiveIntensity: 0.5, roughness: 0.15, metalness: 0.2, flatShading: true }), 140);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color(); let ci = 0, guard = 0;
+  while (ci < 140 && guard++ < 3000) {
+    const x = rand(WORLD2.minX + 4, WORLD2.maxX - 4), z = rand(WORLD2.minZ + 4, WORLD2.maxZ - 4);
+    if (Math.abs(z) < W2.moat[1] + 2 || W2.baseXs.some((bx) => Math.abs(x - bx) < 15 && Math.abs(Math.abs(z) - W2.baseZ) < 13) || Math.abs(x - PORTAL2.x) < 6) continue;
+    const s = rand(0.4, 1.4); p.set(x, s * 0.9, z); sc.set(s * 0.5, s * 1.5, s * 0.5); q.setFromEuler(new THREE.Euler(rand(-0.3, 0.3), rand(0, 3), rand(-0.3, 0.3))); m4.compose(p, q, sc); cryIM.setMatrixAt(ci, m4);
+    c.set(pick(['#7af7ff', '#b061ff', '#ff4fd8', '#29d9ff'])); cryIM.setColorAt(ci++, c); if (s > 1) addCircle(x, z, s * 0.45, 0, s * 2);
+  }
+  cryIM.count = ci; cryIM.castShadow = true; cryIM.instanceMatrix.needsUpdate = true; cryIM.instanceColor.needsUpdate = true; cryIM.computeBoundingSphere(); scene.add(cryIM);
+  const floaters = new THREE.Group(); scene.add(floaters);
+  for (let i = 0; i < 14; i++) { const fr = mesh(GEO.dodec, rockM, rand(WORLD2.minX, WORLD2.maxX), rand(20, 40), rand(-60, 60), rand(2, 5), rand(1.5, 3), rand(2, 5), floaters); fr.userData.ph = Math.random() * 6; mesh(GEO.sphere, glow, 0, -0.6, 0, 0.3, 0.3, 0.3, fr, false); }
+  W2.anim.push((dt, t) => floaters.children.forEach((f) => { f.position.y += Math.sin(t * 0.6 + f.userData.ph) * dt * 0.6; f.rotation.y += dt * 0.1; }));
+  const welcome = spriteFromCanvas(labelCanvas([{ t: '🌋 سیاره‌ی گدازه', size: 72, color: '#ffd23f', weight: 900, stroke: 6 }, { t: 'گدازه می‌سوزاند · نگهبان‌ها بیدارند · شهاب‌سنگ می‌بارد', size: 32, color: '#fff', weight: 800 }], { w: 768, h: 220, bg: 'rgba(60,8,8,.92)', border: '#ff5a1f' }), 11, 3.15);
+  welcome.position.set(X2, 9, 0); scene.add(welcome);
+  // giant planet in the sky (moves with the camera like the sky dome)
+  const planetTex = canvasTex(256, 128, (g, w, h) => { for (let y = 0; y < h; y++) { g.fillStyle = `hsl(${280 + Math.sin(y * 0.15) * 25},60%,${30 + Math.sin(y * 0.4) * 10}%)`; g.fillRect(0, y, w, 1); } });
+  W2.planet = new THREE.Group(); scene.add(W2.planet); W2.planet.visible = false;
+  mesh(GEO.sphere, new THREE.MeshBasicMaterial({ map: planetTex, fog: false }), 0, 0, 0, 60, 60, 60, W2.planet, false);
+  const pr = mesh(GEO.torusThin, new THREE.MeshBasicMaterial({ color: '#ffb38a', transparent: true, opacity: 0.6, fog: false }), 0, 0, 0, 95, 95, 40, W2.planet, false); pr.rotation.set(1.2, 0.3, 0);
+  // bases: 6 plots (player gets the south-middle one for free on first arrival)
+  const first = W.bases.length;
+  for (const z of [W2.baseZ, -W2.baseZ]) for (const x of W2.baseXs) { const b = new BaseVis(W.bases.length, x, z); W.bases.push(b); }
+  W2.playerPlot = W.bases[first + 1];
+  W2.playerPlot.build('#4a3a40', 'پایگاه تو · منتظر توست', true);
+  [first, first + 2, first + 3, first + 4, first + 5].forEach((bi, k) => {
+    const o = new Owner(G.owners.length, W2_NAMES[k], W2_COLORS[k], false, W.bases[bi]); o.hard = true; G.owners.push(o); o.base.build(o.color, o.name);
+    const a = new Agent(o, W2_LOOKS[k], false); a.brain.aggr = rand(1.5, 2.1); a.brain.stealCd = rand(15, 35);
+    new Agent(o, GUARD_LOOK, false, { guard: o.base });
+    o.applyCap();
+  });
+  for (const r of W2.lava) reserve(r[0], r[1], r[2], r[3]);
+  buildNav(NAV2, (x, z) => inLava(x, z));
+  Portal.build2();
+  BELT2.active = true;
+  for (let i = 0; i < 600; i++) { BELT2.spawnT -= 0.1; if (BELT2.spawnT <= 0) { const last = BELT2.list[BELT2.list.length - 1]; if (!last || last.pos.x - BELT2.x0 > 3.4) { spawnBelt(BELT2); BELT2.spawnT = rand(2.6, 3.6); } } for (const u of BELT2.list) u.pos.x += BELT2.speed * 0.1; }
+  for (const u of [...BELT2.list]) if (u.pos.x > BELT2.x1) { BELT2.list.splice(BELT2.list.indexOf(u), 1); u.dispose(false); }
+  UI.mapBg2 = null;
+}
+function seedW2Owner(o) {
+  o.hard = true; o.money = randi(200, 800) * 1e6; o.up.cap = randi(2, 4); o.up.secDur = 2; o.up.trap = randi(1, 3); o.up.speed = 2;
+  const n = randi(4, Math.min(o.cap, 7));
+  for (let i = 0; i < n; i++) {
+    let x = Math.random() * 100, r = 3; for (let k = 3; k < 8; k++) { x -= W2_WEIGHTS[k]; if (x <= 0) { r = k; break; } }
+    const u = new Unit(pick(W2_POOL[r]), Math.random() < 0.1 ? 5 : 4); u.owner = o; u.slot = o.slots[i]; o.slots[i].unit = u; u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
+  }
+  o.applyCap();
+}
+
+// ------------------------------------------------------------------ guard robots: patrol their owner's base and chase intruders and thieves
+class GuardBrain extends Brain {
+  constructor(a, base) { super(a); this.base = base; this.state = 'patrol'; this.scan = 0; this.target = null; this.pushCd = 0; this.wp = null; }
+  decide() { /* guards never shop or steal */ }
+  update(dt) {
+    const a = this.a, p = a.body.pos, b = this.base, o = this.o; this.t += dt;
+    if (a.stunned) { a.move.x = a.move.z = 0; return; }
+    this.scan -= dt; this.pushCd -= dt;
+    if (this.scan <= 0) {
+      this.scan = 0.25; let best = null, bd = 1e9;
+      for (const ag of G.agents) {
+        if (ag.owner === o || ag.isGuard || (ag.isPlayer && !G.playing) || ag.stunned) continue;
+        const thief = ag.carrying && ag.carrying.owner === o, inside = b.contains(ag.body.pos.x, ag.body.pos.z, 0.5);
+        if (!thief && !inside) continue;
+        let d = dist2(ag.body.pos, p); if (thief) d *= 0.3; if (d < bd) { bd = d; best = ag; }
+      }
+      this.target = best;
+    }
+    const tg = this.target;
+    if (tg && dist2(p, b.insidePos) < 34 * 34) {
+      this.run = true; const tp = tg.body.pos, d2 = dist2(p, tp);
+      if (d2 < 196 && lineOpen(p.x, p.z, tp.x, tp.z)) { const d = Math.sqrt(d2) || 1; a.move.x = (tp.x - p.x) / d; a.move.z = (tp.z - p.z) / d; this.path = null; }
+      else { this.repath -= dt; if (!this.path || this.repath <= 0) { this.repath = 0.5; this.goTo(tp.x, tp.z); } this.follow(dt); }
+      if (!tg.carrying && d2 < 1.5 * 1.5 && this.pushCd <= 0 && b.contains(tp.x, tp.z, 0.5)) { // throw intruders out
+        this.pushCd = 2.2; tg.stun(0.6); tmpV.subVectors(b.entrancePos, tp).setY(0).normalize(); tg.body.vel.set(tmpV.x * 10, 6, tmpV.z * 10);
+        if (tg.isPlayer) { Sound.play('zap'); UI.toast('🤖 نگهبانِ ' + o.name + ' تو را هل داد! با سیلی گیجش کن', 'bad'); }
+      }
+      return;
+    }
+    this.run = false;
+    if (!this.wp || this.t > 7 || dist2(p, this.wp) < 1.2) { this.t = 0; const w = b.toWorld(rand(-9, 9), rand(-6, 8)); this.wp = { x: w.x, z: w.z }; this.goTo(w.x, w.z); }
+    if (this.follow(dt) !== 'moving') { a.move.x = a.move.z = 0; }
+  }
+}
+
+// ------------------------------------------------------------------ hazards: lava and meteor showers
+const Hazards = {
+  meteorT: 30, meteors: [], ringGeo: null,
+  burn(a) {
+    if (a.burnCd > 0) return; a.burnCd = 1.2;
+    const z = a.body.pos.z, s = Math.sign(z) || 1, [m0, m1] = W2.moat, out = Math.abs(Math.abs(z) - m0) < Math.abs(Math.abs(z) - m1) ? -s : s;
+    a.body.vel.set(a.body.vel.x * 0.3, 8, out * 11); a.stun(0.7);
+    FX.burst(tmpV.copy(a.body.pos).setY(0.6), { count: 30, color: ['#ff5a1f', '#ffb000', '#ffe14a'], speed: 5, up: true, life: 0.8 });
+    if (a.carrying) { const u = a.carrying; returnUnit(u); if (a.isPlayer) UI.toast('🔥 سوختی و «' + u.c.name + '» از دستت افتاد و برگشت!', 'bad'); }
+    else if (a.isPlayer) UI.toast('🔥 داخل گدازه افتادی! از روی پل‌ها برو', 'bad');
+    if (a.isPlayer) { Sound.play('zap'); CAM.shake = 0.2; }
+  },
+  update(dt) {
+    if (!W2.built) return;
+    for (const a of G.agents) { a.burnCd = Math.max(0, (a.burnCd || 0) - dt); const p = a.body.pos; if (inW2(p.x) && p.y < 0.25 && inLava(p.x, p.z)) this.burn(a); }
+    // meteor showers around the player while on the lava planet
+    const pl = G.player;
+    if (G.playing && pl && inW2(pl.body.pos.x)) {
+      this.meteorT -= dt;
+      if (this.meteorT <= 0) { this.meteorT = rand(22, 40); UI.toast('☄️ باران شهاب‌سنگ! از دایره‌های قرمز دور شو', 'bad'); Sound.play('alarm'); for (let i = 0; i < 6; i++) this.spawn(pl.body.pos.x + rand(-18, 18), pl.body.pos.z + rand(-18, 18), 1.6 + i * 0.35); }
+    }
+    for (let i = this.meteors.length - 1; i >= 0; i--) {
+      const m = this.meteors[i]; m.t -= dt; const k = 1 - Math.max(0, m.t) / m.max;
+      m.ring.material.opacity = 0.4 + Math.sin(m.t * 20) * 0.3; m.ring.scale.setScalar(3.2 * (0.6 + 0.4 * k));
+      m.rock.position.set(m.x + (1 - k) * 25, 0.6 + (1 - k) * 60, m.z - (1 - k) * 10); m.rock.rotation.x += dt * 5;
+      if (Math.random() < 0.6) FX.one(m.rock.position.x, m.rock.position.y, m.rock.position.z, { vx: rand(-1, 1), vy: rand(-1, 1), vz: rand(-1, 1), life: 0.6, size: 0.8, color: pick(['#ff5a1f', '#ffb000']), grav: 0, drag: 1 });
+      if (m.t <= 0) {
+        FX.burst(tmpV.set(m.x, 0.8, m.z), { count: 50, color: ['#ff5a1f', '#ffb000', '#ffe14a', '#3a2028'], speed: 9, up: true, life: 1, grav: -12 });
+        if (pl && dist2(pl.body.pos, m) < 900) { Sound.play('boom'); CAM.shake = 0.35; }
+        for (const a of G.agents) if (dist2(a.body.pos, m) < 3.4 * 3.4) {
+          a.stun(1.4); tmpV.set(a.body.pos.x - m.x, 0, a.body.pos.z - m.z).normalize(); a.body.vel.set(tmpV.x * 10, 9, tmpV.z * 10);
+          if (a.carrying) { const u = a.carrying; returnUnit(u); if (a.isPlayer) UI.toast('☄️ شهاب‌سنگ خوردی و «' + u.c.name + '» برگشت!', 'bad'); }
+          else if (a.isPlayer) UI.toast('☄️ شهاب‌سنگ خوردی!', 'bad');
+        }
+        scene.remove(m.ring); scene.remove(m.rock); this.meteors.splice(i, 1);
+      }
+    }
+  },
+  spawn(x, z, delay) {
+    x = clamp(x, WORLD2.minX + 3, WORLD2.maxX - 3); z = clamp(z, WORLD2.minZ + 3, WORLD2.maxZ - 3);
+    if (!this.ringGeo) this.ringGeo = new THREE.RingGeometry(0.8, 1, 40);
+    const ring = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(x, floorAt(x, z, 0.5, 5).y + 0.06, z); scene.add(ring);
+    const rock = mesh(GEO.dodec, mat('#3a2028', { e: '#ff4a00', ei: 1.4, flat: true }), x, 60, z, 0.9, 0.9, 0.9, scene, false);
+    this.meteors.push({ x, z, t: delay, max: delay, ring, rock });
+  },
+};
+
+// ------------------------------------------------------------------ portals
+const Portal = {
+  p1: null, p2: null, cd: 0, appearT: 0, checkT: 0,
+  build1() { this.p1 = makePortal(PORTAL1, ['#ff5a1f', '#b061ff'], '🌋 پرتال سیاره‌ی گدازه'); this.p1.g.visible = false; },
+  build2() { this.p2 = makePortal(PORTAL2, ['#29d9ff', '#3df2b0'], '🌍 برگشت به میدان میم‌ها'); for (const s of [-1, 1]) addBoxC(PORTAL2.x, 3.8, s * 3.9, 1.1, 7.6, 1.1); },
+  show(anim) {
+    if (!this.p1) return; if (!this.p1.g.visible) for (const s of [-1, 1]) addBoxC(PORTAL1.x, 3.8, PORTAL1.z + s * 3.9, 1.1, 7.6, 1.1);
+    this.p1.g.visible = true; this.appearT = anim ? 2.5 : 0; UI.mapBg = null;
+  },
+  unlock() {
+    if (G.portalUnlocked) return;
+    G.portalUnlocked = true; buildWorld2(); seedRivals(G.owners.length - 5); this.show(true);
+    Sound.play('rebirth'); UI.banner('🌀 پرتال باز شد!', 'ثروتت به ۵۵۰ میلیون رسید. برو کنار جدول برترها و وارد سیاره‌ی گدازه شو');
+    UI.toast('🌋 یک پرتال کنار جدول برترها ظاهر شد. آنجا خیلی سخت‌تر است!', 'rare'); scheduleSave(true);
+  },
+  travel(to) {
+    const a = G.player;
+    if (a.carrying) { Sound.play('error'); UI.toast('🌀 نمی‌توانی میم دزدی را از پرتال رد کنی', 'bad'); const from = to === 2 ? PORTAL1 : PORTAL2; tmpV.subVectors(a.body.pos, from).setY(0).normalize(); a.body.vel.set(tmpV.x * 8, 4, tmpV.z * 8); this.cd = 1; return; }
+    const dest = to === 2 ? tmpV.set(PORTAL2.x + 6, 0.2, PORTAL2.z) : tmpV.set(PORTAL1.x - 6, 0.2, PORTAL1.z);
+    a.body.pos.copy(dest); a.body.vel.set(0, 0, 0); a.renderY = dest.y; a.yaw = to === 2 ? Math.PI / 2 : -Math.PI / 2;
+    CAM.yaw = a.yaw + Math.PI; CAM.pivot.set(dest.x, dest.y + 1.65, dest.z); CAM.cur = S.zoom; this.cd = 2.5;
+    const fl = $('flash'); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); Sound.play('portal');
+    FX.burst(tmpV.copy(dest).setY(1.5), { count: 40, color: to === 2 ? ['#ff5a1f', '#ffd23f'] : ['#29d9ff', '#3df2b0'], speed: 6, life: 0.9 });
+    if (to === 2) {
+      const o = a.owner;
+      if (W2.playerPlot && !W2.playerPlot.owner) { claimPlot(o, W2.playerPlot, true); UI.banner('🌋 به سیاره‌ی گدازه خوش آمدی!', 'یک پایگاه رایگان اینجا گرفتی · گدازه، نگهبان‌ها و شهاب‌سنگ‌ها مراقبت باش'); Sound.play('success'); scheduleSave(true); }
+      else UI.toast('🌋 سیاره‌ی گدازه — میم‌های اینجا ۲۰۰ برابر می‌ارزند', 'rare');
+    } else UI.toast('🌍 برگشتی به میدان میم‌ها', 'good');
+    UI.mapBg = null; UI.mapBg2 = null;
+  },
+  update(dt, t) {
+    if (this.p1 && this.p1.g.visible) { animPortal(this.p1, dt, t); if (this.appearT > 0) { this.appearT -= dt; const k = 1 - Math.max(0, this.appearT) / 2.5; this.p1.g.scale.setScalar(Math.max(0.01, k)); if (Math.random() < 0.5) FX.burst(tmpV.copy(PORTAL1).setY(3.8), { count: 4, color: ['#ff5a1f', '#b061ff'], speed: 6, life: 0.6 }); } }
+    if (this.p2) animPortal(this.p2, dt, t);
+    for (const f of W2.anim) f(dt, t);
+    if (W2.beltTex) W2.beltTex.offset.x -= beltSpeed(BELT2) * dt / 2;
+    if (!G.playing || !G.player) return;
+    this.checkT -= dt; if (this.checkT <= 0) { this.checkT = 1; if (!G.portalUnlocked && G.player.owner.netWorth() >= PORTAL_WORTH) this.unlock(); }
+    this.cd -= dt; if (this.cd > 0) return;
+    const p = G.player.body.pos;
+    if (G.portalUnlocked && this.p1 && this.p1.g.visible && this.appearT <= 0 && dist2(p, PORTAL1) < 2.2 * 2.2 && p.y < 3) this.travel(2);
+    else if (this.p2 && dist2(p, PORTAL2) < 2.2 * 2.2 && p.y < 3) this.travel(1);
+  },
+};
 
 // ------------------------------------------------------------------ input: keyboard, mouse, multitouch
 const IN = { keys: new Set(), joy: { id: null, ox: 0, oy: 0, x: 0, y: 0, mag: 0 }, camPtrs: new Map(), camDX: 0, camDY: 0, sprintToggle: false, pinch: 0, rotAccum: 0, lastTouch: 0 };
@@ -3055,6 +3438,7 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) IN.keys.delete(KEYMAP[e.code]); if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.keys.delete('sprint'); });
 window.addEventListener('blur', () => { IN.keys.clear(); IN.camPtrs.clear(); IN.joy.id = null; IN.joy.x = IN.joy.y = 0; joyRest(); });
 
+function p0x() { return G.player.body.pos.x; }
 function doSlap() {
   const r = slap(G.player);
   if (r === 'cd') { Sound.play('click'); UI.toast('🥊 دستت هنوز خسته است (' + fa(G.player.slapCd.toFixed(1)) + ' ثانیه)', ''); }
@@ -3084,8 +3468,8 @@ function computeInteract(dt) {
   STEAL_U = null;
   if (a.carrying) { INTERACT = { kind: 'carry' }; return; }
   let bd = 3.4 * 3.4, best = null;
-  for (const u of G.belt) { const d = dist2(p, u.pos); if (d < bd) { bd = d; best = u; } }
-  if (best) { const pr = beltPrice(best); R = { kind: 'buy', unit: best, ok: o.money >= pr && !!o.freeSlot(), price: pr }; }
+  for (const B of BELTS) if (B.active) for (const u of B.list) { const d = dist2(p, u.pos); if (d < bd) { bd = d; best = u; } }
+  if (best) { const pr = beltPrice(best); R = { kind: 'buy', unit: best, ok: o.money >= pr && !!o.freeSlot(null, best.belt ? best.belt.w : 1), price: pr }; }
   for (const ag of G.agents) if (ag.carrying && ag.carrying.owner === o && dist2(p, ag.body.pos) < 2.8 * 2.8) R = { kind: 'catch', target: ag };
   let sd = 2.5 * 2.5;
   for (const b of W.bases) {
@@ -3102,6 +3486,7 @@ function computeInteract(dt) {
       let od = 1.9 * 1.9, ou = null; if (myBase) for (const s of o.slots) if (s.base === myBase && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < od) { od = d; ou = s; } }
       if (ou) R = { kind: 'info', slot: ou };
       else if (dist2(p, W.fusionPos) < 4.6 * 4.6) R = { kind: 'fuse' };
+      else if ((G.portalUnlocked && dist2(p, PORTAL1) < 7 * 7) || (W2.built && dist2(p, PORTAL2) < 7 * 7)) R = { kind: 'portal' };
       else if (dist2(p, W.shopPos) < 5 * 5) R = { kind: 'shop' };
       else if (dist2(p, W.boardPos) < 7 * 7) R = { kind: 'board' };
     }
@@ -3117,7 +3502,7 @@ function doInteract() {
     case 'buy': {
       const r = tryBuy(o, R.unit);
       if (r === 'money') { Sound.play('error'); UI.toast('💸 پولت کافی نیست! قیمت: ' + fmt(R.price) + ' — موجودی: ' + fmt(o.money), 'bad'); }
-      else if (r === 'full') { Sound.play('error'); UI.toast('🏠 پایگاه‌هایت پر است! ظرفیت را ارتقا بده، یک میم بفروش یا یک زمین «برای فروش» بخر', 'bad'); }
+      else if (r === 'full') { Sound.play('error'); UI.toast((inW2(p0x()) ? '🌋 پایگاهت در سیاره‌ی گدازه پر است! ' : '') + '🏠 پایگاه‌هایت پر است! ظرفیت را ارتقا بده، یک میم بفروش یا یک زمین «برای فروش» بخر', 'bad'); }
       else if (r === 'gone') Sound.play('error');
       break;
     }
@@ -3128,6 +3513,7 @@ function doInteract() {
     case 'info': UI.openUnit(R.slot); break;
     case 'shop': UI.openShop(); break;
     case 'fuse': UI.openFusion(); break;
+    case 'portal': UI.toast('🌀 برای سفر، مستقیم برو داخل حلقه‌ی پرتال', ''); break;
     case 'board': UI.openLeader(); break;
     case 'carry': UI.toast('🏃 میم را به پایگاه خودت برسان! (یا رها کن)', ''); break;
     default: if (!a.carrying) { Sound.play('click'); UI.toast('اینجا چیزی برای تعامل نیست — کنار نوار نقاله برو تا میم بخری', ''); }
@@ -3253,6 +3639,7 @@ const UI = {
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
       case 'shop': text = 'ورود به فروشگاه ارتقا ' + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
+      case 'portal': text = inW2(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : '🌋 برو داخل پرتال تا به سیاره‌ی گدازه بروی'; lbl = 'پرتال'; break;
       case 'fuse': text = '⚗️ دستگاه ترکیب: ۳ میم یکسان را یکی کن ' + k('E'); lbl = 'ترکیب'; break;
       case 'carry': text = '🏃 به پایگاهت برگرد! ' + k('G') + ' رها کردن'; lbl = 'تعامل'; break;
     }
@@ -3288,7 +3675,7 @@ const UI = {
       this.boardT = 3;
       const rows = [...G.owners].sort((x, y) => y.netWorth() - x.netWorth());
       const lines = [{ t: '🏆 برترین‌های میدان میم', size: 50, color: '#ffd23f', weight: 900 }];
-      rows.forEach((o, i) => lines.push({ t: fa(i + 1) + '. ' + o.name + ' — ' + fmt(o.netWorth()) + ' سکه', size: 38, color: o.isPlayer ? '#3df2b0' : '#ffffff', weight: o.isPlayer ? 900 : 700 }));
+      const rsz = rows.length > 9 ? 26 : 38; rows.forEach((o, i) => lines.push({ t: fa(i + 1) + '. ' + o.name + ' — ' + fmt(o.netWorth()) + ' سکه', size: rsz, color: o.isPlayer ? '#3df2b0' : '#ffffff', weight: o.isPlayer ? 900 : 700 }));
       W.board.set(rows.map((o) => o.id + ':' + Math.floor(o.netWorth())).join(','), lines, { bg: 'rgba(14,10,40,.95)', border: '#ffd23f' });
     }
   },
@@ -3310,19 +3697,35 @@ const UI = {
     for (const f of W.fountains) { g.fillStyle = '#3fb7ff'; g.beginPath(); g.arc(X(f.x), Z(f.z), 3 * s, 0, TAU); g.fill(); }
     g.fillStyle = '#ff4f8b'; g.fillRect(X(W.shopPos.x - 13.5), Z(-7), 12 * s, 14 * s); g.font = (11 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🛒', X(W.shopPos.x - 7.5), Z(-12)); g.fillStyle = '#ffd23f'; g.fillRect(X(W.boardPos.x + 5), Z(-8), 2 * s, 16 * s);
     for (const b of W.bases) { if (!b.owner) { g.fillStyle = '#ffffff'; g.fillText('🏷️', X(b.cx), Z(b.cz)); } g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
-    this.mapBg = bg; this.mapX = X; this.mapZ = Z;
+    this.mapBg = bg; this.mapX = X; this.mapZ = Z; this.mapBg2 = null;
+  },
+  buildMapBg2() {
+    const c = $('minimap'), dpr = Math.min(2, window.devicePixelRatio || 1), NW = 200 * dpr, NH = 104 * dpr; c.width = NW; c.height = NH;
+    const bg = document.createElement('canvas'); bg.width = NW; bg.height = NH; const g = bg.getContext('2d'), B = WORLD2;
+    const s = Math.min(NW / (B.maxX - B.minX), NH / (B.maxZ - B.minZ)), ox = (NW - (B.maxX - B.minX) * s) / 2, oy = (NH - (B.maxZ - B.minZ) * s) / 2;
+    const X = (x) => (x - B.minX) * s + ox, Z = (z) => (z - B.minZ) * s + oy;
+    g.fillStyle = '#140a10'; g.fillRect(0, 0, NW, NH); g.fillStyle = '#2a1c22'; g.fillRect(X(B.minX), Z(B.minZ), (B.maxX - B.minX) * s, (B.maxZ - B.minZ) * s);
+    g.fillStyle = '#3a3048'; g.fillRect(X(X2 - W2.plazaX), Z(-W2.moat[0]), 2 * W2.plazaX * s, 2 * W2.moat[0] * s);
+    g.fillStyle = '#ff5a1f'; for (const r of W2.lava) g.fillRect(X(r[0]), Z(r[1]), (r[2] - r[0]) * s, (r[3] - r[1]) * s);
+    g.fillStyle = '#120c18'; g.fillRect(X(BELT2.x0), Z(-2.4), (BELT2.x1 - BELT2.x0) * s, 4.8 * s);
+    for (const b of W.bases) if (b.world === 2) { g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
+    g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL2.x), Z(PORTAL2.z));
+    this.mapS = s; this.mapN = NW; this.mapBg2 = bg; this.map2 = { X, Z }; this.mapBg = null;
   },
   minimap(dt) {
     if (!S.minimap) return; this.mapT -= dt; if (this.mapT > 0) return; this.mapT = 0.1;
-    if (!this.mapBg) this.buildMapBg();
-    const c = $('minimap'), g = c.getContext('2d'), X = this.mapX, Z = this.mapZ, s = this.mapS, dpr = this.mapN / 200;
-    g.drawImage(this.mapBg, 0, 0);
-    for (const b of W.bases) if (b.barrierActive) { const w1 = b.toWorld(-3, -10), w2 = b.toWorld(3, -10); g.strokeStyle = '#ff2a3a'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(X(w1.x), Z(w1.z)); g.lineTo(X(w2.x), Z(w2.z)); g.stroke(); }
-    for (const u of G.belt) { g.fillStyle = RARITIES[u.c.rarity].color; const r = (u.c.rarity >= 4 ? 2.4 : 1.2) * dpr; g.beginPath(); g.arc(X(u.pos.x), Z(u.pos.z), r, 0, TAU); g.fill(); }
+    const w2 = inW2(G.player.body.pos.x);
+    if (w2 && !this.mapBg2) this.buildMapBg2(); if (!w2 && !this.mapBg) this.buildMapBg();
+    const M = w2 ? this.map2 : { X: this.mapX, Z: this.mapZ };
+    const c = $('minimap'), g = c.getContext('2d'), X = M.X, Z = M.Z, s = this.mapS, dpr = this.mapN / 200;
+    g.drawImage(w2 ? this.mapBg2 : this.mapBg, 0, 0);
+    if (!w2 && G.portalUnlocked) { g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL1.x), Z(PORTAL1.z)); }
+    for (const b of W.bases) if (b.barrierActive && b.world === (w2 ? 2 : 1)) { const w1 = b.toWorld(-3, -10), w2 = b.toWorld(3, -10); g.strokeStyle = '#ff2a3a'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(X(w1.x), Z(w1.z)); g.lineTo(X(w2.x), Z(w2.z)); g.stroke(); }
+    for (const u of (w2 ? BELT2.list : G.belt)) { g.fillStyle = RARITIES[u.c.rarity].color; const r = (u.c.rarity >= 4 ? 2.4 : 1.2) * dpr; g.beginPath(); g.arc(X(u.pos.x), Z(u.pos.z), r, 0, TAU); g.fill(); }
     const flash = Math.floor(G.time * 4) % 2 === 0;
     for (const ag of G.agents) {
-      if (ag.isPlayer) continue; const p = ag.body.pos;
-      g.fillStyle = ag.owner.color; g.beginPath(); g.arc(X(p.x), Z(p.z), 2.4 * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.stroke();
+      if (ag.isPlayer || inW2(ag.body.pos.x) !== w2) continue; const p = ag.body.pos;
+      g.fillStyle = ag.isGuard ? '#ff2a3a' : ag.owner.color; g.beginPath(); g.arc(X(p.x), Z(p.z), 2.4 * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.stroke();
       if (ag.carrying && ag.carrying.owner === G.player.owner && flash) { g.strokeStyle = '#ff2a3a'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(X(p.x), Z(p.z), 7 * dpr, 0, TAU); g.stroke(); }
     }
     const p = G.player.body.pos, y = G.player.yaw, dx = Math.sin(y), dz = Math.cos(y), px = X(p.x), pz = Z(p.z), L = 6 * dpr;
@@ -3364,7 +3767,7 @@ const UI = {
     o.bases.forEach((b, bi) => {
       let cards = '';
       for (const s of o.slots) if (s.base === b && s.li < o.cap) cards += s.unit ? this.unitCard(s, o) : '<div class="card" style="opacity:.55;justify-content:center;text-align:center"><div class="emo" style="margin:auto">➕</div><small>جای خالی — از نوار نقاله بخر یا بدزد</small></div>';
-      groups += '<b style="color:var(--coin)">🏠 پایگاه ' + fa(bi + 1) + '</b><div class="grid">' + cards + '</div>';
+      groups += '<b style="color:var(--coin)">' + (b.world === 2 ? '🌋 پایگاه سیاره‌ی گدازه' : '🏠 پایگاه ' + fa(bi + 1)) + '</b><div class="grid">' + cards + '</div>';
     });
     const next = o.bases.length < W.bases.length ? ' · زمین بعدی: ' + fmt(plotPrice(o)) + ' سکه (کنار تابلوی «برای فروش» برو)' : '';
     const html = '<p class="note">' + fa(o.unitCount()) + ' از ' + fa(o.totalCap) + ' جا پر است · ' + fa(o.bases.length) + ' پایگاه · ظرفیت هر پایگاه را از فروشگاه بیشتر کن' + next + '. فروش، نصف ارزش میم را برمی‌گرداند.</p>' + groups;
@@ -3435,6 +3838,7 @@ const UI = {
       '<p>🥊 <b>سیلی:</b> با دکمه‌ی «سیلی» (کلید <kbd>R</kbd>) حریف جلویت را چند ثانیه گیج کن. اگر دزد باشد، میمی که برده برمی‌گردد. حواست باشد دزدها هم گاهی سیلی می‌زنند!</p>' +
       '<p>⚗️ <b>دستگاه ترکیب:</b> وسط میدان، ۳ میم یکسان را به یک نسخه‌ی طلایی، الماسی یا رنگین‌کمانی تبدیل کن.</p>' +
       '<p>📜 <b>ماموریت‌ها:</b> سه ماموریت همیشه فعال است؛ انجامشان بده و جایزه بگیر.</p>' +
+      '<p>🌋 <b>سیاره‌ی گدازه:</b> وقتی ثروتت (پول + ارزش میم‌ها) به ۵۵۰ میلیون برسد، کنار جدول برترها یک پرتال باز می‌شود. آنجا میم‌ها ۲۰۰ برابر می‌ارزند ولی گدازه می‌سوزاند، شهاب‌سنگ می‌بارد، هر پایگاه یک ربات نگهبان دارد و حریف‌ها خیلی سریع‌ترند. جاذبه هم کمتر است!</p>' +
       '<p>🌙 <b>شب:</b> هر چند دقیقه شب می‌شود؛ شب‌ها صاحب‌خانه‌ها دیرتر می‌فهمند که دزد آمده.</p>' +
       '<p>🛒 <b>فروشگاه:</b> ارتقاها را فقط باید حضوری از مغازه‌ی غرب میدان بخری؛ مغازه‌دار سفارشت را دستت می‌دهد.</p>' +
       '<p>🦹 <b>دزدی:</b> وارد پایگاه حریف شو، کنار یک میم «دزدی» را بزن و میم را تا پایگاه خودت ببر. موقع حمل میم آدرنالین داری و ۱۵٪ سریع‌تر می‌دوی. اگر صاحبش لمست کند، میم برمی‌گردد.</p>' +
@@ -3649,7 +4053,7 @@ const Cloud = {
     }
   },
   parse(d) {
-    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && (s.owners.length === 6 || s.owners.length === 8)) return s; } catch (e) { /* invalid */ }
+    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && [6, 8, 13].includes(s.owners.length)) return s; } catch (e) { /* invalid */ }
     return null;
   },
   offer(d) {
@@ -3708,7 +4112,8 @@ function resetWorldTo(s) {
     for (const b of o.bases.slice(1)) releasePlot(o, b);
   }
   G.alerts.clear(); G.discovered.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
-  applySave(s); Missions.ensure();
+  if (s.portal) buildWorld2();
+  applySave(s); Missions.ensure(); if (G.portalUnlocked) { buildWorld2(); Portal.show(false); }
   seedRivals(s.owners.length);
   G.owners.forEach((o) => o.applyCap());
   for (const a of G.agents) a.respawn();
@@ -3776,7 +4181,7 @@ async function init() {
   try { await Promise.race([Promise.all([document.fonts.load('900 40px Vazirmatn'), document.fonts.load('700 40px Vazirmatn')]), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fallback fonts */ }
   setLoad(42, 'در حال ساختن میدان، پایگاه‌ها و نوار نقاله…');
   await new Promise((r) => setTimeout(r, 0));
-  buildWorld();
+  buildWorld(); Portal.build1();
   setLoad(62, 'در حال ساختن ۲۸ میم بامزه…');
   await new Promise((r) => setTimeout(r, 0));
   buildTemplates();
@@ -3790,7 +4195,9 @@ async function init() {
   shopkeeper = buildAvatar({ skin: '#ffcf9e', shirt: '#ff4f8b', pants: '#2b3a67', shoes: '#111', hair: 'cap', hairC: '#222', accent: '#ffd23f', hat: '#ffd23f' });
   shopkeeper.root.position.set(W.shopPos.x - 6.1, 0.1, 0); shopkeeper.root.rotation.y = Math.PI / 2; scene.add(shopkeeper.root);
   let savedAt = 0;
+  if (save && save.portal) buildWorld2(); // the lava planet must exist before its bases are restored
   if (save) { try { savedAt = applySave(save); } catch (e) { console.warn('save apply failed', e); } }
+  if (G.portalUnlocked) { buildWorld2(); Portal.show(false); }
   seedRivals(save ? save.owners.length : 0); // older saves had fewer rivals: give the new ones a starting base
   G.owners.forEach((o) => o.applyCap());
   $('nameInput').value = G.name; setPlayerName(G.name);
@@ -3841,7 +4248,7 @@ function simulate(dt) {
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
     if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
-    Fusion.update(dt); Day.update(dt);
+    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time);
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
@@ -3867,7 +4274,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
