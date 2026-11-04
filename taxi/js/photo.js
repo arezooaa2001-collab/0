@@ -119,7 +119,7 @@ export class Photo {
   capture() {
     const g = this.g;
     // render and read back in the same task (no preserveDrawingBuffer needed)
-    g.renderer.render(g.scene, g.camera);
+    g.post.render(g.scene, g.camera);
     const src = g.renderer.domElement;
     const c = document.createElement('canvas');
     c.width = src.width;

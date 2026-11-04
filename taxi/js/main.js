@@ -28,6 +28,10 @@ import { Thrills } from './thrills.js';
 import { Parking } from './parking.js';
 import { Fleet } from './fleet.js';
 import { Ambient } from './ambient.js';
+import { Post } from './post.js';
+import { CarLights } from './lights.js';
+import { Nature } from './nature.js';
+import { RoadLife } from './roadlife.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -81,10 +85,12 @@ class Game {
       await Promise.race([document.fonts.load('bold 40px Vazirmatn'), new Promise((r) => setTimeout(r, 2500))]);
     } catch (e) { /* fonts optional */ }
     await nextFrame();
-    const q = this.settings.quality;
+    const q0 = this.settings.quality;
+    const q = q0 === 'ultra' ? 'high' : q0; // ultra = high world detail + full post effects + sharper shadows
     const canvas = document.getElementById('gl');
     const renderer = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: q !== 'low', powerPreference: 'high-performance' }));
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === 'high' ? 2 : q === 'medium' ? 1.35 : 1));
+    this.post = new Post(renderer, { low: 0, medium: 1, high: 2, ultra: 3 }[q0] ?? 0);
     renderer.shadowMap.enabled = q !== 'low';
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -99,7 +105,7 @@ class Game {
     scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffffff, 3);
     this.sun.castShadow = q !== 'low';
-    const sm = q === 'high' ? 2048 : 1024;
+    const sm = q0 === 'ultra' ? 4096 : q === 'high' ? 2048 : 1024;
     this.sun.shadow.mapSize.set(sm, sm);
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -70;
@@ -151,6 +157,9 @@ class Game {
     this.parking = new Parking(this);
     this.fleet = new Fleet(this);
     this.ambient = new Ambient(this);
+    this.carLights = new CarLights(this);
+    this.nature = new Nature(this);
+    this.roadLife = new RoadLife(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -267,7 +276,22 @@ class Game {
     document.getElementById('menuStart').onclick = () => start(!this.hasSave ? false : true);
     cont.onclick = () => start(false);
   }
+  /** a little present for coming back every day (streaks grow the gift) */
+  loginBonus() {
+    const s = this.stats, d = new Date();
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (s.lastLogin === key) return;
+    const y = new Date(d.getTime() - 86400000);
+    const yKey = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+    s.streak = s.lastLogin === yKey ? (s.streak || 0) + 1 : 1;
+    s.lastLogin = key;
+    const gift = Math.min(7, s.streak) * 5;
+    this.coins += gift;
+    setTimeout(() => this.ui.achievement('🎁', `هدیه ورود روزانه • روز ${fa(s.streak)} پشت سر هم`, gift, '📅 خوش اومدی!'), 2500);
+    this.save();
+  }
   tutorial() {
+    this.loginBonus();
     if (this.hasSave && this.stats.trips > 0) {
       this.ui.toast('خوش برگشتی! 🚕 منتظر درخواست سفر باش', 'good');
       if (!this.stats.seenV3) {
@@ -379,7 +403,7 @@ class Game {
     const fp = mode === 'first';
     this.camera.near = fp ? 0.03 : 0.15;
     this.camera.updateProjectionMatrix();
-    this.player.driver.head.visible = !fp;
+
     this.arrow.group.position.set(0, fp ? 1.02 : 2.6, fp ? 0.62 : 0);
     this.arrow.group.scale.setScalar(fp ? 0.075 : 0.85);
     this.camInit = true;
@@ -551,6 +575,12 @@ class Game {
     cam.updateProjectionMatrix();
   }
 
+  setCruise(on) {
+    const p = this.player;
+    this.cruise = on && p.speed > 6 && !this.onfoot.active ? p.speed : 0;
+    document.getElementById('btnCruise').classList.toggle('active', !!this.cruise);
+    this.ui.toast(this.cruise ? `🎚️ کروز کنترل روی ${fa(Math.round(this.cruise * 3.6))} km/h` : '🎚️ کروز کنترل خاموش', 'info');
+  }
   /** busy streets at rush hour, quiet roads late at night */
   updateRushHour(dt) {
     this.rushT = (this.rushT || 0) - dt;
@@ -802,6 +832,11 @@ class Game {
     this.sun.position.set(tx + sd.x * 200, sd.y * 200, tz + sd.z * 200);
     this.sun.target.position.set(tx, 0, tz);
     this.hemi.intensity = env.hemi;
+    if (this.flashT > 0) {
+      // lightning flash
+      this.flashT = Math.max(0, this.flashT - dt);
+      this.hemi.intensity += this.flashT * 9 * (Math.random() < 0.7 ? 1 : 0.3);
+    }
     this.hemi.color.copy(this.sky.uniforms.top.value).lerp(env.night > 0.5 ? new THREE.Color(0.55, 0.62, 0.9) : new THREE.Color(1, 1, 1), 0.55);
     this.hemi.groundColor.setRGB(0.32, 0.29, 0.24).multiplyScalar(0.4 + env.hemi);
     this.scene.fog.color.copy(env.fog);
@@ -862,6 +897,11 @@ class Game {
       const x = p.pos.x - s * rr - c * side, z = p.pos.z - c * rr + s * side;
       fx.tyre.emit(x, p.y + 0.25, z, (Math.random() - 0.5) * 1.5, 0.8 + Math.random(), (Math.random() - 0.5) * 1.5, 1.6, 0.8, 4, 0.35);
     }
+    // steam from a boiling engine
+    if (p.overheat && Math.random() < 0.6) {
+      const hx = p.pos.x + s * 1.6, hz = p.pos.z + c * 1.6;
+      fx.tyre.emit(hx + (Math.random() - 0.5) * 0.6, p.y + 1.1, hz + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, 1.8, (Math.random() - 0.5) * 0.6, 1.4, 0.7, 3, 0.4);
+    }
     fx.tyre.update(dt);
     // exhaust backfire on fast upshifts and when lifting off at high revs
     const gas = this.lastInput ? this.lastInput.gas : 0, g0 = this.prevGas ?? 0;
@@ -904,21 +944,28 @@ class Game {
     this.camera.updateProjectionMatrix();
     this.police.jail.camera.aspect = w / h;
     this.police.jail.camera.updateProjectionMatrix();
+    if (this.post) this.post.setSize();
     const ph = h * this.renderer.getPixelRatio();
     for (const k in this.fx) this.fx[k].setScale(ph, 65);
     this.arson.setScale(ph, 65);
     if (this.props) this.props.water.setScale(ph, 65);
     if (this.fireworks) this.fireworks.setScale(ph, 65);
     if (this.thrills) this.thrills.setScale(ph, 65);
+    if (this.nature) this.nature.setScale(ph, 65);
   }
   frame() {
+    // the driver's head is hidden only while the camera really sits inside it (first person, driving);
+    // photo mode, cutscenes, jail and walking all show it
+    const head = this.player.driver.head;
+    const inside = this.camMode === 'first' && this.state === 'play' && !this.onfoot.active;
+    if (head.visible === inside) head.visible = !inside;
     const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1) * (this.state === 'play' ? this.slowmo || 1 : 1);
     const st = this.state;
     this.audio.update(dt);
     if (st === 'jail') {
       this.police.update(dt);
       this.ui.update(dt);
-      this.renderer.render(this.police.jail.scene, this.police.jail.camera);
+      this.post.render(this.police.jail.scene, this.police.jail.camera);
       return;
     }
     if (st === 'menu') {
@@ -930,16 +977,16 @@ class Game {
       const p = this.player.pos;
       this.camera.position.set(p.x + Math.sin(a) * 9, p.y + 2.6, p.z + Math.cos(a) * 9);
       this.camera.lookAt(p.x, p.y + 0.9, p.z);
-      this.renderer.render(this.scene, this.camera);
+      this.post.render(this.scene, this.camera);
       return;
     }
     if (st === 'pause') {
-      this.renderer.render(this.scene, this.camera);
+      this.post.render(this.scene, this.camera);
       return;
     }
     if (st === 'photo') {
       this.photo.update(dt);
-      this.renderer.render(this.scene, this.camera);
+      this.post.render(this.scene, this.camera);
       return;
     }
     this.time += dt;
@@ -953,6 +1000,11 @@ class Game {
     this.weather.update(dt);
     this.world.update(dt, this.env, this.time);
     const inp = this.ui.input();
+    // cruise control holds the speed until you brake (or press gas yourself)
+    if (this.cruise) {
+      if (inp.brake > 0.1 || inp.handbrake || !this.player.gear || this.player.gear < 1) this.setCruise(false);
+      else if (inp.gas < 0.05) inp.gas = this.player.speed < this.cruise - 0.3 ? 0.7 : 0;
+    }
     this.lastInput = inp;
     const driving = st === 'play' && !this.onfoot.active && !this.onfoot.busy;
     if (st === 'play') this.onfoot.update(dt, inp);
@@ -982,6 +1034,7 @@ class Game {
       this.pickups.update(dt);
       this.props.update(dt);
       this.thrills.update(dt);
+      this.roadLife.update(dt);
       this.stunts.update(dt);
       this.ach.track(dt);
     }
@@ -991,6 +1044,8 @@ class Game {
     if (st === 'play') this.updateZones(dt);
     this.updateGuide(dt);
     this.updateFx(dt);
+    this.carLights.update(dt);
+    this.nature.update(dt);
     this.fireworks.update(dt);
     const p = this.player;
     this.audio.setEngine(p.rpm, p.throttle, p.health > 0 && p.fuelTotal() > 0);
@@ -1003,7 +1058,9 @@ class Game {
       this.saveT = 0;
       this.save();
     }
-    this.renderer.render(this.scene, this.camera);
+    const env = this.env || { night: 0, sunDir: { y: 1 } };
+    this.post.tune({ night: env.night, dusk: Math.max(0, 1 - Math.abs(env.sunDir.y) * 4) * (1 - env.night), speed: this.player.groundSpeed || 0, nitro: this.player.nitroOn, time: this.time, flash: this.flashT > 0 ? this.flashT : 0 });
+    this.post.render(this.scene, this.camera);
   }
 }
 

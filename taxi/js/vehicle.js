@@ -148,7 +148,7 @@ export class PlayerCar {
     return this.spec.speed * (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
   }
   accelMul() {
-    return this.spec.acc * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1);
+    return this.spec.acc * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1) * (this.overheat ? 0.55 : 1);
   }
   /** underglow: a soft additive pool of light under the car plus two neon tubes */
   buildNeon() {
@@ -410,6 +410,17 @@ export class PlayerCar {
 
     const surf = world.surfaceAt(this.pos.x, this.pos.z);
     this.offroad = surf === 'sand' || surf === 'grass';
+    // engine temperature: long stints at the red line boil the engine
+    const hot = this.rpm > 6200 && this.throttle > 0.5;
+    this.temp = clamp((this.temp || 0) + dt * (hot ? 0.07 + (this.nitroOn ? 0.05 : 0) : -0.04 - absV * 0.001), 0, 1.05);
+    if (this.temp >= 1 && !this.overheat) {
+      this.overheat = true;
+      this.game.ui.toast('🌡️ موتور جوش آورد! یه کم آروم برو (دنده رو بالا ببر) تا خنک شه', 'bad');
+      this.game.stats.overheats = (this.game.stats.overheats || 0) + 1;
+    } else if (this.overheat && this.temp < 0.45) {
+      this.overheat = false;
+      this.game.ui.toast('✅ موتور خنک شد', 'good');
+    }
     // dirt: sand and grass splash the car, wet roads too
     if (absV > 2 && controllable) {
       const wet = this.game.weather ? this.game.weather.wet ?? this.game.weather.rain : 0;

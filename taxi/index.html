@@ -16,6 +16,7 @@
 </head>
 <body>
 <canvas id="gl"></canvas>
+<div id="glare"></div>
 
 <div id="hud" class="off">
   <div id="cracks" class="hidden"></div>
@@ -84,7 +85,7 @@
     </div>
     <div id="pedals">
       <button id="btnBrake" class="pedal brake"><span>ترمز</span></button>
-      <div class="gascol"><button id="btnNos" class="nosbtn"><span>🔥 NOS</span></button><button id="btnGas" class="pedal gas"><span>گاز</span></button></div>
+      <div class="gascol"><button id="btnCruise" class="cruisebtn" title="کروز کنترل (U)">🎚️</button><button id="btnNos" class="nosbtn"><span>🔥 NOS</span></button><button id="btnGas" class="pedal gas"><span>گاز</span></button></div>
     </div>
   </div>
 
@@ -95,6 +96,7 @@
     <div class="nos"><i id="nosBar"></i></div>
     <div id="shiftHint"></div>
     <div id="meter" class="hidden"></div>
+    <div id="blink"></div>
   </div>
 
   <div id="talk" class="hidden">

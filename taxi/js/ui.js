@@ -4,7 +4,7 @@ import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
 const $ = (id) => document.getElementById(id);
-const WASH_COST = 40000;
+const WASH_COST = 40000, INS_COST = 300000;
 const HORNS = [['classic', '📯', 'بوق معمولی', 0], ['bike', '🚲', 'زنگ دوچرخه', 60000], ['dingdong', '🔔', 'دینگ دانگ', 80000], ['duck', '🦆', 'اردکی', 100000], ['ship', '🚢', 'بوق کشتی', 150000], ['cucaracha', '🎺', 'کوکاراچا', 250000]];
 const PAINT_COST = 120000, NOS_COST = 60000, NEON_COST = 250000, RAINBOW_COST = 600000;
 const NEONS = [[0x00e5ff, 'آبی یخی'], [0xff2bd6, 'صورتی'], [0x39ff14, 'سبز فسفری'], [0xa040ff, 'بنفش'], [0xff2a2a, 'قرمز'], [0xffd21a, 'طلایی'], ['rainbow', 'رنگین‌کمان 🌈']];
@@ -115,6 +115,7 @@ export class UI {
     $('btnRadio').addEventListener('click', () => this.cycleRadio());
     $('btnAch').addEventListener('click', () => this.openAchievements());
     $('btnFleet').addEventListener('click', () => g.fleet.open());
+    $('btnCruise').addEventListener('click', () => g.setCruise(!g.cruise));
     $('btnGuide').addEventListener('click', () => g.toggleGuide());
     $('btnLights').addEventListener('click', () => {
       g.player.lights = !g.player.lights;
@@ -212,6 +213,7 @@ export class UI {
       if (e.code === 'KeyV') g.onfoot.toggle();
       if (e.code === 'KeyK') this.cycleRadio();
       if (e.code === 'KeyX') g.state === 'photo' ? g.photo.close() : g.state === 'play' && !this.panelOpen && g.photo.open();
+      if (e.code === 'KeyU' && g.state === 'play') g.setCruise(!g.cruise);
       if (e.code === 'KeyJ' && g.state === 'play') this.panelOpen ? this.closePanel() : g.fleet.open();
       if (e.code === 'KeyO' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openAchievements();
       if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
@@ -418,6 +420,7 @@ export class UI {
       else if (p.gear > 2 && p.rpm < 1700 && p.throttle > 0.5) hint = '⬇ دنده سنگینه، کم کن';
     }
     if (p.superRatio() > 0.25) hint = hint || '🚀 بنزین سوپر فعاله';
+    if (p.temp > 0.75) hint = p.overheat ? '🌡️ موتور جوش آورده!' : '🌡️ موتور داره داغ میشه...';
     $('shiftHint').textContent = hint;
     document.querySelectorAll('#gearbox [data-g]').forEach((b) => {
       const v = parseInt(b.dataset.g, 10);
@@ -695,7 +698,7 @@ export class UI {
     const md = MOODS[o.mood];
     el.innerHTML = `
       <div class="ohead"><span class="ava">${o.female ? '👩' : '👨'}</span><div><b>${o.vip ? '⭐ VIP • ' : o.kind === 'robber' ? '🕶️ مسافر مشکوک • ' : o.kind === 'follow' ? '🕵️ ' : o.kind === 'tour' ? '📸 ' : ''}${o.name}</b><small>★ ${fa(o.rating).replace('.', '٫')} • ${md.icon} ${md.label}${o.vip ? ' • کرایه ۳ برابر، ولی باید سریع برسی!' : o.kind === 'robber' ? ' • کرایه خیلی بالا... ولی یه کیف پر پول دستشه! 💰' : o.kind === 'follow' ? ' • یه ماشین رو باید تعقیب کنی!' : o.kind === 'tour' ? ' • تور گردشگری: ۳ جای دیدنی، کرایه خوب!' : ''}</small></div><span class="ofare">${faMoney(o.fare)}<small>تومان</small></span></div>
-      <div class="orow"><i>🧍</i><div><small>مبدا (${faDist(o.toPick)} از تو)</small><b>${o.pickupAddr}</b></div></div>
+      ${o.surge ? `<div class="osurge">⚡ کرایه ویژه ${o.surge}</div>` : ''}<div class="orow"><i>🧍</i><div><small>مبدا (${faDist(o.toPick)} از تو)</small><b>${o.pickupAddr}</b></div></div>
       <div class="orow"><i>${o.kind === 'follow' ? '🚗' : '🏁'}</i><div><small>${o.kind === 'follow' ? 'ماموریت' : 'مقصد • ' + faDist(o.len)}</small><b>${o.destAddr}</b></div></div>
       <div class="ometa">⛽ حدود ${fa(o.fuelNeed)} لیتر بنزین لازمه ${o.fuelNeed > this.g.player.fuelTotal() ? '<em>— بنزینت کمه!</em>' : ''}</div>
       <div class="obtns"><button class="ok">✅ قبول</button><button class="guide">🧭 قبول + فلش</button><button class="no">❌ رد</button></div>
@@ -893,7 +896,7 @@ export class UI {
         <h2>🔧 ${s.name}</h2>
         <div class="grid2">
           <div class="card"><h3>تعمیر بدنه و موتور</h3><div class="hb"><i style="width:${p.health}%"></i></div><p>سلامت: ${fa(Math.round(p.health))}٪</p>
-            <button data-a="rep" ${p.health >= 99.5 ? 'disabled' : ''}>تعمیر کامل • ${faMoney(rc)}</button></div>
+            <button data-a="rep" ${p.health >= 99.5 ? 'disabled' : ''}>تعمیر کامل • ${(g.stats.insurance || 0) > 0 ? '🛡️ رایگان (بیمه)' : faMoney(rc)}</button></div>
           <div class="card"><h3>ارتقای موتور (درجه سرعت)</h3><p>سطح ${fa(lvl)} از ۵ • حداکثر سرعت ${fa(Math.round(p.topSpeed() * 3.6))} km/h</p>
             ${lvl < 5 ? `<button data-a="eng">سطح ${fa(lvl + 1)} • ${faMoney(ENG[lvl])}</button>` : '<button disabled>حداکثر سطح ✔</button>'}</div>
           <div class="card showroom"><h3>🚗 نمایشگاه ماشین</h3><div class="cars">${Object.entries(CAR_MODELS).map(([id, m]) => {
@@ -908,6 +911,8 @@ export class UI {
           <div class="card neon"><h3>💡 نئون زیر ماشین</h3><p>هر رنگ ${faMoney(NEON_COST)} • رنگین‌کمان ${faMoney(RAINBOW_COST)} تومان</p>
             <div class="swatches">${NEONS.map(([v, name]) => `<button data-neon="${v}" title="${name}" class="${p.neon === v ? 'cur' : ''} ${v === 'rainbow' ? 'rainbow' : ''}" style="${v === 'rainbow' ? '' : `background:#${v.toString(16).padStart(6, '0')};box-shadow:0 0 12px #${v.toString(16).padStart(6, '0')}`}"></button>`).join('')}
             <button data-neon="off" class="off ${p.neon ? '' : 'cur'}" title="خاموش">✕</button></div></div>
+          <div class="card"><h3>🛡️ بیمه بدنه</h3><p>${(g.stats.insurance || 0) > 0 ? `${fa(g.stats.insurance)} تعمیر رایگان باقی مونده` : 'تعمیرهای بعدی مجانی میشه'}</p>
+            <button data-a="ins">۳ تعمیر رایگان • ${faMoney(INS_COST)}</button></div>
           <div class="card horns"><h3>📯 بوق ماشین</h3><div class="hornrow">${HORNS.map(([id, icon, name, price]) => `<button data-horn="${id}" class="${p.horn === id ? 'cur' : ''}">${icon} ${name}<small>${p.horns.includes(id) ? (p.horn === id ? '✓ فعال' : 'انتخاب') : faMoney(price)}</small></button>`).join('')}</div></div>
           <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
             <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
@@ -1012,7 +1017,8 @@ export class UI {
           b.onclick = () => {
             const a = b.dataset.a;
             let cost = 0;
-            if (a === 'rep') cost = rc;
+            if (a === 'rep') cost = (g.stats.insurance || 0) > 0 ? 0 : rc;
+            if (a === 'ins') cost = INS_COST;
             if (a === 'eng') cost = ENG[lvl];
             if (a === 'tank') cost = TANK[ti][1];
             if (a === 'nos') cost = NOS_COST;
@@ -1023,12 +1029,19 @@ export class UI {
               return;
             }
             g.money -= cost;
-            if (a === 'rep') p.repair();
+            if (a === 'rep') {
+              if ((g.stats.insurance || 0) > 0 && rc > 0) {
+                g.stats.insurance--;
+                setTimeout(() => this.toast(`🛡️ بیمه پرداخت کرد! (${fa(g.stats.insurance)} تعمیر رایگان دیگه)`, 'good'), 600);
+              }
+              p.repair();
+            }
+            if (a === 'ins') g.stats.insurance = (g.stats.insurance || 0) + 3;
             if (a === 'eng') p.engineLevel++;
             if (a === 'tank') p.tank = TANK[ti][0];
             if (a === 'nos') p.nitro = 100;
             g.audio.cash();
-            this.toast(a === 'rep' ? 'ماشین مثل روز اولش شد ✨' : a === 'eng' ? 'موتور ارتقا پیدا کرد! 🏎️' : a === 'nos' ? 'کپسول نیترو پر شد! 🔥' : 'باک بزرگ‌تر نصب شد ⛽', 'good');
+            this.toast(a === 'ins' ? '🛡️ بیمه بدنه خریدی: ۳ تعمیر رایگان!' : a === 'rep' ? 'ماشین مثل روز اولش شد ✨' : a === 'eng' ? 'موتور ارتقا پیدا کرد! 🏎️' : a === 'nos' ? 'کپسول نیترو پر شد! 🔥' : 'باک بزرگ‌تر نصب شد ⛽', 'good');
             g.save();
             render();
           };
@@ -1129,14 +1142,14 @@ export class UI {
     this.panel(`<h2>⏸️ توقف</h2>
       <div class="menu">
         <button data-a="resume" class="big">▶ ادامه بازی</button>
-        <label>کیفیت گرافیک <select data-s="quality"><option value="low">پایین</option><option value="medium">متوسط</option><option value="high">بالا</option></select></label>
+        <label>کیفیت گرافیک <select data-s="quality"><option value="low">پایین</option><option value="medium">متوسط</option><option value="high">بالا</option><option value="ultra">خیلی بالا ✨ (افکت‌های سینمایی)</option></select></label>
         <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option><option value="bumper">دوربین سپر</option><option value="tv">🎬 دوربین تلویزیونی</option></select></label>
         <label>گیربکس <select data-s="auto"><option value="0">دستی</option><option value="1">خودکار</option></select></label>
         <label>حساسیت فرمان <input type="range" min="0.5" max="2" step="0.1" data-s="sens"></label>
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
-        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • X عکاسی • J شرکت تاکسیرانی • F ورود به پمپ/تعمیرگاه</div>
+        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • X عکاسی • J شرکت تاکسیرانی • U کروز کنترل • F ورود به پمپ/تعمیرگاه</div>
         <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
         <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
         <button data-a="photo">📸 حالت عکاسی (X)</button>

@@ -63,6 +63,13 @@ export class Rides {
     let fare = 35000 + len * 78;
     if (moodKey === 'hurry') fare *= 1.3;
     if (vip) fare *= 3;
+    // surge pricing: rain, night and rush hour
+    const surge = [];
+    if (g.weather && (g.weather.wet ?? g.weather.rain) > 0.3) surge.push(['☔', 1.25]);
+    if (g.env && g.env.night > 0.6) surge.push(['🌙', 1.2]);
+    if ((g.hour >= 7 && g.hour < 9.5) || (g.hour >= 17 && g.hour < 20)) surge.push(['🚦', 1.15]);
+    const surgeK = surge.reduce((k, s) => k * s[1], 1);
+    fare *= surgeK;
     fare = Math.round(fare / 1000) * 1000;
     let name = (female ? pick(FEMALE) : pick(MALE)) + ' ' + pick(FAMILY);
     // special jobs
@@ -124,11 +131,14 @@ export class Rides {
       rating: (3.6 + Math.random() * 1.4).toFixed(1),
       expected: vip ? len / 17 + 20 : len / 14 + 25,
       vip,
+      surge: surge.length ? `${surge.map((x) => x[0]).join('')} ×${surgeK.toFixed(2)}` : '',
+      likes: pick(['pop', 'sonati', 'electro', null, null]),
     };
   }
   update(dt) {
     const g = this.game;
     const car = g.player;
+    this.updateLost();
     if (this.state === 'idle') {
       if (g.police.state !== 'none' || g.state !== 'play') return;
       this.cooldown -= dt;
@@ -234,6 +244,23 @@ export class Rides {
         this.say(pick(['ببخشیدا، ولی ماشینتون چقدر کثیفه! 😒', 'اوه، این صندلی‌ها چرا گلیه؟ 🤢', 'یه کارواش هم بد نیست بری‌ها!']));
       }
       r.chatT -= dt;
+      // favourite radio station
+      if (r.o.likes && !r.likeSaid && r.t > 6) {
+        r.likeSaid = true;
+        this.say({ pop: 'میشه رادیو پاپ رو بذاری؟ عاشق آهنگای شادم! 🎶', sonati: 'اگه رادیو سنتی رو بذاری حال می‌کنم... 🎻', electro: 'یه رادیو الکترو بذار، حوصله‌م سر رفته! 🎧' }[r.o.likes] + ' (📻 کلید K)');
+      }
+      if (r.o.likes && g.radio === r.o.likes) r.likedT = (r.likedT || 0) + dt;
+      // carsick passengers: too many hard, fast turns
+      const lat = Math.abs(car.speed * car.yawRate);
+      r.sickT = lat > 7 ? (r.sickT || 0) + dt : Math.max(0, (r.sickT || 0) - dt * 0.3);
+      if (r.sickT > 4 && !r.sick) {
+        r.sick = true;
+        r.complaints += 2;
+        car.dirt = Math.min(1, (car.dirt || 0) + 0.35);
+        car.applyDirt();
+        g.stats.sick = (g.stats.sick || 0) + 1;
+        this.say(pick(['وای... حالم بد شد! 🤢 مگه مسابقه‌ست؟!', 'نگه دار! دارم بالا میارم! 🤮', 'این چه طرز رانندگیه... حالم خراب شد 🤢']));
+      }
       if (r.o.mood === 'chatty' && r.chatT <= 0) {
         r.chatT = 22 + Math.random() * 15;
         this.say(pick(CHAT));
@@ -407,7 +434,11 @@ export class Rides {
       fare *= 0.5;
       g.ui.toast('⭐ مسافر VIP دیر رسید؛ نصف کرایه رو داد', 'warn');
     } else if (r.o.vip) g.ui.toast('⭐ مسافر VIP راضی بود! کرایه سه‌برابر 💰', 'good');
-    const tip = stars >= 4 ? Math.round((r.o.fare * (stars - 3) * 0.08) / 1000) * 1000 : 0;
+    let tip = stars >= 4 ? Math.round((r.o.fare * (stars - 3) * 0.08) / 1000) * 1000 : 0;
+    if (r.likedT > 20) {
+      tip += Math.round((r.o.fare * 0.15) / 1000) * 1000;
+      setTimeout(() => g.ui.toast('🎶 مسافر عاشق آهنگای رادیو شد و انعام بیشتری داد!', 'good'), 1200);
+    }
     const total = Math.round(fare / 1000) * 1000 + tip;
     g.money += total;
     g.stats.trips++;
@@ -430,6 +461,14 @@ export class Rides {
   }
   finish() {
     this.endTarget();
+    const r = this.ride;
+    // sometimes the passenger leaves something behind
+    if (r && (!r.o.kind || r.o.kind === 'tour') && !this.lost && Math.random() < 0.14) {
+      const item = pick(['📱 گوشیش', '👛 کیف پولش', '☂️ چترش', '🎒 کوله‌ش', '🔑 کلیدهاش']);
+      const d = r.o.dest;
+      this.lost = { x: d.x + (d.nx || 0) * 6, z: d.z + (d.nz || 0) * 6, item, name: r.o.name, until: this.game.time + 240 };
+      this.game.ui.toast(`${item.split(' ')[0]} ${r.o.name} ${item.split(' ')[1]} رو توی ماشین جا گذاشت! برگرد پسش بده (۴ دقیقه وقت داری)`, 'info');
+    }
     if (this.ride) this.ride.walker.dispose();
     this.ride = null;
     this.state = 'idle';
@@ -495,6 +534,31 @@ export class Rides {
     if (this.state === 'toPickup' || this.state === 'boarding') g.setGuide({ x: r.o.pickup.x, z: r.o.pickup.z, label: 'مسافر: ' + r.o.name, addr: r.o.pickupAddr });
     else if (r.follow && !r.follow.done && this.target) g.setGuide({ x: this.target.pos.x, z: this.target.pos.z, label: '🚗 ماشین هدف', addr: 'تعقیبش کن!', follow: true });
     else g.setGuide({ x: r.o.dest.x, z: r.o.dest.z, label: r.o.dest.name, addr: r.o.destAddr || '' });
+  }
+  /** returning a forgotten item */
+  updateLost() {
+    const g = this.game, L = this.lost;
+    if (!L) return;
+    const car = g.player, sp = car.groundSpeed ?? Math.abs(car.speed);
+    const free = !this.ride && (this.state === 'idle' || this.state === 'offer') && g.race.state === 'idle' && g.crazy.state === 'idle' && g.parking.state === 'idle';
+    if (free && !g.guide) g.setGuide({ x: L.x, z: L.z, label: `${L.item.split(' ')[0]} پس دادن به ${L.name}`, addr: 'بیرون منتظرته', lost: true });
+    if (g.time > L.until) {
+      this.lost = null;
+      if (g.guide && g.guide.lost) g.clearGuide();
+      g.ui.toast(`${L.name} دیگه منتظر نموند... 😕`, 'warn');
+      return;
+    }
+    if (free && !g.onfoot.active && Math.hypot(car.pos.x - L.x, car.pos.z - L.z) < 16 && sp < 2) {
+      this.lost = null;
+      if (g.guide && g.guide.lost) g.clearGuide();
+      g.money += 60000;
+      g.coins += 10;
+      g.addXp(40);
+      g.stats.returned = (g.stats.returned || 0) + 1;
+      g.audio.cash();
+      g.ui.say(L.name, 'وای مرسی!! 🙏 فکر کردم دیگه پیداش نمی‌کنم! این شیرینیت 💐');
+      g.ui.toast('🙏 وسیله رو پس دادی: +۶۰٬۰۰۰ تومان و ۱۰ سکه', 'good');
+    }
   }
   /* ---------- sightseeing tour ---------- */
   updateTour(dt, d, sp) {

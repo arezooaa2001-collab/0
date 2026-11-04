@@ -234,6 +234,8 @@ export class Traffic {
     for (let i = 0; i < (this.limit ?? this.cars.length) * 0.8; i++) this.spawnNear(p, 30, 320);
   }
   onHit(car, impact, by) {
+    // a parked-up car's alarm goes off when you hit it
+    if (by === this.game.player && impact > 2 && !car.isPolice && !car.isRival) car.alarmT = 8;
     if (car.isFleet && by === this.game.player) {
       if (impact > 3 && (!this.fleetHitT || this.game.time - this.fleetHitT > 5)) {
         this.fleetHitT = this.game.time;
@@ -259,6 +261,8 @@ export class Traffic {
     if (rv && rv.active) obs.push(rv);
     const tg = this.game.rides && this.game.rides.target;
     if (tg && tg.active) obs.push(tg);
+    const rl = this.game.roadLife;
+    if (rl) for (const c of [...rl.convoy, ...rl.blockers]) if (c.active) obs.push(c);
     const limit = this.limit ?? this.cars.length;
     let active = 0;
     for (const c of this.cars) {

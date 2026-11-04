@@ -154,6 +154,7 @@ export class Weather {
       if (this.thunderT <= 0) {
         this.thunderT = 6 + Math.random() * 12;
         g.ui.flash();
+        g.flashT = 0.35; // the lightning lights up the whole scene for a moment
         setTimeout(() => { if (g.state === 'play' || g.state === 'cutscene') g.audio.thunder(); }, 400 + Math.random() * 1200);
       }
     }

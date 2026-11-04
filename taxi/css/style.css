@@ -514,3 +514,9 @@ body.timedmode #zoneBtn { bottom: calc(140px + var(--safe-b)); }
   #crazyHud, #parkHud { bottom: calc(124px + var(--safe-b)); }
   body.timedmode #zoneBtn { bottom: calc(166px + var(--safe-b)); }
 }
+#blink { position: absolute; top: -10px; left: -10px; font-size: 18px; filter: drop-shadow(0 0 6px rgba(255,170,30,.9)); pointer-events: none; }
+#glare { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 0; mix-blend-mode: screen; }
+#offer .osurge { background: linear-gradient(90deg, #ff9800, #ff5722); color: #fff; font-weight: 800; font-size: 12px; border-radius: 8px; padding: 2px 8px; margin: 2px 0 4px; display: inline-block; }
+.cruisebtn { width: 100%; margin-bottom: 6px; padding: 4px 0; border-radius: 10px; background: rgba(255,255,255,.12); border: 1px solid var(--line); font-size: 16px; pointer-events: auto; }
+.cruisebtn.active { background: rgba(53,224,124,.45); border-color: var(--green); }
+@media (max-height: 480px) { .cruisebtn { padding: 1px 0; font-size: 13px; margin-bottom: 4px; } }
