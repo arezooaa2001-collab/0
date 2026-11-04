@@ -244,6 +244,7 @@ input,select{font-family:inherit}
       <span class="chip" id="slotChip">🏠 ۰/۴</span>
       <span class="chip" id="secChip">🛡️ آماده</span>
       <span class="chip" id="dayChip">☀️ روز</span>
+      <span class="chip" id="refChip" hidden>🛡️ ضدسیلی</span>
       <span class="chip" id="rebChip" hidden>♻️ ۰</span>
       <span class="chip event" id="eventChip" hidden></span>
     </div>
@@ -2404,6 +2405,7 @@ PHYS.constraints.push((b) => {
 function canSteal(a, u) { return u && u.state === 'slotted' && u.owner !== a.owner && !a.carrying && !a.stunned; }
 function startSteal(a, u) {
   if (!canSteal(a, u)) return false;
+  if (u.owner.isPlayer && G.reflect && !a.isPlayer) { reflectHit(a, 'دزدی'); return false; }
   u.state = 'carried'; u.carrier = a; a.carrying = u; u.setPlate(null); a.carryT = 0; G.metrics.steals++; if (u.owner.isPlayer) G.metrics.fromPlayer++;
   FX.burst(tmpV.set(u.pos.x, u.pos.y + 1, u.pos.z), { count: 20, color: ['#ff4f8b', '#ffffff'], speed: 4, life: 0.6 });
   const victim = u.owner;
@@ -2439,6 +2441,7 @@ function updateSteals(dt) {
       if (!d || d === a || d.stunned || d.carrying) continue;
       if (dist2(a.body.pos, d.body.pos) < 1.5 * 1.5 && Math.abs(a.body.pos.y - d.body.pos.y) < 1.6) { caughtBy = d; break; }
     }
+    if (caughtBy && a.isPlayer && G.reflect) { reflectHit(caughtBy, 'گرفتن'); caughtBy = null; }
     if (caughtBy) {
       const d = caughtBy;
       {
@@ -2496,7 +2499,8 @@ class Agent {
   }
   physics(dt) {
     const b = this.body, vmax = this.maxSpeed(), mx = this.move.x, mz = this.move.z;
-    const tx = mx * vmax, tz = mz * vmax, acc = b.grounded ? (Math.hypot(mx, mz) > 0.05 ? 46 : 34) : 14;
+    this.fling = Math.max(0, (this.fling || 0) - dt);
+    const tx = mx * vmax, tz = mz * vmax, acc = this.fling > 0 ? 0 : b.grounded ? (Math.hypot(mx, mz) > 0.05 ? 46 : 34) : 14;
     const dx = tx - b.vel.x, dz = tz - b.vel.z, dl = Math.hypot(dx, dz), stepA = acc * dt;
     if (dl <= stepA) { b.vel.x = tx; b.vel.z = tz; } else { b.vel.x += dx / dl * stepA; b.vel.z += dz / dl * stepA; }
     if (b.grounded) this.coyote = 0.12; else this.coyote -= dt;
@@ -2819,6 +2823,29 @@ function setTransit(u, tp) {
   u.pi = 0; u.tSpeed = clamp(len / 14, 6, 16); u.transitT = 0;
 }
 
+// ------------------------------------------------------------------ reflect shield (secret code 1515): anyone who attacks you takes 50 slaps and flies 10 m
+const Reflect = { combos: [] };
+function reflectHit(t, why) {
+  const p = G.player.body.pos; t.stun(3.2); if (t.carrying && t.carrying.owner !== t.owner) returnUnit(t.carrying);
+  tmpV.subVectors(t.body.pos, p).setY(0); if (tmpV.lengthSq() < 1e-4) tmpV.set(Math.sin(G.player.yaw), 0, Math.cos(G.player.yaw)); tmpV.normalize();
+  t.body.vel.set(tmpV.x * 14.5, 8, tmpV.z * 14.5); t.fling = 0.7; t.slapCd = Math.max(t.slapCd || 0, 4);
+  G.player.slapT = 0.32; G.player.yaw = Math.atan2(tmpV.x, tmpV.z); CAM.shake = 0.3;
+  Reflect.combos.push({ t, n: 50, k: 0 }); Sound.play('slap');
+  UI.toast('🛡️ ' + (t.isGuard ? 'نگهبانِ ' : '') + t.owner.name + ' خواست ' + why + ' کند؛ ۵۰ تا سیلی خورد و ۱۰ متر پرت شد!', 'good');
+  UI.floatText(t.body.pos, '۵۰× سیلی!', '#ffd23f');
+}
+function updateReflect(dt) {
+  for (let i = Reflect.combos.length - 1; i >= 0; i--) {
+    const c = Reflect.combos[i]; c.k += dt;
+    while (c.k > 0.022 && c.n > 0) {
+      c.k -= 0.022; c.n--; const b = c.t.body.pos;
+      FX.burst(tmpV.set(b.x + rand(-0.4, 0.4), b.y + rand(1.2, 2.1), b.z + rand(-0.4, 0.4)), { count: 4, color: ['#ffd23f', '#ffffff', '#ff4f8b'], speed: 4, life: 0.35 });
+      if (c.n % 6 === 0 && G.player && dist2(G.player.body.pos, b) < 900) Sound.play('slap');
+    }
+    if (c.n <= 0) Reflect.combos.splice(i, 1);
+  }
+}
+
 // ------------------------------------------------------------------ slap: stun anyone in front of you; a stunned thief drops what he carries
 function slap(a, stunTime = 2.2) {
   if (a.slapCd > 0 || a.stunned) return 'cd';
@@ -2832,6 +2859,7 @@ function slap(a, stunTime = 2.2) {
     if (d2 < bd) { bd = d2; best = t; }
   }
   if (!best) { if (a.isPlayer) Sound.play('whoosh'); return 'miss'; }
+  if (best.isPlayer && G.reflect) { reflectHit(a, 'سیلی'); return 'reflected'; }
   a.yaw = Math.atan2(best.body.pos.x - p.x, best.body.pos.z - p.z);
   best.stun(stunTime); tmpV.subVectors(best.body.pos, p).setY(0).normalize(); best.body.vel.set(tmpV.x * 8, 5, tmpV.z * 8);
   FX.burst(tmpV.copy(best.body.pos).setY(best.body.pos.y + 1.6), { count: 22, color: ['#ffd23f', '#ffffff', '#ff4f8b'], speed: 5, life: 0.6 });
@@ -2989,7 +3017,7 @@ let saveQueued = false;
 function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
-    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, sc: !!G.secretUsed, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
+    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending)] : null)) })),
   };
@@ -3007,7 +3035,7 @@ function loadSave() {
 function applySave(s) {
   G.name = typeof s.name === 'string' ? s.name.slice(0, 14) : G.name;
   Day.t = num(s.dayT, 0.3, 0, 1); Missions.load(s.missions);
-  G.portalUnlocked = !!s.portal; G.secretUsed = !!s.sc;
+  G.portalUnlocked = !!s.portal; G.secretUsed = !!s.sc; G.reflect = !!s.rf;
   G.playTime = num(s.playTime, 0); G.tutorialDone = !!s.tutorialDone; G.nextEventIn = num(s.nextEventIn, 150, 20, 400);
   if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(G.stats)) G.stats[k] = num(s.stats[k], 0);
   if (Array.isArray(s.discovered)) s.discovered.forEach((id) => { if (CHAR_BY_ID[id]) G.discovered.add(id); });
@@ -3228,6 +3256,7 @@ class GuardBrain extends Brain {
       this.run = true; const tp = tg.body.pos, d2 = dist2(p, tp);
       if (d2 < 196 && lineOpen(p.x, p.z, tp.x, tp.z)) { const d = Math.sqrt(d2) || 1; a.move.x = (tp.x - p.x) / d; a.move.z = (tp.z - p.z) / d; this.path = null; }
       else { this.repath -= dt; if (!this.path || this.repath <= 0) { this.repath = 0.5; this.goTo(tp.x, tp.z); } this.follow(dt); }
+      if (tg.isPlayer && G.reflect && d2 < 1.5 * 1.5 && this.pushCd <= 0) { this.pushCd = 2.5; reflectHit(a, 'هل‌دادن'); return; }
       if (!tg.carrying && d2 < 1.5 * 1.5 && this.pushCd <= 0 && b.contains(tp.x, tp.z, 0.5)) { // throw intruders out
         this.pushCd = 2.2; tg.stun(0.6); tmpV.subVectors(b.entrancePos, tp).setY(0).normalize(); tg.body.vel.set(tmpV.x * 10, 6, tmpV.z * 10);
         if (tg.isPlayer) { Sound.play('zap'); UI.toast('🤖 نگهبانِ ' + o.name + ' تو را هل داد! با سیلی گیجش کن', 'bad'); }
@@ -3654,7 +3683,7 @@ const UI = {
     sb.style.setProperty('--p', pct + '%'); sb.classList.toggle('off', o.secCd > 0); sb.classList.toggle('lit', o.secT > 0);
     $('mbDaily').classList.toggle('notify', G.daily.last !== todayKey());
     $('mbMissions').classList.toggle('notify', Missions.ready());
-    $('dayChip').textContent = Day.label();
+    $('dayChip').textContent = Day.label(); $('refChip').hidden = !G.reflect;
     const sl = $('bSlap'), scd = slapCooldown(o); sl.style.setProperty('--p', (a.slapCd > 0 ? (1 - a.slapCd / scd) * 100 : 0) + '%'); sl.classList.toggle('off', a.slapCd > 0);
     this.updateFloats(dt);
   },
@@ -3924,7 +3953,11 @@ $('panelBody').addEventListener('click', (e) => {
     case 'hidden': UI.openSecret(); break;
     case 'secret': {
       const raw = ($('secretInput') || {}).value || '', code = raw.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g, '');
-      if (G.secretUsed) { Sound.play('error'); UI.toast('🔐 این کد قبلاً استفاده شده است', 'bad'); }
+      if (code === '1818' && G.secretUsed) { Sound.play('error'); UI.toast('🔐 این کد قبلاً استفاده شده است', 'bad'); }
+      else if (code === '1515') {
+        if (G.reflect) { Sound.play('error'); UI.toast('🛡️ سپر برگشت سیلی از قبل فعال است', ''); }
+        else { G.reflect = true; Sound.play('rebirth'); UI.closePanel(); UI.banner('🛡️ سپر برگشت سیلی!', 'هر کس بخواهد بزندت، بگیردت یا از تو بدزدد، ۵۰ تا سیلی می‌خورد و ۱۰ متر پرت می‌شود'); scheduleSave(true); }
+      }
       else if (code === '1818') { G.secretUsed = true; G.player.owner.money += 5e14; Sound.play('rebirth'); UI.closePanel(); UI.banner('🔐 کد مخفی!', '۵۰۰ هزار میلیارد سکه گرفتی'); FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.5), { count: 60, color: ['#ffd23f', '#fff3a0', '#ffffff'], speed: 8, up: true, life: 1.4 }); scheduleSave(true); }
       else { Sound.play('error'); UI.toast('🔐 کد اشتباه است', 'bad'); }
       break;
@@ -4263,7 +4296,7 @@ function simulate(dt) {
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
     if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
-    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time);
+    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt);
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
@@ -4289,7 +4322,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { reflectHit, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
