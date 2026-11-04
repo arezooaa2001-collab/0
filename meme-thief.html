@@ -475,6 +475,13 @@ const UPGRADES = {
   trap: { name: 'تله‌ی چسبناک', emoji: '🕸️', max: 3, desc: (l) => 'دزدها توی پایگاهت ' + fa(l * 10) + '٪ → ' + fa((l + 1) * 10) + '٪ کندتر', cost: (l) => Math.round(3000 * Math.pow(4, l)) },
   magnet: { name: 'آهن‌ربای سکه', emoji: '🧲', max: 1, desc: () => 'هر ۵ ثانیه پول‌ها خودکار جمع می‌شوند', cost: () => 6000 },
   jump: { name: 'کفش فنری', emoji: '🦘', max: 1, desc: () => 'پرش دوبل: وسط هوا دوباره بپر', cost: () => 15000 },
+  // lava-planet workshop gear (shop: 2) — only sold at the forge on the lava planet
+  lavaBoots: { shop: 2, name: 'چکمه‌ی ضدگدازه', emoji: '🥾', max: 1, desc: () => 'روی گدازه راه برو؛ دیگر نمی‌سوزی و میمت نمی‌افتد', cost: () => 3e9 },
+  meteorShield: { shop: 2, name: 'کلاه ضدشهاب', emoji: '⛑️', max: 1, desc: () => 'شهاب‌سنگ‌ها دیگر به تو آسیبی نمی‌زنند', cost: () => 6e9 },
+  cloak: { shop: 2, name: 'شنل سایه', emoji: '🦇', max: 3, desc: (l) => 'نگهبان‌ها تا وقتی میم برنداشته‌ای نمی‌بینندت؛ صاحب‌خانه دیرتر می‌فهمد و نگهبان ' + fa((l + 1) * 10) + '٪ کندتر دنبالت می‌کند', cost: (l) => Math.round(2e9 * Math.pow(4, l)) },
+  turbo: { shop: 2, name: 'موتور جت دزدی', emoji: '🚀', max: 3, desc: (l) => 'سرعت با میم دزدی در سیاره‌ی گدازه: +' + fa(l * 12) + '٪ → +' + fa((l + 1) * 12) + '٪', cost: (l) => Math.round(1.5e9 * Math.pow(3, l)) },
+  hook: { shop: 2, name: 'قلاب دزدی', emoji: '🪝', max: 1, desc: () => 'از فاصله‌ی دورتر (۴ متر) میم را قاپ بزن', cost: () => 4e9 },
+  guardBot: { shop: 2, name: 'ربات نگهبان شخصی', emoji: '🤖', max: 1, desc: () => 'یک ربات نگهبان برای پایگاهت در سیاره‌ی گدازه؛ دزدها را می‌گیرد', cost: () => 1e10 },
   slap: { name: 'دستکش سیلی', emoji: '🥊', max: 3, desc: (l) => 'زمان استراحت ضربه: ' + fa((3.5 - l * 0.8).toFixed(1)) + ' → ' + fa((2.7 - l * 0.8).toFixed(1)) + ' ثانیه', cost: (l) => Math.round(2500 * Math.pow(4, l)) },
 };
 const UP_KEYS = Object.keys(UPGRADES);
@@ -2477,7 +2484,7 @@ const LOOKS = [
 class Agent {
   constructor(owner, look, isPlayer, opts = {}) {
     this.owner = owner; if (!opts.guard) owner.agent = this; this.isPlayer = isPlayer; this.isGuard = !!opts.guard; this.av = buildAvatar(look); scene.add(this.av.root);
-    const sp = owner.base.spawnPos; this.body = new Body(sp.x + (opts.guard ? 3 : 0), sp.y, sp.z); this.body.agent = this; this.body.ownerId = owner.id;
+    const sp = (opts.guard || owner.base).spawnPos; this.body = new Body(sp.x + (opts.guard ? 3 : 0), sp.y, sp.z); this.body.agent = this; this.body.ownerId = owner.id;
     this.yaw = owner.base.frontYaw; this.move = { x: 0, z: 0 }; this.sprint = false; this.jumpQ = 0; this.coyote = 0; this.carrying = null; this.stunT = 0; this.carryT = 0;
     this.renderY = sp.y; this.turn = 0; this.zapT = 0; this.brain = isPlayer ? null : opts.guard ? new GuardBrain(this, opts.guard) : new Brain(this);
     if (opts.guard) owner.guards.push(this);
@@ -2487,14 +2494,15 @@ class Agent {
   get stunned() { return this.stunT > 0; }
   stun(t) { this.stunT = t; FX.burst(tmpV.copy(this.body.pos).setY(this.body.pos.y + 2.2), { count: 12, color: ['#ffd23f', '#ffffff'], speed: 2, life: 0.8 }); }
   zap() { if (this.zapT > 0) return; this.zapT = 0.6; FX.burst(tmpV.copy(this.body.pos).setY(this.body.pos.y + 1), { count: 14, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.4 }); if (this.isPlayer) { Sound.play('zap'); UI.toast('⚡ سپر لیزری فعال است! نمی‌شود وارد شد', 'bad'); } }
-  respawn() { const sp = this.owner.base.spawnPos; this.body.pos.copy(sp).setY(sp.y + 0.5); this.body.vel.set(0, 0, 0); if (this.carrying) returnUnit(this.carrying); }
+  respawn() { const sp = (this.isGuard ? this.brain.base : this.owner.base).spawnPos; this.body.pos.copy(sp).setY(sp.y + 0.5); this.body.vel.set(0, 0, 0); if (this.carrying) returnUnit(this.carrying); }
   maxSpeed() {
     let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : this.isGuard ? (this.brain.run ? 7.6 : 4.2) : this.owner.hard ? (this.brain.run ? 6.9 : 5.6) : (this.brain.run ? 5.75 : 5.0);
     v *= 1 + 0.07 * this.owner.up.speed;
     if (this.carrying) {
-      v *= this.isPlayer ? 1.15 : 0.75; // the player gets an adrenaline boost while carrying
+      v *= this.isPlayer ? 1.15 * (inW2(this.body.pos.x) ? 1 + 0.12 * this.owner.up.turbo : 1) : 0.75; // the player gets an adrenaline boost while carrying
       if (this.carrying.owner.baseAt(this.body.pos.x, this.body.pos.z, 0.5)) v *= 1 - (this.isPlayer ? 0.05 : 0.1) * this.carrying.owner.up.trap;
     }
+    if (this.isGuard && this.brain.target && this.brain.target.isPlayer) v *= 1 - 0.1 * this.brain.target.owner.up.cloak;
     return this.stunned ? 0 : v;
   }
   physics(dt) {
@@ -2575,9 +2583,9 @@ class Brain {
     }
     return 'moving';
   }
-  onTheft(thief, u) { if (this.a.carrying) return; this.set('defend', { thief, unit: u }); this.react = 0.35 + Math.sqrt(dist2(this.a.body.pos, thief.body.pos)) / 45 + (1 - Day.k) * 0.7; if (this.o.hard) this.react *= 0.45; this.run = true; }
+  onTheft(thief, u) { if (this.a.carrying) return; this.set('defend', { thief, unit: u }); this.react = 0.35 + Math.sqrt(dist2(this.a.body.pos, thief.body.pos)) / 45 + (1 - Day.k) * 0.7; if (this.o.hard) this.react *= 0.45; if (thief.isPlayer) this.react += 0.5 * thief.owner.up.cloak; this.run = true; }
   intruder() {
-    for (const ag of G.agents) if (ag !== this.a && ag.owner !== this.o && !ag.stunned && this.o.base.contains(ag.body.pos.x, ag.body.pos.z) && (ag.isPlayer ? G.playing : true)) return ag;
+    for (const ag of G.agents) if (ag !== this.a && ag.owner !== this.o && !ag.stunned && this.o.base.contains(ag.body.pos.x, ag.body.pos.z) && (ag.isPlayer ? G.playing && !(this.o.hard && ag.owner.up.cloak) : true)) return ag;
     return null;
   }
   decide() {
@@ -2764,7 +2772,7 @@ function updateEconomy(dt) {
   }
 }
 function applyUpgrade(o, key) {
-  const U = UPGRADES[key]; o.up[key] = Math.min(U.max, o.up[key] + 1); o.applyCap();
+  const U = UPGRADES[key]; o.up[key] = Math.min(U.max, o.up[key] + 1); o.applyCap(); if (key === 'guardBot') ensurePlayerGuard();
   if (o.isPlayer) { Sound.play('upgrade'); scheduleSave(); }
   return 'ok';
 }
@@ -2780,22 +2788,30 @@ const Shop = {
     this.label = new LiveLabel(128, 128, 0.7, 0.7); this.label.sprite.position.y = 0.75; g.add(this.label.sprite);
     g.visible = false; scene.add(g); this.item = g;
   },
+  keeper: null,
   order(key) {
-    const o = G.player.owner, U = UPGRADES[key], l = o.up[key];
-    if (l >= U.max) return;
-    if (this.busy) { Sound.play('error'); UI.toast('⏳ مغازه‌دار هنوز سفارش قبلی‌ات را می‌آورد…', 'bad'); return; }
+    const o = G.player.owner, U = UPGRADES[key], l = o.up[key], w2 = inW2(G.player.body.pos.x);
+    if (l >= U.max || (U.shop === 2) !== w2) return;
+    this.keeper = w2 ? W2.keeper : shopkeeper;
+    if (this.busy) { Sound.play('error'); UI.toast('⏳ هنوز سفارش قبلی‌ات در راه است…', 'bad'); return; }
     const cost = U.cost(l); if (o.money < cost) { Sound.play('error'); UI.toast('💸 پولت برای «' + U.name + '» کافی نیست (' + fmt(cost) + ')', 'bad'); return; }
     o.money -= cost; this.ensureItem();
     this.busy = { key, t: 0 }; this.label.set(key, [{ t: U.emoji, size: 96 }], { bg: false });
-    UI.closePanel(); Sound.play('click'); UI.toast('🛍️ مغازه‌دار دارد «' + U.name + '» را برایت می‌آورد…', '');
+    UI.closePanel(); Sound.play('click'); UI.toast((w2 ? '🔥 آهنگر گدازه' : '🛍️ مغازه‌دار') + ' دارد «' + U.name + '» را برایت می‌آورد…', '');
   },
   hand(p) { // shopkeeper's hands, in front of the counter
-    const sk = shopkeeper.root.position, y = shopkeeper.root.rotation.y; return p.set(sk.x + Math.sin(y) * 0.75, 1.35, sk.z + Math.cos(y) * 0.75);
+    const K = this.keeper || shopkeeper, sk = K.root.position, y = K.root.rotation.y; return p.set(sk.x + Math.sin(y) * 0.75, 1.35, sk.z + Math.cos(y) * 0.75);
   },
   update(dt) {
-    if (!shopkeeper) return;
-    const sk = shopkeeper;
-    if (!this.busy) { sk.root.rotation.y = damp(sk.root.rotation.y, Math.PI / 2, 4, dt); sk.armR.rotation.x = -2.5 + Math.sin(G.time * 5) * 0.4; sk.armR.rotation.z = -0.4; return; }
+    if (W2.keeper) animateAvatar(W2.keeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 });
+    for (const [K, rest] of [[shopkeeper, Math.PI / 2], [W2.keeper, -Math.PI / 2]]) {
+      if (!K || (this.busy && this.keeper === K)) continue;
+      K.root.rotation.y = damp(K.root.rotation.y, rest, 4, dt);
+      if (K === shopkeeper) { K.armR.rotation.x = -2.5 + Math.sin(G.time * 5) * 0.4; K.armR.rotation.z = -0.4; }
+      else { K.armR.rotation.x = -1.2 + Math.abs(Math.sin(G.time * 4)) * -1.2; K.armR.rotation.z = -0.2; if (Math.random() < dt * 3) FX.burst(tmpV.set(K.root.position.x - 1.1, 1.3, K.root.position.z + 1.4), { count: 5, color: ['#ffb000', '#ff5a1f'], speed: 3, life: 0.4 }); }
+    }
+    if (!this.busy) return;
+    const sk = this.keeper || shopkeeper;
     const b = this.busy, pp = G.player.body.pos; b.t += dt;
     const face = Math.atan2(pp.x - sk.root.position.x, pp.z - sk.root.position.z); sk.root.rotation.y += angDiff(sk.root.rotation.y, face) * Math.min(1, dt * 8);
     sk.armL.rotation.x = sk.armR.rotation.x = -1.45; sk.armL.rotation.z = 0.2; sk.armR.rotation.z = -0.2;
@@ -2812,7 +2828,7 @@ const Shop = {
     const b = this.busy; if (!b) return; this.busy = null; if (this.item) this.item.visible = false;
     const o = G.player.owner; applyUpgrade(o, b.key); Missions.event('shop');
     FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.3), { count: 26, color: ['#ffd23f', '#3df2b0', '#ffffff'], speed: 4, up: true, life: 0.8 });
-    UI.toast('🎁 مغازه‌دار «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
+    UI.toast('🎁 ' + (UPGRADES[b.key].shop === 2 ? 'آهنگر گدازه' : 'مغازه‌دار') + ' «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
   },
 };
 // walk a unit to a slot, quickly when the slot is far away (it always follows the navigation path)
@@ -3006,7 +3022,7 @@ function rebirth() {
   const o = G.player.owner, cost = rebirthCost(o.rebirths);
   if (o.money < cost || G.player.carrying) return false;
   for (const s of o.slots) { if (s.unit) { if (s.unit.state === 'carried') returnUnitToVictimless(s.unit); s.unit.dispose(true); s.unit = null; } s.pending = 0; }
-  o.rebirths++; o.money = START_MONEY * (1 + o.rebirths * 2); for (const k of UP_KEYS) o.up[k] = 0; o.applyCap();
+  o.rebirths++; o.money = START_MONEY * (1 + o.rebirths * 2); for (const k of UP_KEYS) if (UPGRADES[k].shop !== 2) o.up[k] = 0; o.applyCap(); // lava-planet gear is kept
   Sound.play('rebirth'); UI.banner('♻️ تولد دوباره!', 'درآمد دائمی ×' + fa((1 + 0.5 * o.rebirths).toFixed(1))); scheduleSave(true);
   return true;
 }
@@ -3217,7 +3233,7 @@ function buildWorld2() {
   });
   for (const r of W2.lava) reserve(r[0], r[1], r[2], r[3]);
   buildNav(NAV2, (x, z) => inLava(x, z));
-  Portal.build2();
+  Portal.build2(); buildForge();
   BELT2.active = true;
   for (let i = 0; i < 600; i++) { BELT2.spawnT -= 0.1; if (BELT2.spawnT <= 0) { const last = BELT2.list[BELT2.list.length - 1]; if (!last || last.pos.x - BELT2.x0 > 3.4) { spawnBelt(BELT2); BELT2.spawnT = rand(2.6, 3.6); } } for (const u of BELT2.list) u.pos.x += BELT2.speed * 0.1; }
   for (const u of [...BELT2.list]) if (u.pos.x > BELT2.x1) { BELT2.list.splice(BELT2.list.indexOf(u), 1); u.dispose(false); }
@@ -3244,9 +3260,10 @@ class GuardBrain extends Brain {
     if (this.scan <= 0) {
       this.scan = 0.25; let best = null, bd = 1e9;
       for (const ag of G.agents) {
-        if (ag.owner === o || ag.isGuard || (ag.isPlayer && !G.playing) || ag.stunned) continue;
+        if (ag.owner === o || ag.isGuard || (ag.isPlayer && !G.playing) || ag.stunned || inW2(ag.body.pos.x) !== inW2(p.x)) continue;
         const thief = ag.carrying && ag.carrying.owner === o, inside = b.contains(ag.body.pos.x, ag.body.pos.z, 0.5);
         if (!thief && !inside) continue;
+        if (!thief && ag.isPlayer && ag.owner.up.cloak) continue; // shadow cloak: unseen until you grab something
         let d = dist2(ag.body.pos, p); if (thief) d *= 0.3; if (d < bd) { bd = d; best = ag; }
       }
       this.target = best;
@@ -3274,6 +3291,7 @@ const Hazards = {
   meteorT: 30, meteors: [], ringGeo: null,
   burn(a) {
     if (a.burnCd > 0) return; a.burnCd = 1.2;
+    if (a.isPlayer && a.owner.up.lavaBoots) { a.burnCd = 0.3; if (Math.random() < 0.5) FX.one(a.body.pos.x, 0.3, a.body.pos.z, { vx: rand(-0.5, 0.5), vy: 1.5, vz: rand(-0.5, 0.5), life: 0.5, size: 0.3, color: '#7af7ff' }); return; }
     const z = a.body.pos.z, s = Math.sign(z) || 1, [m0, m1] = W2.moat, out = Math.abs(Math.abs(z) - m0) < Math.abs(Math.abs(z) - m1) ? -s : s;
     a.body.vel.set(a.body.vel.x * 0.3, 8, out * 11); a.stun(0.7);
     FX.burst(tmpV.copy(a.body.pos).setY(0.6), { count: 30, color: ['#ff5a1f', '#ffb000', '#ffe14a'], speed: 5, up: true, life: 0.8 });
@@ -3299,6 +3317,7 @@ const Hazards = {
         FX.burst(tmpV.set(m.x, 0.8, m.z), { count: 50, color: ['#ff5a1f', '#ffb000', '#ffe14a', '#3a2028'], speed: 9, up: true, life: 1, grav: -12 });
         if (pl && dist2(pl.body.pos, m) < 900) { Sound.play('boom'); CAM.shake = 0.35; }
         for (const a of G.agents) if (dist2(a.body.pos, m) < 3.4 * 3.4) {
+          if (a.isPlayer && a.owner.up.meteorShield) { FX.burst(tmpV.copy(a.body.pos).setY(a.body.pos.y + 1.2), { count: 30, color: ['#7af7ff', '#ffffff'], speed: 5, life: 0.6 }); UI.toast('⛑️ کلاه ضدشهاب از تو محافظت کرد!', 'good'); continue; }
           a.stun(1.4); tmpV.set(a.body.pos.x - m.x, 0, a.body.pos.z - m.z).normalize(); a.body.vel.set(tmpV.x * 10, 9, tmpV.z * 10);
           if (a.carrying) { const u = a.carrying; returnUnit(u); if (a.isPlayer) UI.toast('☄️ شهاب‌سنگ خوردی و «' + u.c.name + '» برگشت!', 'bad'); }
           else if (a.isPlayer) UI.toast('☄️ شهاب‌سنگ خوردی!', 'bad');
@@ -3342,7 +3361,7 @@ const Portal = {
     FX.burst(tmpV.copy(dest).setY(1.5), { count: 40, color: to === 2 ? ['#ff5a1f', '#ffd23f'] : ['#29d9ff', '#3df2b0'], speed: 6, life: 0.9 });
     if (to === 2) {
       const o = a.owner;
-      if (W2.playerPlot && !W2.playerPlot.owner) { claimPlot(o, W2.playerPlot, true); UI.banner('🌋 به سیاره‌ی گدازه خوش آمدی!', 'یک پایگاه رایگان اینجا گرفتی · گدازه، نگهبان‌ها و شهاب‌سنگ‌ها مراقبت باش'); Sound.play('success'); scheduleSave(true); }
+      if (W2.playerPlot && !W2.playerPlot.owner) { claimPlot(o, W2.playerPlot, true); ensurePlayerGuard(); UI.banner('🌋 به سیاره‌ی گدازه خوش آمدی!', 'یک پایگاه رایگان اینجا گرفتی · گدازه، نگهبان‌ها و شهاب‌سنگ‌ها مراقبت باش'); Sound.play('success'); scheduleSave(true); }
       else UI.toast('🌋 سیاره‌ی گدازه — میم‌های اینجا ۲۰۰ برابر می‌ارزند', 'rare');
     } else UI.toast('🌍 برگشتی به میدان میم‌ها', 'good');
     UI.mapBg = null; UI.mapBg2 = null;
@@ -3360,6 +3379,35 @@ const Portal = {
     else if (this.p2 && dist2(p, PORTAL2) < 2.2 * 2.2 && p.y < 3) this.travel(1);
   },
 };
+
+// ------------------------------------------------------------------ lava forge: the lava planet's own shop, run by a blacksmith robot
+function buildForge() {
+  const SX = X2 + 108, g = new THREE.Group(); g.position.set(SX, 0, 0); scene.add(g);
+  W2.shopPos = new THREE.Vector3(SX - 7.5, 0, 0);
+  const wall = mat('#2a1a22', { r: 0.7, e: '#ff3d00', ei: 0.08 }), metal = mat('#3a3f58', { m: 0.85, r: 0.3 }), glow = mat('#ff6a00', { e: '#ff4a00', ei: 2.5 });
+  const b = new Batcher();
+  b.add(GEO.box, wall, 5.8, 2.6, 0, 0.4, 5.2, 14); b.add(GEO.box, wall, 0, 2.6, -7, 12, 5.2, 0.4); b.add(GEO.box, wall, 0, 2.6, 7, 12, 5.2, 0.4);
+  b.add(rbox(12.6, 0.5, 14.8, 0.15), mat('#1a1018', { m: 0.6, r: 0.4 }), 0, 5.45, 0, 1, 1, 1);
+  b.add(rbox(1.4, 1.1, 9, 0.1), metal, -3.6, 0.55, 0, 1, 1, 1); b.add(GEO.box, glow, -3.6, 1.13, 0, 1.5, 0.06, 9.1);
+  b.add(GEO.cyl, metal, 2.5, 0.5, -4.5, 1.6, 1, 1.6); b.add(GEO.box, glow, 2.5, 1.05, -4.5, 2.6, 0.1, 2.6); // forge
+  b.add(GEO.box, metal, 1.2, 0.6, 4.2, 1.8, 0.5, 0.8); b.add(GEO.box, metal, 1.2, 0.25, 4.2, 0.6, 0.5, 0.5); // anvil
+  for (let i = 0; i < 5; i++) b.add(GEO.box, mat(['#7af7ff', '#ff5a1f', '#b061ff', '#ffd23f', '#3df2b0'][i], { e: ['#29d9ff', '#ff4a00', '#7a3cff', '#ffb000', '#1fbf86'][i], ei: 0.9 }), 5.3, 2 + (i % 2) * 1.2, -4 + i * 2, 0.4, 0.6, 1);
+  b.build(g);
+  addBox(SX + 5.6, 0, -7.2, SX + 6, 5.2, 7.2); addBox(SX - 6, 0, -7.2, SX + 6, 5.2, -6.8); addBox(SX - 6, 0, 6.8, SX + 6, 5.2, 7.2);
+  addBox(SX - 4.3, 0, -4.5, SX - 2.9, 1.1, 4.5); addCircle(SX + 2.5, -4.5, 1.7, 0, 1.1);
+  W2.anim.push((dt) => { if (Math.random() < dt * 14) FX.one(SX + 2.5 + rand(-1, 1), 1.2, -4.5 + rand(-1, 1), { vx: rand(-0.4, 0.4), vy: rand(1.5, 3), vz: rand(-0.4, 0.4), life: 0.9, size: 0.3, color: pick(['#ffb000', '#ff5a1f', '#ffe14a']), grav: -2, drag: 0.4 }); });
+  const sign = spriteFromCanvas(labelCanvas([{ t: '🔥 کارگاه گدازه', size: 74, color: '#ffd23f', weight: 900, stroke: 6 }, { t: 'ابزار مخصوص دزدی در سیاره‌ی گدازه', size: 32, color: '#fff', weight: 800 }], { w: 640, h: 200, bg: 'rgba(60,10,10,.95)', border: '#ff5a1f' }), 8, 2.5); sign.position.set(SX - 3, 7.6, 0); scene.add(sign);
+  W2.keeper = buildAvatar({ skin: '#9aa3ae', shirt: '#3a1a10', pants: '#1a0c08', shoes: '#ff5a1f', hair: 'cap', hairC: '#111', accent: '#ff5a1f', hat: '#2a2a2a' });
+  W2.keeper.root.position.set(SX - 1.4, 0.1, 0); W2.keeper.root.rotation.y = -Math.PI / 2; scene.add(W2.keeper.root);
+  reserve(SX - 7, -8, SX + 7, 8); UI.mapBg2 = null;
+}
+// the player's own guard robot for the lava-planet base
+const PLAYER_GUARD_LOOK = { skin: '#cfd6df', shirt: '#2fe08a', pants: '#1b1e2a', shoes: '#2fe08a', hair: 'cap', hairC: '#111', accent: '#2fe08a', hat: '#2fe08a' };
+function ensurePlayerGuard() {
+  const o = G.owners[0]; if (!o || !o.up.guardBot || o.guards.length) return;
+  const b = o.bases.find((x) => x.world === 2); if (!b) return;
+  new Agent(o, PLAYER_GUARD_LOOK, false, { guard: b });
+}
 
 // ------------------------------------------------------------------ input: keyboard, mouse, multitouch
 const IN = { keys: new Set(), joy: { id: null, ox: 0, oy: 0, x: 0, y: 0, mag: 0 }, camPtrs: new Map(), camDX: 0, camDY: 0, sprintToggle: false, pinch: 0, rotAccum: 0, lastTouch: 0 };
@@ -3502,7 +3550,7 @@ function computeInteract(dt) {
   for (const B of BELTS) if (B.active) for (const u of B.list) { const d = dist2(p, u.pos); if (d < bd) { bd = d; best = u; } }
   if (best) { const pr = beltPrice(best); R = { kind: 'buy', unit: best, ok: o.money >= pr && !!o.freeSlot(null, best.belt ? best.belt.w : 1), price: pr }; }
   for (const ag of G.agents) if (ag.carrying && ag.carrying.owner === o && dist2(p, ag.body.pos) < 2.8 * 2.8) R = { kind: 'catch', target: ag };
-  let sd = 2.5 * 2.5;
+  let sd = o.up.hook && inW2(p.x) ? 4.2 * 4.2 : 2.5 * 2.5;
   for (const b of W.bases) {
     if (!b.owner || b.owner === o || !b.contains(p.x, p.z, 1.5)) continue;
     for (const s of b.owner.slots) if (s.base === b && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < sd && Math.abs(p.y - s.unit.pos.y) < 2) { sd = d; STEAL_U = s.unit; } }
@@ -3518,7 +3566,7 @@ function computeInteract(dt) {
       if (ou) R = { kind: 'info', slot: ou };
       else if (dist2(p, W.fusionPos) < 4.6 * 4.6) R = { kind: 'fuse' };
       else if ((G.portalUnlocked && dist2(p, PORTAL1) < 7 * 7) || (W2.built && dist2(p, PORTAL2) < 7 * 7)) R = { kind: 'portal' };
-      else if (dist2(p, W.shopPos) < 5 * 5) R = { kind: 'shop' };
+      else if (dist2(p, W.shopPos) < 5 * 5 || (W2.shopPos && dist2(p, W2.shopPos) < 5 * 5)) R = { kind: 'shop' };
       else if (dist2(p, W.boardPos) < 7 * 7) R = { kind: 'board' };
     }
   }
@@ -3668,7 +3716,7 @@ const UI = {
       case 'collect': text = 'جمع‌آوری ' + fmt(pendingOf(o, R.base)) + ' سکه ' + k('E'); lbl = 'جمع کن'; break;
       case 'plot': text = '🏠 خرید این زمین به‌عنوان پایگاه جدید — ' + fmt(R.price) + ' سکه ' + k('E'); lbl = 'خرید زمین'; cant = !R.ok; break;
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
-      case 'shop': text = 'ورود به فروشگاه ارتقا ' + k('E'); lbl = 'فروشگاه'; break;
+      case 'shop': text = (inW2(a.body.pos.x) ? '🔥 ورود به کارگاه گدازه ' : 'ورود به فروشگاه ارتقا ') + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
       case 'portal': text = inW2(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : '🌋 برو داخل پرتال تا به سیاره‌ی گدازه بروی'; lbl = 'پرتال'; break;
       case 'fuse': text = '⚗️ دستگاه ترکیب: ۳ میم یکسان را یکی کن ' + k('E'); lbl = 'ترکیب'; break;
@@ -3740,7 +3788,7 @@ const UI = {
     g.fillStyle = '#ff5a1f'; for (const r of W2.lava) g.fillRect(X(r[0]), Z(r[1]), (r[2] - r[0]) * s, (r[3] - r[1]) * s);
     g.fillStyle = '#120c18'; g.fillRect(X(BELT2.x0), Z(-2.4), (BELT2.x1 - BELT2.x0) * s, 4.8 * s);
     for (const b of W.bases) if (b.world === 2) { g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
-    g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL2.x), Z(PORTAL2.z));
+    g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL2.x), Z(PORTAL2.z)); if (W2.shopPos) g.fillText('🔥', X(W2.shopPos.x + 7), Z(0));
     this.mapS = s; this.mapN = NW; this.mapBg2 = bg; this.map2 = { X, Z }; this.mapBg = null;
   },
   minimap(dt) {
@@ -3773,8 +3821,8 @@ const UI = {
   refresh() { const k = this.panelKind; if (k === 'shop') this.openShop(true); else if (k === 'inv') this.openInventory(true); else if (k === 'daily') this.openDaily(true); else if (k === 'settings') this.openSettings(true); },
   keepScroll(fn) { const b = $('panelBody'), y = b.scrollTop; fn(); b.scrollTop = y; },
   openShop(re) {
-    const o = G.player.owner;
-    const rows = UP_KEYS.map((k) => {
+    const o = G.player.owner, w2 = inW2(G.player.body.pos.x);
+    const rows = UP_KEYS.filter((k) => (UPGRADES[k].shop === 2) === w2).map((k) => {
       const U = UPGRADES[k], l = o.up[k], max = l >= U.max, cost = max ? 0 : U.cost(l);
       const bars = Array.from({ length: U.max }, (_, i) => '<i class="' + (i < l ? 'f' : '') + '"></i>').join('');
       return '<div class="upRow"><div class="emo">' + U.emoji + '</div><div class="txt"><b>' + U.name + '</b><small>' + (max ? 'به حداکثر رسیده' : U.desc(l)) + '</small><div class="lvl">' + bars + '</div></div>' +
@@ -3783,8 +3831,9 @@ const UI = {
     const rc = rebirthCost(o.rebirths);
     const reb = '<div class="upRow" style="border-color:var(--candy)"><div class="emo">♻️</div><div class="txt"><b>تولد دوباره (سطح ' + fa(o.rebirths) + ')</b><small>پول، میم‌ها و ارتقاها صفر می‌شوند؛ در عوض درآمدت برای همیشه ×' + fa((1 + 0.5 * (o.rebirths + 1)).toFixed(1)) + ' می‌شود و با پول بیشتری شروع می‌کنی.</small></div>' +
       '<button class="act red" type="button" data-act="rebirth"' + (o.money < rc ? ' disabled' : '') + '>💰 ' + fmt(rc) + '</button></div>';
-    const html = '<p class="note">🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + reb;
-    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', '🛒 فروشگاه ارتقا', html);
+    const intro = w2 ? '🔥 آهنگرِ گدازه ابزارهای مخصوص سیاره‌ی گدازه را می‌سازد و دستت می‌دهد. این ابزارها با «تولد دوباره» از بین نمی‌روند.' : '🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.';
+    const html = '<p class="note">' + intro + '</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + (w2 ? '' : reb);
+    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', w2 ? '🔥 کارگاه گدازه' : '🛒 فروشگاه ارتقا', html);
   },
   unitCard(s, o) {
     const u = s.unit, r = RARITIES[u.c.rarity], mu = MUTATIONS[u.mut];
@@ -4161,7 +4210,7 @@ function resetWorldTo(s) {
   }
   G.alerts.clear(); G.discovered.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
   if (s.portal) buildWorld2();
-  applySave(s); Missions.ensure(); if (G.portalUnlocked) { buildWorld2(); Portal.show(false); }
+  applySave(s); Missions.ensure(); if (G.portalUnlocked) { buildWorld2(); Portal.show(false); } ensurePlayerGuard();
   seedRivals(s.owners.length);
   G.owners.forEach((o) => o.applyCap());
   for (const a of G.agents) a.respawn();
@@ -4246,6 +4295,7 @@ async function init() {
   if (save && save.portal) buildWorld2(); // the lava planet must exist before its bases are restored
   if (save) { try { savedAt = applySave(save); } catch (e) { console.warn('save apply failed', e); } }
   if (G.portalUnlocked) { buildWorld2(); Portal.show(false); }
+  ensurePlayerGuard();
   seedRivals(save ? save.owners.length : 0); // older saves had fewer rivals: give the new ones a starting base
   G.owners.forEach((o) => o.applyCap());
   $('nameInput').value = G.name; setPlayerName(G.name);
@@ -4322,7 +4372,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { reflectHit, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { reflectHit, Shop, UPGRADES, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
