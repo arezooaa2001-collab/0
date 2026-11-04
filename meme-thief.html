@@ -217,6 +217,8 @@ input,select{font-family:inherit}
 .help p{margin:0;line-height:1.9;font-size:14px}
 .help kbd{background:#fff;color:var(--ink);border-radius:5px;padding:0 5px;font-family:monospace;font-weight:900}
 .note{font-size:12.5px;color:var(--muted);line-height:1.8}
+/* fully invisible control at the very end of settings */
+.ghostBtn,.ghostBtn:hover,.ghostBtn:active,.ghostBtn:focus,.ghostBtn:focus-visible{display:block;flex:none;width:100%;height:48px;min-height:48px;margin:0;padding:0;border:0;outline:none;background:transparent;box-shadow:none;cursor:default;opacity:0;-webkit-appearance:none;appearance:none}
 #confirm .sheet{width:min(420px,100%)}
 #confirmText{font-weight:700;line-height:1.9;margin:0}
 #rotate{z-index:30;background:rgba(27,20,70,.96);flex-direction:column;gap:14px;text-align:center}
@@ -2987,7 +2989,7 @@ let saveQueued = false;
 function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
-    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
+    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, sc: !!G.secretUsed, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending)] : null)) })),
   };
@@ -3005,7 +3007,7 @@ function loadSave() {
 function applySave(s) {
   G.name = typeof s.name === 'string' ? s.name.slice(0, 14) : G.name;
   Day.t = num(s.dayT, 0.3, 0, 1); Missions.load(s.missions);
-  G.portalUnlocked = !!s.portal;
+  G.portalUnlocked = !!s.portal; G.secretUsed = !!s.sc;
   G.playTime = num(s.playTime, 0); G.tutorialDone = !!s.tutorialDone; G.nextEventIn = num(s.nextEventIn, 150, 20, 400);
   if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(G.stats)) G.stats[k] = num(s.stats[k], 0);
   if (Array.isArray(s.discovered)) s.discovered.forEach((id) => { if (CHAR_BY_ID[id]) G.discovered.add(id); });
@@ -3824,11 +3826,12 @@ const UI = {
       '<div class="setRow"><span>کنترل لمسی</span>' + this.seg('touch', [['auto', 'خودکار'], ['on', 'روشن'], ['off', 'خاموش']], S.touch) + '</div>' +
       '<p class="note">لبه‌نرمی (Anti-aliasing) بعد از بارگذاری دوباره‌ی صفحه با کیفیت جدید هماهنگ می‌شود. وضوح تصویر همیشه همان کیفیتی است که انتخاب کرده‌ای، مگر اینکه «کاهش خودکار وضوح» را روشن کنی.</p>' +
       '<div class="setRow" style="flex-wrap:wrap"><span>📦 کد پیشرفت (انتقال بین فایل، نسخه‌ی ابری و دستگاه‌ها)</span><div class="rowBtns"><button class="act" type="button" data-act="codecopy">کپی کد</button><button class="act buy" type="button" data-act="codeload">وارد کردن کد</button></div></div>' +
-      '<textarea id="codeBox" rows="2" placeholder="کد پیشرفت را اینجا بچسبان (با MEME1: شروع می‌شود)" style="width:100%;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;padding:8px;font:12px monospace;direction:ltr;-webkit-user-select:text;user-select:text;touch-action:auto"></textarea>' +
+      '<textarea id="codeBox" rows="2" placeholder="کد پیشرفت را اینجا بچسبان (با MEME1: شروع می‌شود)" style="flex:none;min-height:56px;width:100%;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;padding:8px;font:12px monospace;direction:ltr;-webkit-user-select:text;user-select:text;touch-action:auto"></textarea>' +
       (Cloud.standalone ? '<a class="softBtn" style="text-align:center;text-decoration:none;color:var(--coin)" href="' + CLOUD_URL + '" target="_blank" rel="noopener">☁️ باز کردن نسخه‌ی ابری بازی</a>' : '') +
       '<div class="setRow" style="flex-wrap:wrap"><span>☁️ فضای ابری</span><div class="rowBtns"><button class="act" type="button" data-act="cloudsave"' + (Cloud.state === 'on' ? '' : ' disabled') + '>ذخیره الان</button><button class="act buy" type="button" data-act="cloudload"' + (Cloud.state === 'on' ? '' : ' disabled') + '>بارگذاری از ابر</button></div></div>' +
       '<p class="note" id="cloudPanelInfo">' + esc(Cloud.label()) + '</p>' +
-      '<div class="rowBtns"><button class="act red" type="button" data-act="reset">🗑 پاک کردن کل پیشرفت</button></div>';
+      '<div class="rowBtns"><button class="act red" type="button" data-act="reset">🗑 پاک کردن کل پیشرفت</button></div>' +
+      '<button type="button" data-act="hidden" tabindex="-1" aria-hidden="true" class="ghostBtn"></button>';
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('settings', '⚙️ تنظیمات', html);
   },
   openHelp() {
@@ -3867,6 +3870,10 @@ const UI = {
         '<button class="act buy" type="button" data-fuse="' + key + '"' + (ok ? '' : ' disabled') + '>' + (ok ? '⚗️ ترکیب کن' : 'هنوز ' + fa(3 - list.length) + ' تا کم داری') + '</button></div>';
     }).join('');
     this.openPanel('fusion', '⚗️ دستگاه ترکیب', '<p class="note">سه میم کاملاً یکسان (هم‌نوع و هم‌جنس) را بده تا یک نسخه‌ی بهتر بگیری: معمولی ← طلایی (×۲) ← الماسی (×۳) ← رنگین‌کمانی (×۶). میم جدید خودش تا پایگاهت راه می‌رود.</p>' + (cards ? '<div class="grid">' + cards + '</div>' : '<p class="note">هنوز میمی در پایگاهت نداری.</p>'));
+  },
+  openSecret() {
+    this.openPanel('secret', '🔐', '<label class="field" for="secretInput">کد مخفی<input id="secretInput" inputmode="numeric" autocomplete="off" maxlength="12" style="direction:ltr;text-align:center"></label><button class="bigBtn" type="button" data-act="secret">تأیید</button>');
+    setTimeout(() => { const i = $('secretInput'); if (i) i.focus(); }, 50);
   },
   openPause() {
     if (!G.playing) return;
@@ -3914,6 +3921,14 @@ $('panelBody').addEventListener('click', (e) => {
     case 'cloudload': Cloud.pull(); break;
     case 'codecopy': SaveCode.copy(); break;
     case 'codeload': SaveCode.load(); break;
+    case 'hidden': UI.openSecret(); break;
+    case 'secret': {
+      const raw = ($('secretInput') || {}).value || '', code = raw.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g, '');
+      if (G.secretUsed) { Sound.play('error'); UI.toast('🔐 این کد قبلاً استفاده شده است', 'bad'); }
+      else if (code === '1818') { G.secretUsed = true; G.player.owner.money += 5e14; Sound.play('rebirth'); UI.closePanel(); UI.banner('🔐 کد مخفی!', '۵۰۰ هزار میلیارد سکه گرفتی'); FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.5), { count: 60, color: ['#ffd23f', '#fff3a0', '#ffffff'], speed: 8, up: true, life: 1.4 }); scheduleSave(true); }
+      else { Sound.play('error'); UI.toast('🔐 کد اشتباه است', 'bad'); }
+      break;
+    }
     case 'opencloud': break;
     case 'resume': UI.closePanel(); break;
     case 'settings': UI.openSettings(); break;
