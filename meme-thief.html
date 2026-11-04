@@ -424,6 +424,9 @@ const MUTATIONS = [
   { id: 3, name: 'رنگین‌کمانی', mult: 6, chance: 0.01, color: '#ff7cf0' },
   { id: 4, name: 'گدازه‌ای', mult: 200, chance: 0, color: '#ff7a2a' },   // lava planet only
   { id: 5, name: 'کهکشانی', mult: 600, chance: 0, color: '#c08cff' },  // lava planet only (rare)
+  { id: 6, name: 'آسمانی', mult: 2000, chance: 0, color: '#bff4ff' },   // sky islands only
+  { id: 7, name: 'طوفانی', mult: 6000, chance: 0, color: '#7ab8ff' },   // sky islands only (rare)
+  { id: 8, name: 'غول‌پیکر', mult: 20, chance: 0.004, color: '#ffb347', scale: 1.9 }, // world 1 rarity: a GIANT on the belt
 ];
 // id, name, emoji, rarity, price, income/s
 const CHARS = [
@@ -455,17 +458,33 @@ const CHARS = [
   ['cosmiccat', 'گربه‌ی کیهانی', '🌌', 6, 15000000, 110000],
   ['simorgh', 'سیمرغ نئونی', '🕊️', 7, 60000000, 400000],
   ['memeking', 'پادشاه میم‌ها', '👑', 7, 120000000, 750000],
+  // world-1 newcomers (Persian meme culture)
+  ['sugar', 'کله‌قند رقاص', '🧂', 0, 140, 6],
+  ['goldfish', 'ماهی قرمز عید', '🐠', 1, 1200, 30],
+  ['paykan', 'پیکان پرنده', '🚗', 2, 9000, 170],
+  ['cooker', 'زودپز موشکی', '🍲', 3, 70000, 950],
+  ['div', 'دیو سفید', '👹', 4, 550000, 6200],
+  ['rostam', 'رستم میمی', '🛡️', 5, 3500000, 32000],
+  ['ninjacat', 'گربه‌ی نینجا', '🥷', 6, 22000000, 160000],
   // lava-planet exclusives
   ['golem', 'غول گدازه‌ای', '🌋', 6, 2200000, 16000, true],
   ['jelly', 'عروس دریایی کیهانی', '🪼', 6, 4000000, 28000, true],
   ['phoenix', 'ققنوس آتشین', '🔥', 7, 30000000, 200000, true],
-].map((a, i) => ({ idx: i, id: a[0], name: a[1], emoji: a[2], rarity: a[3], price: a[4], income: a[5], w2: !!a[6] }));
+  // sky-island exclusives
+  ['whale', 'نهنگ ابری', '🐋', 6, 3000000, 25000, 3],
+  ['unicorn', 'تک‌شاخ رنگین‌کمانی', '🦄', 6, 6000000, 45000, 3],
+  ['angel', 'فرشته‌ی میم', '😇', 7, 50000000, 330000, 3],
+].map((a, i) => ({ idx: i, id: a[0], name: a[1], emoji: a[2], rarity: a[3], price: a[4], income: a[5], w2: a[6] === true, w3: a[6] === 3 }));
 const CHAR_BY_ID = Object.fromEntries(CHARS.map((c) => [c.id, c]));
-const BY_RARITY = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && !c.w2));
+const BY_RARITY = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && !c.w2 && !c.w3));
 // lava planet belt: only epic and above, plus its exclusives
 const W2_WEIGHTS = [0, 0, 0, 40, 30, 17, 9, 4];
-const W2_POOL = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && (c.w2 || c.rarity >= 3)));
+const W2_POOL = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && !c.w3 && (c.w2 || c.rarity >= 3)));
 const PORTAL_WORTH = 550000000;
+// sky islands belt: legendary and above, plus its exclusives
+const W3_WEIGHTS = [0, 0, 0, 0, 45, 30, 17, 8];
+const W3_POOL = RARITIES.map((r) => CHARS.filter((c) => c.rarity === r.id && !c.w2 && (c.w3 || c.rarity >= 4)));
+const PORTAL3_WORTH = 1e12;
 
 const MAX_SLOTS = 12;
 const START_MONEY = 100;
@@ -489,6 +508,10 @@ const UPGRADES = {
   petCat: { name: 'پت: گربه‌ی سکه‌ای', emoji: '🐱', max: 1, desc: () => 'دنبالت می‌آید و درآمدت را ۱۵٪ بیشتر می‌کند', cost: () => 50000 },
   petBird: { name: 'پت: جوجه‌ی تیزپا', emoji: '🐤', max: 1, desc: () => 'دنبالت می‌آید و ۱۰٪ تندتر می‌دوی', cost: () => 120000 },
   petDrag: { name: 'پت: اژدهاک کوچولو', emoji: '🐲', max: 1, desc: () => 'سیلی‌هایت ۴۰٪ زودتر آماده می‌شوند و یک ثانیه بیشتر گیج می‌کنند', cost: () => 400000 },
+  // sky-station gear (shop: 3)
+  glider: { shop: 3, name: 'پاراگلایدر', emoji: '🪂', max: 1, desc: () => 'وقتی از جزیره می‌افتی آرام سُر می‌خوری و می‌توانی به لبه برگردی', cost: () => 2e11 },
+  anchor: { shop: 3, name: 'چکمه‌ی لنگر', emoji: '⚓', max: 1, desc: () => 'باد شدید دیگر هلت نمی‌دهد', cost: () => 3e11 },
+  cloudJump: { shop: 3, name: 'کفش ابری', emoji: '☁️', max: 1, desc: () => 'در جزیره‌ها پرش سه‌گانه: دو بار وسط هوا بپر', cost: () => 5e11 },
   slap: { name: 'دستکش سیلی', emoji: '🥊', max: 3, desc: (l) => 'زمان استراحت ضربه: ' + fa((3.5 - l * 0.8).toFixed(1)) + ' → ' + fa((2.7 - l * 0.8).toFixed(1)) + ' ثانیه', cost: (l) => Math.round(2500 * Math.pow(4, l)) },
 };
 const UP_KEYS = Object.keys(UPGRADES);
@@ -520,6 +543,7 @@ const EVENTS = [
   { id: 'sale', name: 'حراج بزرگ', desc: 'قیمت‌های نوار ۳۰٪ ارزان‌تر!', emoji: '🏷️' },
   { id: 'raid', name: 'شب دزدها', desc: 'حریف‌ها بیشتر دزدی می‌کنند!', emoji: '🦹' },
   { id: 'turbo', name: 'نوار توربو', desc: 'نوار نقاله تندتر می‌چرخد!', emoji: '⚡' },
+  { id: 'ufo', name: 'حمله‌ی یوفوها', desc: 'یک یوفو میم‌های کمیاب و غول‌پیکر روی نوار می‌اندازد!', emoji: '🛸' },
 ];
 
 // ------------------------------------------------------------------ settings
@@ -822,6 +846,7 @@ const GEO = {
   cylLow: new THREE.CylinderGeometry(1, 1, 1, 8),
   cone: new THREE.ConeGeometry(1, 1, Math.round(18 * SEG)),
   cone4: new THREE.ConeGeometry(1, 1, 4),
+  pyrSq: new THREE.ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4),
   capsule: new THREE.CapsuleGeometry(0.5, 1, 6, Math.round(14 * SEG)),
   torus: new THREE.TorusGeometry(1, 0.12, 8, Math.round(28 * SEG)),
   torusThin: new THREE.TorusGeometry(1, 0.04, 6, 40),
@@ -1021,8 +1046,12 @@ const STEP_UP = 0.52, GRAVITY = -30;
 const WORLD = { minX: -160, maxX: 160, minZ: -80, maxZ: 80 };
 // second world (lava planet) lives far to the east in the same coordinate space
 const X2 = 1000, WORLD2 = { minX: X2 - 125, maxX: X2 + 125, minZ: -70, maxZ: 70 };
-const inW2 = (x) => x > 500;
-const boundsOf = (x) => (inW2(x) ? WORLD2 : WORLD);
+// third world (sky islands) even further east; it has no ground — only islands and bridges
+const X3 = 3000, WORLD3 = { minX: X3 - 108, maxX: X3 + 108, minZ: -62, maxZ: 62 };
+const worldOf = (x) => (x < 500 ? 1 : x < 2000 ? 2 : 3);
+const inW2 = (x) => x > 500 && x < 2000;
+const inW3 = (x) => x >= 2000;
+const boundsOf = (x) => { const w = worldOf(x); return w === 1 ? WORLD : w === 2 ? WORLD2 : WORLD3; };
 const PHYS = { boxes: [], circles: [], cells: new Map(), cs: 8, stamp: 1, constraints: [] };
 function cellKey(ix, iz) { return ix * 1000 + iz; }
 function insertCol(c, minX, minZ, maxX, maxZ) {
@@ -1053,7 +1082,7 @@ function queryCols(x, z, r) {
   return _q;
 }
 function floorAt(x, z, r, feetY) {
-  let best = 0, tag = null; const cols = queryCols(x, z, r + 0.1);
+  let best = inW3(x) ? -1000 : 0, tag = null; const cols = queryCols(x, z, r + 0.1); // the sky has no ground
   for (const c of cols) {
     if (c.maxY > feetY + STEP_UP || c.maxY <= best) continue;
     if (c.kind === 0) { const cx = clamp(x, c.minX, c.maxX), cz = clamp(z, c.minZ, c.maxZ); if ((x - cx) ** 2 + (z - cz) ** 2 > r * r) continue; }
@@ -1113,7 +1142,7 @@ function stepBody(b, dt) {
   } else { b.grounded = false; b.groundTag = null; }
   b.airTime = b.grounded ? 0 : b.airTime + dt;
   if (b.pos.y < -20 || !isFinite(b.pos.x + b.pos.y + b.pos.z)) { // safety net: never lost below ground
-    b.pos.set(0, 3, 0); b.vel.set(0, 0, 0); if (b.agent) b.agent.respawn();
+    if (b.agent) b.agent.onFall(); else if (!isFinite(b.pos.x + b.pos.y + b.pos.z)) { b.pos.set(0, 3, 0); b.vel.set(0, 0, 0); }
   }
 }
 // ray vs camera-blocking boxes (slab test). returns hit distance or maxT
@@ -1137,8 +1166,9 @@ function rayCast(o, d, maxT) {
 // ------------------------------------------------------------------ navigation grids (one per world) + A*
 const NAV = { minX: WORLD.minX, minZ: WORLD.minZ, cs: 1, w: 0, h: 0, blocked: null, B: WORLD };
 const NAV2 = { minX: WORLD2.minX, minZ: WORLD2.minZ, cs: 1, w: 0, h: 0, blocked: null, B: WORLD2 };
+const NAV3 = { minX: WORLD3.minX, minZ: WORLD3.minZ, cs: 1, w: 0, h: 0, blocked: null, B: WORLD3 };
 let NV = NAV; // grid used by the current query
-function pickNav(x) { NV = inW2(x) && NAV2.blocked ? NAV2 : NAV; return NV; }
+function pickNav(x) { const w = worldOf(x); NV = w === 2 && NAV2.blocked ? NAV2 : w === 3 && NAV3.blocked ? NAV3 : NAV; return NV; }
 function buildNav(N = NAV, extraBlocked = null) {
   const B = N.B;
   N.w = Math.ceil((B.maxX - B.minX) / N.cs); N.h = Math.ceil((B.maxZ - B.minZ) / N.cs);
@@ -1170,13 +1200,13 @@ function nearestOpen(idx) {
   return -1;
 }
 function lineOpen(x0, z0, x1, z1) {
-  pickNav(x0); if (inW2(x0) !== inW2(x1)) return false;
+  pickNav(x0); if (worldOf(x0) !== worldOf(x1)) return false;
   const d = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(d / 0.35);
   for (let i = 1; i <= n; i++) { const t = i / n; if (!navOpen(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t)) return false; }
   return true;
 }
 function findPath(sx, sz, tx, tz) {
-  if (inW2(sx) !== inW2(tx)) return null; // no walking between worlds: only the portal connects them
+  if (worldOf(sx) !== worldOf(tx)) return null; // no walking between worlds: only the portal connects them
   pickNav(sx);
   let s = nearestOpen(navIdx(sx, sz)), t = nearestOpen(navIdx(tx, tz));
   if (s < 0 || t < 0) return null;
@@ -1298,7 +1328,7 @@ function buildConveyor() {
 
 class BaseVis {
   constructor(index, cx, cz) {
-    this.index = index; this.cx = cx; this.cz = cz; this.f = cz > 0 ? 1 : -1; this.world = inW2(cx) ? 2 : 1;
+    this.index = index; this.cx = cx; this.cz = cz; this.f = cz > 0 ? 1 : -1; this.world = worldOf(cx);
     this.group = new THREE.Group(); this.group.position.set(cx, 0, cz); this.group.rotation.y = this.f === 1 ? 0 : Math.PI; scene.add(this.group);
     this.owner = null; this.barrierActive = false; this.slotPos = SLOT_LOCAL.map(([lx, lz]) => { const w = this.toWorld(lx, lz); return new THREE.Vector3(w.x, PED_Y, w.z); });
     const cp = this.toWorld(7.5, -6.2); this.collectPos = new THREE.Vector3(cp.x, FLOOR_Y, cp.z);
@@ -1457,7 +1487,7 @@ function buildBuilding(x, z, w, d, h, color, faceSign) {
   const m = new THREE.Mesh(GEO.box, [body, body, plain, plain, body, body]); m.position.y = h / 2; m.scale.set(w, h, d); m.castShadow = m.receiveShadow = true; g.add(m);
   const trim = mat('#ffffff', { r: 0.5 });
   mesh(GEO.box, trim, 0, h + 0.2, 0, w + 0.4, 0.4, d + 0.4, g);
-  if (h < 11) { const roof = mesh(GEO.cone4, new THREE.MeshStandardMaterial({ map: TEX.roof, roughness: 0.8 }), 0, h + 0.4 + 1.6, 0, w * 0.78, 3.2, d * 0.78, g); roof.rotation.y = Math.PI / 4; }
+  if (h < 11) { mesh(GEO.pyrSq, new THREE.MeshStandardMaterial({ map: TEX.roof, roughness: 0.8 }), 0, h + 0.4 + 1.6, 0, w * 1.1, 3.2, d * 1.1, g); }
   else { mesh(GEO.box, mat('#c9ced6', { m: 0.6, r: 0.3 }), w * 0.2, h + 1, d * 0.1, 2, 1.4, 2, g); mesh(GEO.cyl, mat('#9aa3ae', { m: 0.7 }), -w * 0.25, h + 1.2, 0, 0.6, 1.8, 0.6, g); }
   mesh(GEO.box, mat('#7a4b2a', { r: 0.6 }), 0, 1.3, faceSign * (d / 2 + 0.05), 2, 2.6, 0.12, g);
   const aw = mesh(GEO.box, mat(pick(['#ff4f8b', '#3df2b0', '#58c4ff', '#ffd23f'])), 0, 2.9, faceSign * (d / 2 + 0.6), 3, 0.15, 1.3, g); aw.rotation.x = faceSign * 0.25;
@@ -2031,6 +2061,123 @@ const BUILDERS = {
     for (let i = 0; i < 7; i++) { const f = P(GEO.cone, fire(['#ff2a00', '#ffb000', '#ff6a00', '#ffe14a', '#ff6a00', '#ffb000', '#ff2a00'][i]), (i - 3) * 0.16, -0.3, -0.9, 0.12, 1.6, 0.05, t); f.rotation.x = -Math.PI / 2 + 0.35; f.rotation.y = (i - 3) * 0.12; }
     return { type: 'fly', hover: 0.9, bigWings: true, fire: true };
   },
+  sugar(b, r) {
+    P(GEO.cone, '#f8f8f4', 0, 1.25, 0, 0.62, 1.6, 0.62, b, { r: 0.85 });
+    P(GEO.cyl, '#2f6fd6', 0, 0.62, 0, 0.6, 0.34, 0.6, b, { r: 0.6 }); P(GEO.torus, '#ffd23f', 0, 0.8, 0, 0.6, 0.6, 0.6, b).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 12; i++) P(GEO.sphere, '#ffffff', rand(-0.3, 0.3), rand(0.9, 1.8), 0.3, 0.03, 0.03, 0.02, b);
+    eyes(b, 1.35, 0.33, 0.13, 0.09); smile(b, 1.15, 0.36, 0.09, '#5a3a20', true);
+    leg(r, 'L1', -0.2, 0, 0.45, '#f8f8f4', '#2f6fd6', 0.06); leg(r, 'L2', 0.2, 0, 0.45, '#f8f8f4', '#2f6fd6', 0.06);
+    arm(b, 'A1', -0.42, 1.05, 0.42, '#f8f8f4', '#ffffff', 0.06, 0.7); arm(b, 'A2', 0.42, 1.05, 0.42, '#f8f8f4', '#ffffff', 0.06, 0.7);
+    return { type: 'biped', dance: true };
+  },
+  goldfish(b, r) {
+    keepM(P(GEO.sphere, glassMat('#d9f2ff'), 0, 1.25, 0, 0.75, 0.7, 0.75, b)).userData.solo = true;
+    P(GEO.cyl, '#3fb7ff', 0, 1.0, 0, 0.66, 0.42, 0.66, b, { t: 0.6, r: 0.1 });
+    const f = pivot(b, 'T', 0, 1.25, 0);
+    P(GEO.sphere, mat('#ff6a00', { e: '#ff4a00', ei: 0.3 }), 0, 0, 0.05, 0.28, 0.22, 0.38, f);
+    P(GEO.cone, '#ff8a1f', 0, 0, -0.42, 0.2, 0.3, 0.06, f).rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) eye(f, s * 0.13, 0.06, 0.28, 0.06);
+    P(GEO.torus, '#e8f5ff', 0, 1.88, 0, 0.42, 0.42, 0.6, b, { m: 0.3 }).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 3; i++) P(GEO.sphere, '#9fd36a', (i - 1) * 0.35, 0.68, -0.35, 0.12, 0.1, 0.12, b);
+    leg(r, 'L1', -0.25, 0, 0.48, '#ff8a1f', '#ff6a00', 0.06); leg(r, 'L2', 0.25, 0, 0.48, '#ff8a1f', '#ff6a00', 0.06);
+    return { type: 'hop' };
+  },
+  paykan(b) {
+    const body = mat('#f2e8d0', { m: 0.4, r: 0.35 });
+    P(rbox(1.1, 0.5, 2.1, 0.12), body, 0, 1.2, 0, 1, 1, 1, b);
+    P(rbox(0.95, 0.42, 1.05, 0.1), body, 0, 1.62, -0.1, 1, 1, 1, b);
+    keepM(P(GEO.box, glassMat('#bfe6ff'), 0, 1.62, 0.43, 0.84, 0.34, 0.05, b)).userData.solo = true;
+    for (const s of [-1, 1]) for (const z of [-0.65, 0.65]) { const w = P(GEO.cyl, '#1b1b22', s * 0.56, 0.95, z, 0.24, 0.16, 0.24, b, { r: 0.8 }); w.rotation.z = Math.PI / 2; P(GEO.cyl, '#c0c8d0', s * 0.62, 0.95, z, 0.12, 0.04, 0.12, b, { m: 0.9 }).rotation.z = Math.PI / 2; }
+    for (const s of [-1, 1]) keepM(P(GEO.sphere, mat('#fff3a0', { e: '#ffe14a', ei: 2 }), s * 0.36, 1.25, 1.06, 0.1, 0.1, 0.05, b));
+    P(GEO.box, '#c0c8d0', 0, 1.0, 1.08, 1.0, 0.1, 0.06, b, { m: 0.9 });
+    for (const s of [-1, 1]) eye(b, s * 0.2, 1.65, 0.48, 0.1);
+    wing(b, 'W1', -0.55, 1.35, 0, 0.9, 0.5, '#ffffff', '#ffd6e8'); wing(b, 'W2', 0.55, 1.35, 0, 0.9, 0.5, '#ffffff', '#ffd6e8');
+    return { type: 'fly', hover: 0.5 };
+  },
+  cooker(b) {
+    const steel = { m: 0.95, r: 0.2 };
+    P(GEO.cyl, '#c9d1d9', 0, 1.15, 0, 0.6, 0.85, 0.6, b, steel); P(GEO.hemi, '#aeb6bf', 0, 1.57, 0, 0.62, 0.22, 0.62, b, steel);
+    P(GEO.box, '#1b1b22', 0.8, 1.45, 0, 0.6, 0.1, 0.12, b); P(GEO.cyl, '#1b1b22', 0, 1.82, 0, 0.08, 0.22, 0.08, b);
+    keepM(P(GEO.sphere, mat('#ff4a4a', { e: '#ff2a2a', ei: 1.5 }), 0, 1.98, 0, 0.07, 0.07, 0.07, b));
+    for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; const fin = P(GEO.cone, '#ff4f8b', Math.cos(a) * 0.55, 0.62, Math.sin(a) * 0.55, 0.12, 0.45, 0.3, b); fin.rotation.y = -a; }
+    eyes(b, 1.25, 0.58, 0.2, 0.11); brows(b, 1.4, 0.62, 0.2, -0.3); smile(b, 1.02, 0.6, 0.12, '#3a1020', true);
+    const fl = pivot(b, 'FL1', 0, 0.68, 0); const f1 = keepM(P(GEO.cone, mat('#ff9a1f', { e: '#ff7a00', ei: 2 }), 0, -0.3, 0, 0.3, 0.6, 0.3, fl)); f1.rotation.x = Math.PI;
+    const fl2 = pivot(b, 'FL2', 0, 0.68, 0); const f2 = keepM(P(GEO.cone, addMat('#fff27a', 0.9), 0, -0.2, 0, 0.16, 0.4, 0.16, fl2)); f2.rotation.x = Math.PI;
+    return { type: 'fly', hover: 0.7, flames: true, steam: true };
+  },
+  div(b, r) {
+    const fur = mat('#f4f4f0', { r: 1, flat: true });
+    P(GEO.ico, fur, 0, 1.5, 0, 0.95, 1.05, 0.8, b); P(GEO.ico, fur, 0, 2.45, 0.1, 0.55, 0.5, 0.5, b);
+    for (const s of [-1, 1]) { const h = P(GEO.cone, '#3a2a20', s * 0.3, 2.95, 0.05, 0.1, 0.55, 0.1, b, { r: 0.5 }); h.rotation.z = -s * 0.5; }
+    for (const s of [-1, 1]) eye(b, s * 0.18, 2.52, 0.48, 0.1, { iris: '#ff2a2a', glow: true, pupil: 0.7 });
+    keepM(P(GEO.box, '#5a1010', 0, 2.25, 0.5, 0.36, 0.08, 0.05, b));
+    for (const s of [-1, 1]) keepM(P(GEO.cone, '#ffffff', s * 0.12, 2.18, 0.52, 0.04, 0.12, 0.04, b)).rotation.x = Math.PI;
+    const a1 = arm(b, 'A1', -0.95, 2.0, 0.85, '#e8e8e0', '#e8e8e0', 0.16, 0.35); arm(b, 'A2', 0.95, 2.0, 0.85, '#e8e8e0', '#e8e8e0', 0.16, 0.35);
+    P(GEO.cyl, '#6b4a2a', 0, -1.0, 0.3, 0.12, 1.4, 0.12, a1); P(GEO.sphere, '#6b4a2a', 0, -1.65, 0.3, 0.24, 0.3, 0.24, a1);
+    leg(r, 'L1', -0.38, 0, 0.7, '#e8e8e0', '#3a2a20', 0.2); leg(r, 'L2', 0.38, 0, 0.7, '#e8e8e0', '#3a2a20', 0.2);
+    return { type: 'biped', karate: true };
+  },
+  rostam(b, r) {
+    const skin = '#e0ac69', armor = mat('#e09a3a', { r: 0.6 }), gold = mat('#ffd23f', { m: 1, r: 0.2 });
+    P(rbox(0.85, 0.95, 0.5, 0.15), armor, 0, 1.5, 0, 1, 1, 1, b);
+    for (let i = 0; i < 14; i++) P(GEO.sphere, '#3a2410', rand(-0.38, 0.38), rand(1.1, 1.9), 0.26, 0.05, 0.04, 0.02, b);
+    P(GEO.sphere, skin, 0, 2.3, 0, 0.36, 0.38, 0.34, b);
+    P(GEO.cone, gold, 0, 2.78, 0, 0.36, 0.42, 0.36, b); P(GEO.cyl, gold, 0, 2.6, 0, 0.4, 0.08, 0.4, b); P(GEO.box, '#c0143c', 0, 2.95, -0.1, 0.06, 0.3, 0.3, b);
+    eyes(b, 2.36, 0.3, 0.12, 0.07); brows(b, 2.45, 0.33, 0.12, -0.35, '#1a0a00');
+    for (const s of [-1, 1]) { const m = keepM(P(GEO.capsule, '#1a0a00', s * 0.18, 2.18, 0.32, 0.09, 0.28, 0.09, b)); m.rotation.z = s * 1.3; }
+    const a1 = arm(b, 'A1', -0.55, 1.85, 0.6, armor, skin, 0.11, 0.3); arm(b, 'A2', 0.55, 1.85, 0.6, armor, skin, 0.11, 0.3);
+    P(GEO.cyl, '#8a6a3a', 0, -0.9, 0.2, 0.05, 1.0, 0.05, a1); P(GEO.dodec, gold, 0, -1.45, 0.2, 0.22, 0.22, 0.22, a1);
+    P(GEO.cyl, mat('#c0143c', { r: 0.6, side: true }), 0, 1.4, -0.32, 0.5, 1.2, 0.08, b);
+    leg(r, 'L1', -0.22, 0, 0.95, '#6b4a2a', '#3a2410', 0.12); leg(r, 'L2', 0.22, 0, 0.95, '#6b4a2a', '#3a2410', 0.12);
+    return { type: 'biped', karate: true, royal: true };
+  },
+  ninjacat(b, r) {
+    const black = mat('#15151d', { r: 0.5 });
+    P(GEO.capsule, black, 0, 1.15, 0, 0.6, 0.45, 0.55, b); P(GEO.sphere, black, 0, 1.8, 0.05, 0.42, 0.4, 0.4, b);
+    for (const s of [-1, 1]) P(GEO.cone, black, s * 0.25, 2.18, 0.02, 0.13, 0.3, 0.1, b).rotation.z = -s * 0.3;
+    P(GEO.torus, '#e02424', 0, 1.95, 0.02, 0.42, 0.42, 0.7, b).rotation.x = Math.PI / 2;
+    const tl = P(GEO.box, '#e02424', 0.1, 1.85, -0.45, 0.06, 0.4, 0.04, b); tl.rotation.z = 0.6;
+    for (const s of [-1, 1]) eye(b, s * 0.15, 1.85, 0.36, 0.09, { iris: '#7aff6a', glow: true, pupil: 0.6, sy: 0.6 });
+    const sw = P(GEO.box, mat('#dfe6ee', { m: 1, r: 0.15 }), 0.35, 1.5, -0.38, 0.06, 1.3, 0.12, b); sw.rotation.z = -0.7;
+    const t = pivot(b, 'T', 0, 0.85, -0.4); P(GEO.capsule, black, 0, 0.3, -0.25, 0.1, 0.35, 0.1, t).rotation.x = -0.7;
+    arm(b, 'A1', -0.42, 1.4, 0.45, black, black, 0.08); arm(b, 'A2', 0.42, 1.4, 0.45, black, black, 0.08);
+    leg(r, 'L1', -0.2, 0, 0.55, black, '#2a2a36', 0.09); leg(r, 'L2', 0.2, 0, 0.55, black, '#2a2a36', 0.09);
+    return { type: 'biped', karate: true };
+  },
+  whale(b) {
+    const blue = mat('#9fd8ff', { r: 0.4, e: '#5aa8ff', ei: 0.25 });
+    P(GEO.sphere, blue, 0, 1.6, 0, 0.95, 0.85, 1.55, b); P(GEO.sphere, '#f4fbff', 0, 1.25, 0.25, 0.7, 0.5, 1.2, b);
+    for (const s of [-1, 1]) eye(b, s * 0.55, 1.7, 1.05, 0.11);
+    smile(b, 1.35, 1.35, 0.25, '#3a5a8a');
+    const t = pivot(b, 'T', 0, 1.7, -1.4); for (const s of [-1, 1]) { const f = P(GEO.sphere, blue, s * 0.45, 0.2, -0.3, 0.5, 0.12, 0.3, t); f.rotation.y = s * 0.4; }
+    wing(b, 'W1', -0.85, 1.35, 0.2, 0.8, 0.4, '#9fd8ff'); wing(b, 'W2', 0.85, 1.35, 0.2, 0.8, 0.4, '#9fd8ff');
+    for (let i = 0; i < 5; i++) P(GEO.sphere, mat('#ffffff', { r: 1, t: 0.9 }), rand(-0.3, 0.3), 2.5 + i * 0.12, 0.5 - i * 0.05, 0.22 - i * 0.03, 0.18, 0.22 - i * 0.03, b);
+    return { type: 'fly', hover: 0.9, floaty: true };
+  },
+  unicorn(b, r) {
+    const wht = mat('#ffffff', { r: 0.5 });
+    P(GEO.capsule, wht, 0, 1.25, -0.1, 0.65, 0.6, 0.65, b).rotation.x = Math.PI / 2;
+    const nk = P(GEO.capsule, wht, 0, 1.75, 0.6, 0.32, 0.4, 0.32, b); nk.rotation.x = 0.6;
+    P(GEO.sphere, wht, 0, 2.1, 0.85, 0.3, 0.3, 0.42, b);
+    keepM(P(GEO.cone, mat('#ffd23f', { m: 0.8, r: 0.2, e: '#ffb000', ei: 0.6 }), 0, 2.55, 0.95, 0.06, 0.55, 0.06, b)).rotation.x = 0.3;
+    for (const s of [-1, 1]) eye(b, s * 0.17, 2.16, 1.18, 0.07, { iris: '#b061ff', pupil: 0.7 });
+    const cols = ['#ff4f8b', '#ffa31a', '#ffd23f', '#3df2b0', '#58c4ff', '#b061ff'];
+    for (let i = 0; i < 6; i++) keepM(P(GEO.sphere, mat(cols[i], { e: cols[i], ei: 0.6 }), 0, 2.3 - i * 0.1, 0.55 - i * 0.12, 0.1, 0.14, 0.12, b));
+    const t = pivot(b, 'T', 0, 1.3, -0.75); for (let i = 0; i < 6; i++) keepM(P(GEO.sphere, mat(cols[i], { e: cols[i], ei: 0.6 }), 0, -0.1 - i * 0.12, -0.15 - i * 0.05, 0.1, 0.14, 0.1, t));
+    wing(b, 'W1', -0.4, 1.55, 0, 1.2, 0.8, '#ffffff', '#ffe0f5'); wing(b, 'W2', 0.4, 1.55, 0, 1.2, 0.8, '#ffffff', '#ffe0f5');
+    for (const [n, x, z] of [['L1', -0.25, 0.35], ['L2', 0.25, 0.35], ['L3', -0.25, -0.5], ['L4', 0.25, -0.5]]) leg(r, n, x, z, 0.9, '#ffffff', '#ffd23f', 0.09);
+    return { type: 'quad' };
+  },
+  angel(b) {
+    const robe = mat('#fffaf0', { r: 0.6, e: '#fff3c0', ei: 0.25 });
+    P(GEO.cone, robe, 0, 1.15, 0, 0.6, 1.5, 0.6, b); P(GEO.sphere, '#ffd9b0', 0, 2.1, 0, 0.36, 0.38, 0.34, b);
+    P(GEO.hemi, '#ffd23f', 0, 2.22, -0.02, 0.38, 0.32, 0.36, b, { r: 0.6 });
+    eyes(b, 2.12, 0.28, 0.12, 0.08); smile(b, 1.95, 0.32, 0.09, '#a04040');
+    keepM(P(GEO.torus, mat('#ffe14a', { e: '#ffd000', ei: 2.4 }), 0, 2.62, 0, 0.32, 0.32, 0.5, b)).rotation.x = Math.PI / 2;
+    wing(b, 'W1', -0.35, 1.7, -0.2, 1.8, 1.3, '#ffffff', '#fff3c0'); wing(b, 'W2', 0.35, 1.7, -0.2, 1.8, 1.3, '#ffffff', '#fff3c0');
+    arm(b, 'A1', -0.42, 1.65, 0.5, robe, '#ffd9b0', 0.08, 0.6); arm(b, 'A2', 0.42, 1.65, 0.5, robe, '#ffd9b0', 0.08, 0.6);
+    return { type: 'fly', hover: 0.8, bigWings: true };
+  },
   memeking(b, r) {
     P(GEO.sphere, mat('#ffcf3f', { m: 0.7, r: 0.25 }), 0, 1.35, 0, 0.95, 0.9, 0.85, b);
     const cape = new THREE.Mesh(new THREE.CylinderGeometry(0.98, 1.25, 1.6, 20, 1, true, Math.PI * 0.6, Math.PI * 0.8), mat('#c0143c', { r: 0.6, side: true })); cape.position.set(0, 1.15, -0.05); cape.castShadow = true; b.add(cape);
@@ -2069,6 +2216,8 @@ function mutMaterial(id) {
   let m;
   if (id === 1) m = new THREE.MeshStandardMaterial({ color: '#ffc93c', metalness: 1, roughness: 0.22, envMapIntensity: 1.7 });
   else if (id === 4) m = new THREE.MeshStandardMaterial({ color: '#2a1414', metalness: 0.2, roughness: 0.55, emissive: '#ff4a00', emissiveIntensity: 0.55, flatShading: true });
+  else if (id === 6) m = new THREE.MeshStandardMaterial({ color: '#f4fbff', metalness: 0.5, roughness: 0.12, emissive: '#9fe8ff', emissiveIntensity: 0.35, envMapIntensity: 2.2 });
+  else if (id === 7) m = new THREE.MeshStandardMaterial({ color: '#16224a', metalness: 0.7, roughness: 0.2, emissive: '#29d9ff', emissiveIntensity: 0.7, flatShading: true });
   else if (id === 5) m = new THREE.MeshStandardMaterial({ color: '#2a1060', metalness: 0.6, roughness: 0.15, emissive: '#7a3cff', emissiveIntensity: 0.6, envMapIntensity: 2 });
   else if (id === 2) m = new THREE.MeshStandardMaterial({ color: '#c8f6ff', metalness: 0.35, roughness: 0.04, envMapIntensity: 2.6, emissive: '#3fb0ff', emissiveIntensity: 0.18, flatShading: true });
   else m = new THREE.MeshStandardMaterial({ color: '#ff66cc', metalness: 0.3, roughness: 0.25, emissive: '#ff00aa', emissiveIntensity: 0.25 });
@@ -2078,7 +2227,7 @@ const POOL = new Map();
 function obtainVisual(typeId, mut) {
   const k = typeId + ':' + mut; const l = POOL.get(k); if (l && l.length) return l.pop();
   const T = TEMPLATES[typeId]; const root = T.root.clone(true);
-  if (mut > 0) { const mm = mutMaterial(mut); root.traverse((o) => { if (o.isMesh && !o.userData.keep && !o.material.transparent && o.material.blending !== THREE.AdditiveBlending) o.material = mm; }); }
+  if (mut > 0 && mut !== 8) { const mm = mutMaterial(mut); root.traverse((o) => { if (o.isMesh && !o.userData.keep && !o.material.transparent && o.material.blending !== THREE.AdditiveBlending) o.material = mm; }); }
   const parts = {};
   root.traverse((o) => { if (o.name) parts[o.name] = o; o.castShadow = o.isMesh; });
   return { root, parts, key: k, spec: T.spec };
@@ -2164,7 +2313,8 @@ const G = {
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 const beltSpeed = (B = BELT) => B.speed * (G.event && G.event.id === 'turbo' ? 1.6 : 1);
 BELT.list = G.belt; BELT.w = 1; BELT.tag = 'belt'; BELT.spawnT = 1;
-const beltOfTag = (tag) => (tag === 'belt2' ? BELT2 : BELT);
+const beltOfTag = (tag) => (tag === 'belt2' ? BELT2 : tag === 'belt3' ? BELT3 : BELT);
+const beltOfWorld = (w) => (w === 2 ? BELT2 : w === 3 ? BELT3 : BELT);
 const beltPrice = (u) => Math.round(u.price * (G.event && G.event.id === 'sale' ? 0.7 : 1));
 const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
 
@@ -2202,7 +2352,7 @@ const PILLAR_GEO = new THREE.CylinderGeometry(0.55, 0.75, 12, 16, 1, true);
 class Unit {
   constructor(c, mut) {
     this.c = c; this.mut = mut; this.lvl = 0; this.recalc();
-    this.vis = obtainVisual(c.id, mut); this.spec = this.vis.spec; this.sc = this.spec.scale;
+    this.vis = obtainVisual(c.id, mut); this.spec = this.vis.spec; this.sc = this.spec.scale * (MUTATIONS[mut].scale || 1);
     this.root = new THREE.Group(); this.root.add(this.vis.root); this.vis.root.scale.setScalar(this.sc); this.vis.root.position.set(0, 0, 0); this.vis.root.rotation.set(0, 0, 0);
     this.pos = this.root.position; this.yaw = 0; this.state = 'none'; this.owner = null; this.slot = null; this.carrier = null;
     this.path = null; this.pi = 0; this.ph = Math.random() * 6; this.seed = Math.random() * 10; this.transitT = 0; this.moving = false; this.fxT = 0;
@@ -2331,18 +2481,20 @@ function updateLights(camPos) {
 function rollRarity(B = BELT) {
   const lucky = G.event && G.event.id === 'lucky';
   if (B.w === 1 && G.spawnCount < 4) return G.spawnCount === 3 ? 1 : 0;
-  const w = (B.w === 2 ? W2_WEIGHTS : RARITIES.map((r) => r.weight)).map((x, i) => x * (lucky && i >= 2 ? 4 : 1)); const tot = w.reduce((a, b) => a + b, 0);
+  const w = (B.w === 2 ? W2_WEIGHTS : B.w === 3 ? W3_WEIGHTS : RARITIES.map((r) => r.weight)).map((x, i) => x * (lucky && i >= 2 ? 4 : 1)); const tot = w.reduce((a, b) => a + b, 0);
   let x = Math.random() * tot; for (let i = 0; i < w.length; i++) { x -= w[i]; if (x <= 0) return i; } return 0;
 }
 function rollMut() { let x = Math.random(); for (let i = MUTATIONS.length - 1; i > 0; i--) { if (x < MUTATIONS[i].chance) return i; x -= MUTATIONS[i].chance; } return 0; }
 function spawnBelt(B = BELT) {
-  const r = rollRarity(B), w2 = B.w === 2;
-  const c = pick(w2 ? W2_POOL[r] : BY_RARITY[r]), u = new Unit(c, w2 ? (Math.random() < 0.15 ? 5 : 4) : G.spawnCount < 4 ? 0 : rollMut());
+  const r = rollRarity(B), w2 = B.w === 2, w3 = B.w === 3;
+  const pool = w2 ? W2_POOL[r] : w3 ? W3_POOL[r] : BY_RARITY[r];
+  const c = pick(pool.length ? pool : BY_RARITY[0]), u = new Unit(c, w2 ? (Math.random() < 0.15 ? 5 : 4) : w3 ? (Math.random() < 0.12 ? 7 : 6) : G.spawnCount < 4 ? 0 : rollMut());
   u.belt = B; u.state = 'belt'; u.pos.set(B.x0 + 0.5, B.top, rand(-0.35, 0.35)); u.yaw = Math.PI / 2; u.root.rotation.y = u.yaw; u.setPlate('shop');
-  B.list.push(u); if (!w2) G.spawnCount++;
-  FX.burst(tmpV.set(u.pos.x, 1.5, u.pos.z), { count: 16, color: w2 ? ['#ff5a1f', '#ffd23f', RARITIES[r].color] : ['#c79bff', '#ffffff', RARITIES[r].color], speed: 3.5, life: 0.6 });
-  const here = G.player && inW2(G.player.body.pos.x) === w2;
-  if (r >= (w2 ? 6 : 4) && G.playing && here) { UI.toast('🌟 یک میم ' + RARITIES[r].name + ' روی نوار آمد: ' + c.name + '!', 'rare'); Sound.play('rare'); if (r >= 6) UI.banner(RARITIES[r].name + '!', c.name + ' ظاهر شد'); }
+  B.list.push(u); if (B.w === 1) G.spawnCount++;
+  FX.burst(tmpV.set(u.pos.x, 1.5, u.pos.z), { count: 16, color: w2 ? ['#ff5a1f', '#ffd23f', RARITIES[r].color] : w3 ? ['#ffffff', '#9fe8ff', RARITIES[r].color] : ['#c79bff', '#ffffff', RARITIES[r].color], speed: 3.5, life: 0.6 });
+  const here = G.player && worldOf(G.player.body.pos.x) === B.w;
+  if (u.mut === 8 && G.playing && here) { UI.banner('🗿 میم غول‌پیکر!', c.name + ' · ۲۰ برابر ارزش'); Sound.play('rare'); }
+  else if (r >= (B.w > 1 ? 6 : 4) && G.playing && here) { UI.toast('🌟 یک میم ' + RARITIES[r].name + ' روی نوار آمد: ' + c.name + '!', 'rare'); Sound.play('rare'); if (r >= 6) UI.banner(RARITIES[r].name + '!', c.name + ' ظاهر شد'); }
 }
 function updateBelt(dt) {
   for (const B of BELTS) {
@@ -2504,6 +2656,17 @@ class Agent {
   get stunned() { return this.stunT > 0; }
   stun(t) { this.stunT = t; FX.burst(tmpV.copy(this.body.pos).setY(this.body.pos.y + 2.2), { count: 12, color: ['#ffd23f', '#ffffff'], speed: 2, life: 0.8 }); }
   zap() { if (this.zapT > 0) return; this.zapT = 0.6; FX.burst(tmpV.copy(this.body.pos).setY(this.body.pos.y + 1), { count: 14, color: ['#ff2a3a', '#ffffff'], speed: 5, life: 0.4 }); if (this.isPlayer) { Sound.play('zap'); UI.toast('⚡ سپر لیزری فعال است! نمی‌شود وارد شد', 'bad'); } }
+  onFall() { // fell into the void (sky islands) or broke physics: drop what you carry and come back safely
+    const w = worldOf(this.body.pos.x);
+    if (this.carrying) { const u = this.carrying; returnUnit(u); if (this.isPlayer) UI.toast('☁️ از جزیره افتادی و «' + u.c.name + '» برگشت سر جایش!', 'bad'); }
+    else if (this.isPlayer && w === 3) UI.toast('☁️ از جزیره افتادی! مواظب لبه‌ها و باد باش', 'bad');
+    if (w !== 3) { this.respawn(); return; }
+    const own = this.isGuard ? this.brain.base : this.owner.bases.find((b) => b.world === 3);
+    const sp = own ? own.spawnPos : W3.arrival; this.body.pos.copy(sp).setY(sp.y + 0.6); this.body.vel.set(0, 0, 0); this.stunT = 0.6; this.fling = 0;
+    FX.burst(tmpV.copy(this.body.pos).setY(this.body.pos.y + 1), { count: 24, color: ['#ffffff', '#9fe8ff'], speed: 4, life: 0.7 });
+    if (this.isPlayer) { CAM.pivot.set(sp.x, sp.y + 1.65, sp.z); Sound.play('poof'); if (this.brain) this.brain.path = null; }
+    else if (this.brain) this.brain.set(this.isGuard ? 'patrol' : 'idle');
+  }
   respawn() { const sp = (this.isGuard ? this.brain.base : this.owner.base).spawnPos; this.body.pos.copy(sp).setY(sp.y + 0.5); this.body.vel.set(0, 0, 0); if (this.carrying) returnUnit(this.carrying); }
   maxSpeed() {
     let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : this.isGuard ? (this.brain.run ? 7.6 : 4.2) : this.owner.hard ? (this.brain.run ? 6.9 : 5.6) : (this.brain.run ? 5.75 : 5.0);
@@ -2523,13 +2686,21 @@ class Agent {
     const dx = tx - b.vel.x, dz = tz - b.vel.z, dl = Math.hypot(dx, dz), stepA = acc * dt;
     if (dl <= stepA) { b.vel.x = tx; b.vel.z = tz; } else { b.vel.x += dx / dl * stepA; b.vel.z += dz / dl * stepA; }
     if (b.grounded) this.coyote = 0.12; else this.coyote -= dt;
-    if (b.grounded) this.dj = false;
+    if (b.grounded) this.dj = 0;
+    const w3p = this.isPlayer && inW3(b.pos.x);
+    if (w3p) { // sky islands: remember the last safe ground, glide down slowly, rescue from the void
+      if (b.grounded && b.groundTag && b.pos.y > -0.5 && w3Walkable(b.pos.x, b.pos.z, 0.8)) { if (!this.lastSafe) this.lastSafe = new THREE.Vector3(); this.lastSafe.copy(b.pos); }
+      this.gliding = !!this.owner.up.glider && !b.grounded && b.vel.y < -2.6;
+      if (this.gliding) b.vel.y = -2.6;
+      if (this.owner.up.glider && b.pos.y < -6 && this.lastSafe) { b.pos.copy(this.lastSafe).setY(this.lastSafe.y + 0.6); b.vel.set(0, 0, 0); this.gliding = false; UI.toast('🪂 پاراگلایدر نجاتت داد!', 'good'); }
+    } else this.gliding = false;
+    const airJumps = this.isPlayer ? (w3p && this.owner.up.cloudJump ? 2 : this.owner.up.jump ? 1 : 0) : 0;
     this.slapCd = Math.max(0, (this.slapCd || 0) - dt);
     if (this.jumpQ > 0) {
       this.jumpQ -= dt;
       if (this.coyote > 0 && !this.stunned) { b.vel.y = 10.2; this.coyote = 0; this.jumpQ = 0; b.grounded = false; this.jumpHeld = true; if (this.isPlayer) Sound.play('jump'); }
-      else if (this.isPlayer && this.owner.up.jump && !this.dj && !b.grounded && !this.jumpHeld && !this.stunned) {
-        b.vel.y = 9.6; this.dj = true; this.jumpQ = 0; Sound.play('djump'); Missions.event('djump');
+      else if (this.isPlayer && (this.dj || 0) < airJumps && !b.grounded && !this.jumpHeld && !this.stunned) {
+        b.vel.y = 9.6; this.dj = (this.dj || 0) + 1; this.jumpQ = 0; Sound.play('djump'); Missions.event('djump');
         FX.burst(tmpV.copy(b.pos).setY(b.pos.y + 0.2), { count: 16, color: ['#7af7ff', '#ffffff'], speed: 3, life: 0.5, grav: 0 });
       }
     } else this.jumpHeld = false;
@@ -2626,7 +2797,7 @@ class Brain {
     if (target) { this.set('buy', { unit: target }); this.run = true; return; }
     // wander
     if (Math.random() < 0.55) { const lx = rand(-9, 9), lz = rand(-5, 8), w = base.toWorld(lx, lz); this.set('wander'); this.goTo(w.x, w.z); }
-    else { const w2 = base.world === 2, cxw = w2 ? X2 : 0, pz = w2 ? 9 : 15; const pts = [[base.cx + rand(-40, 40), rand(4, pz) * Math.sign(base.cz)], [cxw + rand(w2 ? -70 : -120, w2 ? 70 : 120), rand(-pz, pz)], [base.cx + rand(-30, 30), Math.sign(base.cz) * 3.2]]; const q = pick(pts); this.set('wander'); this.goTo(q[0], q[1]); }
+    else { const w2 = base.world === 2, w3 = base.world === 3, cxw = w2 ? X2 : w3 ? X3 : 0, pz = w2 || w3 ? 9 : 15; const pts = w3 ? [[X3 + rand(-60, 60), rand(-pz, pz)], [clamp(base.cx, X3 - 60, X3 + 60), Math.sign(base.cz) * 3.2]] : [[base.cx + rand(-40, 40), rand(4, pz) * Math.sign(base.cz)], [cxw + rand(w2 ? -70 : -120, w2 ? 70 : 120), rand(-pz, pz)], [base.cx + rand(-30, 30), Math.sign(base.cz) * 3.2]]; const q = pick(pts); this.set('wander'); this.goTo(q[0], q[1]); }
   }
   tryUpgrade() {
     const o = this.o, base = o.base;
@@ -2638,7 +2809,7 @@ class Brain {
   pickBelt() {
     const o = this.o, slot = o.freeSlot(); let best = null, bestScore = 0;
     let weakest = null; for (const s of o.slots) if (s.unit && s.unit.state === 'slotted' && (!weakest || s.unit.income < weakest.income)) weakest = s.unit;
-    const B = o.base.world === 2 ? BELT2 : BELT;
+    const B = beltOfWorld(o.base.world);
     for (const u of B.list) {
       if (u.pos.x > Math.min(B.x1 - 14, o.base.cx + 20)) continue; const pr = beltPrice(u);
       if (pr > o.money * (slot ? 1 : 0.9)) continue;
@@ -2801,9 +2972,9 @@ const Shop = {
   },
   keeper: null,
   order(key) {
-    const o = G.player.owner, U = UPGRADES[key], l = o.up[key], w2 = inW2(G.player.body.pos.x);
-    if (l >= U.max || (U.shop === 2) !== w2) return;
-    this.keeper = w2 ? W2.keeper : shopkeeper;
+    const o = G.player.owner, U = UPGRADES[key], l = o.up[key], wn = worldOf(G.player.body.pos.x), w2 = wn > 1;
+    if (l >= U.max || (U.shop || 1) !== wn) return;
+    this.keeper = wn === 2 ? W2.keeper : wn === 3 ? W3.keeper : shopkeeper;
     if (this.busy) { Sound.play('error'); UI.toast('⏳ هنوز سفارش قبلی‌ات در راه است…', 'bad'); return; }
     const cost = U.cost(l); if (o.money < cost) { Sound.play('error'); UI.toast('💸 پولت برای «' + U.name + '» کافی نیست (' + fmt(cost) + ')', 'bad'); return; }
     o.money -= cost; this.ensureItem();
@@ -2815,10 +2986,12 @@ const Shop = {
   },
   update(dt) {
     if (W2.keeper) animateAvatar(W2.keeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 });
-    for (const [K, rest] of [[shopkeeper, Math.PI / 2], [W2.keeper, -Math.PI / 2]]) {
+    if (W3.keeper) animateAvatar(W3.keeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 });
+    for (const [K, rest] of [[shopkeeper, Math.PI / 2], [W2.keeper, -Math.PI / 2], [W3.keeper, Math.PI / 2]]) {
       if (!K || (this.busy && this.keeper === K)) continue;
       K.root.rotation.y = damp(K.root.rotation.y, rest, 4, dt);
       if (K === shopkeeper) { K.armR.rotation.x = -2.5 + Math.sin(G.time * 5) * 0.4; K.armR.rotation.z = -0.4; }
+      else if (K === W3.keeper) { K.armR.rotation.x = -2.6 + Math.sin(G.time * 3) * 0.3; K.armL.rotation.x = -2.6 - Math.sin(G.time * 3) * 0.3; }
       else { K.armR.rotation.x = -1.2 + Math.abs(Math.sin(G.time * 4)) * -1.2; K.armR.rotation.z = -0.2; if (Math.random() < dt * 3) FX.burst(tmpV.set(K.root.position.x - 1.1, 1.3, K.root.position.z + 1.4), { count: 5, color: ['#ffb000', '#ff5a1f'], speed: 3, life: 0.4 }); }
     }
     if (!this.busy) return;
@@ -2839,7 +3012,7 @@ const Shop = {
     const b = this.busy; if (!b) return; this.busy = null; if (this.item) this.item.visible = false;
     const o = G.player.owner; applyUpgrade(o, b.key); Missions.event('shop');
     FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.3), { count: 26, color: ['#ffd23f', '#3df2b0', '#ffffff'], speed: 4, up: true, life: 0.8 });
-    UI.toast('🎁 ' + (UPGRADES[b.key].shop === 2 ? 'آهنگر گدازه' : 'مغازه‌دار') + ' «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
+    UI.toast('🎁 ' + (UPGRADES[b.key].shop === 2 ? 'آهنگر گدازه' : UPGRADES[b.key].shop === 3 ? 'خلبان ایستگاه' : 'مغازه‌دار') + ' «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
   },
 };
 // walk a unit to a slot, quickly when the slot is far away (it always follows the navigation path)
@@ -2991,7 +3164,7 @@ const Fusion = {
 const NIGHT_TOP = new THREE.Color('#0a0f2e'), NIGHT_HOR = new THREE.Color('#2b2f6e'), MOON = new THREE.Color('#9fb4ff'), SUNC = new THREE.Color('#fff0d8');
 const Day = {
   t: 0.3, len: 480, k: 1,
-  label() { if (G.player && inW2(G.player.body.pos.x)) return '🌋 سیاره‌ی گدازه'; const s = Math.sin(this.t * TAU), c = Math.cos(this.t * TAU); void s; return this.k > 0.75 ? '☀️ روز' : this.k < 0.25 ? '🌙 شب' : c < 0 ? '🌇 غروب' : '🌅 طلوع'; },
+  label() { if (G.player && inW2(G.player.body.pos.x)) return '🌋 سیاره‌ی گدازه'; if (G.player && inW3(G.player.body.pos.x)) return W3.wind && W3.wind.on > 0 ? '🌬️ باد شدید!' : '🏝️ جزیره‌های آسمانی'; const s = Math.sin(this.t * TAU), c = Math.cos(this.t * TAU); void s; return this.k > 0.75 ? '☀️ روز' : this.k < 0.25 ? '🌙 شب' : c < 0 ? '🌇 غروب' : '🌅 طلوع'; },
   update(dt) {
     this.t = (this.t + dt / this.len) % 1;
     const s = Math.sin(this.t * TAU), x = clamp((s + 0.55) / 0.4, 0, 1), k = x * x * (3 - 2 * x); this.k = k;
@@ -3004,6 +3177,12 @@ const Day = {
     if (W.stars) { W.stars.material.opacity = clamp((0.55 - k) * 1.8, 0, 1); W.stars.position.copy(camera.position); }
     const lavaSky = inW2(camera.position.x);
     if (W2.planet) { W2.planet.visible = lavaSky; if (lavaSky) W2.planet.position.set(camera.position.x - 170, camera.position.y + 150, camera.position.z - 330); }
+    const skyW3 = inW3(camera.position.x);
+    if (skyW3) { // bright pastel sky above a sea of clouds
+      u.top.value.set('#5aa8ff'); u.hor.value.set('#ffd9ec'); scene.fog.color.set('#ffe6f2'); renderer.setClearColor(u.hor.value, 1);
+      hemi.intensity = 0.85; fill.intensity = 0.5; sun.color.set('#fff2e0'); sun.intensity = 2.6 * (G.sunTint || 1); renderer.toneMappingExposure = 1.05;
+      if (W.stars) W.stars.material.opacity = 0; return;
+    }
     if (lavaSky) { // eternal crimson dusk
       u.top.value.set('#14040c'); u.hor.value.set('#6a1a20'); scene.fog.color.set('#3a0e14'); renderer.setClearColor(u.hor.value, 1);
       hemi.intensity = 0.42; fill.intensity = 0.25; sun.color.set('#ff9a6a'); sun.intensity = 2.0 * (G.sunTint || 1); renderer.toneMappingExposure = 0.98;
@@ -3049,7 +3228,7 @@ let saveQueued = false;
 function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
-    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
+    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, portal3: !!G.portal3Unlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl] : null)) })),
   };
@@ -3060,14 +3239,14 @@ function loadSave() {
   const raw = lsGet(SAVE_KEY); if (!raw) return null;
   try {
     const s = JSON.parse(raw);
-    if (!s || s.v !== 1 || !Array.isArray(s.owners) || ![6, 8, 13].includes(s.owners.length)) throw new Error('bad shape');
+    if (!s || s.v !== 1 || !Array.isArray(s.owners) || ![6, 8, 13, 17].includes(s.owners.length)) throw new Error('bad shape');
     return s;
   } catch (e) { console.warn('save corrupt, backing up', e); lsSet(SAVE_KEY + '.bak', raw); lsDel(SAVE_KEY); return null; }
 }
 function applySave(s) {
   G.name = typeof s.name === 'string' ? s.name.slice(0, 14) : G.name;
   Day.t = num(s.dayT, 0.3, 0, 1); Missions.load(s.missions);
-  G.portalUnlocked = !!s.portal; G.secretUsed = !!s.sc; G.reflect = !!s.rf;
+  G.portalUnlocked = !!s.portal; G.portal3Unlocked = !!s.portal3; G.secretUsed = !!s.sc; G.reflect = !!s.rf;
   G.playTime = num(s.playTime, 0); G.tutorialDone = !!s.tutorialDone; G.nextEventIn = num(s.nextEventIn, 150, 20, 400);
   if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(G.stats)) G.stats[k] = num(s.stats[k], 0);
   if (Array.isArray(s.ach)) s.ach.forEach((id) => { if (ACHIEVEMENTS.some((x) => x.id === id)) G.ach.add(id); });
@@ -3091,6 +3270,7 @@ function seedRivals(from = 0) {
   for (const o of G.owners) {
     if (o.isPlayer || o.id < from) continue;
     if (o.base.world === 2) { seedW2Owner(o); continue; }
+    if (o.base.world === 3) { seedW3Owner(o); continue; }
     o.money = randi(200, 1500); o.up.cap = randi(0, 2);
     const n = randi(3, Math.min(o.cap, 5));
     for (let i = 0; i < n; i++) {
@@ -3277,7 +3457,7 @@ class GuardBrain extends Brain {
     if (this.scan <= 0) {
       this.scan = 0.25; let best = null, bd = 1e9;
       for (const ag of G.agents) {
-        if (ag.owner === o || ag.isGuard || (ag.isPlayer && !G.playing) || ag.stunned || inW2(ag.body.pos.x) !== inW2(p.x)) continue;
+        if (ag.owner === o || ag.isGuard || (ag.isPlayer && !G.playing) || ag.stunned || worldOf(ag.body.pos.x) !== worldOf(p.x)) continue;
         const thief = ag.carrying && ag.carrying.owner === o, inside = b.contains(ag.body.pos.x, ag.body.pos.z, 0.5);
         if (!thief && !inside) continue;
         if (!thief && ag.isPlayer && ag.owner.up.cloak) continue; // shadow cloak: unseen until you grab something
@@ -3368,20 +3548,21 @@ const Portal = {
     Sound.play('rebirth'); UI.banner('🌀 پرتال باز شد!', 'ثروتت به ۵۵۰ میلیون رسید. برو کنار جدول برترها و وارد سیاره‌ی گدازه شو');
     UI.toast('🌋 یک پرتال کنار جدول برترها ظاهر شد. آنجا خیلی سخت‌تر است!', 'rare'); scheduleSave(true);
   },
-  travel(to) {
+  travel(to, from) {
     const a = G.player;
-    if (a.carrying) { Sound.play('error'); UI.toast('🌀 نمی‌توانی میم دزدی را از پرتال رد کنی', 'bad'); const from = to === 2 ? PORTAL1 : PORTAL2; tmpV.subVectors(a.body.pos, from).setY(0).normalize(); a.body.vel.set(tmpV.x * 8, 4, tmpV.z * 8); this.cd = 1; return; }
-    const dest = to === 2 ? tmpV.set(PORTAL2.x + 6, 0.2, PORTAL2.z) : tmpV.set(PORTAL1.x - 6, 0.2, PORTAL1.z);
-    a.body.pos.copy(dest); a.body.vel.set(0, 0, 0); a.renderY = dest.y; a.yaw = to === 2 ? Math.PI / 2 : -Math.PI / 2;
+    if (a.carrying) { Sound.play('error'); UI.toast('🌀 نمی‌توانی میم دزدی را از پرتال رد کنی', 'bad'); tmpV.subVectors(a.body.pos, from || a.body.pos).setY(0); if (tmpV.lengthSq() < 1e-4) tmpV.set(1, 0, 0); tmpV.normalize(); a.body.vel.set(tmpV.x * 8, 4, tmpV.z * 8); a.fling = 0.4; this.cd = 1; return; }
+    const dest = to === 2 ? tmpV.set(PORTAL2.x + 6, 0.2, PORTAL2.z) : to === 3 ? tmpV.copy(W3.arrival).setY(0.2) : tmpV.set(PORTAL1.x - 6, 0.2, PORTAL1.z);
+    a.body.pos.copy(dest); a.body.vel.set(0, 0, 0); a.renderY = dest.y; a.yaw = to === 1 ? -Math.PI / 2 : to === 3 ? -Math.PI / 2 : Math.PI / 2;
     CAM.yaw = a.yaw + Math.PI; CAM.pivot.set(dest.x, dest.y + 1.65, dest.z); CAM.cur = S.zoom; this.cd = 2.5;
     const fl = $('flash'); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); Sound.play('portal');
-    FX.burst(tmpV.copy(dest).setY(1.5), { count: 40, color: to === 2 ? ['#ff5a1f', '#ffd23f'] : ['#29d9ff', '#3df2b0'], speed: 6, life: 0.9 });
-    if (to === 2) {
+    FX.burst(tmpV.copy(dest).setY(1.5), { count: 40, color: to === 2 ? ['#ff5a1f', '#ffd23f'] : to === 3 ? ['#ffffff', '#9fe8ff'] : ['#29d9ff', '#3df2b0'], speed: 6, life: 0.9 });
+    if (to === 3) arriveW3();
+    else if (to === 2) {
       const o = a.owner;
       if (W2.playerPlot && !W2.playerPlot.owner) { claimPlot(o, W2.playerPlot, true); ensurePlayerGuard(); UI.banner('🌋 به سیاره‌ی گدازه خوش آمدی!', 'یک پایگاه رایگان اینجا گرفتی · گدازه، نگهبان‌ها و شهاب‌سنگ‌ها مراقبت باش'); Sound.play('success'); scheduleSave(true); }
       else UI.toast('🌋 سیاره‌ی گدازه — میم‌های اینجا ۲۰۰ برابر می‌ارزند', 'rare');
     } else UI.toast('🌍 برگشتی به میدان میم‌ها', 'good');
-    UI.mapBg = null; UI.mapBg2 = null;
+    UI.mapBg = null; UI.mapBg2 = null; UI.mapBg3 = null;
   },
   update(dt, t) {
     if (this.p1 && this.p1.g.visible) { animPortal(this.p1, dt, t); if (this.appearT > 0) { this.appearT -= dt; const k = 1 - Math.max(0, this.appearT) / 2.5; this.p1.g.scale.setScalar(Math.max(0.01, k)); if (Math.random() < 0.5) FX.burst(tmpV.copy(PORTAL1).setY(3.8), { count: 4, color: ['#ff5a1f', '#b061ff'], speed: 6, life: 0.6 }); } }
@@ -3389,11 +3570,13 @@ const Portal = {
     for (const f of W2.anim) f(dt, t);
     if (W2.beltTex) W2.beltTex.offset.x -= beltSpeed(BELT2) * dt / 2;
     if (!G.playing || !G.player) return;
-    this.checkT -= dt; if (this.checkT <= 0) { this.checkT = 1; if (!G.portalUnlocked && G.player.owner.netWorth() >= PORTAL_WORTH) this.unlock(); }
+    this.checkT -= dt; if (this.checkT <= 0) { this.checkT = 1; const nw = G.player.owner.netWorth(); if (!G.portalUnlocked && nw >= PORTAL_WORTH) this.unlock(); else if (G.portalUnlocked && !G.portal3Unlocked && nw >= PORTAL3_WORTH) Portal3.unlock(); }
     this.cd -= dt; if (this.cd > 0) return;
     const p = G.player.body.pos;
-    if (G.portalUnlocked && this.p1 && this.p1.g.visible && this.appearT <= 0 && dist2(p, PORTAL1) < 2.2 * 2.2 && p.y < 3) this.travel(2);
-    else if (this.p2 && dist2(p, PORTAL2) < 2.2 * 2.2 && p.y < 3) this.travel(1);
+    if (G.portalUnlocked && this.p1 && this.p1.g.visible && this.appearT <= 0 && dist2(p, PORTAL1) < 2.2 * 2.2 && p.y < 3) this.travel(2, PORTAL1);
+    else if (this.p2 && dist2(p, PORTAL2) < 2.2 * 2.2 && p.y < 3) this.travel(1, PORTAL2);
+    else if (Portal3.p3 && Portal3.p3.g.visible && Portal3.appearT <= 0 && dist2(p, PORTAL3) < 2.2 * 2.2 && p.y < 3) this.travel(3, PORTAL3);
+    else if (Portal3.p4 && dist2(p, PORTAL4) < 2.2 * 2.2 && p.y < 3) this.travel(1, PORTAL4);
   },
 };
 
@@ -3445,10 +3628,12 @@ function levelUnit(o, slot) {
 
 // ------------------------------------------------------------------ treasure chests
 const CHEST_MATS = {};
-function chestSpot(w2) {
+function chestSpot(w) {
+  const w2 = w === 2, w3 = w === 3;
   for (let k = 0; k < 60; k++) {
     let x, z;
-    if (w2) { x = X2 + rand(-100, 100); z = (Math.random() < 0.6 ? rand(4, 11) : rand(25, 60)) * (Math.random() < 0.5 ? -1 : 1); }
+    if (w3) { const isl = pick(W3.walk.slice(0, 6)); x = rand(isl[0] + 2, isl[2] - 2); z = rand(isl[1] + 2, isl[3] - 2); if (Math.abs(z) < 3) continue; }
+    else if (w2) { x = X2 + rand(-100, 100); z = (Math.random() < 0.6 ? rand(4, 11) : rand(25, 60)) * (Math.random() < 0.5 ? -1 : 1); }
     else { x = rand(-145, 145); const r = Math.random(); z = r < 0.5 ? rand(4, 16) * (Math.random() < 0.5 ? -1 : 1) : r < 0.8 ? (LAYOUT.ringZ + rand(-2, 2)) * (Math.random() < 0.5 ? -1 : 1) : rand(20, 48) * (Math.random() < 0.5 ? -1 : 1); }
     if (W.bases.some((b) => b.contains(x, z, 2))) continue;
     if (w2 && inLava(x, z)) continue;
@@ -3458,8 +3643,8 @@ function chestSpot(w2) {
   }
   return null;
 }
-function spawnChest(w2, at, golden) {
-  const sp = at || chestSpot(w2); if (!sp) return null;
+function spawnChest(w, at, golden) {
+  const sp = at || chestSpot(w); if (!sp) return null;
   if (!CHEST_MATS.wood) { CHEST_MATS.wood = new THREE.MeshStandardMaterial({ map: TEX.wood, color: '#b07a4e', roughness: 0.7 }); CHEST_MATS.gold = mat('#ffd23f', { m: 1, r: 0.25 }); CHEST_MATS.glow = mat('#fff3a0', { e: '#ffd23f', ei: 2 }); }
   const g = new THREE.Group(); g.position.set(sp.x, floorAt(sp.x, sp.z, 0.5, 2).y, sp.z); scene.add(g);
   const s = golden ? 1.6 : 1;
@@ -3469,16 +3654,16 @@ function spawnChest(w2, at, golden) {
   mesh(GEO.cyl, golden ? CHEST_MATS.gold : CHEST_MATS.wood, 0, 0, 0.42 * s, 0.42 * s, 1.2 * s, 0.42 * s, lid).rotation.z = Math.PI / 2;
   mesh(GEO.box, CHEST_MATS.glow, 0, 0.05 * s, 0.86 * s, 0.22 * s, 0.22 * s, 0.06, lid);
   const beam = new THREE.Mesh(PILLAR_GEO, PILLAR_MAT); beam.scale.set(0.9, 1, 0.9); beam.position.y = 6; g.add(beam);
-  const c = { g, lid, beam, pos: g.position, w2, t: golden ? 120 : 90, opening: -1, golden };
+  const c = { g, lid, beam, pos: g.position, w, t: golden ? 120 : 90, opening: -1, golden };
   Extras.chests.push(c); return c;
 }
 function chestReward(c) {
-  const o = G.player.owner, inc = o.incomePerSec(), w2 = c.w2, mult = c.golden ? 6 : 1;
+  const o = G.player.owner, inc = o.incomePerSec(), w2 = c.w === 2, w3 = c.w === 3, mult = c.golden ? 6 : 1;
   G.stats.chests++; const r = Math.random();
   if (c.golden || r < 0.25) { // a meme pops out and walks home
-    const slot = o.freeSlot(null, w2 ? 2 : 1);
-    let rr; if (w2) { rr = c.golden ? 5 : pick([3, 3, 4]); } else rr = c.golden ? pick([4, 5]) : pick([1, 2, 2, 3]);
-    const pool = (w2 ? W2_POOL : BY_RARITY)[rr], u = new Unit(pick(pool), w2 ? 4 : 0);
+    const slot = o.freeSlot(null, c.w);
+    let rr; if (w3) rr = c.golden ? 6 : pick([4, 4, 5]); else if (w2) { rr = c.golden ? 5 : pick([3, 3, 4]); } else rr = c.golden ? pick([4, 5]) : pick([1, 2, 2, 3]);
+    const pool = (w3 ? W3_POOL : w2 ? W2_POOL : BY_RARITY)[rr], u = new Unit(pick(pool), w3 ? 6 : w2 ? 4 : 0);
     if (slot) {
       u.owner = o; u.slot = slot; slot.unit = u; slot.pending = 0; u.state = 'transit'; u.pos.set(c.pos.x, c.pos.y, c.pos.z); u.setPlate('base'); setTransit(u, slot.base.slotPos[slot.li]);
       discover(u.c.id); UI.toast('🎁 از صندوق یک میم بیرون پرید: ' + (MUTATIONS[u.mut].name ? MUTATIONS[u.mut].name + ' · ' : '') + u.c.name + '! دارد به پایگاهت می‌رود', 'rare');
@@ -3486,17 +3671,17 @@ function chestReward(c) {
     } else { o.money += u.price; UI.toast('🎁 جای خالی نبود؛ ارزش میم (' + fmt(u.price) + ') به پولت اضافه شد', 'good'); u.dispose(false); if (!c.golden) return; }
   }
   if (!c.golden && r > 0.85) { G.boostT = 60; Sound.play('event'); UI.toast('⚡ بوست! ۶۰ ثانیه درآمدت ۲ برابر شد', 'rare'); return; }
-  const coins = Math.round(Math.max(w2 ? 5e6 : 300, inc * rand(40, 120)) * mult);
+  const coins = Math.round(Math.max(w3 ? 5e9 : w2 ? 5e6 : 300, inc * rand(40, 120)) * mult);
   o.money += coins; UI.floatText(c.pos, '+' + fmt(coins), '#ffd23f'); UI.toast('🎁 صندوق گنج: ' + fmt(coins) + ' سکه!', 'good');
 }
 function updateChests(dt) {
   const pl = G.player; if (!pl) return;
-  const w2 = inW2(pl.body.pos.x);
+  const w = worldOf(pl.body.pos.x);
   if (G.playing) {
     Extras.chestT -= dt;
     if (Extras.chestT <= 0) {
       Extras.chestT = rand(40, 70);
-      if (Extras.chests.filter((c) => c.w2 === w2 && c.opening < 0).length < 3 && (!w2 || W2.built)) { if (spawnChest(w2)) { UI.toast('🎁 یک صندوق گنج در نقشه ظاهر شد! (نقطه‌ی طلایی روی نقشه)', 'rare'); Sound.play('rare'); } }
+      if (Extras.chests.filter((c) => c.w === w && c.opening < 0).length < 3 && (w !== 2 || W2.built) && (w !== 3 || W3.built)) { if (spawnChest(w)) { UI.toast('🎁 یک صندوق گنج در نقشه ظاهر شد! (نقطه‌ی طلایی روی نقشه)', 'rare'); Sound.play('rare'); } }
     }
   }
   for (let i = Extras.chests.length - 1; i >= 0; i--) {
@@ -3517,14 +3702,14 @@ function updateChests(dt) {
 }
 
 // ------------------------------------------------------------------ jump pads
-function makePad(x, z, dir, color) {
+function makePad(x, z, dir, color, power) {
   const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
   mesh(GEO.cyl, mat('#2d3142', { m: 0.7, r: 0.3 }), 0, 0.08, 0, 1.35, 0.16, 1.35, g);
   const top = mesh(GEO.cyl, mat(color, { e: color, ei: 1.4 }), 0, 0.18, 0, 1.1, 0.06, 1.1, g);
   for (let i = 0; i < 3; i++) mesh(GEO.torus, mat('#c0c8d0', { m: 0.9, r: 0.2 }), 0, 0.05 + i * 0.05, 0, 0.7, 0.7, 0.5, g).rotation.x = Math.PI / 2;
   const ar = mesh(GEO.cone, addMat('#ffffff', 0.85), 0, 1.2, 0, 0.35, 0.7, 0.35, g, false);
   if (dir) { ar.rotation.x = Math.PI / 2; ar.rotation.z = -Math.atan2(dir[0], dir[1]); ar.rotation.order = 'ZXY'; ar.position.y = 0.6; }
-  const p = { g, x, z, dir, top, ar }; Extras.pads.push(p); return p;
+  const p = { g, x, z, dir, top, ar, power }; Extras.pads.push(p); return p;
 }
 function buildPadsW1() {
   for (const [x, z] of [[-90, 10], [90, -10], [-40, -11], [40, 11], [-125, -11], [125, 11], [0, -11]]) makePad(x, z, null, '#3df2b0');
@@ -3541,7 +3726,7 @@ function updatePads(dt) {
     if (Extras.padCd > 0 || !G.playing) continue;
     const b = a.body; if (b.pos.y > 0.7 || (b.pos.x - p.x) ** 2 + (b.pos.z - p.z) ** 2 > 1.25 * 1.25 || b.vel.y > 1) continue;
     Extras.padCd = 0.6; const w2 = inW2(p.x);
-    if (p.dir) { b.vel.set(p.dir[0] * 11, 13, p.dir[1] * 11); a.fling = 1.5; }
+    if (p.dir) { const pw = p.power || [11, 13]; b.vel.set(p.dir[0] * pw[0], pw[1], p.dir[1] * pw[0]); a.fling = 1.5; }
     else { const hs = Math.hypot(b.vel.x, b.vel.z); b.vel.set(b.vel.x * 1.4, 17, b.vel.z * 1.4); if (hs > 1) a.fling = 0.6; }
     b.grounded = false; a.coyote = 0; a.jumpHeld = true;
     Sound.play('djump'); FX.burst(tmpV.set(p.x, 0.4, p.z), { count: 24, color: w2 ? ['#ff5a1f', '#ffd23f'] : ['#3df2b0', '#ffffff'], speed: 5, up: true, life: 0.6 });
@@ -3603,8 +3788,8 @@ function updatePets(dt) {
 // ------------------------------------------------------------------ the Thief King (boss event)
 class Boss {
   constructor(w2) {
-    this.w2 = w2;
-    const sp = w2 ? { x: BELT2.x0 + 4, z: 7 } : { x: BELT.x0 + 4, z: 7 };
+    this.w = w2; this.w2 = w2 === 2;
+    const sp = { x: beltOfWorld(w2).x0 + 4, z: 7 };
     this.av = buildAvatar({ skin: '#6a4a3a', shirt: '#3a0a4a', pants: '#140818', shoes: '#ffd23f', hair: 'crown', hairC: '#111', accent: '#ff2a3a' });
     this.av.root.scale.setScalar(2.3); scene.add(this.av.root);
     const cape = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 1.2, 14, 1, true, Math.PI * 0.65, Math.PI * 0.7), mat('#c0143c', { r: 0.6, side: true })); cape.position.set(0, 1.15, -0.05); this.av.body.add(cape);
@@ -3617,7 +3802,7 @@ class Boss {
     this.label.set('hp' + n, [{ t: '👹 رئیس دزدها', size: 52, color: '#ffd23f', weight: 900, stroke: 5 }, { t: bar, size: 40, color: '#ff4a4a', weight: 900 }], { bg: 'rgba(40,0,20,.9)', border: '#ff2a3a' });
   }
   pickTarget() {
-    const bases = W.bases.filter((b) => b.owner && b.world === (this.w2 ? 2 : 1));
+    const bases = W.bases.filter((b) => b.owner && b.world === this.w);
     const mine = bases.filter((b) => b.owner.isPlayer), b = mine.length && Math.random() < 0.45 ? pick(mine) : pick(bases);
     this.target = b; const p = this.body.pos; this.path = findPath(p.x, p.z, b.insidePos.x, b.insidePos.z); this.pi = 0;
   }
@@ -3628,7 +3813,7 @@ class Boss {
   }
   defeat() {
     G.stats.bossKills++; Sound.play('rebirth'); UI.banner('👑 رئیس دزدها شکست خورد!', 'صندوق طلایی‌اش را باز کن');
-    const p = this.body.pos; spawnChest(this.w2, { x: p.x, z: p.z }, true);
+    const p = this.body.pos; spawnChest(this.w, { x: p.x, z: p.z }, true);
     FX.burst(tmpV.copy(p).setY(p.y + 2), { count: 90, color: ['#ffd23f', '#ff2a3a', '#ffffff', '#b061ff'], speed: 10, up: true, life: 1.4 });
     this.remove();
   }
@@ -3646,6 +3831,7 @@ class Boss {
   }
   update(dt) {
     this.life -= dt; const b = this.body, p = b.pos;
+    if (p.y < -15) { UI.toast('👹 رئیس دزدها از جزیره افتاد!', 'good'); this.remove(); return; }
     if (this.life <= 0) { UI.toast('👹 رئیس دزدها با سکه‌هایی که دزدید فرار کرد…', 'bad'); FX.burst(tmpV.copy(p).setY(2), { count: 40, color: ['#b061ff', '#ffffff'], speed: 6, life: 0.8 }); this.remove(); return; }
     this.stompCd -= dt; this.stun -= dt; this.retarget -= dt;
     let mx = 0, mz = 0;
@@ -3675,7 +3861,7 @@ function updateBoss(dt) {
   if (!G.playing || !G.tutorialDone || !G.player) return;
   Extras.bossT -= dt;
   if (Extras.bossT <= 0) {
-    Extras.bossT = rand(420, 660); const w2 = inW2(G.player.body.pos.x);
+    Extras.bossT = rand(420, 660); const w2 = worldOf(G.player.body.pos.x);
     Extras.boss = new Boss(w2); Sound.play('alarm'); UI.banner('👹 رئیس دزدها آمد!', 'سکه‌های پایگاه‌ها را می‌دزدد · ۱۴ سیلی بزن تا شکست بخورد');
   }
 }
@@ -3701,6 +3887,8 @@ const ACHIEVEMENTS = [
   { id: 'legend', t: 'شکارچی افسانه', e: '🦁', p: () => [ownsRarity(4) ? 1 : 0, 1], r: 500000 },
   { id: 'divine', t: 'لمس خدایان', e: '🕊️', p: () => [ownsRarity(7) ? 1 : 0, 1], r: 5e7 },
   { id: 'rebirth1', t: 'تولد دوباره', e: '♻️', p: () => [G.owners[0].rebirths, 1], r: 1e6 },
+  { id: 'sky', t: 'فاتح آسمان', e: '🏝️', p: () => [G.owners[0].bases.some((b) => b.world === 3) ? 1 : 0, 1], r: 1e11 },
+  { id: 'giant', t: 'صاحب غول', e: '🗿', p: () => [G.owners[0].slots.some((s) => s.unit && s.unit.mut === 8) ? 1 : 0, 1], r: 1e6 },
   { id: 'book', t: 'دانشنامه‌ی کامل', e: '📖', p: () => [G.discovered.size, CHARS.length], r: 1e9 },
 ];
 function updateAchievements(dt) {
@@ -3714,6 +3902,228 @@ function updateAchievements(dt) {
 function updateExtras(dt) {
   if (G.boostT > 0) G.boostT = Math.max(0, G.boostT - dt);
   updateChests(dt); updatePads(dt); updateBoard(dt); updatePets(dt); updateBoss(dt); updateAchievements(dt);
+}
+
+// ===================================================================
+//  World 3 — «جزیره‌های آسمانی» (sky islands): floating islands, narrow bridges, a void below and strong winds
+// ===================================================================
+const BELT3 = { x0: X3 - 62, x1: X3 + 61.5, z: 0, halfW: 1.9, top: 0.4, speed: 3.2, w: 3, tag: 'belt3', list: [], spawnT: 1, active: false };
+BELTS.push(BELT3);
+const W3 = { built: false, walk: [], anim: [], wind: { next: 20, on: 0, dx: 1, dz: 0 }, arrival: new THREE.Vector3(X3 + 89, 0, 0), keeper: null, shopPos: null };
+const W3_NAMES = ['کاپیتان طوفان', 'ملکه‌ی ابر', 'شبح باد', 'عقاب سیاه'];
+const W3_COLORS = ['#29b6ff', '#ff9de2', '#b0bec5', '#ffca28'];
+const W3_LOOKS = [
+  { skin: '#e0ac69', shirt: '#0d3b66', pants: '#1b1b2a', shoes: '#29b6ff', hair: 'cap', hairC: '#111', accent: '#ffd23f', hat: '#0d3b66' },
+  { skin: '#ffe0d0', shirt: '#ff9de2', pants: '#ffffff', shoes: '#ff9de2', hair: 'crown', hairC: '#f4f4ff', accent: '#9fe8ff' },
+  { skin: '#cfd8dc', shirt: '#eceff1', pants: '#90a4ae', shoes: '#ffffff', hair: 'phones', hairC: '#ffffff', accent: '#29b6ff' },
+  { skin: '#8d5524', shirt: '#263238', pants: '#111', shoes: '#ffca28', hair: 'spiky', hairC: '#111', accent: '#ffca28' },
+];
+const SKY_GUARD_LOOK = { skin: '#ffffff', shirt: '#29b6ff', pants: '#eceff1', shoes: '#ffca28', hair: 'phones', hairC: '#eceff1', accent: '#ffca28' };
+const PORTAL3 = new THREE.Vector3(X2 - 55, 0, 7.5), PORTAL4 = new THREE.Vector3(X3 + 95, 0, 0);
+// walkable rectangles (islands first, then bridges) in world coordinates
+const W3_BASES = [[X3 - 55, 40], [X3, 40], [X3 + 55, 40], [X3 - 30, -40], [X3 + 30, -40]];
+function w3Walkable(x, z, m = 0) { for (const r of W3.walk) if (x > r[0] + m && x < r[2] - m && z > r[1] + m && z < r[3] - m) return true; return false; }
+
+function buildIsland(x0, z0, x1, z1, depth, tint) {
+  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const top = new THREE.Mesh(GEO.box, new THREE.MeshStandardMaterial({ map: texRep(TEX.grass, w / 4, d / 4), color: tint, roughness: 0.95 }));
+  top.position.set(cx, -0.6, cz); top.scale.set(w, 1.2, d); top.receiveShadow = true; top.castShadow = true; scene.add(top);
+  const under = new THREE.Mesh(GEO.pyrSq, mat('#8a6a50', { r: 0.95, flat: true }));
+  under.rotation.x = Math.PI; under.position.set(cx, -1.2 - depth / 2, cz); under.scale.set(w * 0.94, depth, d * 0.94); under.castShadow = true; scene.add(under);
+  addBox(x0, -3, z0, x1, 0, z1, { tag: 'isl', cam: false });
+  W3.walk.push([x0, z0, x1, z1]);
+  // waterfalls off some edges
+  if (Math.random() < 0.6) { const ex = rand(x0 + 2, x1 - 2), ez = Math.random() < 0.5 ? z0 : z1; W3.anim.push((dt) => { if (G.player && inW3(G.player.body.pos.x) && Math.random() < dt * 20) FX.one(ex + rand(-0.6, 0.6), -0.2, ez, { vx: 0, vy: -2, vz: (ez === z0 ? -1 : 1) * 0.8, life: 2, size: 0.5, color: pick(['#bfe6ff', '#ffffff']), grav: -6, drag: 0.1 }); }); }
+}
+function buildBridge(x0, z0, x1, z1) {
+  const w = x1 - x0, d = z1 - z0, along = d > w, b = new Batcher(), wood = new THREE.MeshStandardMaterial({ map: TEX.wood, roughness: 0.8 });
+  const n = Math.round((along ? d : w) / 0.6);
+  for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; if (along) b.add(GEO.box, wood, (x0 + x1) / 2, -0.12, z0 + d * t, w, 0.22, 0.52); else b.add(GEO.box, wood, x0 + w * t, -0.12, (z0 + z1) / 2, 0.52, 0.22, d); }
+  b.build(scene); addBox(x0, -0.3, z0, x1, 0, z1, { tag: 'bridge', cam: false }); W3.walk.push([x0, z0, x1, z1]);
+}
+
+function buildWorld3() {
+  if (W3.built) return; W3.built = true;
+  const tints = ['#bff0c0', '#ffe0f0', '#d8f0ff', '#fff2c0', '#e0d8ff', '#c8ffe8'];
+  // central island with the belt, base islands, shop and portal islands
+  buildIsland(X3 - 76, -12, X3 + 76, 12, 22, '#d8ffd8');
+  W3_BASES.forEach(([cx, cz], i) => buildIsland(cx - 15, cz > 0 ? 27 : -53, cx + 15, cz > 0 ? 53 : -27, 16, tints[i]));
+  buildIsland(X3 - 104, -10, X3 - 84, 10, 12, '#fff2c0'); buildIsland(X3 + 84, -10, X3 + 104, 10, 12, '#e0d8ff');
+  for (const [cx, cz] of W3_BASES) buildBridge(cx - 1.6, cz > 0 ? 12 : -27, cx + 1.6, cz > 0 ? 27 : -12);
+  buildBridge(X3 - 84, -1.8, X3 - 76, 1.8); buildBridge(X3 + 76, -1.8, X3 + 84, 1.8);
+  groundQuad(X3 - 74, -11, X3 + 74, 11, flatMat(texRep(TEX.tiles, 37, 6), '#fff8f0', -1), 0.012);
+  // sea of clouds far below + puffy clouds around
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(900, 600), new THREE.MeshBasicMaterial({ color: '#ffffff', fog: true }));
+  sea.rotation.x = -Math.PI / 2; sea.position.set(X3, -55, 0); scene.add(sea);
+  const puffIM = new THREE.InstancedMesh(GEO.ico, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, emissive: '#e8f4ff', emissiveIntensity: 0.45, flatShading: true }), 160);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
+  for (let i = 0; i < 160; i++) { const r = rand(4, 11); p.set(X3 + rand(-170, 170), rand(-45, -8), rand(-130, 130)); if (w3Walkable(p.x, p.z, -10) && p.y > -25) p.y -= 20; sc.set(r * 1.4, r * 0.7, r); m4.compose(p, q, sc); puffIM.setMatrixAt(i, m4); }
+  puffIM.instanceMatrix.needsUpdate = true; puffIM.computeBoundingSphere(); scene.add(puffIM);
+  // crystal belt of the sky
+  const len = BELT3.x1 - BELT3.x0 + 0.5, cxb = (BELT3.x0 + BELT3.x1) / 2;
+  mesh(GEO.box, mat('#e8f4ff', { m: 0.6, r: 0.25 }), cxb, 0.17, 0, len, 0.34, 4.8, scene);
+  W3.beltTex = texRep(TEX.belt, len / 2, 1);
+  mesh(GEO.box, new THREE.MeshStandardMaterial({ map: W3.beltTex, color: '#b8d8ff', roughness: 0.4, metalness: 0.2 }), cxb, 0.37, 0, len, 0.06, 3.8, scene).castShadow = false;
+  for (const s of [-1, 1]) mesh(GEO.box, mat('#ffffff', { e: '#9fe8ff', ei: 1.2 }), cxb, 0.4, s * 2.15, len, 0.06, 0.18, scene);
+  addBox(BELT3.x0 - 0.25, 0, -2.4, BELT3.x1 + 0.25, BELT3.top, 2.4, { tag: 'belt3', cam: false });
+  const rift = makePortal(new THREE.Vector3(BELT3.x0 - 2.4, 0, 0), ['#9fe8ff', '#ffffff'], '☁️ دروازه‌ی ابرها'); rift.g.scale.setScalar(0.85);
+  for (const s of [-1, 1]) addBoxC(BELT3.x0 - 2.4, 3.2, s * 3.3, 1, 6.4, 1);
+  W3.anim.push((dt, t) => animPortal(rift, dt, t));
+  const end = new THREE.Group(); end.position.set(BELT3.x1 + 3.5, 0, 0); scene.add(end);
+  mesh(GEO.sphere, mat('#ffffff', { r: 1, e: '#e8f4ff', ei: 0.4 }), 0, 2.2, 0, 3, 2.4, 3.4, end); addCircle(BELT3.x1 + 3.5, 0, 3, 0, 4.5);
+  // rainbow arch over the plaza and floating balloons
+  const rb = new THREE.Group(); rb.position.set(X3, 0, 0); scene.add(rb);
+  ['#ff4f8b', '#ffa31a', '#ffd23f', '#3df2b0', '#58c4ff', '#b061ff'].forEach((c, i) => { const tor = new THREE.Mesh(new THREE.TorusGeometry(26 - i * 0.9, 0.45, 8, 48, Math.PI), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.55, fog: false })); tor.position.set(0, -2, -14); rb.add(tor); });
+  const balloons = [];
+  for (let i = 0; i < 6; i++) { const g = new THREE.Group(); g.position.set(X3 + rand(-90, 90), rand(14, 26), rand(-50, 50)); scene.add(g); mesh(GEO.sphere, mat(pick(['#ff4f8b', '#ffd23f', '#58c4ff', '#3df2b0']), { r: 0.5 }), 0, 0, 0, 2.4, 2.9, 2.4, g); mesh(GEO.box, new THREE.MeshStandardMaterial({ map: TEX.wood }), 0, -3.6, 0, 1.2, 0.8, 1.2, g); balloons.push(g); }
+  W3.anim.push((dt, t) => balloons.forEach((g, i) => { g.position.y += Math.sin(t * 0.5 + i) * dt * 0.5; g.position.x += dt * 0.6; if (g.position.x > X3 + 120) g.position.x = X3 - 120; }));
+  const welcome = spriteFromCanvas(labelCanvas([{ t: '🏝️ جزیره‌های آسمانی', size: 72, color: '#0d3b66', weight: 900 }, { t: 'از لبه‌ها نیفت · باد شدید می‌وزد · پل‌ها نرده ندارند', size: 32, color: '#1b1446', weight: 800 }], { w: 768, h: 220, bg: 'rgba(255,255,255,.92)', border: '#29b6ff' }), 11, 3.15);
+  welcome.position.set(X3, 9, 0); scene.add(welcome);
+  // sky station (shop island) and its pilot
+  const SX = X3 - 94, g = new THREE.Group(); g.position.set(SX, 0, 0); scene.add(g);
+  const wall = mat('#ffffff', { r: 0.6 }), trim = mat('#29b6ff', { e: '#29b6ff', ei: 0.3 }), sb = new Batcher();
+  sb.add(GEO.box, wall, -5.5, 2.4, 0, 0.4, 4.8, 12); sb.add(GEO.box, wall, 0, 2.4, -6, 11, 4.8, 0.4); sb.add(GEO.box, wall, 0, 2.4, 6, 11, 4.8, 0.4);
+  sb.add(rbox(11.6, 0.4, 12.8, 0.15), trim, 0, 5, 0, 1, 1, 1); sb.add(rbox(1.3, 1.1, 7, 0.1), mat('#ffca28', { r: 0.5 }), 3, 0.55, 0, 1, 1, 1);
+  sb.build(g);
+  addBox(SX - 5.7, 0, -6.2, SX - 5.3, 4.8, 6.2); addBox(SX - 5.5, 0, -6.2, SX + 5.5, 4.8, -5.8); addBox(SX - 5.5, 0, 5.8, SX + 5.5, 4.8, 6.2); addBox(SX + 2.35, 0, -3.5, SX + 3.65, 1.1, 3.5);
+  const hot = new THREE.Group(); hot.position.set(SX, 11, 0); scene.add(hot); mesh(GEO.sphere, mat('#ff4f8b', { r: 0.5 }), 0, 0, 0, 3, 3.6, 3, hot); mesh(GEO.torus, mat('#ffd23f'), 0, -1.2, 0, 2.8, 2.8, 2.8, hot).rotation.x = Math.PI / 2;
+  W3.anim.push((dt, t) => { hot.position.y = 11 + Math.sin(t) * 0.4; });
+  const sign = spriteFromCanvas(labelCanvas([{ t: '🎈 ایستگاه هوایی', size: 74, color: '#0d3b66', weight: 900 }, { t: 'وسایل مخصوص جزیره‌ها', size: 34, color: '#1b1446', weight: 800 }], { w: 640, h: 200, bg: 'rgba(255,255,255,.95)', border: '#29b6ff' }), 8, 2.5); sign.position.set(SX + 2, 7, 0); scene.add(sign);
+  W3.keeper = buildAvatar({ skin: '#ffe0bd', shirt: '#29b6ff', pants: '#0d3b66', shoes: '#ffca28', hair: 'cap', hairC: '#111', accent: '#ffca28', hat: '#ffca28' });
+  W3.keeper.root.position.set(SX + 1.2, 0.1, 0); W3.keeper.root.rotation.y = Math.PI / 2; scene.add(W3.keeper.root);
+  W3.shopPos = new THREE.Vector3(SX + 6.5, 0, 0);
+  // bases on their islands: the player gets the south-middle one on arrival
+  const first = W.bases.length;
+  for (const [cx, cz] of W3_BASES) W.bases.push(new BaseVis(W.bases.length, cx, cz));
+  W3.playerPlot = W.bases[first + 1]; W3.playerPlot.build('#a0c4ff', 'پایگاه تو · منتظر توست', true);
+  [first, first + 2, first + 3, first + 4].forEach((bi, k) => {
+    const o = new Owner(G.owners.length, W3_NAMES[k], W3_COLORS[k], false, W.bases[bi]); o.hard = true; G.owners.push(o); o.base.build(o.color, o.name);
+    const a = new Agent(o, W3_LOOKS[k], false); a.brain.aggr = rand(1.6, 2.2); a.brain.stealCd = rand(15, 30);
+    new Agent(o, SKY_GUARD_LOOK, false, { guard: o.base }); o.applyCap();
+  });
+  // cloud pads hop from the plaza to the base islands and back (bridges are the slow, risky way)
+  for (const [cx, cz] of W3_BASES) { const s = Math.sign(cz); makePad(cx + 7, s * 9.5, [0, s], '#9fe8ff', [19, 15]); makePad(cx - 7, s * 28.3, [0, -s], '#9fe8ff', [19, 15]); }
+  Portal3.p4 = makePortal(PORTAL4, ['#29d9ff', '#3df2b0'], '🌍 برگشت به میدان میم‌ها'); for (const s of [-1, 1]) addBoxC(PORTAL4.x, 3.8, s * 3.9, 1.1, 7.6, 1.1);
+  buildNav(NAV3, (x, z) => !w3Walkable(x, z, 0.75));
+  BELT3.active = true;
+  for (let i = 0; i < 520; i++) { BELT3.spawnT -= 0.1; if (BELT3.spawnT <= 0) { const last = BELT3.list[BELT3.list.length - 1]; if (!last || last.pos.x - BELT3.x0 > 3.4) { spawnBelt(BELT3); BELT3.spawnT = rand(2.4, 3.4); } } for (const u of BELT3.list) u.pos.x += BELT3.speed * 0.1; }
+  for (const u of [...BELT3.list]) if (u.pos.x > BELT3.x1) { BELT3.list.splice(BELT3.list.indexOf(u), 1); u.dispose(false); }
+  UI.mapBg3 = null;
+}
+function seedW3Owner(o) {
+  o.hard = true; o.money = randi(1, 4) * 1e12; o.up.cap = randi(2, 4); o.up.secDur = 3; o.up.trap = randi(1, 3); o.up.speed = 3;
+  const n = randi(4, Math.min(o.cap, 7));
+  for (let i = 0; i < n; i++) {
+    let x = Math.random() * 100, r = 4; for (let k = 4; k < 8; k++) { x -= W3_WEIGHTS[k]; if (x <= 0) { r = k; break; } }
+    const u = new Unit(pick(W3_POOL[r]), Math.random() < 0.1 ? 7 : 6); u.owner = o; u.slot = o.slots[i]; o.slots[i].unit = u; u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
+  }
+  o.applyCap();
+}
+function arriveW3() {
+  const o = G.player.owner;
+  if (W3.playerPlot && !W3.playerPlot.owner) { claimPlot(o, W3.playerPlot, true); UI.banner('🏝️ به جزیره‌های آسمانی خوش آمدی!', 'یک جزیره‌ی رایگان گرفتی · مواظب لبه‌ها، باد و پل‌های بی‌نرده باش'); Sound.play('success'); scheduleSave(true); }
+  else UI.toast('🏝️ جزیره‌های آسمانی — میم‌های اینجا ۲۰۰۰ برابر می‌ارزند', 'rare');
+}
+function buildMapBg3() {
+  const c = $('minimap'), dpr = Math.min(2, window.devicePixelRatio || 1), NW = 200 * dpr, NH = 104 * dpr; c.width = NW; c.height = NH;
+  const bg = document.createElement('canvas'); bg.width = NW; bg.height = NH; const g = bg.getContext('2d'), B = WORLD3;
+  const s = Math.min(NW / (B.maxX - B.minX), NH / (B.maxZ - B.minZ)), ox = (NW - (B.maxX - B.minX) * s) / 2, oy = (NH - (B.maxZ - B.minZ) * s) / 2;
+  const X = (x) => (x - B.minX) * s + ox, Z = (z) => (z - B.minZ) * s + oy;
+  g.fillStyle = '#bfe6ff'; g.fillRect(0, 0, NW, NH);
+  W3.walk.forEach((r, i) => { g.fillStyle = i < 8 ? '#8fd88f' : '#b07a4e'; g.fillRect(X(r[0]), Z(r[1]), (r[2] - r[0]) * s, (r[3] - r[1]) * s); });
+  g.fillStyle = '#e8f4ff'; g.fillRect(X(BELT3.x0), Z(-2.4), (BELT3.x1 - BELT3.x0) * s, 4.8 * s);
+  for (const b of W.bases) if (b.world === 3) { g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
+  g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL4.x), Z(PORTAL4.z)); g.fillText('🎈', X(X3 - 94), Z(0));
+  UI.mapS = s; UI.mapN = NW; UI.mapBg3 = bg; UI.map3 = { X, Z }; UI.mapBg = null; UI.mapBg2 = null;
+}
+
+// ------------------------------------------------------------------ the gateway to the sky islands (on the lava planet) + wind
+const Portal3 = {
+  p3: null, p4: null, appearT: 0,
+  build3() { if (this.p3 || !W2.built) return; this.p3 = makePortal(PORTAL3, ['#9fe8ff', '#ff9de2'], '🏝️ پرتال جزیره‌های آسمانی'); this.p3.g.visible = false; },
+  show(anim) {
+    this.build3(); if (!this.p3) return;
+    if (!this.p3.g.visible) { for (const s of [-1, 1]) addBoxC(PORTAL3.x, 3.8, PORTAL3.z + s * 3.9, 1.1, 7.6, 1.1); buildNav(NAV2, (x, z) => inLava(x, z)); }
+    this.p3.g.visible = true; this.appearT = anim ? 2.5 : 0; UI.mapBg2 = null;
+  },
+  unlock() {
+    if (G.portal3Unlocked) return;
+    G.portal3Unlocked = true; buildWorld3(); seedRivals(G.owners.length - 4); this.show(true);
+    Sound.play('rebirth'); UI.banner('🌀 پرتال جزیره‌های آسمانی باز شد!', 'ثروتت به ۱ تریلیون رسید · پرتال در سیاره‌ی گدازه است');
+    UI.toast('🏝️ در سیاره‌ی گدازه، کنار شکاف گدازه، پرتال جزیره‌های آسمانی باز شد!', 'rare'); scheduleSave(true);
+  },
+  update(dt, t) {
+    if (this.p3 && this.p3.g.visible) { animPortal(this.p3, dt, t); if (this.appearT > 0) { this.appearT -= dt; this.p3.g.scale.setScalar(Math.max(0.01, 1 - Math.max(0, this.appearT) / 2.5)); } }
+    if (this.p4) animPortal(this.p4, dt, t);
+    if (!W3.built) return;
+    for (const f of W3.anim) f(dt, t);
+    if (W3.beltTex) W3.beltTex.offset.x -= beltSpeed(BELT3) * dt / 2;
+    updateWind(dt);
+  },
+};
+function updateWind(dt) {
+  const w = W3.wind, pl = G.player; if (!pl || !G.playing) return;
+  const here = inW3(pl.body.pos.x);
+  if (w.on > 0) {
+    w.on -= dt;
+    for (const a of G.agents) {
+      const p = a.body.pos; if (!inW3(p.x) || a.isGuard) continue;
+      if (a.isPlayer && a.owner.up.anchor) continue;
+      if (W.bases.some((b) => b.world === 3 && b.contains(p.x, p.z, 0.5))) continue; // walls shelter you inside a base
+      p.x += w.dx * 3.4 * dt; p.z += w.dz * 3.4 * dt;
+    }
+    if (here && Math.random() < dt * 60) { const p = pl.body.pos; FX.one(p.x - w.dx * 12 + rand(-10, 10), p.y + rand(0.5, 4), p.z - w.dz * 12 + rand(-10, 10), { vx: w.dx * 18, vy: 0, vz: w.dz * 18, life: 1, size: 0.25, color: '#ffffff', grav: 0, drag: 0 }); }
+  } else if (here) {
+    w.next -= dt;
+    if (w.next <= 0) { const a = Math.random() * TAU; w.dx = Math.cos(a); w.dz = Math.sin(a); w.on = 4.5; w.next = rand(16, 28); Sound.play('whoosh'); UI.toast(pl.owner.up.anchor ? '🌬️ باد شدید! (چکمه‌ی لنگر نگهت داشته)' : '🌬️ باد شدید! از لبه‌ها دور شو', 'bad'); }
+  }
+}
+
+// ------------------------------------------------------------------ world 1 extras: UFO raid event and night fireworks
+const UFO = { g: null, beam: null, t: 0, dropT: 2, x: 0, leaving: 0 };
+function ensureUFO() {
+  if (UFO.g) return;
+  const g = new THREE.Group(); scene.add(g);
+  mesh(GEO.sphere, mat('#c0c8d0', { m: 0.9, r: 0.2 }), 0, 0, 0, 4.2, 0.9, 4.2, g);
+  mesh(GEO.hemi, glassMat('#9fe8ff'), 0, 0.5, 0, 1.8, 1.4, 1.8, g);
+  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; mesh(GEO.sphere, mat(['#ff4f8b', '#ffd23f', '#3df2b0'][i % 3], { e: ['#ff4f8b', '#ffd23f', '#3df2b0'][i % 3], ei: 2 }), Math.cos(a) * 3.6, -0.1, Math.sin(a) * 3.6, 0.25, 0.25, 0.25, g); }
+  UFO.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 2.4, 16, 20, 1, true), new THREE.MeshBasicMaterial({ color: '#9fffb0', transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  UFO.beam.position.y = -8.4; g.add(UFO.beam); UFO.g = g; g.visible = false;
+}
+function updateUFO(dt) {
+  const active = G.event && G.event.id === 'ufo';
+  if (!active && (!UFO.g || !UFO.g.visible)) return;
+  ensureUFO(); const g = UFO.g;
+  if (active && !g.visible) { g.visible = true; UFO.x = BELT.x0 + 10; UFO.leaving = 0; g.position.set(UFO.x, 40, 0); }
+  UFO.t += dt;
+  if (!active) { UFO.leaving += dt; g.position.y += dt * 25; g.position.x += dt * 20; if (UFO.leaving > 3) g.visible = false; return; }
+  UFO.x += Math.sin(UFO.t * 0.35) * dt * 14; UFO.x = clamp(UFO.x, BELT.x0 + 6, BELT.x1 - 25);
+  g.position.set(UFO.x, damp(g.position.y, 17, 2, dt), Math.sin(UFO.t * 0.8) * 1.5); g.rotation.y += dt * 1.5;
+  UFO.beam.material.opacity = 0.18 + Math.sin(UFO.t * 8) * 0.08;
+  UFO.dropT -= dt;
+  if (UFO.dropT <= 0 && !BELT.list.some((u) => Math.abs(u.pos.x - UFO.x) < 3.5)) {
+    UFO.dropT = rand(3, 5);
+    const x = Math.random() * 100, r = x < 50 ? 3 : x < 80 ? 4 : x < 95 ? 5 : 6;
+    const u = new Unit(pick(BY_RARITY[r]), Math.random() < 0.06 ? 8 : rollMut()); u.belt = BELT; u.state = 'belt'; u.pos.set(UFO.x, BELT.top, 0); u.yaw = Math.PI / 2; u.root.rotation.y = u.yaw; u.setPlate('shop'); BELT.list.push(u);
+    FX.burst(tmpV.set(UFO.x, 2, 0), { count: 40, color: ['#9fffb0', '#ffffff', RARITIES[r].color], speed: 6, up: true, life: 0.9 });
+    if (G.playing && G.player && worldOf(G.player.body.pos.x) === 1) { Sound.play('rare'); if (r >= 5 || u.mut === 8) UI.toast('🛸 یوفو یک میم ' + (u.mut === 8 ? 'غول‌پیکر ' : '') + RARITIES[r].name + ' روی نوار انداخت: ' + u.c.name + '!', 'rare'); }
+  }
+}
+const Fireworks = { t: 2, rockets: [] };
+function updateFireworks(dt) {
+  const pl = G.player; if (!pl || worldOf(pl.body.pos.x) !== 1 || Day.k > 0.35) { Fireworks.rockets.length = 0; return; }
+  Fireworks.t -= dt;
+  if (Fireworks.t <= 0) { Fireworks.t = rand(1.2, 2.8); Fireworks.rockets.push({ x: pl.body.pos.x + rand(-45, 45), y: 1, z: clamp(pl.body.pos.z + rand(-30, 30), -16, 16), vy: rand(20, 26), fuse: rand(1, 1.4) }); }
+  for (let i = Fireworks.rockets.length - 1; i >= 0; i--) {
+    const r = Fireworks.rockets[i]; r.fuse -= dt; r.y += r.vy * dt; r.vy -= 9 * dt;
+    FX.one(r.x, r.y, r.z, { vx: rand(-0.3, 0.3), vy: -1, vz: rand(-0.3, 0.3), life: 0.4, size: 0.3, color: '#ffd23f', grav: 0 });
+    if (r.fuse <= 0) {
+      const cols = pick([['#ff4f8b', '#ffd23f'], ['#3df2b0', '#58c4ff'], ['#b061ff', '#ffffff'], ['#ff7a00', '#ffe14a']]);
+      FX.burst(tmpV.set(r.x, r.y, r.z), { count: 70, color: cols, speed: 12, life: 1.6, grav: -3, drag: 1.4, size: 0.5 });
+      if (dist2(pl.body.pos, r) < 3600) { Sound.tone(rand(500, 900), 0.15, 'triangle', 0.06); Sound.noise(0.3, 0.06, 2500, 0.8, 0.05); }
+      Fireworks.rockets.splice(i, 1);
+    }
+  }
 }
 
 // ------------------------------------------------------------------ input: keyboard, mouse, multitouch
@@ -3874,8 +4284,8 @@ function computeInteract(dt) {
       let od = 1.9 * 1.9, ou = null; if (myBase) for (const s of o.slots) if (s.base === myBase && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < od) { od = d; ou = s; } }
       if (ou) R = { kind: 'info', slot: ou };
       else if (dist2(p, W.fusionPos) < 4.6 * 4.6) R = { kind: 'fuse' };
-      else if ((G.portalUnlocked && dist2(p, PORTAL1) < 7 * 7) || (W2.built && dist2(p, PORTAL2) < 7 * 7)) R = { kind: 'portal' };
-      else if (dist2(p, W.shopPos) < 5 * 5 || (W2.shopPos && dist2(p, W2.shopPos) < 5 * 5)) R = { kind: 'shop' };
+      else if ((G.portalUnlocked && dist2(p, PORTAL1) < 7 * 7) || (W2.built && dist2(p, PORTAL2) < 7 * 7) || (Portal3.p3 && Portal3.p3.g.visible && dist2(p, PORTAL3) < 7 * 7) || (W3.built && dist2(p, PORTAL4) < 7 * 7)) R = { kind: 'portal' };
+      else if (dist2(p, W.shopPos) < 5 * 5 || (W2.shopPos && dist2(p, W2.shopPos) < 5 * 5) || (W3.shopPos && dist2(p, W3.shopPos) < 5 * 5)) R = { kind: 'shop' };
       else if (dist2(p, W.boardPos) < 7 * 7) R = { kind: 'board' };
     }
   }
@@ -4026,9 +4436,9 @@ const UI = {
       case 'collect': text = 'جمع‌آوری ' + fmt(pendingOf(o, R.base)) + ' سکه ' + k('E'); lbl = 'جمع کن'; break;
       case 'plot': text = '🏠 خرید این زمین به‌عنوان پایگاه جدید — ' + fmt(R.price) + ' سکه ' + k('E'); lbl = 'خرید زمین'; cant = !R.ok; break;
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
-      case 'shop': text = (inW2(a.body.pos.x) ? '🔥 ورود به کارگاه گدازه ' : 'ورود به فروشگاه ارتقا ') + k('E'); lbl = 'فروشگاه'; break;
+      case 'shop': text = (inW3(a.body.pos.x) ? '🎈 ورود به ایستگاه هوایی ' : inW2(a.body.pos.x) ? '🔥 ورود به کارگاه گدازه ' : 'ورود به فروشگاه ارتقا ') + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
-      case 'portal': text = inW2(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : '🌋 برو داخل پرتال تا به سیاره‌ی گدازه بروی'; lbl = 'پرتال'; break;
+      case 'portal': text = inW3(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : inW2(a.body.pos.x) && Portal3.p3 && Portal3.p3.g.visible && dist2(a.body.pos, PORTAL3) < 49 ? '🏝️ برو داخل پرتال تا به جزیره‌های آسمانی بروی' : inW2(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : '🌋 برو داخل پرتال تا به سیاره‌ی گدازه بروی'; lbl = 'پرتال'; break;
       case 'fuse': text = '⚗️ دستگاه ترکیب: ۳ میم یکسان را یکی کن ' + k('E'); lbl = 'ترکیب'; break;
       case 'carry': text = '🏃 به پایگاهت برگرد! ' + k('G') + ' رها کردن'; lbl = 'تعامل'; break;
     }
@@ -4066,7 +4476,7 @@ const UI = {
       this.boardT = 3;
       const rows = [...G.owners].sort((x, y) => y.netWorth() - x.netWorth());
       const lines = [{ t: '🏆 برترین‌های میدان میم', size: 50, color: '#ffd23f', weight: 900 }];
-      const rsz = rows.length > 9 ? 26 : 38; rows.forEach((o, i) => lines.push({ t: fa(i + 1) + '. ' + o.name + ' — ' + fmt(o.netWorth()) + ' سکه', size: rsz, color: o.isPlayer ? '#3df2b0' : '#ffffff', weight: o.isPlayer ? 900 : 700 }));
+      const rsz = rows.length > 13 ? 21 : rows.length > 9 ? 26 : 38; rows.forEach((o, i) => lines.push({ t: fa(i + 1) + '. ' + o.name + ' — ' + fmt(o.netWorth()) + ' سکه', size: rsz, color: o.isPlayer ? '#3df2b0' : '#ffffff', weight: o.isPlayer ? 900 : 700 }));
       W.board.set(rows.map((o) => o.id + ':' + Math.floor(o.netWorth())).join(','), lines, { bg: 'rgba(14,10,40,.95)', border: '#ffd23f' });
     }
   },
@@ -4088,7 +4498,7 @@ const UI = {
     for (const f of W.fountains) { g.fillStyle = '#3fb7ff'; g.beginPath(); g.arc(X(f.x), Z(f.z), 3 * s, 0, TAU); g.fill(); }
     g.fillStyle = '#ff4f8b'; g.fillRect(X(W.shopPos.x - 13.5), Z(-7), 12 * s, 14 * s); g.font = (11 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🛒', X(W.shopPos.x - 7.5), Z(-12)); g.fillStyle = '#ffd23f'; g.fillRect(X(W.boardPos.x + 5), Z(-8), 2 * s, 16 * s);
     for (const b of W.bases) { if (!b.owner) { g.fillStyle = '#ffffff'; g.fillText('🏷️', X(b.cx), Z(b.cz)); } g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
-    this.mapBg = bg; this.mapX = X; this.mapZ = Z; this.mapBg2 = null;
+    this.mapBg = bg; this.mapX = X; this.mapZ = Z; this.mapBg2 = null; this.mapBg3 = null;
   },
   buildMapBg2() {
     const c = $('minimap'), dpr = Math.min(2, window.devicePixelRatio || 1), NW = 200 * dpr, NH = 104 * dpr; c.width = NW; c.height = NH;
@@ -4101,23 +4511,23 @@ const UI = {
     g.fillStyle = '#120c18'; g.fillRect(X(BELT2.x0), Z(-2.4), (BELT2.x1 - BELT2.x0) * s, 4.8 * s);
     for (const b of W.bases) if (b.world === 2) { g.fillStyle = (b.owner ? b.owner.color : '#888') + 'aa'; g.fillRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.strokeRect(X(b.cx - 12), Z(b.cz - 10), 24 * s, 20 * s); }
     g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL2.x), Z(PORTAL2.z)); if (W2.shopPos) g.fillText('🔥', X(W2.shopPos.x + 7), Z(0));
-    this.mapS = s; this.mapN = NW; this.mapBg2 = bg; this.map2 = { X, Z }; this.mapBg = null;
+    this.mapS = s; this.mapN = NW; this.mapBg2 = bg; this.map2 = { X, Z }; this.mapBg = null; this.mapBg3 = null;
   },
   minimap(dt) {
     if (!S.minimap) return; this.mapT -= dt; if (this.mapT > 0) return; this.mapT = 0.1;
-    const w2 = inW2(G.player.body.pos.x);
-    if (w2 && !this.mapBg2) this.buildMapBg2(); if (!w2 && !this.mapBg) this.buildMapBg();
-    const M = w2 ? this.map2 : { X: this.mapX, Z: this.mapZ };
+    const wn = worldOf(G.player.body.pos.x), w2 = wn === 2;
+    if (wn === 2 && !this.mapBg2) this.buildMapBg2(); if (wn === 3 && !this.mapBg3) buildMapBg3(); if (wn === 1 && !this.mapBg) this.buildMapBg();
+    const M = wn === 2 ? this.map2 : wn === 3 ? this.map3 : { X: this.mapX, Z: this.mapZ };
     const c = $('minimap'), g = c.getContext('2d'), X = M.X, Z = M.Z, s = this.mapS, dpr = this.mapN / 200;
-    g.drawImage(w2 ? this.mapBg2 : this.mapBg, 0, 0);
-    if (!w2 && G.portalUnlocked) { g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL1.x), Z(PORTAL1.z)); }
-    for (const b of W.bases) if (b.barrierActive && b.world === (w2 ? 2 : 1)) { const w1 = b.toWorld(-3, -10), w2 = b.toWorld(3, -10); g.strokeStyle = '#ff2a3a'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(X(w1.x), Z(w1.z)); g.lineTo(X(w2.x), Z(w2.z)); g.stroke(); }
-    for (const c of Extras.chests) if (c.w2 === w2 && c.opening < 0) { g.fillStyle = '#ffd23f'; g.strokeStyle = '#7a4a00'; g.lineWidth = dpr; const sz = (c.golden ? 5 : 3.5) * dpr; g.fillRect(X(c.pos.x) - sz / 2, Z(c.pos.z) - sz / 2, sz, sz); g.strokeRect(X(c.pos.x) - sz / 2, Z(c.pos.z) - sz / 2, sz, sz); }
-    if (Extras.boss && Extras.boss.w2 === w2) { const bp = Extras.boss.body.pos; g.fillStyle = '#ff2a3a'; g.beginPath(); g.arc(X(bp.x), Z(bp.z), (flash0() ? 5 : 4) * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5 * dpr; g.stroke(); }
-    for (const u of (w2 ? BELT2.list : G.belt)) { g.fillStyle = RARITIES[u.c.rarity].color; const r = (u.c.rarity >= 4 ? 2.4 : 1.2) * dpr; g.beginPath(); g.arc(X(u.pos.x), Z(u.pos.z), r, 0, TAU); g.fill(); }
+    g.drawImage(wn === 2 ? this.mapBg2 : wn === 3 ? this.mapBg3 : this.mapBg, 0, 0);
+    if (wn === 1 && G.portalUnlocked) { g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL1.x), Z(PORTAL1.z)); }
+    for (const b of W.bases) if (b.barrierActive && b.world === wn) { const w1 = b.toWorld(-3, -10), w2 = b.toWorld(3, -10); g.strokeStyle = '#ff2a3a'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(X(w1.x), Z(w1.z)); g.lineTo(X(w2.x), Z(w2.z)); g.stroke(); }
+    for (const c of Extras.chests) if (c.w === wn && c.opening < 0) { g.fillStyle = '#ffd23f'; g.strokeStyle = '#7a4a00'; g.lineWidth = dpr; const sz = (c.golden ? 5 : 3.5) * dpr; g.fillRect(X(c.pos.x) - sz / 2, Z(c.pos.z) - sz / 2, sz, sz); g.strokeRect(X(c.pos.x) - sz / 2, Z(c.pos.z) - sz / 2, sz, sz); }
+    if (Extras.boss && Extras.boss.w === wn) { const bp = Extras.boss.body.pos; g.fillStyle = '#ff2a3a'; g.beginPath(); g.arc(X(bp.x), Z(bp.z), (flash0() ? 5 : 4) * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5 * dpr; g.stroke(); }
+    for (const u of beltOfWorld(wn).list) { g.fillStyle = RARITIES[u.c.rarity].color; const r = (u.c.rarity >= 4 ? 2.4 : 1.2) * dpr; g.beginPath(); g.arc(X(u.pos.x), Z(u.pos.z), r, 0, TAU); g.fill(); }
     const flash = Math.floor(G.time * 4) % 2 === 0;
     for (const ag of G.agents) {
-      if (ag.isPlayer || inW2(ag.body.pos.x) !== w2) continue; const p = ag.body.pos;
+      if (ag.isPlayer || worldOf(ag.body.pos.x) !== wn) continue; const p = ag.body.pos;
       g.fillStyle = ag.isGuard ? '#ff2a3a' : ag.owner.color; g.beginPath(); g.arc(X(p.x), Z(p.z), 2.4 * dpr, 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = dpr; g.stroke();
       if (ag.carrying && ag.carrying.owner === G.player.owner && flash) { g.strokeStyle = '#ff2a3a'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(X(p.x), Z(p.z), 7 * dpr, 0, TAU); g.stroke(); }
     }
@@ -4135,8 +4545,8 @@ const UI = {
   refresh() { const k = this.panelKind; if (k === 'shop') this.openShop(true); else if (k === 'inv') this.openInventory(true); else if (k === 'daily') this.openDaily(true); else if (k === 'settings') this.openSettings(true); },
   keepScroll(fn) { const b = $('panelBody'), y = b.scrollTop; fn(); b.scrollTop = y; },
   openShop(re) {
-    const o = G.player.owner, w2 = inW2(G.player.body.pos.x);
-    const rows = UP_KEYS.filter((k) => (UPGRADES[k].shop === 2) === w2).map((k) => {
+    const o = G.player.owner, wn = worldOf(G.player.body.pos.x), w2 = wn > 1;
+    const rows = UP_KEYS.filter((k) => (UPGRADES[k].shop || 1) === wn).map((k) => {
       const U = UPGRADES[k], l = o.up[k], max = l >= U.max, cost = max ? 0 : U.cost(l);
       const bars = Array.from({ length: U.max }, (_, i) => '<i class="' + (i < l ? 'f' : '') + '"></i>').join('');
       return '<div class="upRow"><div class="emo">' + U.emoji + '</div><div class="txt"><b>' + U.name + '</b><small>' + (max ? 'به حداکثر رسیده' : U.desc(l)) + '</small><div class="lvl">' + bars + '</div></div>' +
@@ -4145,9 +4555,9 @@ const UI = {
     const rc = rebirthCost(o.rebirths);
     const reb = '<div class="upRow" style="border-color:var(--candy)"><div class="emo">♻️</div><div class="txt"><b>تولد دوباره (سطح ' + fa(o.rebirths) + ')</b><small>پول، میم‌ها و ارتقاها صفر می‌شوند؛ در عوض درآمدت برای همیشه ×' + fa((1 + 0.5 * (o.rebirths + 1)).toFixed(1)) + ' می‌شود و با پول بیشتری شروع می‌کنی.</small></div>' +
       '<button class="act red" type="button" data-act="rebirth"' + (o.money < rc ? ' disabled' : '') + '>💰 ' + fmt(rc) + '</button></div>';
-    const intro = w2 ? '🔥 آهنگرِ گدازه ابزارهای مخصوص سیاره‌ی گدازه را می‌سازد و دستت می‌دهد. این ابزارها با «تولد دوباره» از بین نمی‌روند.' : '🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.';
+    const intro = wn === 3 ? '🪂 خلبان ایستگاه هوایی وسایل مخصوص جزیره‌های آسمانی را دستت می‌دهد. این وسایل با «تولد دوباره» از بین نمی‌روند.' : w2 ? '🔥 آهنگرِ گدازه ابزارهای مخصوص سیاره‌ی گدازه را می‌سازد و دستت می‌دهد. این ابزارها با «تولد دوباره» از بین نمی‌روند.' : '🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.';
     const html = '<p class="note">' + intro + '</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + (w2 ? '' : reb);
-    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', w2 ? '🔥 کارگاه گدازه' : '🛒 فروشگاه ارتقا', html);
+    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', wn === 3 ? '🎈 ایستگاه هوایی' : w2 ? '🔥 کارگاه گدازه' : '🛒 فروشگاه ارتقا', html);
   },
   unitCard(s, o) {
     const u = s.unit, r = RARITIES[u.c.rarity], mu = MUTATIONS[u.mut], stars = u.lvl ? '⭐'.repeat(u.lvl) + ' ' : '';
@@ -4239,6 +4649,8 @@ const UI = {
       '<p>🛹 <b>اسکیت‌برد پرنده و 🐾 پت‌ها:</b> از فروشگاه دنیای اول بخر. پت‌ها دنبالت می‌آیند و قدرت می‌دهند.</p>' +
       '<p>⭐ <b>ارتقای میم:</b> در کلکسیون، هر میم را تا ۵ ستاره ارتقا بده؛ هر ستاره ۲۵٪ درآمد و ارزش بیشتر.</p>' +
       '<p>👹 <b>رئیس دزدها:</b> گاهی یک غول تاج‌دار می‌آید و سکه‌های پایگاه‌ها را می‌دزدد. ۱۴ سیلی بزنش تا صندوق طلایی بیندازد. مواظب لرزاندن زمینش باش!</p>' +
+      '<p>🏝️ <b>جزیره‌های آسمانی:</b> با ثروت ۱ تریلیون، در سیاره‌ی گدازه پرتال سوم باز می‌شود. پایگاه‌ها روی جزیره‌های شناور هستند و فقط با پل‌های باریک بی‌نرده یا سکوهای ابری به هم وصل‌اند. اگر بیفتی، میم دزدی برمی‌گردد. باد شدید هم هلت می‌دهد! ایستگاه هوایی پاراگلایدر، چکمه‌ی لنگر و کفش ابری می‌فروشد.</p>' +
+      '<p>🛸 <b>یوفو و 🗿 میم غول‌پیکر:</b> در دنیای اول گاهی یوفو میم‌های کمیاب روی نوار می‌اندازد و گاهی یک میم غول‌پیکر با ۲۰ برابر ارزش ظاهر می‌شود. شب‌ها هم آتش‌بازی است!</p>' +
       '<p>🌋 <b>سیاره‌ی گدازه:</b> وقتی ثروتت (پول + ارزش میم‌ها) به ۵۵۰ میلیون برسد، کنار جدول برترها یک پرتال باز می‌شود. آنجا میم‌ها ۲۰۰ برابر می‌ارزند ولی گدازه می‌سوزاند، شهاب‌سنگ می‌بارد، هر پایگاه یک ربات نگهبان دارد و حریف‌ها خیلی سریع‌ترند. جاذبه هم کمتر است!</p>' +
       '<p>🌙 <b>شب:</b> هر چند دقیقه شب می‌شود؛ شب‌ها صاحب‌خانه‌ها دیرتر می‌فهمند که دزد آمده.</p>' +
       '<p>🛒 <b>فروشگاه:</b> ارتقاها را فقط باید حضوری از مغازه‌ی غرب میدان بخری؛ مغازه‌دار سفارشت را دستت می‌دهد.</p>' +
@@ -4484,7 +4896,7 @@ const Cloud = {
     }
   },
   parse(d) {
-    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && [6, 8, 13].includes(s.owners.length)) return s; } catch (e) { /* invalid */ }
+    try { const s = JSON.parse(d.json); if (s && s.v === 1 && Array.isArray(s.owners) && [6, 8, 13, 17].includes(s.owners.length)) return s; } catch (e) { /* invalid */ }
     return null;
   },
   offer(d) {
@@ -4543,8 +4955,9 @@ function resetWorldTo(s) {
     for (const b of o.bases.slice(1)) releasePlot(o, b);
   }
   G.alerts.clear(); G.discovered.clear(); G.ach.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
-  if (s.portal) buildWorld2();
-  applySave(s); Missions.ensure(); if (G.portalUnlocked) { buildWorld2(); Portal.show(false); } ensurePlayerGuard();
+  if (s.portal || s.portal3) buildWorld2();
+  if (s.portal3) buildWorld3();
+  applySave(s); Missions.ensure(); if (G.portalUnlocked) { buildWorld2(); Portal.show(false); } if (G.portal3Unlocked) { buildWorld3(); Portal3.show(false); } ensurePlayerGuard();
   seedRivals(s.owners.length);
   G.owners.forEach((o) => o.applyCap());
   for (const a of G.agents) a.respawn();
@@ -4627,9 +5040,11 @@ async function init() {
   shopkeeper = buildAvatar({ skin: '#ffcf9e', shirt: '#ff4f8b', pants: '#2b3a67', shoes: '#111', hair: 'cap', hairC: '#222', accent: '#ffd23f', hat: '#ffd23f' });
   shopkeeper.root.position.set(W.shopPos.x - 6.1, 0.1, 0); shopkeeper.root.rotation.y = Math.PI / 2; scene.add(shopkeeper.root);
   let savedAt = 0;
-  if (save && save.portal) buildWorld2(); // the lava planet must exist before its bases are restored
+  if (save && (save.portal || save.portal3)) buildWorld2(); // the other worlds must exist before their bases are restored
+  if (save && save.portal3) buildWorld3();
   if (save) { try { savedAt = applySave(save); } catch (e) { console.warn('save apply failed', e); } }
   if (G.portalUnlocked) { buildWorld2(); Portal.show(false); }
+  if (G.portal3Unlocked) { buildWorld3(); Portal3.show(false); }
   ensurePlayerGuard();
   seedRivals(save ? save.owners.length : 0); // older saves had fewer rivals: give the new ones a starting base
   G.owners.forEach((o) => o.applyCap());
@@ -4681,7 +5096,7 @@ function simulate(dt) {
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
     if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
-    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt); updateExtras(dt);
+    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt); updateExtras(dt); Portal3.update(dt, G.time); updateUFO(dt); updateFireworks(dt);
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
@@ -4707,7 +5122,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
