@@ -96,10 +96,25 @@ export class Pedestrians {
   constructor(game, count = 14) {
     this.game = game;
     this.list = [];
+    const canopyG = new THREE.ConeGeometry(0.62, 0.32, 10, 1, true);
+    const stickG = new THREE.CylinderGeometry(0.015, 0.015, 0.95, 5);
+    const stickM = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    const cols = [0x1e3a8a, 0xb91c1c, 0x111111, 0x15803d, 0x7c3aed].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, side: THREE.DoubleSide }));
     for (let i = 0; i < count; i++) {
       const w = new Walker(game.scene);
       w.root.visible = false;
       w.active = false;
+      // an umbrella that opens when it rains
+      const um = new THREE.Group();
+      const canopy = new THREE.Mesh(canopyG, cols[i % cols.length]);
+      canopy.position.y = 2.18;
+      const stick = new THREE.Mesh(stickG, stickM);
+      stick.position.y = 1.72;
+      um.add(canopy, stick);
+      um.position.set(0.18, 0, 0.05);
+      um.visible = false;
+      w.root.add(um);
+      w.umbrella = um;
       this.list.push(w);
     }
   }
@@ -128,6 +143,11 @@ export class Pedestrians {
   update(dt) {
     const g = this.game;
     const p = g.player.pos;
+    const wet = g.weather ? (g.weather.wet ?? g.weather.rain) > 0.25 : false;
+    if (wet !== this.umbrellas) {
+      this.umbrellas = wet;
+      for (const w of this.list) w.umbrella.visible = wet;
+    }
     const inCity = Math.abs(p.x) < 520 && Math.abs(p.z) < 520;
     for (const w of this.list) {
       if (!w.active) {

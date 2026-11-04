@@ -7,6 +7,9 @@ const FILTERS = [
   ['سیاه و سفید', 'grayscale(1) contrast(1.2)'],
   ['قدیمی', 'sepia(0.75) contrast(1.05) brightness(0.95)'],
   ['رویایی', 'saturate(1.6) brightness(1.08) hue-rotate(-12deg)'],
+  ['ویپرویو 🌆', 'hue-rotate(250deg) saturate(1.7) contrast(1.12)'],
+  ['سرد ❄️', 'saturate(0.8) hue-rotate(12deg) brightness(1.05) contrast(1.12)'],
+  ['گرم 🌅', 'sepia(0.32) saturate(1.35) contrast(1.06)'],
 ];
 
 /** Photo mode: frozen world, free orbit camera, filters, save as PNG. */

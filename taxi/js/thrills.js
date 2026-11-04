@@ -102,11 +102,12 @@ export class Thrills {
       const best = S[t.id] || 0;
       g.stats.maxTrap = Math.max(g.stats.maxTrap || 0, kmh);
       g.audio.burst(0.08, 3000, 'highpass', 0.5);
-      if (kmh > best) {
+      if (kmh >= best + 5 || (!best && kmh >= 30)) {
         S[t.id] = kmh;
-        const cash = Math.round((kmh * kmh * 2) / 1000) * 1000; // 100 km/h → 20k, 200 km/h → 80k
+        // only the improvement pays (2·v² toman in total: 100 km/h ≈ 20k, 200 km/h ≈ 80k)
+        const cash = Math.round((2 * (kmh * kmh - best * best)) / 1000) * 1000;
         g.money += cash;
-        g.addXp(kmh / 6);
+        g.addXp((kmh - best) / 2);
         g.audio.cash();
         g.stunts.banner(`📸 تله سرعت ${t.name}: ${fa(kmh)} km/h • رکورد جدید! +${faMoney(cash)}`);
       } else g.stunts.pop(`📸 ${fa(kmh)} km/h (رکورد ${fa(best)})`);

@@ -112,7 +112,16 @@ export class Weather {
     u.horizon.value.lerp(gc, c * 0.8);
     u.sunColor.value.multiplyScalar(1 - 0.85 * c);
     g.scene.fog.color.lerp(gc, c * 0.8);
-    g.scene.fog.far = g.fogFar * (1 - 0.55 * r) * (1 - 0.72 * this.sand);
+    // some mornings start in thick fog (the same days every playthrough)
+    const h = g.hour, foggyDay = (g.day * 7) % 3 === 0;
+    const mfog = foggyDay && h > 4.5 && h < 10 ? Math.sin(((h - 4.5) / 5.5) * Math.PI) : 0;
+    this.morningFog = mfog;
+    if (mfog > 0.5 && !this.fogSaid && g.state === 'play') {
+      this.fogSaid = true;
+      g.ui.toast('🌫️ صبح مه‌آلوده؛ چراغ‌ها رو روشن کن و آروم برو', 'info');
+    } else if (mfog < 0.05) this.fogSaid = false;
+    g.scene.fog.far = g.fogFar * (1 - 0.55 * r) * (1 - 0.72 * this.sand) * (1 - 0.6 * mfog);
+    if (mfog > 0.01) g.scene.fog.color.lerp(this.mistCol || (this.mistCol = new THREE.Color(0xc9d2da)), 0.5 * mfog);
     // wet roads reflect
     for (const k in g.world.roadMats) {
       const m = g.world.roadMats[k];

@@ -116,7 +116,7 @@ export class Ambient {
       if (this.planeT <= 0) {
         const a = Math.random() * Math.PI * 2;
         this.pv = { x: Math.sin(a + Math.PI), z: Math.cos(a + Math.PI) };
-        P.position.set(f.pos.x + Math.sin(a) * 1600 + (Math.random() - 0.5) * 600, 260 + Math.random() * 80, f.pos.z + Math.cos(a) * 1600);
+        P.position.set(f.pos.x + Math.sin(a) * 1600 + (Math.random() - 0.5) * 600, 400 + Math.random() * 80, f.pos.z + Math.cos(a) * 1600);
         P.rotation.set(0, Math.atan2(this.pv.x, this.pv.z), 0);
         P.visible = true;
       }
@@ -151,12 +151,12 @@ export class Ambient {
         const o = this.offs[i], a = B.a + i * 0.05;
         _p.set(B.x + Math.cos(a) * B.r + o[0], B.y + o[1] + Math.sin(t + o[3]) * 1.5, B.z + Math.sin(a) * B.r + o[2]);
         const yaw = Math.atan2(-Math.sin(a), Math.cos(a)), flap = Math.sin(t * 9 + o[3]) * 0.6;
-        for (const [m, s] of [[this.wingL, 1], [this.wingR, -1]]) {
-          _e.set(0, yaw, flap * s, 'YXZ');
-          _q.setFromEuler(_e);
-          _m.compose(_p, _q, _s);
-          m.setMatrixAt(i, _m);
-        }
+        _e.set(0, yaw, flap, 'YXZ');
+        _m.compose(_p, _q.setFromEuler(_e), _s);
+        this.wingL.setMatrixAt(i, _m);
+        _e.set(0, yaw, -flap, 'YXZ');
+        _m.compose(_p, _q.setFromEuler(_e), _s);
+        this.wingR.setMatrixAt(i, _m);
       }
       this.wingL.instanceMatrix.needsUpdate = this.wingR.instanceMatrix.needsUpdate = true;
     }

@@ -209,7 +209,9 @@ export class Traffic {
     this.limit = n;
   }
   spawnNear(p, minD, maxD) {
-    const car = this.cars.find((c) => !c.active);
+    // some of the free slots are filled by your own company's taxis
+    const own = Math.random() < 0.3 && this.cars.find((c) => !c.active && c.isFleet);
+    const car = own || this.cars.find((c) => !c.active && !c.isFleet) || this.cars.find((c) => !c.active);
     if (!car) return;
     const G = this.world.graph;
     for (let k = 0; k < 40; k++) {

@@ -177,6 +177,8 @@ class Game {
     this.navTex = tex;
     this.player.car.screen.material = new THREE.MeshBasicMaterial({ map: tex });
     this.load();
+    // boards show the loaded records
+    for (const t of this.thrills.traps) this.thrills.drawTrap(t, null);
     this.ui.toggleAuto(!!this.settings.auto);
     document.querySelectorAll('.toast').forEach((t) => t.remove());
     this.setCamera(this.settings.cam || 'third', true);
@@ -204,7 +206,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -226,6 +228,15 @@ class Game {
       const paint = p.paints[p.model] ?? d.paint;
       if (paint !== null && paint !== undefined) p.setPaint(paint);
       if (d.neon) p.setNeon(d.neon);
+      if (d.mods) {
+        p.tint = d.mods.tint || 0;
+        p.rim = d.mods.rim || 'silver';
+        p.plateText = d.mods.plate || '';
+        p.spoiler = !!d.mods.spoiler;
+        p.sportExhaust = this.audio.sportExhaust = !!d.mods.exhaust;
+        p.modsOwned = Array.isArray(d.mods.owned) ? d.mods.owned : [];
+        p.applyMods();
+      }
       if (d.dirt) {
         p.dirt = d.dirt;
         p.dirtWarned = d.dirt > 0.6;
@@ -260,7 +271,10 @@ class Game {
     const start = (fresh) => {
       this.audio.init();
       if (fresh && this.hasSave) {
-        try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+        try {
+          localStorage.removeItem(SAVE_KEY);
+          localStorage.removeItem('taxiCity.ghosts.v1');
+        } catch (e) { /* ignore */ }
         location.reload();
         return;
       }
@@ -298,6 +312,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV8) {
+        this.stats.seenV8 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: ✨ گرافیک سینمایی (کیفیت «خیلی بالا» از منو)، 🚦 راهنما و چراغ‌های ماشین‌ها، 🛠️ تیونینگ، 🎚️ کروز کنترل، 💍 عروسی، 🚧 راه‌بندان پلیس، 👽 بشقاب پرنده و کلی چیز دیگه!', 'info'), 26000);
+      }
       if (!this.stats.seenV7) {
         this.stats.seenV7 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 🎬 دوربین تلویزیونی و دوربین سپر (دکمه 🎥)، 🚕 تاکسیمتر، 🚦 ساعت شلوغی، ✈️ هواپیما، 🐦 پرنده‌ها و 🎈 بالن‌های کویر!', 'info'), 21500);
@@ -321,6 +339,7 @@ class Game {
     this.stats.seenV5 = true;
     this.stats.seenV6 = true;
     this.stats.seenV7 = true;
+    this.stats.seenV8 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -404,8 +423,11 @@ class Game {
     this.camera.near = fp ? 0.03 : 0.15;
     this.camera.updateProjectionMatrix();
 
-    this.arrow.group.position.set(0, fp ? 1.02 : 2.6, fp ? 0.62 : 0);
-    this.arrow.group.scale.setScalar(fp ? 0.075 : 0.85);
+    // where the guide arrow floats: dashboard in first person, ahead of the bonnet for the bumper cam, above the roof otherwise
+    const bump = mode === 'bumper';
+    this.arrowY = fp ? 1.02 : bump ? 1.15 : 2.6;
+    this.arrow.group.position.set(0, this.arrowY, fp ? 0.62 : bump ? this.player.car.P.len / 2 + 4 : 0);
+    this.arrow.group.scale.setScalar(fp ? 0.075 : bump ? 0.35 : 0.85);
     this.camInit = true;
     this.tvCam = null;
     if (!silent) this.ui.toast(fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : mode === 'bumper' ? '🎥 دوربین سپر — خیلی نزدیک به جاده!' : mode === 'tv' ? '🎬 دوربین تلویزیونی — مثل پخش زنده مسابقه!' : '🎥 دید سوم شخص', 'info');
@@ -523,10 +545,10 @@ class Game {
     const spd = Math.abs(p.speed);
     if (this.camMode === 'bumper') {
       // low camera on the front bumper
-      const f = new THREE.Vector3(0, 0.62, p.car.P.len / 2 + 0.15).applyQuaternion(p.group.quaternion).add(p.group.position);
-      cam.position.copy(f);
-      const q = p.group.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.04 + this.lookPitch, Math.PI + this.lookYaw, 0, 'YXZ')));
-      cam.quaternion.copy(q);
+      const T = this._camTmp || (this._camTmp = { v: new THREE.Vector3(), q: new THREE.Quaternion(), e: new THREE.Euler(0, 0, 0, 'YXZ') });
+      cam.position.copy(T.v.set(0, 0.62, p.car.P.len / 2 + 0.15).applyQuaternion(p.group.quaternion).add(p.group.position));
+      T.e.set(-0.04 + this.lookPitch, Math.PI + this.lookYaw, 0, 'YXZ');
+      cam.quaternion.copy(p.group.quaternion).multiply(T.q.setFromEuler(T.e));
       cam.fov = damp(cam.fov, 72 + spd * 0.3 + (p.nitroOn ? 14 : 0), 3, dt);
     } else if (this.camMode === 'tv') {
       this.updateTvCamera(dt);
@@ -616,7 +638,7 @@ class Game {
     }
     const T = this.tvCam;
     cam.position.set(T.x, T.y, T.z);
-    const look = new THREE.Vector3(p.pos.x, p.y + 0.9, p.pos.z);
+    const look = (this._tvLook = this._tvLook || new THREE.Vector3()).set(p.pos.x, p.y + 0.9, p.pos.z);
     cam.lookAt(look);
     // telephoto zoom: keep the car a similar size on screen
     const dist = Math.max(4, cam.position.distanceTo(look));
@@ -690,7 +712,7 @@ class Game {
     a.group.visible = this.guideOn && this.state === 'play' && !this.onfoot.active;
     a.group.rotation.y = this.guideRel;
     a.mat.opacity = 0.75 + Math.sin(this.time * 5) * 0.2;
-    a.group.position.y = (this.camMode === 'first' ? 1.02 : 2.6) + Math.sin(this.time * 3) * (this.camMode === 'first' ? 0.005 : 0.08);
+    a.group.position.y = (this.arrowY ?? 2.6) + Math.sin(this.time * 3) * (this.camMode === 'first' ? 0.005 : this.camMode === 'bumper' ? 0.03 : 0.08);
   }
 
   /* ---------------- zones (stations, garages, cameras) ---------------- */
@@ -897,6 +919,14 @@ class Game {
       const x = p.pos.x - s * rr - c * side, z = p.pos.z - c * rr + s * side;
       fx.tyre.emit(x, p.y + 0.25, z, (Math.random() - 0.5) * 1.5, 0.8 + Math.random(), (Math.random() - 0.5) * 1.5, 1.6, 0.8, 4, 0.35);
     }
+    // spray from the tyres on wet roads
+    const W = this.weather;
+    if (W && (W.wet ?? W.rain) > 0.3 && sp > 8 && !p.air && Math.random() < 0.7) {
+      for (const side of [0.75, -0.75]) {
+        const x = p.pos.x - s * 1.5 + c * side, z = p.pos.z - c * 1.5 - s * side;
+        fx.tyre.emit(x, p.y + 0.3, z, -s * sp * 0.15 + (Math.random() - 0.5), 0.9 + Math.random(), -c * sp * 0.15 + (Math.random() - 0.5), 0.7, 0.5, 3, 0.25);
+      }
+    }
     // steam from a boiling engine
     if (p.overheat && Math.random() < 0.6) {
       const hx = p.pos.x + s * 1.6, hz = p.pos.z + c * 1.6;
@@ -906,7 +936,7 @@ class Game {
     // exhaust backfire on fast upshifts and when lifting off at high revs
     const gas = this.lastInput ? this.lastInput.gas : 0, g0 = this.prevGas ?? 0;
     const upshift = p.shift && !this.prevShift && p.targetGear > p.gear && p.gear >= 1;
-    if (this.state === 'play' && !this.onfoot.active && ((upshift && p.rpm > 4300 && sp > 9) || (g0 > 0.8 && gas < 0.1 && p.rpm > 5000 && Math.random() < 0.6))) this.backfire();
+    if (this.state === 'play' && !this.onfoot.active && ((upshift && p.rpm > 4300 && sp > 9) || (g0 > 0.8 && gas < 0.1 && p.rpm > 5000 && Math.random() < (p.sportExhaust ? 0.95 : 0.6)))) this.backfire();
     this.prevShift = !!p.shift;
     this.prevGas = gas;
     fx.fire.update(dt, -2);
@@ -957,7 +987,8 @@ class Game {
     // the driver's head is hidden only while the camera really sits inside it (first person, driving);
     // photo mode, cutscenes, jail and walking all show it
     const head = this.player.driver.head;
-    const inside = this.camMode === 'first' && this.state === 'play' && !this.onfoot.active;
+    const st0 = this.state;
+    const inside = this.camMode === 'first' && !this.onfoot.active && (st0 === 'play' || st0 === 'pause' || (st0 === 'cutscene' && !this.cinematic));
     if (head.visible === inside) head.visible = !inside;
     const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1) * (this.state === 'play' ? this.slowmo || 1 : 1);
     const st = this.state;

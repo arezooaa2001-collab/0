@@ -263,7 +263,8 @@ export class Race {
     const gh = this.ghostData;
     if (!gh) return;
     const G = this.ghostMesh(), P = gh.pts, n = P.length / 3;
-    const f = this.time / 0.1, i = Math.floor(f);
+    // sample k was recorded at (k + 1) × 0.1 s
+    const f = Math.max(0, this.time / 0.1 - 1), i = Math.floor(f);
     if (i >= n - 1) {
       G.visible = false;
       return;
@@ -501,7 +502,7 @@ export class Race {
     if (this.idleT > 25) return this.abort('وایسادی؟! رقیب مسخره‌ت کرد و رفت 🏳️');
     const first = this.ps >= this.rs;
     const mm = Math.floor(this.time / 60), ss = (this.time % 60).toFixed(1).padStart(4, '0');
-    hud.innerHTML = `<b class="${first ? 'p1' : 'p2'}">${first ? '🥇 نفر اول' : '🥈 نفر دوم'}</b><span>🚩 ${fa(this.cp)}/${fa(this.cps.length)}</span><span>⏱ ${fa(mm)}:${fa(ss).replace('.', '٫')}</span><span class="gap">${fa(Math.round(Math.abs(this.ps - this.rs)))} متر ${first ? 'جلوتر' : 'عقب‌تر'}</span>${this.ghostData ? `<span class="gap">👻 رکورد ${this.fmt(this.ghostData.time)}</span>` : ''}`;
+    hud.innerHTML = `<b class="${first ? 'p1' : 'p2'}">${first ? '🥇 نفر اول' : '🥈 نفر دوم'}</b><span>🚩 ${fa(this.cp)}/${fa(this.cps.length)}</span><span>⏱ ${fa(mm)}:${fa(ss).replace('.', '٫')}${this.ghostData ? ` / 👻 ${this.fmt(this.ghostData.time)}` : ''}</span><span class="gap">${fa(Math.round(Math.abs(this.ps - this.rs)))} متر ${first ? 'جلوتر' : 'عقب‌تر'}</span>`;
   }
   /** pure-pursuit rival following the race path, with rubber banding and overtaking */
   driveRival(dt, leaving) {

@@ -5,6 +5,8 @@ import { MOODS } from './missions.js';
 
 const $ = (id) => document.getElementById(id);
 const WASH_COST = 40000, INS_COST = 300000;
+const TINTS = ['شفاف', 'دودی', 'تیره', 'لیموزینی'];
+const RIMS = [['silver', '#c4c8ce', 'نقره‌ای'], ['black', '#1a1a1a', 'مشکی'], ['gold', '#d4af37', 'طلایی'], ['red', '#c62828', 'قرمز'], ['neon', '#00e5ff', 'نئونی ✨']];
 const HORNS = [['classic', '📯', 'بوق معمولی', 0], ['bike', '🚲', 'زنگ دوچرخه', 60000], ['dingdong', '🔔', 'دینگ دانگ', 80000], ['duck', '🦆', 'اردکی', 100000], ['ship', '🚢', 'بوق کشتی', 150000], ['cucaracha', '🎺', 'کوکاراچا', 250000]];
 const PAINT_COST = 120000, NOS_COST = 60000, NEON_COST = 250000, RAINBOW_COST = 600000;
 const NEONS = [[0x00e5ff, 'آبی یخی'], [0xff2bd6, 'صورتی'], [0x39ff14, 'سبز فسفری'], [0xa040ff, 'بنفش'], [0xff2a2a, 'قرمز'], [0xffd21a, 'طلایی'], ['rainbow', 'رنگین‌کمان 🌈']];
@@ -23,6 +25,13 @@ export class UI {
     this.talkT = 0;
     this.resultT = 0;
     this.mm = $('minimap');
+    this.mmZoom = 1;
+    this.mm.style.pointerEvents = 'auto';
+    this.mm.addEventListener('click', () => {
+      const Z = [1, 1.9, 0.55];
+      this.mmZoom = Z[(Z.indexOf(this.mmZoom) + 1) % Z.length];
+      this.toast(this.mmZoom > 1 ? '🔍 نقشه دور' : this.mmZoom < 1 ? '🔍 نقشه نزدیک' : '🔍 نقشه معمولی', 'info');
+    });
     this.mmCtx = this.mm.getContext('2d');
     this.coarse = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
     document.body.classList.toggle('touch', this.coarse);
@@ -306,6 +315,90 @@ export class UI {
     g.audio.beep();
     this.drawBigMap();
   }
+  /** analog speedometer with a rev counter arc */
+  drawGauge(p) {
+    const c = $('gauge');
+    if (!c) return;
+    const kmh = Math.min(260, (p.groundSpeed ?? Math.abs(p.speed)) * 3.6), rpm = Math.min(1, p.rpm / 7000);
+    const key = Math.round(kmh) + ':' + Math.round(rpm * 50);
+    if (key === this.gaugeKey) return;
+    this.gaugeKey = key;
+    const x = c.getContext('2d'), S = 160, R = 70;
+    x.clearRect(0, 0, S, S);
+    x.save();
+    x.translate(80, 80);
+    x.fillStyle = 'rgba(10,12,20,0.72)';
+    x.beginPath();
+    x.arc(0, 0, R + 6, 0, Math.PI * 2);
+    x.fill();
+    const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
+    // rev arc
+    x.lineWidth = 6;
+    x.strokeStyle = 'rgba(255,255,255,0.12)';
+    x.beginPath();
+    x.arc(0, 0, R - 2, a0, a1);
+    x.stroke();
+    x.strokeStyle = rpm > 0.9 ? '#ff4040' : rpm > 0.75 ? '#ffb020' : '#38e07e';
+    x.beginPath();
+    x.arc(0, 0, R - 2, a0, a0 + (a1 - a0) * rpm);
+    x.stroke();
+    // speed ticks every 20 km/h
+    x.strokeStyle = '#fff';
+    x.fillStyle = '#ddd';
+    x.font = 'bold 12px sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    for (let v = 0; v <= 260; v += 20) {
+      const a = a0 + ((a1 - a0) * v) / 260;
+      x.lineWidth = v % 40 === 0 ? 2.5 : 1.2;
+      x.beginPath();
+      x.moveTo(Math.cos(a) * (R - 10), Math.sin(a) * (R - 10));
+      x.lineTo(Math.cos(a) * (R - (v % 40 === 0 ? 20 : 15)), Math.sin(a) * (R - (v % 40 === 0 ? 20 : 15)));
+      x.stroke();
+      if (v % 40 === 0) x.fillText(String(v), Math.cos(a) * (R - 31), Math.sin(a) * (R - 31));
+    }
+    // needle
+    const a = a0 + ((a1 - a0) * kmh) / 260;
+    x.strokeStyle = '#ff3b3b';
+    x.lineWidth = 3.5;
+    x.lineCap = 'round';
+    x.beginPath();
+    x.moveTo(-Math.cos(a) * 8, -Math.sin(a) * 8);
+    x.lineTo(Math.cos(a) * (R - 14), Math.sin(a) * (R - 14));
+    x.stroke();
+    x.fillStyle = '#222';
+    x.beginPath();
+    x.arc(0, 0, 7, 0, Math.PI * 2);
+    x.fill();
+    x.restore();
+  }
+  makeDrops() {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const x = c.getContext('2d');
+    for (let i = 0; i < 160; i++) {
+      const px = Math.random() * 512, py = Math.random() * 512, r = 1.5 + Math.random() * 5;
+      const grd = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 0, px, py, r);
+      grd.addColorStop(0, 'rgba(255,255,255,0.75)');
+      grd.addColorStop(0.6, 'rgba(200,220,240,0.25)');
+      grd.addColorStop(1, 'rgba(120,140,160,0.05)');
+      x.fillStyle = grd;
+      x.beginPath();
+      x.ellipse(px, py, r, r * 1.25, 0, 0, Math.PI * 2);
+      x.fill();
+      if (Math.random() < 0.25) {
+        x.strokeStyle = 'rgba(255,255,255,0.18)';
+        x.lineWidth = r * 0.5;
+        x.beginPath();
+        x.moveTo(px, py);
+        x.lineTo(px + (Math.random() - 0.5) * 4, py + 10 + Math.random() * 30);
+        x.stroke();
+      }
+    }
+    $('drops').style.backgroundImage = `url(${c.toDataURL()})`;
+    this.dropsReady = true;
+  }
   makeCracks() {
     const c = document.createElement('canvas');
     c.width = 1024;
@@ -367,6 +460,16 @@ export class UI {
       $('cracks').style.opacity = crack;
       $('cracks').classList.toggle('hidden', !crack);
     }
+    this.drawGauge(p);
+    // raindrops on the windshield from the driver's seat
+    const W = g.weather;
+    const drops = g.camMode === 'first' && !g.onfoot.active && g.state === 'play' && W ? Math.round(Math.min(1, ((W.wet ?? W.rain) + W.snow * 0.6) * 1.3) * 10) / 10 : 0;
+    if (drops !== this.dropsShown) {
+      if (drops && !this.dropsReady) this.makeDrops();
+      this.dropsShown = drops;
+      $('drops').style.opacity = drops * 0.85;
+      $('drops').classList.toggle('hidden', !drops);
+    }
     // taximeter: the fare ticks up as you get closer to the destination
     const rd = g.rides, rr = rd.ride;
     let meter = '';
@@ -379,6 +482,7 @@ export class UI {
       this.meterShown = mt;
       $('meter').textContent = mt;
       $('meter').classList.toggle('hidden', !mt);
+      document.body.classList.toggle('metered', !!mt);
     }
     $('money').textContent = faMoney(g.money);
     $('coinPill').classList.toggle('hidden', !g.coins);
@@ -465,7 +569,7 @@ export class UI {
     const g = this.g, w = g.world, p = g.focus();
     const c = this.mm, ctx = this.mmCtx, S = c.width;
     const k = w.minimapScale;
-    const R = 230 + Math.abs(p.speed) * 4;
+    const R = (230 + Math.abs(p.speed) * 4) * (this.mmZoom || 1);
     const sc = S / 2 / R / k;
     ctx.save();
     ctx.clearRect(0, 0, S, S);
@@ -842,9 +946,12 @@ export class UI {
         <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
         const wb = el.querySelector('[data-wash]');
         if (wb) wb.onclick = () => {
+          if (wb.disabled) return;
+          wb.disabled = true;
           g.topUp(WASH_COST);
           if (g.money < WASH_COST) {
             this.toast('پول کافی نداری 😟', 'warn');
+            wb.disabled = false;
             return;
           }
           g.money -= WASH_COST;
@@ -855,7 +962,7 @@ export class UI {
             g.fade(0, 0.5);
             this.toast('✨ ماشینت برق می‌زنه! مسافرها کیف می‌کنن', 'good');
             g.save();
-            render();
+            if (this.panelOpen && g.state === 'play') render();
           });
         };
         el.querySelectorAll('[data-a]').forEach((b) => {
@@ -913,6 +1020,13 @@ export class UI {
             <button data-neon="off" class="off ${p.neon ? '' : 'cur'}" title="خاموش">✕</button></div></div>
           <div class="card"><h3>🛡️ بیمه بدنه</h3><p>${(g.stats.insurance || 0) > 0 ? `${fa(g.stats.insurance)} تعمیر رایگان باقی مونده` : 'تعمیرهای بعدی مجانی میشه'}</p>
             <button data-a="ins">۳ تعمیر رایگان • ${faMoney(INS_COST)}</button></div>
+          <div class="card tune"><h3>🛠️ تیونینگ</h3>
+            <div class="tunerow"><b>🪟 شیشه دودی</b>${TINTS.map((t, i) => `<button data-tint="${i}" class="${(p.tint || 0) === i ? 'cur' : ''}">${t}</button>`).join('')}<small>${faMoney(150000)}</small></div>
+            <div class="tunerow"><b>⚙️ رینگ</b>${RIMS.map(([id, col, name]) => `<button data-rim="${id}" class="${(p.rim || 'silver') === id ? 'cur' : ''}" title="${name}" style="background:${col};color:${id === 'black' ? '#fff' : '#111'}">${name}</button>`).join('')}<small>${faMoney(100000)}</small></div>
+            <div class="tunerow"><b>🔤 پلاک شخصی</b><input data-plate maxlength="10" placeholder="مثلاً ۷۷ ب ۷۷۷" value="${p.plateText || ''}"><button data-a2="plate">ثبت • ${faMoney(50000)}</button></div>
+            <div class="tunerow"><b>🪽 بال عقب</b><button data-a2="spoiler" class="${p.spoiler ? 'cur' : ''}">${(p.modsOwned || []).includes('spoiler') ? (p.spoiler ? 'برداشتن' : 'نصب') : 'خرید • ' + faMoney(200000)}</button>
+              <b>💨 اگزوز اسپرت</b><button data-a2="exhaust" class="${p.sportExhaust ? 'cur' : ''}">${(p.modsOwned || []).includes('exhaust') ? (p.sportExhaust ? 'خاموش' : 'روشن') : 'خرید • ' + faMoney(400000)}</button></div>
+          </div>
           <div class="card horns"><h3>📯 بوق ماشین</h3><div class="hornrow">${HORNS.map(([id, icon, name, price]) => `<button data-horn="${id}" class="${p.horn === id ? 'cur' : ''}">${icon} ${name}<small>${p.horns.includes(id) ? (p.horn === id ? '✓ فعال' : 'انتخاب') : faMoney(price)}</small></button>`).join('')}</div></div>
           <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
             <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
@@ -951,6 +1065,59 @@ export class UI {
             render();
           };
         });
+        const buy = (cost) => {
+          g.topUp(cost);
+          if (g.money < cost) {
+            this.toast('پول کافی نداری 😟', 'warn');
+            g.audio.bad();
+            return false;
+          }
+          g.money -= cost;
+          if (cost) g.audio.cash();
+          return true;
+        };
+        const done = (msg) => {
+          p.applyMods();
+          this.toast(msg, 'good');
+          g.save();
+          render();
+        };
+        el.querySelectorAll('[data-tint]').forEach((b) => {
+          b.onclick = () => {
+            const v = +b.dataset.tint;
+            if ((p.tint || 0) === v || !buy(150000)) return;
+            p.tint = v;
+            done(`🪟 شیشه‌ها ${TINTS[v]} شدن`);
+          };
+        });
+        el.querySelectorAll('[data-rim]').forEach((b) => {
+          b.onclick = () => {
+            const v = b.dataset.rim;
+            if ((p.rim || 'silver') === v || !buy(100000)) return;
+            p.rim = v;
+            done('⚙️ رینگ‌های جدید نصب شد!');
+          };
+        });
+        const plateIn = el.querySelector('[data-plate]');
+        plateIn.onkeydown = (e) => e.stopPropagation();
+        el.querySelector('[data-a2=plate]').onclick = () => {
+          const v = plateIn.value.trim().slice(0, 10);
+          if (!v || v === p.plateText || !buy(50000)) return;
+          p.plateText = v;
+          done(`🔤 پلاک «${v}» نصب شد!`);
+        };
+        for (const [id, prop, cost, on, off] of [['spoiler', 'spoiler', 200000, '🪽 بال عقب نصب شد!', 'بال برداشته شد'], ['exhaust', 'sportExhaust', 400000, '💨 اگزوز اسپرت! صدای موتور رو بشنو 🔥', 'اگزوز معمولی']]) {
+          el.querySelector(`[data-a2=${id}]`).onclick = () => {
+            p.modsOwned = p.modsOwned || [];
+            if (!p.modsOwned.includes(id)) {
+              if (!buy(cost)) return;
+              p.modsOwned.push(id);
+            }
+            p[prop] = !p[prop];
+            if (id === 'exhaust') g.audio.sportExhaust = p.sportExhaust;
+            done(p[prop] ? on : off);
+          };
+        }
         el.querySelectorAll('[data-horn]').forEach((b) => {
           b.onclick = () => {
             const h = HORNS.find((x) => x[0] === b.dataset.horn);
@@ -1115,6 +1282,14 @@ export class UI {
     this.panel(`<h2>🏆 افتخارات (${fa(n)} از ${fa(total)})</h2>
       <div class="statrow"><span>🎖️ سطح ${fa(levelFor(s.xp || 0))} • ${levelTitle(levelFor(s.xp || 0))}</span><span>🧳 ${fa(s.completed ?? s.trips)} سفر</span><span>🚀 ${fa(s.jumps || 0)} پرش</span><span>🌀 رکورد دریفت ${fa(Math.round(s.bestDrift || 0))}</span><span>🛣️ ${fa(((s.km || 0)).toFixed(1)).replace('.', '٫')} کیلومتر</span><span>💨 رکورد ${fa(Math.round(s.maxKmh || 0))} km/h</span><span>🪙 ${fa(g.coins)} سکه</span></div>
       ${g.ach.dailyHtml()}
+      <details class="stats"><summary>📊 آمار رانندگی</summary><div class="statgrid">${[
+        ['💰', 'کل درآمد', faMoney(s.earned || 0)], ['🧳', 'سفرهای کامل', fa(s.completed || 0)], ['🛣️', 'کیلومتر', fa((s.km || 0).toFixed(1)).replace('.', '٫')],
+        ['💨', 'سریع‌ترین', fa(Math.round(s.maxKmh || 0)) + ' km/h'], ['🚀', 'پرش‌ها', fa(s.jumps || 0)], ['✈️', 'طولانی‌ترین پرش', fa((s.bestAir || 0).toFixed(1)).replace('.', '٫') + ' ث'],
+        ['🌀', 'رکورد دریفت', fa(Math.round(s.bestDrift || 0))], ['😱', 'نزدیک بود', fa(s.nearMiss || 0)], ['🏁', 'مسابقه‌های برده', fa(s.racesWon || 0)],
+        ['🔥', 'رکورد تاکسی دیوانه', faMoney(s.crazyBest || 0)], ['🅿️', 'پارک موفق', fa(s.parks || 0)], ['🗿', 'مجسمه‌ها', fa((s.statues || []).length)],
+        ['💥', 'خراب‌کاری', fa(s.smashed || 0)], ['🧽', 'کارواش', fa(s.washes || 0)], ['🏃', 'فرار از پلیس', fa(s.escapes || 0)],
+        ['🔒', 'زندان', fa(s.jailed || 0)], ['🎁', 'روز پشت سر هم', fa(s.streak || 0)], ['🙏', 'وسیله پس داده', fa(s.returned || 0)],
+      ].map(([i, t, v]) => `<div><span>${i}</span><small>${t}</small><b>${v}</b></div>`).join('')}</div></details>
       <h3 class="achh">🏆 افتخارات</h3>
       <div class="achs">${g.ach.html()}</div>`);
   }

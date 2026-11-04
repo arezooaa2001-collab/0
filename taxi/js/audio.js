@@ -141,7 +141,8 @@ export class AudioSys {
     this.e2.frequency.setTargetAtTime(f * 0.5, t, 0.03);
     this.e3.frequency.setTargetAtTime(f * 2.02, t, 0.03);
     this.engFilter.frequency.setTargetAtTime(250 + throttle * 1300 + rpm * 0.18, t, 0.05);
-    this.engGain.gain.setTargetAtTime(on ? 0.1 + throttle * 0.11 : 0, t, 0.08);
+    const loud = this.sportExhaust ? 1.4 : 1;
+    this.engGain.gain.setTargetAtTime(on ? (0.1 + throttle * 0.11) * loud : 0, t, 0.08);
   }
   setWind(speed, rough) {
     if (!this.ctx) return;

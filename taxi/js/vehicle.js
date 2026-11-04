@@ -123,6 +123,7 @@ export class PlayerCar {
       if (o.isMesh && o.parent !== this.driver.root) o.castShadow = o.material.name === 'paint' || o.material.name === 'tire';
     });
     this.buildNeon();
+    this.applyMods();
     if (old) {
       if (game.arrow) this.group.add(game.arrow.group);
       if (game.navTex) this.car.screen.material = new THREE.MeshBasicMaterial({ map: game.navTex });
@@ -197,6 +198,80 @@ export class PlayerCar {
     this.paintHex = hex;
     this.paints[this.model] = hex;
     this.paintFinish(hex);
+  }
+  /** garage mods: window tint, rim colour, personal plate, spoiler */
+  applyMods() {
+    if (!this.modMats) {
+      this.modMats = {
+        glass: sharedMats().glass.clone(),
+        rim: sharedMats().rim.clone(),
+        plate: sharedMats().plate.clone(),
+      };
+      this.modMats.plate.map = null;
+    }
+    const M = this.modMats;
+    const tint = [0.22, 0.45, 0.62, 0.8][this.tint || 0];
+    M.glass.opacity = tint;
+    M.glass.color.setHex(this.tint ? 0x223038 : 0x9fb4c4);
+    const RIMS = { silver: [0xc4c8ce, 0], black: [0x1a1a1a, 0], gold: [0xd4af37, 0], red: [0xc62828, 0], neon: [0x00e5ff, 0.9] };
+    const [rc, re] = RIMS[this.rim || 'silver'] || RIMS.silver;
+    M.rim.color.setHex(rc);
+    M.rim.emissive.setHex(re ? rc : 0x000000);
+    M.rim.emissiveIntensity = re ? 1.4 : 0;
+    if (this.plateText && this.plateText !== this.plateDrawn) {
+      this.plateDrawn = this.plateText;
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 56;
+      const g = c.getContext('2d');
+      g.fillStyle = '#f4f4f0';
+      g.fillRect(0, 0, 256, 56);
+      g.fillStyle = '#1946a8';
+      g.fillRect(0, 0, 34, 56);
+      g.fillStyle = '#fff';
+      g.font = 'bold 13px sans-serif';
+      g.fillText('I.R.', 5, 44);
+      g.fillStyle = '#c8a000';
+      g.fillRect(4, 6, 26, 14);
+      g.strokeStyle = '#111';
+      g.lineWidth = 3;
+      g.strokeRect(2, 2, 252, 52);
+      g.fillStyle = '#111';
+      g.font = 'bold 32px Vazirmatn, Tahoma, sans-serif';
+      g.textAlign = 'center';
+      g.fillText(this.plateText, 145, 41, 210);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      if (M.plate.map) M.plate.map.dispose();
+      M.plate.map = t;
+      M.plate.needsUpdate = true;
+    }
+    const usePlate = !!this.plateText;
+    this.car.root.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      const n = o.material.name;
+      if (n === 'glass') o.material = M.glass;
+      else if (n === 'rim') o.material = M.rim;
+      else if (n === 'plate' && usePlate) o.material = M.plate;
+    });
+    // bolt-on spoiler (the sports car already has its own wing)
+    if (this.spoilerMesh) this.spoilerMesh.removeFromParent();
+    this.spoilerMesh = null;
+    if (this.spoiler && this.model !== 'sport') {
+      const P = this.car.P, grp = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color: 0x1b1c1f, roughness: 0.4, metalness: 0.4 });
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.3), mat);
+      wing.position.y = 0.26;
+      grp.add(wing);
+      for (const x of [0.5, -0.5]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.26, 0.1), mat);
+        leg.position.set(x, 0.13, 0);
+        grp.add(leg);
+      }
+      grp.position.set(0, P.belt + 0.05, -P.len / 2 + 0.3);
+      this.car.body.add(grp);
+      this.spoilerMesh = grp;
+    }
   }
   setHorn(id) {
     this.horn = id;

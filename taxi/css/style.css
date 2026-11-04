@@ -520,3 +520,43 @@ body.timedmode #zoneBtn { bottom: calc(140px + var(--safe-b)); }
 .cruisebtn { width: 100%; margin-bottom: 6px; padding: 4px 0; border-radius: 10px; background: rgba(255,255,255,.12); border: 1px solid var(--line); font-size: 16px; pointer-events: auto; }
 .cruisebtn.active { background: rgba(53,224,124,.45); border-color: var(--green); }
 @media (max-height: 480px) { .cruisebtn { padding: 1px 0; font-size: 13px; margin-bottom: 4px; } }
+
+/* tuning shop */
+.card.tune { grid-column: 1 / -1; }
+.tunerow { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 5px 0; }
+.tunerow b { font-size: 12px; min-width: 76px; }
+.tunerow button { padding: 5px 9px !important; font-size: 11px !important; }
+.tunerow button:not([data-rim]) { background: rgba(255,255,255,.12) !important; }
+.tunerow button.cur { outline: 2px solid var(--yellow); }
+.tunerow button.cur:not([data-rim]) { background: rgba(255,210,26,.3) !important; }
+.tunerow small { opacity: .7; font-size: 10px; }
+.tunerow input { flex: 1; min-width: 90px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.35); color: #fff; font: inherit; }
+
+/* analog gauge, windshield drops, stats */
+#gauge { position: absolute; left: calc(50% - 75px - 96px); bottom: calc(10px + var(--safe-b)); width: 86px; height: 86px; pointer-events: none; }
+@media (max-height: 480px) { #gauge { left: calc(50% - 60px - 80px); width: 72px; height: 72px; } }
+body.photomode #gauge { display: none; }
+#drops { position: absolute; inset: 0; pointer-events: none; background-size: 420px 420px; animation: dropslide 9s linear infinite; }
+@keyframes dropslide { from { background-position: 0 0; } to { background-position: 0 420px; } }
+details.stats { background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; margin-bottom: 10px; }
+details.stats summary { cursor: pointer; font-weight: 800; }
+.statgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; margin-top: 8px; }
+.statgrid div { display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,.25); border-radius: 10px; padding: 5px; }
+.statgrid span { font-size: 18px; }
+.statgrid small { font-size: 10px; opacity: .75; }
+.statgrid b { font-size: 13px; color: var(--yellow); }
+/* the taximeter makes the speedometer taller: keep the zone button and timed HUDs clear of it */
+body.metered #zoneBtn { bottom: calc(122px + var(--safe-b)); }
+body.metered #crazyHud, body.metered #parkHud { bottom: calc(118px + var(--safe-b)); }
+body.metered.timedmode #zoneBtn { bottom: calc(162px + var(--safe-b)); }
+@media (max-height: 480px) {
+  body.metered #zoneBtn { bottom: calc(106px + var(--safe-b)); }
+  body.metered #crazyHud, body.metered #parkHud { bottom: calc(146px + var(--safe-b)); }
+  body.metered.timedmode #zoneBtn { bottom: calc(188px + var(--safe-b)); }
+}
+/* very short phones: the race panel becomes a compact strip so it stays clear of the NOS button */
+@media (max-height: 400px) {
+  #raceHud { flex-direction: row; flex-wrap: wrap; gap: 2px 6px; padding: 3px 7px; font-size: 10px; min-width: 0; }
+  #raceHud b { font-size: 11px; }
+  #raceHud .gap { display: none; }
+}
