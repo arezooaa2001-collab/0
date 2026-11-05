@@ -1643,7 +1643,9 @@ function buildChunk(i, j) {
       const H = 7.2, W = hw + 1.3;
       for (const sd of [-1, 1]) ib.add(GEO.boxBase, MAT.concrete, mx + ax * sd * W, my - 0.5, mz + az * sd * W, yaw, 0.8, H + 0.5, L + 0.3, pitch);
       ib.add(GEO.boxBase, MAT.concrete, mx, my + H, mz, yaw, 2 * W + 0.8, 0.7, L + 0.3, pitch);
-      const top = terrainNatural(mx, mz); ib.add(GEO.boxBase, MAT.rock, mx, my - 0.5, mz, yaw, 2 * (hw + 17.5), Math.max(top - my, H + 1.5) + 0.5, L + 0.4, pitch);
+      const top = Math.max(terrainNatural(mx, mz), my + H + 1.6), outerW = hw + 17.5, sideW = outerW - (W + 0.4);
+      for (const sd of [-1, 1]) { const off = sd * (W + 0.4 + sideW / 2); ib.add(GEO.boxBase, MAT.rock, mx + ax * off, my - 0.5, mz + az * off, yaw, sideW, top - my + 0.5, L + 0.4, pitch); }
+      ib.add(GEO.boxBase, MAT.rock, mx, my + H + 0.7, mz, yaw, 2 * outerW, top - my - H - 0.7, L + 0.4, pitch);
       if (sg.i % 2 === 0) { ib.add(GEO.box, MAT.tunnelLamp, mx, my + H - 0.15, mz, yaw, 0.5, 0.12, 2.2); tglow.push(mx, my + H - 0.5, mz); }
       // portal frames
       const prev = r.samples[sg.i - 1], next = r.samples[sg.i + 2];
@@ -2076,6 +2078,11 @@ function buildCarModel(spec, cfg, opts = {}) {
   root.traverse(o => { if (o.isMesh) { o.castShadow = o.material !== M.glass && o.material !== M.lens; o.receiveShadow = true; } });
   return { root, parts };
 }
+function disposeModel(root) { // free geometries + per-car materials/textures (shared ones are kept)
+  const shared = new Set(Object.values(SHARED_CAR_MATS)); const seen = new Set();
+  root.traverse(o => { if (o.geometry) o.geometry.dispose(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of ms) { if (shared.has(m) || seen.has(m)) continue; seen.add(m); if (m.map && m.map !== GAUGE.tex && !Object.values(TEX).includes(m.map)) m.map.dispose(); m.dispose(); } });
+}
 function buildWheel(b, cfg, mats, traffic) {
   const M = sharedCarMats(); const R = b.R, tw = b.tw; const g = new THREE.Group();
   const style = cfg.wheel || 'sport5';
@@ -2322,7 +2329,7 @@ class Vehicle {
     const tireH = 0.8 + 0.2 * this.health.tires / 100;
     const brakeTotal = brk * this.brakeG * this.m * G;
     let Fl = 0, Ff = 0, tau = 0; this.flags.abs = this.flags.tcs = false; let skid = 0, latSlip = 0;
-    const iesc = S.esc && !inp.handbrake && speed > 5;
+    const iesc = S.esc && !inp.handbrake && speed > 5 && !(Game.mode && Game.mode.noESC);
     for (const wh of this.wheels) {
       if (!wh.contact) { wh.slip = 0; wh.lock = false; wh.wspin = false; continue; }
       const dl = wh.front ? delta : 0, cs = Math.cos(dl), sn = Math.sin(dl);
@@ -3205,7 +3212,7 @@ const Race = {
       r.prog = r.s - startS; this.pose(r); this.racers.push(r);
     }
   },
-  clear() { for (const r of this.racers) { scene.remove(r.root); r.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } this.racers.length = 0; },
+  clear() { for (const r of this.racers) { scene.remove(r.root); disposeModel(r.root); } this.racers.length = 0; },
   _p: {},
   pose(r) { const p = roadPointAt(ringRoad, r.s, this._p); const rx = -p.dz, rz = p.dx; r.x = p.x + rx * r.lat; r.z = p.z + rz * r.lat; r.y = 0; r.yaw = Math.atan2(p.dx, p.dz); r.curv = p.curv; },
   update(dt, go, player, playerProg) {
@@ -3336,7 +3343,7 @@ function makeMission(id) {
   }
   if (id === 'drift') {
     const blk = BLOCKS.find(b => b.type === 'lot'); m.spawn = { x: blk.cx - 70 - 6.75, z: blk.cz - 30, yaw: 0 };
-    m.setup = () => { m.left = 90; m.score = 0; Drift.reset(); }; m.cleanup = () => { };
+    m.noESC = true; m.setup = () => { m.left = 90; m.score = 0; Drift.reset(); toast('Stability control relaxed for drifting'); }; m.cleanup = () => { };
     m.update = (dt) => { m.left -= dt; m.score = Drift.total; const p = P(); if (Math.hypot(p.x - blk.cx, p.z - blk.cz) > 330) { m.warn = true; } else m.warn = false;
       if (m.score >= 20000 && !m.done) Game.finish(true, 'Drift King!', MODES.drift.reward + Math.round((m.score - 20000) / 10), { score: m.score });
       else if (m.left <= 0) { Drift.bank(); m.score = Drift.total; if (m.score >= 20000) Game.finish(true, 'Drift King!', MODES.drift.reward, { score: m.score }); else Game.finish(false, `Score ${fmtMoney(m.score)} / 20,000`, Math.round(m.score / 20), { score: m.score }); } };
@@ -3435,7 +3442,7 @@ const Game = {
   headSpots: [],
   buildPlayer() {
     const id = SAVE.owned.includes(SAVE.car) ? SAVE.car : SAVE.owned[0]; SAVE.car = id;
-    const old = this.player; if (this.model) { scene.remove(this.model.root); this.model.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    const old = this.player; if (this.model) { scene.remove(this.model.root); disposeModel(this.model.root); }
     const spec = CAR[id]; const cfg = getCustom(id);
     this.model = buildCarModel(spec, cfg, { plate: 'UOW ' + String(100 + SAVE.owned.indexOf(id) * 37) });
     scene.add(this.model.root);
@@ -3779,7 +3786,7 @@ const Garage = {
   open(from) { this.from = from; this.sel = SAVE.car; this.tab = 'cars'; this.preview(); UI.go('garage'); this.renderTabs(); this.renderBody(); AudioSys.ui(); },
   owned(id) { return SAVE.owned.includes(id); },
   preview() {
-    if (this.model) { this.scene.remove(this.model.root); this.model.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    if (this.model) { this.scene.remove(this.model.root); disposeModel(this.model.root); }
     const spec = CAR[this.sel]; this.model = buildCarModel(spec, getCustom(this.sel), { plate: spec.name.toUpperCase().slice(0, 7) });
     this.model.root.position.y = 0.1 + (getCustom(this.sel).ride || 0); this.scene.add(this.model.root);
     const b = spec.body; for (const w of this.model.parts.wheels) w.steer.position.y = b.R - (getCustom(this.sel).ride || 0);
