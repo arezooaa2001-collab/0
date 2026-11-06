@@ -1,19 +1,311 @@
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080817"><meta name="description" content="لادینو، ویرایشگر ویدیوی فارسی رایگان داخل مرورگر"><title>لادینو | ویرایشگر ویدیوی خفن</title><link rel="stylesheet" href="src/styles.css">
-</head>
-<body>
-<header class="topbar"><div class="brand"><span class="brand-mark">L</span><div><b>لادینو</b><small>Video Studio</small></div></div><span class="status" id="status">آماده</span></header>
-<main class="app">
-<section class="welcome" id="welcome"><div><span class="eyebrow">🎬 نسخه 1.0</span><h1>ادیت ویدیو، مستقیم توی مرورگر</h1><p>ویدیوت رو انتخاب کن، برش بزن، سرعت و فیلتر بده، متن بنداز روش و خروجی بگیر. پردازش اصلی روی دستگاهت انجام می‌شود.</p><label class="upload-button" for="videoInput">📁 انتخاب ویدیو</label><input id="videoInput" type="file" accept="video/*" hidden><p class="hint">MP4، WebM و فرمت‌های پشتیبانی‌شده مرورگر</p></div><div class="hero-card"><div class="hero-play">▶</div><span>بدون نصب • بدون حساب • رایگان</span></div></section>
-<section class="editor" id="editor" hidden>
-<div class="preview-panel"><div class="preview-head"><strong id="fileName">ویدیو</strong><button class="icon-btn" id="newVideoBtn" title="انتخاب ویدیوی جدید">＋</button></div><div class="stage-wrap"><canvas id="previewCanvas"></canvas><div class="empty-preview" id="emptyPreview">ویدیو آماده نمایش می‌شود...</div></div><div class="player-controls"><button class="round-btn" id="playBtn">▶</button><span id="timeLabel">00:00 / 00:00</span><input id="seek" type="range" min="0" max="1" step="0.01" value="0" aria-label="جلو و عقب بردن ویدیو"></div><video id="sourceVideo" playsinline preload="metadata"></video></div>
-<aside class="tools-panel"><div class="tabs"><button class="tab active" data-tab="cut">✂️ برش</button><button class="tab" data-tab="look">✨ ظاهر</button><button class="tab" data-tab="text">🔤 متن</button><button class="tab" data-tab="audio">🔊 صدا</button></div>
-<div class="tab-content active" id="tab-cut"><div class="tool-title">بازه خروجی</div><div class="two-cols"><label>شروع<input id="startTime" type="number" min="0" step="0.1" value="0"></label><label>پایان<input id="endTime" type="number" min="0" step="0.1" value="0"></label></div><label>سرعت <output id="speedValue">1×</output><input id="speed" type="range" min="0.25" max="2" step="0.25" value="1"></label><button class="tool-btn" id="resetCut">↺ بازنشانی برش</button></div>
-<div class="tab-content" id="tab-look"><label>فیلتر<select id="filter"><option value="none">اصلی</option><option value="cinema">سینمایی</option><option value="vivid">زنده</option><option value="mono">سیاه و سفید</option><option value="warm">گرم</option><option value="cool">سرد</option></select></label><label>چرخش<select id="rotation"><option value="0">۰°</option><option value="90">۹۰°</option><option value="180">۱۸۰°</option><option value="270">۲۷۰°</option></select></label><label>نسبت تصویر<select id="ratio"><option value="original">اصلی</option><option value="9:16">۹:۱۶ عمودی</option><option value="1:1">۱:۱ مربعی</option><option value="16:9">۱۶:۹ افقی</option></select></label></div>
-<div class="tab-content" id="tab-text"><label>متن روی ویدیو<input id="overlayText" maxlength="80" placeholder="مثلاً: ویدیوی جدید من 🔥"></label><div class="two-cols"><label>اندازه<input id="textSize" type="range" min="18" max="72" value="36"></label><label>جای متن<select id="textPosition"><option value="bottom">پایین</option><option value="center">وسط</option><option value="top">بالا</option></select></label></div><label class="check"><input id="textBg" type="checkbox" checked> پس‌زمینه متن</label></div>
-<div class="tab-content" id="tab-audio"><label class="check"><input id="mute" type="checkbox"> بی‌صدا کردن ویدیو</label><p class="small">صدای اصلی ویدیو در خروجی حفظ می‌شود مگر اینکه بی‌صدا را فعال کنی.</p></div>
-<div class="export-box"><button class="export-btn" id="exportBtn">🚀 ساخت و دانلود خروجی</button><div class="progress" hidden><span id="progressBar"></span></div><p id="exportMessage">خروجی با بهترین فرمت پشتیبانی‌شده مرورگر ساخته می‌شود.</p></div></aside>
-</section></main><script src="src/main.js"></script>
-</body></html>
+<title>Ladino Video Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="لادینو، ویرایشگر ویدیوی فارسی با جلوه‌های زنده، ۱۴۰۰ استایل متن، حذف صدای مزاحم، فضای ابری و هوش مصنوعی">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&family=Lalezar&family=Noto+Nastaliq+Urdu:wght@700&family=Reem+Kufi:wght@700&family=Changa:wght@800&family=Lemonada:wght@700&family=Jomhuria&family=Aref+Ruqaa:wght@700&family=Markazi+Text:wght@700&family=Rakkas&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+
+<div class="sky" aria-hidden="true"><div class="band"></div><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="veil"></div><div class="grain"></div></div>
+
+<div class="app" dir="rtl" lang="fa">
+  <header class="top glass">
+    <div class="brand"><div class="logo">ل</div><div><b>لادینو</b><small>Video Studio</small></div></div>
+    <span class="chip-stat" id="cloudStat" title="فضای ابری"><i class="dot mid"></i><span>ابر: در حال اتصال</span></span>
+    <span class="chip-stat opt" id="aiStat" title="هوش مصنوعی"><i class="dot mid"></i><span>هوش مصنوعی</span></span>
+    <span class="spacer"></span>
+    <div class="top-actions">
+      <button class="btn icon" id="undoBtn" title="برگشت (Ctrl+Z)" aria-label="برگشت">↶</button>
+      <button class="btn icon" id="redoBtn" title="جلو (Ctrl+Y)" aria-label="جلو">↷</button>
+      <button class="btn" id="quickSave" title="ذخیره در فضای ابری">☁️ ذخیره</button>
+      <button class="btn primary" id="quickExport">🚀 خروجی</button>
+    </div>
+  </header>
+
+  <div class="work">
+    <nav class="rail glass" id="rail" aria-label="بخش‌ها">
+      <button data-view="media" class="active"><span class="ic">📁</span>ویدیو</button>
+      <button data-view="fx"><span class="ic">✨</span>جلوه‌ها</button>
+      <button data-view="text"><span class="ic">🔤</span>متن</button>
+      <button data-view="anim"><span class="ic">🎞️</span>حرکت متن</button>
+      <button data-view="audio"><span class="ic">🎧</span>صدا</button>
+      <button data-view="ai"><span class="ic">🤖</span>هوش مصنوعی</button>
+      <button data-view="cloud"><span class="ic">☁️</span>ابر</button>
+      <button data-view="export"><span class="ic">🚀</span>خروجی</button>
+    </nav>
+
+    <aside class="panel glass">
+      <div class="panel-head"><h2 id="panelTitle">ویدیو</h2><span id="panelSub">آپلود، برش و قاب</span></div>
+      <div class="panel-body">
+
+        <!-- ================= MEDIA ================= -->
+        <section class="view active" id="v-media">
+          <label class="drop" id="drop" for="fileInput">
+            <span class="big">🎬</span>
+            <strong>ویدیوی خودت رو اینجا بنداز</strong>
+            <span class="muted">یا بزن تا از گوشی یا کامپیوتر انتخاب کنی · MP4، WebM، MOV</span>
+          </label>
+          <input type="file" id="fileInput" accept="video/*" hidden>
+          <p class="note" id="fileInfo">الان یک ویدیوی نمونه در حال پخش است تا جلوه‌ها و متن‌ها را امتحان کنی.</p>
+
+          <div class="sec">
+            <div class="sec-title"><b>برش و سرعت</b><span id="trimLen" class="muted"></span></div>
+            <div class="grid2">
+              <label class="field">شروع (ثانیه)<input class="inp" id="trimStart" type="number" min="0" step="0.1" value="0"></label>
+              <label class="field">پایان (ثانیه)<input class="inp" id="trimEnd" type="number" min="0" step="0.1" value="0"></label>
+            </div>
+            <div class="grid2">
+              <button class="btn sm" id="trimInHere">⇤ شروع از همین لحظه</button>
+              <button class="btn sm" id="trimOutHere">پایان در همین لحظه ⇥</button>
+            </div>
+            <div class="slider">سرعت<input type="range" id="speed" min="0.25" max="3" step="0.25" value="1"><output id="speedOut">1×</output></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-title"><b>قاب و نسبت تصویر</b></div>
+            <div class="chips" id="ratioChips">
+              <button class="chip active" data-r="original">اصلی</button>
+              <button class="chip" data-r="9:16">۹:۱۶ استوری</button>
+              <button class="chip" data-r="1:1">۱:۱ پست</button>
+              <button class="chip" data-r="4:5">۴:۵</button>
+              <button class="chip" data-r="16:9">۱۶:۹ یوتیوب</button>
+            </div>
+            <div class="grid2">
+              <label class="field">جاگیری تصویر<select class="inp" id="fit"><option value="contain">کامل دیده شود</option><option value="cover">قاب را پر کند</option></select></label>
+              <label class="check" style="align-self:end;padding-bottom:8px"><input type="checkbox" id="bgBlur" checked> پس‌زمینه محو</label>
+            </div>
+            <div class="grid3">
+              <button class="btn sm" id="rotL">⟲ چرخش</button>
+              <button class="btn sm" id="flipX">⇋ آینه</button>
+              <button class="btn sm" id="flipY">⇵ وارونه</button>
+            </div>
+            <div class="slider">زوم<input type="range" id="zoom" min="1" max="3" step="0.05" value="1"><output id="zoomOut">1×</output></div>
+          </div>
+
+          <div class="sec">
+            <div class="sec-title"><b>تنظیم رنگ</b><button class="btn sm" id="adjReset">بازنشانی</button></div>
+            <div class="slider">روشنایی<input type="range" id="bright" min="-0.5" max="0.5" step="0.01" value="0"><output>0</output></div>
+            <div class="slider">کنتراست<input type="range" id="contrast" min="0.4" max="2" step="0.01" value="1"><output>1</output></div>
+            <div class="slider">اشباع رنگ<input type="range" id="sat" min="0" max="2.5" step="0.01" value="1"><output>1</output></div>
+            <div class="slider">دمای رنگ<input type="range" id="temp" min="-1" max="1" step="0.01" value="0"><output>0</output></div>
+          </div>
+        </section>
+
+        <!-- ================= EFFECTS ================= -->
+        <section class="view" id="v-fx">
+          <div class="sec">
+            <div class="sec-title"><b>جلوه‌های روی ویدیو</b><span class="muted" id="fxCount"></span></div>
+            <div class="active-list" id="fxActive"></div>
+            <button class="btn block" id="fxClear">↺ حذف همه جلوه‌ها و برگشت به ویدیوی اصلی</button>
+          </div>
+          <div class="ai-box">
+            <div class="sec-title"><b>✨ جلوه‌ای که وجود ندارد را بساز</b></div>
+            <div class="row"><input class="inp" id="fxAiInp" placeholder="مثلاً: جلوه کمیک ژاپنی با خطوط سرعت"><button class="btn primary sm" id="fxAiBtn">بساز</button></div>
+          </div>
+          <div class="row"><input class="inp" id="fxSearch" placeholder="جستجوی جلوه…" style="flex:1"><button class="btn sm" id="fxThumbs" title="پیش‌نمایش‌ها را با فریم فعلی بساز">📸</button></div>
+          <div class="chips" id="fxCats"></div>
+          <p class="muted">روی هر جلوه بزن تا روی ویدیو اعمال شود؛ دوباره بزن تا برداشته شود. چند جلوه را می‌توانی با هم ترکیب کنی.</p>
+          <div class="fx-grid" id="fxGrid"></div>
+        </section>
+
+        <!-- ================= TEXT ================= -->
+        <section class="view" id="v-text">
+          <div class="sec">
+            <div class="sec-title"><b>متن جدید</b></div>
+            <textarea class="inp" id="txtNew" placeholder="هر متنی دوست داری بنویس…">ادیت رویایی من ✨</textarea>
+            <div class="chips" id="emojiRow"></div>
+            <button class="btn primary block" id="txtAdd">＋ گذاشتن متن روی ویدیو</button>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>لایه‌های متن</b><span class="muted">با کشیدن روی تصویر جابجا کن، با دو انگشت بزرگ کن و بچرخان</span></div>
+            <div class="layers" id="layers"></div>
+          </div>
+          <div class="sec" id="txtEdit" hidden>
+            <div class="sec-title"><b>ویرایش متن انتخاب‌شده</b></div>
+            <textarea class="inp" id="txtBody" rows="2"></textarea>
+            <div class="grid2">
+              <label class="field">فونت<select class="inp" id="txtFont"></select></label>
+              <label class="field">شفافیت<input type="range" id="txtOpacity" min="0.1" max="1" step="0.01" value="1"></label>
+            </div>
+            <div class="slider">اندازه<input type="range" id="txtSize" min="20" max="260" step="1" value="80"><output id="txtSizeOut">80</output></div>
+            <div class="slider">چرخش<input type="range" id="txtRot" min="-180" max="180" step="1" value="0"><output id="txtRotOut">0°</output></div>
+            <label class="check"><input type="checkbox" id="txtCustom"> رنگ‌های دلخواه خودم</label>
+            <div class="row" id="txtColors" hidden>
+              <input type="color" id="txtC1" value="#ff4fd8" title="رنگ اول"><input type="color" id="txtC2" value="#5ce1ff" title="رنگ دوم"><input type="color" id="txtC3" value="#1a0033" title="رنگ حاشیه">
+              <label class="check"><input type="checkbox" id="txtGrad" checked> گرادینت</label>
+            </div>
+            <div class="grid2">
+              <label class="field">ظاهر شدن (ثانیه)<input class="inp" id="txtStart" type="number" step="0.1" min="0"></label>
+              <label class="field">رفتن (ثانیه)<input class="inp" id="txtEnd" type="number" step="0.1" min="0"></label>
+            </div>
+            <div class="grid2"><button class="btn sm" id="txtStartHere">⇤ ظاهر شدن از الان</button><button class="btn sm" id="txtEndHere">رفتن در الان ⇥</button></div>
+            <div class="grid3"><button class="btn sm" id="txtCenter">⊕ وسط</button><button class="btn sm" id="txtDup">⧉ کپی</button><button class="btn sm danger" id="txtDel">🗑 حذف</button></div>
+          </div>
+          <div class="ai-box">
+            <div class="sec-title"><b>✨ استایل متن تازه با هوش مصنوعی</b></div>
+            <div class="row"><input class="inp" id="stAiInp" placeholder="مثلاً: طلای مذاب با درخشش قرمز"><button class="btn primary sm" id="stAiBtn">بساز</button></div>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b id="stCount">۱۴۰۰ استایل</b><span class="muted">روی هر استایل بزن تا روی متن انتخاب‌شده بنشیند</span></div>
+            <input class="inp" id="stSearch" placeholder="جستجو: نئون، طلایی، اقیانوس، ۲۵۰…">
+            <div class="chips" id="stLooks"></div>
+            <div class="style-grid" id="stGrid"></div>
+            <div id="stMore" style="height:1px"></div>
+          </div>
+        </section>
+
+        <!-- ================= ANIMATION ================= -->
+        <section class="view" id="v-anim">
+          <p class="note" id="animTarget">اول یک متن انتخاب کن.</p>
+          <div class="sec">
+            <div class="sec-title"><b>چطور بیاید</b><span class="slider" style="grid-template-columns:auto 90px auto">مدت<input type="range" id="inDur" min="0.1" max="3" step="0.05" value="0.8"><output id="inDurOut">0.8s</output></span></div>
+            <div class="anim-grid" id="animIn"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>چطور برود</b><span class="slider" style="grid-template-columns:auto 90px auto">مدت<input type="range" id="outDur" min="0.1" max="3" step="0.05" value="0.6"><output id="outDurOut">0.6s</output></span></div>
+            <div class="anim-grid" id="animOut"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>حرکت در طول نمایش</b><span class="slider" style="grid-template-columns:auto 90px auto">سرعت<input type="range" id="loopSpeed" min="0.25" max="3" step="0.05" value="1"><output id="loopSpeedOut">1×</output></span></div>
+            <div class="anim-grid" id="animLoop"></div>
+          </div>
+          <button class="btn block" id="animPreview">▶ پیش‌نمایش حرکت متن</button>
+          <div class="ai-box">
+            <div class="sec-title"><b>✨ حرکت تازه با هوش مصنوعی</b></div>
+            <div class="row"><input class="inp" id="anAiInp" placeholder="مثلاً: مثل توپ سه بار بالا پایین بپره و بچرخه"><button class="btn primary sm" id="anAiBtn">بساز</button></div>
+          </div>
+        </section>
+
+        <!-- ================= AUDIO ================= -->
+        <section class="view" id="v-audio">
+          <div class="sec">
+            <div class="sec-title"><b>صدای ویدیو</b></div>
+            <div class="slider">بلندی<input type="range" id="vol" min="0" max="2" step="0.01" value="1"><output id="volOut">100٪</output></div>
+            <label class="check"><input type="checkbox" id="mute"> بی‌صدا</label>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>🎧 تشخیص صداهای مزاحم</b></div>
+            <p class="muted">هوش صوتی لادینو صدای ویدیو را فریم به فریم گوش می‌دهد و ضربه‌ها، خش‌خش، وزوز برق، باد و نویز پس‌زمینه را پیدا می‌کند. هر کدام را برایت پخش می‌کند تا مطمئن شوی، بعد فقط همان‌هایی را که تأیید کنی حذف می‌کند.</p>
+            <button class="btn primary block" id="nzDetect">🔍 پیدا کردن صداهای مزاحم</button>
+            <div class="progress" id="nzProgWrap" hidden><i id="nzProg"></i></div>
+            <canvas class="wave" id="nzWave"></canvas>
+            <p class="note" id="nzNote">برای شروع یک ویدیوی صدادار آپلود کن.</p>
+            <div class="noise-list" id="nzList"></div>
+            <div class="grid2" id="nzActions" hidden>
+              <button class="btn" id="nzPlayAll">▶ پخش همه</button>
+              <button class="btn" id="nzStop">⏹ توقف</button>
+            </div>
+            <button class="btn good block" id="nzConfirm" hidden>✅ مطمئنم، صداهای تیک‌خورده را حذف کن</button>
+            <div class="grid2" id="nzAfter" hidden>
+              <button class="btn" id="nzCompare">🔁 شنیدن صدای اصلی</button>
+              <button class="btn danger" id="nzRestore">↺ برگرداندن صدای اصلی</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= AI ================= -->
+        <section class="view" id="v-ai">
+          <p class="muted">هر چیزی بخواهی بگو: جلوه‌ای که وجود ندارد بسازد، استایل متن یا حرکت تازه طراحی کند، یا از بین جلوه‌های موجود بهترین را برایت بگذارد. داخل خود برنامه کار می‌کند و کلید API نمی‌خواهد.</p>
+          <div class="chat" id="chat"></div>
+          <div class="chips" id="aiChips"></div>
+          <textarea class="inp" id="aiInp" rows="3" placeholder="مثلاً: ویدیو رو حال‌وهوای فیلم‌های دهه هشتاد بده و بالاش بنویس «تابستون ۱۴۰۴» با یه استایل نئونی که از بالا بیاد"></textarea>
+          <div class="grid2"><button class="btn primary" id="aiSend">✨ انجام بده</button><button class="btn" id="aiStop" disabled>⏹ توقف</button></div>
+        </section>
+
+        <!-- ================= CLOUD ================= -->
+        <section class="view" id="v-cloud">
+          <p class="note" id="cloudNote">در حال اتصال به فضای ابری لادینو…</p>
+          <div class="sec">
+            <div class="sec-title"><b>ذخیره پروژه فعلی</b></div>
+            <div class="row"><input class="inp" id="projName" placeholder="اسم پروژه" style="flex:1" value="پروژه من"><button class="btn primary" id="cloudSave">☁️ ذخیره</button></div>
+            <p class="muted">ویدیو، جلوه‌ها، متن‌ها، حرکت‌ها و صدای تمیزشده همه با هم ذخیره می‌شوند. ویدیوهای MP4 و WebM تا ۲۰ مگابایت داخل ابر می‌روند.</p>
+            <div class="meter"><i id="cloudMeter"></i></div>
+            <span class="muted" id="cloudUsage"></span>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>پروژه‌های من</b></div>
+            <div class="cloud-list" id="projList"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>خروجی‌های ذخیره‌شده</b></div>
+            <div class="cloud-list" id="expList"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-title"><b>کتابخانه ساخته‌های هوش مصنوعی</b></div>
+            <p class="muted" id="libInfo">هنوز چیزی ساخته نشده.</p>
+          </div>
+        </section>
+
+        <!-- ================= EXPORT ================= -->
+        <section class="view" id="v-export">
+          <div class="sec">
+            <div class="sec-title"><b>تنظیمات خروجی</b></div>
+            <div class="grid2">
+              <label class="field">کیفیت<select class="inp" id="expQuality"><option value="720">HD ۷۲۰</option><option value="1080" selected>Full HD ۱۰۸۰</option><option value="480">سبک ۴۸۰</option></select></label>
+              <label class="field">فریم بر ثانیه<select class="inp" id="expFps"><option value="30" selected>۳۰</option><option value="24">۲۴</option><option value="60">۶۰</option></select></label>
+            </div>
+            <p class="note" id="expInfo"></p>
+            <button class="btn primary block" id="expStart">🚀 ساخت ویدیوی نهایی</button>
+            <p class="muted">ساخت خروجی به اندازه طول بازه انتخاب‌شده زمان می‌برد، چون ویدیو با همه جلوه‌ها و متن‌ها دوباره پخش و ضبط می‌شود.</p>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <section class="stage-col">
+      <div class="stage glass" id="stage">
+        <div class="canvas-wrap"><canvas id="view" width="1280" height="720" aria-label="پیش‌نمایش ویدیو"></canvas></div>
+        <div class="stage-badge" id="badges"></div>
+        <div class="stage-hint" id="hint">روی متن بزن و بکش · دو انگشت برای بزرگ‌کردن و چرخاندن · چرخ موس برای اندازه</div>
+        <div class="stage-drop">ویدیو را رها کن 🎬</div>
+      </div>
+      <div class="transport glass">
+        <button class="play" id="playBtn" aria-label="پخش">▶</button>
+        <button class="btn icon" id="backBtn" title="۵ ثانیه عقب">⏪</button>
+        <button class="btn icon" id="fwdBtn" title="۵ ثانیه جلو">⏩</button>
+        <span class="time" id="time">00:00.0 / 00:00.0</span>
+        <span class="spacer"></span>
+        <button class="btn icon on" id="loopBtn" title="تکرار بازه">🔁</button>
+        <button class="btn icon" id="muteBtn" title="صدا">🔊</button>
+      </div>
+      <div class="timeline glass">
+        <div class="tl-ruler" id="tlRuler"></div>
+        <div class="tl-track" id="tlTrack">
+          <canvas id="tlCanvas"></canvas>
+          <div id="tlNoise"></div>
+          <div class="tl-trim" id="tlTrim"></div>
+          <div class="tl-handle" id="tlIn">❚</div>
+          <div class="tl-handle" id="tlOut">❚</div>
+          <div class="tl-head" id="tlHead"></div>
+        </div>
+        <div class="tl-texts" id="tlTexts"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="overlay" id="expModal" hidden>
+  <div class="modal glass">
+    <h3 id="expTitle">در حال ساخت ویدیو</h3>
+    <div class="progress"><i id="expProg"></i></div>
+    <p class="muted" id="expText">آماده‌سازی…</p>
+    <video id="expVideo" controls playsinline hidden></video>
+    <div class="grid2" id="expDone" hidden>
+      <button class="btn primary" id="expSave">⬇️ ذخیره روی دستگاه</button>
+      <button class="btn" id="expCloud">☁️ ذخیره در ابر</button>
+    </div>
+    <button class="btn" id="expClose">بستن</button>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<video id="video" playsinline preload="auto" hidden></video>
+
+<script src="src/effects.js"></script>
+<script src="src/textstyles.js"></script>
+<script src="src/anim.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/main.js"></script>
+<script src="src/noiseui.js"></script>
+<script src="src/ai.js"></script>
+<script src="src/cloud.js"></script>
