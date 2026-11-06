@@ -588,7 +588,8 @@ const START_MONEY = 100;
 const UPGRADES = {
   cap: { name: 'ظرفیت پایگاه', emoji: '🏠', max: 8, desc: (l) => 'جای میم: ' + fa(4 + l) + ' → ' + fa(5 + l), cost: (l) => Math.round(250 * Math.pow(2.6, l)) },
   income: { name: 'دستگاه پول‌ساز', emoji: '💸', max: 10, desc: (l) => 'درآمد +' + fa(l * 10) + '٪ → +' + fa((l + 1) * 10) + '٪', cost: (l) => Math.round(1000 * Math.pow(2.8, l)) },
-  speed: { name: 'کتونی فشفشه', emoji: '👟', max: 5, desc: (l) => 'سرعت +' + fa(l * 7) + '٪ → +' + fa((l + 1) * 7) + '٪', cost: (l) => Math.round(400 * Math.pow(3, l)) },
+  speed: { name: 'کتونی فشفشه', emoji: '👟', max: 8, desc: (l) => 'سرعت دویدن همیشه +' + fa(l * 7) + '٪ → +' + fa((l + 1) * 7) + '٪', cost: (l) => Math.round(400 * Math.pow(3, l)) },
+  carrySpeed: { name: 'کفش دزد فرز', emoji: '🏃', max: 8, desc: (l) => 'سرعت موقع بردن میم دزدی +' + fa(l * 8) + '٪ → +' + fa((l + 1) * 8) + '٪', cost: (l) => Math.round(700 * Math.pow(3, l)) },
   secDur: { name: 'باتری لیزر', emoji: '🔋', max: 5, desc: (l) => 'مدت سپر: ' + fa(25 + l * 10) + ' → ' + fa(35 + l * 10) + ' ثانیه', cost: (l) => Math.round(500 * Math.pow(3, l)) },
   secCd: { name: 'خنک‌کننده‌ی سپر', emoji: '❄️', max: 5, desc: (l) => 'آماده‌سازی: ' + fa(70 - l * 8) + ' → ' + fa(62 - l * 8) + ' ثانیه', cost: (l) => Math.round(800 * Math.pow(3, l)) },
   trap: { name: 'تله‌ی چسبناک', emoji: '🕸️', max: 3, desc: (l) => 'دزدها توی پایگاهت ' + fa(l * 10) + '٪ → ' + fa((l + 1) * 10) + '٪ کندتر', cost: (l) => Math.round(3000 * Math.pow(4, l)) },
@@ -621,6 +622,33 @@ const UPGRADES = {
   slap: { name: 'دستکش سیلی', emoji: '🥊', max: 3, desc: (l) => 'زمان استراحت ضربه: ' + fa((3.5 - l * 0.8).toFixed(1)) + ' → ' + fa((2.7 - l * 0.8).toFixed(1)) + ' ثانیه', cost: (l) => Math.round(2500 * Math.pow(4, l)) },
 };
 const UP_KEYS = Object.keys(UPGRADES);
+const SPEED_KEYS = ['speed', 'carrySpeed']; // sold at the speed kiosk in every base (and in the town shop)
+// ------------------------------------------------------------------ wardrobe (clothes kiosk in every base)
+const WEAR_COLORS = [['#2fe08a', 'سبز نعنایی'], ['#ff4f8b', 'صورتی'], ['#4f8cff', 'آبی'], ['#ffd23f', 'زرد'], ['#ff5252', 'قرمز'], ['#b061ff', 'بنفش'], ['#1b1b22', 'مشکی'], ['#ffffff', 'سفید'], ['#ff9a1f', 'نارنجی'], ['#00c2d1', 'فیروزه‌ای'], ['#8a5a3a', 'قهوه‌ای'], ['#2b3a67', 'سرمه‌ای'], ['#c0c8d0', 'نقره‌ای'], ['#ffc93c', 'طلایی']];
+const WEAR = {
+  set: { t: '🎭 ست کامل', items: [
+    ['ninja', '🥷 نینجا', 4e5, { shirt: '#1b1b22', pants: '#1b1b22', shoes: '#1b1b22', hair: 'ninja', hairC: '#1b1b22', accent: '#e02424', acc: 'none' }],
+    ['chef', '👨‍🍳 سرآشپز', 1.5e5, { shirt: '#ffffff', pants: '#1b1b22', shoes: '#1b1b22', hair: 'chef', accent: '#ff5252', acc: 'scarf' }],
+    ['cowboy', '🤠 کابوی', 1e5, { shirt: '#c8843a', pants: '#2b3a67', shoes: '#8a5a3a', hair: 'cowboy', accent: '#ffd23f', acc: 'none' }],
+    ['wizard', '🧙 جادوگر', 1.5e6, { shirt: '#4a2a8a', pants: '#2a1a4a', shoes: '#4a2a8a', hair: 'wizard', accent: '#ffd23f', acc: 'cape' }],
+    ['hero', '🦸 ابرقهرمان', 8e6, { shirt: '#2f6fd6', pants: '#e02424', shoes: '#e02424', hair: 'spiky', hairC: '#1b1b22', accent: '#e02424', acc: 'cape' }],
+    ['astro', '👨‍🚀 فضانورد', 5e6, { shirt: '#f4f4f4', pants: '#f4f4f4', shoes: '#c0c8d0', hair: 'helmet', accent: '#ff7a2a', acc: 'jetpack' }],
+    ['king', '👑 پادشاه', 3e7, { shirt: '#c0143c', pants: '#ffd23f', shoes: '#ffd23f', hair: 'crown', hairC: '#3a2410', accent: '#ffd23f', acc: 'cape' }],
+    ['devil', '😈 شیطون', 6e7, { shirt: '#c0143c', pants: '#1b1b22', shoes: '#1b1b22', hair: 'horns', hairC: '#1b1b22', accent: '#1b1b22', acc: 'cape' }],
+    ['angel', '😇 فرشته', 1.5e8, { shirt: '#ffffff', pants: '#ffffff', shoes: '#ffd23f', hair: 'halo', hairC: '#ffd23f', accent: '#ffd23f', acc: 'wings' }],
+    ['frost', '❄️ یخی', 1e15, { shirt: '#7fdbff', pants: '#ffffff', shoes: '#ffffff', hair: 'beanie', hat: '#ffffff', accent: '#29b6ff', acc: 'scarf' }],
+    ['neon', '🌙 نئونی', 1e17, { shirt: '#1b1b22', pants: '#1b1b22', shoes: '#ff3df2', hair: 'phones', hairC: '#ff3df2', accent: '#3df2ff', acc: 'glasses' }],
+  ] },
+  hair: { t: '🎩 کلاه و مو', key: 'hair', items: [['spiky', '🧑 موی سیخ‌سیخی', 0], ['cap', '🧢 کلاه کپی', 3000], ['buns', '👧 موی گوجه‌ای', 3000], ['beanie', '🧶 کلاه بافتنی', 8000], ['phones', '🎧 هدفون', 20000], ['tophat', '🎩 کلاه شاپو', 50000], ['cowboy', '🤠 کلاه کابوی', 80000], ['chef', '👨‍🍳 کلاه آشپزی', 120000], ['ninja', '🥷 سربند نینجا', 250000], ['wizard', '🧙 کلاه جادوگری', 1e6], ['helmet', '👨‍🚀 کلاه فضانوردی', 3e6], ['horns', '😈 شاخ', 5e6], ['crown', '👑 تاج', 2e7], ['halo', '😇 هاله‌ی نور', 1e8]] },
+  acc: { t: '✨ اکسسوری', key: 'acc', items: [['none', '🎒 کوله‌پشتی ساده', 0], ['glasses', '🕶️ عینک آفتابی', 30000], ['scarf', '🧣 شال‌گردن', 60000], ['cape', '🦸 شنل', 2e5], ['jetpack', '🚀 جت‌پک تزئینی', 2e6], ['wings', '🪽 بال فرشته', 1e7]] },
+  shirt: { t: '👕 پیراهن', key: 'shirt', colors: 2000 },
+  pants: { t: '👖 شلوار', key: 'pants', colors: 2000 },
+  shoes: { t: '👟 کفش', key: 'shoes', colors: 1500 },
+  accent: { t: '🎨 رنگ کوله و شنل', key: 'accent', colors: 1500 },
+  hairC: { t: '💇 رنگ مو', key: 'hairC', colors: 1000 },
+  skin: { t: '🙂 رنگ پوست', key: 'skin', items: [['#ffcf9e', 'روشن', 0], ['#f1c27d', 'گندمی', 0], ['#e0ac69', 'برنزه', 0], ['#c68642', 'سبزه', 0], ['#8d5524', 'تیره', 0]] },
+};
+const wearItems = (cat) => { const C = WEAR[cat]; return C.colors ? WEAR_COLORS.map(([c, n]) => [c, n, c === '#ffc93c' ? C.colors * 2500 : C.colors]) : C.items; };
 const slapCooldown = (o) => (3.5 - o.up.slap * 0.8) * (o.up.petDrag ? 0.6 : 1);
 // missions: three active at a time; reward scales with the player's income
 const MISSION_DEFS = [
@@ -1366,7 +1394,15 @@ const W = { bases: [], reserved: [], anim: [], detail: new THREE.Group(), clouds
 scene.add(W.detail);
 const BELT = { x0: -108, x1: 107.5, z: 0, halfW: 1.9, top: 0.4, speed: 3.0 };
 const LAYOUT = { baseXs: [-125, -75, -25, 25, 75, 125], baseZ: 36, plazaX: 150, ringZ: 56, roadXs: [-100, -50, 0, 50, 100], bldZ: 69.5 };
-const BASE_HX = 12, BASE_HZ = 10, FLOOR_Y = 0.3, PED_Y = 0.55;
+const BASE_HX = 12, BASE_HZ = 10, BASE_BACK = 11, FLOOR_Y = 0.3, PED_Y = 0.55; // every base is one metre deeper at the back: that strip holds three little shops
+// the three base kiosks along the back wall (local x, type)
+const KIOSKS = [[-7.6, 'up'], [0, 'speed'], [7.6, 'wear']];
+const KIOSK_INFO = { up: { t: '🛒 ارتقا', s: 'ظرفیت و وسایل', c: '#ff4f8b' }, speed: { t: '⚡ سرعت', s: 'دویدن و دزدی', c: '#ffb000' }, wear: { t: '👕 لباس', s: 'تیپت را عوض کن', c: '#b061ff' } };
+const KIOSK_SIGNS = {};
+function kioskSignMat(type) {
+  if (KIOSK_SIGNS[type]) return KIOSK_SIGNS[type];
+  const k = KIOSK_INFO[type]; return (KIOSK_SIGNS[type] = new THREE.SpriteMaterial({ map: texFromCanvas(labelCanvas([{ t: k.t, size: 70, color: '#fff', weight: 900, stroke: 6 }, { t: k.s, size: 34, color: '#fff', weight: 800 }], { w: 384, h: 180, bg: k.c, border: '#ffffff' })), depthWrite: false, transparent: true }), KIOSK_SIGNS[type].map.userData.shared = true, KIOSK_SIGNS[type]);
+}
 const SLOT_LOCAL = [];
 for (const lz of [-1.8, 2.8, 7.2]) for (const lx of [-8, -2.7, 2.7, 8]) SLOT_LOCAL.push([lx, lz]);
 const reserve = (x0, z0, x1, z1) => W.reserved.push([Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)]);
@@ -1452,26 +1488,31 @@ class BaseVis {
     const en = this.toWorld(0, -12.5); this.entrancePos = new THREE.Vector3(en.x, 0, en.z);
     const ins = this.toWorld(0, -6.5); this.insidePos = new THREE.Vector3(ins.x, FLOOR_Y, ins.z);
     this.frontYaw = this.f === 1 ? Math.PI : 0; // facing direction toward entrance (world yaw where +z forward is 0)
-    reserve(cx - BASE_HX - 1, cz - BASE_HZ - 1, cx + BASE_HX + 1, cz + BASE_HZ + 1);
+    // kiosks: where you stand to use them, and a stand-in "shopkeeper" at each window for the hand-over animation
+    this.kiosks = KIOSKS.map(([lx, type]) => {
+      const f = this.toWorld(lx, 9.05), w = this.toWorld(lx, 10.0), root = new THREE.Object3D(); root.position.set(w.x, 0, w.z); root.rotation.y = this.frontYaw;
+      return { type, pos: new THREE.Vector3(f.x, FLOOR_Y, f.z), keeper: { root, armL: new THREE.Object3D(), armR: new THREE.Object3D(), kiosk: true } };
+    });
+    reserve(cx - BASE_HX - 1, cz - BASE_BACK - 1, cx + BASE_HX + 1, cz + BASE_BACK + 1);
   }
   toWorld(lx, lz) { return { x: this.cx + lx * this.f, z: this.cz + lz * this.f }; }
   toLocal(x, z) { return { lx: (x - this.cx) * this.f, lz: (z - this.cz) * this.f }; }
-  contains(x, z, m = 0) { const l = this.toLocal(x, z); return Math.abs(l.lx) < BASE_HX - 0.4 + m && l.lz > -BASE_HZ + 0.3 - m && l.lz < BASE_HZ - 0.4 + m; }
+  contains(x, z, m = 0) { const l = this.toLocal(x, z); return Math.abs(l.lx) < BASE_HX - 0.4 + m && l.lz > -BASE_HZ + 0.3 - m && l.lz < BASE_BACK - 0.4 + m; }
   lbox(lx0, lz0, lx1, lz1, y0, y1, o) { if (this.colDone) return null; const a = this.toWorld(lx0, lz0), b = this.toWorld(lx1, lz1); return addBox(a.x, y0, a.z, b.x, y1, b.z, o); }
   build(color, name, forSale) {
-    if (this.vis) { this.group.remove(this.vis); this.vis.traverse((o) => { if (o.material && o.material.map && o.material.map.isCanvasTexture) o.material.map.dispose(); }); }
+    if (this.vis) { this.group.remove(this.vis); this.vis.traverse((o) => { if (o.material && o.material.map && o.material.map.isCanvasTexture && !o.material.map.userData.shared) o.material.map.dispose(); }); }
     this.vis = new THREE.Group(); this.group.add(this.vis); this.forSale = !!forSale;
     const g = this.vis, col = new THREE.Color(color), b = new Batcher();
     const dark = this.world === 2, baseTint = new THREE.Color(dark ? '#3a3038' : '#ffffff');
     const floorMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.tiles, 6, 5), color: baseTint.clone().lerp(col, dark ? 0.18 : 0.25), roughness: dark ? 0.45 : 0.7, metalness: dark ? 0.3 : 0 });
-    mesh(rbox(24, 0.3, 20, 0.06), floorMat, 0, 0.15, 0, 1, 1, 1, g).castShadow = false;
-    this.lbox(-BASE_HX, -BASE_HZ, BASE_HX, BASE_HZ, 0, FLOOR_Y, { tag: 'base' + this.index, cam: false });
+    mesh(rbox(24, 0.3, BASE_HZ + BASE_BACK, 0.06), floorMat, 0, 0.15, (BASE_BACK - BASE_HZ) / 2, 1, 1, 1, g).castShadow = false;
+    this.lbox(-BASE_HX, -BASE_HZ, BASE_HX, BASE_BACK, 0, FLOOR_Y, { tag: 'base' + this.index, cam: false });
     const trim = mat(color, { e: color, ei: 0.35, r: 0.4 });
-    b.add(GEO.box, trim, 0, 0.31, -BASE_HZ + 0.12, 24, 0.04, 0.24); b.add(GEO.box, trim, 0, 0.31, BASE_HZ - 0.12, 24, 0.04, 0.24);
+    b.add(GEO.box, trim, 0, 0.31, -BASE_HZ + 0.12, 24, 0.04, 0.24); b.add(GEO.box, trim, 0, 0.31, BASE_BACK - 0.12, 24, 0.04, 0.24);
     // walls: lower painted brick, glass band, neon top beam, pillars
     const wallMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.brick, 4, 1), color: (dark ? new THREE.Color('#2a2026') : new THREE.Color('#ffffff')).lerp(col, dark ? 0.3 : 0.45), roughness: 0.8, emissive: dark ? col : '#000000', emissiveIntensity: dark ? 0.12 : 0 });
     const glass = glassMat('#cfefff'), metal = mat('#dfe6ee', { m: 0.85, r: 0.25 }), beam = mat(color, { e: color, ei: 0.55, m: 0.3, r: 0.35 });
-    const segs = [[-12, 9.6, 12, 10], [-12, -10, -11.6, 10], [11.6, -10, 12, 10], [-12, -10, -3, -9.6], [3, -10, 12, -9.6]];
+    const segs = [[-12, BASE_BACK - 0.4, 12, BASE_BACK], [-12, -10, -11.6, BASE_BACK], [11.6, -10, 12, BASE_BACK], [-12, -10, -3, -9.6], [3, -10, 12, -9.6]];
     for (const [x0, z0, x1, z1] of segs) {
       const sx = x1 - x0, sz = z1 - z0, mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
       const wm = new THREE.Mesh(GEO.box, wallMat); wm.position.set(mx, 0.3 + 0.6, mz); wm.scale.set(sx, 1.2, sz); wm.castShadow = wm.receiveShadow = true; g.add(wm);
@@ -1491,6 +1532,27 @@ class BaseVis {
     const s1 = mesh(GEO.plane, signMat, 0, 6.85, -9.95, 6.6, 2.2, 1, g, false); s1.rotation.y = Math.PI;
     const s2 = mesh(GEO.plane, signMat, 0, 6.85, -9.65, 6.6, 2.2, 1, g, false); void s2;
     b.add(GEO.box, metal, 0, 6.85, -9.8, 6.9, 2.4, 0.2);
+    // three little shops in the extra metre at the back: upgrades, speed, wardrobe (each run by a tiny robot)
+    const cab = mat('#f4f6fa', { r: 0.5 }), dk = mat('#2a2f3e', { m: 0.5, r: 0.35 }), scr = mat('#14141e', { r: 0.2, e: '#29d9ff', ei: 0.25 }), eyeM = mat('#7af7ff', { e: '#29d9ff', ei: 1.6 });
+    for (const [lx, type] of KIOSKS) {
+      const kc = KIOSK_INFO[type].c, km = mat(kc, { r: 0.45, e: kc, ei: 0.15 }), stripe = mat('#ffffff', { r: 0.6 });
+      b.add(rbox(3.3, 1.1, 0.9, 0.08), cab, lx, 0.3 + 0.55, 10.1, 1, 1, 1);               // counter
+      b.add(GEO.box, km, lx, 0.3 + 1.1, 10.1, 3.4, 0.1, 1.0);                               // counter top
+      b.add(GEO.box, km, lx, 0.3 + 0.55, 9.64, 3.32, 0.18, 0.02);                           // coloured band
+      b.add(GEO.box, dk, lx, 0.3 + 1.95, 10.48, 3.3, 1.6, 0.2);                             // back panel
+      b.add(GEO.box, scr, lx, 0.3 + 2.05, 10.36, 2.6, 0.9, 0.04);                          // screen
+      for (let i = 0; i < 6; i++) b.add(GEO.box, i % 2 ? stripe : km, lx - 1.45 + i * 0.58, 0.3 + 2.95, 10.05, 0.58, 0.08, 1.1, 0, 0.32); // striped awning
+      for (const s of [-1, 1]) b.add(GEO.box, dk, lx + s * 1.62, 0.3 + 1.6, 10.1, 0.12, 2.6, 0.9);
+      b.add(GEO.sphere, mat('#dfe6ee', { m: 0.6, r: 0.3 }), lx, 0.3 + 1.55, 10.15, 0.34, 0.3, 0.3);   // the robot seller
+      b.add(GEO.box, scr, lx, 0.3 + 1.58, 9.88, 0.44, 0.2, 0.04);
+      for (const s of [-1, 1]) b.add(GEO.sphere, eyeM, lx + s * 0.1, 0.3 + 1.58, 9.86, 0.05, 0.06, 0.03);
+      b.add(GEO.cyl, dk, lx, 0.3 + 1.92, 10.15, 0.02, 0.2, 0.02); b.add(GEO.sphere, km, lx, 0.3 + 2.04, 10.15, 0.06, 0.06, 0.06);
+      if (type === 'up') { for (let i = 0; i < 3; i++) { b.add(rbox(0.32, 0.3, 0.32, 0.04), mat(['#ffd23f', '#3df2b0', '#58c4ff'][i], { r: 0.4 }), lx - 1.1 + i * 0.35 + (i > 1 ? 1.5 : 0), 0.3 + 1.31, 9.85, 1, 1, 1); } }
+      else if (type === 'speed') { b.add(rbox(0.5, 0.2, 0.26, 0.06), mat('#ff4f8b', { r: 0.4 }), lx - 1.05, 0.3 + 1.26, 9.85, 1, 1, 1); b.add(GEO.oct, mat('#ffe14a', { e: '#ffb000', ei: 0.8 }), lx + 1.05, 0.3 + 1.42, 9.85, 0.14, 0.26, 0.06); }
+      else { b.add(GEO.capsule, mat('#3df2b0', { r: 0.7 }), lx - 1.05, 0.3 + 1.42, 9.85, 0.36, 0.22, 0.2); b.add(GEO.cone, mat('#ff4f8b', { r: 0.6 }), lx + 1.05, 0.3 + 1.36, 9.85, 0.2, 0.3, 0.2); b.add(GEO.cyl, mat('#ff4f8b', { r: 0.6 }), lx + 1.05, 0.3 + 1.22, 9.85, 0.3, 0.04, 0.3); }
+      const sg = new THREE.Sprite(kioskSignMat(type)); sg.position.set(lx, 0.3 + 3.75, 10.05); sg.scale.set(2.6, 1.22, 1); g.add(sg);
+      this.lbox(lx - 1.7, 9.6, lx + 1.7, BASE_BACK - 0.4, 0, 3.2);
+    }
     // flags at corners
     this.flags = [];
     const flagGeo = new THREE.PlaneGeometry(1.8, 1.1, 8, 4); flagGeo.translate(0.9, 0, 0);
@@ -2374,6 +2436,8 @@ function plateTexture(c, mut, mode, price, income, lvl = 0) {
 }
 
 // ------------------------------------------------------------------ humanoid avatar (player + rivals)
+const CAPE_GEO = new THREE.CylinderGeometry(0.34, 0.52, 0.95, 14, 1, true, Math.PI * 0.62, Math.PI * 0.76);
+function hairCap(head, o) { mesh(GEO.hemi, mat(o.hairC, { r: 0.7 }), 0, 0.04, -0.02, 0.32, 0.27, 0.32, head); }
 function buildAvatar(o) {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
   const skin = mat(o.skin, { r: 0.55 }), shirt = mat(o.shirt, { r: 0.6 }), pants = mat(o.pants, { r: 0.7 }), shoe = mat(o.shoes, { r: 0.5 });
@@ -2382,7 +2446,8 @@ function buildAvatar(o) {
   mesh(rbox(0.66, 0.72, 0.38, 0.14), shirt, 0, 1.22, 0, 1, 1, 1, body);
   mesh(GEO.box, pants, 0, 0.9, 0, 0.6, 0.12, 0.34, body);
   mesh(GEO.cyl, mat(o.accent, { e: o.accent, ei: 0.3 }), 0, 1.3, 0.2, 0.11, 0.02, 0.11, body).rotation.x = Math.PI / 2;
-  mesh(rbox(0.46, 0.5, 0.22, 0.08), mat(o.accent, { r: 0.5 }), 0, 1.25, -0.29, 1, 1, 1, body);
+  const acc = o.acc || 'none';
+  if (acc !== 'cape' && acc !== 'jetpack' && acc !== 'wings') mesh(rbox(0.46, 0.5, 0.22, 0.08), mat(o.accent, { r: 0.5 }), 0, 1.25, -0.29, 1, 1, 1, body);
   const head = new THREE.Group(); head.position.set(0, 1.86, 0); body.add(head);
   mesh(GEO.sphere, skin, 0, 0, 0, 0.3, 0.31, 0.29, head);
   mesh(GEO.cyl, skin, 0, -0.24, 0, 0.1, 0.12, 0.1, head);
@@ -2392,11 +2457,26 @@ function buildAvatar(o) {
   else if (o.hair === 'crown') { mesh(GEO.hemi, mat(o.hairC, { r: 0.7 }), 0, 0.04, -0.02, 0.32, 0.26, 0.32, head); const cr = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.18, 0.14, 10, 1, true), mat('#ffd23f', { m: 1, r: 0.2, side: true })); cr.position.y = 0.32; head.add(cr); }
   else if (o.hair === 'buns') { mesh(GEO.hemi, mat(o.hairC, { r: 0.7 }), 0, 0.04, -0.02, 0.32, 0.28, 0.32, head); for (const s of [-1, 1]) mesh(GEO.sphere, mat(o.hairC, { r: 0.7 }), s * 0.22, 0.25, -0.05, 0.12, 0.12, 0.12, head); }
   else if (o.hair === 'phones') { mesh(GEO.hemi, mat(o.hairC, { r: 0.7 }), 0, 0.04, -0.02, 0.32, 0.27, 0.32, head); const hp = mesh(GEO.halfTorus, mat('#222', { m: 0.5 }), 0, 0.05, 0, 0.34, 0.34, 0.4, head); hp.rotation.y = Math.PI / 2; for (const s of [-1, 1]) mesh(GEO.cyl, mat(o.accent, { e: o.accent, ei: 0.6 }), s * 0.32, 0.0, 0, 0.1, 0.06, 0.1, head).rotation.z = Math.PI / 2; }
+  else if (o.hair === 'beanie') { const hc = mat(o.hat || o.accent, { r: 0.9 }); mesh(GEO.hemi, hc, 0, 0.06, 0, 0.33, 0.33, 0.33, head); mesh(GEO.torus, hc, 0, 0.08, 0, 0.32, 0.32, 0.9, head).rotation.x = Math.PI / 2; mesh(GEO.sphere, mat('#ffffff', { r: 1 }), 0, 0.42, 0, 0.09, 0.09, 0.09, head); }
+  else if (o.hair === 'tophat') { hairCap(head, o); const hm = mat('#1b1b22', { r: 0.4 }); mesh(GEO.cyl, hm, 0, 0.22, 0, 0.42, 0.03, 0.42, head); mesh(GEO.cyl, hm, 0, 0.45, 0, 0.22, 0.45, 0.22, head); mesh(GEO.cyl, mat(o.accent, { r: 0.5 }), 0, 0.29, 0, 0.225, 0.07, 0.225, head); }
+  else if (o.hair === 'cowboy') { hairCap(head, o); const br = mat('#8a5a2a', { r: 0.8 }); mesh(GEO.cyl, br, 0, 0.18, 0, 0.52, 0.03, 0.52, head); mesh(GEO.cyl, br, 0, 0.32, 0, 0.24, 0.26, 0.24, head); mesh(GEO.cyl, mat('#3a2410'), 0, 0.22, 0, 0.245, 0.05, 0.245, head); }
+  else if (o.hair === 'chef') { hairCap(head, o); const wh = mat('#ffffff', { r: 0.8 }); mesh(GEO.cyl, wh, 0, 0.32, 0, 0.26, 0.3, 0.26, head); for (let i = 0; i < 4; i++) mesh(GEO.sphere, wh, Math.cos(i * 1.57) * 0.13, 0.52, Math.sin(i * 1.57) * 0.13, 0.17, 0.14, 0.17, head); }
+  else if (o.hair === 'ninja') { mesh(GEO.hemi, mat(o.hairC, { r: 0.8 }), 0, 0.04, -0.02, 0.32, 0.29, 0.32, head); const red = mat(o.accent, { r: 0.6 }); mesh(GEO.torus, red, 0, 0.1, 0, 0.31, 0.31, 0.6, head).rotation.x = Math.PI / 2; for (const s of [-1, 1]) { const t = mesh(GEO.box, red, s * 0.06, 0.0, -0.36, 0.06, 0.28, 0.03, head); t.rotation.set(0.4, 0, s * 0.4); } }
+  else if (o.hair === 'wizard') { hairCap(head, o); const wz = mat('#4a2a8a', { r: 0.6 }); mesh(GEO.cyl, wz, 0, 0.18, 0, 0.48, 0.03, 0.48, head); mesh(GEO.cone, wz, 0, 0.5, -0.03, 0.27, 0.62, 0.27, head).rotation.x = -0.18; mesh(GEO.oct, mat('#ffe14a', { e: '#ffd000', ei: 1.4 }), 0, 0.42, 0.21, 0.06, 0.06, 0.03, head); }
+  else if (o.hair === 'helmet') { hairCap(head, o); mesh(GEO.sphere, glassMat('#d9f2ff'), 0, 0.02, 0.02, 0.42, 0.42, 0.42, head).userData.noShadow = true; mesh(GEO.torus, mat('#c0c8d0', { m: 0.7, r: 0.3 }), 0, -0.3, 0, 0.36, 0.36, 1.4, head).rotation.x = Math.PI / 2; }
+  else if (o.hair === 'horns') { hairCap(head, o); for (const s of [-1, 1]) mesh(GEO.cone, mat('#d01a2a', { r: 0.4 }), s * 0.16, 0.34, 0, 0.06, 0.22, 0.06, head).rotation.z = -s * 0.35; }
+  else if (o.hair === 'halo') { hairCap(head, o); mesh(GEO.torus, mat('#ffe14a', { e: '#ffd000', ei: 2.2 }), 0, 0.5, 0, 0.22, 0.22, 0.6, head).rotation.x = Math.PI / 2; }
   else { mesh(GEO.hemi, mat(o.hairC, { r: 0.7 }), 0, 0.05, -0.02, 0.32, 0.3, 0.33, head); for (let i = 0; i < 3; i++) mesh(GEO.cone, mat(o.hairC, { r: 0.7 }), (i - 1) * 0.12, 0.3, 0.05, 0.07, 0.16, 0.07, head).rotation.x = 0.5; }
   const armL = pivot(body, 'armL', -0.43, 1.5, 0), armR = pivot(body, 'armR', 0.43, 1.5, 0);
   for (const a of [armL, armR]) { mesh(GEO.capsule, shirt, 0, -0.18, 0, 0.2, 0.2, 0.2, a); mesh(GEO.capsule, skin, 0, -0.45, 0, 0.17, 0.2, 0.17, a); mesh(GEO.sphere, skin, 0, -0.66, 0, 0.1, 0.1, 0.1, a); }
+  // accessories (wardrobe)
+  if (acc === 'cape') { const cape = new THREE.Mesh(CAPE_GEO, mat(o.accent, { r: 0.6, side: true })); cape.position.set(0, 1.12, -0.02); body.add(cape); }
+  else if (acc === 'glasses') { const gl = mat('#111118', { m: 0.6, r: 0.15 }); for (const s of [-1, 1]) mesh(GEO.box, gl, s * 0.11, 0.03, 0.29, 0.15, 0.09, 0.03, head); mesh(GEO.box, gl, 0, 0.05, 0.29, 0.1, 0.025, 0.025, head); }
+  else if (acc === 'scarf') { const sc = mat(o.accent, { r: 0.9 }); mesh(GEO.torus, sc, 0, 1.6, 0, 0.24, 0.24, 1.8, body).rotation.x = Math.PI / 2; mesh(GEO.box, sc, 0.12, 1.36, 0.2, 0.12, 0.38, 0.05, body); }
+  else if (acc === 'jetpack') { const jm = mat('#c0c8d0', { m: 0.8, r: 0.25 }); for (const s of [-1, 1]) { mesh(GEO.cyl, jm, s * 0.13, 1.25, -0.33, 0.11, 0.55, 0.11, body); mesh(GEO.cone, mat(o.accent, { e: o.accent, ei: 1.2 }), s * 0.13, 0.9, -0.33, 0.08, 0.16, 0.08, body).rotation.x = Math.PI; } }
+  else if (acc === 'wings') { for (const s of [-1, 1]) { const wg = new THREE.Group(); wg.position.set(s * 0.12, 1.4, -0.24); wg.rotation.set(0.15, -s * 0.5, s * 0.35); body.add(wg); for (let i = 0; i < 3; i++) mesh(GEO.sphere, mat(i === 1 ? '#fff3c0' : '#ffffff', { r: 0.5 }), s * (0.32 + i * 0.12), 0.1 - i * 0.12, 0, 0.32 - i * 0.06, 0.2 - i * 0.03, 0.05, wg).rotation.z = s * (0.3 + i * 0.2); } }
   const blob = new THREE.Mesh(GEO.plane, BLOB_MAT); blob.rotation.x = -Math.PI / 2; blob.scale.set(1.4, 1.4, 1); blob.position.y = 0.03; root.add(blob);
-  root.traverse((m) => { if (m.isMesh && m !== blob) { m.castShadow = true; m.receiveShadow = false; } });
+  root.traverse((m) => { if (m.isMesh && m !== blob) { m.castShadow = !m.userData.noShadow; m.receiveShadow = false; } });
   return { root, body, head, legL, legR, armL, armR, phase: 0, lean: 0, bank: 0, squash: 0, blob };
 }
 const BLOB_MAT = new THREE.MeshBasicMaterial({ map: BLOB_TEX, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
@@ -2561,7 +2641,7 @@ function procBuild(c, b, r) {
 const G = {
   owners: [], player: null, agents: [], units: new Set(), belt: [], time: 0, playing: false, paused: false,
   event: null, nextEventIn: 150, spawnT: 1, spawnCount: 0, graceT: 90, stats: { bought: 0, stolen: 0, caught: 0, collected: 0, sold: 0, slaps: 0, fuses: 0, chests: 0, bossKills: 0, levels: 0 }, ach: new Set(),
-  discovered: new Set(), name: 'قهرمان', offline: 0, resetting: false, metrics: { steals: 0, delivered: 0, caught: 0, fromPlayer: 0 }, tutorialDone: false, daily: { last: '', streak: 0 }, playTime: 0, lastSave: 0, alerts: new Map(),
+  discovered: new Set(), look: null, wear: new Set(), name: 'قهرمان', offline: 0, resetting: false, metrics: { steals: 0, delivered: 0, caught: 0, fromPlayer: 0 }, tutorialDone: false, daily: { last: '', streak: 0 }, playTime: 0, lastSave: 0, alerts: new Map(),
 };
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 const beltSpeed = (B = BELT) => B.speed * (G.event && G.event.id === 'turbo' ? 1.6 : 1);
@@ -2932,6 +3012,7 @@ class Agent {
     if (this.isGuard && (this.owner.elite || this.owner.elite3)) v *= this.owner.elite === 5 ? 1.22 : this.owner.elite === 4 ? 1.15 : 1.1; // guards in the far worlds are faster
     if (this.carrying) {
       v *= this.isPlayer ? 1.15 * (inW2(this.body.pos.x) ? 1 + 0.12 * this.owner.up.turbo : inW5(this.body.pos.x) ? 1 + 0.15 * this.owner.up.moonBoots : 1) : 0.75; // the player gets an adrenaline boost while carrying
+      if (this.isPlayer) v *= 1 + 0.08 * this.owner.up.carrySpeed;
       if (this.carrying.owner.baseAt(this.body.pos.x, this.body.pos.z, 0.5)) v *= 1 - (this.isPlayer ? 0.05 : 0.1) * this.carrying.owner.up.trap;
     }
     if (this.isGuard && this.brain.target && this.brain.target.isPlayer) v *= 1 - 0.1 * this.brain.target.owner.up.cloak;
@@ -3233,13 +3314,14 @@ const Shop = {
   keeper: null,
   order(key) {
     const o = G.player.owner, U = UPGRADES[key], l = o.up[key], wn = worldOf(G.player.body.pos.x), w2 = wn > 1;
-    if (l >= U.max || (U.shop || 1) !== wn) return;
-    this.keeper = wn === 2 ? W2.keeper : wn === 3 ? W3.keeper : wn >= 4 ? EXW[wn].keeper : shopkeeper;
+    const K = UI.shopMode !== 'town' && UI.kioskRef; // ordered at a kiosk inside your own base
+    if (l >= U.max || (K ? (U.shop || 1) !== 1 : (U.shop || 1) !== wn)) return;
+    this.keeper = K ? K.keeper : wn === 2 ? W2.keeper : wn === 3 ? W3.keeper : wn >= 4 ? EXW[wn].keeper : shopkeeper;
     if (this.busy) { Sound.play('error'); UI.toast('⏳ هنوز سفارش قبلی‌ات در راه است…', 'bad'); return; }
     const cost = U.cost(l); if (o.money < cost) { Sound.play('error'); UI.toast('💸 پولت برای «' + U.name + '» کافی نیست (' + fmt(cost) + ')', 'bad'); return; }
     o.money -= cost; this.ensureItem();
-    this.busy = { key, t: 0 }; this.label.set(key, [{ t: U.emoji, size: 96 }], { bg: false });
-    UI.closePanel(); Sound.play('click'); UI.toast(shopKeeperName(wn) + ' دارد «' + U.name + '» را برایت می‌آورد…', '');
+    this.busy = { key, t: 0, kiosk: !!K }; this.label.set(key, [{ t: U.emoji, size: 96 }], { bg: false });
+    UI.closePanel(); Sound.play('click'); UI.toast((K ? '🤖 ربات فروشنده‌ی پایگاه' : shopKeeperName(wn)) + ' دارد «' + U.name + '» را برایت می‌آورد…', '');
   },
   hand(p) { // shopkeeper's hands, in front of the counter
     const K = this.keeper || shopkeeper, sk = K.root.position, y = K.root.rotation.y; return p.set(sk.x + Math.sin(y) * 0.75, 1.35, sk.z + Math.cos(y) * 0.75);
@@ -3274,7 +3356,7 @@ const Shop = {
     const b = this.busy; if (!b) return; this.busy = null; if (this.item) this.item.visible = false;
     const o = G.player.owner; applyUpgrade(o, b.key); Missions.event('shop');
     FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.3), { count: 26, color: ['#ffd23f', '#3df2b0', '#ffffff'], speed: 4, up: true, life: 0.8 });
-    UI.toast('🎁 ' + shopKeeperName(UPGRADES[b.key].shop || 1).replace(/^\S+ /, '') + ' «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
+    UI.toast('🎁 ' + (b.kiosk ? 'ربات فروشنده‌ی پایگاه' : shopKeeperName(UPGRADES[b.key].shop || 1).replace(/^\S+ /, '')) + ' «' + UPGRADES[b.key].name + '» را تحویلت داد! (سطح ' + fa(o.up[b.key]) + ')', 'good');
   },
 };
 // walk a unit to a slot, quickly when the slot is far away (it always follows the navigation path)
@@ -3492,6 +3574,36 @@ function releasePlot(o, b) { // used when a cloud save with fewer plots replaces
 }
 
 const shopKeeperName = (w) => (w === 2 ? '🔥 آهنگر گدازه' : w === 3 ? '🪂 خلبان ایستگاه' : w === 4 ? '🧭 کاشف قطبی' : w === 5 ? '🔬 دانشمند ماه' : '🛍️ مغازه‌دار');
+// ------------------------------------------------------------------ wardrobe: the player's outfit (bought at the clothes kiosk in any of your bases)
+const LOOK_KEYS = ['skin', 'shirt', 'pants', 'shoes', 'hair', 'hairC', 'accent', 'hat', 'acc'];
+const HAIR_IDS = new Set(WEAR.hair.items.map((x) => x[0]).concat(['long'])), ACC_IDS = new Set(WEAR.acc.items.map((x) => x[0]));
+function cleanLook(l) {
+  const out = Object.assign({ acc: 'none' }, LOOKS[0]); if (!l || typeof l !== 'object') return out;
+  for (const k of LOOK_KEYS) { const v = l[k]; if (typeof v !== 'string') continue; if (k === 'hair' ? HAIR_IDS.has(v) : k === 'acc' ? ACC_IDS.has(v) : /^#[0-9a-f]{6}$/i.test(v)) out[k] = v; }
+  return out;
+}
+function setPlayerLook(look) {
+  const a = G.player; if (!a) return; const old = a.av, av = buildAvatar(look);
+  av.root.position.copy(old.root.position); av.root.rotation.copy(old.root.rotation); av.root.visible = old.root.visible;
+  for (const ch of [...old.root.children]) if (ch === Extras.board) av.root.add(ch);
+  scene.remove(old.root); scene.add(av.root); a.av = av;
+}
+const wearCat = (key) => Object.keys(WEAR).find((c) => WEAR[c].key === key);
+function wearOwned(cat, id, price) { return price === 0 || G.wear.has(cat + ':' + id) || (WEAR[cat].key && G.look[WEAR[cat].key] === id && cat !== 'set'); }
+function wearingSet(lk) { return Object.keys(lk).every((k) => G.look[k] === lk[k]); }
+function wearBuy(key) {
+  const [cat, id] = key.split(':'), it = wearItems(cat).find((x) => x[0] === id), o = G.player.owner; if (!it) return;
+  const price = it[2], owned = wearOwned(cat, id, price);
+  if (!owned) {
+    if (o.money < price) { Sound.play('error'); UI.toast('💸 پولت برای «' + it[1] + '» کافی نیست (' + fmt(price) + ')', 'bad'); return; }
+    o.money -= price; G.wear.add(key);
+    if (cat === 'set') for (const [k, v] of Object.entries(it[3])) { const c = wearCat(k); if (c) G.wear.add(c + ':' + v); }
+  }
+  if (cat === 'set') Object.assign(G.look, it[3]); else G.look[WEAR[cat].key] = id;
+  setPlayerLook(G.look); Sound.play(owned ? 'click' : 'success');
+  FX.burst(tmpV.copy(G.player.body.pos).setY(G.player.body.pos.y + 1.2), { count: 30, color: ['#b061ff', '#ff4f8b', '#ffffff', '#ffd23f'], speed: 4, up: true, life: 0.9 });
+  UI.toast(owned ? '👕 پوشیدی: ' + it[1] : '🤖 ربات لباس‌فروش «' + it[1] + '» را تنت کرد!', 'good'); UI.openWardrobe(true); scheduleSave();
+}
 function rebirth() {
   const o = G.player.owner, cost = rebirthCost(o.rebirths);
   if (o.money < cost || G.player.carrying) return false;
@@ -3507,7 +3619,7 @@ let saveQueued = false;
 function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
-    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, portal3: !!G.portal3Unlocked, portal4: !!G.portal4Unlocked, portal5: !!G.portal5Unlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], tutorialDone: G.tutorialDone, daily: G.daily,
+    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, portal3: !!G.portal3Unlocked, portal4: !!G.portal4Unlocked, portal5: !!G.portal5Unlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], look: G.look, wear: [...G.wear], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl] : null)) })),
   };
@@ -3530,6 +3642,8 @@ function applySave(s) {
   if (s.stats && typeof s.stats === 'object') for (const k of Object.keys(G.stats)) G.stats[k] = num(s.stats[k], 0);
   if (Array.isArray(s.ach)) s.ach.forEach((id) => { if (ACHIEVEMENTS.some((x) => x.id === id)) G.ach.add(id); });
   if (Array.isArray(s.discovered)) s.discovered.forEach((id) => { if (CHAR_BY_ID[id]) G.discovered.add(id); });
+  G.wear.clear(); if (Array.isArray(s.wear)) s.wear.forEach((k) => { if (typeof k === 'string' && k.length < 40) G.wear.add(k); });
+  G.look = cleanLook(s.look); if (G.player) setPlayerLook(G.look);
   if (s.daily && typeof s.daily === 'object') G.daily = { last: String(s.daily.last || ''), streak: num(s.daily.streak, 0, 0, 7) };
   s.owners.forEach((so, i) => {
     const o = G.owners[i]; if (!so || !o) return;
@@ -4828,7 +4942,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyR': doSlap(); break;
     case 'KeyH': toggleBoard(); break;
     case 'KeyJ': UI.openMissions(); break;
-    case 'KeyB': if (INTERACT.kind === 'shop') UI.openShop(); else UI.toast('🛒 برای خرید باید خودت به فروشگاه (غرب میدان، کنار مغازه‌دار) بروی', 'bad'); break;
+    case 'KeyB': if (INTERACT.kind === 'kiosk') doInteract(); else if (INTERACT.kind === 'shop') UI.openShop(); else UI.toast('🛒 برای خرید باید خودت به فروشگاه (غرب میدان، کنار مغازه‌دار) بروی', 'bad'); break;
     case 'KeyI': UI.openInventory(); break;
     case 'KeyK': UI.openBook(); break;
     case 'KeyL': UI.openLeader(); break;
@@ -4897,10 +5011,11 @@ function computeInteract(dt) {
     if (!b.owner || b.owner === o || !b.contains(p.x, p.z, 1.5)) continue;
     for (const s of b.owner.slots) if (s.base === b && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < sd && Math.abs(p.y - s.unit.pos.y) < 2) { sd = d; STEAL_U = s.unit; } }
   }
-  const myBase = o.baseAt(p.x, p.z, 0.5);
+  const myBase = o.baseAt(p.x, p.z, 0.5); let kq = null;
   if (!R.kind) {
     const plot = W.bases.find((b) => b.forSale && !b.owner && (b.contains(p.x, p.z, 0.5) || dist2(p, b.entrancePos) < 6 * 6));
     if (plot) R = { kind: 'plot', base: plot, price: plotPrice(o), ok: o.money >= plotPrice(o) };
+    else if (myBase && (kq = myBase.kiosks.find((k) => dist2(p, k.pos) < 1.7 * 1.7))) R = { kind: 'kiosk', k: kq };
     else if (myBase && dist2(p, myBase.consolePos) < 2.4 * 2.4) R = { kind: 'security' };
     else if (myBase && dist2(p, myBase.collectPos) < 2 * 2) R = { kind: 'collect', base: myBase };
     else {
@@ -4920,6 +5035,7 @@ function computeInteract(dt) {
 function doInteract() {
   const a = G.player, o = a.owner, R = INTERACT;
   switch (R.kind) {
+    case 'kiosk': UI.kioskRef = R.k; Sound.play('click'); if (R.k.type === 'wear') UI.openWardrobe(); else UI.openShop(false, R.k.type === 'speed' ? 'speed' : 'base'); break;
     case 'buy': {
       const r = tryBuy(o, R.unit);
       if (r === 'money') { Sound.play('error'); UI.toast('💸 پولت کافی نیست! قیمت: ' + fmt(R.price) + ' — موجودی: ' + fmt(o.money), 'bad'); }
@@ -5063,6 +5179,7 @@ const UI = {
       case 'collect': text = 'جمع‌آوری ' + fmt(pendingOf(o, R.base)) + ' سکه ' + k('E'); lbl = 'جمع کن'; break;
       case 'plot': text = '🏠 خرید این زمین به‌عنوان پایگاه جدید — ' + fmt(R.price) + ' سکه ' + k('E'); lbl = 'خرید زمین'; cant = !R.ok; break;
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
+      case 'kiosk': text = (R.k.type === 'wear' ? '👕 فروشگاه لباس پایگاه ' : R.k.type === 'speed' ? '⚡ فروشگاه سرعت پایگاه ' : '🛒 فروشگاه ارتقای پایگاه ') + k('E'); lbl = 'فروشگاه'; break;
       case 'shop': text = (inW4(a.body.pos.x) ? '🏕️ ورود به اردوگاه قطبی ' : inW5(a.body.pos.x) ? '🛰️ ورود به آزمایشگاه ماه ' : inW3(a.body.pos.x) ? '🎈 ورود به ایستگاه هوایی ' : inW2(a.body.pos.x) ? '🔥 ورود به کارگاه گدازه ' : 'ورود به فروشگاه ارتقا ') + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
       case 'portal': text = exPortalText(a.body.pos) || (inW3(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : inW2(a.body.pos.x) && Portal3.p3 && Portal3.p3.g.visible && dist2(a.body.pos, PORTAL3) < 49 ? '🏝️ برو داخل پرتال تا به جزیره‌های آسمانی بروی' : inW2(a.body.pos.x) ? '🌍 برای برگشت به میدان میم‌ها وارد پرتال شو' : '🌋 برو داخل پرتال تا به سیاره‌ی گدازه بروی'); lbl = 'پرتال'; break;
@@ -5171,11 +5288,14 @@ const UI = {
     IN.keys.clear(); IN.joy.id = null; IN.joy.x = IN.joy.y = IN.joy.mag = 0; joyRest(); IN.camPtrs.clear(); Sound.play('click');
   },
   closePanel() { $('panel').hidden = true; this.panelKind = ''; scheduleSave(); },
-  refresh() { const k = this.panelKind; if (k === 'shop') this.openShop(true); else if (k === 'inv') this.openInventory(true); else if (k === 'daily') this.openDaily(true); else if (k === 'settings') this.openSettings(true); },
+  refresh() { const k = this.panelKind; if (k === 'shop') this.openShop(true); else if (k === 'inv') this.openInventory(true); else if (k === 'daily') this.openDaily(true); else if (k === 'settings') this.openSettings(true); else if (k === 'wear') this.openWardrobe(true); },
   keepScroll(fn) { const b = $('panelBody'), y = b.scrollTop; fn(); b.scrollTop = y; },
-  openShop(re) {
-    const o = G.player.owner, wn = worldOf(G.player.body.pos.x), w2 = wn > 1;
-    const rows = UP_KEYS.filter((k) => (UPGRADES[k].shop || 1) === wn).map((k) => {
+  shopMode: 'town', kioskRef: null,
+  openShop(re, mode) {
+    if (!re) { this.shopMode = mode || 'town'; if (this.shopMode === 'town') this.kioskRef = null; }
+    const M = this.shopMode, kiosk = M !== 'town';
+    const o = G.player.owner, wn = kiosk ? 1 : worldOf(G.player.body.pos.x), w2 = wn > 1;
+    const rows = UP_KEYS.filter((k) => (UPGRADES[k].shop || 1) === wn && (M === 'speed' ? SPEED_KEYS.includes(k) : M === 'base' ? !SPEED_KEYS.includes(k) : true)).map((k) => {
       const U = UPGRADES[k], l = o.up[k], max = l >= U.max, cost = max ? 0 : U.cost(l);
       const bars = Array.from({ length: U.max }, (_, i) => '<i class="' + (i < l ? 'f' : '') + '"></i>').join('');
       return '<div class="upRow"><div class="emo">' + U.emoji + '</div><div class="txt"><b>' + U.name + '</b><small>' + (max ? 'به حداکثر رسیده' : U.desc(l)) + '</small><div class="lvl">' + bars + '</div></div>' +
@@ -5184,9 +5304,12 @@ const UI = {
     const rc = rebirthCost(o.rebirths);
     const reb = '<div class="upRow" style="border-color:var(--candy)"><div class="emo">♻️</div><div class="txt"><b>تولد دوباره (سطح ' + fa(o.rebirths) + ')</b><small>پول، میم‌ها و ارتقاها صفر می‌شوند؛ در عوض درآمدت برای همیشه ×' + fa((1 + 0.5 * (o.rebirths + 1)).toFixed(1)) + ' می‌شود و با پول بیشتری شروع می‌کنی.</small></div>' +
       '<button class="act red" type="button" data-act="rebirth"' + (o.money < rc ? ' disabled' : '') + '>💰 ' + fmt(rc) + '</button></div>';
-    const intro = wn === 4 ? '🧭 کاشف قطبی وسایل مخصوص یخبندان را دستت می‌دهد: کفش میخ‌دار برای یخ لیز، پالتو برای کولاک و سپر برفی. با «تولد دوباره» از بین نمی‌روند.' : wn === 5 ? '🔬 دانشمند ماه ابزارهای فضایی را دستت می‌دهد: جت‌پک، لباس ضدلیزر و چکمه‌ی ماه‌نورد. با «تولد دوباره» از بین نمی‌روند.' : wn === 3 ? '🪂 خلبان ایستگاه هوایی وسایل مخصوص جزیره‌های آسمانی را دستت می‌دهد. این وسایل با «تولد دوباره» از بین نمی‌روند.' : w2 ? '🔥 آهنگرِ گدازه ابزارهای مخصوص سیاره‌ی گدازه را می‌سازد و دستت می‌دهد. این ابزارها با «تولد دوباره» از بین نمی‌روند.' : '🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.';
-    const html = '<p class="note">' + intro + '</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + (w2 ? '' : reb);
-    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', wn === 4 ? '🏕️ اردوگاه قطبی' : wn === 5 ? '🛰️ آزمایشگاه ماه' : wn === 3 ? '🎈 ایستگاه هوایی' : w2 ? '🔥 کارگاه گدازه' : '🛒 فروشگاه ارتقا', html);
+    const pl = G.player, runV = 6.4 * (1 + 0.07 * o.up.speed) * (o.up.petBird ? 1.1 : 1), carryV = runV * 1.15 * (1 + 0.08 * o.up.carrySpeed);
+    const intro = M === 'speed' ? '⚡ ربات فروشنده‌ی سرعت: «کتونی فشفشه» سرعت دویدن معمولی‌ات را بالا می‌برد و «کفش دزد فرز» سرعتت را موقع بردن میم دزدی. (سرعت الان: دویدن ' + fa(runV.toFixed(1)) + ' و با میم دزدی ' + fa(carryV.toFixed(1)) + ' متر بر ثانیه' + (pl.sprint ? '' : '؛ با Shift یا دکمه‌ی دویدن ۵۰٪ تندتر') + ')'
+      : M === 'base' ? '🤖 فروشگاه کوچک پایگاه خودت: ظرفیت، درآمد، سپر، پت‌ها و بقیه‌ی وسایل را همین‌جا بخر — حتی وقتی رئیس دزدها در شهر است و نمی‌خواهی از پایگاه بیرون بروی.'
+      : wn === 4 ? '🧭 کاشف قطبی وسایل مخصوص یخبندان را دستت می‌دهد: کفش میخ‌دار برای یخ لیز، پالتو برای کولاک و سپر برفی. با «تولد دوباره» از بین نمی‌روند.' : wn === 5 ? '🔬 دانشمند ماه ابزارهای فضایی را دستت می‌دهد: جت‌پک، لباس ضدلیزر و چکمه‌ی ماه‌نورد. با «تولد دوباره» از بین نمی‌روند.' : wn === 3 ? '🪂 خلبان ایستگاه هوایی وسایل مخصوص جزیره‌های آسمانی را دستت می‌دهد. این وسایل با «تولد دوباره» از بین نمی‌روند.' : w2 ? '🔥 آهنگرِ گدازه ابزارهای مخصوص سیاره‌ی گدازه را می‌سازد و دستت می‌دهد. این ابزارها با «تولد دوباره» از بین نمی‌روند.' : '🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.';
+    const html = '<p class="note">' + intro + '</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + (w2 || M === 'speed' ? '' : reb);
+    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', M === 'speed' ? '⚡ فروشگاه سرعت پایگاه' : M === 'base' ? '🛒 فروشگاه پایگاه' : wn === 4 ? '🏕️ اردوگاه قطبی' : wn === 5 ? '🛰️ آزمایشگاه ماه' : wn === 3 ? '🎈 ایستگاه هوایی' : w2 ? '🔥 کارگاه گدازه' : '🛒 فروشگاه ارتقا', html);
   },
   unitCard(s, o) {
     const u = s.unit, r = RARITIES[u.c.rarity], mu = MUTATIONS[u.mut], stars = u.lvl ? '⭐'.repeat(u.lvl) + ' ' : '';
@@ -5296,6 +5419,7 @@ const UI = {
       '<p>🛸 <b>یوفو و 🗿 میم غول‌پیکر:</b> در دنیای اول گاهی یوفو میم‌های کمیاب روی نوار می‌اندازد و گاهی یک میم غول‌پیکر با ۲۰ برابر ارزش ظاهر می‌شود. شب‌ها هم آتش‌بازی است!</p>' +
       '<p>🌋 <b>سیاره‌ی گدازه:</b> وقتی ثروتت (پول + ارزش میم‌ها) به ۵۵۰ میلیون برسد، کنار جدول برترها یک پرتال باز می‌شود. آنجا میم‌ها ۲۰۰ برابر می‌ارزند ولی گدازه می‌سوزاند، شهاب‌سنگ می‌بارد، هر پایگاه یک ربات نگهبان دارد و حریف‌ها خیلی سریع‌ترند. جاذبه هم کمتر است!</p>' +
       '<p>⚡ <b>جزیره‌ها سخت‌تر شده‌اند:</b> صاعقه می‌زند (دایره‌ی زرد روی زمین یعنی فرار کن!)، باد تندتر و بیشتر می‌وزد و حریف‌ها و نگهبان‌ها خشن‌ترند. «برق‌گیر» را از ایستگاه هوایی بخر.</p>' +
+      '<p>🏪 <b>فروشگاه‌های داخل پایگاه:</b> ته هر پایگاهت (یک متر جای اضافه) سه فروشگاه کوچک هست: 🛒 ارتقا (ظرفیت، درآمد، سپر، پت و…)، ⚡ سرعت (دویدن معمولی و سرعت موقع دزدی) و 👕 لباس (عوض کردن تیپ بازیکنت). وقتی رئیس دزدها آمده، لازم نیست از پایگاهت بیرون بروی!</p>' +
       '<p>❄️ <b>قطب یخی (دنیای ۴):</b> با ثروت ۱۰۰ تریلیون، روی جزیره‌ی وسط آسمان پرتال یخی باز می‌شود. یخ لیز است، کولاک دید را کم می‌کند و گلوله‌برفی‌های غول‌پیکر میم را از دستت می‌اندازند. میم‌های «یخی» ×۲۰ هزار و «شفقی» ×۶۰ هزار.</p>' +
       '<p>🌙 <b>ماه نئونی (دنیای ۵):</b> با ثروت ۵ کوادریلیون، در قطب یخی پرتال ماه باز می‌شود. جاذبه کم است و خیلی بلند می‌پری؛ از روی لیزرهای چرخان بپر! میم‌های «نئونی» ×۲۰۰ هزار و «سیاه‌چاله‌ای» ×۶۰۰ هزار.</p>' +
       '<p>📖 <b>بیش از ۱۶ هزار میم:</b> دنیای اول و دوم هر کدام ۱۰۰۰ میم تازه دارند، جزیره‌های آسمانی ۱۰ هزار میم و قطب و ماه هر کدام ۲۰۰۰ میم. همه را در دانشنامه (کلید <kbd>K</kbd>) ببین.</p>' +
@@ -5307,6 +5431,20 @@ const UI = {
       '<p>📱 <b>لمسی:</b> جوی‌استیک سمت چپ = حرکت · کشیدن سمت راست = چرخش دوربین · دو انگشت = زوم · دکمه‌های راست = پرش، دویدن، تعامل، دزدی، رها کردن، دوربین، امنیت.</p>' +
       '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>R</kbd> سیلی · <kbd>H</kbd> اسکیت‌برد · <kbd>J</kbd> ماموریت‌ها · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه (کنار مغازه) · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
       '<p>✨ رویدادهای ویژه مثل «باران طلایی» و «ساعت شانس» گاهی پیش می‌آیند. با «تولد دوباره» درآمد دائمی بیشتری بگیر.</p></div>');
+  },
+  wearTab: 'set',
+  openWardrobe(re) {
+    const tab = this.wearTab, C = WEAR[tab], o = G.player.owner;
+    const tabs = '<div class="tabs" style="flex-wrap:wrap">' + Object.keys(WEAR).map((k) => '<button type="button" data-wtab="' + k + '" class="' + (k === tab ? 'sel' : '') + '">' + WEAR[k].t + '</button>').join('') + '</div>';
+    const rows = wearItems(tab).map(([id, name, price, set]) => {
+      const owned = wearOwned(tab, id, price), on = tab === 'set' ? wearingSet(set) : G.look[C.key] === id, sw = C.colors || tab === 'skin';
+      const icon = sw ? '<span style="display:inline-block;width:30px;height:30px;border-radius:50%;background:' + id + ';border:2px solid rgba(255,255,255,.7);box-shadow:0 2px 6px #0006"></span>' : name.split(' ')[0];
+      const title = sw ? name : name.split(' ').slice(1).join(' ');
+      return '<div class="upRow"' + (on ? ' style="border-color:var(--mint)"' : '') + '><div class="emo">' + icon + '</div><div class="txt"><b>' + esc(title) + '</b><small>' + (on ? '✅ همین را پوشیده‌ای' : owned ? 'مال توست — بزن تا بپوشی' : 'قیمت: ' + fmt(price) + ' سکه') + '</small></div>' +
+        '<button class="act buy" type="button" data-wear="' + tab + ':' + id + '"' + (on || (!owned && o.money < price) ? ' disabled' : '') + '>' + (on ? 'پوشیده' : owned ? '👕 بپوش' : '💰 ' + fmt(price)) + '</button></div>';
+    }).join('');
+    const html = '<p class="note">🤖 ربات لباس‌فروش هر چیزی بخری همین‌جا تنت می‌کند؛ هر چیزی یک بار بخری برای همیشه مال توست و هر وقت خواستی دوباره می‌پوشی. موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b></p>' + tabs + rows;
+    if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('wear', '👕 فروشگاه لباس پایگاه', html);
   },
   openKeys() {
     const rows = [['W A S D / ← ↑ → ↓', 'حرکت'], ['Shift', 'دویدن'], ['Space', 'پرش (دوبار = پرش دوبل)'], ['E', 'تعامل / خرید / پرتال'], ['F', 'دزدیدن میم'], ['G', 'رها کردن میم'], ['R', 'سیلی'], ['Q', 'سپر لیزری'], ['H', 'اسکیت‌برد'],
@@ -5380,6 +5518,8 @@ $('panelBody').addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t || t.disabled) return; const o = G.player.owner;
   Sound.init();
   if (t.dataset.up) { Shop.order(t.dataset.up); return; }
+  if (t.dataset.wtab) { UI.wearTab = t.dataset.wtab; UI.openWardrobe(true); Sound.play('click'); return; }
+  if (t.dataset.wear) { wearBuy(t.dataset.wear); return; }
   if (t.dataset.bw) { UI.book.w = +t.dataset.bw; UI.book.page = 0; UI.openBook(true); Sound.play('click'); return; }
   if (t.dataset.bp !== undefined) { UI.book.page = +t.dataset.bp; UI.openBook(true, true); $('panelBody').scrollTop = 0; Sound.play('click'); return; }
   if (t.dataset.bonly) { UI.book.only = !UI.book.only; UI.book.page = 0; UI.openBook(true); Sound.play('click'); return; }
@@ -5708,6 +5848,7 @@ async function init() {
   if (save) { try { savedAt = applySave(save); } catch (e) { console.warn('save apply failed', e); } }
   if (G.portalUnlocked) { buildWorld2(); Portal.show(false); }
   if (G.portal3Unlocked) { buildWorld3(); Portal3.show(false); }
+  if (!G.look) G.look = cleanLook(null);
   if (G.portal4Unlocked) { buildExWorld(4); ExWorlds.show(4, false); }
   if (G.portal5Unlocked) { buildExWorld(5); ExWorlds.show(5, false); }
   ensurePlayerGuard();
@@ -5787,7 +5928,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { EXW, ExWorlds, buildExWorld, BELT4, BELT5, X4_: X4, X5_: X5, Storm3, pickChar, POOLS, tmplOf, CHAR_BY_ID, onIce, worldOf, W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { buildAvatar, animateAvatar, wearBuy, setPlayerLook, WEAR, KIOSKS, EXW, ExWorlds, buildExWorld, BELT4, BELT5, X4_: X4, X5_: X5, Storm3, pickChar, POOLS, tmplOf, CHAR_BY_ID, onIce, worldOf, W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
