@@ -1,0 +1,16 @@
+{
+  "name": "گنجینه صدای من",
+  "short_name": "صدای من",
+  "description": "ضبط، نوشتن و گوش دادن دوباره به کلمه‌های انگلیسی با صدای خودت",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f0ff",
+  "theme_color": "#6c4cf5",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
