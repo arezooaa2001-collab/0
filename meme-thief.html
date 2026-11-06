@@ -754,6 +754,9 @@ const Sound = {
       case 'caught': [600, 450, 300].forEach((f, i) => this.tone(f, 0.18, 'sawtooth', 0.14, -50, i * 0.12)); break;
       case 'alarm': for (let i = 0; i < 3; i++) { this.tone(880, 0.18, 'square', 0.12, 0, i * 0.36); this.tone(620, 0.18, 'square', 0.12, 0, i * 0.36 + 0.18); } break;
       case 'laser': this.tone(1500, 0.4, 'sawtooth', 0.12, -1200); this.tone(2200, 0.3, 'sine', 0.08, -1800, 0.05); break;
+      case 'wood': this.tone(150, 0.07, 'triangle', 0.22, -50); this.noise(0.05, 0.16, 900, 3); break;
+      case 'wood2': this.tone(128, 0.07, 'triangle', 0.22, -40); this.noise(0.05, 0.16, 760, 3); break;
+      case 'drill': this.tone(rand(170, 190), 0.12, 'sawtooth', 0.07, rand(-20, 20)); this.noise(0.1, 0.07, 3200, 1.2); break;
       case 'zap': this.noise(0.12, 0.2, 3000, 4); this.tone(1200, 0.1, 'square', 0.08, -800); break;
       case 'rare': [784, 988, 1175, 1568, 1976].forEach((f, i) => this.tone(f, 0.35, 'sine', 0.13, 0, i * 0.07)); break;
       case 'rebirth': [262, 330, 392, 523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.16, 0, i * 0.09)); break;
@@ -1177,11 +1180,11 @@ const FX = (() => {
 
 // ------------------------------------------------------------------ collision world (AABB + vertical cylinders, spatial hash)
 const STEP_UP = 0.52, GRAVITY = -30;
-const WORLD = { minX: -160, maxX: 160, minZ: -80, maxZ: 80 };
+const WORLD = { minX: -160, maxX: 160, minZ: -92, maxZ: 92 }; // deep enough for bases with a safe house behind them
 // second world (lava planet) lives far to the east in the same coordinate space
 const X2 = 1000, WORLD2 = { minX: X2 - 125, maxX: X2 + 125, minZ: -70, maxZ: 70 };
 // third world (sky islands) even further east; it has no ground — only islands and bridges
-const X3 = 3000, WORLD3 = { minX: X3 - 108, maxX: X3 + 108, minZ: -62, maxZ: 62 };
+const X3 = 3000, WORLD3 = { minX: X3 - 108, maxX: X3 + 108, minZ: -72, maxZ: 72 };
 // fourth (frozen pole) and fifth (neon moon) worlds: flat ground again, each with its own twist
 const X4 = 5000, WORLD4 = { minX: X4 - 112, maxX: X4 + 112, minZ: -66, maxZ: 66 };
 const X5 = 7000, WORLD5 = { minX: X5 - 112, maxX: X5 + 112, minZ: -66, maxZ: 66 };
@@ -1393,8 +1396,13 @@ function findPath(sx, sz, tx, tz) {
 const W = { bases: [], reserved: [], anim: [], detail: new THREE.Group(), clouds: null, beltTex: null, shopPos: new THREE.Vector3(-127.5, 0, 0), boardPos: new THREE.Vector3(132, 0, 0), buildings: [], fountains: [] };
 scene.add(W.detail);
 const BELT = { x0: -108, x1: 107.5, z: 0, halfW: 1.9, top: 0.4, speed: 3.0 };
-const LAYOUT = { baseXs: [-125, -75, -25, 25, 75, 125], baseZ: 36, plazaX: 150, ringZ: 56, roadXs: [-100, -50, 0, 50, 100], bldZ: 69.5 };
-const BASE_HX = 12, BASE_HZ = 10, BASE_BACK = 11, FLOOR_Y = 0.3, PED_Y = 0.55; // every base is one metre deeper at the back: that strip holds three little shops
+const LAYOUT = { baseXs: [-125, -75, -25, 25, 75, 125], baseZ: 36, plazaX: 150, ringZ: 64, roadXs: [-100, -50, 0, 50, 100], bldZ: 79.5 };
+const BASE_HX = 12, BASE_HZ = 10, BASE_BACK = 21, FLOOR_Y = 0.3, PED_Y = 0.55; // bases reach 11 m further back: 1 m for three little shops, then 10 m for a wooden safe house
+// the safe house (local coords): wooden walls, plank floor, 4 vault pedestals, a doorway that can take an iron door
+const HOUSE_Z0 = 12.2, HOUSE_H = 3.8, DOOR_X = 3.8, DOOR_W = 2.2, DOOR_H = 2.9;
+const VAULT_LOCAL = [[-7.6, 17.6], [-2.8, 17.6], [2.8, 17.6], [7.6, 17.6]];
+const GABLE_GEO = (() => { const sh = new THREE.Shape(); sh.moveTo(-4.6, 0); sh.lineTo(4.6, 0); sh.lineTo(0, 2.7); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: false }); g.translate(0, 0, -0.15); g.rotateY(Math.PI / 2); return g; })();
+let HOUSE_SIGN = null;
 // the three base kiosks along the back wall (local x, type)
 const KIOSKS = [[-7.6, 'up'], [0, 'speed'], [7.6, 'wear']];
 const KIOSK_INFO = { up: { t: '🛒 ارتقا', s: 'ظرفیت و وسایل', c: '#ff4f8b' }, speed: { t: '⚡ سرعت', s: 'دویدن و دزدی', c: '#ffb000' }, wear: { t: '👕 لباس', s: 'تیپت را عوض کن', c: '#b061ff' } };
@@ -1481,7 +1489,7 @@ class BaseVis {
   constructor(index, cx, cz) {
     this.index = index; this.cx = cx; this.cz = cz; this.f = cz > 0 ? 1 : -1; this.world = worldOf(cx);
     this.group = new THREE.Group(); this.group.position.set(cx, 0, cz); this.group.rotation.y = this.f === 1 ? 0 : Math.PI; scene.add(this.group);
-    this.owner = null; this.barrierActive = false; this.slotPos = SLOT_LOCAL.map(([lx, lz]) => { const w = this.toWorld(lx, lz); return new THREE.Vector3(w.x, PED_Y, w.z); });
+    this.owner = null; this.barrierActive = false; this.slotPos = SLOT_LOCAL.concat(VAULT_LOCAL).map(([lx, lz]) => { const w = this.toWorld(lx, lz); return new THREE.Vector3(w.x, PED_Y, w.z); });
     const cp = this.toWorld(7.5, -6.2); this.collectPos = new THREE.Vector3(cp.x, FLOOR_Y, cp.z);
     const sc = this.toWorld(-7.5, -6.2); this.consolePos = new THREE.Vector3(sc.x, FLOOR_Y, sc.z);
     const sp = this.toWorld(0, -4.8); this.spawnPos = new THREE.Vector3(sp.x, FLOOR_Y, sp.z);
@@ -1493,10 +1501,13 @@ class BaseVis {
       const f = this.toWorld(lx, 9.05), w = this.toWorld(lx, 10.0), root = new THREE.Object3D(); root.position.set(w.x, 0, w.z); root.rotation.y = this.frontYaw;
       return { type, pos: new THREE.Vector3(f.x, FLOOR_Y, f.z), keeper: { root, armL: new THREE.Object3D(), armR: new THREE.Object3D(), kiosk: true } };
     });
+    const dO = this.toWorld(DOOR_X + DOOR_W / 2 - 0.38 - 0.43, 11.0), dI = this.toWorld(DOOR_X, 13.4), dC = this.toWorld(DOOR_X, HOUSE_Z0 + 0.15);
+    this.doorOut = new THREE.Vector3(dO.x, FLOOR_Y, dO.z); this.doorIn = new THREE.Vector3(dI.x, FLOOR_Y, dI.z); this.doorPos = new THREE.Vector3(dC.x, FLOOR_Y, dC.z); this.door = null; this.doorYaw = this.f === 1 ? 0 : Math.PI;
     reserve(cx - BASE_HX - 1, cz - BASE_BACK - 1, cx + BASE_HX + 1, cz + BASE_BACK + 1);
   }
   toWorld(lx, lz) { return { x: this.cx + lx * this.f, z: this.cz + lz * this.f }; }
   toLocal(x, z) { return { lx: (x - this.cx) * this.f, lz: (z - this.cz) * this.f }; }
+  inHouse(x, z, m = 0) { const l = this.toLocal(x, z); return Math.abs(l.lx) < 11.6 + m && l.lz > HOUSE_Z0 + 0.3 - m && l.lz < BASE_BACK - 0.4 + m; }
   contains(x, z, m = 0) { const l = this.toLocal(x, z); return Math.abs(l.lx) < BASE_HX - 0.4 + m && l.lz > -BASE_HZ + 0.3 - m && l.lz < BASE_BACK - 0.4 + m; }
   lbox(lx0, lz0, lx1, lz1, y0, y1, o) { if (this.colDone) return null; const a = this.toWorld(lx0, lz0), b = this.toWorld(lx1, lz1); return addBox(a.x, y0, a.z, b.x, y1, b.z, o); }
   build(color, name, forSale) {
@@ -1504,7 +1515,7 @@ class BaseVis {
     this.vis = new THREE.Group(); this.group.add(this.vis); this.forSale = !!forSale;
     const g = this.vis, col = new THREE.Color(color), b = new Batcher();
     const dark = this.world === 2, baseTint = new THREE.Color(dark ? '#3a3038' : '#ffffff');
-    const floorMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.tiles, 6, 5), color: baseTint.clone().lerp(col, dark ? 0.18 : 0.25), roughness: dark ? 0.45 : 0.7, metalness: dark ? 0.3 : 0 });
+    const floorMat = new THREE.MeshStandardMaterial({ map: texRep(TEX.tiles, 6, 8), color: baseTint.clone().lerp(col, dark ? 0.18 : 0.25), roughness: dark ? 0.45 : 0.7, metalness: dark ? 0.3 : 0 });
     mesh(rbox(24, 0.3, BASE_HZ + BASE_BACK, 0.06), floorMat, 0, 0.15, (BASE_BACK - BASE_HZ) / 2, 1, 1, 1, g).castShadow = false;
     this.lbox(-BASE_HX, -BASE_HZ, BASE_HX, BASE_BACK, 0, FLOOR_Y, { tag: 'base' + this.index, cam: false });
     const trim = mat(color, { e: color, ei: 0.35, r: 0.4 });
@@ -1551,8 +1562,30 @@ class BaseVis {
       else if (type === 'speed') { b.add(rbox(0.5, 0.2, 0.26, 0.06), mat('#ff4f8b', { r: 0.4 }), lx - 1.05, 0.3 + 1.26, 9.85, 1, 1, 1); b.add(GEO.oct, mat('#ffe14a', { e: '#ffb000', ei: 0.8 }), lx + 1.05, 0.3 + 1.42, 9.85, 0.14, 0.26, 0.06); }
       else { b.add(GEO.capsule, mat('#3df2b0', { r: 0.7 }), lx - 1.05, 0.3 + 1.42, 9.85, 0.36, 0.22, 0.2); b.add(GEO.cone, mat('#ff4f8b', { r: 0.6 }), lx + 1.05, 0.3 + 1.36, 9.85, 0.2, 0.3, 0.2); b.add(GEO.cyl, mat('#ff4f8b', { r: 0.6 }), lx + 1.05, 0.3 + 1.22, 9.85, 0.3, 0.04, 0.3); }
       const sg = new THREE.Sprite(kioskSignMat(type)); sg.position.set(lx, 0.3 + 3.75, 10.05); sg.scale.set(2.6, 1.22, 1); g.add(sg);
-      this.lbox(lx - 1.7, 9.6, lx + 1.7, BASE_BACK - 0.4, 0, 3.2);
+      this.lbox(lx - 1.7, 9.6, lx + 1.7, 10.6, 0, 3.2);
     }
+    // the safe house: wooden walls, a bare plank floor (no carpet, no furniture), a big gable roof and 4 vault pedestals
+    const wood = new THREE.MeshStandardMaterial({ map: texRep(TEX.wood, 4, 1.5), color: '#d9a066', roughness: 0.85 });
+    const woodDark = new THREE.MeshStandardMaterial({ map: texRep(TEX.wood, 1, 1), color: '#8a5a32', roughness: 0.85 });
+    const planks = new THREE.MeshStandardMaterial({ map: texRep(TEX.wood, 10, 3), color: '#c8904e', roughness: 0.75 });
+    const hz1 = BASE_BACK - 0.4, hd = hz1 - HOUSE_Z0, hm = (HOUSE_Z0 + hz1) / 2, dl = DOOR_X - DOOR_W / 2, dr = DOOR_X + DOOR_W / 2;
+    mesh(GEO.box, planks, 0, FLOOR_Y + 0.085, hm + 0.15, 23.2, 0.05, hd - 0.3, g, false).receiveShadow = true; // sits just above the rounded base floor (top ≈ 0.36)
+    for (const [x0, x1] of [[-11.6, dl], [dr, 11.6]]) { b.add(GEO.box, wood, (x0 + x1) / 2, FLOOR_Y + HOUSE_H / 2, HOUSE_Z0 + 0.15, x1 - x0, HOUSE_H, 0.3); this.lbox(x0, HOUSE_Z0, x1, HOUSE_Z0 + 0.3, 0, HOUSE_H + FLOOR_Y); }
+    b.add(GEO.box, wood, DOOR_X, FLOOR_Y + (DOOR_H + HOUSE_H) / 2, HOUSE_Z0 + 0.15, DOOR_W, HOUSE_H - DOOR_H, 0.3); this.lbox(dl, HOUSE_Z0, dr, HOUSE_Z0 + 0.3, FLOOR_Y + DOOR_H, FLOOR_Y + HOUSE_H);
+    for (const s of [-1, 1]) b.add(GEO.box, wood, s * 11.55, FLOOR_Y + HOUSE_H / 2, hm, 0.12, HOUSE_H, hd);   // wooden lining over the base walls
+    b.add(GEO.box, wood, 0, FLOOR_Y + HOUSE_H / 2, hz1 - 0.06, 23.2, HOUSE_H, 0.12);
+    for (const x of [-11.6, dl - 0.1, dr + 0.1, 11.6]) b.add(GEO.box, woodDark, x, FLOOR_Y + HOUSE_H / 2, HOUSE_Z0 + 0.15, 0.36, HOUSE_H, 0.4);   // corner posts
+    b.add(GEO.box, woodDark, 0, FLOOR_Y + HOUSE_H + 0.1, HOUSE_Z0 + 0.15, 23.6, 0.25, 0.42);
+    for (const wx of [-8.5, -3.6, 8.4]) { b.add(GEO.box, woodDark, wx, FLOOR_Y + 2.0, HOUSE_Z0 - 0.02, 1.9, 1.4, 0.06); b.add(GEO.box, glass, wx, FLOOR_Y + 2.0, HOUSE_Z0 - 0.06, 1.6, 1.1, 0.04); b.add(GEO.box, woodDark, wx, FLOOR_Y + 2.0, HOUSE_Z0 - 0.08, 0.08, 1.1, 0.04); b.add(GEO.box, woodDark, wx, FLOOR_Y + 1.25, HOUSE_Z0 - 0.15, 2.0, 0.1, 0.22); }
+    const vped = mat('#6b4423', { r: 0.6 }), vtop = mat('#ffd23f', { m: 0.9, r: 0.25 });
+    VAULT_LOCAL.forEach(([lx, lz]) => { b.add(GEO.cyl, vped, lx, 0.42, lz, 1.05, 0.24, 1.05); b.add(GEO.cyl, vtop, lx, 0.56, lz, 0.95, 0.06, 0.95); const w = this.toWorld(lx, lz); if (!this.colDone) addBoxC(w.x, 0.3, w.z, 1.6, 0.5, 1.6, { cam: false, tag: 'ped' }); });
+    this.roof = new THREE.Group(); g.add(this.roof);
+    const roofM = new THREE.MeshStandardMaterial({ map: texRep(TEX.roof, 6, 2), color: '#b8603a', roughness: 0.8 }), ry = FLOOR_Y + HOUSE_H + 0.2, rl = Math.hypot(hd / 2 + 0.5, 2.7), ra = Math.atan2(2.7, hd / 2 + 0.5);
+    for (const s of [-1, 1]) { const rp = mesh(GEO.box, roofM, 0, ry + 1.35, hm + s * (hd / 4 + 0.25), 24.2, 0.22, rl, this.roof); rp.rotation.x = s * ra; }
+    for (const s of [-1, 1]) mesh(GABLE_GEO, wood, s * 11.7, ry, hm, 1, 1, hd / 9.2, this.roof);
+    mesh(GEO.box, woodDark, 0, ry + 2.75, hm, 24.4, 0.2, 0.3, this.roof); mesh(GEO.box, mat('#8a3a2a', { r: 0.9 }), 7, ry + 2.4, hm + 1.8, 1, 2.2, 1, this.roof);
+    if (!HOUSE_SIGN) { HOUSE_SIGN = new THREE.SpriteMaterial({ map: texFromCanvas(labelCanvas([{ t: '🏠 خانه‌ی امن', size: 64, color: '#fff', weight: 900, stroke: 6 }, { t: '۴ جای مخصوص میم‌های عزیزت', size: 30, color: '#fff', weight: 800 }], { w: 384, h: 150, bg: '#8a5a32', border: '#ffd23f' })), depthWrite: false, transparent: true }); HOUSE_SIGN.map.userData.shared = true; }
+    const hs = new THREE.Sprite(HOUSE_SIGN); hs.position.set(DOOR_X, FLOOR_Y + DOOR_H + 0.55, HOUSE_Z0 - 0.3); hs.scale.set(2.6, 1.02, 1); g.add(hs);
     // flags at corners
     this.flags = [];
     const flagGeo = new THREE.PlaneGeometry(1.8, 1.1, 8, 4); flagGeo.translate(0.9, 0, 0);
@@ -2658,7 +2691,10 @@ class Owner {
     this.slots = []; this.bases = []; this.base = null; this.addBase(base);
     this.agent = null; this.guards = []; this.hard = false; this.secT = 0; this.secCd = 0; this.magnetT = 0;
   }
-  addBase(b) { b.owner = this; this.bases.push(b); if (!this.base) this.base = b; for (let li = 0; li < MAX_SLOTS; li++) this.slots.push({ i: this.slots.length, base: b, li, unit: null, pending: 0 }); }
+  addBase(b) {
+    b.owner = this; this.bases.push(b); if (!this.base) this.base = b; for (let li = 0; li < MAX_SLOTS; li++) this.slots.push({ i: this.slots.length, base: b, li, unit: null, pending: 0 });
+    for (let k = 0; k < VAULT_LOCAL.length; k++) this.slots.push({ i: this.slots.length, base: b, li: MAX_SLOTS + k, vault: true, unit: null, pending: 0 }); // the safe house
+  }
   get cap() { return Math.min(MAX_SLOTS, 4 + this.up.cap); } // unlocked slots in EACH owned base
   get totalCap() { return this.cap * this.bases.length; }
   applyCap() { for (const b of this.bases) { b.setCapacity(this.cap); b.trap.visible = this.up.trap > 0; } }
@@ -3061,6 +3097,7 @@ class Agent {
     this.receiveT = Math.max(0, (this.receiveT || 0) - dt);
     this.slapT = Math.max(0, (this.slapT || 0) - dt);
     animateAvatar(this.av, dt, { speed: sp, grounded: b.grounded, carrying: !!this.carrying, turn: this.turn, t, stunned: this.stunned, receive: this.receiveT > 0, slap: this.slapT, ride: this.isPlayer && Extras.riding });
+    if (this.drilling) { const av = this.av; av.armR.rotation.set(-1.5, 0, 0); av.armL.rotation.set(-1.25, 0, 0.32); av.body.position.x = Math.sin(t * 95) * 0.012; av.head.rotation.y = 0; } // holding the drill to the lock
     if (this.label) this.label.visible = dist2(b.pos, camera.position) < 1800;
   }
 }
@@ -3167,7 +3204,7 @@ class Brain {
     for (const v of G.owners) {
       if (v === this.o) continue;
       if (v.isPlayer && (!G.playing || G.graceT > 0 || !G.tutorialDone)) continue;
-      const units = v.slots.filter((s) => s.unit && s.unit.state === 'slotted' && !s.base.barrierActive && s.base.world === this.o.base.world).map((s) => s.unit).sort((x, y) => y.income - x.income);
+      const units = v.slots.filter((s) => s.unit && s.unit.state === 'slotted' && !s.base.barrierActive && s.base.world === this.o.base.world && !(s.vault && House.locked(s.base))).map((s) => s.unit).sort((x, y) => y.income - x.income);
       if (!units.length) continue;
       const away = v.agent ? Math.sqrt(dist2(v.agent.body.pos, units[0].slot.base.insidePos)) : 99; // rivals prefer bases whose owner is away
       const w = (away > 30 ? 3 : away > 15 ? 1.4 : 0.5) * (v.isPlayer ? 1.6 : 1);
@@ -3182,6 +3219,7 @@ class Brain {
     this.upCd -= dt; if (this.upCd <= 0) { this.upCd = rand(6, 14); this.tryUpgrade(); }
     if (a.stunned) { a.move.x = a.move.z = 0; return; }
     if (this.react > 0) { this.react -= dt; a.move.x = a.move.z = 0; return; }
+    if (this.state === 'drill') { House.brain(this, dt); return; }
     switch (this.state) {
       case 'idle': {
         a.move.x = a.move.z = 0; this.think -= dt;
@@ -3621,7 +3659,9 @@ function serialize() {
   return {
     v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, portal3: !!G.portal3Unlocked, portal4: !!G.portal4Unlocked, portal5: !!G.portal5Unlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], look: G.look, wear: [...G.wear], tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
-    owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl] : null)) })),
+    owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.filter((s) => !s.vault).map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl] : null)),
+      vault: o.slots.filter((s) => s.vault && s.unit).map((s) => [s.base.index, s.li - MAX_SLOTS, s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl]), dr: o.drills || 0 })),
+    doors: W.bases.filter((b) => b.door).map((b) => [b.index, b.door.state === 'broken' ? 1 : 0]),
   };
 }
 function doSave() { if (!G.owners.length) return; if (Shop.busy) Shop.finish(); if (Fusion.busy) Fusion.finish(); saveQueued = false; G.lastSave = G.time; lsSet(SAVE_KEY, JSON.stringify(serialize())); }
@@ -3650,12 +3690,13 @@ function applySave(s) {
     o.money = num(so.money, START_MONEY); o.rebirths = Math.floor(num(so.rebirths, 0, 0, 50)); o.secCd = num(so.secCd, 0, 0, 120);
     if (so.up) for (const k of UP_KEYS) o.up[k] = Math.floor(num(so.up[k], 0, 0, UPGRADES[k].max));
     if (o.isPlayer && Array.isArray(so.bases)) so.bases.slice(1).forEach((bi) => { const b = W.bases[bi]; if (b && !b.owner && b.forSale) claimPlot(o, b, true); });
-    if (Array.isArray(so.slots)) so.slots.slice(0, o.slots.length).forEach((e, si) => {
-      if (!Array.isArray(e) || !CHAR_BY_ID[e[0]] || o.slots[si].li >= o.cap) return;
-      const mut = Math.floor(num(e[1], 0, 0, MUTATIONS.length - 1)); const u = new Unit(CHAR_BY_ID[e[0]], mut); u.lvl = Math.floor(num(e[3], 0, 0, 5)); u.recalc();
-      u.owner = o; u.slot = o.slots[si]; o.slots[si].unit = u; o.slots[si].pending = num(e[2], 0); u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
-    });
+    const NS = o.slots.filter((x) => !x.vault);
+    const put = (sl, id, m, pend, lvl) => { if (!sl || sl.unit || !CHAR_BY_ID[id]) return; const mut = Math.floor(num(m, 0, 0, MUTATIONS.length - 1)); const u = new Unit(CHAR_BY_ID[id], mut); u.lvl = Math.floor(num(lvl, 0, 0, 5)); u.recalc(); u.owner = o; u.slot = sl; sl.unit = u; sl.pending = num(pend, 0); u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base'); };
+    if (Array.isArray(so.slots)) so.slots.slice(0, NS.length).forEach((e, si) => { if (Array.isArray(e) && NS[si].li < o.cap) put(NS[si], e[0], e[1], e[2], e[3]); });
+    if (Array.isArray(so.vault)) so.vault.forEach((e) => { if (Array.isArray(e)) put(o.slots.find((x) => x.vault && x.base.index === e[0] && x.li === MAX_SLOTS + e[1]), e[2], e[3], e[4], e[5]); });
+    o.drills = Math.floor(num(so.dr, 0, 0, 99));
   });
+  if (Array.isArray(s.doors)) s.doors.forEach((e) => { const b = Array.isArray(e) && W.bases[e[0]]; if (!b) return; House.install(b, true); if (e[1]) { House.smash(b); b.door.repairT = b.owner && !b.owner.isPlayer ? 30 : 0; } });
   if (G.player) G.player.owner.name = G.name;
   return num(s.t, Date.now());
 }
@@ -3672,6 +3713,7 @@ function seedRivals(from = 0) {
       const u = new Unit(pickChar(1, r), Math.random() < 0.1 ? 1 : 0); u.owner = o; u.slot = o.slots[i]; o.slots[i].unit = u; u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
     }
   }
+  for (const o of G.owners) if (!o.isPlayer && o.id >= from) House.seedRival(o); // some rivals lock their best memes in their safe house
 }
 
 // ===================================================================
@@ -3796,7 +3838,7 @@ function buildWorld2() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), c = new THREE.Color(); let ci = 0, guard = 0;
   while (ci < 140 && guard++ < 3000) {
     const x = rand(WORLD2.minX + 4, WORLD2.maxX - 4), z = rand(WORLD2.minZ + 4, WORLD2.maxZ - 4);
-    if (Math.abs(z) < W2.moat[1] + 2 || W2.baseXs.some((bx) => Math.abs(x - bx) < 15 && Math.abs(Math.abs(z) - W2.baseZ) < 13) || Math.abs(x - PORTAL2.x) < 6) continue;
+    if (Math.abs(z) < W2.moat[1] + 2 || W2.baseXs.some((bx) => Math.abs(x - bx) < 15 && Math.abs(z) > W2.baseZ - 13 && Math.abs(z) < W2.baseZ + 24) || Math.abs(x - PORTAL2.x) < 6) continue;
     const s = rand(0.4, 1.4); p.set(x, s * 0.9, z); sc.set(s * 0.5, s * 1.5, s * 0.5); q.setFromEuler(new THREE.Euler(rand(-0.3, 0.3), rand(0, 3), rand(-0.3, 0.3))); m4.compose(p, q, sc); cryIM.setMatrixAt(ci, m4);
     c.set(pick(['#7af7ff', '#b061ff', '#ff4fd8', '#29d9ff'])); cryIM.setColorAt(ci++, c); if (s > 1) addCircle(x, z, s * 0.45, 0, s * 2);
   }
@@ -4347,7 +4389,7 @@ function buildWorld3() {
   const tints = ['#bff0c0', '#ffe0f0', '#d8f0ff', '#fff2c0', '#e0d8ff', '#c8ffe8'];
   // central island with the belt, base islands, shop and portal islands
   buildIsland(X3 - 76, -12, X3 + 76, 12, 22, '#d8ffd8');
-  W3_BASES.forEach(([cx, cz], i) => buildIsland(cx - 15, cz > 0 ? 27 : -53, cx + 15, cz > 0 ? 53 : -27, 16, tints[i]));
+  W3_BASES.forEach(([cx, cz], i) => buildIsland(cx - 15, cz > 0 ? 27 : -63, cx + 15, cz > 0 ? 63 : -27, 18, tints[i]));
   buildIsland(X3 - 104, -10, X3 - 84, 10, 12, '#fff2c0'); buildIsland(X3 + 84, -10, X3 + 104, 10, 12, '#e0d8ff');
   for (const [cx, cz] of W3_BASES) buildBridge(cx - 1.6, cz > 0 ? 12 : -27, cx + 1.6, cz > 0 ? 27 : -12);
   buildBridge(X3 - 84, -1.8, X3 - 76, 1.8); buildBridge(X3 + 76, -1.8, X3 + 84, 1.8);
@@ -4616,7 +4658,7 @@ function buildExWorld(n) {
   if (ice) mesh(GEO.hemi, mat('#ffffff', { r: 0.6, e: '#e8f4ff', ei: 0.2 }), 0, 0, 0, 3.2, 3, 3.6, end); else { mesh(GEO.hemi, glassMat('#d0c0ff'), 0, 0, 0, 3.2, 3, 3.6, end); mesh(GEO.cyl, mat('#3df2ff', { e: '#3df2ff', ei: 2 }), 0, 0.1, 0, 3.3, 0.2, 3.3, end); }
   addCircle(BT.x1 + 3.5, 0, 3, 0, 3);
   // decoration
-  const clear = (x, z, m = 0) => Math.abs(z) < 28 + m && Math.abs(x - X) < 88 + m || EX_BASES(X).some(([bx, bz]) => Math.abs(x - bx) < 15 + m && Math.abs(z - bz) < 14 + m) || Math.abs(x - (X - 96)) < 10 + m && Math.abs(z) < 10 + m || Math.abs(x - D.back.x) < 7 + m && Math.abs(z) < 7 + m || (n === 4 && Math.abs(x - EXW[5].entry.x) < 8 + m && Math.abs(z - EXW[5].entry.z) < 8 + m);
+  const clear = (x, z, m = 0) => Math.abs(z) < 28 + m && Math.abs(x - X) < 88 + m || EX_BASES(X).some(([bx, bz]) => { const lz = (z - bz) * Math.sign(bz); return Math.abs(x - bx) < 15 + m && lz > -14 - m && lz < 24 + m; }) || Math.abs(x - (X - 96)) < 10 + m && Math.abs(z) < 10 + m || Math.abs(x - D.back.x) < 7 + m && Math.abs(z) < 7 + m || (n === 4 && Math.abs(x - EXW[5].entry.x) < 8 + m && Math.abs(z - EXW[5].entry.z) < 8 + m);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
   if (ice) {
     // snowy pines (instanced), igloos, ice crystals, snowmen, aurora
@@ -4629,7 +4671,7 @@ function buildExWorld(n) {
       p.set(x, 4.25 * s, z); sc.set(0.55 * s, 0.6 * s, 0.55 * s); m4.compose(p, q, sc); capIM.setMatrixAt(ti, m4); addCircle(x, z, 0.5 * s, 0, 4 * s); ti++;
     }
     for (const im of [trunkIM, pineIM, capIM]) { im.count = im === pineIM ? gi : ti; im.castShadow = true; im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); scene.add(im); }
-    for (const [ix, iz] of [[X - 100, 50], [X + 100, -50], [X - 78, -52], [X + 70, 54]]) { mesh(GEO.hemi, mat('#f4faff', { r: 0.7 }), ix, 0, iz, 4.2, 3.2, 4.2, scene); mesh(GEO.cyl, mat('#1a2a3a'), ix, 0.9, iz + 4, 1.1, 1.8, 0.4, scene); addCircle(ix, iz, 4, 0, 3.2); }
+    for (const [ix, iz] of [[X - 100, 50], [X + 100, -50], [X - 78, -52], [X + 88, 56]]) { mesh(GEO.hemi, mat('#f4faff', { r: 0.7 }), ix, 0, iz, 4.2, 3.2, 4.2, scene); mesh(GEO.cyl, mat('#1a2a3a'), ix, 0.9, iz + 4, 1.1, 1.8, 0.4, scene); addCircle(ix, iz, 4, 0, 3.2); }
     const cryIM = new THREE.InstancedMesh(GEO.oct, new THREE.MeshStandardMaterial({ color: '#d8f6ff', emissive: '#4fc8ff', emissiveIntensity: 0.35, roughness: 0.05, metalness: 0.2, flatShading: true, transparent: true, opacity: 0.85 }), 90); let ci = 0;
     for (let k = 0; k < 2000 && ci < 90; k++) { const x = rand(B.minX + 3, B.maxX - 3), z = rand(B.minZ + 3, B.maxZ - 3); if (clear(x, z, 2)) continue; const s = rand(0.5, 1.6); p.set(x, s, z); sc.set(s * 0.45, s * 1.6, s * 0.45); q.setFromEuler(new THREE.Euler(rand(-0.3, 0.3), rand(0, 3), rand(-0.3, 0.3))); m4.compose(p, q, sc); cryIM.setMatrixAt(ci++, m4); if (s > 1.1) addCircle(x, z, s * 0.4, 0, s * 2); }
     q.identity(); cryIM.count = ci; cryIM.instanceMatrix.needsUpdate = true; cryIM.computeBoundingSphere(); scene.add(cryIM);
@@ -4837,6 +4879,151 @@ function updateLightning(dt) {
   }
 }
 
+// ------------------------------------------------------------------ the safe house behind every base: 4 vault slots, an iron door with a lock, electric drills
+const DOOR_PRICE = 1e9, DRILL_PRICE = 2.5e10, DOOR_REPAIR = 2e8;
+const DRILL_DUR = { npc: 13, player: 8 };
+const DOOR_MATS = {};
+function doorMats() {
+  if (!DOOR_MATS.steel) Object.assign(DOOR_MATS, { steel: mat('#6a7380', { m: 0.92, r: 0.32 }), dark: mat('#2a2f38', { m: 0.8, r: 0.4 }), rivet: mat('#aab3bf', { m: 1, r: 0.2 }),
+    red: mat('#ff2a3a', { e: '#ff2a3a', ei: 2.2 }), green: mat('#3df27a', { e: '#22ff66', ei: 2.2 }), burnt: mat('#2a2220', { m: 0.6, r: 0.7 }), hole: mat('#050505', { r: 1 }) });
+  return DOOR_MATS;
+}
+// the drill a character holds while drilling (built on demand, hangs on the right hand)
+function buildDrillTool() {
+  const g = new THREE.Group(), y = mat('#ffcf3f', { r: 0.4 }), k = mat('#1b1b22', { r: 0.5 }), st = mat('#c0c8d0', { m: 1, r: 0.2 });
+  mesh(rbox(0.16, 0.34, 0.2, 0.05), y, 0, -0.66, 0.02, 1, 1, 1, g); mesh(rbox(0.13, 0.18, 0.15, 0.04), k, 0, -0.62, -0.13, 1, 1, 1, g);
+  mesh(GEO.cyl, k, 0, -0.86, 0.02, 0.06, 0.08, 0.06, g); const bit = new THREE.Group(); bit.position.set(0, -0.9, 0.02); g.add(bit);
+  mesh(GEO.cyl, st, 0, -0.16, 0, 0.025, 0.32, 0.025, bit); mesh(GEO.cone, st, 0, -0.35, 0, 0.03, 0.08, 0.03, bit).rotation.x = Math.PI;
+  for (let i = 0; i < 4; i++) mesh(GEO.box, st, 0, -0.08 - i * 0.07, 0, 0.07, 0.012, 0.012, bit).rotation.y = i * 0.8;
+  g.userData.bit = bit; return g;
+}
+const House = {
+  drills: [], raidT: 600, stepD: 0, stepK: 0, roofBase: null, sndT: 0,
+  locked(b) { return !!(b.door && b.door.state !== 'broken'); },
+  install(b, silent) {
+    if (b.door) { b.door.g.visible = true; return; }
+    const M = doorMats(), g = new THREE.Group(); g.position.set(DOOR_X - DOOR_W / 2, FLOOR_Y, HOUSE_Z0 + 0.15); b.group.add(g);
+    for (const x of [-0.08, DOOR_W + 0.08]) mesh(GEO.box, M.steel, x, DOOR_H / 2, 0, 0.16, DOOR_H + 0.1, 0.42, g);   // steel frame
+    mesh(GEO.box, M.steel, DOOR_W / 2, DOOR_H + 0.05, 0, DOOR_W + 0.32, 0.16, 0.42, g);
+    const panel = new THREE.Group(); g.add(panel);
+    mesh(GEO.box, M.steel, DOOR_W / 2, DOOR_H / 2, 0, DOOR_W - 0.04, DOOR_H - 0.04, 0.14, panel);
+    for (const yy of [0.45, 1.45, 2.45]) mesh(GEO.box, M.dark, DOOR_W / 2, yy, -0.085, DOOR_W - 0.12, 0.13, 0.03, panel);
+    for (let i = 0; i < 6; i++) for (const yy of [0.45, 1.45, 2.45]) mesh(GEO.sphere, M.rivet, 0.15 + i * (DOOR_W - 0.3) / 5, yy, -0.105, 0.03, 0.03, 0.02, panel);
+    const lock = new THREE.Group(); lock.position.set(DOOR_W - 0.38, 1.3, -0.1); panel.add(lock);
+    mesh(rbox(0.3, 0.5, 0.1, 0.03), M.dark, 0, 0, 0, 1, 1, 1, lock); const led = mesh(GEO.box, M.red, 0, 0.15, -0.055, 0.12, 0.06, 0.01, lock);
+    for (let i = 0; i < 9; i++) mesh(GEO.box, M.rivet, -0.06 + (i % 3) * 0.06, 0.02 - Math.floor(i / 3) * 0.06, -0.055, 0.035, 0.035, 0.01, lock);
+    mesh(GEO.cyl, M.rivet, -0.06, -0.3, -0.12, 0.025, 0.25, 0.025, lock).rotation.z = Math.PI / 2;
+    const hole = mesh(GEO.cyl, M.hole, DOOR_W - 0.38, 1.3, -0.075, 0.14, 0.02, 0.14, panel); hole.rotation.x = Math.PI / 2; hole.visible = false;
+    const label = new LiveLabel(320, 96, 2.2, 0.66); label.sprite.position.set(DOOR_W / 2, DOOR_H + 0.75, -0.4); label.sprite.visible = false; g.add(label.sprite);
+    const a = b.toWorld(DOOR_X - DOOR_W / 2, HOUSE_Z0), c = b.toWorld(DOOR_X + DOOR_W / 2, HOUSE_Z0 + 0.3);
+    const col = addBox(a.x, 0, a.z, c.x, FLOOR_Y + DOOR_H, c.z, { cam: false, tag: 'door' });
+    const lp = b.toWorld(DOOR_X + DOOR_W / 2 - 0.38, HOUSE_Z0 - 0.1);
+    b.door = { state: 'closed', g, panel, lock, led, hole, label, col, ang: 0, target: 0, openT: 0, fall: 0, lockPos: new THREE.Vector3(lp.x, FLOOR_Y + 1.3, lp.z), repairT: 0 };
+    if (!silent) { FX.burst(tmpV.copy(b.doorPos).setY(1.6), { count: 40, color: ['#c0c8d0', '#ffd23f', '#ffffff'], speed: 5, life: 0.9 }); Sound.play('boom'); }
+  },
+  remove(b) { const d = b.door; if (!d) return; b.group.remove(d.g); d.col.minY = 100; d.col.maxY = 101; b.door = null; },
+  resetAll() { for (const b of W.bases) this.remove(b); for (const s of [...this.drills]) this.stop(s, 'reset'); },
+  setSolid(b, on) { const d = b.door; d.col.minY = on ? 0 : 100; d.col.maxY = on ? FLOOR_Y + DOOR_H : 101; },
+  open(b, t = 6) { const d = b.door; if (!d || d.state === 'broken') return; d.state = 'open'; d.target = -1.75; d.openT = t; this.setSolid(b, false); d.led.material = doorMats().green; Sound.play('click'); },
+  close(b) { const d = b.door; if (!d || d.state === 'broken') return; d.state = 'closed'; d.target = 0; this.setSolid(b, true); d.led.material = doorMats().red; Sound.tone && Sound.tone(220, 0.12, 'square', 0.12); },
+  smash(b) { // drilled through: the lock is gone and the door swings open, hanging crooked
+    const d = b.door; if (!d) return; d.state = 'broken'; d.target = -2.05; d.fall = 0.16; d.openT = 0; this.setSolid(b, false);
+    d.lock.visible = false; d.hole.visible = true; d.led.material = doorMats().burnt; d.panel.children[0].material = doorMats().burnt; d.repairT = b.owner && !b.owner.isPlayer ? 150 : 0;
+    FX.burst(tmpV.copy(d.lockPos), { count: 50, color: ['#ffb000', '#ffd23f', '#ffffff', '#ff5a1f'], speed: 7, life: 0.9 }); Sound.play('boom');
+    for (let i = 0; i < 8; i++) FX.one(d.lockPos.x, d.lockPos.y, d.lockPos.z, { vx: rand(-0.5, 0.5), vy: rand(0.5, 1.5), vz: rand(-0.5, 0.5), life: 2.5, size: 1.1, color: '#4a4a52', grow: 0.8, drag: 0.4 });
+  },
+  repair(b) { const d = b.door; if (!d) return; d.panel.children[0].material = doorMats().steel; d.lock.visible = true; d.hole.visible = false; d.fall = 0; d.state = 'open'; this.close(b); FX.burst(tmpV.copy(b.doorPos).setY(1.6), { count: 30, color: ['#c0c8d0', '#ffffff'], speed: 4, life: 0.7 }); },
+  // ---- drilling: anyone with a drill can bore through a locked door; it takes a while, makes a racket and can be stopped
+  startDrill(a, b) {
+    if (!b.door || b.door.state !== 'closed' || this.drills.some((s) => s.base === b || s.a === a)) return null;
+    a.body.pos.x = b.doorOut.x; a.body.pos.z = b.doorOut.z; a.body.vel.set(0, 0, 0); a.yaw = b.doorYaw; // step up to the lock
+    const s = { a, base: b, t: 0, dur: a.isPlayer ? DRILL_DUR.player : DRILL_DUR.npc, tool: buildDrillTool(), spot: b.doorOut.clone(), sparkT: 0 };
+    a.av.armR.add(s.tool); a.drilling = s; this.drills.push(s); b.door.label.sprite.visible = true;
+    if (!a.isPlayer && b.owner && b.owner.isPlayer) { UI.banner('🚨 ' + a.owner.name + ' با دریل برقی آمده!', 'دارد در آهنی خانه‌ی امنت را سوراخ می‌کند — برو جلویش را بگیر!'); Sound.play('alarm'); }
+    else if (a.isPlayer && b.owner) { UI.toast('🔩 دریل روشن شد! تکان نخور… ' + b.owner.name + ' و نگهبان‌هایش ممکن است سر برسند', 'rare'); if (b.owner.agent && b.owner.agent.brain && !b.owner.agent.stunned) b.owner.agent.brain.set('return'); }
+    return s;
+  },
+  stop(s, why) {
+    const i = this.drills.indexOf(s); if (i < 0) return; this.drills.splice(i, 1);
+    if (s.tool.parent) s.tool.parent.remove(s.tool); s.a.drilling = null; if (s.base.door) s.base.door.label.sprite.visible = false;
+    if (why === 'done') return;
+    FX.burst(tmpV.copy(s.a.body.pos).setY(s.a.body.pos.y + 1.3), { count: 18, color: ['#ffcf3f', '#1b1b22', '#c0c8d0'], speed: 4, life: 0.7 });
+    if (s.base.owner && s.base.owner.isPlayer && !s.a.isPlayer && why !== 'reset') { UI.banner('🛑 جلوی دریل را گرفتی!', s.a.owner.name + ' فرار کرد و در خانه‌ات سالم ماند'); Sound.play('success'); G.stats.caught++; }
+    else if (s.a.isPlayer && why !== 'reset') UI.toast('🛑 دریل‌کاری نیمه‌کاره ماند! (دریلت سالم است)', 'bad');
+    if (!s.a.isPlayer && s.a.brain && why !== 'reset') s.a.brain.set('return');
+  },
+  // rivals: walk to the door, drill it, then go for the best meme inside
+  brain(br, dt) {
+    const a = br.a, p = a.body.pos, b = br.drillBase;
+    if (!b || !b.door || b.door.state === 'broken' && !a.drilling) { // door is open: grab the best vault meme
+      const best = b && b.owner && b.owner.slots.filter((s) => s.vault && s.base === b && s.unit && s.unit.state === 'slotted').sort((x, y) => y.unit.income - x.unit.income)[0];
+      if (best) br.set('steal', { unit: best.unit, victim: b.owner }); else br.set('return'); br.run = true; return;
+    }
+    if (a.drilling) { a.move.x = a.move.z = 0; return; }
+    if (b.door.state === 'open') { br.set('return'); return; }
+    if (!br.path) { if (!br.goTo(b.doorOut.x, b.doorOut.z)) { br.set('return'); return; } }
+    br.run = true;
+    const r = dist2(p, b.doorOut) < 0.8 * 0.8 ? 'arrived' : br.follow(dt);
+    if (r === 'arrived' || dist2(p, b.doorOut) < 0.8 * 0.8) { a.move.x = a.move.z = 0; if (!this.startDrill(a, b)) br.set('return'); }
+    else if (r === 'fail' || br.t > 60) br.set('return');
+  },
+  raidTarget() {
+    const o = G.owners[0];
+    const bs = o.bases.filter((b) => this.locked(b) && b.door.state === 'closed' && o.slots.some((s) => s.vault && s.base === b && s.unit && s.unit.state === 'slotted'));
+    if (!bs.length) return null;
+    const b = pick(bs), cands = G.agents.filter((a) => !a.isPlayer && !a.isGuard && a.brain && a.owner.base.world === b.world && !a.carrying && !a.stunned && !a.drilling && ['idle', 'wander', 'return'].includes(a.brain.state));
+    return cands.length ? [b, pick(cands)] : null;
+  },
+  update(dt) {
+    const pl = G.player; if (!pl) return;
+    // doors: swing, auto-close, rivals repair theirs
+    for (const b of W.bases) {
+      const d = b.door; if (!d) continue;
+      d.ang = damp(d.ang, d.target, 6, dt); d.panel.rotation.y = d.ang; d.panel.rotation.z = damp(d.panel.rotation.z, d.fall, 3, dt);
+      if (d.state === 'open') { d.openT -= dt; if (d.openT <= 0 && !G.agents.some((ag) => dist2(ag.body.pos, b.doorPos) < 1.5 * 1.5)) this.close(b); }
+      if (d.state === 'broken' && d.repairT > 0) { d.repairT -= dt; if (d.repairT <= 0) this.repair(b); }
+    }
+    // drilling sessions
+    for (const s of [...this.drills]) {
+      const a = s.a, d = s.base.door;
+      if (!d || d.state !== 'closed') { this.stop(s, 'reset'); continue; }
+      if (a.stunned || dist2(a.body.pos, s.spot) > 1.6 * 1.6 || (a.isPlayer && a.carrying)) { this.stop(s, 'stopped'); continue; }
+      s.t += dt; a.yaw = s.base.doorYaw;
+      const k = Math.min(1, s.t / s.dur); d.label.set('p' + Math.floor(k * 20), [{ t: '🔩 ' + fa(Math.floor(k * 100)) + '٪', size: 58, color: '#fff', weight: 900, stroke: 6 }], { bg: k > 0.7 ? '#c0143c' : '#3a3f4e' });
+      s.tool.userData.bit.rotation.y += dt * 60;
+      s.sparkT -= dt; if (s.sparkT <= 0) { s.sparkT = 0.03; FX.one(d.lockPos.x + rand(-0.05, 0.05), d.lockPos.y + rand(-0.05, 0.05), d.lockPos.z, { vx: rand(-3, 3), vy: rand(0, 4), vz: rand(-3, 3), life: 0.5, size: 0.12, color: pick(['#ffb000', '#ffe14a', '#ffffff']), grav: -14, drag: 0.1 }); }
+      if (dist2(pl.body.pos, d.lockPos) < 1600) { this.sndT -= dt; if (this.sndT <= 0) { this.sndT = 0.11; Sound.play('drill'); } }
+      if (s.t >= s.dur) {
+        this.stop(s, 'done'); this.smash(s.base);
+        if (a.isPlayer) { a.owner.drills = Math.max(0, (a.owner.drills || 0) - 1); UI.banner('💥 در را سوراخ کردی!', 'برو داخل خانه‌ی ' + s.base.owner.name + ' و یک میم خاص بدزد'); }
+        else if (s.base.owner && s.base.owner.isPlayer) { UI.banner('💥 در خانه‌ی امنت سوراخ شد!', a.owner.name + ' دارد میم خاصت را می‌دزدد — بگیرش!'); Sound.play('alarm'); a.brain.drillBase = s.base; }
+      }
+    }
+    // the rare drill raid on the player's safe house
+    if (G.playing && G.tutorialDone && G.graceT <= 0) { this.raidT -= dt; if (this.raidT <= 0) { this.raidT = rand(480, 1000); const t = this.raidTarget(); if (t) { const [b, a] = t; a.brain.set('drill', { drillBase: b }); a.brain.run = true; } else this.raidT = rand(120, 240); } }
+    // wooden floor: footsteps knock; the roof lifts away while you are inside
+    const p = pl.body.pos, hb = W.bases.find((b) => b.inHouse(p.x, p.z));
+    if (hb !== this.roofBase) { if (this.roofBase && this.roofBase.roof) this.roofBase.roof.visible = true; if (hb && hb.roof) hb.roof.visible = false; this.roofBase = hb || null; }
+    if (hb && pl.body.grounded && !Extras.riding) { this.stepD += Math.hypot(pl.body.vel.x, pl.body.vel.z) * dt; if (this.stepD > (pl.sprint ? 0.95 : 0.7)) { this.stepD = 0; this.stepK ^= 1; Sound.play(this.stepK ? 'wood' : 'wood2'); } } else this.stepD = 0.6;
+  },
+  // seed some rivals with an iron door and their two best memes locked inside
+  seedRival(o) {
+    if (o.isPlayer || !o.agent) return; const b = o.base;
+    if (Math.random() < (o.hard ? 0.6 : 0.3)) this.install(b, true);
+    const best = o.slots.filter((s) => !s.vault && s.unit && s.unit.state === 'slotted' && s.base === b).sort((x, y) => y.unit.income - x.unit.income).slice(0, randi(1, 2));
+    const vs = o.slots.filter((s) => s.vault && s.base === b && !s.unit);
+    best.forEach((s, i) => { const v = vs[i]; if (!v) return; const u = s.unit; s.unit = null; v.unit = u; u.slot = v; u.placeAtSlot(); });
+  },
+  moveUnit(o, from, to) {
+    const u = from.unit; if (!u || u.state !== 'slotted' || to.unit) return false;
+    from.unit = null; to.unit = u; to.pending += from.pending; from.pending = 0; u.slot = to; u.state = 'transit'; u.setPlate('base');
+    if (to.vault || from.vault) { const b = to.base; if (b.door && b.door.state === 'closed') this.open(b, 6); }
+    setTransit(u, to.base.slotPos[to.li]); Sound.play('click'); scheduleSave(); return true;
+  },
+  toVault(o, s) { const v = o.slots.find((x) => x.vault && x.base === s.base && !x.unit); if (!v) { UI.toast('🏠 خانه‌ی امن این پایگاه پر است (۴ جا)', 'bad'); return false; } const ok = this.moveUnit(o, s, v); if (ok) UI.toast('🏠 «' + v.unit.c.name + '» دارد به خانه‌ی امن می‌رود', 'good'); return ok; },
+  fromVault(o, s) { const f = o.freeSlot(s.base) || o.freeSlot(); if (!f) { UI.toast('🏠 جای خالی بیرون از خانه نداری', 'bad'); return false; } return this.moveUnit(o, s, f); },
+};
+
 // ------------------------------------------------------------------ input: keyboard, mouse, multitouch
 const IN = { keys: new Set(), joy: { id: null, ox: 0, oy: 0, x: 0, y: 0, mag: 0 }, camPtrs: new Map(), camDX: 0, camDY: 0, sprintToggle: false, pinch: 0, rotAccum: 0, lastTouch: 0 };
 const CAM = { yaw: 0, pitch: 0.38, cur: S.zoom, pivot: new THREE.Vector3(), fpPitch: 0.1, shake: 0 };
@@ -5006,15 +5193,18 @@ function computeInteract(dt) {
   for (const B of BELTS) if (B.active) for (const u of B.list) { const d = dist2(p, u.pos); if (d < bd) { bd = d; best = u; } }
   if (best) { const pr = beltPrice(best); R = { kind: 'buy', unit: best, ok: o.money >= pr && !!o.freeSlot(null, best.belt ? best.belt.w : 1), price: pr }; }
   for (const ag of G.agents) if (ag.carrying && ag.carrying.owner === o && dist2(p, ag.body.pos) < 2.8 * 2.8) R = { kind: 'catch', target: ag };
+  for (const ag of G.agents) if (ag.drilling && !ag.isPlayer && ag.drilling.base.owner === o && dist2(p, ag.body.pos) < 3 * 3) R = { kind: 'stopDrill', target: ag };
+  if (a.drilling) R = { kind: 'drilling' };
   let sd = o.up.hook && inW2(p.x) ? 4.2 * 4.2 : 2.5 * 2.5;
   for (const b of W.bases) {
     if (!b.owner || b.owner === o || !b.contains(p.x, p.z, 1.5)) continue;
     for (const s of b.owner.slots) if (s.base === b && s.unit && s.unit.state === 'slotted') { const d = dist2(p, s.unit.pos); if (d < sd && Math.abs(p.y - s.unit.pos.y) < 2) { sd = d; STEAL_U = s.unit; } }
   }
-  const myBase = o.baseAt(p.x, p.z, 0.5); let kq = null;
+  const myBase = o.baseAt(p.x, p.z, 0.5); let kq = null, nd = null;
   if (!R.kind) {
     const plot = W.bases.find((b) => b.forSale && !b.owner && (b.contains(p.x, p.z, 0.5) || dist2(p, b.entrancePos) < 6 * 6));
     if (plot) R = { kind: 'plot', base: plot, price: plotPrice(o), ok: o.money >= plotPrice(o) };
+    else if ((nd = W.bases.find((b) => b.door && (dist2(p, b.doorPos) < 2.3 * 2.3 || dist2(p, b.doorOut) < 1.8 * 1.8)))) R = nd.owner === o ? { kind: 'door', base: nd } : nd.owner && nd.door.state === 'closed' ? { kind: 'drill', base: nd } : { kind: null };
     else if (myBase && (kq = myBase.kiosks.find((k) => dist2(p, k.pos) < 1.7 * 1.7))) R = { kind: 'kiosk', k: kq };
     else if (myBase && dist2(p, myBase.consolePos) < 2.4 * 2.4) R = { kind: 'security' };
     else if (myBase && dist2(p, myBase.collectPos) < 2 * 2) R = { kind: 'collect', base: myBase };
@@ -5035,6 +5225,9 @@ function computeInteract(dt) {
 function doInteract() {
   const a = G.player, o = a.owner, R = INTERACT;
   switch (R.kind) {
+    case 'door': { const b = R.base; if (b.door.state === 'broken') { Sound.play('error'); UI.toast('🔧 در آهنی شکسته است — از فروشگاه ارتقای همین پایگاه تعمیرش کن (' + fmt(DOOR_REPAIR) + ')', 'bad'); } else if (b.door.state === 'closed') { House.open(b, 8); UI.toast('🔓 با کلید خودت در را باز کردی (۸ ثانیه بعد خودش قفل می‌شود)', 'good'); } else House.close(b); break; }
+    case 'drill': if ((o.drills || 0) < 1) { Sound.play('error'); UI.toast('🔩 دریل برقی نداری! از فروشگاه ارتقای پایگاهت بخر (' + fmt(DRILL_PRICE) + ')', 'bad'); } else House.startDrill(a, R.base); break;
+    case 'stopDrill': { const th = R.target; th.stun(3.2); th.body.vel.set((th.body.pos.x - a.body.pos.x) * 3, 5, (th.body.pos.z - a.body.pos.z) * 3); th.fling = 0.4; Sound.play('slap'); break; }
     case 'kiosk': UI.kioskRef = R.k; Sound.play('click'); if (R.k.type === 'wear') UI.openWardrobe(); else UI.openShop(false, R.k.type === 'speed' ? 'speed' : 'base'); break;
     case 'buy': {
       const r = tryBuy(o, R.unit);
@@ -5179,6 +5372,10 @@ const UI = {
       case 'collect': text = 'جمع‌آوری ' + fmt(pendingOf(o, R.base)) + ' سکه ' + k('E'); lbl = 'جمع کن'; break;
       case 'plot': text = '🏠 خرید این زمین به‌عنوان پایگاه جدید — ' + fmt(R.price) + ' سکه ' + k('E'); lbl = 'خرید زمین'; cant = !R.ok; break;
       case 'info': text = esc(R.slot.unit.c.name) + ' · ' + fmtInc(R.slot.unit.income * o.incomeMult()) + ' ' + k('E'); lbl = 'اطلاعات'; break;
+      case 'door': text = R.base.door.state === 'broken' ? '🔧 در شکسته — در فروشگاه ارتقای پایگاه تعمیرش کن' : R.base.door.state === 'closed' ? '🔓 باز کردن در آهنی خانه ' + k('E') : '🔒 قفل کردن در ' + k('E'); lbl = R.base.door.state === 'closed' ? 'باز کن' : 'قفل کن'; break;
+      case 'drill': text = '🔩 سوراخ کردن در آهنی ' + esc(R.base.owner.name) + ' با دریل برقی ' + k('E') + ' (دریل: ' + fa(o.drills || 0) + ')'; lbl = 'دریل'; cant = !(o.drills > 0); break;
+      case 'stopDrill': text = '🛑 جلوی دریل را بگیر! ' + k('E'); lbl = 'بگیرش'; break;
+      case 'drilling': text = '🔩 داری در را سوراخ می‌کنی… تکان نخور!'; lbl = 'تعامل'; cant = true; break;
       case 'kiosk': text = (R.k.type === 'wear' ? '👕 فروشگاه لباس پایگاه ' : R.k.type === 'speed' ? '⚡ فروشگاه سرعت پایگاه ' : '🛒 فروشگاه ارتقای پایگاه ') + k('E'); lbl = 'فروشگاه'; break;
       case 'shop': text = (inW4(a.body.pos.x) ? '🏕️ ورود به اردوگاه قطبی ' : inW5(a.body.pos.x) ? '🛰️ ورود به آزمایشگاه ماه ' : inW3(a.body.pos.x) ? '🎈 ورود به ایستگاه هوایی ' : inW2(a.body.pos.x) ? '🔥 ورود به کارگاه گدازه ' : 'ورود به فروشگاه ارتقا ') + k('E'); lbl = 'فروشگاه'; break;
       case 'board': text = 'دیدن جدول برترها ' + k('E'); lbl = 'جدول'; break;
@@ -5308,7 +5505,7 @@ const UI = {
     const intro = M === 'speed' ? '⚡ ربات فروشنده‌ی سرعت: «کتونی فشفشه» سرعت دویدن معمولی‌ات را بالا می‌برد و «کفش دزد فرز» سرعتت را موقع بردن میم دزدی. (سرعت الان: دویدن ' + fa(runV.toFixed(1)) + ' و با میم دزدی ' + fa(carryV.toFixed(1)) + ' متر بر ثانیه' + (pl.sprint ? '' : '؛ با Shift یا دکمه‌ی دویدن ۵۰٪ تندتر') + ')'
       : M === 'base' ? '🤖 فروشگاه کوچک پایگاه خودت: ظرفیت، درآمد، سپر، پت‌ها و بقیه‌ی وسایل را همین‌جا بخر — حتی وقتی رئیس دزدها در شهر است و نمی‌خواهی از پایگاه بیرون بروی.'
       : wn === 4 ? '🧭 کاشف قطبی وسایل مخصوص یخبندان را دستت می‌دهد: کفش میخ‌دار برای یخ لیز، پالتو برای کولاک و سپر برفی. با «تولد دوباره» از بین نمی‌روند.' : wn === 5 ? '🔬 دانشمند ماه ابزارهای فضایی را دستت می‌دهد: جت‌پک، لباس ضدلیزر و چکمه‌ی ماه‌نورد. با «تولد دوباره» از بین نمی‌روند.' : wn === 3 ? '🪂 خلبان ایستگاه هوایی وسایل مخصوص جزیره‌های آسمانی را دستت می‌دهد. این وسایل با «تولد دوباره» از بین نمی‌روند.' : w2 ? '🔥 آهنگرِ گدازه ابزارهای مخصوص سیاره‌ی گدازه را می‌سازد و دستت می‌دهد. این ابزارها با «تولد دوباره» از بین نمی‌روند.' : '🧑‍🍳 سفارشت را بده؛ مغازه‌دار ارتقا را از پشت پیشخوان دستت می‌دهد.';
-    const html = '<p class="note">' + intro + '</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + rows + (w2 || M === 'speed' ? '' : reb);
+    const html = '<p class="note">' + intro + '</p><p class="note">موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b> · درآمد: ' + fmtInc(o.incomePerSec()) + '</p>' + (M === 'base' ? this.houseRows(o) : '') + rows + (w2 || M === 'speed' ? '' : reb);
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('shop', M === 'speed' ? '⚡ فروشگاه سرعت پایگاه' : M === 'base' ? '🛒 فروشگاه پایگاه' : wn === 4 ? '🏕️ اردوگاه قطبی' : wn === 5 ? '🛰️ آزمایشگاه ماه' : wn === 3 ? '🎈 ایستگاه هوایی' : w2 ? '🔥 کارگاه گدازه' : '🛒 فروشگاه ارتقا', html);
   },
   unitCard(s, o) {
@@ -5316,6 +5513,7 @@ const UI = {
     const st = u.state === 'transit' ? '🚶 در راه پایگاه' : u.state === 'carried' ? '🦹 در حال دزدیده شدن!' : '✅ در پایگاه';
     return '<div class="card"><div class="top"><div class="emo">' + u.c.emoji + '</div><div style="min-width:0"><b>' + stars + (mu.name ? mu.name + ' · ' : '') + esc(u.c.name) + '</b><span class="rar" style="background:' + r.color + '">' + r.name + '</span></div></div>' +
       '<small>' + fmtInc(u.income * o.incomeMult()) + ' · ارزش ' + fmt(u.price) + '</small><small>' + st + '</small>' +
+      (s.vault ? '<button class="act" type="button" data-vout="' + s.i + '"' + (u.state !== 'slotted' ? ' disabled' : '') + '>↩️ بیار بیرون از خانه</button>' : '<button class="act" type="button" data-vin="' + s.i + '"' + (u.state !== 'slotted' || !o.slots.some((x) => x.vault && x.base === s.base && !x.unit) ? ' disabled' : '') + '>🏠 بفرست به خانه‌ی امن</button>') +
       (u.lvl < 5 ? '<button class="act buy" type="button" data-lvl="' + s.i + '"' + (u.state !== 'slotted' || o.money < levelCost(u) ? ' disabled' : '') + '>⭐ ارتقا به سطح ' + fa(u.lvl + 1) + ' (' + fmt(levelCost(u)) + ')</button>' : '<small style="color:var(--coin)">⭐⭐⭐⭐⭐ حداکثر سطح</small>') +
       '<button class="act red" type="button" data-sell="' + s.i + '"' + (u.state !== 'slotted' ? ' disabled' : '') + '>فروش (+' + fmt(Math.floor(u.price * 0.5)) + ')</button></div>';
   },
@@ -5324,7 +5522,9 @@ const UI = {
     o.bases.forEach((b, bi) => {
       let cards = '';
       for (const s of o.slots) if (s.base === b && s.li < o.cap) cards += s.unit ? this.unitCard(s, o) : '<div class="card" style="opacity:.55;justify-content:center;text-align:center"><div class="emo" style="margin:auto">➕</div><small>جای خالی — از نوار نقاله بخر یا بدزد</small></div>';
-      groups += '<b style="color:var(--coin)">' + (b.world === 2 ? '🌋 پایگاه سیاره‌ی گدازه' : '🏠 پایگاه ' + fa(bi + 1)) + '</b><div class="grid">' + cards + '</div>';
+      let vc = ''; for (const s of o.slots) if (s.base === b && s.vault) vc += s.unit ? this.unitCard(s, o) : '<div class="card" style="opacity:.55;justify-content:center;text-align:center"><div class="emo" style="margin:auto">🔐</div><small>جای خالی خانه‌ی امن</small></div>';
+      groups += '<b style="color:var(--coin)">' + (b.world > 1 ? WORLD_EMOJI[b.world] + ' پایگاه ' + WORLD_NAMES[b.world] : '🏠 پایگاه ' + fa(bi + 1)) + '</b><div class="grid">' + cards + '</div>' +
+        '<small style="color:#ffd9a0">🏠 خانه‌ی امن این پایگاه · ' + (b.door ? (b.door.state === 'broken' ? '⚠️ در آهنی شکسته — تعمیرش کن!' : '🔒 در آهنی قفل‌دار دارد') : '🚪 در ندارد؛ هر کسی می‌تواند وارد شود (در آهنی را از فروشگاه ارتقای پایگاه بخر)') + '</small><div class="grid">' + vc + '</div>';
     });
     const next = o.bases.length < W.bases.length ? ' · زمین بعدی: ' + fmt(plotPrice(o)) + ' سکه (کنار تابلوی «برای فروش» برو)' : '';
     const html = '<p class="note">' + fa(o.unitCount()) + ' از ' + fa(o.totalCap) + ' جا پر است · ' + fa(o.bases.length) + ' پایگاه · ظرفیت هر پایگاه را از فروشگاه بیشتر کن' + next + '. فروش، نصف ارزش میم را برمی‌گرداند.</p>' + groups;
@@ -5419,6 +5619,7 @@ const UI = {
       '<p>🛸 <b>یوفو و 🗿 میم غول‌پیکر:</b> در دنیای اول گاهی یوفو میم‌های کمیاب روی نوار می‌اندازد و گاهی یک میم غول‌پیکر با ۲۰ برابر ارزش ظاهر می‌شود. شب‌ها هم آتش‌بازی است!</p>' +
       '<p>🌋 <b>سیاره‌ی گدازه:</b> وقتی ثروتت (پول + ارزش میم‌ها) به ۵۵۰ میلیون برسد، کنار جدول برترها یک پرتال باز می‌شود. آنجا میم‌ها ۲۰۰ برابر می‌ارزند ولی گدازه می‌سوزاند، شهاب‌سنگ می‌بارد، هر پایگاه یک ربات نگهبان دارد و حریف‌ها خیلی سریع‌ترند. جاذبه هم کمتر است!</p>' +
       '<p>⚡ <b>جزیره‌ها سخت‌تر شده‌اند:</b> صاعقه می‌زند (دایره‌ی زرد روی زمین یعنی فرار کن!)، باد تندتر و بیشتر می‌وزد و حریف‌ها و نگهبان‌ها خشن‌ترند. «برق‌گیر» را از ایستگاه هوایی بخر.</p>' +
+      '<p>🏠 <b>خانه‌ی امن:</b> ته هر پایگاه یک خانه‌ی چوبی بزرگ هست با ۴ جای مخصوص. از کلکسیون (کلید <kbd>I</kbd>) دکمه‌ی «بفرست به خانه‌ی امن» را بزن تا میم خودش برود داخل. با ۱ میلیارد سکه از فروشگاه ارتقای پایگاه یک در آهنی قفل‌دار بخر: فقط خودت بازش می‌کنی و حریف‌ها فقط با دریل برقی (خیلی گران و خیلی کم پیش می‌آید) سوراخش می‌کنند. اگر کسی آمد دریل کند، آژیر می‌زند؛ برو با سیلی یا دکمه‌ی «بگیرش» جلویش را بگیر! خودت هم می‌توانی دریل بخری و در خانه‌ی حریف‌ها را سوراخ کنی.</p>' +
       '<p>🏪 <b>فروشگاه‌های داخل پایگاه:</b> ته هر پایگاهت (یک متر جای اضافه) سه فروشگاه کوچک هست: 🛒 ارتقا (ظرفیت، درآمد، سپر، پت و…)، ⚡ سرعت (دویدن معمولی و سرعت موقع دزدی) و 👕 لباس (عوض کردن تیپ بازیکنت). وقتی رئیس دزدها آمده، لازم نیست از پایگاهت بیرون بروی!</p>' +
       '<p>❄️ <b>قطب یخی (دنیای ۴):</b> با ثروت ۱۰۰ تریلیون، روی جزیره‌ی وسط آسمان پرتال یخی باز می‌شود. یخ لیز است، کولاک دید را کم می‌کند و گلوله‌برفی‌های غول‌پیکر میم را از دستت می‌اندازند. میم‌های «یخی» ×۲۰ هزار و «شفقی» ×۶۰ هزار.</p>' +
       '<p>🌙 <b>ماه نئونی (دنیای ۵):</b> با ثروت ۵ کوادریلیون، در قطب یخی پرتال ماه باز می‌شود. جاذبه کم است و خیلی بلند می‌پری؛ از روی لیزرهای چرخان بپر! میم‌های «نئونی» ×۲۰۰ هزار و «سیاه‌چاله‌ای» ×۶۰۰ هزار.</p>' +
@@ -5431,6 +5632,14 @@ const UI = {
       '<p>📱 <b>لمسی:</b> جوی‌استیک سمت چپ = حرکت · کشیدن سمت راست = چرخش دوربین · دو انگشت = زوم · دکمه‌های راست = پرش، دویدن، تعامل، دزدی، رها کردن، دوربین، امنیت.</p>' +
       '<p>⌨️ <b>کیبورد:</b> <kbd>W A S D</kbd> حرکت · <kbd>Shift</kbd> دویدن · <kbd>Space</kbd> پرش · <kbd>E</kbd> تعامل/خرید · <kbd>F</kbd> دزدی · <kbd>G</kbd> رها کردن · <kbd>Q</kbd> سپر · <kbd>R</kbd> سیلی · <kbd>H</kbd> اسکیت‌برد · <kbd>J</kbd> ماموریت‌ها · <kbd>C</kbd> دوربین · <kbd>B</kbd> فروشگاه (کنار مغازه) · <kbd>I</kbd> کلکسیون · <kbd>K</kbd> دانشنامه · <kbd>L</kbd> جدول · <kbd>M</kbd> نقشه · <kbd>Esc</kbd> توقف. موس: کشیدن = دوربین، چرخ = زوم.</p>' +
       '<p>✨ رویدادهای ویژه مثل «باران طلایی» و «ساعت شانس» گاهی پیش می‌آیند. با «تولد دوباره» درآمد دائمی بیشتری بگیر.</p></div>');
+  },
+  kioskBase() { const k = this.kioskRef; return k ? W.bases.find((b) => b.kiosks.includes(k)) : null; },
+  houseRows(o) {
+    const b = this.kioskBase(); if (!b) return ''; const d = b.door;
+    const door = '<div class="upRow" style="border-color:#c0c8d0"><div class="emo">🚪</div><div class="txt"><b>در آهنی قفل‌دار برای خانه‌ی امن همین پایگاه</b><small>' + (d ? (d.state === 'broken' ? '⚠️ با دریل سوراخ شده! تعمیرش کن تا دوباره قفل شود.' : '✅ نصب شده — فقط خودت بازش می‌کنی؛ فقط با دریل برقی می‌شود سوراخش کرد.') : 'هیچ‌کس جز تو نمی‌تواند بازش کند. حریف‌ها فقط با دریل برقیِ خیلی گران (که به‌ندرت پیش می‌آید) می‌توانند سوراخش کنند — و تو می‌توانی جلویشان را بگیری.') + '</small></div>' +
+      (d ? (d.state === 'broken' ? '<button class="act buy" type="button" data-act="doorfix"' + (o.money < DOOR_REPAIR ? ' disabled' : '') + '>🔧 ' + fmt(DOOR_REPAIR) + '</button>' : '<button class="act" type="button" disabled>نصب شده</button>') : '<button class="act buy" type="button" data-act="door"' + (o.money < DOOR_PRICE ? ' disabled' : '') + '>💰 ' + fmt(DOOR_PRICE) + '</button>') + '</div>';
+    const drill = '<div class="upRow"><div class="emo">🔩</div><div class="txt"><b>دریل برقی (' + fa(o.drills || 0) + ' عدد داری)</b><small>با آن می‌توانی در آهنی خانه‌ی حریف‌ها را سوراخ کنی و میم‌های خاصشان را بدزدی. ' + fa(DRILL_DUR.player) + ' ثانیه طول می‌کشد و اگر صاحب‌خانه یا نگهبانش برسد، کار نیمه‌تمام می‌ماند. هر دریل یک بار مصرف است.</small></div><button class="act buy" type="button" data-act="drillbuy"' + (o.money < DRILL_PRICE ? ' disabled' : '') + '>💰 ' + fmt(DRILL_PRICE) + '</button></div>';
+    return door + drill;
   },
   wearTab: 'set',
   openWardrobe(re) {
@@ -5518,6 +5727,8 @@ $('panelBody').addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t || t.disabled) return; const o = G.player.owner;
   Sound.init();
   if (t.dataset.up) { Shop.order(t.dataset.up); return; }
+  if (t.dataset.vin !== undefined) { const s = o.slots[+t.dataset.vin]; if (s && s.unit) House.toVault(o, s); UI.openInventory(true); return; }
+  if (t.dataset.vout !== undefined) { const s = o.slots[+t.dataset.vout]; if (s && s.unit) House.fromVault(o, s); UI.openInventory(true); return; }
   if (t.dataset.wtab) { UI.wearTab = t.dataset.wtab; UI.openWardrobe(true); Sound.play('click'); return; }
   if (t.dataset.wear) { wearBuy(t.dataset.wear); return; }
   if (t.dataset.bw) { UI.book.w = +t.dataset.bw; UI.book.page = 0; UI.openBook(true); Sound.play('click'); return; }
@@ -5556,6 +5767,9 @@ $('panelBody').addEventListener('click', (e) => {
     case 'opencloud': break;
     case 'resume': UI.closePanel(); break;
     case 'settings': UI.openSettings(); break;
+    case 'door': { const b = UI.kioskBase(); if (b && !b.door && o.money >= DOOR_PRICE) { o.money -= DOOR_PRICE; House.install(b); UI.closePanel(); UI.banner('🚪 در آهنی نصب شد!', 'حالا میم‌های خانه‌ی امن فقط با دریل برقی دزدیده می‌شوند'); Sound.play('success'); Missions.event('shop'); scheduleSave(true); } break; }
+    case 'doorfix': { const b = UI.kioskBase(); if (b && b.door && b.door.state === 'broken' && o.money >= DOOR_REPAIR) { o.money -= DOOR_REPAIR; House.repair(b); UI.openShop(true); UI.toast('🔧 در آهنی تعمیر و قفل شد', 'good'); scheduleSave(true); } break; }
+    case 'drillbuy': if (o.money >= DRILL_PRICE) { o.money -= DRILL_PRICE; o.drills = (o.drills || 0) + 1; Sound.play('buy'); UI.toast('🔩 یک دریل برقی خریدی! برو کنار در آهنی خانه‌ی یک حریف', 'rare'); UI.openShop(true); scheduleSave(true); } break;
     case 'fullscreen': toggleFullscreen(); setTimeout(() => { if (UI.panelKind === 'settings') UI.openSettings(true); }, 300); break;
     case 'keys': UI.openKeys(); break;
     case 'help': UI.openHelp(); break;
@@ -5754,6 +5968,7 @@ function resetWorldTo(s) {
     for (const b of o.bases.slice(1)) releasePlot(o, b);
   }
   G.alerts.clear(); G.discovered.clear(); G.ach.clear(); for (const k of Object.keys(G.stats)) G.stats[k] = 0; G.tutorialDone = false; G.daily = { last: '', streak: 0 };
+  House.resetAll();
   if (s.portal || s.portal3 || s.portal4 || s.portal5) buildWorld2();
   if (s.portal3 || s.portal4 || s.portal5) buildWorld3();
   if (s.portal4 || s.portal5) buildExWorld(4);
@@ -5902,7 +6117,7 @@ function simulate(dt) {
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
     if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
-    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt); updateExtras(dt); Portal3.update(dt, G.time); ExWorlds.update(dt, G.time); updateLightning(dt); updateUFO(dt); updateFireworks(dt);
+    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt); updateExtras(dt); Portal3.update(dt, G.time); ExWorlds.update(dt, G.time); updateLightning(dt); House.update(dt); updateUFO(dt); updateFireworks(dt);
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
@@ -5928,7 +6143,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { buildAvatar, animateAvatar, wearBuy, setPlayerLook, WEAR, KIOSKS, EXW, ExWorlds, buildExWorld, BELT4, BELT5, X4_: X4, X5_: X5, Storm3, pickChar, POOLS, tmplOf, CHAR_BY_ID, onIce, worldOf, W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { THREE, pickNav, Sound, House, VAULT_LOCAL, LAYOUT, buildAvatar, animateAvatar, wearBuy, setPlayerLook, WEAR, KIOSKS, EXW, ExWorlds, buildExWorld, BELT4, BELT5, X4_: X4, X5_: X5, Storm3, pickChar, POOLS, tmplOf, CHAR_BY_ID, onIce, worldOf, W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
