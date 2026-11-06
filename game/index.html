@@ -84,11 +84,24 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 .btn:active{transform:scale(.96)}
 .btn.primary{background:linear-gradient(180deg,#7ef7cf,#33c99b);color:#08261d;border:0;box-shadow:0 8px 26px rgba(70,230,170,.35);font-size:21px;font-weight:900}
 .row{display:flex;gap:10px}
+.diffbox{margin:0 auto 16px;max-width:460px}
+.diffbox .lbl{font-size:13px;color:var(--muted);margin-bottom:8px;letter-spacing:.5px}
+.diffs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.dchip{flex:1 1 0;min-width:72px;padding:9px 6px;border-radius:12px;font-size:14px;font-weight:700;background:rgba(255,255,255,.06);
+  border:1.5px solid var(--line);color:var(--muted);transition:transform .08s,background .15s}
+.dchip:active{transform:scale(.94)}
+.dchip.on{color:#140c26;background:var(--dc);border-color:var(--dc);box-shadow:0 0 18px color-mix(in srgb,var(--dc) 55%,transparent)}
+.dchip:focus-visible,.btn:focus-visible,.lv:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.ddesc{min-height:20px;margin-top:8px;font-size:13px;color:var(--muted)}
+#revBadge{position:absolute;top:calc(env(safe-area-inset-top) + 64px);left:50%;transform:translateX(-50%);padding:5px 14px;border-radius:999px;
+  background:rgba(197,155,255,.25);border:1px solid rgba(197,155,255,.7);font-weight:900;font-size:14px;display:none;white-space:nowrap}
+#revBadge.on{display:block;animation:bump .5s}
+#lvlTag i{font-style:normal;font-weight:900}
 .row .btn{flex:1}
 .keys{margin-top:16px;color:var(--muted);font-size:13px;line-height:1.8}
 kbd{font-family:inherit;background:rgba(255,255,255,.12);border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:0 6px;font-size:12px}
 h2{margin:0 0 14px;font-size:28px;font-weight:900}
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:16px}
 .lv{aspect-ratio:1;border-radius:16px;font-size:22px;font-weight:900;background:rgba(255,255,255,.08);border:1px solid var(--line);display:grid;place-items:center;position:relative}
 .lv.done{background:linear-gradient(180deg,rgba(111,243,196,.35),rgba(111,243,196,.1));border-color:rgba(111,243,196,.6)}
 .lv:disabled{opacity:.3}
@@ -103,8 +116,11 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #rotate svg{width:84px;height:84px;animation:rot 2.2s ease-in-out infinite}
 @keyframes rot{0%,20%{transform:rotate(0)}55%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
 @media (max-height:430px){.panel{padding:16px 18px}.logo{font-size:54px}.sub{margin:2px 0 12px}.btn{padding:10px 16px}.keys{display:none}
-  .grid{grid-template-columns:repeat(10,1fr)}.lv{font-size:17px;border-radius:12px}}
-@media (max-height:430px) and (max-width:600px){.grid{grid-template-columns:repeat(5,1fr)}}
+  .grid{grid-template-columns:repeat(8,1fr);gap:7px}.lv{font-size:16px;border-radius:12px}.diffbox{margin-bottom:10px}.ddesc{display:none}
+  .dchip{padding:6px 4px;font-size:13px}.panel{width:min(640px,100%)}
+  .logo{font-size:42px;margin-bottom:12px}.sub{display:none}.diffbox .lbl{display:none}.lv{aspect-ratio:auto;height:40px}.btns{gap:7px}.btn{padding:8px 14px;font-size:16px}
+  .btn.primary{font-size:18px}h2{font-size:22px;margin-bottom:8px}.stat{margin:4px 0 10px}}
+@media (max-width:480px){.grid{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
@@ -123,12 +139,14 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   <div id="deaths"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C7 2 3.5 5.6 3.5 10.3c0 2.7 1.2 4.6 3 5.8V19a1 1 0 0 0 1 1h1.3v-2h1.4v2h3.6v-2h1.4v2h1.3a1 1 0 0 0 1-1v-2.9c1.8-1.2 3-3.1 3-5.8C20.5 5.6 17 2 12 2zM8.6 13.6a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm6.8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg><span id="dCount">۰</span></div>
   <div id="banner" class="fa"><small id="bSmall"></small><b id="bBig"></b></div>
   <div id="taunt" class="fa"></div>
+  <div id="revBadge" class="fa">⇄ کنترل‌ها برعکس!</div>
 </div>
 
 <div class="screen on fa" id="sTitle">
   <div class="panel">
     <h1 class="logo">تله‌زار</h1>
     <p class="sub">به هیچ چیز اعتماد نکن… حتی به زمین زیر پات.</p>
+    <div class="diffbox"><div class="lbl">سطح سختی</div><div class="diffs" data-diffs></div><div class="ddesc" id="dDesc"></div></div>
     <div class="btns">
       <button class="btn primary" id="bPlay">▶ شروع بازی</button>
       <button class="btn" id="bLevels">انتخاب مرحله</button>
@@ -141,6 +159,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 <div class="screen fa" id="sLevels">
   <div class="panel">
     <h2>انتخاب مرحله</h2>
+    <div class="diffbox"><div class="diffs" data-diffs></div></div>
     <div class="grid" id="lvGrid"></div>
     <div class="btns"><button class="btn" id="bBack">بازگشت</button></div>
   </div>
@@ -149,6 +168,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 <div class="screen fa" id="sPause">
   <div class="panel">
     <h2>توقف</h2>
+    <div class="diffbox"><div class="lbl">سطح سختی (مرحله از اول شروع می‌شه)</div><div class="diffs" data-diffs></div></div>
     <div class="btns">
       <button class="btn primary" id="bResume">▶ ادامه</button>
       <button class="btn" id="bRestart2">↻ شروع دوباره مرحله</button>
@@ -162,7 +182,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   <div class="panel">
     <h1 class="logo" style="font-size:clamp(40px,8vw,70px)">بردی!</h1>
     <p class="sub">از همه تله‌ها جون سالم به در بردی… یا شاید هم نه 😈</p>
-    <div class="stat"><div><b id="eDeaths">۰</b><span>تعداد مرگ</span></div><div><b id="eTime">۰</b><span>زمان</span></div></div>
+    <div class="stat"><div><b id="eDeaths">۰</b><span>تعداد مرگ</span></div><div><b id="eTime">۰</b><span>زمان</span></div><div><b id="eDiff">-</b><span>سطح سختی</span></div></div>
     <div class="btns"><button class="btn primary" id="bAgain">↻ دوباره از اول</button><button class="btn" id="bMenu2">منوی اصلی</button></div>
   </div>
 </div>
@@ -188,7 +208,18 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 
+/* difficulty presets: speed = whole-game time scale, trapT = trap delay scale, trapV = trap speed scale,
+   sm = extra spike forgiveness (px), saw = saw hit radius factor, hints = show hidden traps faintly */
+const DIFFS = [
+  { name: 'آسون', col: '#6ff3c4', speed: 0.9, trapT: 1.35, trapV: 0.8, sm: 4, saw: 0.7, coyote: 0.14, buf: 0.16, hints: true },
+  { name: 'معمولی', col: '#8fd3ff', speed: 1, trapT: 1, trapV: 1, sm: 0, saw: 0.8, coyote: 0.09, buf: 0.12 },
+  { name: 'سخت', col: '#ffd36e', speed: 1.06, trapT: 0.8, trapV: 1.15, sm: -2, saw: 0.85, coyote: 0.07, buf: 0.1 },
+  { name: 'خیلی سخت', col: '#ff8a4c', speed: 1.12, trapT: 0.65, trapV: 1.25, sm: -3, saw: 0.9, coyote: 0.05, buf: 0.08 },
+  { name: 'دیوانه‌وار', col: '#ff3d71', speed: 1.2, trapT: 0.5, trapV: 1.35, sm: -4, saw: 0.95, coyote: 0.03, buf: 0.06 },
+];
+
 /* ============================ LEVELS ============================ */
+// L.d = difficulty index (0 easy … 4 insane). Harder difficulties add extra traps.
 const LEVELS = [
   { name: 'اولین قدم', spawn: [2, 14], build(L) {
       L.block(null, 0, 15, 14, 3);
@@ -196,6 +227,7 @@ const LEVELS = [
       L.block(null, 18, 15, 14, 3);
       L.door(29, 13);
       L.trig(12.6, 14, 0.8, 1, () => { L.fall('drop', 0.05); L.sfx('rumble'); }, { ground: true });
+      if (L.d >= 2) L.trig(14, 14, 4, 1, () => { L.fall('drop', 0.05); L.sfx('rumble'); }, { ground: true });
   }},
   { name: 'خارهای پنهان', spawn: [2, 14], build(L) {
       L.block(null, 0, 15, 32, 3);
@@ -204,12 +236,13 @@ const LEVELS = [
       L.trig(9, 8, 2, 6, () => L.pop('h1'));
       L.spikes('h2', 22, 14, 2, 'up', { hidden: true });
       L.trig(20.7, 13.5, 0.5, 1.5, () => L.pop('h2'), { ground: true });
+      if (L.d >= 3) { L.spikes('h3', 27, 14, 1, 'up', { hidden: true }); L.trig(25.8, 13.5, 0.5, 1.5, () => L.pop('h3'), { ground: true }); }
       L.door(29, 13);
   }},
   { name: 'در فراری', spawn: [2, 14], build(L) {
       L.block(null, 0, 15, 32, 3);
       L.block('st1', 8, 13, 2, 2);
-      L.block('st2', 4, 11, 2, 0.6);
+      L.block('st2', 4, 11, 2, 0.6, L.d >= 2 ? { crumble: 0.6 } : {});
       L.block(null, 0, 9, 3, 0.6);
       L.door(27, 13);
       L.trig(23.5, 13, 1, 2, () => { L.move('door', 0, -6, 34); L.move('door', -26.2, 0, 34); L.sfx('whoosh'); L.say('اونجا نه، اینجا!'); }, { ground: true });
@@ -265,7 +298,7 @@ const LEVELS = [
       L.block(null, 7, 0, 25, 3);
       L.orb('o1', 8.6, 14.4);
       L.spikes(null, 16, 3, 2, 'down');
-      L.orb('trap', 18.6, 6.1);
+      L.orb('trap', 18.6, 6.4);
       L.door(28.5, 3, { flip: true });
   }},
   { name: 'تاریکی', dark: true, spawn: [1, 14], build(L) {
@@ -280,6 +313,75 @@ const LEVELS = [
       L.block(null, 26, 15, 6, 3);
       L.door(29, 13);
   }},
+  { name: 'سنگ پوک', spawn: [2, 14], build(L) {
+      L.block(null, 0, 15, 9, 3);
+      L.spikes(null, 9, 17, 7, 'up');
+      L.block(null, 9, 15, 7, 3, { ghost: true });
+      L.block(null, 11, 12.5, 3, 0.6);
+      if (L.d >= 2) { L.block(null, 16, 15, 11, 3); L.spikes(null, 27, 17, 2, 'up'); L.block(null, 27, 15, 2, 3, { ghost: true }); L.block(null, 29, 15, 3, 3); }
+      else L.block(null, 16, 15, 16, 3);
+      L.spikes(null, 23, 14, 1, 'up');
+      L.block('bump', 22, 11.5, 2, 1, { hidden: true });
+      L.trig(21.5, 12.5, 2.5, 1, () => { L.pop('bump'); L.say('بوم!'); }, { rising: true });
+      L.door(30, 13);
+  }},
+  { name: 'مسیر برعکس', spawn: [2, 14], build(L) {
+      L.block(null, 0, 15, 12, 3);
+      L.spikes(null, 12, 17, 3, 'up');
+      L.block(null, 15, 15, 7, 3);
+      L.spikes(null, 17, 14, 1, 'up');
+      L.spikes(null, 22, 17, 2, 'up');
+      L.block(null, 24, 15, 8, 3);
+      L.trig(15.6, 2, 0.5, 13, () => { L.reverse(true); L.say('کنترل‌ها برعکس شد!'); });
+      L.trig(25, 2, 0.5, 13, () => L.reverse(false));
+      if (L.d >= 3) L.trig(27.4, 2, 0.5, 13, () => { L.reverse(true); L.say('باز هم برعکس!'); });
+      L.door(29.5, 13);
+  }},
+  { name: 'باران خار', spawn: [2, 14], build(L) {
+      L.block(null, 0, 15, 32, 3);
+      L.block(null, 0, 0, 32, 2, { ceil: true });
+      [[9, 2], [14, 1], [19, 2], [24, 1], [27, 2]].forEach(([c, n], i) => L.spikes('g' + i, c, 2, n, 'down'));
+      [5, 10, 15, 20].forEach((k, i) => L.trig(k, 2, 0.5, 13, () => { L.fall('g' + i, 0.1); L.sfx('crack'); }));
+      if (L.d >= 3) L.trig(26.6, 2, 0.5, 13, () => L.fall('g4', 0.1));
+      L.door(29.5, 13);
+  }},
+  { name: 'آسانسور', spawn: [2, 14], build(L) {
+      L.block(null, 0, 15, 6, 3);
+      L.spikes(null, 6, 17, 19, 'up');
+      L.block('E', 7, 14, 3, 0.6, { patrol: [[7, 14], [14, 14]], speed: 2.6 });
+      L.block('V', 18, 14, 3, 0.6, { patrol: [[18, 14], [18, 8.6]], speed: 1.8 });
+      L.block(null, 22, 10, 3, 0.6, { ghost: true });
+      L.block(null, 25, 10, 7, 8);
+      if (L.d >= 3) L.saw('s', 11, 10.3, 0.7, { patrol: [[9, 10.3], [15, 10.3]], speed: 3 });
+      L.door(29, 8);
+  }},
+  { name: 'در خجالتی', spawn: [2, 14], build(L) {
+      L.block(null, 0, 15, 32, 3);
+      L.block(null, 8, 12.5, 2, 0.6);
+      L.block(null, 12, 10.5, 7, 0.6);
+      L.spikes('sp', 22, 14, 2, 'up', { hidden: true });
+      L.door(28, 13);
+      L.trig(25, 12, 1, 3, () => {
+        L.move('door', 0, -6, 30); L.move('door', -25, 0, 30); L.move('door', 0, 6, 30); L.say('اینجام!'); L.sfx('whoosh');
+        L.trig(4.5, 12, 1.2, 3, () => {
+          L.move('door', 0, -6, 30); L.move('door', 13, 0, 30); L.move('door', 0, 1.5, 30); L.say('نه، اینجا!'); L.sfx('whoosh');
+          L.trig(12, 9.5, 2.5, 1, () => {
+            L.move('door', 10, 0, 30); L.move('door', 0, 4.5, 30); L.say('بیا بگیرم!'); L.sfx('whoosh');
+            L.trig(20.4, 13.5, 0.6, 1.5, () => L.pop('sp'), { ground: true });
+          }, { ground: true });
+        }, { ground: true });
+      }, { ground: true });
+  }},
+  { name: 'سقف پایین‌رو', spawn: [2, 14], build(L) {
+      L.block(null, 0, 15, 32, 3);
+      L.block('lid', 0, -8, 32, 11, { ceil: true });
+      L.saw('s1', 9, 14.35, 0.65, { patrol: [[8, 14.35], [14, 14.35]], speed: 3 });
+      L.saw('s2', 18, 14.35, 0.65, { patrol: [[17, 14.35], [24, 14.35]], speed: 4 });
+      L.spikes('sp', 27, 14, 1, 'up', { hidden: true });
+      L.trig(4, 0, 0.5, 15, () => { L.move('lid', 0, 9.3, 1.5); L.sfx('rumble'); L.shake(5); L.say('سقف داره میاد پایین!'); });
+      L.trig(25.4, 13.5, 0.6, 1.5, () => L.pop('sp'), { ground: true });
+      L.door(29.5, 13);
+  }},
   { name: 'آخرین شوخی', spawn: [2, 14], build(L) {
       L.block(null, 0, 15, 32, 3);
       L.spikes('a', 10, 14, 2, 'up', { hidden: true });
@@ -288,25 +390,30 @@ const LEVELS = [
       L.block('mp', 12, 8.5, 5, 0.6, { hidden: true });
       L.block('st2', 18, 10.5, 2, 0.6, { hidden: true });
       L.block('st1', 21, 12.5, 2, 0.6, { hidden: true });
-      L.spikes('ms', 13.6, 7.5, 2, 'up', { hidden: true });
+      L.spikes('ms', 13.3, 7.5, 2, 'up', { hidden: true });
       L.saw('sweep', -3, 14.1, 0.9);
       L.trig(24, 13, 1, 2, () => {
-        L.move('door', 0, -6.5, 30); L.move('door', -15.9, 0, 30);
+        L.move('door', 0, -6.5, 30); L.move('door', -16.1, 0, 30);
         L.pop('st1', 0.25); L.pop('st2', 0.4); L.pop('mp', 0.55); L.say('بیا بالا اگه جرئت داری');
       }, { ground: true });
       L.trig(18, 9.5, 2, 1, () => { L.move('sweep', 40, 0, 10); L.sfx('saw'); }, { ground: true });
-      L.trig(15.6, 7.5, 1.4, 1, () => L.pop('ms'), { ground: true });
+      L.trig(15.9, 7.5, 1.1, 1, () => L.pop('ms'), { ground: true });
   }},
 ];
 
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
   constructor(def, world) {
-    this.def = def; this.w = world; this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0;
+    this.def = def; this.w = world; this.d = world.d; this.D = world.D;
+    this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0;
     def.build(this);
     for (const e of this.ents) if (e.parent) { const p = this.byId[e.parent]; e.par = p; e.offx = e.x - p.x; e.offy = e.y - p.y; }
   }
-  add(id, e) { e.id = id; e.moves = []; e.dx = 0; e.dy = 0; e.shake = 0; this.ents.push(e); if (id) this.byId[id] = e; return e; }
+  add(id, e) {
+    e.id = id; e.moves = []; e.dx = 0; e.dy = 0; e.shake = 0;
+    if (Array.isArray(e.patrol)) e.patrol = { pts: e.patrol.map(p => [p[0] * T, p[1] * T]), sp: (e.speed || 3) * T * this.D.trapV, i: 1 };
+    this.ents.push(e); if (id) this.byId[id] = e; return e;
+  }
   block(id, x, y, w, h, o = {}) { return this.add(id, Object.assign({ type: 'block', x: x * T, y: y * T, w: w * T, h: h * T, hidden: false, appear: 1 }, o, o.hidden ? { appear: 0 } : {})); }
   spikes(id, x, y, n, dir = 'up', o = {}) {
     const vert = dir === 'up' || dir === 'down';
@@ -314,20 +421,18 @@ class Level {
   }
   door(x, y, o = {}) { return this.add('door', Object.assign({ type: 'door', x: x * T, y: y * T, w: 1.4 * T, h: 2 * T }, o)); }
   saw(id, cx, cy, r, o = {}) {
-    const e = this.add(id, Object.assign({ type: 'saw', x: cx * T, y: cy * T, r: r * T, rot: 0 }, o));
-    if (o.patrol) e.patrol = { pts: o.patrol.map(p => [p[0] * T, p[1] * T]), sp: (o.speed || 3) * T, i: 1 };
-    return e;
+    return this.add(id, Object.assign({ type: 'saw', x: cx * T, y: cy * T, r: r * T, rot: 0 }, o));
   }
   spring(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'spring', x: x * T, y: (y + 1) * T - 16, w: T, h: 16, anim: 0 }, o)); }
   orb(id, cx, cy) { return this.add(id, { type: 'orb', x: cx * T, y: cy * T, r: 0.42 * T, cd: 0 }); }
-  trig(x, y, w, h, fn, o = {}) { this.trigs.push({ x: x * T, y: y * T, w: w * T, h: h * T, fn, ground: !!o.ground, fired: false }); }
+  trig(x, y, w, h, fn, o = {}) { this.trigs.push({ x: x * T, y: y * T, w: w * T, h: h * T, fn, ground: !!o.ground, rising: !!o.rising, fired: false }); }
   e(id) { return typeof id === 'string' ? this.byId[id] : id; }
   move(id, dx, dy, speed, delay = 0) {
     const e = this.e(id); if (!e) return;
     const last = e.moves.length ? e.moves[e.moves.length - 1] : { tx: e.x, ty: e.y };
-    e.moves.push({ tx: last.tx + dx * T, ty: last.ty + dy * T, sp: speed * T, delay });
+    e.moves.push({ tx: last.tx + dx * T, ty: last.ty + dy * T, sp: speed * T * this.D.trapV, delay: delay * this.D.trapT });
   }
-  fall(id, delay = 0) { const e = this.e(id); if (!e || e.falling) return; e.falling = true; e.fallDelay = delay; e.vy = e.fallV || 0; e.moves = []; e.patrol = null; }
+  fall(id, delay = 0) { const e = this.e(id); if (!e || e.falling) return; e.falling = true; e.fallDelay = delay * this.D.trapT; e.vy = e.fallV || 0; e.moves = []; e.patrol = null; }
   pop(id, delay = 0) {
     if (delay > 0) return this.after(delay, () => this.pop(id));
     const e = this.e(id); if (!e || !e.hidden) return;
@@ -336,7 +441,8 @@ class Level {
     this.sfx(e.type === 'spike' ? 'pop' : 'appear');
     if (e.type === 'block') this.w.burst(e.x + e.w / 2, e.y + e.h / 2, 14, { col: '#9ef9dc', sp: 160, life: .5, add: true, size: 3, spreadX: e.w / 2 });
   }
-  after(t, fn) { this.timers.push({ t, fn }); }
+  after(t, fn) { this.timers.push({ t: t * this.D.trapT, fn }); }
+  reverse(on) { if (this.w.rev === on) return; this.w.rev = on; this.sfx('orb'); this.shake(4); if (this.w.onRev) this.w.onRev(on); }
   shake(a) { this.w.shake(a); }
   sfx(n) { this.w.sfx(n); }
   say(t) { this.w.say(t); }
@@ -346,10 +452,13 @@ class Level {
 class World {
   constructor(idx, opt = {}) {
     this.idx = idx; this.def = LEVELS[idx]; this.silent = !!opt.silent;
+    this.d = clamp(opt.diff ?? 1, 0, DIFFS.length - 1); this.D = DIFFS[this.d];
     this.parts = []; this.shakeA = 0; this.flash = 0; this.time = 0; this.lightning = 0; this.lightT = 3;
     this.respawn(true);
   }
   respawn(first) {
+    if (this.rev && this.onRev) this.onRev(false);
+    this.rev = false;
     this.lv = new Level(this.def, this);
     const [sx, sy] = this.def.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
@@ -360,7 +469,7 @@ class World {
   sfx(n) { if (!this.silent) Sound.play(n); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
-  isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone; }
+  isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost; }
   solids() { return this.lv.ents.filter(e => this.isSolid(e)); }
 
   step(dt, inp) {
@@ -414,6 +523,15 @@ class World {
           }
         }
       }
+      if (e.type === 'spike') {
+        for (const s of this.lv.ents) {
+          if (this.isSolid(s) && !s.falling && hit(e, s) && !(e.dir === 'down' && s.y + s.h <= e.y + 2)) {
+            e.gone = true; this.sfx('crack'); this.shake(3);
+            this.burst(e.x + e.w / 2, s.y, 16, { col: '#cfd3ef', sp: 220, life: .5, size: 2.5, g: 700, up: true, sq: true, spreadX: e.w / 2 });
+            break;
+          }
+        }
+      }
       if (e.y > H + 500) e.gone = true;
       return;
     }
@@ -455,7 +573,7 @@ class World {
 
   updatePlayer(dt, inp) {
     const p = this.p, g = p.g;
-    const dir = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+    const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     if (dir) {
       p.face = dir;
       let acc = p.onGround ? PH.accG : PH.accA;
@@ -465,10 +583,10 @@ class World {
       const f = (p.onGround ? PH.fric : PH.fric * 0.45) * dt;
       p.vx = Math.abs(p.vx) <= f ? 0 : p.vx - Math.sign(p.vx) * f;
     }
-    if (inp.jump && !p.jumpHeld) p.buf = PH.buf;
+    if (inp.jump && !p.jumpHeld) p.buf = this.D.buf;
     p.jumpHeld = inp.jump;
     p.buf -= dt;
-    p.coy = p.onGround ? PH.coyote : p.coy - dt;
+    p.coy = p.onGround ? this.D.coyote : p.coy - dt;
     if (p.buf > 0 && p.coy > 0) {
       p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true;
       p.sx = 0.72; p.sy = 1.3; this.sfx('jump');
@@ -512,13 +630,13 @@ class World {
   checkTriggers() {
     const p = this.p;
     for (const t of this.lv.trigs) {
-      if (t.fired || (t.ground && !p.onGround)) continue;
+      if (t.fired || (t.ground && !p.onGround) || (t.rising && p.vy * p.g >= 0)) continue;
       if (hit(p, t)) { t.fired = true; t.fn(this.lv, this); }
     }
   }
 
   spikeBox(e) {
-    const m = 7;
+    const m = 7 + this.D.sm;
     switch (e.dir) {
       case 'up': return { x: e.x + m, y: e.y + T * 0.36, w: e.w - m * 2, h: T * 0.64 };
       case 'down': return { x: e.x + m, y: e.y, w: e.w - m * 2, h: T * 0.64 };
@@ -532,7 +650,7 @@ class World {
     for (const e of this.lv.ents) {
       if (e.gone || e.hidden) continue;
       if (e.type === 'spike') { if (e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die('spike'); }
-      else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * 0.8, p.x, p.y, PW, PHT)) return this.die('saw'); }
+      else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
       else if (e.type === 'door') {
         const inner = e.flip ? { x: e.x + 12, y: e.y, w: e.w - 24, h: e.h - 16 } : { x: e.x + 12, y: e.y + 16, w: e.w - 24, h: e.h - 16 };
         if (hit(p, inner)) return this.win(e);
@@ -813,16 +931,25 @@ function drawBackground(world, t) {
 
 function worldTransform(sx, sy) { ctx.setTransform(S, 0, 0, S, OX + sx * S, OY + sy * S); }
 
+let hints = false;
+function drawHint(e) {
+  ctx.save(); ctx.globalAlpha = 0.28 + Math.sin(performance.now() / 300) * 0.08;
+  if (e.type === 'spike') { const k = e.pop; e.pop = 1; drawSpike(e); e.pop = k; }
+  else { ctx.setLineDash([6, 6]); ctx.strokeStyle = '#6ff3c4'; ctx.lineWidth = 2; ctx.strokeRect(e.x + 2, e.y + 2, e.w - 4, e.h - 4); }
+  ctx.restore();
+}
 function drawBlock(e, t) {
   let x = e.x, y = e.y, w = e.w, h = e.h;
   if (e.x <= 0.5) { x = -EXT.l; w = e.x + e.w + EXT.l; }
   if (e.x + e.w >= W - 0.5) w = W + EXT.r - x;
   if (e.y + e.h >= H - 0.5 && !e.falling) h = H + EXT.b - y;
-  if (e.y <= 0.5 && !e.moves.length && !e.falling) { h = e.y + e.h + EXT.t; y = -EXT.t; }
+  const ceil = e.ceil || (e.y <= 0.5 && !e.moves.length && !e.falling);
+  if (e.y <= 0.5 && !e.falling) { h = e.y + e.h + EXT.t; y = -EXT.t; }
   let sx = 0, sy = 0;
   if (e.shake) { sx = rand(-2.5, 2.5); sy = rand(-1.5, 1.5); }
   ctx.save();
   ctx.translate(x + sx, y + sy);
+  if (e.ghost && hints) ctx.globalAlpha = 0.42;
   if (e.appear < 1) { const a = e.appear, k = 1 - Math.pow(1 - a, 3); ctx.globalAlpha = a; ctx.translate(w / 2, h / 2); ctx.scale(k, k); ctx.translate(-w / 2, -h / 2); }
   ctx.fillStyle = TEX.stone; ctx.fillRect(0, 0, w, h);
   const gr = ctx.createLinearGradient(0, 0, 0, Math.max(h, 1));
@@ -830,7 +957,7 @@ function drawBlock(e, t) {
   ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, h - 3, w, 3); ctx.fillRect(w - 2, 0, 2, h);
   ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(0, 0, 2, h);
-  if (!(e.y <= 0.5 && !e.moves.length)) { ctx.translate(0, -7); ctx.fillStyle = TEX.moss; ctx.fillRect(0, 0, w, 20); }
+  if (!ceil) { ctx.translate(0, -7); ctx.fillStyle = TEX.moss; ctx.fillRect(0, 0, w, 20); }
   else { ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, h - 3, w, 2); }
   ctx.restore();
 }
@@ -990,6 +1117,8 @@ function render(world, t, dt) {
   drawMotes(t, dt);
   if (world) {
     const ents = world.lv.ents;
+    hints = !!world.D.hints;
+    if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
     for (const e of ents) if (!e.gone && e.type === 'saw') drawTrack(e);
     for (const e of ents) if (!e.gone && !e.hidden && e.type === 'saw') drawSaw(e, t);
     for (const e of ents) if (!e.gone && !e.hidden && e.type === 'spike') drawSpike(e);
@@ -1004,6 +1133,10 @@ function render(world, t, dt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(BG.vig, 0, 0);
   if (world && world.flash > 0) { ctx.fillStyle = `rgba(255,60,100,${world.flash * .22})`; ctx.fillRect(0, 0, cw, ch); }
+  if (world && world.rev) {
+    const a = 0.35 + Math.sin(t * 6) * 0.15, b = 26 * dpr;
+    ctx.fillStyle = `rgba(197,155,255,${a})`; ctx.fillRect(0, 0, cw, b * .35); ctx.fillRect(0, ch - b * .35, cw, b * .35); ctx.fillRect(0, 0, b * .35, ch); ctx.fillRect(cw - b * .35, 0, b * .35, ch);
+  }
   if (world && world.lightning > 0) { ctx.fillStyle = `rgba(210,200,255,${world.lightning * .12})`; ctx.fillRect(0, 0, cw, ch); }
   drawTransition();
 }
@@ -1083,21 +1216,29 @@ const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in win
 /* ============================ APP / UI ============================ */
 const $ = id => document.getElementById(id);
 const TAUNTS = ['هه! 😈', 'انتظارشو نداشتی، نه؟', 'یه بار دیگه!', 'نزدیک بود!', 'اعتماد نکن!', 'خخخ 🤭', 'تله‌ها همه‌جا هستن', 'این که آسون بود...', 'دوباره امتحان کن', 'آخ! 💥'];
-const SAVE_KEY = 'telezar_v1';
-function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; } }
-function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ unlocked: app.unlocked, completed: app.completed, sound: Sound.on })); } catch (e) {} }
+const SAVE_KEY = 'telezar_v2';
+const DDESC = ['تله‌های پنهان کم‌رنگ دیده می‌شن و همه‌چیز آروم‌تره', 'همون‌طور که باید باشه', 'تله‌ها سریع‌ترن و تله‌های اضافه داری',
+  'بازی تندتره، خارها تیزترن و تله‌های بیشتر', 'سرعت بالا، بدون بخشش، همه تله‌ها فعال. موفق باشی!'];
+function loadSave() {
+  try { const v = JSON.parse(localStorage.getItem(SAVE_KEY)); if (v) return v;
+    const old = JSON.parse(localStorage.getItem('telezar_v1')); if (old) return { diff: 1, sound: old.sound, prog: { 1: { unlocked: old.unlocked || 1, completed: old.completed || 0 } } };
+  } catch (e) {}
+  return {};
+}
+function writeSave() { try { app.prog[app.diff] = { unlocked: app.unlocked, completed: app.completed }; localStorage.setItem(SAVE_KEY, JSON.stringify({ diff: app.diff, prog: app.prog, sound: Sound.on })); } catch (e) {} }
 
 const app = {
-  state: 'title', world: null, idx: 0, deaths: 0, unlocked: 1, completed: 0, runStart: 0, bannerT: null,
+  state: 'title', world: null, idx: 0, deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null,
   show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd']) $(s).classList.toggle('on', s === id); },
   startLevel(i, fromMenu) {
-    this.idx = i; this.world = new World(i);
+    this.idx = i; this.world = new World(i, { diff: this.diff });
     this.world.onDeath = () => this.onDeath();
+    this.world.onRev = on => { const b = $('revBadge'); b.classList.toggle('on', on); };
     this.world.onWin = () => this.onWin();
     this.world.onSay = t => this.taunt(t, '#ffd36e');
     this.state = 'play'; this.show(null);
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch);
-    $('lvlTag').textContent = `مرحله ${faNum(i + 1)} از ${faNum(LEVELS.length)}`;
+    $('lvlTag').innerHTML = `مرحله ${faNum(i + 1)} از ${faNum(LEVELS.length)} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>`;
     this.updDeaths();
     const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2);
     $('bSmall').textContent = `مرحله ${faNum(i + 1)}`; $('bBig').textContent = LEVELS[i].name;
@@ -1123,14 +1264,22 @@ const app = {
   finish() {
     this.state = 'end'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch();
     const secs = Math.round((performance.now() - this.runStart) / 1000);
-    $('eDeaths').textContent = faNum(this.deaths); $('eTime').textContent = `${faNum(Math.floor(secs / 60))}:${faNum(String(secs % 60).padStart(2, '0'))}`;
+    $('eDeaths').textContent = faNum(this.deaths); $('eDiff').textContent = DIFFS[this.diff].name; $('eDiff').style.color = DIFFS[this.diff].col; $('eTime').textContent = `${faNum(Math.floor(secs / 60))}:${faNum(String(secs % 60).padStart(2, '0'))}`;
     this.show('sEnd'); startTrans('open', .5, null);
   },
   updDeaths() { $('dCount').textContent = faNum(this.deaths); },
   restart() { if (this.world && this.world.state === 'play') { this.world.respawn(false); } },
-  pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); this.show('sPause'); },
+  pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); },
-  menu() { this.state = 'title'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); this.show('sTitle'); this.world = new World(0, { silent: true }); },
+  menu() { this.state = 'title'; $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true }); },
+  setDiff(d) {
+    if (d === this.diff) return;
+    writeSave(); this.diff = d;
+    const pr = this.prog[d] || {}; this.unlocked = clamp(pr.unlocked || 1, 1, LEVELS.length); this.completed = pr.completed || 0;
+    writeSave(); renderDiffs();
+    if (this.state === 'pause') { this.unlocked = Math.max(this.unlocked, this.idx + 1); writeSave(); this.state = 'play'; this.show(null); this.startLevel(this.idx); }
+    if ($('sLevels').classList.contains('on')) this.buildGrid();
+  },
   buildGrid() {
     const g = $('lvGrid'); g.innerHTML = '';
     LEVELS.forEach((L, i) => {
@@ -1157,13 +1306,27 @@ $('bResume').onclick = () => { Sound.play('click'); app.resume(); };
 $('bRestart2').onclick = () => { Sound.play('click'); app.resume(); app.world.respawn(false); };
 $('bMenu').onclick = $('bMenu2').onclick = () => { Sound.play('click'); app.menu(); };
 $('bAgain').onclick = () => { Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(0); };
+function renderDiffs() {
+  document.querySelectorAll('[data-diffs]').forEach(box => {
+    box.innerHTML = '';
+    DIFFS.forEach((D, i) => {
+      const b = document.createElement('button'); b.className = 'dchip' + (i === app.diff ? ' on' : ''); b.textContent = D.name;
+      b.style.setProperty('--dc', D.col); b.setAttribute('aria-pressed', i === app.diff);
+      b.onclick = () => { Sound.init(); Sound.play('click'); app.setDiff(i); };
+      box.appendChild(b);
+    });
+  });
+  $('dDesc').textContent = DDESC[app.diff];
+}
 $('bRotOk').onclick = () => { rotDismissed = true; checkRotate(); };
 let rotDismissed = false;
 function checkRotate() { $('rotate').classList.toggle('on', isTouch && !rotDismissed && innerHeight > innerWidth); }
 
 /* ============================ MAIN LOOP ============================ */
 const sv = loadSave();
-app.unlocked = clamp(sv.unlocked || 1, 1, LEVELS.length); app.completed = sv.completed || 0;
+app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);
+{ const pr = app.prog[app.diff] || {}; app.unlocked = clamp(pr.unlocked || 1, 1, LEVELS.length); app.completed = pr.completed || 0; }
+renderDiffs();
 if (sv.sound === false) Sound.on = false;
 soundLabel();
 resize(); buildTextures(ctx);
@@ -1175,7 +1338,8 @@ function frame(now) {
   if (trans) { trans.t += dt; if (trans.t >= trans.dur) { const cb = trans.cb; trans = null; if (cb) cb(); } }
   if (app.state === 'play') {
     acc += dt; const inp = readInput();
-    let n = 0; while (acc >= STEP && n < 14) { app.world.step(STEP, inp); acc -= STEP; n++; }
+    const sp = app.world.D.speed;
+    let n = 0; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); acc -= STEP; n++; }
     if (n >= 14) acc = 0;
   } else if (app.state === 'title' && app.world) {
     // gentle idle on title backdrop
@@ -1190,12 +1354,12 @@ requestAnimationFrame(frame);
 // Deterministic headless simulation used for verifying each level is beatable.
 window.TRAPLAND = {
   LEVELS,
-  sim(idx, script) {
-    const w = new World(idx, { silent: true }); let t = 0, won = false, died = null;
+  sim(idx, script, diff = 1) {
+    const w = new World(idx, { silent: true, diff }); let t = 0, won = false, died = null;
     w.onWin = () => { won = true; }; w.onDeath = c => { died = died || c; };
     for (const [dur, k] of script) {
       const inp = { left: k.includes('l'), right: k.includes('r'), jump: k.includes('j') };
-      for (let s = 0; s < Math.round(dur / STEP); s++) { w.step(STEP, inp); t += STEP; if (died || w.state === 'win') break; }
+      for (let s = 0; s < Math.round(dur / STEP); s++) { w.step(STEP * w.D.speed, inp); t += STEP; if (died || w.state === 'win') break; }
       if (died || w.state === 'win') break;
     }
     for (let s = 0; s < 200 && w.state === 'win'; s++) w.step(STEP, { left: false, right: false, jump: false });
