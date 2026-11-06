@@ -22,6 +22,7 @@ html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;overscroll-b
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
   font-family:Vazirmatn,Tahoma,system-ui,sans-serif;color:var(--ink)}
 canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(4,2,14,.55) 100%)}
 .fa{direction:rtl}
 button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none}
 
@@ -29,7 +30,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 #hud{position:fixed;inset:0;pointer-events:none;z-index:20;display:none}
 #hud.on{display:block}
 .hbtn{pointer-events:auto;position:absolute;top:calc(env(safe-area-inset-top) + 10px);width:46px;height:46px;border-radius:14px;
-  background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  background:rgba(22,16,52,.78);border:1px solid var(--line);
   display:grid;place-items:center;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .hbtn svg{width:22px;height:22px}
 .hbtn:active{transform:scale(.92)}
@@ -37,10 +38,10 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 #bRestart{left:calc(env(safe-area-inset-left) + 66px)}
 #lvlTag{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:50%;transform:translateX(-50%);
   padding:6px 16px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-weight:700;font-size:15px;
-  white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  white-space:nowrap;background:rgba(22,16,52,.78)}
 #deaths{position:absolute;top:calc(env(safe-area-inset-top) + 10px);right:calc(env(safe-area-inset-right) + 12px);height:46px;
   padding:0 16px;border-radius:14px;background:var(--glass);border:1px solid var(--line);display:flex;align-items:center;gap:8px;
-  font-weight:900;font-size:18px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  font-weight:900;font-size:18px;background:rgba(22,16,52,.78)}
 #deaths svg{width:22px;height:22px}
 #deaths.bump{animation:bump .35s}
 @keyframes bump{40%{transform:scale(1.25)}}
@@ -60,7 +61,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 .tb{position:absolute;bottom:var(--bb,22px);border-radius:50%;display:grid;place-items:center;
   background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),rgba(255,255,255,.06) 60%);border:2px solid rgba(255,255,255,.22);
   box-shadow:0 8px 26px rgba(0,0,0,.35),inset 0 0 20px rgba(255,255,255,.06);transition:transform .06s,background .06s,border-color .06s;
-  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);pointer-events:none}
+  pointer-events:none;will-change:transform}
 .tb svg{width:44%;height:44%;opacity:.92}
 .tb.p{transform:scale(.9);background:radial-gradient(circle at 35% 30%,rgba(111,243,196,.55),rgba(111,243,196,.15) 65%);border-color:rgba(111,243,196,.9);
   box-shadow:0 0 28px rgba(111,243,196,.55)}
@@ -74,7 +75,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
   background:radial-gradient(ellipse at center,rgba(12,8,36,.35),rgba(6,4,20,.82))}
 .screen.on{display:flex}
 .panel{width:min(560px,100%);max-height:100%;overflow:auto;text-align:center;padding:26px 22px;border-radius:26px;background:var(--glass);
-  border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  border:1px solid var(--line);background:rgba(20,14,48,.9);box-shadow:0 30px 80px rgba(0,0,0,.5)}
 .logo{font-size:clamp(48px,11vw,92px);font-weight:900;line-height:1.05;margin:0;
   background:linear-gradient(180deg,#fff6d8 10%,#ffc56b 45%,#ff5d8a 95%);-webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 0 22px rgba(255,140,90,.45)) drop-shadow(0 5px 0 rgba(40,10,40,.6))}
@@ -125,6 +126,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="vig"></div>
 
 <div id="touch" aria-hidden="true">
   <div class="tb" id="tL"><svg viewBox="0 0 24 24" fill="#fff"><path d="M15.5 4.5 7 12l8.5 7.5z"/></svg></div>
@@ -404,7 +406,7 @@ const LEVELS = [
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
   constructor(def, world) {
-    this.def = def; this.w = world; this.d = world.d; this.D = world.D;
+    this.def = def; this.w = world; this.d = world.d; this.D = world.D; this.uid = ++levelUid;
     this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0;
     def.build(this);
     for (const e of this.ents) if (e.parent) { const p = this.byId[e.parent]; e.par = p; e.offx = e.x - p.x; e.offy = e.y - p.y; }
@@ -866,13 +868,14 @@ function buildTextures(ctx) {
 }
 
 /* ============================ RENDERER ============================ */
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = document.getElementById('c');
+let ctx = cv.getContext('2d', { alpha: false });
 let cw = 0, ch = 0, dpr = 1, S = 1, OX = 0, OY = 0, EXT = { l: 0, r: 0, t: 0, b: 0 };
 const BG = {};
-const motes = Array.from({ length: 46 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
+const motes = Array.from({ length: 28 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.max(0.6, Math.min(window.devicePixelRatio || 1, 2) * quality);
   cw = Math.round(innerWidth * dpr); ch = Math.round(innerHeight * dpr);
   cv.width = cw; cv.height = ch;
   S = Math.min(cw / W, ch / H); OX = (cw - W * S) / 2; OY = (ch - H * S) / 2;
@@ -913,20 +916,47 @@ function buildBackground() {
   BG.far = layer('#33205a', 420, 170, 60, 3, 'rgba(160,70,120,.55)');
   BG.mid = layer('#211541', 520, 120, 46, 5, 'rgba(110,40,90,.5)');
   BG.near = layer('#140d2c', 610, 70, 34, 9, 'rgba(40,15,50,.6)');
-  // vignette
-  const v = BG.vig = mkC(cw, ch), vg = v.getContext('2d');
-  gr = vg.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .35, cw / 2, ch / 2, Math.max(cw, ch) * .75);
-  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(4,2,14,.6)'); vg.fillStyle = gr; vg.fillRect(0, 0, cw, ch);
-  BG.dark = mkC(cw, ch);
+  // flatten sky + mountains into one opaque picture: one blit per frame instead of four
+  const sc = BG.scene = mkC(cw, ch), sg = sc.getContext('2d', { alpha: false });
+  sg.drawImage(sky, 0, 0);
+  for (const l of [BG.far, BG.mid, BG.near]) sg.drawImage(l, -120 * dpr, 0);
+  BG.sky = BG.far = BG.mid = BG.near = null;
+  // darkness mask is drawn at quarter resolution (it is a soft blur anyway)
+  BG.dark = mkC(Math.ceil(cw / 4), Math.ceil(ch / 4)); BG.darkG = BG.dark.getContext('2d');
+  BASE.key = '';
 }
 
-function drawBackground(world, t) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(BG.sky, 0, 0);
-  const px = world ? (world.p.x / W - .5) : 0;
-  ctx.drawImage(BG.far, -120 * dpr - px * 30 * dpr + Math.sin(t * .05) * 8 * dpr, 0);
-  ctx.drawImage(BG.mid, -120 * dpr - px * 60 * dpr, 0);
-  ctx.drawImage(BG.near, -120 * dpr - px * 100 * dpr, 0);
+/* Static layer cache: background + every block/spike that is not moving is drawn once into BASE
+   and redrawn only when that set changes (a trap fires, respawn, resize). */
+const BASE = { c: null, g: null, key: '' };
+let levelUid = 0;
+function isStaticEnt(e) {
+  if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol) return false;
+  if (e.type === 'block') return e.appear >= 1 && !e.shake;
+  if (e.type === 'spike') return e.pop >= 1;
+  return false;
+}
+function baseKey(world) {
+  let k = world.lv.uid + (hints ? 'h' : '') + ':';
+  const ents = world.lv.ents;
+  for (let i = 0; i < ents.length; i++) if (isStaticEnt(ents[i])) k += i + ',' + (ents[i].y | 0) + ';';
+  return k;
+}
+function getBase(world) {
+  const key = world ? baseKey(world) : '-';
+  if (BASE.c && BASE.key === key && BASE.c.width === cw && BASE.c.height === ch) return BASE.c;
+  if (!BASE.c || BASE.c.width !== cw || BASE.c.height !== ch) { BASE.c = mkC(cw, ch); BASE.g = BASE.c.getContext('2d', { alpha: false }); }
+  const g = BASE.g;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  g.drawImage(BG.scene, 0, 0);
+  if (world) {
+    const main = ctx; ctx = g; worldTransform(0, 0);
+    for (const e of world.lv.ents) if (e.type === 'spike' && isStaticEnt(e)) drawSpike(e);
+    for (const e of world.lv.ents) if (e.type === 'block' && isStaticEnt(e)) drawBlock(e, 0);
+    ctx = main;
+  }
+  BASE.key = key;
+  return BASE.c;
 }
 
 function worldTransform(sx, sy) { ctx.setTransform(S, 0, 0, S, OX + sx * S, OY + sy * S); }
@@ -1110,19 +1140,21 @@ function drawMotes(t, dt) {
 }
 
 function render(world, t, dt) {
-  drawBackground(world, t);
   const sh = world ? world.shakeA : 0;
   const sx = sh ? rand(-sh, sh) * .6 : 0, sy = sh ? rand(-sh, sh) * .6 : 0;
+  hints = !!(world && world.D.hints);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (sh) { ctx.fillStyle = '#07061c'; ctx.fillRect(0, 0, cw, ch); }
+  ctx.drawImage(getBase(world), Math.round(sx * S), Math.round(sy * S));
   worldTransform(sx, sy);
   drawMotes(t, dt);
   if (world) {
     const ents = world.lv.ents;
-    hints = !!world.D.hints;
     if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
     for (const e of ents) if (!e.gone && e.type === 'saw') drawTrack(e);
     for (const e of ents) if (!e.gone && !e.hidden && e.type === 'saw') drawSaw(e, t);
-    for (const e of ents) if (!e.gone && !e.hidden && e.type === 'spike') drawSpike(e);
-    for (const e of ents) if (!e.gone && !e.hidden && e.type === 'block') drawBlock(e, t);
+    for (const e of ents) if (!e.gone && !e.hidden && e.type === 'spike' && !isStaticEnt(e)) drawSpike(e);
+    for (const e of ents) if (!e.gone && !e.hidden && e.type === 'block' && !isStaticEnt(e)) drawBlock(e, t);
     for (const e of ents) if (!e.gone && e.type === 'spring') drawSpring(e);
     for (const e of ents) if (!e.gone && e.type === 'orb') drawOrb(e, t);
     for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
@@ -1131,7 +1163,6 @@ function render(world, t, dt) {
     if (world.def.dark) drawDark(world, t);
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(BG.vig, 0, 0);
   if (world && world.flash > 0) { ctx.fillStyle = `rgba(255,60,100,${world.flash * .22})`; ctx.fillRect(0, 0, cw, ch); }
   if (world && world.rev) {
     const a = 0.35 + Math.sin(t * 6) * 0.15, b = 26 * dpr;
@@ -1142,11 +1173,11 @@ function render(world, t, dt) {
 }
 
 function drawDark(world, t) {
-  const c = BG.dark, g = c.getContext('2d');
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, cw, ch);
-  g.fillStyle = `rgba(3,2,12,${0.95 - world.lightning * .8})`; g.fillRect(0, 0, cw, ch);
+  const c = BG.dark, g = BG.darkG, q = c.width / cw;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, c.width, c.height);
+  g.fillStyle = `rgba(3,2,12,${0.95 - world.lightning * .8})`; g.fillRect(0, 0, c.width, c.height);
   g.globalCompositeOperation = 'destination-out';
-  const hole = (x, y, r, a) => { const sx = OX + x * S, sy = OY + y * S, rr = r * S; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
+  const hole = (x, y, r, a) => { const sx = (OX + x * S) * q, sy = (OY + y * S) * q, rr = r * S * q; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
   const p = world.p; const fl = 1 + Math.sin(t * 9) * .03 + Math.sin(t * 23) * .02;
   if (world.state !== 'dead') hole(p.x + PW / 2, p.y + PHT / 2, 230 * fl, 1);
   for (const e of world.lv.ents) {
@@ -1154,8 +1185,8 @@ function drawDark(world, t) {
     if (e.type === 'door') hole(e.x + e.w / 2, e.y + e.h / 2, 120, .9);
     if (e.type === 'saw') hole(e.x, e.y, 80, .55);
   }
-  for (const q of world.parts) if (q.add) hole(q.x, q.y, 18, .3);
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(c, 0, 0); ctx.restore();
+  for (const pt of world.parts) if (pt.add) hole(pt.x, pt.y, 18, .3);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(c, 0, 0, cw, ch); ctx.restore();
   worldTransform(0, 0);
 }
 
@@ -1323,6 +1354,8 @@ let rotDismissed = false;
 function checkRotate() { $('rotate').classList.toggle('on', isTouch && !rotDismissed && innerHeight > innerWidth); }
 
 /* ============================ MAIN LOOP ============================ */
+let quality = 1;
+try { const q = parseFloat(localStorage.getItem('telezar_q')); if (q >= 0.5 && q <= 1) quality = q; } catch (e) {}
 const sv = loadSave();
 app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);
 { const pr = app.prog[app.diff] || {}; app.unlocked = clamp(pr.unlocked || 1, 1, LEVELS.length); app.completed = pr.completed || 0; }
@@ -1333,8 +1366,17 @@ resize(); buildTextures(ctx);
 addEventListener('resize', resize);
 app.world = new World(0, { silent: true });
 let last = performance.now(), acc = 0, clock = 0;
+// adaptive resolution: if frames stay slow, render fewer pixels (sharpness for smoothness)
+let slowT = 0, perfGrace = 2.5;
+function watchPerf(rawDt) {
+  if (document.hidden || app.state !== 'play' || quality <= 0.5) return;
+  if ((perfGrace -= rawDt) > 0) return;
+  if (rawDt > 1 / 48) slowT += rawDt; else slowT = Math.max(0, slowT - rawDt * 0.5);
+  if (slowT > 1.2) { quality = quality > 0.8 ? 0.75 : quality > 0.65 ? 0.6 : 0.5; slowT = 0; perfGrace = 2.5; resize(); try { localStorage.setItem('telezar_q', quality); } catch (e) {} }
+}
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000); last = now; clock += dt;
+  const raw = (now - last) / 1000, dt = Math.min(0.1, raw); last = now; clock += dt;
+  watchPerf(raw);
   if (trans) { trans.t += dt; if (trans.t >= trans.dur) { const cb = trans.cb; trans = null; if (cb) cb(); } }
   if (app.state === 'play') {
     acc += dt; const inp = readInput();
@@ -1345,7 +1387,7 @@ function frame(now) {
     // gentle idle on title backdrop
     app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;
-  render(app.world, clock, dt);
+  if (app.state !== 'pause' || trans) render(app.world, clock, dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
