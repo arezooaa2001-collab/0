@@ -190,7 +190,7 @@
     if (!db || !user) { stat('off', 'ابر در دسترس نیست'); note('برای استفاده از فضای ابری باید وارد حساب Claude باشی.', 'warn'); return; }
     me = await user.id();
     if (!me) { stat('off', 'ابر: وارد شو'); note('برای استفاده از فضای ابری وارد حساب Claude شو.', 'warn'); return; }
-    base = 'data/users/' + me;
+    base = 'data/users/' + me + '/ladino'; // collections: <base>/projects, /exports, /library
     ready = true;
     stat('on', 'ابر وصل است');
     note(assets ? 'فضای ابری خصوصی تو وصل است. پروژه‌ها فقط برای خودت دیده می‌شوند.' : 'فضای ابری وصل است. ذخیره خود ویدیو فقط برای صاحب برنامه فعال است؛ تنظیمات پروژه ذخیره می‌شود.', 'good');
