@@ -2502,7 +2502,7 @@ void main(){
   if (uUnderwater > 0.5) uv += vec2(sin(uv.y * 28.0 + uTime * 2.2), cos(uv.x * 22.0 + uTime * 1.8)) * 0.0022;
   vec3 c = uFxaa > 0.5 ? fxaa(uv) : dec(texture(tScene, uv).rgb);
   if (uDof > 0.001) {
-    float d = linDepth(texture(tDepth, uv).r); float coc = clamp(abs(d - uFocus) / max(d, 0.5) * uAperture, 0.0, 1.0) * uDof;
+    float d = linDepth(texture(tDepth, uv).r); float coc = d < 0.35 ? 0.0 : clamp(abs(1.0 / max(uFocus, 0.3) - 1.0 / max(d, 0.1)) * uAperture, 0.0, 1.0) * uDof;
     if (coc > 0.02) { vec3 acc = c; float wsum = 1.0; for (int i = 0; i < 16; i++) { float a = float(i) * 2.39996; float r = sqrt(float(i) + 0.5) / 4.0; vec2 o = vec2(cos(a), sin(a) * uAspect) * r * coc * 0.022; acc += dec(texture(tScene, uv + o).rgb); wsum += 1.0; } c = acc / wsum; }
   }
   vec3 bloom = texture(tBloom, uv).rgb * uBloomScale;
@@ -2629,7 +2629,7 @@ function initRenderer() {
   const r = new THREE.WebGLRenderer({ canvas, context: gl, antialias: false });
   r.outputColorSpace = THREE.LinearSRGBColorSpace; r.autoClear = false; r.setClearColor(0x000000, 1); r.sortObjects = true;
   R.renderer = r;
-  R.hdr = !!(r.extensions.has('EXT_color_buffer_float') || r.extensions.has('EXT_color_buffer_half_float'));
+  R.hdr = !/[?&]ldr=1/.test(location.search) && !!(r.extensions.has('EXT_color_buffer_float') || r.extensions.has('EXT_color_buffer_half_float'));
   R.scene = new THREE.Scene(); R.scene.matrixWorldAutoUpdate = true;
   R.camera = new THREE.PerspectiveCamera(70, 1, 0.08, 1000); R.camera.layers.enable(1); R.camera.layers.enable(2);
   R.U = makeUniforms(); R.U.uEncode.value = R.hdr ? 0 : 1;
@@ -4211,7 +4211,7 @@ function initHand() {
   HAND.model3 = buildModel(MODEL_SPECS.player({}), 1, 'player'); R.scene.add(HAND.model3.root); HAND.model3.root.visible = false;
 }
 function updateHand(dt) {
-  if (!HAND.root) return; const cam = R.camera; R.handCam.position.copy(cam.position); R.handCam.quaternion.copy(cam.quaternion); R.handCam.fov = Math.min(cam.fov, 80); R.handCam.updateProjectionMatrix(); R.handCam.updateMatrixWorld();
+  if (!HAND.root) return; const cam = R.camera; R.handCam.position.copy(cam.position); R.handCam.quaternion.copy(cam.quaternion); R.handCam.fov = Math.min(cam.fov, 80); R.handCam.updateProjectionMatrix(); { const e = R.handCam.projectionMatrix.elements; for (const c of [0, 4, 8, 12]) e[c + 2] = 0.002 * e[c + 2] - 0.998 * e[c + 3]; } R.handCam.updateMatrixWorld();
   HAND.root.position.copy(cam.position); HAND.root.quaternion.copy(cam.quaternion);
   const st = heldStack(); const id = st ? st.id : 0;
   if (id !== HAND.itemId) { if (HAND.item) { HAND.root.remove(HAND.item); HAND.item.material.dispose(); HAND.item = null; } HAND.itemId = id; if (id) { HAND.item = makeItemMesh(id, 0.2); if (HAND.item.userData.kind !== 'block') HAND.item.scale.multiplyScalar(1.15); HAND.root.add(HAND.item); } }
@@ -5323,7 +5323,7 @@ function renderFrame(dt) {
   if (R.Q.shadow && (R.Q.shadow > 1024 || (R.frameNo & 1) === 0)) renderShadow(player.pos || cam.position);
   if (R.refl && (R.refl.level > 1 || (R.frameNo & 1) === 0)) renderReflection();
   r.setRenderTarget(R.post.rt); r.setClearColor(0x000000, 1); r.clear(true, true, false); r.render(R.scene, cam);
-  if (HAND.root && HAND.root.visible) { r.clearDepth(); r.render(R.handScene, R.handCam); }
+  if (HAND.root && HAND.root.visible) r.render(R.handScene, R.handCam);
   // exposure & god rays
   const pc = R.post.comp.uniforms; const cx = Math.floor(cam.position.x), cy = Math.floor(cam.position.y), cz = Math.floor(cam.position.z);
   let skyF = 0, blkF = 0; for (const [ox, oy, oz] of [[0, 0, 0], [0, 2, 0], [2, 1, 0], [-2, 1, 0], [0, 1, 2], [0, 1, -2]]) { const l = world.getLight(cx + ox, cy + oy, cz + oz); skyF = Math.max(skyF, (l >> 4) / 15); blkF = Math.max(blkF, (l & 15) / 15); }
@@ -5333,7 +5333,8 @@ function renderFrame(dt) {
   const sp = U.uSunDir.value.clone().multiplyScalar(500).add(cam.position).project(cam); const vis = sp.z < 1 && U.uSunDir.value.y > -0.02 ? smooth(1.3, 0.6, Math.max(Math.abs(sp.x), Math.abs(sp.y))) * smooth(-0.02, 0.1, U.uSunDir.value.y) * (1 - Weather.rainI) * (1 - Weather.cover * 0.6) : 0;
   pc.uSunScr.value.set(sp.x * 0.5 + 0.5, sp.y * 0.5 + 0.5); pc.uSunVis.value = vis * (uw ? 0.3 : 1); pc.uGodCol.value.copy(U.uLightColor.value).multiplyScalar(0.35);
   pc.uNear.value = cam.near; pc.uFar.value = cam.far; pc.uHurt.value = player.hurt || 0;
-  if (PHOTO.active) { pc.uDof.value = PHOTO.dof; } if (pc.uDof.value > 0) { const t = Items.target; const fd = t ? t.t : 30; pc.uFocus.value = lerp(pc.uFocus.value, Math.max(1, fd), 0.1); pc.uAperture.value = 3; }
+  if (PHOTO.active) pc.uDof.value = PHOTO.dof; else pc.uDof.value = R.Q.dof ? 1 : 0;
+  if (pc.uDof.value > 0 && CAMV.dir) { const h = raycast(cam.position, CAMV.dir, 160); const fd = h ? Math.max(0.5, h.t) : 120; pc.uFocus.value = lerp(pc.uFocus.value, fd, 1 - Math.exp(-(dt || 0.016) * 4)); pc.uAperture.value = PHOTO.active ? 14 : 2.2; }
   const grade = pc.uGrade.value; const warm = Math.exp(-Math.abs(U.uSunDir.value.y) * 5) * Sky.daylight; grade.set(1 + warm * 0.06, 1, 1 - warm * 0.05); if (Weather.rainI > 0.3) grade.multiply(new THREE.Vector3(0.96, 0.98, 1.03)); pc.uSat.value = 1.1 - Weather.rainI * 0.25; pc.uVignette.value = PHOTO.active ? 1.2 : 0.85;
   R.post.run(!!R.Q.bloom);
   pc.uBloom.value = 0.07 + (1 - Sky.daylight) * 0.04;
