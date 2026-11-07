@@ -74,6 +74,22 @@ async function record(page, ms, hint) {
   return { bars, timer };
 }
 
+const countSaved = (page) =>
+  page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const req = indexedDB.open('echowords-library');
+        req.onsuccess = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('words')) return resolve(0);
+          const c = db.transaction('words').objectStore('words').count();
+          c.onsuccess = () => resolve(c.result);
+        };
+      }),
+  );
+const confirmBtn = (page) => page.getByRole('button', { name: /تایید و ذخیره/ });
+const reviewInput = (page) => page.locator('.review-input');
+
 const resultCard = (page) => page.locator('.word-card-result .word-text, .word-card-result .state-unclear, .word-card-result .state-failed').first();
 
 (async () => {
@@ -86,27 +102,38 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const { bars, timer } = await record(page, 3500);
   check('timer counts real elapsed time', /۰:۰[۳۴]/.test(timer), timer);
   check('level meter reacts to captured audio', Math.max(...bars) > 20);
-  await page.getByText('ضبط شد!').waitFor({ timeout: 10000 });
+  await page.getByText('درسته؟').waitFor({ timeout: 10000 });
   check('microphone released after stop', await page.evaluate(() => window.__streams.every((s) => s.getTracks().every((t) => t.readyState === 'ended'))));
   await page.getByRole('button', { name: /صدای خودم را گوش بده/ }).click();
   await page.waitForTimeout(300);
   check('preview plays my recording', (await page.getByRole('button', { name: /صدای خودم را گوش بده/ }).getAttribute('aria-pressed')) === 'true');
-  await page.getByRole('button', { name: /ذخیره کن/ }).click();
-  await page.locator('.word-card-result').waitFor({ timeout: 10000 });
-  await resultCard(page).waitFor({ timeout: 120000 });
-  const said = await page.locator('.word-card-result .word-text').textContent().catch(() => null);
-  check('speech transcribed on the device', !!said && /learning english/i.test(said), JSON.stringify(said));
+  await reviewInput(page).waitFor({ timeout: 120000 });
+  const heard = await reviewInput(page).inputValue();
+  check('speech transcribed on the device, shown for checking', /learning english/i.test(heard), JSON.stringify(heard));
+  check('nothing is saved before the confirm button', (await countSaved(page)) === 0);
+  await page.screenshot({ path: `${OUT}/02-review.png` });
+  await confirmBtn(page).click();
+  await page.locator('.word-card-result .word-text').waitFor({ timeout: 10000 });
+  check('confirm button saves the word', (await countSaved(page)) === 1, await page.locator('.word-card-result .word-text').textContent());
   await page.screenshot({ path: `${OUT}/02-result.png` });
 
-  // 2. Hint that does not match → the app asks instead of guessing
+  // 1b. Cancel on the review step discards the take
   await page.getByRole('button', { name: /یک کلمه تازه ضبط کن/ }).last().click();
+  await record(page, 1500);
+  await reviewInput(page).waitFor({ timeout: 120000 });
+  await page.getByRole('button', { name: /لغو/ }).click();
+  await page.getByRole('button', { name: 'آره، پاکش کن' }).click();
+  await page.locator('.mic-btn').waitFor();
+  check('cancel throws the take away without saving', (await countSaved(page)) === 1);
+
+  // 2. Hint that does not match → the app asks instead of guessing
   await record(page, 3000, 'apple');
-  await page.getByText('ضبط شد!').waitFor();
-  await page.getByRole('button', { name: /ذخیره کن/ }).click();
-  await resultCard(page).waitFor({ timeout: 120000 });
-  check('mismatch with the hint is shown as a question', await page.getByText('مطمئن نیستم').isVisible());
+  await reviewInput(page).waitFor({ timeout: 120000 });
+  check('mismatch with the hint is asked about, not guessed', (await page.getByText('مطمئن نیستم').isVisible()) && (await reviewInput(page).inputValue()) === '');
   await page.screenshot({ path: `${OUT}/03-unclear.png` });
-  await page.getByRole('button', { name: /همان که نوشته بودم/ }).click();
+  await page.locator('.chip-en', { hasText: 'apple' }).click();
+  check('tapping a suggestion fills the box', (await reviewInput(page).inputValue()) === 'apple');
+  await confirmBtn(page).click();
   await page.locator('.word-card-result .word-text', { hasText: 'apple' }).waitFor({ timeout: 5000 });
   check('learner can confirm the word they meant', true);
 
@@ -184,8 +211,8 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   page = ctx2.pages()[0];
   await page.goto(FILE);
   await record(page, 2500);
-  await page.getByText('ضبط شد!').waitFor();
-  await page.getByRole('button', { name: /ذخیره کن/ }).click();
+  await page.getByText('الان نتوانستم بنویسم چی گفتی').waitFor({ timeout: 60000 });
+  await confirmBtn(page).click();
   await page.locator('.word-card-result .state-failed').waitFor({ timeout: 60000 });
   check('without internet the recording is still saved', await page.locator('.word-card-result .btn-play').isVisible());
   await page.screenshot({ path: `${OUT}/06-no-model.png` });

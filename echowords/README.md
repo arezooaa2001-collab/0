@@ -27,6 +27,7 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
   - the exact recorded bytes are stored, with a SHA-256 fingerprint;
   - the fingerprint is checked after saving, on playback, and when restoring a backup;
   - «تلفظ استاندارد» (Standard pronunciation) is a separate, clearly labelled machine voice.
+- **Confirm before saving.** After recording, the app shows what it heard in an editable box. Nothing is saved until the child presses «✅ تایید و ذخیره» (Confirm and save). «لغو» (Cancel) throws the take away after asking first.
 - **No guessing.** If nothing English was heard, or the result differs from the word the child typed as a hint, the app asks «مطمئن نیستم چی گفتی 🤔» (I'm not sure what you said). The child can then:
   - accept what was heard,
   - use the word they typed,

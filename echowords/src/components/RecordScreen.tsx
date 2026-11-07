@@ -1,16 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatDuration } from '../lib/format';
-import type { Accent } from '../lib/stt';
+import type { Accent, Analysis } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
 import { useRecorder } from '../lib/useRecorder';
-import { validateHint } from '../lib/validation';
+import { validateEnglish, validateHint } from '../lib/validation';
+import { ConfirmDialog } from './ConfirmDialog';
 import { LevelMeter } from './LevelMeter';
 import { PlayButton } from './PlayButton';
 import { useToast } from './Toast';
 import { WordCard } from './WordCard';
 
 type Phase = 'record' | 'saving' | 'result';
+
+function reasonText(reason: string | null): string {
+  return reason === 'not_english' ? t.reasonNotEnglish : reason === 'mismatch' ? t.reasonMismatch : t.reasonEmpty;
+}
 
 export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) {
   const rec = useRecorder();
@@ -20,6 +25,11 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
   const [phase, setPhase] = useState<Phase>('record');
   const [wordId, setWordId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Review step: what the recognizer heard, and the text the learner will confirm.
+  const [recog, setRecog] = useState<'working' | 'failed' | Analysis>('working');
+  const [text, setText] = useState('');
+  const [textError, setTextError] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const word = wordId ? lib.words.find((w) => w.id === wordId) ?? null : null;
   const isLive = rec.state === 'recording' || rec.state === 'paused';
@@ -31,18 +41,46 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
     void rec.start();
   };
 
-  const save = async () => {
-    if (!rec.take || saving) return;
+  // As soon as a take is ready, write down what was said so the learner can check it.
+  const take = rec.state === 'ready' ? rec.take : null;
+  useEffect(() => {
+    if (!take) return;
+    let alive = true;
+    setRecog('working');
+    setText('');
+    setTextError(null);
     const h = validateHint(hint);
-    if (!h.ok) return setHintError(h.error);
+    lib
+      .recognizeTake(take, h.ok ? h.value : null)
+      .then((a) => {
+        if (!alive) return;
+        setRecog(a);
+        if (a.status === 'done' && a.transcript) setText(a.transcript);
+      })
+      .catch(() => alive && setRecog('failed'));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [take]);
+
+  const confirmAndSave = async () => {
+    if (!rec.take || saving || recog === 'working') return;
+    const h = validateHint(hint);
+    let finalText: string | null = null;
+    if (text.trim()) {
+      const v = validateEnglish(text);
+      if (!v.ok) return setTextError(v.error);
+      finalText = v.value;
+    }
     setSaving(true);
     setPhase('saving');
     try {
-      const w = await lib.saveTake(rec.take, { hint: h.value, accent });
+      const analysis = typeof recog === 'object' ? recog : null;
+      const w = await lib.saveTake(rec.take, { hint: h.ok ? h.value : null, accent, text: finalText, analysis });
       setWordId(w.id);
       setPhase('result');
       toast(t.saved, 'success');
-      void lib.transcribe(w.id);
     } catch {
       // The take is still in memory: the learner can simply press Save again.
       toast(t.saveFailed, 'error');
@@ -150,15 +188,88 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
       )}
 
       {rec.state === 'ready' && rec.take && (
-        <div className="card preview">
+        <div className="card preview review">
           {rec.notice && <p className="msg msg-info">{rec.notice}</p>}
-          <p className="state-title">{t.takeReady}</p>
-          <p className="meta" dir="ltr">{formatDuration(rec.take.durationMs)}</p>
+          <p className="state-title">{t.reviewTitle}</p>
+          <p className="meta">{t.reviewHelp}</p>
           <PlayButton playKey="preview" getUrl={async () => rec.take!.url} label={t.listenToMine} big />
+          <p className="meta" dir="ltr">{formatDuration(rec.take.durationMs)}</p>
+
+          {recog === 'working' && (
+            <p className="state state-busy" aria-live="polite">
+              <span className="spinner" aria-hidden />{' '}
+              {lib.modelProgress !== null
+                ? t.modelDownloading(new Intl.NumberFormat('fa-IR', { style: 'percent' }).format(lib.modelProgress))
+                : t.transcribing}
+            </p>
+          )}
+          {recog === 'failed' && <p className="msg msg-info">{t.reviewNoModel}</p>}
+          {typeof recog === 'object' && recog.status === 'unclear' && (
+            <div className="state state-unclear">
+              <p className="state-title">{t.notSure}</p>
+              <p>{reasonText(recog.reason)}</p>
+              {(() => {
+                const options = [recog.reason !== 'not_english' ? recog.heard : null, validateHint(hint).ok ? hint.trim() : null].filter(
+                  (o, i, all): o is string => !!o && all.indexOf(o) === i,
+                );
+                return options.length ? (
+                  <>
+                    <p className="meta">{t.tapToUse}</p>
+                    <div className="row wrap">
+                      {options.map((o) => (
+                        <button key={o} className="chip chip-en" dir="ltr" lang="en" onClick={() => { setText(o); setTextError(null); }}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null;
+              })()}
+            </div>
+          )}
+
+          {recog !== 'working' && (
+            <label className="field wide">
+              <span>{t.reviewTextLabel}</span>
+              <input
+                className="input input-en review-input"
+                dir="ltr"
+                lang="en"
+                placeholder={t.reviewTypeHere}
+                value={text}
+                maxLength={200}
+                autoCapitalize="sentences"
+                autoCorrect="off"
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setTextError(null);
+                }}
+                aria-invalid={!!textError}
+              />
+              {!text.trim() && <small>{t.reviewNoTextNote}</small>}
+              {textError && <p className="msg msg-error" role="alert">{textError}</p>}
+            </label>
+          )}
+
+          <button className="btn btn-confirm btn-big wide" onClick={confirmAndSave} disabled={saving || recog === 'working'}>
+            ✅ {t.confirmSave}
+          </button>
           <div className="row wrap center">
             <button className="btn btn-secondary" onClick={() => rec.reset()}>🔁 {t.recordAgain}</button>
-            <button className="btn btn-primary btn-big" onClick={save} disabled={saving}>✅ {t.save}</button>
+            <button className="btn btn-ghost" onClick={() => setConfirmDiscard(true)}>🗑️ {t.cancel}</button>
           </div>
+          {confirmDiscard && (
+            <ConfirmDialog
+              message={t.discardConfirm}
+              confirmLabel={t.yesDiscard}
+              danger
+              onConfirm={() => {
+                setConfirmDiscard(false);
+                newRecording();
+              }}
+              onCancel={() => setConfirmDiscard(false)}
+            />
+          )}
         </div>
       )}
     </section>

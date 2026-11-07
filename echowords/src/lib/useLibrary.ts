@@ -3,8 +3,17 @@ import { recognizeEnglish } from './asr';
 import { sha256Hex } from './audio';
 import * as db from './db';
 import type { Word } from './db';
-import { analyzeResult, type Accent } from './stt';
+import { type Analysis, analyzeResult, type Accent } from './stt';
 import type { Take } from './useRecorder';
+
+export interface SaveOptions {
+  hint: string | null;
+  accent: Accent;
+  /** English text the learner confirmed (null = no text yet). */
+  text: string | null;
+  /** What the recognizer produced, or null if it could not run. */
+  analysis: Analysis | null;
+}
 
 export interface Library {
   words: Word[];
@@ -14,7 +23,10 @@ export interface Library {
   modelProgress: number | null;
   transcribing: Set<string>;
   refresh: () => Promise<void>;
-  saveTake: (take: Take, opts: { hint: string | null; accent: Accent }) => Promise<Word>;
+  /** Recognize a recording that is not saved yet (for the review step). Throws if the recognizer is unavailable. */
+  recognizeTake: (take: Take, hint: string | null) => Promise<Analysis>;
+  /** Save a take after the learner pressed «تایید». */
+  saveTake: (take: Take, opts: SaveOptions) => Promise<Word>;
   transcribe: (id: string) => Promise<Word | null>;
   correct: (id: string, text: string) => Promise<Word>;
   toggleFavorite: (w: Word) => Promise<void>;
@@ -102,8 +114,21 @@ export function useLibrary(): Library {
     [setTx, upsert],
   );
 
+  const recognizeTake = useCallback((take: Take, hint: string | null): Promise<Analysis> => {
+    const job = queue.current.then(async () => {
+      try {
+        const raw = await recognizeEnglish(take.blob, (p) => setModelProgress(p < 1 ? p : null));
+        return analyzeResult(raw, hint);
+      } finally {
+        setModelProgress(null);
+      }
+    });
+    queue.current = job.catch(() => undefined);
+    return job;
+  }, []);
+
   const saveTake = useCallback(
-    async (take: Take, { hint, accent }: { hint: string | null; accent: Accent }) => {
+    async (take: Take, { hint, accent, text, analysis }: SaveOptions) => {
       const bytes = await take.blob.arrayBuffer();
       const sha = await sha256Hex(bytes);
       const now = new Date().toISOString();
@@ -117,11 +142,12 @@ export function useLibrary(): Library {
         audioSha256: sha,
         accent,
         hint,
-        transcript: null,
-        transcriptEdited: false,
-        sttStatus: 'pending',
-        sttHeard: null,
-        sttReason: null,
+        transcript: text,
+        transcriptEdited: !!text && text !== analysis?.transcript,
+        // With confirmed text the word is finished; without it, the library offers "write again".
+        sttStatus: text ? 'done' : analysis ? analysis.status : 'failed',
+        sttHeard: analysis?.heard ?? null,
+        sttReason: analysis?.reason ?? null,
         favorite: false,
       };
       await db.addWord(word, bytes);
@@ -189,5 +215,5 @@ export function useLibrary(): Library {
     };
   }, [refresh, transcribe]);
 
-  return { words, loading, loadError, modelProgress, transcribing, refresh, saveTake, transcribe, correct, toggleFavorite, remove, getAudioUrl };
+  return { words, loading, loadError, modelProgress, transcribing, refresh, recognizeTake, saveTake, transcribe, correct, toggleFavorite, remove, getAudioUrl };
 }

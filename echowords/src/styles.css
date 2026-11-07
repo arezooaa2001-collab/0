@@ -97,6 +97,9 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-stop { background: var(--pink); color: #fff; }
 .btn-play { background: var(--mint); color: #fff; }
+.btn-confirm { background: #18a957; color: #fff; font-size: 24px; min-height: 72px; }
+.chip-en { font-size: 22px; font-weight: 700; color: var(--primary); }
+.review .review-input { font-size: 28px; font-weight: 700; color: var(--primary); }
 .btn-play.is-playing { background: #0f8a72; }
 .btn-tts { background: #e8f3ff; color: #165c9c; box-shadow: none; border: 2px dashed #9cc9f5; }
 .btn-icon { font-size: 1.2em; }
