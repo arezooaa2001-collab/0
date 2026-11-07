@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { recognizeEnglish } from './asr';
 import { sha256Hex } from './audio';
+import { autoBackupDue, downloadBackup } from './backup';
 import * as db from './db';
 import type { Word } from './db';
 import { type Analysis, analyzeResult, type Accent } from './stt';
@@ -18,6 +19,10 @@ export interface SaveOptions {
 }
 
 export interface Library {
+  /** Whether this page can keep data on the device (null while checking). */
+  health: db.StorageHealth | null;
+  /** Save a backup file to Downloads if one is due. Call right after a tap (browsers allow downloads then). */
+  autoBackupIfDue: () => Promise<boolean>;
   words: Word[];
   loading: boolean;
   loadError: boolean;
@@ -40,6 +45,7 @@ const audioUrls = new Map<string, { url: string; verified: boolean }>();
 
 export function useLibrary(): Library {
   const [words, setWords] = useState<Word[]>([]);
+  const [health, setHealth] = useState<db.StorageHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [modelProgress, setModelProgress] = useState<number | null>(null);
@@ -60,6 +66,7 @@ export function useLibrary(): Library {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
+      setHealth(await db.checkStorage());
       setWords(await db.listWords());
       setLoadError(false);
     } catch {
@@ -217,5 +224,18 @@ export function useLibrary(): Library {
     };
   }, [refresh, transcribe]);
 
-  return { words, loading, loadError, modelProgress, transcribing, refresh, recognizeTake, saveTake, transcribe, correct, toggleFavorite, remove, getAudioUrl };
+  const autoBackupIfDue = useCallback(async () => {
+    try {
+      const h = await db.checkStorage();
+      const all = await db.listWords();
+      if (!autoBackupDue(all, h.mode === 'device')) return false;
+      await downloadBackup();
+      return true;
+    } catch (e) {
+      console.warn('automatic backup failed', e);
+      return false;
+    }
+  }, []);
+
+  return { health, autoBackupIfDue, words, loading, loadError, modelProgress, transcribing, refresh, recognizeTake, saveTake, transcribe, correct, toggleFavorite, remove, getAudioUrl };
 }

@@ -100,7 +100,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله انگلیسی بگو').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۵/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۶/.test(await page.textContent('.topbar')));
   await page.locator('.hint-field input').fill('سیب');
   await page.getByRole('button', { name: /^✅ تایید$/ }).click();
   check('written word: Persian is refused', await page.getByText('فقط با حروف انگلیسی').isVisible());
@@ -128,8 +128,9 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('speech transcribed on the device, shown for checking', /learning english/i.test(heard), JSON.stringify(heard));
   check('nothing is saved before the confirm button', (await countSaved(page)) === 0);
   await page.screenshot({ path: `${OUT}/02-review.png` });
-  await confirmBtn(page).click();
+  const [autoBackup] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), confirmBtn(page).click()]);
   await page.locator('.word-card-result .word-text').waitFor({ timeout: 10000 });
+  check('first save also drops a backup file in Downloads', !!autoBackup, autoBackup?.suggestedFilename());
   check('confirm button saves the word', (await countSaved(page)) === 1, await page.locator('.word-card-result .word-text').textContent());
   await page.screenshot({ path: `${OUT}/02-result.png` });
 
@@ -277,6 +278,50 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.word-card-result .word-text').waitFor({ timeout: 120000 });
   check('text is filled in afterwards', /learning english/i.test(await page.locator('.word-card-result .word-text').textContent()));
   await ctx3.close();
+
+  // 10. A place that cannot keep data (in-app file viewer, private tab…): warn, keep working, back up after each save
+  const blockedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-blocked-'));
+  const ctx4 = await chromium.launchPersistentContext(blockedDir, {
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${process.env.SPEECH_WAV}`, '--allow-file-access-from-files'],
+    viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', permissions: ['microphone'], acceptDownloads: true,
+  });
+  await ctx4.addInitScript(() => {
+    IDBFactory.prototype.open = function () {
+      throw new DOMException('The user denied permission to access the database.', 'SecurityError');
+    };
+    window.__ECHOWORDS_ASR__ = { libUrl: 'http://127.0.0.1:1/none.js', model: 'x' }; // no recognizer here
+  });
+  page = ctx4.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.storage-banner').waitFor({ timeout: 10000 });
+  check('blocked storage: clear warning is shown', true);
+  await page.screenshot({ path: `${OUT}/09-blocked.png` });
+  await record(page, 2000);
+  await reviewInput(page).fill('cat');
+  const [blockedBackup] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), confirmBtn(page).click()]);
+  await page.locator('.word-card-result .word-text', { hasText: 'cat' }).waitFor({ timeout: 10000 });
+  check('blocked storage: save still works and a backup file is made', !!blockedBackup);
+  const rescue = path.join(OUT, 'rescue-backup.json');
+  if (blockedBackup) await blockedBackup.saveAs(rescue);
+  await ctx4.close();
+
+  // 11. Open in a brand-new browser (new device / new app version): empty → restore card → everything back
+  const newDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-newdevice-'));
+  const ctx5 = await chromium.launchPersistentContext(newDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  page = ctx5.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.restore-card').waitFor({ timeout: 10000 });
+  check('empty app offers to restore from the backup file', true);
+  await page.screenshot({ path: `${OUT}/10-restore-card.png` });
+  await page.locator('.restore-card input[type=file]').setInputFiles(rescue);
+  await page.getByText('کلمه برگشت').waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card .word-text', { hasText: 'cat' }).waitFor({ timeout: 10000 });
+  const p2 = page.locator('.word-card .btn-play').first();
+  await p2.click();
+  await page.waitForTimeout(300);
+  check('restored word and its recording are back', (await p2.getAttribute('aria-pressed')) === 'true');
+  await ctx5.close();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

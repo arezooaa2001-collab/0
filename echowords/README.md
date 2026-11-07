@@ -12,8 +12,12 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
 
 - **First transcription:** the browser downloads the English speech model once (about 40 MB, needs internet). After that, transcription works offline.
 - **No internet the first time:** the recording is still saved. The child presses «دوباره بنویس» (Write again) later.
-- **Backup:** Settings → «ساختن فایل پشتیبان» (Make backup file) saves one file with every word and recording. «برگرداندن از فایل پشتیبان» (Restore from backup) brings them back, on the same or another device.
-  > Clearing the browser's data deletes the words. Make a backup now and then.
+- **Keeping words safe for years:**
+  - Words stay in the browser's storage on the device, and the app asks the browser to keep them permanently.
+  - At start-up the app tests whether storage really works. If it doesn't (for example inside an in-app file viewer or a private tab), a red warning appears. The app keeps working for that visit and saves a backup file after every save.
+  - Otherwise it saves a backup file (`echowords-backup-….json`) in Downloads by itself: on the first save, then at most once a day when something changed, or at once after 10 new words.
+  - If the app ever opens empty (browser data cleared, new device, a new copy of the file), a «برگرداندن از فایل پشتیبان» (Restore from backup) card brings everything back.
+  - Settings shows when the last backup was made. Keeping a copy of the backup file somewhere else (Telegram Saved Messages, Google Drive) protects against a lost or broken tablet.
 
 ## What it does
 

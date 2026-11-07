@@ -92,3 +92,45 @@ describe('on-device library (IndexedDB)', () => {
     await expect(restoreBackup(new Blob(['{"hello":1}']))).rejects.toThrow();
   });
 });
+
+describe('automatic backup rules', () => {
+  const w = (id: string, updatedAt: string) => ({ ...makeWord(id, new ArrayBuffer(1), 'x'), updatedAt });
+  it('is never due for an empty library', async () => {
+    const { autoBackupDue } = await import('../lib/backup');
+    expect(autoBackupDue([], true)).toBe(false);
+  });
+  it('is due the first time, then not again until something changes', async () => {
+    localStorage.clear();
+    const { autoBackupDue, librarySignature } = await import('../lib/backup');
+    const words = [w('a', '2026-01-01T00:00:00Z')];
+    expect(autoBackupDue(words, true)).toBe(true);
+    localStorage.setItem('echowords-backup-meta', JSON.stringify({ lastAt: new Date().toISOString(), count: 1, signature: librarySignature(words) }));
+    expect(autoBackupDue(words, true)).toBe(false); // nothing changed
+    const more = [...words, w('b', '2026-01-02T00:00:00Z')];
+    expect(autoBackupDue(more, true)).toBe(false); // changed, but backed up less than a day ago
+    expect(autoBackupDue(more, true, Date.now() + 25 * 3600 * 1000)).toBe(true); // a day later
+    expect(autoBackupDue(more, false)).toBe(true); // page cannot keep data: every change
+    const ten = Array.from({ length: 11 }, (_, i) => w(`n${i}`, `2026-02-0${(i % 9) + 1}T00:00:00Z`));
+    expect(autoBackupDue(ten, true)).toBe(true); // 10+ new words: right away
+  });
+});
+
+describe('page that cannot keep data', () => {
+  it('falls back to memory instead of failing', async () => {
+    const saved = globalThis.indexedDB;
+    // @ts-expect-error simulate a browser/viewer without IndexedDB
+    delete globalThis.indexedDB;
+    db._resetStorageCheck();
+    try {
+      expect((await db.checkStorage()).mode).toBe('memory');
+      const bytes = new Uint8Array([9, 8, 7]).buffer;
+      await db.addWord(makeWord('m1', bytes, await sha256Hex(bytes)), bytes);
+      expect((await db.listWords()).map((x) => x.id)).toEqual(['m1']);
+      expect(new Uint8Array((await db.getAudio('m1'))!)).toEqual(new Uint8Array([9, 8, 7]));
+    } finally {
+      globalThis.indexedDB = saved;
+      db._resetStorageCheck();
+    }
+    expect((await db.checkStorage()).mode).toBe('device');
+  });
+});

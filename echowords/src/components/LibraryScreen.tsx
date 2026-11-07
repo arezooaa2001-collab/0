@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
 import { useToast } from './Toast';
+import { RestoreButton } from './RestoreButton';
 import { WordCard } from './WordCard';
 
 export function LibraryScreen({ lib }: { lib: Library }) {
@@ -57,10 +58,17 @@ export function LibraryScreen({ lib }: { lib: Library }) {
       {lib.loading && !lib.words.length ? (
         <p className="state state-busy"><span className="spinner" aria-hidden /> {t.authWait}</p>
       ) : !lib.words.length && !lib.loadError ? (
-        <div className="empty">
-          <p className="empty-emoji" aria-hidden>🦜</p>
-          <p>{t.emptyLibrary}</p>
-        </div>
+        <>
+          <div className="empty">
+            <p className="empty-emoji" aria-hidden>🦜</p>
+            <p>{t.emptyLibrary}</p>
+          </div>
+          <div className="card restore-card">
+            <p className="state-title">{t.emptyRestoreTitle}</p>
+            <p className="meta">{t.emptyRestoreHelp}</p>
+            <RestoreButton lib={lib} big />
+          </div>
+        </>
       ) : !shown.length ? (
         <p className="empty">{t.noResults}</p>
       ) : (

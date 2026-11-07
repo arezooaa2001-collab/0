@@ -8,11 +8,14 @@ import type { Accent } from './lib/stt';
 import { fa, t } from './lib/strings';
 import { APP_VERSION } from './lib/config';
 import { useLibrary } from './lib/useLibrary';
+import { downloadBackup } from './lib/backup';
+import { useToast } from './components/Toast';
 
 type Tab = 'record' | 'library' | 'settings';
 
 export default function App() {
   const lib = useLibrary();
+  const toast = useToast();
   const [tab, setTab] = useState<Tab>('record');
   const [accent, setAccent] = useState<Accent>(readAccent);
 
@@ -28,6 +31,18 @@ export default function App() {
         <span className="version">نسخه {fa(APP_VERSION)}</span>
       </header>
       <main className="content">
+        {lib.health?.mode === 'memory' && (
+          <div className="msg msg-error storage-banner" role="alert">
+            <p>{t.storageBlockedShort}</p>
+            <button
+              className="btn btn-primary"
+              disabled={!lib.words.length}
+              onClick={() => void downloadBackup().then(() => toast(t.backupDone, 'success'))}
+            >
+              ⬇️ {t.backupExport}
+            </button>
+          </div>
+        )}
         {/* The record screen is unmounted when leaving it: this always releases the microphone. */}
         {tab === 'record' && <RecordScreen lib={lib} accent={accent} onOpenLibrary={() => go('library')} />}
         {tab === 'library' && <LibraryScreen lib={lib} />}

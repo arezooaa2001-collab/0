@@ -6,6 +6,7 @@ import type { Library } from '../lib/useLibrary';
 import { useRecorder } from '../lib/useRecorder';
 import { validateEnglish, validateHint } from '../lib/validation';
 import { ConfirmDialog } from './ConfirmDialog';
+import { RestoreButton } from './RestoreButton';
 import { LevelMeter } from './LevelMeter';
 import { PlayButton } from './PlayButton';
 import { useToast } from './Toast';
@@ -107,6 +108,8 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
       setWordId(w.id);
       setPhase('result');
       if (w.sttStatus === 'pending') void lib.transcribe(w.id); // finish writing it in the background
+      // Still inside the tap on «تایید»: browsers allow the backup download now.
+      if (await lib.autoBackupIfDue()) toast(t.autoBackupSaved, 'success');
     } catch {
       // The take is still in memory: the learner can simply press Save again.
       toast(t.saveFailed, 'error');
@@ -214,6 +217,14 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
           {rec.state === 'requesting' && (
             <button className="btn btn-ghost" onClick={rec.cancel}>{t.cancel}</button>
           )}
+        </div>
+      )}
+
+      {rec.state === 'idle' && !lib.loading && lib.words.length === 0 && (
+        <div className="card restore-card">
+          <p className="state-title">{t.emptyRestoreTitle}</p>
+          <p className="meta">{t.emptyRestoreHelp}</p>
+          <RestoreButton lib={lib} />
         </div>
       )}
 

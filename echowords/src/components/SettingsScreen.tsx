@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { backupFileName, buildBackup, restoreBackup } from '../lib/backup';
-import { storageInfo } from '../lib/db';
+import { useState } from 'react';
+import { downloadBackup, lastBackupAt } from '../lib/backup';
+import { formatDate } from '../lib/format';
 import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
+import { RestoreButton } from './RestoreButton';
 import { useToast } from './Toast';
 
 interface Props {
@@ -20,26 +21,14 @@ const ACCENTS: { value: Accent; label: string }[] = [
 
 export function SettingsScreen({ lib, accent, onAccent }: Props) {
   const toast = useToast();
-  const [info, setInfo] = useState<{ persisted: boolean; usage: number | null } | null>(null);
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    storageInfo().then(setInfo);
-  }, [lib.words.length]);
+  const [last, setLast] = useState(lastBackupAt);
 
   const exportBackup = async () => {
     setBusy(true);
     try {
-      const blob = await buildBackup();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = backupFileName();
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      await downloadBackup();
+      setLast(lastBackupAt());
       toast(t.backupDone, 'success');
     } catch {
       toast(t.errGeneric, 'error');
@@ -48,22 +37,9 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
     }
   };
 
-  const importBackup = async (file: File) => {
-    setBusy(true);
-    try {
-      const r = await restoreBackup(file);
-      await lib.refresh();
-      toast(t.backupRestored(r.added, r.skipped), 'success');
-    } catch {
-      toast(t.backupBad, 'error');
-    } finally {
-      setBusy(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  };
-
   const totalBytes = lib.words.reduce((s, w) => s + w.audioBytes, 0);
   const mb = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024);
+  const health = lib.health;
 
   return (
     <section className="screen settings-screen">
@@ -72,26 +48,24 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
       <div className="card">
         <h2>{t.storageTitle}</h2>
         <p className="state-title">{t.storageInfo(lib.words.length, mb)}</p>
-        <p className="meta">{info?.persisted ? t.storageSafe : t.storageWarn}</p>
+        {health?.mode === 'memory' ? (
+          <p className="msg msg-error">{t.storageBlocked}</p>
+        ) : health?.persisted ? (
+          <p className="meta">{t.storageSafe}</p>
+        ) : (
+          <p className="meta">{t.storageWarn}</p>
+        )}
       </div>
 
       <div className="card">
         <h2>🗂️ {t.backupTitle}</h2>
         <p className="meta">{t.backupHelp}</p>
+        <p className="meta">{last ? t.lastBackup(formatDate(last)) : t.noBackupYet}</p>
         <div className="row wrap">
           <button className="btn btn-primary" onClick={exportBackup} disabled={busy || !lib.words.length}>⬇️ {t.backupExport}</button>
-          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()} disabled={busy}>⬆️ {t.backupImport}</button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void importBackup(f);
-            }}
-          />
+          <RestoreButton lib={lib} />
         </div>
+        <p className="meta">{t.backupKeepSafe}</p>
       </div>
 
       <div className="card">

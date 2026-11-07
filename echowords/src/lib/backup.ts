@@ -31,8 +31,87 @@ export async function buildBackup(): Promise<Blob> {
   });
 }
 
-export function backupFileName(): string {
-  return `echowords-backup-${new Date().toISOString().slice(0, 10)}.json`;
+export function backupFileName(count: number): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `echowords-backup-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${count}-words.json`;
+}
+
+// ── Automatic backup files ─────────────────────────────────────────────────
+// A backup file in the Downloads folder survives things browser storage does not:
+// clearing the browser, a new copy/version of the app, or a page that cannot keep data.
+
+const META_KEY = 'echowords-backup-meta';
+let memMeta: BackupMeta | null = null;
+
+interface BackupMeta {
+  lastAt: string;
+  count: number;
+  signature: string;
+}
+
+function readMeta(): BackupMeta | null {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (raw) return JSON.parse(raw) as BackupMeta;
+  } catch {
+    /* storage blocked */
+  }
+  return memMeta;
+}
+
+function writeMeta(m: BackupMeta): void {
+  memMeta = m;
+  try {
+    localStorage.setItem(META_KEY, JSON.stringify(m));
+  } catch {
+    /* storage blocked */
+  }
+}
+
+export function lastBackupAt(): string | null {
+  return readMeta()?.lastAt ?? null;
+}
+
+/** Fingerprint of the library's current state (changes whenever a word is added, edited or removed). */
+export function librarySignature(words: Word[]): string {
+  return `${words.length}:${words.reduce((m, w) => (w.updatedAt > m ? w.updatedAt : m), '')}`;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * When should the app save a backup file by itself?
+ * - the page cannot keep data → after every change (otherwise it is lost when closed)
+ * - otherwise: the first time, then at most once a day when something changed,
+ *   or straight away after 10 new words.
+ */
+export function autoBackupDue(words: Word[], deviceStorage: boolean, now = Date.now()): boolean {
+  if (!words.length) return false;
+  const meta = readMeta();
+  const sig = librarySignature(words);
+  if (meta?.signature === sig) return false;
+  if (!deviceStorage || !meta) return true;
+  if (words.length - meta.count >= 10) return true;
+  return now - new Date(meta.lastAt).getTime() >= DAY_MS;
+}
+
+/** Build the backup and hand it to the browser as a download. Returns the file name. */
+export async function downloadBackup(): Promise<string> {
+  const words = await listWords();
+  const blob = await buildBackup();
+  const name = backupFileName(words.length);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  writeMeta({ lastAt: new Date().toISOString(), count: words.length, signature: librarySignature(words) });
+  return name;
 }
 
 /** Restore words from a backup file. Existing words are kept; damaged entries are skipped. */
