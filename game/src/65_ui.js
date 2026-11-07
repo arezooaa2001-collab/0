@@ -24,7 +24,7 @@ function renderSettings(tab) {
       <div class="sec"><h3>چی عوض می‌شه؟</h3><p>Go: سبک‌ترین · Plus: سایه‌ی نرم و آینه‌ی عقب · Pro: فیلترهای نور و جزئیات بیشتر · Max: لبه‌های صاف و منظره‌ی کامل · Ultra: رزولوشن بالا، ذرات و درخشش بیشتر · Max Ultra: سایه‌ی واقعی، بیشترین جزئیات و ذرات</p>
       <p><b>۲۰ سطح بالاتر از Max Ultra</b> — هر سطح همه‌ی جلوه‌های سطح قبلی رو داره و یک جزئیات واقعی‌تر اضافه می‌کنه:</p>
       <ol class="tiers">${XTIERS.map(([n, f], i) => `<li${GFXK === 'x' + (i + 1) ? ' class="on"' : ''}><b>${n}</b> ${esc(f)}</li>`).join('')}</ol></div>
-      <div class="sec"><h3>نمایش</h3>${sw('fps', 'نمایش FPS')}${sw('timer', 'زمان‌سنج مرحله')}</div>`;
+      <div class="sec"><h3>نمایش</h3>${sw('fps', 'نمایش FPS')}${sw('timer', 'زمان‌سنج مرحله')}${sw('ghost', 'شبحِ بهترین رکورد 👻')}</div>`;
   } else if (setTab === 'wx') {
     const cur = wxCurrent();
     h += `<div class="sec"><h3>آب و هوا</h3><div class="chips">${Object.keys(WX_KINDS).map(k => chip(CFG.weather === k, WX_KINDS[k].i + ' ' + WX_KINDS[k].n, `data-wx="${k}"`)).join('')}</div>

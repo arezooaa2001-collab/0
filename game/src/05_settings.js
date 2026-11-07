@@ -36,7 +36,7 @@ const CFG = {
   gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true, under: 'auto', underLv: [],
   mc: { br: 100, ct: 100, sat: 100, hue: 0, tint: '#ff8844', tintA: 0 },
   bars: false, grain: false, vig: 55, glow: 100, shake: 100,
-  musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, tsize: 100, topac: 100,
+  musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, ghost: true, tsize: 100, topac: 100,
   colors: Object.fromEntries(COLOR_KEYS.map(k => [k, ''])),
 };
 function loadCfg() {

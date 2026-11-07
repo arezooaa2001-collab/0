@@ -462,7 +462,7 @@ const CFG = {
   gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true, under: 'auto', underLv: [],
   mc: { br: 100, ct: 100, sat: 100, hue: 0, tint: '#ff8844', tintA: 0 },
   bars: false, grain: false, vig: 55, glow: 100, shake: 100,
-  musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, tsize: 100, topac: 100,
+  musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, ghost: true, tsize: 100, topac: 100,
   colors: Object.fromEntries(COLOR_KEYS.map(k => [k, ''])),
 };
 function loadCfg() {
@@ -1996,6 +1996,7 @@ class World {
   }
 
   step(dt, inp) {
+    if (this.slowmo > 0) { this.slowmo -= dt; dt *= .3; }   // a short slow-motion moment when you die
     this.time += dt;
     this.updAct();
     if (this.state === 'play') {
@@ -2322,7 +2323,7 @@ class World {
   }
   die(cause) {
     if (this.state !== 'play' || this.saved(cause)) return;
-    const p = this.p; this.state = 'dead'; this.deadT = 0.95; this.flash = 1;
+    const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
     this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
     this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });
@@ -2921,6 +2922,15 @@ function drawLaser(e, t) {
   ctx.restore();
 }
 
+function drawGhost(world, t) {
+  if (world.silent || app.kind !== 'plat' || world !== app.world) return;
+  const g = Ghost.at(app.levelT); if (!g) return;
+  ctx.save(); ctx.globalAlpha = .33;
+  if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(TEX.gCyan, g.x + PW / 2 - 40, g.y + PHT / 2 - 40, 80, 80); ctx.globalCompositeOperation = 'source-over'; }
+  ctx.translate(g.x + PW / 2, g.flip ? g.y : g.y + PHT); if (g.flip) ctx.scale(1, -1);
+  drawHero(t, g.face, true, g.vx, 0, t * 12, 1, false);
+  ctx.restore();
+}
 function drawPlayer(world, t) {
   const p = world.p; if (world.state === 'dead') return;
   emitTrail(world, t); drawPowFx(world, t, true);
@@ -3138,6 +3148,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'tele') drawTele(e, t);
   for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
+  drawGhost(world, t);
   drawPlayer(world, t);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
@@ -3148,6 +3159,15 @@ function drawOverlays(world, t) {
   if (world && world.rev) {
     const a = 0.35 + Math.sin(t * 6) * 0.15, b = 26 * dpr;
     ctx.fillStyle = `rgba(197,155,255,${a})`; ctx.fillRect(0, 0, cw, b * .35); ctx.fillRect(0, ch - b * .35, cw, b * .35); ctx.fillRect(0, 0, b * .35, ch); ctx.fillRect(cw - b * .35, 0, b * .35, ch);
+  }
+  // speed lines while dashing or with the star
+  if (world && world.p && world.state === 'play' && (world.p.dashT > 0 || world.p.starT > 0) && Math.abs(world.p.vx) > PH.run * .8) {
+    const sp = world.p, dir = sp.vx > 0 ? 1 : -1; ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = sp.starT > 0 ? 'rgba(255,226,138,.4)' : 'rgba(255,255,255,.32)'; ctx.lineWidth = 2.2 * dpr; ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const len = (70 + (i * 37) % 130) * dpr, y = ch * (.08 + ((i * 0.618) % 1) * .84), u = ((t * (2.2 + (i % 3) * .5) + i * .37) % 1) * (cw + len);
+      const x = dir > 0 ? cw - u : u - len; ctx.moveTo(x, y); ctx.lineTo(x + len, y);
+    }
+    ctx.stroke(); ctx.restore();
   }
   if (world && world.p && world.p.slowT > 0) {
     const a = Math.min(1, world.p.slowT * 2) * (.85 + Math.sin(t * 4) * .15), gr = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .3, cw / 2, ch / 2, Math.max(cw, ch) * .7);
@@ -4587,6 +4607,9 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // ghost of the best run: the same hero, see-through
+    { const gh = buildHeroMesh(keep); gh.g.traverse(o => { if (o.material) { o.material = keep(o.material.clone()); o.material.transparent = true; o.material.opacity = .3; o.material.depthWrite = false; } });
+      gh.g.scale.setScalar(.6); gh.g.visible = false; sc.add(gh.g); this.ghost = gh; }
     // shield / star bubble around the hero
     this.bubble = new THREE.Mesh(keep(new THREE.SphereGeometry(.62, 20, 14)), keep(new THREE.MeshBasicMaterial({ color: 0x7af7ff, transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending }))); this.bubble.visible = false; sc.add(this.bubble);
     this.fogF = sc.fog.far; this.wx = new Wx3(sc, keep, [26, 12, 7], f => (H - (17.25 - f * 1.45) * T) / T);
@@ -4812,6 +4835,9 @@ class P3D {
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
+    { const gp = app.world === w ? Ghost.at(app.levelT) : null, gg = this.ghost.g; gg.visible = !!gp;
+      if (gp) { gg.position.set(this.X(gp.x + PW / 2), gp.flip ? this.Y(gp.y) : this.Y(gp.y + PHT), -.3); gg.rotation.set(0, gp.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, gp.flip ? Math.PI : 0);
+        const lg = Math.abs(gp.vx) > 40 ? Math.sin(t * 12) * .22 : 0; this.ghost.legs[0].position.z = lg; this.ghost.legs[1].position.z = -lg; } }
     let sc = .6; if (w.state === 'win') { sc *= Math.max(.02, p.winS); g.rotation.y += p.rot; }
     g.scale.set(sc * p.sx, sc * p.sy, sc * p.sx);
     const run = p.onGround && Math.abs(p.vx) > 40, ph = p.runPhase;
@@ -5021,6 +5047,34 @@ function hudTick() {
   $('tmr').textContent = tm; $('gemC').textContent = gm; $('pwr').textContent = pw; $('fps').textContent = fp;
 }
 
+/* ---------- ghost of your best run (2D levels): recorded at 10 Hz, saved when you beat your best time ---------- */
+const Ghost = {
+  rec: null, play: null,
+  key: (d, i) => 'telezar_ghost_' + d + '_' + i,
+  start(d, i, fresh) {
+    this.rec = fresh ? { k: this.key(d, i), a: [] } : null; this.play = null;
+    if (!fresh || CFG.ghost === false) return;
+    try { const s = localStorage.getItem(this.rec.k); if (s) { const b = atob(s), u = new Uint8Array(b.length); for (let j = 0; j < b.length; j++) u[j] = b.charCodeAt(j); this.play = new Int16Array(u.buffer); } } catch (e) { this.play = null; }
+  },
+  stop() { this.rec = null; this.play = null; },
+  tick(w, t) {
+    const r = this.rec; if (!r || r.a.length > 24000) return;
+    while (r.a.length / 2 <= t * 10) r.a.push(Math.round(w.p.x), Math.round(w.p.y * (w.p.g < 0 ? -1 : 1)) || 0);
+  },
+  save() {
+    const r = this.rec; if (!r || r.a.length < 4) return;
+    try { const u = new Uint8Array(new Int16Array(r.a).buffer); let s = ''; for (let j = 0; j < u.length; j++) s += String.fromCharCode(u[j]); localStorage.setItem(r.k, btoa(s)); } catch (e) {}
+  },
+  // position of the ghost at level time t (null when there is none or it already finished)
+  at(t) {
+    const a = this.play; if (!a || CFG.ghost === false || app.state === 'title') return null;
+    const f = t * 10, i = Math.floor(f), n = a.length / 2 - 1; if (i >= n) return null;
+    const k = f - i, x0 = a[i * 2], x1 = a[i * 2 + 2], y0 = a[i * 2 + 1], y1 = a[i * 2 + 3];
+    if (Math.abs(x1 - x0) > 300) return { x: x0, y: Math.abs(y0), flip: y0 < 0, face: 1, vx: 0 };
+    return { x: x0 + (x1 - x0) * k, y: Math.abs(y0 + (y1 - y0) * k), flip: y0 < 0, face: x1 < x0 ? -1 : 1, vx: (x1 - x0) * 10 };
+  },
+};
+
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
@@ -5096,6 +5150,7 @@ const app = {
     if (v === 'r2') setTimeout(() => this.taunt(isTouch ? '▲ ▼ = جابه‌جایی بالا و پایین جاده' : '← → = جابه‌جایی بالا و پایین جاده', '#9ef9ff'), 2300);
     this.updTag();
     this.updDeaths();
+    if (!opt.keep) { if (this.kind === 'plat' && !def.endless && this.realmIdx < 0) Ghost.start(this.diff, this.idx, !opt.resumed && !(opt.ck > 0)); else Ghost.stop(); }
     if (this.kind === 'plat') {
       const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
       w.onCheckpoint = i => this.onCheckpoint(i);
@@ -5192,7 +5247,7 @@ const app = {
       if (pr.ck) delete pr.ck[this.idx];
       if (this.world && this.world.gemTotal) { pr.gems = pr.gems || {}; pr.gems[this.idx] = Math.max(pr.gems[this.idx] || 0, this.world.got.size); }
       // a run continued from a saved checkpoint does not count for best time
-      if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
+      if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) { if (pr.best[this.idx]) setTimeout(() => this.taunt('👻 رکورد جدید! شبحت ذخیره شد', '#bfe8ff'), 1300); pr.best[this.idx] = +t.toFixed(2); if (this.kind === 'plat') Ghost.save(); }
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));
       this.completed = Math.max(this.completed || 0, this.idx + 1);
       const wonCount = Object.keys(pr.stars).length;
@@ -5237,7 +5292,7 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu() {
-    this.teardown(); this.endless = null; this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
+    this.teardown(); this.endless = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(LEVELS[0].biome);
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },
@@ -5328,7 +5383,7 @@ function renderSettings(tab) {
       <div class="sec"><h3>چی عوض می‌شه؟</h3><p>Go: سبک‌ترین · Plus: سایه‌ی نرم و آینه‌ی عقب · Pro: فیلترهای نور و جزئیات بیشتر · Max: لبه‌های صاف و منظره‌ی کامل · Ultra: رزولوشن بالا، ذرات و درخشش بیشتر · Max Ultra: سایه‌ی واقعی، بیشترین جزئیات و ذرات</p>
       <p><b>۲۰ سطح بالاتر از Max Ultra</b> — هر سطح همه‌ی جلوه‌های سطح قبلی رو داره و یک جزئیات واقعی‌تر اضافه می‌کنه:</p>
       <ol class="tiers">${XTIERS.map(([n, f], i) => `<li${GFXK === 'x' + (i + 1) ? ' class="on"' : ''}><b>${n}</b> ${esc(f)}</li>`).join('')}</ol></div>
-      <div class="sec"><h3>نمایش</h3>${sw('fps', 'نمایش FPS')}${sw('timer', 'زمان‌سنج مرحله')}</div>`;
+      <div class="sec"><h3>نمایش</h3>${sw('fps', 'نمایش FPS')}${sw('timer', 'زمان‌سنج مرحله')}${sw('ghost', 'شبحِ بهترین رکورد 👻')}</div>`;
   } else if (setTab === 'wx') {
     const cur = wxCurrent();
     h += `<div class="sec"><h3>آب و هوا</h3><div class="chips">${Object.keys(WX_KINDS).map(k => chip(CFG.weather === k, WX_KINDS[k].i + ' ' + WX_KINDS[k].n, `data-wx="${k}"`)).join('')}</div>
@@ -5506,6 +5561,7 @@ function frame(now) {
     else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); acc -= STEP; n++; } }
     if (n >= 14) acc = 0;
     app.levelT += dt; ST.time += dt;
+    if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);
   } else if (app.state === 'title' && app.world) {
     app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;

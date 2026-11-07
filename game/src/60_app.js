@@ -157,6 +157,34 @@ function hudTick() {
   $('tmr').textContent = tm; $('gemC').textContent = gm; $('pwr').textContent = pw; $('fps').textContent = fp;
 }
 
+/* ---------- ghost of your best run (2D levels): recorded at 10 Hz, saved when you beat your best time ---------- */
+const Ghost = {
+  rec: null, play: null,
+  key: (d, i) => 'telezar_ghost_' + d + '_' + i,
+  start(d, i, fresh) {
+    this.rec = fresh ? { k: this.key(d, i), a: [] } : null; this.play = null;
+    if (!fresh || CFG.ghost === false) return;
+    try { const s = localStorage.getItem(this.rec.k); if (s) { const b = atob(s), u = new Uint8Array(b.length); for (let j = 0; j < b.length; j++) u[j] = b.charCodeAt(j); this.play = new Int16Array(u.buffer); } } catch (e) { this.play = null; }
+  },
+  stop() { this.rec = null; this.play = null; },
+  tick(w, t) {
+    const r = this.rec; if (!r || r.a.length > 24000) return;
+    while (r.a.length / 2 <= t * 10) r.a.push(Math.round(w.p.x), Math.round(w.p.y * (w.p.g < 0 ? -1 : 1)) || 0);
+  },
+  save() {
+    const r = this.rec; if (!r || r.a.length < 4) return;
+    try { const u = new Uint8Array(new Int16Array(r.a).buffer); let s = ''; for (let j = 0; j < u.length; j++) s += String.fromCharCode(u[j]); localStorage.setItem(r.k, btoa(s)); } catch (e) {}
+  },
+  // position of the ghost at level time t (null when there is none or it already finished)
+  at(t) {
+    const a = this.play; if (!a || CFG.ghost === false || app.state === 'title') return null;
+    const f = t * 10, i = Math.floor(f), n = a.length / 2 - 1; if (i >= n) return null;
+    const k = f - i, x0 = a[i * 2], x1 = a[i * 2 + 2], y0 = a[i * 2 + 1], y1 = a[i * 2 + 3];
+    if (Math.abs(x1 - x0) > 300) return { x: x0, y: Math.abs(y0), flip: y0 < 0, face: 1, vx: 0 };
+    return { x: x0 + (x1 - x0) * k, y: Math.abs(y0 + (y1 - y0) * k), flip: y0 < 0, face: x1 < x0 ? -1 : 1, vx: (x1 - x0) * 10 };
+  },
+};
+
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
@@ -232,6 +260,7 @@ const app = {
     if (v === 'r2') setTimeout(() => this.taunt(isTouch ? '▲ ▼ = جابه‌جایی بالا و پایین جاده' : '← → = جابه‌جایی بالا و پایین جاده', '#9ef9ff'), 2300);
     this.updTag();
     this.updDeaths();
+    if (!opt.keep) { if (this.kind === 'plat' && !def.endless && this.realmIdx < 0) Ghost.start(this.diff, this.idx, !opt.resumed && !(opt.ck > 0)); else Ghost.stop(); }
     if (this.kind === 'plat') {
       const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
       w.onCheckpoint = i => this.onCheckpoint(i);
@@ -328,7 +357,7 @@ const app = {
       if (pr.ck) delete pr.ck[this.idx];
       if (this.world && this.world.gemTotal) { pr.gems = pr.gems || {}; pr.gems[this.idx] = Math.max(pr.gems[this.idx] || 0, this.world.got.size); }
       // a run continued from a saved checkpoint does not count for best time
-      if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
+      if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) { if (pr.best[this.idx]) setTimeout(() => this.taunt('👻 رکورد جدید! شبحت ذخیره شد', '#bfe8ff'), 1300); pr.best[this.idx] = +t.toFixed(2); if (this.kind === 'plat') Ghost.save(); }
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));
       this.completed = Math.max(this.completed || 0, this.idx + 1);
       const wonCount = Object.keys(pr.stars).length;
@@ -373,7 +402,7 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu() {
-    this.teardown(); this.endless = null; this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
+    this.teardown(); this.endless = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(LEVELS[0].biome);
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },

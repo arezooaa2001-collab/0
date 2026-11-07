@@ -69,6 +69,9 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // ghost of the best run: the same hero, see-through
+    { const gh = buildHeroMesh(keep); gh.g.traverse(o => { if (o.material) { o.material = keep(o.material.clone()); o.material.transparent = true; o.material.opacity = .3; o.material.depthWrite = false; } });
+      gh.g.scale.setScalar(.6); gh.g.visible = false; sc.add(gh.g); this.ghost = gh; }
     // shield / star bubble around the hero
     this.bubble = new THREE.Mesh(keep(new THREE.SphereGeometry(.62, 20, 14)), keep(new THREE.MeshBasicMaterial({ color: 0x7af7ff, transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending }))); this.bubble.visible = false; sc.add(this.bubble);
     this.fogF = sc.fog.far; this.wx = new Wx3(sc, keep, [26, 12, 7], f => (H - (17.25 - f * 1.45) * T) / T);
@@ -294,6 +297,9 @@ class P3D {
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
+    { const gp = app.world === w ? Ghost.at(app.levelT) : null, gg = this.ghost.g; gg.visible = !!gp;
+      if (gp) { gg.position.set(this.X(gp.x + PW / 2), gp.flip ? this.Y(gp.y) : this.Y(gp.y + PHT), -.3); gg.rotation.set(0, gp.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, gp.flip ? Math.PI : 0);
+        const lg = Math.abs(gp.vx) > 40 ? Math.sin(t * 12) * .22 : 0; this.ghost.legs[0].position.z = lg; this.ghost.legs[1].position.z = -lg; } }
     let sc = .6; if (w.state === 'win') { sc *= Math.max(.02, p.winS); g.rotation.y += p.rot; }
     g.scale.set(sc * p.sx, sc * p.sy, sc * p.sx);
     const run = p.onGround && Math.abs(p.vx) > 40, ph = p.runPhase;

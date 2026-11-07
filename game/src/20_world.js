@@ -198,6 +198,7 @@ class World {
   }
 
   step(dt, inp) {
+    if (this.slowmo > 0) { this.slowmo -= dt; dt *= .3; }   // a short slow-motion moment when you die
     this.time += dt;
     this.updAct();
     if (this.state === 'play') {
@@ -524,7 +525,7 @@ class World {
   }
   die(cause) {
     if (this.state !== 'play' || this.saved(cause)) return;
-    const p = this.p; this.state = 'dead'; this.deadT = 0.95; this.flash = 1;
+    const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
     this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
     this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });

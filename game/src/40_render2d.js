@@ -464,6 +464,15 @@ function drawLaser(e, t) {
   ctx.restore();
 }
 
+function drawGhost(world, t) {
+  if (world.silent || app.kind !== 'plat' || world !== app.world) return;
+  const g = Ghost.at(app.levelT); if (!g) return;
+  ctx.save(); ctx.globalAlpha = .33;
+  if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(TEX.gCyan, g.x + PW / 2 - 40, g.y + PHT / 2 - 40, 80, 80); ctx.globalCompositeOperation = 'source-over'; }
+  ctx.translate(g.x + PW / 2, g.flip ? g.y : g.y + PHT); if (g.flip) ctx.scale(1, -1);
+  drawHero(t, g.face, true, g.vx, 0, t * 12, 1, false);
+  ctx.restore();
+}
 function drawPlayer(world, t) {
   const p = world.p; if (world.state === 'dead') return;
   emitTrail(world, t); drawPowFx(world, t, true);
@@ -681,6 +690,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'tele') drawTele(e, t);
   for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
+  drawGhost(world, t);
   drawPlayer(world, t);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
@@ -691,6 +701,15 @@ function drawOverlays(world, t) {
   if (world && world.rev) {
     const a = 0.35 + Math.sin(t * 6) * 0.15, b = 26 * dpr;
     ctx.fillStyle = `rgba(197,155,255,${a})`; ctx.fillRect(0, 0, cw, b * .35); ctx.fillRect(0, ch - b * .35, cw, b * .35); ctx.fillRect(0, 0, b * .35, ch); ctx.fillRect(cw - b * .35, 0, b * .35, ch);
+  }
+  // speed lines while dashing or with the star
+  if (world && world.p && world.state === 'play' && (world.p.dashT > 0 || world.p.starT > 0) && Math.abs(world.p.vx) > PH.run * .8) {
+    const sp = world.p, dir = sp.vx > 0 ? 1 : -1; ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = sp.starT > 0 ? 'rgba(255,226,138,.4)' : 'rgba(255,255,255,.32)'; ctx.lineWidth = 2.2 * dpr; ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const len = (70 + (i * 37) % 130) * dpr, y = ch * (.08 + ((i * 0.618) % 1) * .84), u = ((t * (2.2 + (i % 3) * .5) + i * .37) % 1) * (cw + len);
+      const x = dir > 0 ? cw - u : u - len; ctx.moveTo(x, y); ctx.lineTo(x + len, y);
+    }
+    ctx.stroke(); ctx.restore();
   }
   if (world && world.p && world.p.slowT > 0) {
     const a = Math.min(1, world.p.slowT * 2) * (.85 + Math.sin(t * 4) * .15), gr = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .3, cw / 2, ch / 2, Math.max(cw, ch) * .7);

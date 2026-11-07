@@ -31,6 +31,7 @@ function frame(now) {
     else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); acc -= STEP; n++; } }
     if (n >= 14) acc = 0;
     app.levelT += dt; ST.time += dt;
+    if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);
   } else if (app.state === 'title' && app.world) {
     app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;
