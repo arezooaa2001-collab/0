@@ -61,6 +61,8 @@ function writeSave() {
   } catch (e) {}
 }
 const progOf = d => app.prog[d] || (app.prog[d] = {});
+// room reached in an unfinished long level (0 = start); ignored if the level's room count changed
+const savedRoom = (d, i) => { const r = (progOf(d).room || {})[i] | 0, n = LEVELS[i] && LEVELS[i].rooms ? LEVELS[i].rooms.length : 1; return r > 0 && r < n ? r : 0; };
 const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${faNum(m)}:${faNum(r.toFixed(0).padStart(2, '0'))}` : faNum(r.toFixed(1)); };
 
 /* ---------- achievements ---------- */
@@ -156,30 +158,36 @@ const app = {
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : rm);
   },
   label() { return this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
-  startLevel(i) { this.realmIdx = -1; this.idx = i; this.startDef(LEVELS[i]); },
-  startRealm(r) { this.realmIdx = r; this.startDef(REALM[r]); },
+  startLevel(i, opt = {}) {
+    this.realmIdx = -1; this.idx = i;
+    // long levels: continue from the room reached last time (saved per difficulty)
+    if (opt.room == null) { const sr = savedRoom(this.diff, i); if (sr > 0) opt = Object.assign({}, opt, { room: sr, resumed: true }); }
+    this.startDef(LEVELS[i], opt);
+  },
+  startRealm(r, opt = {}) { this.realmIdx = r; this.startDef(REALM[r], opt); },
   teardown() { if (this.run) { this.run.dispose(); this.run = null; } if (this.p3) { this.p3.dispose(); this.p3 = null; } },
-  startDef(def) {
-    this.teardown();
+  startDef(def, opt = {}) {
+    this.teardown(); this.resumed = !!opt.resumed;
     this.def = def; this.kind = def.kind === '3d' ? 'run' : 'plat';
     let v = viewOf(def);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
     if ((v === 'p25') !== !!BG.far) buildBackground();
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
-    this.state = 'play'; this.show(null); this.levelT = 0; this.levelDeaths = 0;
+    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
     tLayer.classList.toggle('vert', v === 'r2');
     if (v === 'r2') setTimeout(() => this.taunt(isTouch ? '▲ ▼ = جابه‌جایی بالا و پایین جاده' : '← → = جابه‌جایی بالا و پایین جاده', '#9ef9ff'), 2300);
     this.updTag();
     this.updDeaths();
     if (this.kind === 'plat') {
-      const w = this.world = new World(def, { diff: this.diff });
+      const w = this.world = new World(def, { diff: this.diff, room: opt.room || 0 });
       w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
     } else {
       const run = this.run = new Run3D(def, this.diff, { noScene: v !== 'x3' });
+      if (opt.ck > 0) { run.ckS = opt.ck; run.respawn(false); }
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
@@ -193,12 +201,15 @@ const app = {
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.room + 1)} از ${faNum(this.world.rooms.length)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
     if (!this.def || (this.state !== 'play' && this.state !== 'pause')) return;
     const st = this.state, sc = this.screen;
-    if (this.realmIdx >= 0) this.startRealm(this.realmIdx); else this.startDef(this.def);
+    // keep the room / checkpoint, time and deaths: only the view is rebuilt
+    const o = { keep: true, resumed: this.resumed, room: this.kind === 'plat' && this.world ? this.world.room : 0, ck: this.run ? this.run.ckS : 0 };
+    if (this.realmIdx >= 0) this.startRealm(this.realmIdx, o); else { this.realmIdx = -1; this.startDef(this.def, o); }
     if (st === 'pause') { this.state = 'pause'; this.show(sc || 'sPause'); $('banner').classList.remove('show'); }
   },
   refreshVisuals() {
@@ -232,6 +243,7 @@ const app = {
     const w = this.world, d = w.winDoor, flat = this.view === 'p2' || this.view === 'p25';
     const go = () => {
       w.nextRoom();
+      if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.room || (pr.room = {}))[this.idx] = w.room; writeSave(); }
       if (this.p3) { this.p3.dispose(); this.p3 = new P3D(w); }
       this.updTag(); $('revBadge').classList.remove('on');
       this.taunt(`اتاق ${faNum(w.room + 1)} از ${faNum(w.rooms.length)}` + (w.room === w.rooms.length - 1 ? ' — آخرین اتاق!' : ''), '#9ef9ff');
@@ -260,7 +272,9 @@ const app = {
     } else {
       const pr = progOf(this.diff); pr.stars = pr.stars || {}; pr.best = pr.best || {};
       pr.stars[this.idx] = Math.max(pr.stars[this.idx] || 0, stars);
-      if (!pr.best[this.idx] || t < pr.best[this.idx]) pr.best[this.idx] = +t.toFixed(2);
+      if (pr.room) delete pr.room[this.idx];
+      // a run continued from a saved room does not count for best time
+      if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));
       this.completed = Math.max(this.completed || 0, this.idx + 1);
       const wonCount = Object.keys(pr.stars).length;
@@ -269,7 +283,7 @@ const app = {
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }
-    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && t < nr * 8) unlockAch('speed');
+    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < nr * 8) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const flat = v => v === 'p2' || v === 'p25';
@@ -291,6 +305,13 @@ const app = {
   restart() {
     if (this.kind === 'run') { if (this.run && (this.run.state === 'run' || this.run.state === 'intro')) this.run.respawn(false); return; }
     if (this.world && this.world.state === 'play') { this.world.respawn(false); }
+  },
+  restartLevel() {
+    // whole level from room 1 / from the start of the chase (forgets a saved room)
+    if (!this.def) return;
+    if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { room: 0 });
+    const pr = progOf(this.diff); if (pr.room && pr.room[this.idx]) { delete pr.room[this.idx]; writeSave(); }
+    this.startLevel(this.idx, { room: 0 });
   },
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
@@ -314,7 +335,9 @@ const app = {
     const g = $('lvGrid'); g.innerHTML = ''; const pr = progOf(this.diff), stars = pr.stars || {};
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
-      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : ''); b.title = L.name; b.disabled = i >= this.unlocked;
+      const sr = savedRoom(this.diff, i);
+      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sr > 0 ? `<span class="rs">▶${faNum(sr + 1)}</span>` : '');
+      b.title = L.name + (sr > 0 ? ` — ادامه از اتاق ${faNum(sr + 1)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);
     });
@@ -340,6 +363,7 @@ $('bPause').onclick = () => { Sound.play('click'); app.pause(); };
 $('bRestart').onclick = () => { Sound.play('click'); app.restart(); };
 $('bResume').onclick = () => { Sound.play('click'); app.resume(); };
 $('bRestart2').onclick = () => { Sound.play('click'); app.resume(); app.restart(); };
+$('bRestartAll').onclick = () => { Sound.play('click'); app.restartLevel(); };
 $('bMenu').onclick = $('bMenu2').onclick = () => { Sound.play('click'); app.menu(); };
 $('bAgain').onclick = () => { Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(0); };
 function renderDiffs() {

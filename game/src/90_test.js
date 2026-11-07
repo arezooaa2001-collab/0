@@ -2,7 +2,7 @@
 // Deterministic headless simulation used for verifying each level is beatable.
 window.TRAPLAND = {
   LEVELS,
-  sim3(idx, diff = 1, maxT = 400) {
+  sim3(idx, diff = 1, maxT = 1200) {
     const run = new Run3D(LEVELS[idx], diff, { headless: true }); let deaths = 0, minGap = 1e9, hits = 0, t = 0;
     run.onDeath = c => { deaths++; run.lastCause = c; }; run.onStumble = () => hits++;
     while (t < maxT) { run.update(STEP, bot3(run)); t += STEP; if (run.state === 'run') minGap = Math.min(minGap, run.gapNow()); if (run.state === 'win' || deaths) break; }

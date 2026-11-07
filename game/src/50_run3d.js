@@ -98,8 +98,9 @@ class Run3D {
     const def = this.def, rng = srand(def.seed * 7919 + 17 + this.d * 101);
     const roads = [], bridges = [], obs = [], gaps = [];
     const dd = (def.dens || 1) * this.DD.dens;
-    const v = this.speed, minSp = v * (dd > 1.6 ? 0.92 : dd > 1.25 ? 0.98 : 1.1) + 4, extra = 20 / dd;
-    const types = def.types.length ? def.types.concat(dd >= 1 ? ['combo'] : []) : [];
+    // dense course: roughly one obstacle row every 1-1.4 s of running, plus multi-part patterns from mid density up
+    const v = this.speed, minSp = v * (dd > 1.6 ? 0.78 : dd > 1.25 ? 0.82 : 0.88) + 2.5, extra = 7 / dd;
+    const types = def.types.length ? def.types.concat(dd >= 1 ? ['combo'] : [], dd >= 0.8 ? ['slalom', 'hurdles'] : []) : [];
     let cur = 70, roadStart = 0;
     const zigP = def.zig || 0;
     while (cur < this.len - 60) {
@@ -149,6 +150,19 @@ class Run3D {
         obs.push({ type: 'spikes', x0: c - w / 2, x1: c + w / 2, y1: 0.6, s0: s, s1: s + 2 });
       } else if (t === 'mover') {
         obs.push({ type: 'mover', w: 3.2, amp: 3.4, om: 1.4 + rng() * 1.1, ph: rng() * 6.28, y1: 3.4, s0: s, s1: s + 1.2, x0: 0, x1: 0 });
+      } else if (t === 'slalom') {
+        // staggered half-road posts: weave left-right-left
+        const step = v * 0.62 + 2, n = 3 + (rng() < 0.4 ? 1 : 0); let side = rng() < 0.5 ? -1 : 1;
+        for (let k = 0; k < n; k++, side = -side) {
+          const ss = s + k * step;
+          obs.push(side < 0 ? { type: 'wall', x0: -5, x1: 0.4, y1: 3.6, s0: ss, s1: ss + 1.2 } : { type: 'wall', x0: -0.4, x1: 5, y1: 3.6, s0: ss, s1: ss + 1.2 });
+        }
+        cur = s + (n - 1) * step;
+      } else if (t === 'hurdles') {
+        // back-to-back full-width bars: jump, land, jump again
+        const step = v * 0.78 + 2.2, n = 2 + (rng() < 0.35 ? 1 : 0);
+        for (let k = 0; k < n; k++) { const ss = s + k * step; obs.push({ type: 'bar', x0: -5, x1: 5, y1: 1.0, s0: ss, s1: ss + 0.45 }); }
+        cur = s + (n - 1) * step;
       } else if (t === 'roller') {
         const w = 7 + rng() * 3, c = (rng() * 2 - 1) * (5 - w / 2);
         obs.push({ type: 'roller', x0: c - w / 2, x1: c + w / 2, y1: 1.1, s0: s + 12, s1: s + 13.1, base: s + 12, rs: 5 });
@@ -156,7 +170,8 @@ class Run3D {
       cur += minSp + rng() * extra;
     }
     roads.push([roadStart, this.len + 80]);
-    this.roads = roads; this.bridges = bridges; this.obs = obs; this.gaps = gaps;
+    obs.sort((a, b) => a.s0 - b.s0); // sorted so the simulation only scans a small window around the player
+    this.roads = roads; this.bridges = bridges; this.obs = obs; this.gaps = gaps; this.oi = 0; this.oe = 0;
     // collectibles: gem lines in the free stretches between obstacle rows, gem arcs over gaps, a power-up every ~300 m
     const pr = srand(def.seed * 131 + 7 + this.d), picks = [];
     const rows = obs.map(o => [o.s0, o.type === 'roller' ? o.s1 - 12 : o.s1]).sort((a, b) => a[0] - b[0]);
@@ -172,7 +187,14 @@ class Run3D {
       prevEnd = Math.max(prevEnd, r[1]);
     }
     for (const g of gaps) { const m = (g.s0 + g.s1) / 2; picks.push({ k: 'gem', x: 0, y: 1.3, s: g.s0 - 1.2 }, { k: 'gem', x: 0, y: 1.9, s: m }, { k: 'gem', x: 0, y: 1.3, s: g.s1 + 1.2 }); }
-    this.picks = picks;
+    picks.sort((a, b) => a.s - b.s); this.picks = picks; this.ki = 0;
+  }
+  // window of obstacles near the player: [oi, oe) covers everything from 4 m behind to 65 m ahead
+  syncWin() {
+    const o = this.obs, s = this.p.s;
+    while (this.oi < o.length && o[this.oi].s1 < s - 4) this.oi++;
+    if (this.oe < this.oi) this.oe = this.oi;
+    while (this.oe < o.length && o[this.oe].s0 <= s + 65) this.oe++;
   }
 
   roadAt(s) { for (const r of this.roads) if (s >= r[0] && s <= r[1]) return true; return false; }
@@ -190,6 +212,7 @@ class Run3D {
     this.state = 'intro'; this.introT = this.firstIntro ? 2.4 : 0.9; this.introMax = this.introT; this.firstIntro = false;
     for (const o of this.obs) { o.hit = false; if (o.type === 'roller') { o.s0 = o.base; o.s1 = o.base + 1.1; o.act = false; o.rot = 0; } }
     for (const k of this.picks) if (k.s > sc) k.got = false;
+    this.oi = this.oe = this.ki = 0; this.syncWin();
     this.p.shield = false; this.p.boostT = 0; this.freezeT = 0;
     this.deadT = 0; this.winT = 0; this.cause = null; this.runT = 0; this.p.coy = 0;
   }
@@ -242,7 +265,9 @@ class Run3D {
     if (p.falling && p.y < -3) return this.die('fall');
     // obstacles
     const px0 = p.x - 0.35, px1 = p.x + 0.35, ps0 = p.s - 0.35, ps1 = p.s + 0.35;
-    for (const o of this.obs) {
+    this.syncWin();
+    for (let i = this.oi, obs = this.obs; i < this.oe; i++) {
+      const o = obs[i];
       if (o.type === 'gap') continue;
       if (o.s0 > p.s + 60 || o.s1 < p.s - 3) {
         if (o.type === 'roller' && !o.act && o.s0 - p.s < 48 && o.s0 > p.s) o.act = true;
@@ -261,8 +286,11 @@ class Run3D {
       }
     }
     // pickups
-    for (const k of this.picks) {
-      if (k.got || k.s < p.s - 1.2 || k.s > p.s + 1.2) continue;
+    const picks = this.picks;
+    while (this.ki < picks.length && picks[this.ki].s < p.s - 1.2) this.ki++;
+    for (let i = this.ki; i < picks.length; i++) {
+      const k = picks[i]; if (k.s > p.s + 1.2) break;
+      if (k.got) continue;
       if (Math.abs(k.x - p.x) < 0.95 && Math.abs(k.y - (p.y + 0.75)) < 1.25) {
         k.got = true;
         if (k.k === 'gem') { this.gems++; this.sfx('gem'); }
@@ -418,6 +446,7 @@ class Run3D {
     // collectibles
     { const gems = this.picks.filter(k => k.k === 'gem'), pows = this.picks.filter(k => k.k !== 'gem');
       this.gemMesh = inst(keep(new THREE.OctahedronGeometry(0.34, 0)), keep(new THREE.MeshBasicMaterial({ color: 0x7af7ff })), gems.length); this.gemList = gems;
+      gems.forEach((k, i) => put(this.gemMesh, i, 0, -60, 0, 0, 0, 0)); this.gemMesh.instanceMatrix.needsUpdate = true; this.gWin = [0, 0];
       this.powMesh = inst(keep(flatG(new THREE.IcosahedronGeometry(0.5, 0))), keep(new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x333333 })), pows.length); this.powList = pows;
       const cc = new THREE.Color(); pows.forEach((k, i) => this.powMesh.setColorAt(i, cc.set({ shield: 0x4aa8ff, boost: 0xffd36e, freeze: 0x9ef9ff }[k.k])));
       if (pows.length) this.powMesh.instanceColor.needsUpdate = true;
@@ -433,6 +462,32 @@ class Run3D {
     this.dustPts.frustumCulled = false; this.dustPts.visible = !!GFX.dust; sc.add(this.dustPts);
     this.gShadow.visible = GFX.sh === 1;
     this.lightningT = 3;
+    // long courses: split static instanced meshes into chunks along the track so far chunks are skipped
+    const dyn = new Set([...Object.values(this.gm), this.gShadow, this.gemMesh, this.powMesh, this.powRing, this.moverMesh, this.moverCap, this.rollerMesh]);
+    this.chunkStatic(dyn);
+  }
+  chunkStatic(dyn) {
+    const CH = 400, list = [], chunks = this.chunks = [];
+    this.scene.traverse(o => { if (o.isInstancedMesh && !dyn.has(o) && o.count > 40) list.push(o); });
+    for (const m of list) {
+      const a = m.instanceMatrix.array, n = m.count, groups = new Map();
+      for (let i = 0; i < n; i++) { const k = Math.floor(-a[i * 16 + 14] / CH); let g = groups.get(k); if (!g) groups.set(k, g = []); g.push(i); }
+      if (groups.size < 3) continue;
+      for (const [k, idx] of groups) {
+        const c = new THREE.InstancedMesh(m.geometry, m.material, idx.length);
+        c.frustumCulled = false; c.castShadow = m.castShadow; c.receiveShadow = m.receiveShadow; c.renderOrder = m.renderOrder;
+        const ca = c.instanceMatrix.array;
+        idx.forEach((i, j) => { for (let q = 0; q < 16; q++) ca[j * 16 + q] = a[i * 16 + q]; });
+        if (m.instanceColor) { const col = new THREE.Color(); idx.forEach((i, j) => { m.getColorAt(i, col); c.setColorAt(j, col); }); c.instanceColor.needsUpdate = true; }
+        c.instanceMatrix.needsUpdate = true; this.scene.add(c); chunks.push({ m: c, s0: k * CH, s1: (k + 1) * CH });
+      }
+      this.scene.remove(m); m.dispose();
+    }
+  }
+  cullChunks() {
+    // keep everything the main camera (far plane 900) and the rear mirror can show
+    const s = this.p.s, a = s - 420, b = s + 960;
+    for (const c of this.chunks) c.m.visible = c.s1 > a && c.s0 < b;
   }
 
   buildScenery(rng, inst, put, lam, unitBox, keep) {
@@ -556,8 +611,14 @@ class Run3D {
     const h = buildHeroMesh(keep); this.pl = h.g; this.plBody = h.body; this.tail = h.tail; this.legs = h.legs; this.pglow = h.glow; this.scene.add(h.g);
   }
   posePicks(t) {
-    const put = this.put, p = this.p;
-    this.gemList.forEach((k, i) => { const vis = !k.got && k.s > p.s - 3 && k.s < p.s + 160; put(this.gemMesh, i, k.x, k.y + Math.sin(t * 3 + k.s) * .12, -k.s, vis ? 1 : 0, vis ? 1.3 : 0, vis ? 1 : 0, 0, t * 2 + k.s, 0); });
+    const put = this.put, p = this.p, G = this.gemList, lo = p.s - 3, hi = p.s + 160;
+    // gems are sorted by distance: only the ones in view are posed, the ones that just left view are hidden
+    let a = 0, e = G.length; while (a < e) { const m = (a + e) >> 1; if (G[m].s > lo) e = m; else a = m + 1; }
+    e = a; while (e < G.length && G[e].s < hi) e++;
+    const [pa, pe] = this.gWin;
+    for (let i = pa; i < pe; i++) if (i < a || i >= e) put(this.gemMesh, i, 0, -60, 0, 0, 0, 0);
+    for (let i = a; i < e; i++) { const k = G[i], vis = !k.got; put(this.gemMesh, i, k.x, k.y + Math.sin(t * 3 + k.s) * .12, -k.s, vis ? 1 : 0, vis ? 1.3 : 0, vis ? 1 : 0, 0, t * 2 + k.s, 0); }
+    this.gWin = [a, e];
     this.powList.forEach((k, i) => { const vis = !k.got && k.s > p.s - 3 && k.s < p.s + 160, sc = vis ? 1 + Math.sin(t * 5) * .08 : 0;
       put(this.powMesh, i, k.x, k.y + Math.sin(t * 2.5 + k.s) * .15, -k.s, sc, sc, sc, t, t * 1.4, 0); put(this.powRing, i, k.x, k.y, -k.s, sc, sc, sc, Math.PI / 2, 0, t * 2); });
     if (this.gemList.length) this.gemMesh.instanceMatrix.needsUpdate = true;
@@ -618,7 +679,7 @@ class Run3D {
     this.sky.position.copy(cam.position);
     if (this.disc) { const d = this.sunDir; this.disc.position.copy(cam.position).addScaledVector(d, 600); this.disc.lookAt(cam.position); this.discCore.position.copy(cam.position).addScaledVector(d, 594); this.discCore.lookAt(cam.position); }
     if (this.sunL && this.sunL.castShadow) { this.sunL.target.position.set(p.x * 0.5, 0, -p.s - 14); this.sunL.position.set(p.x * 0.5 - 24, 40, -p.s - 14 - 16); this.sunL.target.updateMatrixWorld(); }
-    this.posePicks(t);
+    this.posePicks(t); this.cullChunks();
     this.mist.position.x = cam.position.x; this.mist.position.z = cam.position.z;
     // main pass
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
@@ -735,6 +796,7 @@ class Run3D {
 function bot3(run) {
   const p = run.p, v = run.curV || run.speed * p.run * p.stum, inp = { left: false, right: false, jump: false };
   if (run.state !== 'run') return inp;
+  run.syncWin(); const W0 = run.oi, W1 = run.oe, OB = run.obs;
   // lateral target: free x for walls/movers/spikes in the next ~1.6 s, or the bridge centre
   const look = Math.max(18, v * 1.7);
   let target = p.x;
@@ -748,7 +810,7 @@ function bot3(run) {
     let best = null, bestScore = 1e9;
     for (let x = -4.4; x <= 4.4; x += 0.2) {
       let score = Math.abs(x - p.x) * 0.15;
-      for (const o of run.obs) {
+      for (let i = W0; i < W1; i++) { const o = OB[i];
         if (o.type === 'gap' || o.hit || o.s1 < p.s - 0.4 || o.s0 > p.s + look) continue;
         let x0 = o.x0, x1 = o.x1;
         if (o.type === 'mover') {
@@ -766,7 +828,7 @@ function bot3(run) {
   if (target > p.x + 0.12) inp.right = true; else if (target < p.x - 0.12) inp.left = true;
   // jump decisions
   if (p.ground || p.coy > 0) {
-    for (const o of run.obs) {
+    for (let i = W0; i < W1; i++) { const o = OB[i];
       const d = o.s0 - p.s;
       if (d < -0.5 || d > 12) continue;
       if (o.type === 'gap') { if (d < 1.2 && d > -0.3) inp.jump = true; continue; }

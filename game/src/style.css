@@ -192,6 +192,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .lvStars div{padding:5px;border-radius:10px;background:rgba(255,255,255,.05);text-align:center;font-size:12px}
 .lvStars b{display:block;font-size:13px}
 .lv .st{position:absolute;bottom:2px;left:0;right:0;font-size:9px;color:var(--gold);letter-spacing:-1px}
+.lv .rs{position:absolute;top:2px;right:4px;font-size:9px;font-weight:900;color:#9ef9ff}
 .realmLbl{margin:2px 0 8px;font-weight:900;color:#c59bff}
 .grid.realm .lv{background:linear-gradient(180deg,rgba(197,155,255,.3),rgba(197,155,255,.08));border-color:rgba(197,155,255,.6)}
 @media (max-height:430px){

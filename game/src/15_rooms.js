@@ -1,9 +1,11 @@
 /* ============================ LONGER LEVELS: ROOMS ============================ */
-// Every platformer level is a chain of rooms (screens). Room 1 is the hand-made screen of the level;
-// the following rooms are built from a library of trap segments that matches the level's theme, getting
-// harder towards the end of the game. Dying sends you back to the start of the current room (checkpoint).
+// Every platformer level is a long chain of rooms (screens): 8 rooms on level 1 up to 18 on the last
+// platformer levels, 12 in each hidden-realm level. Room 1 is the hand-made screen of the level; the
+// following rooms are packed with trap segments: the level's own themed traps mixed with a shared pool
+// that unlocks more trap types as the game goes on, getting harder towards the end of each level and of
+// the game. Dying sends you back to the start of the current room (checkpoint).
 // Room seeds were checked with the auto-solver on easy and insane; ROOM_SEED_FIX holds seeds swapped in
-// where the first seed produced an unsolvable layout.
+// where the first seed produced a layout the solver could not finish.
 const ROOM_SEED_FIX = {};
 
 /* segment library: each builds a feature starting at column x using at most m columns and returns the
@@ -73,7 +75,46 @@ const SEG = {
     F(x, 1); L.orb(id + 'a', x + .5, 14.4); L.spikes(null, x + 4, 3.5, 1, 'down'); L.orb(id + 'b', x + w - .5, 3.9);
     F(x + w, land); return w + land;
   },
+  pillarHop(L, x, m, r, k, id) {
+    // hop across 1-tile pillars of alternating height over a spike pit
+    const n = 2 + (r() < .3 + k * .5 ? 1 : 0), w = n * 3 + 2; if (w > m) return 0;
+    for (let i = 0; i <= n; i++) L.spikes(null, x + i * 3, 17, 2, 'up');
+    for (let i = 0; i < n; i++) { const top = i % 2 ? 13 : 14; L.block(null, x + 2 + i * 3, top, 1, 18 - top); }
+    return w;
+  },
+  stairs(L, x, m, r, k, id, F) {
+    // climb three steps, then leap over a spike strip from the top step
+    const n = 2 + (k > .5 ? 1 : 0), w = 9 + n; if (w > m) return 0; F(x, w);
+    L.block(null, x + 1, 14, 2, 1); L.block(null, x + 3, 13, 2, 2); L.block(null, x + 5, 12, 2, 3);
+    L.spikes(null, x + 7, 14, n, 'up'); return w;
+  },
+  sawRail(L, x, m, r, k, id) {
+    // a saw rides up and down through a spike pit: time the jump
+    const w = 3 + (k > .6 ? 1 : 0); if (w > m) return 0;
+    L.spikes(null, x, 17, w, 'up');
+    L.saw(id, x + w / 2, 16.2, .55, { patrol: [[x + w / 2, 16.2], [x + w / 2, 10.6]], speed: 2.2 + k * 2 }); return w;
+  },
+  doubleSpike(L, x, m, r, k, id, F) {
+    // two spike strips with a one-tile island between them
+    const a = 1 + (r() < k ? 1 : 0), w = a * 2 + 3; if (w > m) return 0;
+    F(x, w); L.spikes(null, x + 1, 14, a, 'up'); L.spikes(null, x + 2 + a, 14, a, 'up'); return w;
+  },
+  lowCeil(L, x, m, r, k, id, F) {
+    // spiked ceiling hangs low: a full jump hits it, so hop the floor spike with a short tap
+    if (7 > m) return 0; F(x, 7);
+    L.block(null, x, 0, 7, 10.6, { ceil: true }); L.spikes(null, x, 10.6, 7, 'down');
+    L.spikes(null, x + 3, 14, 1, 'up'); return 7;
+  },
 };
+// shared trap pool, unlocked step by step through the game (by level progress k0)
+const POOL = [
+  [0, ['pit', 'spikes', 'hidden', 'drop', 'doubleSpike', 'pillarHop', 'stairs']],
+  [.22, ['saw', 'crumble', 'sawRail', 'wall']],
+  [.42, ['crusher', 'fallSpikes', 'bump', 'ghost', 'movingPlat', 'lowCeil']],
+  [.65, ['orbit']],
+];
+const HIDDEN_SEG = new Set(['hidden', 'drop', 'ghost', 'bump']); // traps you cannot see before they spring
+const poolFor = k0 => POOL.filter(([u]) => k0 >= u).flatMap(([, l]) => l);
 // which segments each platformer level uses (by position in LEVELS), plus room-wide extras
 const ROOM_THEMES = {
   0: { seg: ['pit', 'drop', 'spikes'] }, 2: { seg: ['hidden', 'spikes', 'pit'] }, 3: { seg: ['wall', 'pit', 'hidden'] },
@@ -90,20 +131,25 @@ const ROOM_THEMES = {
 };
 const REALM_THEME = { seg: ['laser', 'movingPlat', 'orbit', 'pit', 'ice', 'conveyor', 'laser'], dj: true };
 
-function genRoom(theme, seed, k, extra = {}) {
+function genRoom(theme, seed, k, extra = {}, pool = []) {
   const o = Object.assign({}, theme, extra);
-  return { spawn: [1, 14], dark: !!o.dark, gen: true, seed, remake: sd => genRoom(theme, sd, k, extra), build(L) {
+  return { spawn: [1, 14], dark: !!o.dark, gen: true, seed, remake: sd => genRoom(theme, sd, k, extra, pool), build(L) {
     const r = srand(seed * 9973 + 7), floors = [];
     const F = (x, w) => floors.push([x, x + w]);
     F(0, 3);
-    let x = 3, i = 0, tries = 0;
-    const END = 27.5;
-    while (x < END - 3 && tries++ < 40) {
-      const name = o.seg[Math.floor(r() * o.seg.length)];
-      const pad = 1 + (r() < .45 ? 1 : 0);
+    let x = 3, i = 0, tries = 0, nHid = 0, last = '';
+    const END = 28, maxHid = 1 + (k > .55 ? 1 : 0);
+    while (x < END - 2 && tries++ < 60) {
+      // the level's own traps most of the time, the shared pool for variety; at most one or two invisible
+      // traps per room (so a room never looks empty) and never the same trap twice in a row
+      const list = pool.length && r() < .42 ? pool : o.seg;
+      const name = list[Math.floor(r() * list.length)];
+      if (name === last || (HIDDEN_SEG.has(name) && nHid >= maxHid)) continue;
+      const pad = 1 + (r() < .28 ? 1 : 0);
       const used = SEG[name](L, x + pad, END - (x + pad), r, k, 'g' + i, F, o);
       if (!used) continue;
-      F(x, pad); x += pad + used; i++;
+      if (HIDDEN_SEG.has(name)) nHid++;
+      F(x, pad); x += pad + used; i++; last = name;
     }
     F(x, 32 - x);
     // merge plain floor pieces into long blocks
@@ -116,21 +162,24 @@ function genRoom(theme, seed, k, extra = {}) {
     L.door(29.6, 13);
   }};
 }
-// attach rooms: early levels 3 rooms, middle 4, late 5; hidden realm 4 each
+// attach rooms: 8 rooms on the first level growing to 18 on the last platformer levels; hidden realm 12 each.
+// k (difficulty of a room) grows with the level and with the position of the room inside the level.
+const roomCount = idx => 8 + Math.round(idx * 10 / 38);
 LEVELS.forEach((def, idx) => {
   if (def.kind === '3d') return;
   const th = ROOM_THEMES[idx]; if (!th) return;
-  const n = idx < 10 ? 3 : idx < 20 ? 4 : 5;
+  const n = roomCount(idx), k0 = idx / 39, pool = poolFor(k0);
   def.rooms = [def];
   for (let room = 1; room < n; room++) {
     const key = idx + ':' + room, seed = ROOM_SEED_FIX[key] ?? (idx * 100 + room);
-    def.rooms.push(genRoom(th, seed, clamp(idx / 39 + room * .07, 0, 1)));
+    def.rooms.push(genRoom(th, seed, clamp(k0 + room / n * .35, 0, 1), {}, pool));
   }
 });
 REALM.forEach((def, ri) => {
   def.rooms = [def];
-  for (let room = 1; room < 4; room++) {
+  const n = 12, pool = poolFor(1);
+  for (let room = 1; room < n; room++) {
     const key = 'r' + ri + ':' + room, seed = ROOM_SEED_FIX[key] ?? (5000 + ri * 100 + room);
-    def.rooms.push(genRoom(REALM_THEME, seed, clamp(.75 + ri * .1 + room * .04, 0, 1), { dark: ri === 2 && room === 3 }));
+    def.rooms.push(genRoom(REALM_THEME, seed, clamp(.72 + ri * .08 + room / n * .2, 0, 1), { dark: ri === 2 && room >= n - 3 }, pool));
   }
 });
