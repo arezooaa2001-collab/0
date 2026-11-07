@@ -229,6 +229,10 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .tiers li.on{color:#ffd36e}
 .tiers b{color:#fff}
 @media (max-width:620px){.tiers{columns:1}}
+#sMode .panel.tall{overflow:auto}
+#sMode .panel.tall > *{flex-shrink:0}
+#sMode .modes{overflow:visible;min-height:auto}
+#camBox{margin-top:10px}
 </style>
 </head>
 <body>
@@ -1256,7 +1260,7 @@ kind('bouncePadsSaw', 'bounce', .4, 3, { tall: true, wait: true }, G => {
 kind('windGap', 'wind', .1, 2, {}, G => { const x = G.x; G.pit(x, 3); G.L.zone(G.id(), 'wind', x - 1, 0, 5, G.t, { fx: -1.8 }); G.x += 3; });
 kind('windAssist', 'wind', 0, 1, {}, G => { const x = G.x; G.pit(x, 6); G.L.zone(G.id(), 'wind', x - 1.5, 0, 9, G.t, { fx: 3.5 }); G.x += 6; });
 kind('windUp', 'wind', .2, 2, { tall: true,}, G => { const x = G.x; G.pit(x, 7); G.L.zone(G.id(), 'wind', x + 2.5, G.t - 8, 2, 26 - G.t, { fy: -16 }); G.x += 7; });
-kind('geyserTimed', 'wind', .3, 2, { tall: true, wait: true }, G => { const x = G.x; G.pit(x, 8); G.L.zone(G.id(), 'wind', x + 3, G.t - 7, 2, 25 - G.t, { fy: -20, on: 1.4, off: 1.6, ph: G.r() * 2 }); G.x += 8; });
+kind('geyserTimed', 'wind', .3, 2, { tall: true, wait: true }, G => { const x = G.x; G.pit(x, 7); G.L.zone(G.id(), 'wind', x + 2.5, G.t - 8, 2, 26 - G.t, { fy: -16, on: 2.2, off: 1.4, ph: G.r() * 2 }); G.x += 7; });
 kind('windCorridor', 'wind', .3, 2, { ceil: true }, G => {
   const x = G.x; G.F(x, 9); G.L.block(null, x, 0, 9, G.t - 3.2, { ceil: true }); G.L.zone(G.id(), 'wind', x, G.t - 3.2, 9, 3.2, { fx: -2.5 });
   G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 6, G.t - 1, 1, 'up'); G.x += 9;
@@ -1335,7 +1339,9 @@ kind('arrowRain', 'arrows', .3, 2, { tall: true, wait: true }, G => {
   G.x += 9;
 });
 kind('arrowPair', 'arrows', .45, 3, { wait: true }, G => {
-  const x = G.x; G.F(x, 11); G.L.block(null, x + 10.5, G.t - 3.4, 1, 3.4); ARROW(G, x + 9.6, x - 1, G.t - .95, 7, 0); ARROW(G, x + 9.6, x - 1, G.t - 2.6, 7, .5); G.x += 11.5;
+  // a low launcher post you can hop over and a high one mounted above your head
+  const x = G.x; G.F(x, 11); G.L.block(null, x + 10.5, G.t - 1.4, 1, 1.4); G.L.block(null, x + 10.5, G.t - 3.6, 1, .9);
+  ARROW(G, x + 9.6, x - 1, G.t - .95, 7, 0); ARROW(G, x + 9.6, x - 1, G.t - 2.6, 7, .5); G.x += 11.5;
 });
 // lava and acid
 kind('lavaPit', 'lava', 0, 1, {}, G => { const x = G.x, w = 3 + (G.k > .5 ? 1 : 0); LAVA(G, x, w); G.x += w; });
@@ -4666,6 +4672,9 @@ const ACH = [
   ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو زیر زمان طلایی تموم کن (حدود ۲٫۶ ثانیه برای هر مانع)'],
   ['stars', '⭐', 'ستاره‌باران', '۶۰ ستاره جمع کن (در یک سطح سختی)'],
   ['modes', '🎮', 'همه‌کاره', 'توی هر چهار حالت بازی یه مرحله رو ببر'],
+  ['allgems', '💠', 'جواهر کامل', 'همه‌ی جواهرهای یک مرحله‌ی سکوبازی رو جمع کن و ببر'],
+  ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
+  ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
 ];
 let toastQ = [], toastBusy = false;
 function unlockAch(id) {
@@ -4864,6 +4873,8 @@ const app = {
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }
+    if (this.kind === 'plat' && this.world) { const w = this.world; if (w.gemTotal && w.got.size >= w.gemTotal) unlockAch('allgems'); if (w.secs && w.secs.some(s => s.cave)) unlockAch('cave'); }
+    if (WX.kind === 'storm') unlockAch('storm');
     if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');

@@ -87,6 +87,9 @@ const ACH = [
   ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو زیر زمان طلایی تموم کن (حدود ۲٫۶ ثانیه برای هر مانع)'],
   ['stars', '⭐', 'ستاره‌باران', '۶۰ ستاره جمع کن (در یک سطح سختی)'],
   ['modes', '🎮', 'همه‌کاره', 'توی هر چهار حالت بازی یه مرحله رو ببر'],
+  ['allgems', '💠', 'جواهر کامل', 'همه‌ی جواهرهای یک مرحله‌ی سکوبازی رو جمع کن و ببر'],
+  ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
+  ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
 ];
 let toastQ = [], toastBusy = false;
 function unlockAch(id) {
@@ -285,6 +288,8 @@ const app = {
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }
+    if (this.kind === 'plat' && this.world) { const w = this.world; if (w.gemTotal && w.got.size >= w.gemTotal) unlockAch('allgems'); if (w.secs && w.secs.some(s => s.cave)) unlockAch('cave'); }
+    if (WX.kind === 'storm') unlockAch('storm');
     if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');

@@ -214,3 +214,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .tiers li.on{color:#ffd36e}
 .tiers b{color:#fff}
 @media (max-width:620px){.tiers{columns:1}}
+#sMode .panel.tall{overflow:auto}
+#sMode .panel.tall > *{flex-shrink:0}
+#sMode .modes{overflow:visible;min-height:auto}
+#camBox{margin-top:10px}

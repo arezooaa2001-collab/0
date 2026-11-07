@@ -256,7 +256,7 @@ kind('bouncePadsSaw', 'bounce', .4, 3, { tall: true, wait: true }, G => {
 kind('windGap', 'wind', .1, 2, {}, G => { const x = G.x; G.pit(x, 3); G.L.zone(G.id(), 'wind', x - 1, 0, 5, G.t, { fx: -1.8 }); G.x += 3; });
 kind('windAssist', 'wind', 0, 1, {}, G => { const x = G.x; G.pit(x, 6); G.L.zone(G.id(), 'wind', x - 1.5, 0, 9, G.t, { fx: 3.5 }); G.x += 6; });
 kind('windUp', 'wind', .2, 2, { tall: true,}, G => { const x = G.x; G.pit(x, 7); G.L.zone(G.id(), 'wind', x + 2.5, G.t - 8, 2, 26 - G.t, { fy: -16 }); G.x += 7; });
-kind('geyserTimed', 'wind', .3, 2, { tall: true, wait: true }, G => { const x = G.x; G.pit(x, 8); G.L.zone(G.id(), 'wind', x + 3, G.t - 7, 2, 25 - G.t, { fy: -20, on: 1.4, off: 1.6, ph: G.r() * 2 }); G.x += 8; });
+kind('geyserTimed', 'wind', .3, 2, { tall: true, wait: true }, G => { const x = G.x; G.pit(x, 7); G.L.zone(G.id(), 'wind', x + 2.5, G.t - 8, 2, 26 - G.t, { fy: -16, on: 2.2, off: 1.4, ph: G.r() * 2 }); G.x += 7; });
 kind('windCorridor', 'wind', .3, 2, { ceil: true }, G => {
   const x = G.x; G.F(x, 9); G.L.block(null, x, 0, 9, G.t - 3.2, { ceil: true }); G.L.zone(G.id(), 'wind', x, G.t - 3.2, 9, 3.2, { fx: -2.5 });
   G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 6, G.t - 1, 1, 'up'); G.x += 9;
@@ -335,7 +335,9 @@ kind('arrowRain', 'arrows', .3, 2, { tall: true, wait: true }, G => {
   G.x += 9;
 });
 kind('arrowPair', 'arrows', .45, 3, { wait: true }, G => {
-  const x = G.x; G.F(x, 11); G.L.block(null, x + 10.5, G.t - 3.4, 1, 3.4); ARROW(G, x + 9.6, x - 1, G.t - .95, 7, 0); ARROW(G, x + 9.6, x - 1, G.t - 2.6, 7, .5); G.x += 11.5;
+  // a low launcher post you can hop over and a high one mounted above your head
+  const x = G.x; G.F(x, 11); G.L.block(null, x + 10.5, G.t - 1.4, 1, 1.4); G.L.block(null, x + 10.5, G.t - 3.6, 1, .9);
+  ARROW(G, x + 9.6, x - 1, G.t - .95, 7, 0); ARROW(G, x + 9.6, x - 1, G.t - 2.6, 7, .5); G.x += 11.5;
 });
 // lava and acid
 kind('lavaPit', 'lava', 0, 1, {}, G => { const x = G.x, w = 3 + (G.k > .5 ? 1 : 0); LAVA(G, x, w); G.x += w; });
