@@ -24,6 +24,8 @@ const THEMES3 = {
 const PG3 = 28, JV3 = 10, LATV = 8.5, ROADW = 10, BRW = 3.6;
 let R3renderer = null, R3fail = false;
 const flatG = g => { const n = g.index ? g.toNonIndexed() : g; n.computeVertexNormals(); return n; };
+// cinematic ACES tone mapping on the high tiers (three.js recompiles the materials when this changes)
+function toneMap3(r) { const on = gtier(6); r.toneMapping = on ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping; r.toneMappingExposure = on ? 1.18 : 1; }
 function getRenderer3() {
   if (R3renderer || R3fail) return R3renderer;
   try {
@@ -334,14 +336,15 @@ class Run3D {
     const sc = this.scene = new THREE.Scene();
     const disp = this.disp = [];
     const keep = o => { disp.push(o); return o; };
-    sc.fog = new THREE.Fog(TH.fog, TH.fogN, TH.fogF);
+    this.fogF = TH.fogF * (gtier(19) ? 1.3 : 1);
+    sc.fog = new THREE.Fog(TH.fog, TH.fogN, this.fogF);
     this.cam = new THREE.PerspectiveCamera(64, 1.6, 0.1, 900);
     this.mcam = new THREE.PerspectiveCamera(58, 1.8, 0.1, 900);
     const hemi = new THREE.HemisphereLight(TH.hemi[0], TH.hemi[1], TH.hemi[2]); sc.add(hemi); this.hemi = hemi;
     const sun = this.sunL = new THREE.DirectionalLight(TH.sun[0], TH.sun[1]); sun.position.set(-0.6, 1, -0.4); sc.add(sun); sc.add(sun.target);
     this.sunDir = new THREE.Vector3(0.35, 0.32, -1).normalize();
     const SH = GFX.sh === 2; R3renderer && (R3renderer.shadowMap.enabled = SH);
-    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); const sc2 = sun.shadow.camera; sc2.left = -26; sc2.right = 26; sc2.top = 30; sc2.bottom = -30; sc2.near = 1; sc2.far = 140; sun.shadow.bias = -0.0008; }
+    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(gtier(7) ? 4096 : 2048, gtier(7) ? 4096 : 2048); const sc2 = sun.shadow.camera; sc2.left = -26; sc2.right = 26; sc2.top = 30; sc2.bottom = -30; sc2.near = 1; sc2.far = 140; sun.shadow.bias = -0.0008; }
     const C = { road: colSet('road') ? colOf('road') : '#' + new THREE.Color(TH.road).getHexString(), edge: colSet('moss') ? hexNum(colOf('moss')) : TH.edge,
       obst: colSet('obstacle') ? colOf('obstacle') : '#ffd36e', hazard: hexNum(colSet('hazard') ? colOf('hazard') : '#d8dcf2'), giant: colSet('giant') ? [hexNum(colOf('giant')), hexNum(mixHex(colOf('giant'), '#000000', .2))] : TH.giant };
     this.C = C;
@@ -462,6 +465,8 @@ class Run3D {
     this.dustPts.frustumCulled = false; this.dustPts.visible = !!GFX.dust; sc.add(this.dustPts);
     this.gShadow.visible = GFX.sh === 1;
     this.lightningT = 3;
+    this.wx = new Wx3(sc, keep, [30, 14, 45], f => -.78 + f * .5);
+    if (gtier(4) && R3renderer) { const mx = R3renderer.capabilities.getMaxAnisotropy(); sc.traverse(o => { const m = o.material; if (m && m.map) { m.map.anisotropy = mx; m.map.needsUpdate = true; } }); }
     // long courses: split static instanced meshes into chunks along the track so far chunks are skipped
     const dyn = new Set([...Object.values(this.gm), this.gShadow, this.gemMesh, this.powMesh, this.powRing, this.moverMesh, this.moverCap, this.rollerMesh]);
     this.chunkStatic(dyn);
@@ -479,15 +484,20 @@ class Run3D {
         const ca = c.instanceMatrix.array;
         idx.forEach((i, j) => { for (let q = 0; q < 16; q++) ca[j * 16 + q] = a[i * 16 + q]; });
         if (m.instanceColor) { const col = new THREE.Color(); idx.forEach((i, j) => { m.getColorAt(i, col); c.setColorAt(j, col); }); c.instanceColor.needsUpdate = true; }
-        c.instanceMatrix.needsUpdate = true; this.scene.add(c); chunks.push({ m: c, s0: k * CH, s1: (k + 1) * CH });
+        c.instanceMatrix.needsUpdate = true; this.scene.add(c); chunks.push({ m: c, s0: k * CH, s1: (k + 1) * CH, far: !!m.userData.far });
       }
       this.scene.remove(m); m.dispose();
     }
   }
-  cullChunks() {
-    // keep everything the main camera (far plane 900) and the rear mirror can show
-    const s = this.p.s, a = s - 420, b = s + 960;
-    for (const c of this.chunks) c.m.visible = c.s1 > a && c.s0 < b;
+  // which chunks each camera can see: the main camera looks ahead (small things fade out in the fog,
+  // mountains and clouds stay as silhouettes); the rear mirror only sees a stretch behind the player
+  cullChunks(mirror) {
+    const s = this.p.s, fogF = this.fogF + 80;
+    for (const c of this.chunks) {
+      const back = mirror || this.state === 'intro';   // the intro shot looks back at the giants
+      const a = back ? s - (c.far ? 350 : 170) : s - (c.far ? 200 : 14), b = mirror ? s + 12 : s + (c.far ? 960 : fogF);
+      c.m.visible = c.s1 > a && c.s0 < b;
+    }
   }
 
   buildScenery(rng, inst, put, lam, unitBox, keep) {
@@ -519,9 +529,18 @@ class Run3D {
     const mts = []; for (let s = -200; s < len + 500; s += 38 / Math.max(.6, scn)) for (const side of [-1, 1]) mts.push([side * (150 + rng() * 220), s + rng() * 30, 50 + rng() * 140, 40 + rng() * 60]);
     const mg = keep(flatG(new THREE.ConeGeometry(1, 1, 6))); mg.translate(0, 0.5, 0);
     const mm = inst(mg, keep(new THREE.MeshLambertMaterial({ color: TH.mtn })), mts.length);
-    mts.forEach((q, i) => put(mm, i, q[0], -3, -q[1], q[3], q[2], q[3], 0, i, 0)); mm.instanceMatrix.needsUpdate = true;
+    mts.forEach((q, i) => put(mm, i, q[0], -3, -q[1], q[3], q[2], q[3], 0, i, 0)); mm.instanceMatrix.needsUpdate = true; mm.userData.far = true;
     if (TH.snowy || TH.tree === 'pine') { const peak = keep(flatG(new THREE.ConeGeometry(1, 1, 6))); peak.translate(0, 0.5, 0); const pk = inst(peak, keep(new THREE.MeshLambertMaterial({ color: TH.snowy ? 0xffffff : 0xf0f4ff })), mts.length);
-      mts.forEach((q, i) => put(pk, i, q[0], -3 + q[2] * 0.72, -q[1], q[3] * 0.28, q[2] * 0.28, q[3] * 0.28, 0, i, 0)); pk.instanceMatrix.needsUpdate = true; }
+      mts.forEach((q, i) => put(pk, i, q[0], -3 + q[2] * 0.72, -q[1], q[3] * 0.28, q[2] * 0.28, q[3] * 0.28, 0, i, 0)); pk.instanceMatrix.needsUpdate = true; pk.userData.far = true; }
+    // high tiers: grass tufts along both sides of the track
+    if (gtier(3)) {
+      const gp = [], st = gtier(14) ? .45 : .9;
+      for (let s = -20; s < len + 100; s += st) for (const side of [-1, 1]) if (rng() < .8 && !chasm(s)) gp.push([side * (5.6 + rng() * 10), s + rng() * st, .6 + rng() * .9]);
+      const gg = keep(new THREE.ConeGeometry(.13, .75, 3)); gg.translate(0, .37, 0);
+      const gc = TH.snowy ? 0xdfe8f0 : TH.tree === 'cactus' ? 0xb8a060 : TH.tree === 'crystal' ? TH.treeC : TH.tree === 'dead' ? 0x6a5a4a : 0x4f8f4a;
+      const gm2 = inst(gg, lam(gc), gp.length);
+      gp.forEach((q, i) => put(gm2, i, q[0], -.8, -q[1], q[2], q[2] * (.8 + (i % 4) * .15), q[2], (i % 5 - 2) * .08, i, 0)); gm2.instanceMatrix.needsUpdate = true;
+    }
     // ruined pillars beside the track + stone arches over it
     const pil = []; for (let s = 30; s < len; s += 22 / scn) if (!chasm(s) && rng() < .5) pil.push([(rng() < .5 ? -1 : 1) * (7 + rng() * 6), s, 4 + rng() * 9]);
     const arches = []; for (let s = 120; s < len - 40; s += 150 + rng() * 60) if (!chasm(s)) arches.push(s);
@@ -533,20 +552,20 @@ class Run3D {
     const cl = []; if (GFX.clouds > 0) for (let s = -100; s < len + 400; s += 45 / GFX.clouds) cl.push([(rng() * 2 - 1) * 260, 55 + rng() * 70, s + rng() * 40, 12 + rng() * 22]);
     const cg = keep(new THREE.IcosahedronGeometry(1, 0));
     const cmsh = inst(cg, keep(new THREE.MeshLambertMaterial({ color: TH.cloud, transparent: true, opacity: 0.8 })), cl.length);
-    cl.forEach((q, i) => put(cmsh, i, q[0], q[1], -q[2], q[3] * 1.8, q[3] * 0.45, q[3], 0, i, 0)); cmsh.instanceMatrix.needsUpdate = true;
+    cl.forEach((q, i) => put(cmsh, i, q[0], q[1], -q[2], q[3] * 1.8, q[3] * 0.45, q[3], 0, i, 0)); cmsh.instanceMatrix.needsUpdate = true; cmsh.userData.far = true;
     if (TH.islands) {
       const isl = []; for (let s = 0; s < len + 300; s += 70) isl.push([(rng() < .5 ? -1 : 1) * (25 + rng() * 130), 18 + rng() * 45, s + rng() * 50, 5 + rng() * 10]);
       const ig = keep(flatG(new THREE.ConeGeometry(1, 1.6, 7))); ig.rotateX(Math.PI); ig.translate(0, -0.8, 0);
       const im = inst(ig, keep(new THREE.MeshLambertMaterial({ color: TH.rock })), isl.length);
       const itop = inst(keep(new THREE.CylinderGeometry(1, 1, 0.25, 7)), keep(new THREE.MeshBasicMaterial({ color: TH.treeC })), isl.length);
       isl.forEach((q, i) => { put(im, i, q[0], q[1], -q[2], q[3], q[3], q[3], 0, i, 0); put(itop, i, q[0], q[1] + 0.1, -q[2], q[3] * 0.95, 1, q[3] * 0.95, 0, i, 0); });
-      im.instanceMatrix.needsUpdate = itop.instanceMatrix.needsUpdate = true; this.islands = { im, itop, isl };
+      im.instanceMatrix.needsUpdate = itop.instanceMatrix.needsUpdate = true; im.userData.far = itop.userData.far = true; this.islands = { im, itop, isl };
     }
   }
 
   buildGiants(keep, rng) {
     const TH = this.TH, n = this.gN = this.def.giants, sc = this.scene;
-    const ico = keep(flatG(new THREE.IcosahedronGeometry(1, 1)));
+    const ico = keep(flatG(new THREE.IcosahedronGeometry(1, gtier(9) ? 2 : 1)));
     const limb = (w, l, fw, fl, fd) => { const b = this.geoBuilder(); b.box(-w / 2, w / 2, -l, 0, -w / 2, w / 2, true); b.box(-fw / 2, fw / 2, -l - fl * 0.5, -l + fl * 0.5, -fd * 0.65, fd * 0.35, true); return keep(b.build()); };
     const legG = limb(1.7, 6, 2.1, 0.9, 2.8), armG = limb(1.3, 6.2, 1.8, 1.8, 1.8);
     const stone = keep(new THREE.MeshLambertMaterial({ color: 0xffffff }));
@@ -609,6 +628,7 @@ class Run3D {
 
   buildPlayer(keep) {
     const h = buildHeroMesh(keep); this.pl = h.g; this.plBody = h.body; this.tail = h.tail; this.legs = h.legs; this.pglow = h.glow; this.scene.add(h.g);
+    if (gtier(18)) { this.plLight = new THREE.PointLight(0xffc890, 1.3, 16, 1.6); this.scene.add(this.plLight); }
   }
   posePicks(t) {
     const put = this.put, p = this.p, G = this.gemList, lo = p.s - 3, hi = p.s + 160;
@@ -659,6 +679,8 @@ class Run3D {
       this.dustPts.geometry.attributes.position.needsUpdate = true; }
     // storm lightning
     if (TH.storm) { this.lightningT -= dt; if (this.lightningT <= 0) { this.lightningT = 2.5 + Math.random() * 4; this.light = 1; Sound.play('thunder'); } this.light = Math.max(0, (this.light || 0) - dt * 3); this.hemi.intensity = TH.hemi[2] + this.light * 1.6; }
+    this.hemi.intensity = TH.hemi[2] + (this.light || 0) * 1.6 + WX.flash * 1.3;
+    this.scene.fog.far = this.fogF * (1 - .3 * Math.min(1, WX.rain + WX.snow));
     // camera
     const W3 = innerWidth, H3 = innerHeight, aspect = W3 / H3;
     const sh = this.shake * 0.03, shx = (Math.random() - .5) * sh, shy = (Math.random() - .5) * sh;
@@ -679,19 +701,23 @@ class Run3D {
     this.sky.position.copy(cam.position);
     if (this.disc) { const d = this.sunDir; this.disc.position.copy(cam.position).addScaledVector(d, 600); this.disc.lookAt(cam.position); this.discCore.position.copy(cam.position).addScaledVector(d, 594); this.discCore.lookAt(cam.position); }
     if (this.sunL && this.sunL.castShadow) { this.sunL.target.position.set(p.x * 0.5, 0, -p.s - 14); this.sunL.position.set(p.x * 0.5 - 24, 40, -p.s - 14 - 16); this.sunL.target.updateMatrixWorld(); }
-    this.posePicks(t); this.cullChunks();
+    this.posePicks(t); this.cullChunks(false);
     this.mist.position.x = cam.position.x; this.mist.position.z = cam.position.z;
+    if (this.plLight) this.plLight.position.set(p.x, p.y + 1.6, -p.s + 1);
+    this.wx.update(dt, cam.position.x, cam.position.y + 4, cam.position.z - 28);
     // main pass
+    toneMap3(r);
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
     r.render(this.scene, cam);
     // rear-view mirror: shows the giants behind you
-    const m = GFX.mir ? this.mirrorRect() : null;
-    const mEl = document.getElementById('mirror'), showM = this.state !== 'intro';
+    // the mirror is the first extra to go when the device struggles (adaptive quality)
+    const m = GFX.mir && Perf.si < 3 && !Perf.fxDrop ? this.mirrorRect() : null;
+    const mEl = document.getElementById('mirror'), showM = this.state !== 'intro' && !!m;
     if (mEl.classList.contains('off') === showM) mEl.classList.toggle('off', !showM);
     if (m && showM) {
       const mc = this.mcam; mc.aspect = m.w / m.h; mc.updateProjectionMatrix();
       mc.position.set(p.x * 0.5, 3.0, -p.s - 2.5); mc.lookAt(p.x * 0.3, 5.5, -p.s + 30);
-      this.pl.visible = false;
+      this.pl.visible = false; this.cullChunks(true);
       r.setScissorTest(true); r.setScissor(m.x, H3 - m.y - m.h, m.w, m.h); r.setViewport(m.x, H3 - m.y - m.h, m.w, m.h);
       r.render(this.scene, mc);
       r.setScissorTest(false); r.setViewport(0, 0, W3, H3);

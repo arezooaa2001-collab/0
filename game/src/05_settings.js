@@ -33,7 +33,7 @@ const PALETTES = {
   mono: { n: 'سیاه‌وسفید', c: { player: '#ffffff', scarf: '#bdbdbd', block: '#2a2a2a', moss: '#cfcfcf', hazard: '#e0e0e0', saw: '#d0d0d0', door: '#ffffff', sky: '#161616', road: '#444444', obstacle: '#ffffff', giant: '#555555' } },
 };
 const CFG = {
-  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def',
+  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true,
   mc: { br: 100, ct: 100, sat: 100, hue: 0, tint: '#ff8844', tintA: 0 },
   bars: false, grain: false, vig: 55, glow: 100, shake: 100,
   musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, tsize: 100, topac: 100,
@@ -61,7 +61,24 @@ const GFXS = {
   ultra:    { n: 'Ultra',     d: 'جزئیات و جلوه‌های بیشتر',                   res: 1.7, aa: 1, scn: 1.3, fx: 1.3, motes: 42, giants: 45, sh: 1, mir: 1, clouds: 1.3, glow: 1.2, filt: 1, dust: 1, sun: 2, ss: 1.25 },
   maxultra: { n: 'Max Ultra', d: 'همه‌چیز روشن: سایه‌ی واقعی، بیشترین جزئیات', res: 2,   aa: 1, scn: 1.6, fx: 1.6, motes: 60, giants: 45, sh: 2, mir: 1, clouds: 1.6, glow: 1.4, filt: 1, dust: 1, sun: 2, ss: 1.4 },
 };
-const GFX_ORDER = ['auto', 'go', 'plus', 'pro', 'max', 'ultra', 'maxultra'];
+/* 20 tiers above Max Ultra. Each one keeps everything of the tier below and adds one more realistic detail;
+   the adaptive quality system below keeps even the top tiers smooth by trading resolution first. */
+const XTIERS = [
+  ['Hyper', 'مه متحرک در عمق صحنه'], ['Hyper+', 'پرتوهای نور ماه'], ['Extreme', 'چمن و گیاه کنار جاده‌ی سه‌بعدی'], ['Extreme+', 'بافت‌های تیز حتی از زاویه'],
+  ['Titan', 'درخشش قوی‌تر نورها'], ['Titan+', 'رنگ‌بندی سینمایی واقعی (ACES)'], ['Cinema', 'سایه با وضوح ۴K'], ['Cinema+', 'شهاب‌سنگ در آسمان'],
+  ['Epic', 'غول‌های صاف‌تر و پرجزئیات‌تر'], ['Epic+', 'جرقه و ذرات خیلی بیشتر'], ['Legend', 'بازتاب نور روی آب سیل'], ['Legend+', 'منظره‌ی انبوه‌تر'],
+  ['Mythic', 'رزولوشن بالاتر'], ['Mythic+', 'چمن انبوه'], ['Quantum', 'ذرات آب‌وهوای بیشتر'], ['Quantum+', 'کرم‌های شب‌تاب بیشتر'],
+  ['Infinity', 'ابرهای بیشتر'], ['Infinity+', 'نور گرم دور بازیکن در سه‌بعدی'], ['Reality', 'دید دورتر در سه‌بعدی'], ['Reality Max', 'بیشترین رزولوشن و همه‌ی جلوه‌ها در حداکثر'],
+];
+XTIERS.forEach(([n, f], i) => {
+  const t = i + 1, k = t / 20;
+  GFXS['x' + t] = Object.assign({}, GFXS.maxultra, { n, tier: t, f, d: `همه‌ی Max Ultra و سطح‌های پایین‌تر + ${f}`,
+    res: 2 + (t >= 13 ? .5 : .15) * k, ss: 1.4 + (t >= 13 ? 1 : .3) * k, scn: 1.6 + (t >= 12 ? 1.4 : .5) * k, fx: 1.6 + (t >= 10 ? 1.4 : .5) * k,
+    motes: 60 + Math.round((t >= 16 ? 100 : 30) * k), clouds: 1.6 + (t >= 17 ? 1.4 : .4) * k, glow: 1.4 + (t >= 5 ? .6 : .15) * k, wq: 1 + (t >= 15 ? 1.6 : .4) * k });
+});
+GFXS.go.wq = .45; GFXS.plus.wq = .65; GFXS.pro.wq = .8; GFXS.max.wq = 1; GFXS.ultra.wq = 1; GFXS.maxultra.wq = 1;
+const GFX_ORDER = ['auto', 'go', 'plus', 'pro', 'max', 'ultra', 'maxultra', ...XTIERS.map((_, i) => 'x' + (i + 1))];
+const gtier = n => (GFX.tier || 0) >= n && Perf.fxDrop === 0;   // tier feature on (and not dropped by adaptive quality)
 function autoGfxKey() {
   const cores = navigator.hardwareConcurrency || 4, mem = navigator.deviceMemory || 4;
   const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
@@ -131,7 +148,7 @@ function applyMood() {
   const m = MOODS[CFG.mood] || MOODS.default, $q = id => document.getElementById(id);
   const f = moodFilter();
   // CSS filters are costly on weak GPUs: Go/Plus skip them unless the player picked "custom" on purpose
-  const useF = f && (GFX.filt || CFG.mood === 'custom') && Perf.fxDrop < 2;
+  const useF = f && (GFX.filt || CFG.mood === 'custom') && Perf.fxDrop < 1 && Perf.si < 3;
   for (const id of ['c', 'c3']) { const el = $q(id); if (el) el.style.filter = useF ? f : 'none'; }
   const gr = $q('grade');
   if (CFG.mood === 'custom') { gr.style.background = CFG.mc.tintA > 0 ? rgbaHex(CFG.mc.tint, CFG.mc.tintA / 100) : 'none'; gr.style.mixBlendMode = 'soft-light'; }

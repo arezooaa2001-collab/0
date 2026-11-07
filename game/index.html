@@ -51,6 +51,8 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 .hbtn:active{transform:scale(.92)}
 #bPause{left:calc(env(safe-area-inset-left) + 12px)}
 #bRestart{left:calc(env(safe-area-inset-left) + 66px)}
+#bCam{left:calc(env(safe-area-inset-left) + 122px);display:none}
+#bCam.on{display:grid}
 #lvlTag{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:50%;transform:translateX(-50%);
   padding:6px 16px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-weight:700;font-size:15px;
   white-space:nowrap;background:rgba(22,16,52,.78)}
@@ -222,6 +224,11 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #touch.vert #tL svg,#touch.vert #tR svg{transform:rotate(90deg)}
 .kv{grid-template-columns:repeat(6,1fr)}
 @media (max-width:620px){.kv{grid-template-columns:repeat(3,1fr)}}
+
+.tiers{margin:6px 0 0;padding:0 18px 0 0;columns:2;column-gap:18px;font-size:12px;line-height:1.7;color:rgba(255,255,255,.75)}
+.tiers li.on{color:#ffd36e}
+.tiers b{color:#fff}
+@media (max-width:620px){.tiers{columns:1}}
 </style>
 </head>
 <body>
@@ -241,6 +248,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 
 <div id="hud">
   <button class="hbtn" id="bPause" aria-label="توقف"><svg viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
+  <button class="hbtn" id="bCam" aria-label="دوربین سه‌بعدی" title="دوربین: کنار / سوم شخص (کلید C)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button>
   <button class="hbtn" id="bRestart" aria-label="شروع دوباره"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/></svg></button>
   <div id="lvlTag" class="fa"></div>
   <div id="pprog"><i></i></div>
@@ -316,6 +324,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
     <h2>حالت بازی</h2>
     <p class="sub small">نحوه‌ی نمایش و بازی کردن همه‌ی مرحله‌ها رو انتخاب کن.</p>
     <div class="modes" id="modeList"></div>
+    <div class="sec" id="camBox"></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
 </div>
@@ -413,7 +422,7 @@ const PALETTES = {
   mono: { n: 'سیاه‌وسفید', c: { player: '#ffffff', scarf: '#bdbdbd', block: '#2a2a2a', moss: '#cfcfcf', hazard: '#e0e0e0', saw: '#d0d0d0', door: '#ffffff', sky: '#161616', road: '#444444', obstacle: '#ffffff', giant: '#555555' } },
 };
 const CFG = {
-  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def',
+  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true,
   mc: { br: 100, ct: 100, sat: 100, hue: 0, tint: '#ff8844', tintA: 0 },
   bars: false, grain: false, vig: 55, glow: 100, shake: 100,
   musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, tsize: 100, topac: 100,
@@ -441,7 +450,24 @@ const GFXS = {
   ultra:    { n: 'Ultra',     d: 'جزئیات و جلوه‌های بیشتر',                   res: 1.7, aa: 1, scn: 1.3, fx: 1.3, motes: 42, giants: 45, sh: 1, mir: 1, clouds: 1.3, glow: 1.2, filt: 1, dust: 1, sun: 2, ss: 1.25 },
   maxultra: { n: 'Max Ultra', d: 'همه‌چیز روشن: سایه‌ی واقعی، بیشترین جزئیات', res: 2,   aa: 1, scn: 1.6, fx: 1.6, motes: 60, giants: 45, sh: 2, mir: 1, clouds: 1.6, glow: 1.4, filt: 1, dust: 1, sun: 2, ss: 1.4 },
 };
-const GFX_ORDER = ['auto', 'go', 'plus', 'pro', 'max', 'ultra', 'maxultra'];
+/* 20 tiers above Max Ultra. Each one keeps everything of the tier below and adds one more realistic detail;
+   the adaptive quality system below keeps even the top tiers smooth by trading resolution first. */
+const XTIERS = [
+  ['Hyper', 'مه متحرک در عمق صحنه'], ['Hyper+', 'پرتوهای نور ماه'], ['Extreme', 'چمن و گیاه کنار جاده‌ی سه‌بعدی'], ['Extreme+', 'بافت‌های تیز حتی از زاویه'],
+  ['Titan', 'درخشش قوی‌تر نورها'], ['Titan+', 'رنگ‌بندی سینمایی واقعی (ACES)'], ['Cinema', 'سایه با وضوح ۴K'], ['Cinema+', 'شهاب‌سنگ در آسمان'],
+  ['Epic', 'غول‌های صاف‌تر و پرجزئیات‌تر'], ['Epic+', 'جرقه و ذرات خیلی بیشتر'], ['Legend', 'بازتاب نور روی آب سیل'], ['Legend+', 'منظره‌ی انبوه‌تر'],
+  ['Mythic', 'رزولوشن بالاتر'], ['Mythic+', 'چمن انبوه'], ['Quantum', 'ذرات آب‌وهوای بیشتر'], ['Quantum+', 'کرم‌های شب‌تاب بیشتر'],
+  ['Infinity', 'ابرهای بیشتر'], ['Infinity+', 'نور گرم دور بازیکن در سه‌بعدی'], ['Reality', 'دید دورتر در سه‌بعدی'], ['Reality Max', 'بیشترین رزولوشن و همه‌ی جلوه‌ها در حداکثر'],
+];
+XTIERS.forEach(([n, f], i) => {
+  const t = i + 1, k = t / 20;
+  GFXS['x' + t] = Object.assign({}, GFXS.maxultra, { n, tier: t, f, d: `همه‌ی Max Ultra و سطح‌های پایین‌تر + ${f}`,
+    res: 2 + (t >= 13 ? .5 : .15) * k, ss: 1.4 + (t >= 13 ? 1 : .3) * k, scn: 1.6 + (t >= 12 ? 1.4 : .5) * k, fx: 1.6 + (t >= 10 ? 1.4 : .5) * k,
+    motes: 60 + Math.round((t >= 16 ? 100 : 30) * k), clouds: 1.6 + (t >= 17 ? 1.4 : .4) * k, glow: 1.4 + (t >= 5 ? .6 : .15) * k, wq: 1 + (t >= 15 ? 1.6 : .4) * k });
+});
+GFXS.go.wq = .45; GFXS.plus.wq = .65; GFXS.pro.wq = .8; GFXS.max.wq = 1; GFXS.ultra.wq = 1; GFXS.maxultra.wq = 1;
+const GFX_ORDER = ['auto', 'go', 'plus', 'pro', 'max', 'ultra', 'maxultra', ...XTIERS.map((_, i) => 'x' + (i + 1))];
+const gtier = n => (GFX.tier || 0) >= n && Perf.fxDrop === 0;   // tier feature on (and not dropped by adaptive quality)
 function autoGfxKey() {
   const cores = navigator.hardwareConcurrency || 4, mem = navigator.deviceMemory || 4;
   const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
@@ -511,7 +537,7 @@ function applyMood() {
   const m = MOODS[CFG.mood] || MOODS.default, $q = id => document.getElementById(id);
   const f = moodFilter();
   // CSS filters are costly on weak GPUs: Go/Plus skip them unless the player picked "custom" on purpose
-  const useF = f && (GFX.filt || CFG.mood === 'custom') && Perf.fxDrop < 2;
+  const useF = f && (GFX.filt || CFG.mood === 'custom') && Perf.fxDrop < 1 && Perf.si < 3;
   for (const id of ['c', 'c3']) { const el = $q(id); if (el) el.style.filter = useF ? f : 'none'; }
   const gr = $q('grade');
   if (CFG.mood === 'custom') { gr.style.background = CFG.mc.tintA > 0 ? rgbaHex(CFG.mc.tint, CFG.mc.tintA / 100) : 'none'; gr.style.mixBlendMode = 'soft-light'; }
@@ -1842,6 +1868,18 @@ const Sound = {
       case 'win': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0, 0.32, 'triangle', 0.14, i * 0.08)); this.tone(1568, 0, 0.5, 'sine', 0.06, 0.32); break;
     }
   },
+  // looping rain hiss and wind (0..1 each), faded smoothly
+  ambient(rain, wind) {
+    const c = this.ctx; if (!c) return;
+    if (!this.amb) {
+      const mk = (type, f, q) => { const s = c.createBufferSource(); s.buffer = this.nbuf; s.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+        const g = c.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(this.sfx); s.start(); return { s, fl, g }; };
+      this.amb = { rain: mk('bandpass', 2600, .45), wind: mk('lowpass', 380, .8) };
+    }
+    const t = c.currentTime;
+    this.amb.rain.g.gain.setTargetAtTime(rain * .2, t, .6); this.amb.wind.g.gain.setTargetAtTime(wind * .32, t, .9);
+    this.amb.wind.fl.frequency.setTargetAtTime(320 + Math.sin(t * .37) * 140, t, .6);
+  },
   stomp(k) {
     if (!this.ctx || !this.on) return; const now = this.ctx.currentTime; if (now - (this.lastStomp || 0) < 0.12) return; this.lastStomp = now;
     this.tone(75, 32, 0.4, 'sine', 0.55 * k); this.noise(0.25, 0.32 * k, 220);
@@ -1973,7 +2011,7 @@ let ctx = cv.getContext('2d', { alpha: false });
 let cw = 0, ch = 0, dpr = 1, S = 1, OX = 0, OY = 0, EXT = { l: 0, r: 0, t: 0, b: 0 };
 let CAMX = 0, LW = W; // camera left edge and level width (world px) of the level being drawn
 const BG = {};
-const motes = Array.from({ length: 60 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
+const motes = Array.from({ length: 200 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
 const glowK = () => GFX.glow * (CFG.glow / 100) * (Perf.fxDrop ? .6 : 1);
 
 function resize() {
@@ -2044,6 +2082,33 @@ function buildBackground() {
     for (let k = 1; k < 14; k++) { const yy = hy + (ch - hy) * Math.pow(k / 13, 2.2); q.globalAlpha = .25 + k / 20; q.beginPath(); q.moveTo(0, yy); q.lineTo(cw, yy); q.stroke(); }
     q.globalAlpha = 1; }
   BG.dark = mkC(Math.ceil(cw / 4), Math.ceil(ch / 4)); BG.darkG = BG.dark.getContext('2d');
+  // high tiers: a drifting mist band (wraps around) and moonlight rays
+  { const P2 = Math.ceil(cw * 1.4), hh = Math.ceil(260 * S), c = mkC(P2, hh), q = c.getContext('2d'), r = srand(31);
+    for (let i = 0; i < 26; i++) { const x = r() * P2, y = hh * (.3 + r() * .5), rad = (60 + r() * 140) * S;
+      for (const ox of [x, x - P2, x + P2]) { const gm = q.createRadialGradient(ox, y, 0, ox, y, rad); gm.addColorStop(0, rgbaHex(sk('#d9c8ff'), .10 + r() * .05)); gm.addColorStop(1, 'rgba(0,0,0,0)'); q.fillStyle = gm; q.fillRect(ox - rad, y - rad, rad * 2, rad * 2); } }
+    c.y0 = Math.floor(OY + 400 * S); BG.mist = c; }
+  { const c = mkC(cw, ch), q = c.getContext('2d'), mx = OX + W * S * .78, my = OY + H * S * .2;
+    q.translate(mx, my); for (let i = 0; i < 9; i++) { const a = 1.75 + (i - 4) * .16 + (i % 2) * .05, len = (900 + (i % 3) * 200) * S, wd = .05 + (i % 3) * .02;
+      const gr2 = q.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len); gr2.addColorStop(0, 'rgba(255,225,190,.16)'); gr2.addColorStop(1, 'rgba(255,225,190,0)');
+      q.fillStyle = gr2; q.beginPath(); q.moveTo(0, 0); q.lineTo(Math.cos(a - wd) * len, Math.sin(a - wd) * len); q.lineTo(Math.cos(a + wd) * len, Math.sin(a + wd) * len); q.closePath(); q.fill(); }
+    BG.rays = c; }
+}
+const METEORS = [];
+function drawSkyExtras(dx, dy) {
+  const tt = performance.now() / 1000;
+  if (gtier(2) && BG.rays) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6 + Math.sin(tt * .6) * .2; ctx.drawImage(BG.rays, dx, dy); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+  if (gtier(8)) {
+    if (METEORS.length < 2 && Math.random() < .006) METEORS.push({ x: cw * (.2 + Math.random() * .7), y: ch * Math.random() * .25, vx: -(500 + Math.random() * 400) * dpr, vy: (180 + Math.random() * 160) * dpr, life: 1, t0: tt });
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = METEORS.length - 1; i >= 0; i--) {
+      const m = METEORS[i], age = tt - m.t0; if (age > .9) { METEORS.splice(i, 1); continue; }
+      const x = m.x + m.vx * age, y = m.y + m.vy * age, a = 1 - age / .9, tail = .12;
+      const g2 = ctx.createLinearGradient(x, y, x - m.vx * tail, y - m.vy * tail); g2.addColorStop(0, `rgba(255,245,220,${a})`); g2.addColorStop(1, 'rgba(255,245,220,0)');
+      ctx.strokeStyle = g2; ctx.lineWidth = 2.2 * dpr; ctx.beginPath(); ctx.moveTo(x + dx, y + dy); ctx.lineTo(x - m.vx * tail + dx, y - m.vy * tail + dy); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (gtier(1) && BG.mist) { const P = BG.mist.width, o = ((CAMX * S * .3 + tt * 14 * dpr) % P + P) % P; ctx.globalAlpha = .7; ctx.drawImage(BG.mist, dx - o, BG.mist.y0 + dy); if (P - o < cw) ctx.drawImage(BG.mist, dx - o + P, BG.mist.y0 + dy); ctx.globalAlpha = 1; }
 }
 // sky + scrolling mountain strips; scroll = extra horizontal shift in device px (2.5D vanishing point)
 function drawBack(world, sx, sy, scroll = 0) {
@@ -2053,7 +2118,9 @@ function drawBack(world, sx, sy, scroll = 0) {
   if (realmMode) { ctx.drawImage(BG.realm, dx - scroll * .04 - 4 * dpr, dy, cw + 8 * dpr, ch); return; }
   ctx.drawImage(BG.far, dx, dy);
   const strip = (c, k) => { const P = c.width, o = ((CAMX * S * k + scroll * k) % P + P) % P; ctx.drawImage(c, dx - o, c.y0 + dy); if (P - o < cw) ctx.drawImage(c, dx - o + P, c.y0 + dy); };
-  strip(BG.mid, .1); strip(BG.near, .2);
+  strip(BG.mid, .1);
+  if (GFX.tier) drawSkyExtras(dx, dy);
+  strip(BG.near, .2);
 }
 
 /* Static layer cache: blocks/spikes that are not moving are drawn once into tiles 640 world px wide. Only the
@@ -2320,7 +2387,7 @@ function drawParticles(world) {
 }
 
 function drawMotes(t, dt) {
-  const n = Math.round(GFX.motes * Perf.fxK); if (!n) return;
+  const n = Math.min(motes.length, Math.round(GFX.motes * Perf.fxK)); if (!n) return;
   // screen-space dust that drifts slower than the camera (parallax)
   ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
   const span = W + EXT.l + EXT.r + 40, off = CAMX * .35;
@@ -2362,7 +2429,7 @@ function drawFlag(e, t) {
   ctx.fillStyle = '#ffd36e'; ctx.beginPath(); ctx.arc(x + 2, top - 2, 4, 0, 7); ctx.fill();
 }
 function drawDynamic(world, t, dt, depth) {
-  const ents = viewEnts(world);
+  const ents = VIEW_ENTS = viewEnts(world);
   for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
   for (const e of ents) if (!e.gone && e.type === 'saw' && (e.patrol0 || e.orbit)) drawTrack(e);
@@ -2401,6 +2468,7 @@ function render(world, t, dt) {
   worldTransform(sx, sy);
   drawMotes(t, dt);
   if (world) drawDynamic(world, t, dt, null);
+  drawWeather2D(world, t, dt, sx, sy);
   drawOverlays(world, t);
 }
 
@@ -2430,6 +2498,7 @@ function render25(world, t, dt) {
   drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawDynamic(world, t, dt, vp);
+  drawWeather2D(world, t, dt, sx, sy);
   drawOverlays(world, t);
 }
 function drawExtrude(e, vp) {
@@ -2496,6 +2565,151 @@ function drawTransition() {
   const maxR = Math.hypot(Math.max(cx, cw - cx), Math.max(cy, ch - cy));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#07051a'; ctx.beginPath(); ctx.rect(0, 0, cw, ch); ctx.arc(cx, cy, Math.max(0.01, e * maxR), 0, Math.PI * 2, true); ctx.fill();
+}
+/* ============================ WEATHER ============================ */
+// Rain, snow, flood and storm in every view (2D, 2.5D, 3D platformer, 3D chase), plus rain and wind sounds.
+// Weather is only looks and sound: it never changes how a level plays, so every level stays as verified.
+const WX_KINDS = {
+  off: { n: 'صاف', i: '☀️' }, rain: { n: 'بارون', i: '🌧️' }, snow: { n: 'برف', i: '❄️' },
+  flood: { n: 'سیل', i: '🌊' }, storm: { n: 'طوفان', i: '⛈️' }, auto: { n: 'خودکار', i: '🎲' },
+};
+const WX = { kind: 'off', autoKind: 'off', autoT: 20, rain: 0, snow: 0, flood: 0, wind: 0, flash: 0, boltT: 4, sndT: 0, drops: [], flakes: [], lastCam: 0 };
+const wxCurrent = () => CFG.weather === 'auto' ? WX.autoKind : (WX_KINDS[CFG.weather] ? CFG.weather : 'off');
+function wxSay(k) {
+  if (typeof app === 'undefined' || app.state !== 'play') return;
+  app.taunt(k === 'off' ? 'هوا صاف شد ☀️' : { rain: 'بارون گرفت 🌧️', snow: 'برف می‌باره ❄️', flood: 'سیل اومد! 🌊', storm: 'طوفان شد! ⛈️' }[k], '#9ef9ff');
+}
+function wxTick(dt, playing) {
+  if (CFG.weather === 'auto') {
+    // automatic: the weather changes by itself every so often, leaning on the colours of the level
+    WX.autoT -= dt;
+    if (WX.autoT <= 0) {
+      const bio = typeof app !== 'undefined' && app.def ? app.def.biome || '' : '';
+      const pool = bio === 'ice' || bio === 'aurora' ? ['snow', 'snow', 'off', 'storm'] : bio === 'ocean' || bio === 'storm' || bio === 'toxic' ? ['rain', 'flood', 'storm', 'off']
+        : bio === 'desert' || bio === 'volcano' || bio === 'gold' ? ['off', 'off', 'storm', 'rain'] : ['off', 'rain', 'snow', 'storm', 'flood'];
+      let k = pool[Math.floor(Math.random() * pool.length)];
+      if (k === WX.autoKind) k = pool[Math.floor(Math.random() * pool.length)];
+      if (k !== WX.autoKind) { WX.autoKind = k; wxSay(k); }
+      WX.autoT = 35 + Math.random() * 45;
+    }
+  }
+  const k = WX.kind = wxCurrent(), I = clamp((CFG.weatherI ?? 70) / 100, .1, 1), e = (a, b, r) => a + (b - a) * Math.min(1, dt * r);
+  WX.rain = e(WX.rain, k === 'rain' ? I : k === 'storm' ? Math.min(1.3, I * 1.3) : k === 'flood' ? I * .8 : 0, .7);
+  WX.snow = e(WX.snow, k === 'snow' ? I : 0, .5);
+  WX.flood = e(WX.flood, k === 'flood' ? 1 : 0, .22);
+  WX.wind = e(WX.wind, k === 'storm' ? 1 : k === 'rain' || k === 'flood' ? .35 : k === 'snow' ? .3 : 0, .5);
+  WX.flash = Math.max(0, WX.flash - dt * 3);
+  if (k === 'storm' && WX.rain > .3) { WX.boltT -= dt; if (WX.boltT <= 0) { WX.boltT = 2.5 + Math.random() * 5; WX.flash = 1; if (CFG.wsnd !== false && playing) Sound.play('thunder'); } }
+  if ((WX.sndT -= dt) <= 0) { WX.sndT = .3; const on = CFG.wsnd !== false && playing; Sound.ambient(on ? Math.min(1, WX.rain) : 0, on ? WX.wind * Math.max(WX.rain, WX.snow) : 0); }
+}
+
+/* ---------- 2D views ---------- */
+let VIEW_ENTS = [];
+function drawWeather2D(world, t, dt, sx, sy) {
+  if (WX.rain < .01 && WX.snow < .01 && WX.flood < .01 && WX.flash <= 0) { WX.drops.length = WX.flakes.length = 0; return; }
+  const q = (GFX.wq || 1) * Perf.fxK, dCam = (CAMX - WX.lastCam) * S; WX.lastCam = CAMX;
+  ctx.save();
+  // snow settles on the tops of blocks
+  if (WX.snow > .05 && world) {
+    worldTransform(sx, sy); ctx.fillStyle = `rgba(245,250,255,${Math.min(.92, WX.snow * 1.1).toFixed(2)})`;
+    for (const e of VIEW_ENTS) {
+      if (e.type !== 'block' || e.hidden || e.gone || e.lava || e.ceil || e.y <= .5 || e.appear < 1) continue;
+      const [x, , w] = blockRect(e); ctx.beginPath(); ctx.moveTo(x, e.y + 1);
+      for (let xx = 0; xx <= w; xx += 10) ctx.lineTo(x + xx, e.y - 3 - Math.abs(Math.sin((e.x + xx) * .07)) * 3.5 * WX.snow);
+      ctx.lineTo(x + w, e.y + 1); ctx.closePath(); ctx.fill();
+    }
+  }
+  // flood: water fills the bottom of every pit (and the floor of the screen)
+  if (WX.flood > .01 && world) {
+    worldTransform(sx, sy);
+    const top = (17.25 - WX.flood * 1.45) * T, x0 = CAMX - EXT.l - 20, x1 = CAMX + W + EXT.r + 20;
+    const gr = ctx.createLinearGradient(0, top - 6, 0, H + EXT.b); gr.addColorStop(0, 'rgba(120,190,255,.62)'); gr.addColorStop(.3, 'rgba(40,110,190,.66)'); gr.addColorStop(1, 'rgba(10,40,90,.8)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x0, H + EXT.b + 10);
+    for (let x = x0; x <= x1 + 16; x += 16) ctx.lineTo(x, top + Math.sin(x * .045 + t * 2.4) * 3 + Math.sin(x * .013 - t * 1.3) * 2.5);
+    ctx.lineTo(x1 + 16, H + EXT.b + 10); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(220,240,255,.55)'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let x = x0; x <= x1 + 16; x += 16) { const y = top + Math.sin(x * .045 + t * 2.4) * 3 + Math.sin(x * .013 - t * 1.3) * 2.5; x === x0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.stroke();
+    if (gtier(11)) { // light shimmering on the water
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(200,230,255,.22)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 14; i++) { const x = x0 + ((i * 137 + t * 30) % (x1 - x0)), y = top + 10 + (i % 4) * 9; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 26 + (i % 3) * 10, y); ctx.stroke(); }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (WX.rain > .01) { ctx.fillStyle = `rgba(10,14,32,${(Math.min(1, WX.rain) * .2).toFixed(3)})`; ctx.fillRect(0, 0, cw, ch); }
+  // rain streaks (screen space, slanted by the wind, sliding with the camera)
+  const nR = Math.round(260 * Math.min(1.3, WX.rain) * q), D = WX.drops, slant = (.12 + WX.wind * .45);
+  while (D.length < nR) D.push({ x: Math.random() * cw * 1.2, y: Math.random() * ch, s: (900 + Math.random() * 500) * dpr, l: (16 + Math.random() * 14) * dpr });
+  if (D.length > nR) D.length = nR;
+  if (nR) {
+    ctx.strokeStyle = 'rgba(190,210,255,.42)'; ctx.lineWidth = 1.3 * dpr; ctx.beginPath();
+    for (const d of D) {
+      d.y += d.s * dt; d.x += -d.s * slant * dt - dCam * .9;
+      if (d.y > ch + 20) { d.y = -20 - Math.random() * 60; d.x = Math.random() * cw * 1.3; }
+      if (d.x < -40) d.x += cw + 80; else if (d.x > cw + 40) d.x -= cw + 80;
+      ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.l * slant, d.y - d.l);
+    }
+    ctx.stroke();
+  }
+  // snow flakes drifting
+  const nS = Math.round(200 * WX.snow * q), F = WX.flakes;
+  while (F.length < nS) F.push({ x: Math.random() * cw, y: Math.random() * ch, r: (1.2 + Math.random() * 2.4) * dpr, s: (40 + Math.random() * 60) * dpr, ph: Math.random() * 7 });
+  if (F.length > nS) F.length = nS;
+  if (nS) {
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (const f of F) {
+      f.y += f.s * dt; f.x += (Math.sin(t * 1.3 + f.ph) * 24 - WX.wind * 90) * dpr * dt - dCam * .8;
+      if (f.y > ch + 6) { f.y = -6; f.x = Math.random() * cw; }
+      if (f.x < -10) f.x += cw + 20; else if (f.x > cw + 10) f.x -= cw + 20;
+      ctx.fillRect(f.x - f.r / 2, f.y - f.r / 2, f.r, f.r);
+    }
+  }
+  if (WX.flash > 0) { ctx.fillStyle = `rgba(225,230,255,${(WX.flash * .38).toFixed(3)})`; ctx.fillRect(0, 0, cw, ch); }
+  ctx.restore();
+}
+
+/* ---------- three.js views: falling rain/snow around the camera + flood water ---------- */
+class Wx3 {
+  // u = world units per metre-ish (1 for the chase, 1 tile for the platformer); box = half sizes around the camera
+  constructor(scene, keep, box, waterY) {
+    this.box = box; this.waterY = waterY; const q = GFX.wq || 1;
+    this.nR = Math.round(1400 * q); this.nS = Math.round(900 * q);
+    const rg = keep(new THREE.BufferGeometry()); this.rp = new Float32Array(this.nR * 6); rg.setAttribute('position', new THREE.BufferAttribute(this.rp, 3));
+    this.rain = new THREE.LineSegments(rg, keep(new THREE.LineBasicMaterial({ color: 0xbfd2ff, transparent: true, opacity: .5, depthWrite: false })));
+    this.rain.frustumCulled = false; scene.add(this.rain);
+    const sg = keep(new THREE.BufferGeometry()); this.sp = new Float32Array(this.nS * 3); sg.setAttribute('position', new THREE.BufferAttribute(this.sp, 3));
+    this.snow = new THREE.Points(sg, keep(new THREE.PointsMaterial({ color: 0xffffff, size: box[0] > 30 ? .3 : .16, transparent: true, opacity: .9, depthWrite: false })));
+    this.snow.frustumCulled = false; scene.add(this.snow);
+    const r = Math.random; this.rv = Array.from({ length: this.nR }, () => [r(), r(), r(), .7 + r() * .6]); this.sv = Array.from({ length: this.nS }, () => [r(), r(), r(), r() * 7]);
+    this.water = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshLambertMaterial({ color: 0x2f6cb0, transparent: true, opacity: .62, depthWrite: false })));
+    this.water.rotation.x = -Math.PI / 2; this.water.scale.set(box[0] * 8, box[2] * 8, 1); scene.add(this.water); this.t = 0;
+  }
+  update(dt, cx, cy, cz, fallK = 1) {
+    this.t += dt; const [bx, by, bz] = this.box, t = this.t;
+    const nr = Math.round(this.nR * Math.min(1, WX.rain) * Perf.fxK), ns = Math.round(this.nS * WX.snow * Perf.fxK), wind = WX.wind;
+    this.rain.visible = nr > 0; this.snow.visible = ns > 0;
+    if (nr) {
+      const P = this.rp, L = by * .07;
+      for (let i = 0; i < nr; i++) {
+        const v = this.rv[i]; v[1] -= dt * 1.15 * v[3] * fallK; if (v[1] < 0) { v[1] += 1; v[0] = Math.random(); v[2] = Math.random(); }
+        const x = cx + (v[0] * 2 - 1) * bx, y = cy + (v[1] * 2 - 1) * by, z = cz + (v[2] * 2 - 1) * bz, o = i * 6;
+        P[o] = x; P[o + 1] = y; P[o + 2] = z; P[o + 3] = x + wind * L * .6; P[o + 4] = y + L; P[o + 5] = z;
+      }
+      this.rain.geometry.setDrawRange(0, nr * 2); this.rain.geometry.attributes.position.needsUpdate = true;
+      this.rain.material.opacity = .35 + Math.min(1, WX.rain) * .25;
+    }
+    if (ns) {
+      const P = this.sp;
+      for (let i = 0; i < ns; i++) {
+        const v = this.sv[i]; v[1] -= dt * .12 * fallK; if (v[1] < 0) { v[1] += 1; v[0] = Math.random(); v[2] = Math.random(); }
+        P[i * 3] = cx + (v[0] * 2 - 1) * bx + Math.sin(t + v[3]) * .6 - wind * 1.5; P[i * 3 + 1] = cy + (v[1] * 2 - 1) * by; P[i * 3 + 2] = cz + (v[2] * 2 - 1) * bz;
+      }
+      this.snow.geometry.setDrawRange(0, ns); this.snow.geometry.attributes.position.needsUpdate = true;
+    }
+    this.water.visible = WX.flood > .02;
+    if (this.water.visible) { this.water.position.set(cx, this.waterY(WX.flood) + Math.sin(t * 1.7) * .03, cz); this.water.material.opacity = .62 * Math.min(1, WX.flood * 1.5); }
+  }
 }
 /* ============================ CHASE LEVELS IN 2D AND PSEUDO-3D ============================ */
 // Both views draw the same Run3D simulation (same course, obstacles, giants) on the 2D canvas.
@@ -2597,6 +2811,7 @@ function drawRun2D(run, t, dt) {
       else { ctx.fillStyle = mixHex(c.ground, '#ffffff', .1); ctx.beginPath(); ctx.ellipse(x, y, (.6 + h) * k, (.4 + h * .4) * k, 0, Math.PI, 0); ctx.fill(); }
     } }
   const gs = X(run.gS); if (gs < 0) { ctx.fillStyle = 'rgba(255,61,113,.9)'; ctx.beginPath(); ctx.moveTo(8 * dpr, yc); ctx.lineTo(26 * dpr, yc - 14 * dpr); ctx.lineTo(26 * dpr, yc + 14 * dpr); ctx.fill(); }
+  CAMX = 0; drawWeather2D(null, t, dt, 0, 0);
   runOverlays(run, t);
 }
 const geo2D = () => { const k = clamp(Math.min(cw / 56, ch / 24), 8, 60); return { k, kl: k * .5, kh: k * .82, px0: cw * .44, yc: ch * .56 }; };
@@ -2652,6 +2867,7 @@ function drawRunPseudo(run, t, dt) {
       ctx.restore(); }
     if (el.classList.contains('hide')) el.classList.remove('hide');
   }
+  CAMX = 0; drawWeather2D(null, t, dt, 0, 0);
   runOverlays(run, t);
 }
 function pseudoScene(run, c, cam, rx, ry, rw, rh, t, back) {
@@ -2749,6 +2965,8 @@ const THEMES3 = {
 const PG3 = 28, JV3 = 10, LATV = 8.5, ROADW = 10, BRW = 3.6;
 let R3renderer = null, R3fail = false;
 const flatG = g => { const n = g.index ? g.toNonIndexed() : g; n.computeVertexNormals(); return n; };
+// cinematic ACES tone mapping on the high tiers (three.js recompiles the materials when this changes)
+function toneMap3(r) { const on = gtier(6); r.toneMapping = on ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping; r.toneMappingExposure = on ? 1.18 : 1; }
 function getRenderer3() {
   if (R3renderer || R3fail) return R3renderer;
   try {
@@ -3059,14 +3277,15 @@ class Run3D {
     const sc = this.scene = new THREE.Scene();
     const disp = this.disp = [];
     const keep = o => { disp.push(o); return o; };
-    sc.fog = new THREE.Fog(TH.fog, TH.fogN, TH.fogF);
+    this.fogF = TH.fogF * (gtier(19) ? 1.3 : 1);
+    sc.fog = new THREE.Fog(TH.fog, TH.fogN, this.fogF);
     this.cam = new THREE.PerspectiveCamera(64, 1.6, 0.1, 900);
     this.mcam = new THREE.PerspectiveCamera(58, 1.8, 0.1, 900);
     const hemi = new THREE.HemisphereLight(TH.hemi[0], TH.hemi[1], TH.hemi[2]); sc.add(hemi); this.hemi = hemi;
     const sun = this.sunL = new THREE.DirectionalLight(TH.sun[0], TH.sun[1]); sun.position.set(-0.6, 1, -0.4); sc.add(sun); sc.add(sun.target);
     this.sunDir = new THREE.Vector3(0.35, 0.32, -1).normalize();
     const SH = GFX.sh === 2; R3renderer && (R3renderer.shadowMap.enabled = SH);
-    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); const sc2 = sun.shadow.camera; sc2.left = -26; sc2.right = 26; sc2.top = 30; sc2.bottom = -30; sc2.near = 1; sc2.far = 140; sun.shadow.bias = -0.0008; }
+    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(gtier(7) ? 4096 : 2048, gtier(7) ? 4096 : 2048); const sc2 = sun.shadow.camera; sc2.left = -26; sc2.right = 26; sc2.top = 30; sc2.bottom = -30; sc2.near = 1; sc2.far = 140; sun.shadow.bias = -0.0008; }
     const C = { road: colSet('road') ? colOf('road') : '#' + new THREE.Color(TH.road).getHexString(), edge: colSet('moss') ? hexNum(colOf('moss')) : TH.edge,
       obst: colSet('obstacle') ? colOf('obstacle') : '#ffd36e', hazard: hexNum(colSet('hazard') ? colOf('hazard') : '#d8dcf2'), giant: colSet('giant') ? [hexNum(colOf('giant')), hexNum(mixHex(colOf('giant'), '#000000', .2))] : TH.giant };
     this.C = C;
@@ -3187,6 +3406,8 @@ class Run3D {
     this.dustPts.frustumCulled = false; this.dustPts.visible = !!GFX.dust; sc.add(this.dustPts);
     this.gShadow.visible = GFX.sh === 1;
     this.lightningT = 3;
+    this.wx = new Wx3(sc, keep, [30, 14, 45], f => -.78 + f * .5);
+    if (gtier(4) && R3renderer) { const mx = R3renderer.capabilities.getMaxAnisotropy(); sc.traverse(o => { const m = o.material; if (m && m.map) { m.map.anisotropy = mx; m.map.needsUpdate = true; } }); }
     // long courses: split static instanced meshes into chunks along the track so far chunks are skipped
     const dyn = new Set([...Object.values(this.gm), this.gShadow, this.gemMesh, this.powMesh, this.powRing, this.moverMesh, this.moverCap, this.rollerMesh]);
     this.chunkStatic(dyn);
@@ -3204,15 +3425,20 @@ class Run3D {
         const ca = c.instanceMatrix.array;
         idx.forEach((i, j) => { for (let q = 0; q < 16; q++) ca[j * 16 + q] = a[i * 16 + q]; });
         if (m.instanceColor) { const col = new THREE.Color(); idx.forEach((i, j) => { m.getColorAt(i, col); c.setColorAt(j, col); }); c.instanceColor.needsUpdate = true; }
-        c.instanceMatrix.needsUpdate = true; this.scene.add(c); chunks.push({ m: c, s0: k * CH, s1: (k + 1) * CH });
+        c.instanceMatrix.needsUpdate = true; this.scene.add(c); chunks.push({ m: c, s0: k * CH, s1: (k + 1) * CH, far: !!m.userData.far });
       }
       this.scene.remove(m); m.dispose();
     }
   }
-  cullChunks() {
-    // keep everything the main camera (far plane 900) and the rear mirror can show
-    const s = this.p.s, a = s - 420, b = s + 960;
-    for (const c of this.chunks) c.m.visible = c.s1 > a && c.s0 < b;
+  // which chunks each camera can see: the main camera looks ahead (small things fade out in the fog,
+  // mountains and clouds stay as silhouettes); the rear mirror only sees a stretch behind the player
+  cullChunks(mirror) {
+    const s = this.p.s, fogF = this.fogF + 80;
+    for (const c of this.chunks) {
+      const back = mirror || this.state === 'intro';   // the intro shot looks back at the giants
+      const a = back ? s - (c.far ? 350 : 170) : s - (c.far ? 200 : 14), b = mirror ? s + 12 : s + (c.far ? 960 : fogF);
+      c.m.visible = c.s1 > a && c.s0 < b;
+    }
   }
 
   buildScenery(rng, inst, put, lam, unitBox, keep) {
@@ -3244,9 +3470,18 @@ class Run3D {
     const mts = []; for (let s = -200; s < len + 500; s += 38 / Math.max(.6, scn)) for (const side of [-1, 1]) mts.push([side * (150 + rng() * 220), s + rng() * 30, 50 + rng() * 140, 40 + rng() * 60]);
     const mg = keep(flatG(new THREE.ConeGeometry(1, 1, 6))); mg.translate(0, 0.5, 0);
     const mm = inst(mg, keep(new THREE.MeshLambertMaterial({ color: TH.mtn })), mts.length);
-    mts.forEach((q, i) => put(mm, i, q[0], -3, -q[1], q[3], q[2], q[3], 0, i, 0)); mm.instanceMatrix.needsUpdate = true;
+    mts.forEach((q, i) => put(mm, i, q[0], -3, -q[1], q[3], q[2], q[3], 0, i, 0)); mm.instanceMatrix.needsUpdate = true; mm.userData.far = true;
     if (TH.snowy || TH.tree === 'pine') { const peak = keep(flatG(new THREE.ConeGeometry(1, 1, 6))); peak.translate(0, 0.5, 0); const pk = inst(peak, keep(new THREE.MeshLambertMaterial({ color: TH.snowy ? 0xffffff : 0xf0f4ff })), mts.length);
-      mts.forEach((q, i) => put(pk, i, q[0], -3 + q[2] * 0.72, -q[1], q[3] * 0.28, q[2] * 0.28, q[3] * 0.28, 0, i, 0)); pk.instanceMatrix.needsUpdate = true; }
+      mts.forEach((q, i) => put(pk, i, q[0], -3 + q[2] * 0.72, -q[1], q[3] * 0.28, q[2] * 0.28, q[3] * 0.28, 0, i, 0)); pk.instanceMatrix.needsUpdate = true; pk.userData.far = true; }
+    // high tiers: grass tufts along both sides of the track
+    if (gtier(3)) {
+      const gp = [], st = gtier(14) ? .45 : .9;
+      for (let s = -20; s < len + 100; s += st) for (const side of [-1, 1]) if (rng() < .8 && !chasm(s)) gp.push([side * (5.6 + rng() * 10), s + rng() * st, .6 + rng() * .9]);
+      const gg = keep(new THREE.ConeGeometry(.13, .75, 3)); gg.translate(0, .37, 0);
+      const gc = TH.snowy ? 0xdfe8f0 : TH.tree === 'cactus' ? 0xb8a060 : TH.tree === 'crystal' ? TH.treeC : TH.tree === 'dead' ? 0x6a5a4a : 0x4f8f4a;
+      const gm2 = inst(gg, lam(gc), gp.length);
+      gp.forEach((q, i) => put(gm2, i, q[0], -.8, -q[1], q[2], q[2] * (.8 + (i % 4) * .15), q[2], (i % 5 - 2) * .08, i, 0)); gm2.instanceMatrix.needsUpdate = true;
+    }
     // ruined pillars beside the track + stone arches over it
     const pil = []; for (let s = 30; s < len; s += 22 / scn) if (!chasm(s) && rng() < .5) pil.push([(rng() < .5 ? -1 : 1) * (7 + rng() * 6), s, 4 + rng() * 9]);
     const arches = []; for (let s = 120; s < len - 40; s += 150 + rng() * 60) if (!chasm(s)) arches.push(s);
@@ -3258,20 +3493,20 @@ class Run3D {
     const cl = []; if (GFX.clouds > 0) for (let s = -100; s < len + 400; s += 45 / GFX.clouds) cl.push([(rng() * 2 - 1) * 260, 55 + rng() * 70, s + rng() * 40, 12 + rng() * 22]);
     const cg = keep(new THREE.IcosahedronGeometry(1, 0));
     const cmsh = inst(cg, keep(new THREE.MeshLambertMaterial({ color: TH.cloud, transparent: true, opacity: 0.8 })), cl.length);
-    cl.forEach((q, i) => put(cmsh, i, q[0], q[1], -q[2], q[3] * 1.8, q[3] * 0.45, q[3], 0, i, 0)); cmsh.instanceMatrix.needsUpdate = true;
+    cl.forEach((q, i) => put(cmsh, i, q[0], q[1], -q[2], q[3] * 1.8, q[3] * 0.45, q[3], 0, i, 0)); cmsh.instanceMatrix.needsUpdate = true; cmsh.userData.far = true;
     if (TH.islands) {
       const isl = []; for (let s = 0; s < len + 300; s += 70) isl.push([(rng() < .5 ? -1 : 1) * (25 + rng() * 130), 18 + rng() * 45, s + rng() * 50, 5 + rng() * 10]);
       const ig = keep(flatG(new THREE.ConeGeometry(1, 1.6, 7))); ig.rotateX(Math.PI); ig.translate(0, -0.8, 0);
       const im = inst(ig, keep(new THREE.MeshLambertMaterial({ color: TH.rock })), isl.length);
       const itop = inst(keep(new THREE.CylinderGeometry(1, 1, 0.25, 7)), keep(new THREE.MeshBasicMaterial({ color: TH.treeC })), isl.length);
       isl.forEach((q, i) => { put(im, i, q[0], q[1], -q[2], q[3], q[3], q[3], 0, i, 0); put(itop, i, q[0], q[1] + 0.1, -q[2], q[3] * 0.95, 1, q[3] * 0.95, 0, i, 0); });
-      im.instanceMatrix.needsUpdate = itop.instanceMatrix.needsUpdate = true; this.islands = { im, itop, isl };
+      im.instanceMatrix.needsUpdate = itop.instanceMatrix.needsUpdate = true; im.userData.far = itop.userData.far = true; this.islands = { im, itop, isl };
     }
   }
 
   buildGiants(keep, rng) {
     const TH = this.TH, n = this.gN = this.def.giants, sc = this.scene;
-    const ico = keep(flatG(new THREE.IcosahedronGeometry(1, 1)));
+    const ico = keep(flatG(new THREE.IcosahedronGeometry(1, gtier(9) ? 2 : 1)));
     const limb = (w, l, fw, fl, fd) => { const b = this.geoBuilder(); b.box(-w / 2, w / 2, -l, 0, -w / 2, w / 2, true); b.box(-fw / 2, fw / 2, -l - fl * 0.5, -l + fl * 0.5, -fd * 0.65, fd * 0.35, true); return keep(b.build()); };
     const legG = limb(1.7, 6, 2.1, 0.9, 2.8), armG = limb(1.3, 6.2, 1.8, 1.8, 1.8);
     const stone = keep(new THREE.MeshLambertMaterial({ color: 0xffffff }));
@@ -3334,6 +3569,7 @@ class Run3D {
 
   buildPlayer(keep) {
     const h = buildHeroMesh(keep); this.pl = h.g; this.plBody = h.body; this.tail = h.tail; this.legs = h.legs; this.pglow = h.glow; this.scene.add(h.g);
+    if (gtier(18)) { this.plLight = new THREE.PointLight(0xffc890, 1.3, 16, 1.6); this.scene.add(this.plLight); }
   }
   posePicks(t) {
     const put = this.put, p = this.p, G = this.gemList, lo = p.s - 3, hi = p.s + 160;
@@ -3384,6 +3620,8 @@ class Run3D {
       this.dustPts.geometry.attributes.position.needsUpdate = true; }
     // storm lightning
     if (TH.storm) { this.lightningT -= dt; if (this.lightningT <= 0) { this.lightningT = 2.5 + Math.random() * 4; this.light = 1; Sound.play('thunder'); } this.light = Math.max(0, (this.light || 0) - dt * 3); this.hemi.intensity = TH.hemi[2] + this.light * 1.6; }
+    this.hemi.intensity = TH.hemi[2] + (this.light || 0) * 1.6 + WX.flash * 1.3;
+    this.scene.fog.far = this.fogF * (1 - .3 * Math.min(1, WX.rain + WX.snow));
     // camera
     const W3 = innerWidth, H3 = innerHeight, aspect = W3 / H3;
     const sh = this.shake * 0.03, shx = (Math.random() - .5) * sh, shy = (Math.random() - .5) * sh;
@@ -3404,19 +3642,23 @@ class Run3D {
     this.sky.position.copy(cam.position);
     if (this.disc) { const d = this.sunDir; this.disc.position.copy(cam.position).addScaledVector(d, 600); this.disc.lookAt(cam.position); this.discCore.position.copy(cam.position).addScaledVector(d, 594); this.discCore.lookAt(cam.position); }
     if (this.sunL && this.sunL.castShadow) { this.sunL.target.position.set(p.x * 0.5, 0, -p.s - 14); this.sunL.position.set(p.x * 0.5 - 24, 40, -p.s - 14 - 16); this.sunL.target.updateMatrixWorld(); }
-    this.posePicks(t); this.cullChunks();
+    this.posePicks(t); this.cullChunks(false);
     this.mist.position.x = cam.position.x; this.mist.position.z = cam.position.z;
+    if (this.plLight) this.plLight.position.set(p.x, p.y + 1.6, -p.s + 1);
+    this.wx.update(dt, cam.position.x, cam.position.y + 4, cam.position.z - 28);
     // main pass
+    toneMap3(r);
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
     r.render(this.scene, cam);
     // rear-view mirror: shows the giants behind you
-    const m = GFX.mir ? this.mirrorRect() : null;
-    const mEl = document.getElementById('mirror'), showM = this.state !== 'intro';
+    // the mirror is the first extra to go when the device struggles (adaptive quality)
+    const m = GFX.mir && Perf.si < 3 && !Perf.fxDrop ? this.mirrorRect() : null;
+    const mEl = document.getElementById('mirror'), showM = this.state !== 'intro' && !!m;
     if (mEl.classList.contains('off') === showM) mEl.classList.toggle('off', !showM);
     if (m && showM) {
       const mc = this.mcam; mc.aspect = m.w / m.h; mc.updateProjectionMatrix();
       mc.position.set(p.x * 0.5, 3.0, -p.s - 2.5); mc.lookAt(p.x * 0.3, 5.5, -p.s + 30);
-      this.pl.visible = false;
+      this.pl.visible = false; this.cullChunks(true);
       r.setScissorTest(true); r.setScissor(m.x, H3 - m.y - m.h, m.w, m.h); r.setViewport(m.x, H3 - m.y - m.h, m.w, m.h);
       r.render(this.scene, mc);
       r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
@@ -3580,12 +3822,12 @@ class P3D {
     this.realm = !!def.realm; this.dark = !!world.dark;
     const sc = this.scene = new THREE.Scene();
     const sk = PAL.skyCol, fogC = this.realm ? 0x0a0320 : this.dark ? 0x05030c : hexNum(sk('#3a1c5e'));
-    sc.fog = new THREE.Fog(fogC, this.dark ? 16 : 34, this.dark ? 46 : 110);
+    sc.fog = new THREE.Fog(fogC, this.dark ? 16 : 34, (this.dark ? 46 : 110) * (gtier(19) ? 1.3 : 1));
     this.cam = new THREE.PerspectiveCamera(34, 16 / 9, 0.1, 500);
     const hemi = this.hemi = new THREE.HemisphereLight(this.realm ? 0x9a8cff : 0xc8b8ff, this.realm ? 0x200a40 : 0x302048, this.dark ? 0.12 : 0.85); sc.add(hemi);
     const sun = this.sun = new THREE.DirectionalLight(0xffe2c8, this.dark ? 0.08 : 0.75); sun.position.set(6, 26, 18); sun.target.position.set(16, 6, 0); sc.add(sun, sun.target);
     const SH = GFX.sh === 2; if (R3renderer) R3renderer.shadowMap.enabled = SH;
-    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 }); sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0006; }
+    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(gtier(7) ? 4096 : 2048, gtier(7) ? 4096 : 2048); Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 }); sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0006; }
     this.SH = SH;
     if (this.dark) { this.pLight = new THREE.PointLight(0xffe6c0, 2.4, 11, 1.6); sc.add(this.pLight); }
     // sky dome
@@ -3621,6 +3863,7 @@ class P3D {
     }
     // materials shared by all blocks
     const stone = keep(RP.stoneTex(hexNum(mixHex(PAL.block, '#ffffff', .22)))); stone.wrapS = stone.wrapT = THREE.RepeatWrapping;
+    if (gtier(4) && R3renderer) stone.anisotropy = R3renderer.capabilities.getMaxAnisotropy();
     this.mat = {
       stone: keep(new THREE.MeshLambertMaterial({ map: stone, color: this.realm ? 0x9a7aff : 0xffffff })),
       ghost: keep(new THREE.MeshLambertMaterial({ map: stone, transparent: true, opacity: .42 })),
@@ -3639,6 +3882,7 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    this.fogF = sc.fog.far; this.wx = new Wx3(sc, keep, [26, 12, 7], f => (H - (17.25 - f * 1.45) * T) / T);
     // particles
     const N = this.pN = 420; this.pPos = new Float32Array(N * 3); this.pCol = new Float32Array(N * 3);
     const pg = keep(new THREE.BufferGeometry()); pg.setAttribute('position', new THREE.BufferAttribute(this.pPos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(this.pCol, 3));
@@ -3805,7 +4049,8 @@ class P3D {
     g.visible = w.state !== 'dead';
     const fx = this.X(p.x + PW / 2), fy = flip ? this.Y(p.y) : this.Y(p.y + PHT);
     g.position.set(fx, fy, 0);
-    const turn = p.face > 0 ? -Math.PI / 2 - .45 : Math.PI / 2 + .45;
+    const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
+    const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
     let sc = .6; if (w.state === 'win') { sc *= Math.max(.02, p.winS); g.rotation.y += p.rot; }
     g.scale.set(sc * p.sx, sc * p.sy, sc * p.sx);
@@ -3825,13 +4070,28 @@ class P3D {
     this.parts.geometry.setDrawRange(0, N); this.parts.geometry.attributes.position.needsUpdate = true; this.parts.geometry.attributes.color.needsUpdate = true;
     // camera framing the whole level, drifting gently with the player
     const W3 = innerWidth, H3 = innerHeight, aspect = W3 / H3, cam = this.cam;
-    const tan = Math.tan(cam.fov * Math.PI / 360), d = Math.max(10.4 / tan, 17.6 / (tan * aspect)) + 1.5;
+    const tan = Math.tan(34 * Math.PI / 360), d = Math.max(10.4 / tan, 17.6 / (tan * aspect)) + 1.5;
     const cc = (w.camX + W / 2) / T, cx = cc + (fx - cc) * .18, cy = 9 + (fy - 9) * .1;
     this.sky.position.x = cx; this.bg.position.x = cx * .9 - 16 * .9;
     this.sun.position.set(cx - 10, 26, 18); this.sun.target.position.set(cx, 6, 0); this.sun.target.updateMatrixWorld();
     const sh = w.shakeA * (CFG.shake / 100) * .03;
-    cam.position.set(cx + (Math.random() - .5) * sh, cy + 1.6 + (Math.random() - .5) * sh, d);
-    cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
+    if (third) {
+      // third-person: behind the player and a little to the side, looking down the course
+      const look = clamp(w.look / 70, -1, 1), up = flip ? -1 : 1, k = Math.min(1, dt * 6), ky = Math.min(1, dt * 3.5);
+      const cs = this.cs || (this.cs = { x: fx - 6.2, y: fy + 3 * up, lx: fx + 6 });
+      cs.x = lerp(cs.x, fx - 6.2, k); cs.y = lerp(cs.y, fy + 3 * up, ky); cs.lx = lerp(cs.lx, fx + 5 + look * 2, k);
+      cam.fov = lerp(cam.fov, aspect < 1 ? 75 : 62, Math.min(1, dt * 4));
+      cam.position.set(cs.x + (Math.random() - .5) * sh, cs.y + (Math.random() - .5) * sh, 4.4);
+      cam.lookAt(cs.lx, cs.y - 2.1 * up, -.5); cam.aspect = aspect; cam.updateProjectionMatrix();
+    } else {
+      cam.fov = 34;
+      cam.position.set(cx + (Math.random() - .5) * sh, cy + 1.6 + (Math.random() - .5) * sh, d);
+      cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
+    }
+    if (third) this.wx.update(dt, this.cs.lx, this.cs.y, 0); else this.wx.update(dt, cx, cy, 0);
+    if (!this.dark) this.hemi.intensity = .85 + WX.flash * 1.2;
+    this.scene.fog.far = this.fogF * (1 - .3 * Math.min(1, WX.rain + WX.snow));
+    toneMap3(r);
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
     r.render(this.scene, cam);
   }
@@ -4046,7 +4306,7 @@ const app = {
       run.onPick = k => this.onPick(k);
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
-    resize3();
+    resize3(); updCamBtn();
     $('banner').classList.toggle('low', this.kind === 'run');
     const size = def.secs ? ` · ${faNum(def.nObs)} مانع · ${faNum(def.secs.length - 1)} چک‌پوینت` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
     $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
@@ -4161,7 +4421,7 @@ const app = {
   menu() {
     this.teardown(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(LEVELS[0].biome);
-    this.state = 'title'; $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
+    this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },
   setDiff(d) {
     if (d === this.diff) return;
@@ -4228,6 +4488,7 @@ function checkRotate() { $('rotate').classList.toggle('on', isTouch && !rotDismi
 let setTab = 'gfx';
 const GFX_LABEL = { auto: 'خودکار', go: 'Go', plus: 'Plus', pro: 'Pro', max: 'Max', ultra: 'Ultra', maxultra: 'Max Ultra' };
 const GFX_COL = { auto: '#8fd3ff', go: '#9be05a', plus: '#6ff3c4', pro: '#8fd3ff', max: '#ffd36e', ultra: '#ff8a4c', maxultra: '#ff3d71' };
+XTIERS.forEach(([n], i) => { GFX_LABEL['x' + (i + 1)] = n; GFX_COL['x' + (i + 1)] = hslHex(285 - i * 13, .85, .68); });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const chip = (on, label, attrs, col) => `<button class="chip${on ? ' on' : ''}" ${attrs}${col ? ` style="--cc:${col}"` : ''}>${label}</button>`;
 const sw = (k, label) => `<div class="ctl"><label>${label}</label><button class="sw${CFG[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${!!CFG[k]}" aria-label="${esc(label)}"></button></div>`;
@@ -4237,7 +4498,7 @@ function setPath(p, v) { const [a, b] = p.split('.'); if (b) CFG[a][b] = v; else
 
 function renderSettings(tab) {
   if (tab) setTab = tab;
-  const tabs = [['gfx', '🖥️ گرافیک'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
+  const tabs = [['gfx', '🖥️ گرافیک'], ['wx', '🌦️ آب و هوا'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
   $('setTabs').innerHTML = tabs.map(([k, n]) => `<button class="tab${k === setTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
   let h = '';
   if (setTab === 'gfx') {
@@ -4246,8 +4507,16 @@ function renderSettings(tab) {
       <p><b>${esc(cur)}</b> — ${esc(CFG.gfx === 'auto' ? 'بر اساس قدرت دستگاهت انتخاب شده' : GFXS[GFXK].d)}</p>
       <p>هر کیفیت روی هر دستگاهی روان می‌مونه: بازی مدام سرعت فریم رو اندازه می‌گیره و اگه دستگاه کند بشه، رزولوشن و بعد جلوه‌ها رو کمی پایین میاره و وقتی دوباره جا باز شد، برمی‌گردونه.</p>
       <p id="perfNow">الان: ${faNum(Perf.fpsShow)} فریم در ثانیه · رزولوشن ${faNum(Math.round(Perf.dyn * 100))}٪${Perf.fxDrop ? ' · جلوه‌ها کم شده' : ''}</p></div>
-      <div class="sec"><h3>چی عوض می‌شه؟</h3><p>Go: سبک‌ترین · Plus: سایه‌ی نرم و آینه‌ی عقب · Pro: فیلترهای نور و جزئیات بیشتر · Max: لبه‌های صاف و منظره‌ی کامل · Ultra: رزولوشن بالا، ذرات و درخشش بیشتر · Max Ultra: سایه‌ی واقعی، بیشترین جزئیات و ذرات</p></div>
+      <div class="sec"><h3>چی عوض می‌شه؟</h3><p>Go: سبک‌ترین · Plus: سایه‌ی نرم و آینه‌ی عقب · Pro: فیلترهای نور و جزئیات بیشتر · Max: لبه‌های صاف و منظره‌ی کامل · Ultra: رزولوشن بالا، ذرات و درخشش بیشتر · Max Ultra: سایه‌ی واقعی، بیشترین جزئیات و ذرات</p>
+      <p><b>۲۰ سطح بالاتر از Max Ultra</b> — هر سطح همه‌ی جلوه‌های سطح قبلی رو داره و یک جزئیات واقعی‌تر اضافه می‌کنه:</p>
+      <ol class="tiers">${XTIERS.map(([n, f], i) => `<li${GFXK === 'x' + (i + 1) ? ' class="on"' : ''}><b>${n}</b> ${esc(f)}</li>`).join('')}</ol></div>
       <div class="sec"><h3>نمایش</h3>${sw('fps', 'نمایش FPS')}${sw('timer', 'زمان‌سنج مرحله')}</div>`;
+  } else if (setTab === 'wx') {
+    const cur = wxCurrent();
+    h += `<div class="sec"><h3>آب و هوا</h3><div class="chips">${Object.keys(WX_KINDS).map(k => chip(CFG.weather === k, WX_KINDS[k].i + ' ' + WX_KINDS[k].n, `data-wx="${k}"`)).join('')}</div>
+      <p>${CFG.weather === 'auto' ? `خودکار: هوا خودش هر چند وقت یک بار عوض می‌شه و با رنگ‌وبوی هر مرحله جور درمیاد (الان: ${WX_KINDS[cur].i} ${WX_KINDS[cur].n}).` : 'بارون، برف، سیل و طوفان روی هر چهار حالت بازی و مرحله‌های سه‌بعدی دیده می‌شن.'}</p>
+      <p>آب و هوا فقط ظاهر و صدای بازی رو عوض می‌کنه؛ سختی مرحله‌ها همون می‌مونه.</p></div>
+      <div class="sec"><h3>شدت</h3>${rng('weatherI', 'شدت بارش', 10, 100, '٪')}${sw('wsnd', 'صدای بارون، باد و رعد')}</div>`;
   } else if (setTab === 'light') {
     h += `<div class="sec"><h3>جلوه‌ی نور</h3><div class="chips">${Object.keys(MOODS).map(k => chip(CFG.mood === k, MOODS[k].n, `data-mood="${k}"`)).join('')}</div>
       ${!GFX.filt && CFG.mood !== 'custom' && CFG.mood !== 'default' ? '<p>روی کیفیت Go و Plus بخشی از جلوه‌ی نور برای حفظ سرعت ساده‌تر نمایش داده می‌شه.</p>' : ''}</div>`;
@@ -4278,6 +4547,7 @@ $('setBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; Sound.play('click');
   const d = b.dataset;
   if (d.gfx) { CFG.gfx = d.gfx; saveCfg(); gfxChanged(); applyMood(); }
+  else if (d.wx) { CFG.weather = d.wx; if (d.wx === 'auto') WX.autoT = 0; saveCfg(); }
   else if (d.mood) { CFG.mood = d.mood; saveCfg(); applyMood(); }
   else if (d.t) { CFG[d.t] = !CFG[d.t]; saveCfg(); applyMood(); hudLast = ''; }
   else if (d.pal) { CFG.pal = d.pal; for (const k of COLOR_KEYS) CFG.colors[k] = PALETTES[d.pal].c[k] || ''; colorsChanged(); }
@@ -4308,7 +4578,14 @@ const MODE_PV = {
 };
 function renderModes() {
   $('modeList').innerHTML = Object.keys(MODES).map(k => `<button class="mcard${CFG.mode === k ? ' on' : ''}" data-mode="${k}"><div class="pv">${MODE_PV[k]}</div><b>${MODES[k].n}</b><small>${MODES[k].d}</small></button>`).join('');
+  $('camBox').innerHTML = `<h3>دوربین سکوبازی‌ها در حالت سه‌بعدی کامل</h3><div class="chips">${chip(CFG.cam3d !== 'third', '🎬 از کنار (پیش‌فرض)', 'data-cam="side"')}${chip(CFG.cam3d === 'third', '🏃 سوم شخص (پشت سر بازیکن)', 'data-cam="third"')}</div>
+    <p>${CFG.mode === '3d' ? 'وسط بازی هم با دکمه‌ی دوربین بالای صفحه یا کلید C عوض می‌شه.' : 'این گزینه وقتی حالت «سه‌بعدی کامل» انتخاب شده اثر داره. مرحله‌های فرار از غول همیشه از پشت سر بازیکن دیده می‌شن.'}</p>`;
 }
+function setCam3d(v) { CFG.cam3d = v; saveCfg(); if (app.p3) app.p3.cs = null; updCamBtn(); }
+function updCamBtn() { const b = $('bCam'); b.classList.toggle('on', app.view === 'p3' && app.state !== 'title'); b.style.opacity = CFG.cam3d === 'third' ? 1 : .7; }
+$('camBox').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (!b) return; Sound.play('click'); setCam3d(b.dataset.cam); renderModes(); });
+$('bCam').addEventListener('click', () => { Sound.play('click'); setCam3d(CFG.cam3d === 'third' ? 'side' : 'third'); app.taunt(CFG.cam3d === 'third' ? 'دوربین: سوم شخص 🏃' : 'دوربین: از کنار 🎬', '#9ef9ff'); });
+addEventListener('keydown', e => { if (e.code === 'KeyC' && !e.repeat && app.state === 'play' && app.view === 'p3') $('bCam').click(); });
 $('modeList').addEventListener('click', e => {
   const b = e.target.closest('[data-mode]'); if (!b) return; Sound.play('click');
   if (CFG.mode === b.dataset.mode) return;
@@ -4351,6 +4628,7 @@ function drawView(dt) {
 function frame(now) {
   const raw = (now - last) / 1000, dt = Math.min(0.1, raw); last = now; clock += dt;
   Perf.tick(raw, app.state === 'play' && !document.hidden);
+  wxTick(dt, app.state === 'play' && !document.hidden);
   if (trans) { trans.t += dt; if (trans.t >= trans.dur) { const cb = trans.cb; trans = null; if (cb) cb(); } }
   if (app.state === 'play') {
     acc += dt; const inp = readInput(); let n = 0;

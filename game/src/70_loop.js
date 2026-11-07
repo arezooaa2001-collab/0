@@ -23,6 +23,7 @@ function drawView(dt) {
 function frame(now) {
   const raw = (now - last) / 1000, dt = Math.min(0.1, raw); last = now; clock += dt;
   Perf.tick(raw, app.state === 'play' && !document.hidden);
+  wxTick(dt, app.state === 'play' && !document.hidden);
   if (trans) { trans.t += dt; if (trans.t >= trans.dur) { const cb = trans.cb; trans = null; if (cb) cb(); } }
   if (app.state === 'play') {
     acc += dt; const inp = readInput(); let n = 0;

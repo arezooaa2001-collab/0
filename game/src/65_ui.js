@@ -2,6 +2,7 @@
 let setTab = 'gfx';
 const GFX_LABEL = { auto: 'خودکار', go: 'Go', plus: 'Plus', pro: 'Pro', max: 'Max', ultra: 'Ultra', maxultra: 'Max Ultra' };
 const GFX_COL = { auto: '#8fd3ff', go: '#9be05a', plus: '#6ff3c4', pro: '#8fd3ff', max: '#ffd36e', ultra: '#ff8a4c', maxultra: '#ff3d71' };
+XTIERS.forEach(([n], i) => { GFX_LABEL['x' + (i + 1)] = n; GFX_COL['x' + (i + 1)] = hslHex(285 - i * 13, .85, .68); });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const chip = (on, label, attrs, col) => `<button class="chip${on ? ' on' : ''}" ${attrs}${col ? ` style="--cc:${col}"` : ''}>${label}</button>`;
 const sw = (k, label) => `<div class="ctl"><label>${label}</label><button class="sw${CFG[k] ? ' on' : ''}" data-t="${k}" role="switch" aria-checked="${!!CFG[k]}" aria-label="${esc(label)}"></button></div>`;
@@ -11,7 +12,7 @@ function setPath(p, v) { const [a, b] = p.split('.'); if (b) CFG[a][b] = v; else
 
 function renderSettings(tab) {
   if (tab) setTab = tab;
-  const tabs = [['gfx', '🖥️ گرافیک'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
+  const tabs = [['gfx', '🖥️ گرافیک'], ['wx', '🌦️ آب و هوا'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
   $('setTabs').innerHTML = tabs.map(([k, n]) => `<button class="tab${k === setTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
   let h = '';
   if (setTab === 'gfx') {
@@ -20,8 +21,16 @@ function renderSettings(tab) {
       <p><b>${esc(cur)}</b> — ${esc(CFG.gfx === 'auto' ? 'بر اساس قدرت دستگاهت انتخاب شده' : GFXS[GFXK].d)}</p>
       <p>هر کیفیت روی هر دستگاهی روان می‌مونه: بازی مدام سرعت فریم رو اندازه می‌گیره و اگه دستگاه کند بشه، رزولوشن و بعد جلوه‌ها رو کمی پایین میاره و وقتی دوباره جا باز شد، برمی‌گردونه.</p>
       <p id="perfNow">الان: ${faNum(Perf.fpsShow)} فریم در ثانیه · رزولوشن ${faNum(Math.round(Perf.dyn * 100))}٪${Perf.fxDrop ? ' · جلوه‌ها کم شده' : ''}</p></div>
-      <div class="sec"><h3>چی عوض می‌شه؟</h3><p>Go: سبک‌ترین · Plus: سایه‌ی نرم و آینه‌ی عقب · Pro: فیلترهای نور و جزئیات بیشتر · Max: لبه‌های صاف و منظره‌ی کامل · Ultra: رزولوشن بالا، ذرات و درخشش بیشتر · Max Ultra: سایه‌ی واقعی، بیشترین جزئیات و ذرات</p></div>
+      <div class="sec"><h3>چی عوض می‌شه؟</h3><p>Go: سبک‌ترین · Plus: سایه‌ی نرم و آینه‌ی عقب · Pro: فیلترهای نور و جزئیات بیشتر · Max: لبه‌های صاف و منظره‌ی کامل · Ultra: رزولوشن بالا، ذرات و درخشش بیشتر · Max Ultra: سایه‌ی واقعی، بیشترین جزئیات و ذرات</p>
+      <p><b>۲۰ سطح بالاتر از Max Ultra</b> — هر سطح همه‌ی جلوه‌های سطح قبلی رو داره و یک جزئیات واقعی‌تر اضافه می‌کنه:</p>
+      <ol class="tiers">${XTIERS.map(([n, f], i) => `<li${GFXK === 'x' + (i + 1) ? ' class="on"' : ''}><b>${n}</b> ${esc(f)}</li>`).join('')}</ol></div>
       <div class="sec"><h3>نمایش</h3>${sw('fps', 'نمایش FPS')}${sw('timer', 'زمان‌سنج مرحله')}</div>`;
+  } else if (setTab === 'wx') {
+    const cur = wxCurrent();
+    h += `<div class="sec"><h3>آب و هوا</h3><div class="chips">${Object.keys(WX_KINDS).map(k => chip(CFG.weather === k, WX_KINDS[k].i + ' ' + WX_KINDS[k].n, `data-wx="${k}"`)).join('')}</div>
+      <p>${CFG.weather === 'auto' ? `خودکار: هوا خودش هر چند وقت یک بار عوض می‌شه و با رنگ‌وبوی هر مرحله جور درمیاد (الان: ${WX_KINDS[cur].i} ${WX_KINDS[cur].n}).` : 'بارون، برف، سیل و طوفان روی هر چهار حالت بازی و مرحله‌های سه‌بعدی دیده می‌شن.'}</p>
+      <p>آب و هوا فقط ظاهر و صدای بازی رو عوض می‌کنه؛ سختی مرحله‌ها همون می‌مونه.</p></div>
+      <div class="sec"><h3>شدت</h3>${rng('weatherI', 'شدت بارش', 10, 100, '٪')}${sw('wsnd', 'صدای بارون، باد و رعد')}</div>`;
   } else if (setTab === 'light') {
     h += `<div class="sec"><h3>جلوه‌ی نور</h3><div class="chips">${Object.keys(MOODS).map(k => chip(CFG.mood === k, MOODS[k].n, `data-mood="${k}"`)).join('')}</div>
       ${!GFX.filt && CFG.mood !== 'custom' && CFG.mood !== 'default' ? '<p>روی کیفیت Go و Plus بخشی از جلوه‌ی نور برای حفظ سرعت ساده‌تر نمایش داده می‌شه.</p>' : ''}</div>`;
@@ -52,6 +61,7 @@ $('setBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; Sound.play('click');
   const d = b.dataset;
   if (d.gfx) { CFG.gfx = d.gfx; saveCfg(); gfxChanged(); applyMood(); }
+  else if (d.wx) { CFG.weather = d.wx; if (d.wx === 'auto') WX.autoT = 0; saveCfg(); }
   else if (d.mood) { CFG.mood = d.mood; saveCfg(); applyMood(); }
   else if (d.t) { CFG[d.t] = !CFG[d.t]; saveCfg(); applyMood(); hudLast = ''; }
   else if (d.pal) { CFG.pal = d.pal; for (const k of COLOR_KEYS) CFG.colors[k] = PALETTES[d.pal].c[k] || ''; colorsChanged(); }
@@ -82,7 +92,14 @@ const MODE_PV = {
 };
 function renderModes() {
   $('modeList').innerHTML = Object.keys(MODES).map(k => `<button class="mcard${CFG.mode === k ? ' on' : ''}" data-mode="${k}"><div class="pv">${MODE_PV[k]}</div><b>${MODES[k].n}</b><small>${MODES[k].d}</small></button>`).join('');
+  $('camBox').innerHTML = `<h3>دوربین سکوبازی‌ها در حالت سه‌بعدی کامل</h3><div class="chips">${chip(CFG.cam3d !== 'third', '🎬 از کنار (پیش‌فرض)', 'data-cam="side"')}${chip(CFG.cam3d === 'third', '🏃 سوم شخص (پشت سر بازیکن)', 'data-cam="third"')}</div>
+    <p>${CFG.mode === '3d' ? 'وسط بازی هم با دکمه‌ی دوربین بالای صفحه یا کلید C عوض می‌شه.' : 'این گزینه وقتی حالت «سه‌بعدی کامل» انتخاب شده اثر داره. مرحله‌های فرار از غول همیشه از پشت سر بازیکن دیده می‌شن.'}</p>`;
 }
+function setCam3d(v) { CFG.cam3d = v; saveCfg(); if (app.p3) app.p3.cs = null; updCamBtn(); }
+function updCamBtn() { const b = $('bCam'); b.classList.toggle('on', app.view === 'p3' && app.state !== 'title'); b.style.opacity = CFG.cam3d === 'third' ? 1 : .7; }
+$('camBox').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (!b) return; Sound.play('click'); setCam3d(b.dataset.cam); renderModes(); });
+$('bCam').addEventListener('click', () => { Sound.play('click'); setCam3d(CFG.cam3d === 'third' ? 'side' : 'third'); app.taunt(CFG.cam3d === 'third' ? 'دوربین: سوم شخص 🏃' : 'دوربین: از کنار 🎬', '#9ef9ff'); });
+addEventListener('keydown', e => { if (e.code === 'KeyC' && !e.repeat && app.state === 'play' && app.view === 'p3') $('bCam').click(); });
 $('modeList').addEventListener('click', e => {
   const b = e.target.closest('[data-mode]'); if (!b) return; Sound.play('click');
   if (CFG.mode === b.dataset.mode) return;

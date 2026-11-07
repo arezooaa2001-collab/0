@@ -58,6 +58,18 @@ const Sound = {
       case 'win': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0, 0.32, 'triangle', 0.14, i * 0.08)); this.tone(1568, 0, 0.5, 'sine', 0.06, 0.32); break;
     }
   },
+  // looping rain hiss and wind (0..1 each), faded smoothly
+  ambient(rain, wind) {
+    const c = this.ctx; if (!c) return;
+    if (!this.amb) {
+      const mk = (type, f, q) => { const s = c.createBufferSource(); s.buffer = this.nbuf; s.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+        const g = c.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(this.sfx); s.start(); return { s, fl, g }; };
+      this.amb = { rain: mk('bandpass', 2600, .45), wind: mk('lowpass', 380, .8) };
+    }
+    const t = c.currentTime;
+    this.amb.rain.g.gain.setTargetAtTime(rain * .2, t, .6); this.amb.wind.g.gain.setTargetAtTime(wind * .32, t, .9);
+    this.amb.wind.fl.frequency.setTargetAtTime(320 + Math.sin(t * .37) * 140, t, .6);
+  },
   stomp(k) {
     if (!this.ctx || !this.on) return; const now = this.ctx.currentTime; if (now - (this.lastStomp || 0) < 0.12) return; this.lastStomp = now;
     this.tone(75, 32, 0.4, 'sine', 0.55 * k); this.noise(0.25, 0.32 * k, 220);

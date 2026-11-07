@@ -98,6 +98,7 @@ function drawRun2D(run, t, dt) {
       else { ctx.fillStyle = mixHex(c.ground, '#ffffff', .1); ctx.beginPath(); ctx.ellipse(x, y, (.6 + h) * k, (.4 + h * .4) * k, 0, Math.PI, 0); ctx.fill(); }
     } }
   const gs = X(run.gS); if (gs < 0) { ctx.fillStyle = 'rgba(255,61,113,.9)'; ctx.beginPath(); ctx.moveTo(8 * dpr, yc); ctx.lineTo(26 * dpr, yc - 14 * dpr); ctx.lineTo(26 * dpr, yc + 14 * dpr); ctx.fill(); }
+  CAMX = 0; drawWeather2D(null, t, dt, 0, 0);
   runOverlays(run, t);
 }
 const geo2D = () => { const k = clamp(Math.min(cw / 56, ch / 24), 8, 60); return { k, kl: k * .5, kh: k * .82, px0: cw * .44, yc: ch * .56 }; };
@@ -153,6 +154,7 @@ function drawRunPseudo(run, t, dt) {
       ctx.restore(); }
     if (el.classList.contains('hide')) el.classList.remove('hide');
   }
+  CAMX = 0; drawWeather2D(null, t, dt, 0, 0);
   runOverlays(run, t);
 }
 function pseudoScene(run, c, cam, rx, ry, rw, rh, t, back) {

@@ -9,12 +9,12 @@ class P3D {
     this.realm = !!def.realm; this.dark = !!world.dark;
     const sc = this.scene = new THREE.Scene();
     const sk = PAL.skyCol, fogC = this.realm ? 0x0a0320 : this.dark ? 0x05030c : hexNum(sk('#3a1c5e'));
-    sc.fog = new THREE.Fog(fogC, this.dark ? 16 : 34, this.dark ? 46 : 110);
+    sc.fog = new THREE.Fog(fogC, this.dark ? 16 : 34, (this.dark ? 46 : 110) * (gtier(19) ? 1.3 : 1));
     this.cam = new THREE.PerspectiveCamera(34, 16 / 9, 0.1, 500);
     const hemi = this.hemi = new THREE.HemisphereLight(this.realm ? 0x9a8cff : 0xc8b8ff, this.realm ? 0x200a40 : 0x302048, this.dark ? 0.12 : 0.85); sc.add(hemi);
     const sun = this.sun = new THREE.DirectionalLight(0xffe2c8, this.dark ? 0.08 : 0.75); sun.position.set(6, 26, 18); sun.target.position.set(16, 6, 0); sc.add(sun, sun.target);
     const SH = GFX.sh === 2; if (R3renderer) R3renderer.shadowMap.enabled = SH;
-    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 }); sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0006; }
+    if (SH) { sun.castShadow = true; sun.shadow.mapSize.set(gtier(7) ? 4096 : 2048, gtier(7) ? 4096 : 2048); Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 }); sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0006; }
     this.SH = SH;
     if (this.dark) { this.pLight = new THREE.PointLight(0xffe6c0, 2.4, 11, 1.6); sc.add(this.pLight); }
     // sky dome
@@ -50,6 +50,7 @@ class P3D {
     }
     // materials shared by all blocks
     const stone = keep(RP.stoneTex(hexNum(mixHex(PAL.block, '#ffffff', .22)))); stone.wrapS = stone.wrapT = THREE.RepeatWrapping;
+    if (gtier(4) && R3renderer) stone.anisotropy = R3renderer.capabilities.getMaxAnisotropy();
     this.mat = {
       stone: keep(new THREE.MeshLambertMaterial({ map: stone, color: this.realm ? 0x9a7aff : 0xffffff })),
       ghost: keep(new THREE.MeshLambertMaterial({ map: stone, transparent: true, opacity: .42 })),
@@ -68,6 +69,7 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    this.fogF = sc.fog.far; this.wx = new Wx3(sc, keep, [26, 12, 7], f => (H - (17.25 - f * 1.45) * T) / T);
     // particles
     const N = this.pN = 420; this.pPos = new Float32Array(N * 3); this.pCol = new Float32Array(N * 3);
     const pg = keep(new THREE.BufferGeometry()); pg.setAttribute('position', new THREE.BufferAttribute(this.pPos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(this.pCol, 3));
@@ -234,7 +236,8 @@ class P3D {
     g.visible = w.state !== 'dead';
     const fx = this.X(p.x + PW / 2), fy = flip ? this.Y(p.y) : this.Y(p.y + PHT);
     g.position.set(fx, fy, 0);
-    const turn = p.face > 0 ? -Math.PI / 2 - .45 : Math.PI / 2 + .45;
+    const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
+    const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
     let sc = .6; if (w.state === 'win') { sc *= Math.max(.02, p.winS); g.rotation.y += p.rot; }
     g.scale.set(sc * p.sx, sc * p.sy, sc * p.sx);
@@ -254,13 +257,28 @@ class P3D {
     this.parts.geometry.setDrawRange(0, N); this.parts.geometry.attributes.position.needsUpdate = true; this.parts.geometry.attributes.color.needsUpdate = true;
     // camera framing the whole level, drifting gently with the player
     const W3 = innerWidth, H3 = innerHeight, aspect = W3 / H3, cam = this.cam;
-    const tan = Math.tan(cam.fov * Math.PI / 360), d = Math.max(10.4 / tan, 17.6 / (tan * aspect)) + 1.5;
+    const tan = Math.tan(34 * Math.PI / 360), d = Math.max(10.4 / tan, 17.6 / (tan * aspect)) + 1.5;
     const cc = (w.camX + W / 2) / T, cx = cc + (fx - cc) * .18, cy = 9 + (fy - 9) * .1;
     this.sky.position.x = cx; this.bg.position.x = cx * .9 - 16 * .9;
     this.sun.position.set(cx - 10, 26, 18); this.sun.target.position.set(cx, 6, 0); this.sun.target.updateMatrixWorld();
     const sh = w.shakeA * (CFG.shake / 100) * .03;
-    cam.position.set(cx + (Math.random() - .5) * sh, cy + 1.6 + (Math.random() - .5) * sh, d);
-    cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
+    if (third) {
+      // third-person: behind the player and a little to the side, looking down the course
+      const look = clamp(w.look / 70, -1, 1), up = flip ? -1 : 1, k = Math.min(1, dt * 6), ky = Math.min(1, dt * 3.5);
+      const cs = this.cs || (this.cs = { x: fx - 6.2, y: fy + 3 * up, lx: fx + 6 });
+      cs.x = lerp(cs.x, fx - 6.2, k); cs.y = lerp(cs.y, fy + 3 * up, ky); cs.lx = lerp(cs.lx, fx + 5 + look * 2, k);
+      cam.fov = lerp(cam.fov, aspect < 1 ? 75 : 62, Math.min(1, dt * 4));
+      cam.position.set(cs.x + (Math.random() - .5) * sh, cs.y + (Math.random() - .5) * sh, 4.4);
+      cam.lookAt(cs.lx, cs.y - 2.1 * up, -.5); cam.aspect = aspect; cam.updateProjectionMatrix();
+    } else {
+      cam.fov = 34;
+      cam.position.set(cx + (Math.random() - .5) * sh, cy + 1.6 + (Math.random() - .5) * sh, d);
+      cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
+    }
+    if (third) this.wx.update(dt, this.cs.lx, this.cs.y, 0); else this.wx.update(dt, cx, cy, 0);
+    if (!this.dark) this.hemi.intensity = .85 + WX.flash * 1.2;
+    this.scene.fog.far = this.fogF * (1 - .3 * Math.min(1, WX.rain + WX.snow));
+    toneMap3(r);
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
     r.render(this.scene, cam);
   }

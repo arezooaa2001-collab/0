@@ -84,7 +84,7 @@ let ctx = cv.getContext('2d', { alpha: false });
 let cw = 0, ch = 0, dpr = 1, S = 1, OX = 0, OY = 0, EXT = { l: 0, r: 0, t: 0, b: 0 };
 let CAMX = 0, LW = W; // camera left edge and level width (world px) of the level being drawn
 const BG = {};
-const motes = Array.from({ length: 60 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
+const motes = Array.from({ length: 200 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
 const glowK = () => GFX.glow * (CFG.glow / 100) * (Perf.fxDrop ? .6 : 1);
 
 function resize() {
@@ -155,6 +155,33 @@ function buildBackground() {
     for (let k = 1; k < 14; k++) { const yy = hy + (ch - hy) * Math.pow(k / 13, 2.2); q.globalAlpha = .25 + k / 20; q.beginPath(); q.moveTo(0, yy); q.lineTo(cw, yy); q.stroke(); }
     q.globalAlpha = 1; }
   BG.dark = mkC(Math.ceil(cw / 4), Math.ceil(ch / 4)); BG.darkG = BG.dark.getContext('2d');
+  // high tiers: a drifting mist band (wraps around) and moonlight rays
+  { const P2 = Math.ceil(cw * 1.4), hh = Math.ceil(260 * S), c = mkC(P2, hh), q = c.getContext('2d'), r = srand(31);
+    for (let i = 0; i < 26; i++) { const x = r() * P2, y = hh * (.3 + r() * .5), rad = (60 + r() * 140) * S;
+      for (const ox of [x, x - P2, x + P2]) { const gm = q.createRadialGradient(ox, y, 0, ox, y, rad); gm.addColorStop(0, rgbaHex(sk('#d9c8ff'), .10 + r() * .05)); gm.addColorStop(1, 'rgba(0,0,0,0)'); q.fillStyle = gm; q.fillRect(ox - rad, y - rad, rad * 2, rad * 2); } }
+    c.y0 = Math.floor(OY + 400 * S); BG.mist = c; }
+  { const c = mkC(cw, ch), q = c.getContext('2d'), mx = OX + W * S * .78, my = OY + H * S * .2;
+    q.translate(mx, my); for (let i = 0; i < 9; i++) { const a = 1.75 + (i - 4) * .16 + (i % 2) * .05, len = (900 + (i % 3) * 200) * S, wd = .05 + (i % 3) * .02;
+      const gr2 = q.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len); gr2.addColorStop(0, 'rgba(255,225,190,.16)'); gr2.addColorStop(1, 'rgba(255,225,190,0)');
+      q.fillStyle = gr2; q.beginPath(); q.moveTo(0, 0); q.lineTo(Math.cos(a - wd) * len, Math.sin(a - wd) * len); q.lineTo(Math.cos(a + wd) * len, Math.sin(a + wd) * len); q.closePath(); q.fill(); }
+    BG.rays = c; }
+}
+const METEORS = [];
+function drawSkyExtras(dx, dy) {
+  const tt = performance.now() / 1000;
+  if (gtier(2) && BG.rays) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6 + Math.sin(tt * .6) * .2; ctx.drawImage(BG.rays, dx, dy); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+  if (gtier(8)) {
+    if (METEORS.length < 2 && Math.random() < .006) METEORS.push({ x: cw * (.2 + Math.random() * .7), y: ch * Math.random() * .25, vx: -(500 + Math.random() * 400) * dpr, vy: (180 + Math.random() * 160) * dpr, life: 1, t0: tt });
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = METEORS.length - 1; i >= 0; i--) {
+      const m = METEORS[i], age = tt - m.t0; if (age > .9) { METEORS.splice(i, 1); continue; }
+      const x = m.x + m.vx * age, y = m.y + m.vy * age, a = 1 - age / .9, tail = .12;
+      const g2 = ctx.createLinearGradient(x, y, x - m.vx * tail, y - m.vy * tail); g2.addColorStop(0, `rgba(255,245,220,${a})`); g2.addColorStop(1, 'rgba(255,245,220,0)');
+      ctx.strokeStyle = g2; ctx.lineWidth = 2.2 * dpr; ctx.beginPath(); ctx.moveTo(x + dx, y + dy); ctx.lineTo(x - m.vx * tail + dx, y - m.vy * tail + dy); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (gtier(1) && BG.mist) { const P = BG.mist.width, o = ((CAMX * S * .3 + tt * 14 * dpr) % P + P) % P; ctx.globalAlpha = .7; ctx.drawImage(BG.mist, dx - o, BG.mist.y0 + dy); if (P - o < cw) ctx.drawImage(BG.mist, dx - o + P, BG.mist.y0 + dy); ctx.globalAlpha = 1; }
 }
 // sky + scrolling mountain strips; scroll = extra horizontal shift in device px (2.5D vanishing point)
 function drawBack(world, sx, sy, scroll = 0) {
@@ -164,7 +191,9 @@ function drawBack(world, sx, sy, scroll = 0) {
   if (realmMode) { ctx.drawImage(BG.realm, dx - scroll * .04 - 4 * dpr, dy, cw + 8 * dpr, ch); return; }
   ctx.drawImage(BG.far, dx, dy);
   const strip = (c, k) => { const P = c.width, o = ((CAMX * S * k + scroll * k) % P + P) % P; ctx.drawImage(c, dx - o, c.y0 + dy); if (P - o < cw) ctx.drawImage(c, dx - o + P, c.y0 + dy); };
-  strip(BG.mid, .1); strip(BG.near, .2);
+  strip(BG.mid, .1);
+  if (GFX.tier) drawSkyExtras(dx, dy);
+  strip(BG.near, .2);
 }
 
 /* Static layer cache: blocks/spikes that are not moving are drawn once into tiles 640 world px wide. Only the
@@ -431,7 +460,7 @@ function drawParticles(world) {
 }
 
 function drawMotes(t, dt) {
-  const n = Math.round(GFX.motes * Perf.fxK); if (!n) return;
+  const n = Math.min(motes.length, Math.round(GFX.motes * Perf.fxK)); if (!n) return;
   // screen-space dust that drifts slower than the camera (parallax)
   ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
   const span = W + EXT.l + EXT.r + 40, off = CAMX * .35;
@@ -473,7 +502,7 @@ function drawFlag(e, t) {
   ctx.fillStyle = '#ffd36e'; ctx.beginPath(); ctx.arc(x + 2, top - 2, 4, 0, 7); ctx.fill();
 }
 function drawDynamic(world, t, dt, depth) {
-  const ents = viewEnts(world);
+  const ents = VIEW_ENTS = viewEnts(world);
   for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
   for (const e of ents) if (!e.gone && e.type === 'saw' && (e.patrol0 || e.orbit)) drawTrack(e);
@@ -512,6 +541,7 @@ function render(world, t, dt) {
   worldTransform(sx, sy);
   drawMotes(t, dt);
   if (world) drawDynamic(world, t, dt, null);
+  drawWeather2D(world, t, dt, sx, sy);
   drawOverlays(world, t);
 }
 
@@ -541,6 +571,7 @@ function render25(world, t, dt) {
   drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawDynamic(world, t, dt, vp);
+  drawWeather2D(world, t, dt, sx, sy);
   drawOverlays(world, t);
 }
 function drawExtrude(e, vp) {

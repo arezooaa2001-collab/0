@@ -36,6 +36,8 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 .hbtn:active{transform:scale(.92)}
 #bPause{left:calc(env(safe-area-inset-left) + 12px)}
 #bRestart{left:calc(env(safe-area-inset-left) + 66px)}
+#bCam{left:calc(env(safe-area-inset-left) + 122px);display:none}
+#bCam.on{display:grid}
 #lvlTag{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:50%;transform:translateX(-50%);
   padding:6px 16px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-weight:700;font-size:15px;
   white-space:nowrap;background:rgba(22,16,52,.78)}
@@ -207,3 +209,8 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #touch.vert #tL svg,#touch.vert #tR svg{transform:rotate(90deg)}
 .kv{grid-template-columns:repeat(6,1fr)}
 @media (max-width:620px){.kv{grid-template-columns:repeat(3,1fr)}}
+
+.tiers{margin:6px 0 0;padding:0 18px 0 0;columns:2;column-gap:18px;font-size:12px;line-height:1.7;color:rgba(255,255,255,.75)}
+.tiers li.on{color:#ffd36e}
+.tiers b{color:#fff}
+@media (max-width:620px){.tiers{columns:1}}
