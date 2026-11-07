@@ -5,7 +5,8 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { stopPlayback } from './lib/player';
 import { readAccent, saveAccent } from './lib/settings';
 import type { Accent } from './lib/stt';
-import { t } from './lib/strings';
+import { fa, t } from './lib/strings';
+import { APP_VERSION } from './lib/config';
 import { useLibrary } from './lib/useLibrary';
 
 type Tab = 'record' | 'library' | 'settings';
@@ -24,6 +25,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <span className="brand"><span aria-hidden>🎤</span> {t.appName}</span>
+        <span className="version">نسخه {fa(APP_VERSION)}</span>
       </header>
       <main className="content">
         {/* The record screen is unmounted when leaving it: this always releases the microphone. */}

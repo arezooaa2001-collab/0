@@ -22,6 +22,8 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
   const toast = useToast();
   const [hint, setHint] = useState('');
   const [hintError, setHintError] = useState<string | null>(null);
+  /** The word/sentence the learner wrote and confirmed with «تایید» before recording. */
+  const [hintConfirmed, setHintConfirmed] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('record');
   const [wordId, setWordId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,10 +38,25 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
   const word = wordId ? lib.words.find((w) => w.id === wordId) ?? null : null;
   const isLive = rec.state === 'recording' || rec.state === 'paused';
 
-  const startRecording = () => {
+  /** «تایید» next to the writing box (also the keyboard's Enter key). */
+  const confirmHint = (): boolean => {
+    if (!hint.trim()) {
+      setHintError(t.emptyText);
+      return false;
+    }
     const h = validateHint(hint);
-    if (!h.ok) return setHintError(h.error);
+    if (!h.ok) {
+      setHintError(h.error);
+      return false;
+    }
     setHintError(null);
+    setHintConfirmed(h.value);
+    return true;
+  };
+
+  const startRecording = () => {
+    // Text typed but not confirmed yet: confirm it now (if it is valid English).
+    if (!hintConfirmed && hint.trim() && !confirmHint()) return;
     void rec.start();
   };
 
@@ -51,10 +68,11 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
     setRecog('working');
     setText('');
     setTextError(null);
-    typedRef.current = false;
-    const h = validateHint(hint);
+    // The learner's own confirmed word goes straight into the box; the recognizer won't overwrite it.
+    setText(hintConfirmed ?? '');
+    typedRef.current = !!hintConfirmed;
     lib
-      .recognizeTake(take, h.ok ? h.value : null)
+      .recognizeTake(take, hintConfirmed)
       .then((a) => {
         if (!alive) return;
         setRecog(a);
@@ -69,7 +87,6 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
 
   const confirmAndSave = async () => {
     if (!rec.take || saving) return;
-    const h = validateHint(hint);
     let finalText: string | null = null;
     if (text.trim()) {
       const v = validateEnglish(text);
@@ -81,7 +98,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
     try {
       const analysis = typeof recog === 'object' ? recog : null;
       const w = await lib.saveTake(rec.take, {
-        hint: h.ok ? h.value : null,
+        hint: hintConfirmed,
         accent,
         text: finalText,
         analysis,
@@ -102,6 +119,8 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
   const newRecording = () => {
     rec.reset();
     setHint('');
+    setHintConfirmed(null);
+    setHintError(null);
     setWordId(null);
     setPhase('record');
   };
@@ -134,32 +153,54 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
       <h1 className="title">{t.recordTitle}</h1>
 
       {(rec.state === 'idle' || rec.state === 'error') && (
-        <label className="field hint-field">
-          <span>{t.hintLabel}</span>
-          <input
-            className="input input-en"
-            dir="ltr"
-            lang="en"
-            placeholder={t.hintPlaceholder}
-            value={hint}
-            maxLength={100}
-            autoCapitalize="none"
-            autoCorrect="off"
-            onChange={(e) => {
-              setHint(e.target.value);
-              setHintError(null);
-            }}
-            aria-invalid={!!hintError}
-          />
-          <small>{t.hintHelp}</small>
+        <div className="card step hint-field">
+          <p className="step-title">{t.step1Title}</p>
+          {hintConfirmed ? (
+            <div className="hint-confirmed" role="status">
+              <span className="meta">✅ {t.hintConfirmedLabel}</span>
+              <b className="hint-word" dir="ltr" lang="en">{hintConfirmed}</b>
+              <button className="btn-link" onClick={() => setHintConfirmed(null)}>✏️ {t.hintChange}</button>
+            </div>
+          ) : (
+            <form
+              className="hint-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                confirmHint();
+              }}
+            >
+              <input
+                className="input input-en"
+                dir="ltr"
+                lang="en"
+                placeholder={t.hintPlaceholder}
+                value={hint}
+                maxLength={100}
+                autoCapitalize="none"
+                autoCorrect="off"
+                enterKeyHint="done"
+                aria-label={t.step1Title}
+                onChange={(e) => {
+                  setHint(e.target.value);
+                  setHintError(null);
+                }}
+                aria-invalid={!!hintError}
+              />
+              <button type="submit" className="btn btn-confirm hint-ok">✅ {t.hintOk}</button>
+            </form>
+          )}
+          {!hintConfirmed && <small className="meta">{t.hintHelp}</small>}
           {hintError && <p className="msg msg-error" role="alert">{hintError}</p>}
-        </label>
+        </div>
       )}
 
       {rec.error && <p className="msg msg-error" role="alert">{rec.error}</p>}
 
       {(rec.state === 'idle' || rec.state === 'error' || rec.state === 'requesting') && (
         <div className="mic-zone">
+          {(rec.state === 'idle' || rec.state === 'error') && (
+            <p className="step-title">{hintConfirmed ? t.step2TitleWord(hintConfirmed) : t.step2Title}</p>
+          )}
           <button
             className="mic-btn"
             onClick={startRecording}
@@ -221,7 +262,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
               <p className="state-title">{t.notSure}</p>
               <p>{reasonText(recog.reason)}</p>
               {(() => {
-                const options = [recog.reason !== 'not_english' ? recog.heard : null, validateHint(hint).ok ? hint.trim() : null].filter(
+                const options = [recog.reason !== 'not_english' ? recog.heard : null, hintConfirmed].filter(
                   (o, i, all): o is string => !!o && all.indexOf(o) === i,
                 );
                 return options.length ? (

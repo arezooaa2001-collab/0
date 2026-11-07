@@ -61,7 +61,11 @@ async function open(wav) {
 }
 
 async function record(page, ms, hint) {
-  if (hint !== undefined) await page.locator('.hint-field input').fill(hint);
+  if (hint !== undefined) {
+    await page.locator('.hint-field input').fill(hint);
+    await page.getByRole('button', { name: /^✅ تایید$/ }).click();
+    await page.locator('.hint-confirmed', { hasText: hint }).waitFor({ timeout: 5000 });
+  }
   await page.locator('.mic-btn').click();
   await page.getByText('دارم گوش می‌دهم').waitFor({ timeout: 10000 });
   const bars = [];
@@ -96,6 +100,17 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله انگلیسی بگو').waitFor();
   check('opens from a file with no login or setup', true);
+  check('version number is shown', /نسخه ۵/.test(await page.textContent('.topbar')));
+  await page.locator('.hint-field input').fill('سیب');
+  await page.getByRole('button', { name: /^✅ تایید$/ }).click();
+  check('written word: Persian is refused', await page.getByText('فقط با حروف انگلیسی').isVisible());
+  await page.locator('.hint-field input').fill('banana');
+  await page.locator('.hint-field input').press('Enter');
+  await page.locator('.hint-confirmed', { hasText: 'banana' }).waitFor({ timeout: 5000 });
+  check('written word: «تایید» / Enter confirms it', await page.getByText('«banana» را بگو').isVisible());
+  await page.screenshot({ path: `${OUT}/00-word-confirmed.png` });
+  await page.getByRole('button', { name: /عوض کن/ }).click();
+  await page.locator('.hint-field input').fill('');
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 1. Record → preview → save → on-device transcription
@@ -129,11 +144,13 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
 
   // 2. Hint that does not match → the app asks instead of guessing
   await record(page, 3000, 'apple');
+  check('confirmed written word is already in the review box', (await reviewInput(page).inputValue()) === 'apple');
   await page.getByText('مطمئن نیستم').waitFor({ timeout: 120000 });
-  check('mismatch with the hint is asked about, not guessed', (await page.getByText('مطمئن نیستم').isVisible()) && (await reviewInput(page).inputValue()) === '');
+  check('mismatch with what was heard is pointed out', (await reviewInput(page).inputValue()) === 'apple');
   await page.screenshot({ path: `${OUT}/03-unclear.png` });
+  await page.locator('.chip-en', { hasText: 'learning' }).click();
+  check('tapping a suggestion fills the box', /learning/i.test(await reviewInput(page).inputValue()));
   await page.locator('.chip-en', { hasText: 'apple' }).click();
-  check('tapping a suggestion fills the box', (await reviewInput(page).inputValue()) === 'apple');
   await confirmBtn(page).click();
   await page.locator('.word-card-result .word-text', { hasText: 'apple' }).waitFor({ timeout: 5000 });
   check('learner can confirm the word they meant', true);

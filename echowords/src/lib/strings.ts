@@ -14,9 +14,15 @@ export const t = {
 
   // Record screen
   recordTitle: 'یک کلمه یا جمله انگلیسی بگو! 🎤',
+  step1Title: '۱. کلمه یا جمله‌ای که می‌خواهی بگویی را بنویس (اختیاری)',
+  hintOk: 'تایید',
+  hintConfirmedLabel: 'نوشته‌ات تایید شد:',
+  hintChange: 'عوض کن',
+  step2Title: '۲. حالا دکمه ضبط را بزن و بگو',
+  step2TitleWord: (w: string) => `۲. حالا دکمه ضبط را بزن و «${w}» را بگو`,
   hintLabel: 'می‌خواهی چه کلمه‌ای بگویی؟ (اختیاری، به انگلیسی)',
   hintPlaceholder: 'e.g. apple',
-  hintHelp: 'اگر کلمه را بنویسی، برنامه بهتر می‌فهمد چی گفتی.',
+  hintHelp: 'بنویس و «تایید» را بزن. اگر نمی‌خواهی بنویسی، مستقیم برو سراغ ضبط.',
   pressToRecord: 'دکمه را بزن و بگو',
   record: 'ضبط',
   requestingMic: 'داریم میکروفون را روشن می‌کنیم…',
