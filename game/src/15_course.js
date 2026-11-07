@@ -539,7 +539,8 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
       P.gem((gx + G.x) / 2, Math.min(gt, G.t) - 2.6);
     });
     G.F(G.x, 2); G.x += 2;
-    if (last && G.t !== TOP_MAX) { G.t = TOP_MAX; G.F(G.x, 3); G.x += 3; }
+    // every chunk ends back on the ground (and the next one starts there), so chunks never depend on each other
+    if (G.t !== TOP_MAX) { G.t = TOP_MAX; G.F(G.x, 3); G.x += 3; }
     const top = Math.min(...G.fl.map(f => f[2]));
     G.flush();
     const w = G.x;
@@ -612,7 +613,7 @@ function buildCourse(def, opt) {
   const secs = []; let t = TOP_MAX;
   groups.forEach((ks, ci) => {
     const fk = opt.key + ':' + ci + (opt.cave && ci === opt.caveCi ? 'c' : ''), seed = CHUNK_FIX[fk] ?? (opt.seed * 100 + ci);
-    const c = makeChunk(ks, seed, t, opt, ci, groups.length); secs.push(c); t = c.tEnd;
+    const c = makeChunk(ks, seed, TOP_MAX, opt, ci, groups.length); secs.push(c);
   });
   // the hand-made screen closes the level
   secs.push({ hand: true, w: 32, t0: TOP_MAX, spawn: def.spawn, build: def.build });
