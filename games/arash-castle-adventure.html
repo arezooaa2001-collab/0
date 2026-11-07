@@ -256,6 +256,15 @@ body.hsedit-on #hsAlarm,body.arcade-playing #hsAlarm{display:none!important}
 #hsDarkTip.on{opacity:1}
 #hsBanana{background:linear-gradient(140deg,#8a7a18,#4a3f08)!important;border-color:#ffe36b!important;color:#fff7c2!important}
 body.hsedit-on #hsInvis,body.arcade-playing #hsInvis,body.hsedit-on #hsDarkTip{display:none!important}
+#hsDisguise{background:linear-gradient(140deg,#7a5530,#3f2914)!important;border-color:#e9b979!important;color:#ffe9c8!important}
+#hsDisguise.on{background:linear-gradient(140deg,#c9842f,#6a3f10)!important;box-shadow:0 0 12px #ffb35c}
+#hsAch{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translate(-50%,-160%);z-index:12;pointer-events:none;direction:rtl;
+ display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:16px;background:linear-gradient(135deg,#ffe58a,#d99a21);color:#3a2300;
+ border:2px solid #fff3c4;box-shadow:0 8px 28px rgba(0,0,0,.45),0 0 24px rgba(255,210,90,.6);transition:transform .45s cubic-bezier(.2,1.4,.4,1);max-width:92vw}
+#hsAch.on{transform:translate(-50%,0)}#hsAch i{font-style:normal;font-size:2rem}#hsAch b{display:block;font-size:.95rem}#hsAch small{font-size:.75rem;opacity:.85}
+#hsConfetti{position:fixed;inset:0;pointer-events:none;z-index:11;width:100vw;height:100vh}
+.hsach{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:.4rem 0}.hsach span{font-size:1.35rem;padding:3px 6px;border-radius:10px;background:rgba(255,215,110,.18);border:1px solid rgba(255,215,110,.5)}
+.hsach span.off{filter:grayscale(1);opacity:.35;background:none;border-color:rgba(255,255,255,.15)}
 .hsstars{font-size:1.9rem;letter-spacing:.2rem;margin:.2rem 0!important}.hsrec{color:#ffe08a;font-weight:800}
 /* The single direct-size entry for the hide-and-seek hall. No render-context switch. */
 #hsSizeModal[hidden]{display:none!important}
@@ -403,7 +412,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="fade"></div>
 <div id="altChip" class="chip ui" hidden></div>
 <div id="frBubble" hidden></div>
-<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsCompass" hidden aria-label="راهنمای گرم و سرد">🧭 گرم و سرد</button><button type="button" id="hsBanana" hidden aria-label="انداختن پوست موز">🍌 بنداز</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
+<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsCompass" hidden aria-label="راهنمای گرم و سرد">🧭 گرم و سرد</button><button type="button" id="hsBanana" hidden aria-label="انداختن پوست موز">🍌 بنداز</button><button type="button" id="hsDisguise" hidden aria-label="تغییر شکل به یک وسیله (کلید Q)">📦 تغییر شکل</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
 
 <div id="hsMission" hidden aria-live="polite"><b id="hsMissionTitle">🏆 چالش مخفیگاه</b><span id="hsMissionText">آمادهٔ شروع</span><div id="hsMissionTrack"><i id="hsMissionFill"></i></div></div>
 <div id="hsKit" hidden aria-label="ابزار قایم‌موشک و ارتقاها">
@@ -419,7 +428,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="hospitalBar" hidden><span id="hospitalInfo">🏥 بیمارستان</span><button id="hospitalLeave">بازگشت به بازی</button></div>
 <div id="miniBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 72px);left:50%;transform:translateX(-50%);z-index:8;align-items:center;gap:9px;max-width:96vw;background:rgba(18,28,31,.91);border:1px solid #c4bc84;border-radius:14px;padding:9px 13px;direction:rtl"><span id="miniInfo">🎮 ماجراجویی</span><button id="miniLeave" class="rb ghost" style="white-space:nowrap">بازگشت</button></div>
 <div id="mazeBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 68px);left:50%;transform:translateX(-50%);z-index:7;align-items:center;gap:10px;max-width:94vw;background:rgba(18,10,5,.88);border:1px solid #d7a45c;border-radius:18px;padding:9px 12px;box-shadow:0 5px 20px #0008;direction:rtl"><span id="mazeInfo">🔥 هزارتوی مشعل‌ها</span><button id="mazeLeave" class="rb ghost" style="white-space:nowrap">خروج از هزارتو</button></div>
-<div id="hsAlarm" aria-hidden="true"></div><div id="hsInvis" aria-hidden="true"></div><div id="hsDarkTip" aria-live="polite"></div><div id="hsBreath" hidden role="alertdialog" aria-live="assertive"><b>🤐 آرش داره مخفیگاهت رو باز می‌کنه!</b><span>تند تند بزن (یا کلید H) تا نفست رو حبس کنی!</span><div id="hsBreathTrack"><i id="hsBreathFill"></i></div><div id="hsBreathTime"><i></i></div><button type="button" id="hsBreathBtn">🫁 نفست رو نگه دار!</button></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
+<div id="hsAlarm" aria-hidden="true"></div><div id="hsInvis" aria-hidden="true"></div><div id="hsAch" role="status" aria-live="polite"><i></i><div><b></b><small></small></div></div><canvas id="hsConfetti" hidden aria-hidden="true"></canvas><div id="hsDarkTip" aria-live="polite"></div><div id="hsBreath" hidden role="alertdialog" aria-live="assertive"><b>🤐 آرش داره مخفیگاهت رو باز می‌کنه!</b><span>تند تند بزن (یا کلید H) تا نفست رو حبس کنی!</span><div id="hsBreathTrack"><i id="hsBreathFill"></i></div><div id="hsBreathTime"><i></i></div><button type="button" id="hsBreathBtn">🫁 نفست رو نگه دار!</button></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
 <div id="crBox" hidden><div class="chead"><b>✨ سازنده</b><span id="crStatus"></span><button id="crClose" aria-label="بستن سازنده">✕</button></div>
 <div class="crbody"><p id="crLog" class="note">بنویس چه چیزی به دنیا اضافه شود؛ ده ثانیه بعد جلویت ساخته می‌شود. می‌توانی عکس هم بفرستی.</p>
 <div class="crex"><button type="button" data-crex="سه تا درخت کاج">سه تا درخت کاج</button><button type="button" data-crex="یه ماشین قرمز">یه ماشین قرمز</button><button type="button" data-crex="یه آدم برفی بزرگ">آدم برفی بزرگ</button><button type="button" data-crex="یه تابلو که روش بنویسه «خانهٔ من»">تابلو با نوشته</button><button type="button" data-crex="یه رنگین کمان">رنگین‌کمان</button><button type="button" data-crex="یه قلعهٔ سنگی">قلعه</button></div>
@@ -1393,6 +1402,7 @@ const SFX={ctx:null,ok:false};
   SFX.zg=function(on){if(!SFX.ok)return;const t=C.currentTime;const o=C.createOscillator();o.type='sine';o.frequency.setValueAtTime(on?180:900,t);o.frequency.exponentialRampToValueAtTime(on?900:120,t+1.4);const g=C.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+.2);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);o.connect(g);out(g,1,.6);o.start(t);o.stop(t+1.6);};
   SFX.mute=function(m){if(!SFX.ok)return;master.gain.setTargetAtTime(m?0:.85,C.currentTime,.05);};
   SFX.frStep=function(a,run){if(!SFX.ok||a<=.03)return;const t=C.currentTime;a=Math.min(1,a)*(run?1.2:1);tone(t,rand(70,92),.08,.22*a,'sine',.8,.3,50);burst(t,.03,rand(1500,2600),1.4,.17*a,'bandpass',.9,.25);};
+  SFX.sneeze=function(pan,v){if(!SFX.ok)return;const t=C.currentTime;tone(t,300,.38,.06*v,'sawtooth',1,.3,560,pan);burst(t+.42,.2,2600,.9,.4*v,'bandpass',1,.35,pan);burst(t+.42,.14,900,.7,.25*v,'lowpass',1,.35,pan);};
   SFX.heart=function(a){if(!SFX.ok)return;const t=C.currentTime;a=Math.min(1,a);tone(t,58,.12,.4*a,'sine',1,.1,42);tone(t+.19,52,.14,.3*a,'sine',1,.1,40);};
   SFX.alert=function(seen){if(!SFX.ok)return;const t=C.currentTime;if(seen){tone(t,880,.12,.07,'triangle',1,.3,1320);tone(t+.1,1320,.2,.06,'triangle',1,.3);}else tone(t,520,.18,.05,'sine',1,.3,700);};
   SFX.whisper=function(){if(!SFX.ok)return;const t=C.currentTime;for(let i=0;i<4;i++)burst(t+i*.03,.03,rand(1500,3000),1.5,.05,'bandpass',.6,.4);};
@@ -3013,7 +3023,7 @@ function updateWalk(dt){
   const k=G.keys;let fx=(k.KeyD||k.ArrowRight?1:0)-(k.KeyA||k.ArrowLeft?1:0),fz=(k.KeyW||k.ArrowUp?1:0)-(k.KeyS||k.ArrowDown?1:0);
   if(G.joy.id>=0){fx+=G.joy.x;fz-=G.joy.y;}
   const l=Math.hypot(fx,fz);if(l>1){fx/=l;fz/=l;}
-  const running=(G.run||k.ShiftLeft||k.ShiftRight)&&l>.25;const sneaking=!running&&G.sneak&&HS.on;const sp=(running?4.2:sneaking?.85:1.55)*(HS.on&&HS.boostUntil>G.t?1.45:1);
+  const running=(G.run||k.ShiftLeft||k.ShiftRight)&&l>.25&&!(HS.on&&HS.disg);const sneaking=!running&&G.sneak&&HS.on;const sp=(running?4.2:sneaking?.85:1.55)*(HS.on&&HS.boostUntil>G.t?1.45:1)*(HS.on&&HS.disg?.42:1);
   const s=Math.sin(G.yaw),c=Math.cos(G.yaw);const wx=(fx*c-fz*s)*sp,wz=(-fx*s-fz*c)*sp;
   const acc=G.grounded?(running?6.5:9):1.8;const a=1-Math.exp(-dt*acc);G.vel.x=lerp(G.vel.x,wx,a);G.vel.z=lerp(G.vel.z,wz,a);
   G.jumpBuf=Math.max(0,G.jumpBuf-dt);G.coyote=G.grounded?.12:Math.max(0,G.coyote-dt);
@@ -5901,7 +5911,7 @@ function hsExit(){if(!HS.on)return;hsFeatureReset();hsAdventureEnd();if(G.sneak)
 function hsBubble(text,sec){FR.bubbleText=text;FR.bubbleT=sec||3;const b=document.getElementById('frBubble');if(b)b.textContent=text;}
 function hsEnd(w,how){if(HS.phase==='end')return;if(w==='me'&&HS.role==='seek'&&HS_ADVENTURE.quest?.type==='seek'&&HS.t<HS_ADVENTURE.quest.target)hsQuestAward();HS.phase='end';HS.endT=0;HS.panelShown=false;HS.score[w]++;HS.lastWin=w;const N=FR.name;
   if(HS.role==='hide'){const sp=HS.mySpot;if(sp){sp.pulse=1.6;hsLeave();}
-    if(w==='fr'){if(sp)hsMemoryAdd(sp);frSay(how==='breath'?'صدای نفست رو شنیدم! پیدات کردم 😄':how==='check'?'پیدات کردم! فکر کردی این‌جا نمیام؟ 😄':how==='tag'?'گرفتمت! 😄':'دیدمت! پیدات کردم! 😄');HS.msg='😅 '+N+' پیدات کرد!';}
+    if(w==='fr'){if(sp)hsMemoryAdd(sp);frSay(HS.disg&&(how==='seen'||how==='tag')?'این '+HS.disg.name+' چشم داره! پیدات کردم 😂':how==='breath'?'صدای نفست رو شنیدم! پیدات کردم 😄':how==='check'?'پیدات کردم! فکر کردی این‌جا نمیام؟ 😄':how==='tag'?'گرفتمت! 😄':'دیدمت! پیدات کردم! 😄');HS.msg='😅 '+N+' پیدات کرد!';}
     else{frSay('تسلیم! هر جا رو گشتم نبودی. کجا قایم شده بودی؟');HS.msg='🎉 بردی! '+N+' نتونست پیدات کنه.';}
     HS.fs.st='done';}
   else{const sp=FR.hsIn;if(sp){sp.pulse=1.6;hsFriendOut(sp);}
@@ -5909,11 +5919,11 @@ function hsEnd(w,how){if(HS.phase==='end')return;if(w==='me'&&HS.role==='seek'&&
     else{frSay('وقت تموم شد! من '+(sp?sp.name:'این‌جا')+' بودم 😄');HS.msg='⏰ وقت تموم شد؛ '+N+' برد!';}}
   hsRoundStats(w);toast(HS.msg,3200);SFX.chime&&SFX.chime();}
 function hsResultPanel(){const N=FR.name,nx=HS.turnMode==='me'?'دور بعد هم تو قایم می‌شی و آرش دنبال تو می‌گرده.':HS.turnMode==='friend'?'دور بعد هم آرش قایم می‌شه و تو دنبالش می‌گردی.':HS.role==='hide'?'دور بعد تو چشم می‌ذاری و دنبال '+N+' می‌گردی.':'دور بعد '+N+' چشم می‌ذاره و تو قایم می‌شی.';
-  openPanel('قایم‌موشک',`<div class="hsres"><p class="hsbig">${HS.msg}</p>${hsStatsHtml()}<p>دور ${fa(HS.round)} · ${fa(HS.spots.length)} مخفیگاه · طول تالار ${fa((HS_BASE_W+HSX.W).toFixed(1))} متر · ارتفاع ${fa(HSX.H.toFixed(1))} متر · رشد هر دور ۲۰ سانتی‌متر</p><p>🎭 ${HS.stageTheme?HS.stageTheme.name:'تالار اصلی'} · زمان ${HS.timerMode==='unlimited'?'∞ نامحدود':'معمولی'} · ${fa(HS.extN)} مخفیگاه جدید این دور</p><p>امتیاز: تو <b>${fa(HS.score.me)}</b> — ${N} <b>${fa(HS.score.fr)}</b></p><p class="note">${nx}</p>
+  openPanel('قایم‌موشک',`<div class="hsres"><p class="hsbig">${HS.msg}</p>${hsStatsHtml()}${hsAchHtml()}<p>دور ${fa(HS.round)} · ${fa(HS.spots.length)} مخفیگاه · طول تالار ${fa((HS_BASE_W+HSX.W).toFixed(1))} متر · ارتفاع ${fa(HSX.H.toFixed(1))} متر · رشد هر دور ۲۰ سانتی‌متر</p><p>🎭 ${HS.stageTheme?HS.stageTheme.name:'تالار اصلی'} · زمان ${HS.timerMode==='unlimited'?'∞ نامحدود':'معمولی'} · ${fa(HS.extN)} مخفیگاه جدید این دور</p><p>امتیاز: تو <b>${fa(HS.score.me)}</b> — ${N} <b>${fa(HS.score.fr)}</b></p><p class="note">${nx}</p>
   <div class="hsbtns"><button class="rb" data-hs="next">▶ دور بعد</button><button class="rb" data-hs="exit">خروج از بازی</button></div></div>`);}
 
 /* ---- you hiding ---- */
-function hsEnter(sp){if(G.pose!=='stand')standUp();HS.mySpot=sp;G.pose='hide';G.poseAt=null;sp.pulse=.75;G.yaw=sp.camYaw;G.pitch=sp.camP||-.04;G.vel.set(0,0,0);
+function hsEnter(sp){if(HS.disg)hsDisgEnd(false);if(G.pose!=='stand')standUp();HS.mySpot=sp;G.pose='hide';G.poseAt=null;sp.pulse=.75;G.yaw=sp.camYaw;G.pitch=sp.camP||-.04;G.vel.set(0,0,0);
   if(sp.kind==='hay')SFX.rustle&&SFX.rustle(1.5,0,.1);else if(sp.anim!==false)SFX.doorSwing&&SFX.doorSwing(1);
   hsHearSound(sp.ent[0],sp.ent[1],sp.kind==='hay'?12:10,'صدای مخفیگاه');
   toast('🤫 قایم شدی! هر وقت خواستی با حرکت کردن بیا بیرون.',2200);}
@@ -6257,17 +6267,23 @@ function hsFriendCtl(dt){const F=HS.fs,o={tx:null,tz:null,face:null,v:0};const p
 /* ---- the friend spotting you ---- */
 function hsDetect(dt){if(HS.concern||HS.fs.st==='count'||HS.fs.st==='done'||HS.fs.st==='slip')return;const fx=Math.sin(FR.yaw),fz=Math.cos(FR.yaw),ex=FR.x,ey=FR.feet+1.6,ez=FR.z;
   const sp=HS.mySpot;if(sp){if(!sp.closed&&hsSees(sp,ex,ez,fx,fz,ey))hsEnd('fr','seen');return;}
-  const dP=Math.hypot(G.pos.x-ex,G.pos.z-ez);if(dP<1.0&&G.pose!=='lie'){hsEnd('fr','tag');return;}
+  const dP=Math.hypot(G.pos.x-ex,G.pos.z-ez);
+  if(dP<1.0&&G.pose!=='lie'){
+    // a barrel standing still that he bumps into only makes him a little suspicious
+    if(HS.disg&&Math.hypot(G.vel.x,G.vel.z)<.15&&G.grounded){if(G.t-(HS.disgBump||-9)>3){HS.disgBump=G.t;HS.meter=Math.min(.3,HS.meter+.2);hsBubble(pick(['اوه! ببخشید '+HS.disg.name+'‌جان 😅','کی این '+HS.disg.name+' رو وسط راه گذاشته؟']),2);}}
+    else{hsEnd('fr','tag');return;}
+  }
   if(HS.invisUntil>G.t){HS.meter=Math.max(0,HS.meter-.5*dt);return;} // 👻 invisible: only bumping into him counts
   const DK=HS.dark&&HS.darkK>.5,RNG=DK?13:17,COS=DK?.86:.42,NEAR=DK?1.8:2.4; // in a blackout he only sees inside his torch beam
   const a=G.poseAt,pts=[];
   if(G.pose==='lie'&&a){const hx=-Math.sin(a.yaw),hz=-Math.cos(a.yaw);for(const t of [.3,1,1.6])pts.push([a.x+hx*t,.24,a.z+hz*t]);}
   else if(G.pose==='ground'&&a){for(const y of [.85,.55,.25])pts.push([a.x,y,a.z]);}
+  else if(HS.disg){for(const y of [.75,.35])pts.push([G.pos.x,G.feet+y,G.pos.z]);}
   else for(const y of [1.6,1.15,.75,.32])pts.push([G.pos.x,G.feet+y,G.pos.z]);
   let v=0,dh=0;for(const p of pts){const dx=p[0]-ex,dz=p[2]-ez;dh=Math.hypot(dx,dz);if(dh>RNG)continue;if(dh>NEAR&&(dx*fx+dz*fz)/dh<COS)continue;if(hsSeg(ex,ey,ez,p[0],p[1],p[2]))v++;}
   if(v&&G.pose==='lie'){hsBecomeConcerned();return;}
-  if(v){const rate=v/pts.length*(dh<4?2.6:dh<9?1.4:.75)*hsDiff().sight;HS.meter=Math.min(1,HS.meter+rate*dt);HS.fs.last=[G.pos.x,G.pos.z];
-    if(HS.meter>.32&&HS.fs.st!=='chase'&&HS.fs.st!=='check'){HS.fs.st='chase';HS.fs.spot=null;hsGo(G.pos.x,G.pos.z);hsBubble(pick(['اِ! یه چیزی دیدم!','وایسا ببینم… 👀','اون‌جا چی بود؟']),1.6);}}
+  if(v){const rate=v/pts.length*(dh<4?2.6:dh<9?1.4:.75)*hsDiff().sight*hsDisgK(dh);HS.meter=Math.min(1,HS.meter+rate*dt);HS.fs.last=[G.pos.x,G.pos.z];
+    if(HS.meter>.32&&HS.fs.st!=='chase'&&HS.fs.st!=='check'){HS.fs.st='chase';HS.fs.spot=null;hsGo(G.pos.x,G.pos.z);hsBubble(HS.disg?pick(['این '+HS.disg.name+' قبلاً این‌جا نبود… 🤔','عجیبه! اون '+HS.disg.name+' تکون خورد؟!']):pick(['اِ! یه چیزی دیدم!','وایسا ببینم… 👀','اون‌جا چی بود؟']),1.8);}}
   else HS.meter=Math.max(0,HS.meter-.3*dt);
   if(HS.meter>=1)hsEnd('fr','seen');
   if(HS.fs.st==='chase'&&HS.meter<=0&&hsArrived(.8)){const L=HS.fs.last||[FR.x,FR.z];
@@ -6367,6 +6383,7 @@ function hsFeatureReset(){
   if(HS.emoteUntil){FR.emote=null;HS.emoteUntil=0;}
   if(HS.fs)HS.fs.memQueue=null;
   hsExtraReset();
+  if(HS.disg)hsDisgEnd(true);HS.disgN=HS.diff==='easy'?2:1;HS.sneezeAt=0;
   const b=document.getElementById('hsBreath');if(b)b.hidden=true;
 }
 /* --- 🤐 hold your breath: one last chance when he opens the closed place you're in --- */
@@ -6388,7 +6405,7 @@ function hsBreathTick(dt){
     HS.recheck={spot:B.s,at:G.t+18+Math.random()*10};HS.recheckSpot=B.s;
     if(!HS.visited.includes(B.s))HS.visited.push(B.s);
     hsBubble(pick(['نه… خالیه. ولی یه حسی دارم…','عجیبه، فکر کردم صدای نفس شنیدم!']),2.6);
-    toast('😮‍💨 نفست رو نگه داشتی! آرش رفت… ولی شاید برگرده. بهتره جات رو عوض کنی!',3200);
+    toast('😮‍💨 نفست رو نگه داشتی! آرش رفت… ولی شاید برگرده. بهتره جات رو عوض کنی!',3200);hsAch('breath');
     if(HS_ADVENTURE){HS_ADVENTURE.coins=(HS_ADVENTURE.coins||0)+5;hsAdventureUI(true);}
     F.st='idle';hsChoose();return;
   }
@@ -6414,6 +6431,8 @@ function hsRoundStats(w){
   else{stars=w==='me'?(t<25?3:t<50?2:1):0;if(w==='me'&&(!R.seek||t<R.seek)){R.seek=Math.round(t);HS.lastRecord='🏅 رکورد جدید: آرش رو در '+fa(Math.round(t))+' ثانیه پیدا کردی!';}}
   if(w==='me'){R.wins=(R.wins||0)+1;R.streak=(R.streak||0)+1;R.best=Math.max(R.best||0,R.streak);}else R.streak=0;
   hsSaveJSON('needle-hs-records',R);HS.lastStars=stars;HS.records=R;
+  if(w==='me'){if(HS.role==='hide'){hsAch('hider');if(HS.diff==='hard')hsAch('hard');}else{hsAch('finder');if(t<20)hsAch('eagle');}if(R.streak>=3)hsAch('streak');hsConfetti();}
+  if(HS.disg)hsDisgEnd(true);
   // Arash reacts with his whole body
   FR.emote=w==='fr'?'dance':'wave';HS.emoteUntil=G.t+3.5;
 }
@@ -6491,7 +6510,7 @@ function hsSlip(b){
   const F=HS.fs;scene.remove(b.g);HS.bananas=HS.bananas.filter(q=>q!==b);
   F.st='slip';F.t0=G.t;F.path=null;F.goal=null;F.spot=null;FR.vx=FR.vz=0;FR.pose='ground';FR.poseYaw=FR.yaw;
   SFX.crash&&SFX.crash(4);hsBubble(pick(['آخ! لیز خوردم! 🍌😵','وای! کی این‌جا پوست موز انداخته؟! 😵‍💫','اووف… سرم گیج رفت! 🌀']),2.8);
-  toast('😂 آرش روی پوست موز لیز خورد! فرصت داری فرار کنی!',2600);
+  toast('😂 آرش روی پوست موز لیز خورد! فرصت داری فرار کنی!',2600);hsAch('banana');
   if(HS_ADVENTURE){HS_ADVENTURE.coins=(HS_ADVENTURE.coins||0)+3;hsAdventureUI(true);}
 }
 function hsSlipCtl(dt,o){const F=HS.fs;FR.vx=FR.vz=0;if(FR.pose!=='ground'){FR.pose='ground';FR.poseYaw=FR.yaw;}
@@ -6512,10 +6531,12 @@ function hsTorchInit(){if(HS.torch||typeof THREE==='undefined')return;
 function hsDarkEnd(silent){
   if(HS.torch){HS.torch.L.intensity=0;HS.torch.cone.visible=false;}
   if(HS.dark&&HS.poolBase)LIGHTS.pool.forEach((l,i)=>{if(HS.poolBase[i]!==undefined)l.intensity=HS.poolBase[i];});
+  if(HS.darkPre){renderer.toneMappingExposure=HS.darkPre.exp;LIGHTS.hemi.intensity=HS.darkPre.hemi;LIGHTS.amb.intensity=HS.darkPre.amb;HS.darkPre=null;}
   const was=HS.dark;HS.dark=false;HS.darkK=0;HS.poolBase=null;
+  if(was&&!silent&&HS.on&&HS.phase==='play'&&HS.role==='hide')hsAch('blackout');
   if(was&&!silent){toast('💡 برق اومد!',1600);hsBubble('آخیش، برق اومد! حالا بهتر می‌بینم 👀',2);}
 }
-function hsDarkApply(){const k=HS.darkK;renderer.toneMappingExposure*=1-.58*k;LIGHTS.hemi.intensity*=1-.7*k;LIGHTS.amb.intensity*=1-.7*k;}
+function hsDarkApply(){const k=HS.darkK;HS.darkPre={exp:renderer.toneMappingExposure,hemi:LIGHTS.hemi.intensity,amb:LIGHTS.amb.intensity};renderer.toneMappingExposure*=1-.58*k;LIGHTS.hemi.intensity*=1-.7*k;LIGHTS.amb.intensity*=1-.7*k;}
 function hsExtraUpdate(dt){
   if(!HS.on)return;
   const hide=HS.role==='hide'&&(HS.phase==='prep'||HS.phase==='play')&&G.mode==='walk';
@@ -6538,12 +6559,93 @@ function hsExtraUpdate(dt){
       T.cone.position.copy(T.L.position);T.cone.lookAt(T.L.target.position);}
     if(t>16.3||HS.phase!=='play')hsDarkEnd(HS.phase!=='play');
   }
+  hsMoreUpdate(dt);
   // power-up HUD
   const iv=document.getElementById('hsInvis');if(iv){const on=HS.invisUntil>G.t;if(iv.classList.contains('on')!==on)iv.classList.toggle('on',on);}
   const bb=document.getElementById('hsBanana');if(bb){const on=HS.role==='hide'&&HS.phase==='play'&&HS.bananaN>0&&G.mode==='walk';if(bb.hidden===on)bb.hidden=!on;
     if(on){const t='🍌 بنداز ×'+fa(HS.bananaN);if(bb.textContent!==t)bb.textContent=t;}}
 }
-function hsPowerTag(){let e='';if(HS.invisUntil>G.t)e+=' · 👻'+fa(Math.ceil(HS.invisUntil-G.t));if(HS.boostUntil>G.t)e+=' · ⚡'+fa(Math.ceil(HS.boostUntil-G.t));if(HS.dark)e+=' · 🔦 تاریکی';return e;}
+function hsPowerTag(){let e='';if(HS.disg)e+=' · 📦'+fa(Math.max(0,Math.ceil(HS.disg.until-G.t)));if(HS.invisUntil>G.t)e+=' · 👻'+fa(Math.ceil(HS.invisUntil-G.t));if(HS.boostUntil>G.t)e+=' · ⚡'+fa(Math.ceil(HS.boostUntil-G.t));if(HS.dark)e+=' · 🔦 تاریکی';return e;}
+/* ===== SHAPE-SHIFT, SNEEZES, ACHIEVEMENTS, CONFETTI ===== */
+/* --- 📦 turn into a barrel or a crate: standing still you blend in, moving makes Arash suspicious --- */
+function hsDisgK(dh){const D=HS.disg;if(!D)return 1;const mv=Math.hypot(G.vel.x,G.vel.z)>.15||!G.grounded;return mv?.85:dh<2?.08:dh<3.2?.04:0;}
+function hsDisgStart(){
+  if(!HS.on||HS.role!=='hide'||(HS.phase!=='play'&&HS.phase!=='prep')||HS.disg||HS.mySpot||G.mode!=='walk')return;
+  if(!(HS.disgN>0)){toast('📦 این دور دیگه نمی‌تونی تغییر شکل بدی.',1800);return;}
+  if(G.pose!=='stand')standUp();HS.disgN--;
+  const barrel=Math.random()<.5,g=new THREE.Group();
+  if(barrel){const wood=new THREE.MeshStandardMaterial({color:0x7a4a24,roughness:.8}),iron=new THREE.MeshStandardMaterial({color:0x3b3b40,metalness:.6,roughness:.4});
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.92,16),wood);b.position.y=.46;g.add(b);
+    const mid=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,.4,16),wood);mid.position.y=.46;g.add(mid);
+    for(const y of [.14,.78]){const r=new THREE.Mesh(new THREE.TorusGeometry(.335,.022,6,20),iron);r.rotation.x=Math.PI/2;r.position.y=y;g.add(r);}
+    const lid=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.03,16),new THREE.MeshStandardMaterial({color:0x5d3519,roughness:.9}));lid.position.y=.93;g.add(lid);}
+  else{const wood=new THREE.MeshStandardMaterial({color:0xa27a45,roughness:.85}),dark=new THREE.MeshStandardMaterial({color:0x6b4a24,roughness:.9});
+    const b=new THREE.Mesh(new THREE.BoxGeometry(.74,.74,.74),wood);b.position.y=.37;g.add(b);
+    for(const [x,z] of [[-.35,-.35],[.35,-.35],[-.35,.35],[.35,.35]]){const e=new THREE.Mesh(new THREE.BoxGeometry(.06,.76,.06),dark);e.position.set(x,.37,z);g.add(e);}
+    const d=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,1.0),dark);d.rotation.x=Math.PI/4;d.position.set(.375,.37,0);g.add(d);
+    const d2=d.clone();d2.position.x=-.375;g.add(d2);}
+  g.position.set(G.pos.x,G.feet,G.pos.z);scene.add(g);
+  HS.disg={g,name:barrel?'بشکه':'جعبه',until:G.t+30,view:G.view,t0:G.t,ph:0};
+  if(G.view!=='tp'){G.view='tp';setViewLabel&&setViewLabel();}
+  SFX.whisper&&SFX.whisper();SFX.place&&SFX.place();
+  toast('📦 شدی یه '+HS.disg.name+'! اگه تکون نخوری آرش به‌سختی متوجه می‌شه. حرکت = مشکوک! (۳۰ ثانیه)',3200);
+}
+function hsDisgEnd(caught){
+  const D=HS.disg;if(!D)return;HS.disg=null;if(D.g.parent)D.g.parent.remove(D.g);
+  if(G.view!==D.view){G.view=D.view;setViewLabel&&setViewLabel();}
+  if(PL&&PL.g)PL.g.visible=G.view==='tp';
+  if(!caught&&HS.on&&HS.phase==='play'&&G.t>=D.until-.05){hsAch('prop');toast('✨ دوباره خودت شدی!',1500);}
+}
+{const db=document.getElementById('hsDisguise');if(db)db.addEventListener('click',e=>{e.stopPropagation();HS.disg?hsDisgEnd(false):hsDisgStart();});
+ addEventListener('keydown',e=>{if(e.code==='KeyQ'&&!e.repeat&&HS.on&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName)))HS.disg?hsDisgEnd(false):hsDisgStart();});}
+/* --- 🏅 achievements --- */
+const HS_ACH={hider:['🙈','استاد قایم شدن','یه دور کامل پیدات نکرد'],finder:['🔎','کارآگاه','آرش رو پیدا کردی'],eagle:['🦅','چشم عقاب','آرش رو زیر ۲۰ ثانیه پیدا کردی'],
+  hard:['😈','شکست‌ناپذیر','در حالت سخت قایم موندی'],streak:['🔥','سه‌تایی آتشین','سه برد پشت‌سرهم'],banana:['🍌','موز طلایی','آرش روی پوست موز لیز خورد'],
+  breath:['🫁','نفس فولادی','با حبس نفس آرش رو گول زدی'],blackout:['🔦','شبح تاریکی','از کل خاموشی جون سالم به در بردی'],prop:['📦','استاد تغییر شکل','۳۰ ثانیه وسیله بودی و لو نرفتی'],
+  ghost:['👻','روح','نامرئی از کنار آرش رد شدی']};
+function hsAchGot(){return hsLoadJSON('needle-hs-ach',{});}
+function hsAch(id){
+  const A=HS_ACH[id];if(!A)return;const got=hsAchGot();if(got[id])return;got[id]=Date.now();hsSaveJSON('needle-hs-ach',got);
+  (HS.achQ=HS.achQ||[]).push(id);if(!HS.achBusy)hsAchShow();
+}
+function hsAchShow(){
+  const id=(HS.achQ||[]).shift();const el=document.getElementById('hsAch');if(!id||!el){HS.achBusy=false;return;}
+  HS.achBusy=true;const A=HS_ACH[id];el.querySelector('i').textContent=A[0];el.querySelector('b').textContent='🏅 دستاورد جدید: '+A[1];el.querySelector('small').textContent=A[2];
+  el.classList.add('on');SFX.chime&&SFX.chime();setTimeout(()=>{el.classList.remove('on');setTimeout(hsAchShow,600);},3000);
+}
+function hsAchHtml(){const got=hsAchGot(),ids=Object.keys(HS_ACH),n=ids.filter(k=>got[k]).length;
+  return `<p>🏅 دستاوردها: <b>${fa(n)} از ${fa(ids.length)}</b></p><div class="hsach">${ids.map(k=>`<span class="${got[k]?'':'off'}" title="${HS_ACH[k][1]}: ${HS_ACH[k][2]}">${HS_ACH[k][0]}</span>`).join('')}</div>`;}
+/* --- 🎉 confetti --- */
+function hsConfetti(){
+  const cv=document.getElementById('hsConfetti');if(!cv||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches))return;
+  cv.hidden=false;const W=cv.width=innerWidth,H=cv.height=innerHeight,x=cv.getContext('2d');
+  const cols=['#ffd34d','#ff6b6b','#6be0ff','#8dff8a','#c79bff','#ffffff'],ps=[];
+  for(let i=0;i<140;i++)ps.push({x:W/2+(Math.random()-.5)*W*.3,y:H*.35,vx:(Math.random()-.5)*14,vy:-Math.random()*13-4,r:Math.random()*6.28,vr:(Math.random()-.5)*.4,c:cols[i%cols.length],s:5+Math.random()*6});
+  const t0=performance.now();const step=now=>{const e=(now-t0)/1000;x.clearRect(0,0,W,H);
+    for(const p of ps){p.vy+=.45;p.vx*=.99;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.globalAlpha=Math.max(0,1-e/3);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);x.restore();}
+    if(e<3)requestAnimationFrame(step);else{x.clearRect(0,0,W,H);cv.hidden=true;}};
+  requestAnimationFrame(step);
+}
+/* --- per-frame: disguise prop, sneezes, ghost check, button --- */
+function hsMoreUpdate(dt){
+  const D=HS.disg;
+  if(D){const v=Math.hypot(G.vel.x,G.vel.z);if(v>.1){D.ph+=dt*v*9;D.g.rotation.y=lerpAngle(D.g.rotation.y,Math.atan2(G.vel.x,G.vel.z),1-Math.exp(-dt*6));}
+    D.g.position.set(G.pos.x,G.feet+Math.abs(Math.sin(D.ph))*(v>.1?.07:0),G.pos.z);if(PL&&PL.g)PL.g.visible=false;
+    if(G.t>=D.until||HS.phase==='end'||HS.mySpot||G.pose!=='stand')hsDisgEnd(false);}
+  const db=document.getElementById('hsDisguise');
+  if(db){const on=HS.role==='hide'&&(HS.phase==='play'||HS.phase==='prep')&&G.mode==='walk'&&(HS.disgN>0||!!HS.disg);if(db.hidden===on)db.hidden=!on;
+    if(on){const t=HS.disg?'✨ خودت شو':'📦 تغییر شکل';if(db.textContent!==t)db.textContent=t;db.classList.toggle('on',!!HS.disg);}}
+  if(HS.role==='hide'&&HS.phase==='play'&&HS.invisUntil>G.t&&!FR.hsIn&&Math.hypot(FR.x-G.pos.x,FR.z-G.pos.z)<2.2)hsAch('ghost');
+  // 🤧 when Arash is the one hiding he sometimes sneezes; you hear the direction
+  if(HS.role==='seek'&&HS.phase==='play'&&FR.hsIn&&G.mode==='walk'){
+    if(!HS.sneezeAt)HS.sneezeAt=HS.t+20+Math.random()*12;
+    if(HS.t>=HS.sneezeAt){HS.sneezeAt=HS.t+24+Math.random()*14;const sp=FR.hsIn,dx=sp.c[0]-G.pos.x,dz=sp.c[1]-G.pos.z,d=Math.hypot(dx,dz);
+      const fx=-Math.sin(G.yaw),fz=-Math.cos(G.yaw),a=Math.atan2(fx*dz-fz*dx,fx*dx+fz*dz);
+      SFX.sneeze&&SFX.sneeze(clamp(-Math.sin(a),-1,1),clamp(1.2-d/22,.25,1));sp.pulse=Math.max(sp.pulse||0,.22);
+      const dir=Math.abs(a)<.6?'از روبه‌روت':Math.abs(a)>2.5?'از پشت سرت':(a>0?'از سمت چپت':'از سمت راستت');
+      toast('🤧 هاپچه! صدای عطسهٔ آرش '+dir+' اومد'+(d<7?'؛ خیلی نزدیکه!':d<15?'.':'؛ از دور.'),3000);}
+  }
+}
 /* the player's own footsteps only make sound per step now (see hsPlayerStep) */
 function hsNoise(){}
 /* "?" / "!" over Arash's head, his audible footsteps, your heartbeat and the screen-edge alarm */
@@ -7927,7 +8029,7 @@ function hsEditorToolInit(){
 
 function hsEditorOpenCore(){
   if(HS_EDITOR.active)return;
-  if(HS.on)hsWallRestoreAll();
+  if(HS.on){hsWallRestoreAll();if(HS.dark)hsDarkEnd(true);}
   if(EXTRA.on)miniExit();
   if(ARASH.phase==='care'){toast('اول مراقبت آرش رو در بیمارستان تموم کن.',3000);return;}
   HS_EDITOR.inGame=!!HS.on;
