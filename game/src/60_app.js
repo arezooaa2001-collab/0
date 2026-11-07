@@ -47,7 +47,7 @@ const TAUNTS = ['هه! 😈', 'انتظارشو نداشتی، نه؟', 'یه ب
 const SAVE_KEY = 'telezar_v2';
 const DDESC = ['تله‌های پنهان کم‌رنگ دیده می‌شن و همه‌چیز آروم‌تره', 'همون‌طور که باید باشه', 'تله‌ها سریع‌ترن و تله‌های اضافه داری',
   'بازی تندتره، خارها تیزترن و تله‌های بیشتر', 'سرعت بالا، بدون بخشش، همه تله‌ها فعال. موفق باشی!'];
-const ST = { deaths: 0, gems: 0, time: 0, wins: 0, ach: {}, secret: false, realm: 0 };
+const ST = { deaths: 0, gems: 0, time: 0, wins: 0, ach: {}, secret: false, realm: 0, spent: 0, owned: {}, wear: {} };
 function loadSave() {
   try { const v = JSON.parse(localStorage.getItem(SAVE_KEY)); if (v) return v;
     const old = JSON.parse(localStorage.getItem('telezar_v1')); if (old) return { diff: 1, sound: old.sound, prog: { 1: { unlocked: old.unlocked || 1, completed: old.completed || 0 } } };
@@ -156,7 +156,7 @@ function hudTick() {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats']) $(s).classList.toggle('on', s === id); this.screen = id; },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop']) $(s).classList.toggle('on', s === id); this.screen = id; },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click');

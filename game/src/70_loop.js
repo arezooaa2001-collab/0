@@ -1,7 +1,7 @@
 /* ============================ MAIN LOOP ============================ */
 const sv = loadSave();
 app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);
-if (sv.stats) { Object.assign(ST, sv.stats); ST.ach = Object.assign({}, sv.stats.ach || {}); }
+if (sv.stats) { Object.assign(ST, sv.stats); ST.ach = Object.assign({}, sv.stats.ach || {}); ST.owned = Object.assign({}, sv.stats.owned || {}); ST.wear = Object.assign({}, sv.stats.wear || {}); ST.spent = sv.stats.spent || 0; }
 { const pr = app.prog[app.diff] || {}; app.unlocked = clamp(pr.unlocked || 1, 1, LEVELS.length); app.completed = pr.completed || 0; }
 renderDiffs();
 if (sv.sound === false) Sound.on = false;

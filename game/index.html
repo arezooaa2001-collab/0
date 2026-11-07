@@ -233,6 +233,20 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #sMode .panel.tall > *{flex-shrink:0}
 #sMode .modes{overflow:visible;min-height:auto}
 #camBox{margin-top:10px}
+
+.btn.hot{background:linear-gradient(180deg,rgba(255,211,110,.28),rgba(255,93,138,.18));border-color:rgba(255,211,110,.55)}
+.bal{font-size:18px;color:#7af7ff;margin-right:8px;vertical-align:middle}
+.shopTop{display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+#shopPv{width:220px;height:150px;border-radius:16px;background:radial-gradient(ellipse at 50% 80%,#3a2a66,#140d2c);border:1px solid var(--line)}
+.shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;overflow:auto;min-height:0;padding:2px}
+.shopit{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px;border-radius:14px;background:rgba(255,255,255,.06);border:2px solid var(--line);color:#fff}
+.shopit i{font-style:normal;font-size:28px;line-height:1.1}
+.shopit b{font-size:13px}.shopit small{font-size:12px;color:#ffd36e}
+.shopit.on{border-color:#6ff3c4;background:rgba(111,243,196,.14)}.shopit.on small{color:#6ff3c4}
+.shopit.poor{opacity:.55}
+.shopit.nope{animation:nope .35s}
+@keyframes nope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#sShop .panel.tall{overflow:auto}#sShop .panel.tall > *{flex-shrink:0}#sShop .shopGrid{overflow:visible}
 </style>
 </head>
 <body>
@@ -278,6 +292,8 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
     <div class="menu">
       <button class="btn primary wide" id="bPlay">▶ شروع بازی</button>
       <button class="btn" id="bLevels">🗺️ انتخاب مرحله</button>
+      <button class="btn hot" id="bEndless">♾️ حالت بی‌پایان</button>
+      <button class="btn hot" id="bShop">🛒 فروشگاه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
       <button class="btn" id="bSet">⚙️ تنظیمات</button>
       <button class="btn" id="bStats">🏆 رکوردها</button>
@@ -323,6 +339,15 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   </div>
 </div>
 
+<div class="screen fa" id="sShop">
+  <div class="panel tall">
+    <h2>فروشگاه <span id="shopBal" class="bal"></span></h2>
+    <p class="sub small">با جواهرهایی که توی مرحله‌ها جمع می‌کنی، رنگ، کلاه و رد پا بخر.</p>
+    <div class="shopTop"><canvas id="shopPv" width="220" height="150"></canvas><div class="tabs" id="shopTabs"></div></div>
+    <div class="shopGrid" id="shopGrid"></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
 <div class="screen fa" id="sMode">
   <div class="panel tall">
     <h2>حالت بازی</h2>
@@ -568,6 +593,73 @@ function buildPal() {
   PAL.ver = (PAL.ver || 0) + 1;
 }
 buildPal();
+/* ============================ SKINS (bought with gems in the shop) ============================ */
+// Body colours, hats and trails. Gems collected in any level are the money; ST.spent tracks what was spent.
+const SKINS = {
+  color: [
+    { id: 'classic', n: 'کلاسیک', i: '🥚', p: 0 }, { id: 'mint', n: 'نعنایی', i: '🌿', p: 40, c: '#8ff0c8' }, { id: 'ice', n: 'یخی', i: '🧊', p: 70, c: '#bfe8ff' },
+    { id: 'ruby', n: 'یاقوتی', i: '❤️', p: 60, c: '#ff7a8a' }, { id: 'shadow', n: 'سایه', i: '🖤', p: 90, c: '#6a5a8a' }, { id: 'gold', n: 'طلایی', i: '🏅', p: 120, c: '#ffd36e' },
+    { id: 'galaxy', n: 'کهکشانی', i: '🌌', p: 200, c: '#b18cff', anim: true },
+  ],
+  hat: [
+    { id: 'none', n: 'بدون کلاه', i: '🌱', p: 0 }, { id: 'cap', n: 'کلاه کپ', i: '🧢', p: 30 }, { id: 'party', n: 'کلاه جشن', i: '🎉', p: 50 },
+    { id: 'horns', n: 'شاخ شیطون', i: '😈', p: 80 }, { id: 'halo', n: 'هاله‌ی فرشته', i: '😇', p: 100 }, { id: 'tophat', n: 'کلاه شاپو', i: '🎩', p: 120 },
+    { id: 'crown', n: 'تاج پادشاهی', i: '👑', p: 150 }, { id: 'wizard', n: 'کلاه جادوگر', i: '🧙', p: 180 },
+  ],
+  trail: [
+    { id: 'none', n: 'بدون رد', i: '·', p: 0 }, { id: 'sparkle', n: 'ستاره‌ریز', i: '✨', p: 60 }, { id: 'bubbles', n: 'حباب', i: '🫧', p: 70 },
+    { id: 'hearts', n: 'قلب', i: '💖', p: 90 }, { id: 'fire', n: 'آتش', i: '🔥', p: 100 }, { id: 'rainbow', n: 'رنگین‌کمون', i: '🌈', p: 160 },
+  ],
+};
+const skinOf = (slot) => { const w = (typeof ST !== 'undefined' && ST.wear) || {}; return SKINS[slot].find(s => s.id === w[slot]) || SKINS[slot][0]; };
+// body colours of the hero (top, bottom) for the 2D views
+function heroCols(t) {
+  const c = skinOf('color');
+  if (!c.c) return [PAL.bodyTop, PAL.bodyBot];
+  const base = c.anim ? hslHex((t * 60) % 360, .75, .72) : c.c;
+  return [mixHex(base, '#ffffff', .45), mixHex(base, '#000000', .12)];
+}
+// hat drawn on top of the 2D hero (origin at the feet, f = facing, body top at y = -34)
+function drawHat(t, f) {
+  const h = skinOf('hat').id; if (h === 'none') return false;
+  const g = ctx; g.save(); g.lineJoin = 'round';
+  if (h === 'cap') { g.fillStyle = '#ff5d5d'; g.beginPath(); g.arc(0, -32, 13, Math.PI, 0); g.fill(); g.fillRect(f > 0 ? 4 : -22, -33, 18, 4); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -44, 2.5, 0, 7); g.fill(); }
+  else if (h === 'party') { g.fillStyle = '#6ff3c4'; g.beginPath(); g.moveTo(-10, -32); g.lineTo(10, -32); g.lineTo(2, -58); g.closePath(); g.fill(); g.strokeStyle = '#ff5dbb'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(-7, -40); g.lineTo(7, -42); g.moveTo(-4, -49); g.lineTo(5, -50); g.stroke(); g.fillStyle = '#ffd36e'; g.beginPath(); g.arc(2, -59, 4, 0, 7); g.fill(); }
+  else if (h === 'horns') { g.fillStyle = '#ff3d4a'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * 6, -33); g.quadraticCurveTo(s * 14, -40, s * 16, -50); g.quadraticCurveTo(s * 9, -42, s * 1, -34); g.closePath(); g.fill(); } }
+  else if (h === 'halo') { const y = -50 + Math.sin(t * 3) * 1.5; if (glowK() > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = .6; g.drawImage(TEX.gGold, -26, y - 16, 52, 32); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; } g.strokeStyle = '#ffe28a'; g.lineWidth = 3.5; g.beginPath(); g.ellipse(0, y, 13, 4, 0, 0, 7); g.stroke(); }
+  else if (h === 'tophat') { g.fillStyle = '#1c1426'; g.fillRect(-15, -36, 30, 4); g.fillRect(-10, -56, 20, 21); g.fillStyle = '#ff5d8a'; g.fillRect(-10, -42, 20, 4); }
+  else if (h === 'crown') { g.fillStyle = '#ffc94a'; g.beginPath(); g.moveTo(-13, -33); g.lineTo(-13, -46); g.lineTo(-7, -39); g.lineTo(0, -50); g.lineTo(7, -39); g.lineTo(13, -46); g.lineTo(13, -33); g.closePath(); g.fill(); g.strokeStyle = '#a8741a'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#ff3d71'; g.beginPath(); g.arc(0, -38, 2.6, 0, 7); g.fill(); g.fillStyle = '#7af7ff'; g.beginPath(); g.arc(-7, -37, 2, 0, 7); g.arc(7, -37, 2, 0, 7); g.fill(); }
+  else if (h === 'wizard') { g.fillStyle = '#5a3aa8'; g.beginPath(); g.ellipse(0, -33, 18, 4, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(-12, -34); g.lineTo(12, -34); g.quadraticCurveTo(4, -50, -f * 8, -66); g.closePath(); g.fill(); g.fillStyle = '#ffd36e'; for (const [x, y] of [[-3, -42], [3, -50], [-1, -56]]) { g.beginPath(); g.arc(x, y, 1.8, 0, 7); g.fill(); } }
+  g.restore(); return true;
+}
+// trail particles behind a moving hero (2D views and the 3D platformer view both read world.parts)
+function emitTrail(world, t) {
+  const tr = skinOf('trail').id; if (tr === 'none' || !world || world.silent || world.state !== 'play') return;
+  const p = world.p, moving = Math.abs(p.vx) > 40 || !p.onGround; if (!moving || Math.random() > .55 * GFX.fx * Perf.fxK) return;
+  const x = p.x + PW / 2 - p.face * 10, y = p.y + PHT * .55 + (Math.random() - .5) * 10;
+  const q = { x, y, vx: -p.face * 20 + (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, life: .7, max: .7, size: 3, col: '#fff', g: 0, drag: 1.5, add: true };
+  if (tr === 'sparkle') { q.col = Math.random() < .5 ? '#ffe28a' : '#ffffff'; q.size = 2.5; }
+  else if (tr === 'fire') { q.col = Math.random() < .5 ? '#ff7a2a' : '#ffd36e'; q.vy = -60 - Math.random() * 40; q.size = 4; q.life = q.max = .45; }
+  else if (tr === 'rainbow') { q.col = hslHex((t * 300 + Math.random() * 60) % 360, .9, .65); q.add = false; q.sq = true; q.size = 5; q.vx *= .3; q.vy *= .3; }
+  else if (tr === 'hearts') { q.col = '#ff7ab8'; q.vy = -30; q.size = 4.5; }
+  else if (tr === 'bubbles') { q.col = '#9ef9ff'; q.vy = -40; q.ring2 = true; q.size = 4; q.add = false; }
+  world.parts.push(q);
+}
+// 3D hats for buildHeroMesh (units: hero is about 1.6 tall, top of the head near y = 1.37)
+function buildHat3(g, keep) {
+  const h = skinOf('hat').id; if (h === 'none') return false;
+  const L = c => keep(new THREE.MeshLambertMaterial({ color: c })), B = c => keep(new THREE.MeshBasicMaterial({ color: c }));
+  const add = (geo, mat, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(keep(geo), mat); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); g.add(m); return m; };
+  if (h === 'cap') { add(new THREE.SphereGeometry(.42, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), L(0xff5d5d), 0, 1.3, 0); add(new THREE.BoxGeometry(.5, .05, .4), L(0xff5d5d), 0, 1.32, -.45); }
+  else if (h === 'party') add(new THREE.ConeGeometry(.28, .7, 12), L(0x6ff3c4), 0, 1.7, 0);
+  else if (h === 'horns') for (const s of [-1, 1]) add(new THREE.ConeGeometry(.08, .45, 8), L(0xff3d4a), s * .25, 1.55, 0, 0, -s * .5);
+  else if (h === 'halo') add(new THREE.TorusGeometry(.32, .04, 8, 24), B(0xffe28a), 0, 1.85, 0, Math.PI / 2);
+  else if (h === 'tophat') { add(new THREE.CylinderGeometry(.42, .42, .05, 18), L(0x1c1426), 0, 1.36, 0); add(new THREE.CylinderGeometry(.28, .28, .5, 18), L(0x1c1426), 0, 1.62, 0); add(new THREE.CylinderGeometry(.285, .285, .08, 18), L(0xff5d8a), 0, 1.44, 0); }
+  else if (h === 'crown') { add(new THREE.CylinderGeometry(.3, .3, .2, 10, 1, true), keep(new THREE.MeshLambertMaterial({ color: 0xffc94a, side: THREE.DoubleSide })), 0, 1.44, 0); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; add(new THREE.ConeGeometry(.06, .18, 6), L(0xffc94a), Math.cos(a) * .3, 1.63, Math.sin(a) * .3); } }
+  else if (h === 'wizard') { add(new THREE.CylinderGeometry(.55, .55, .04, 18), L(0x5a3aa8), 0, 1.36, 0); add(new THREE.ConeGeometry(.32, .95, 14), L(0x5a3aa8), 0, 1.85, 0); }
+  return true;
+}
+const skinBody3 = () => { const c = skinOf('color'); return c.c ? hexNum(c.c) : hexNum(colOf('player')); };
 /* ============================ LEVELS ============================ */
 // L.d = difficulty index (0 easy … 4 insane). Harder difficulties add extra traps.
 // Each of these hand-made screens is the finale of its long level (see 15_course.js): the generated course
@@ -2728,6 +2820,7 @@ function drawLaser(e, t) {
 
 function drawPlayer(world, t) {
   const p = world.p; if (world.state === 'dead') return;
+  emitTrail(world, t);
   const g = p.g, cx = p.x + PW / 2, feet = g > 0 ? p.y + PHT : p.y;
   if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.28 * p.winS + .05) * Math.min(1, glowK()); ctx.drawImage(TEX.gWarm, cx - 70, p.y + PHT / 2 - 70, 140, 140); ctx.restore(); }
   ctx.save();
@@ -2756,11 +2849,14 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
   ctx.beginPath(); ctx.ellipse(5 + l2, -3 + ly2, 5, 3.6, 0, 0, 7); ctx.fill();
   const bob = run ? Math.abs(Math.sin(ph)) * 1.6 : Math.sin(t * 3) * .6;
   ctx.translate(0, -bob);
-  const gr = ctx.createLinearGradient(0, -34, 0, -4); gr.addColorStop(0, PAL.bodyTop); gr.addColorStop(1, PAL.bodyBot);
+  const [cTop, cBot] = heroCols(t), hat = skinOf('hat').id !== 'none';
+  const gr = ctx.createLinearGradient(0, -34, 0, -4); gr.addColorStop(0, cTop); gr.addColorStop(1, cBot);
   ctx.fillStyle = gr; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14, -34, 28, 30, 12) : ctx.rect(-14, -34, 28, 30); ctx.fill();
   ctx.strokeStyle = 'rgba(90,40,50,.45)'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.strokeStyle = PAL.moss; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(f * 2, -34); ctx.quadraticCurveTo(f * 3, -41, f * 7 - Math.sin(t * 4) * 1.5, -42); ctx.stroke();
-  ctx.fillStyle = djReady ? '#9ef9ff' : mixHex(PAL.moss, '#ffffff', .25); ctx.beginPath(); ctx.ellipse(f * 7 - Math.sin(t * 4) * 1.5, -42, 4, 2.4, -f * .5, 0, 7); ctx.fill();
+  if (!hat) {
+    ctx.strokeStyle = PAL.moss; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(f * 2, -34); ctx.quadraticCurveTo(f * 3, -41, f * 7 - Math.sin(t * 4) * 1.5, -42); ctx.stroke();
+    ctx.fillStyle = djReady ? '#9ef9ff' : mixHex(PAL.moss, '#ffffff', .25); ctx.beginPath(); ctx.ellipse(f * 7 - Math.sin(t * 4) * 1.5, -42, 4, 2.4, -f * .5, 0, 7); ctx.fill();
+  }
   ctx.fillStyle = PAL.scarf; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14.5, -17, 29, 6, 3) : ctx.rect(-14.5, -17, 29, 6); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-12, -16, 24, 1.5);
   ctx.fillStyle = 'rgba(255,110,120,.45)'; ctx.beginPath(); ctx.ellipse(-8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.ellipse(8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.fill();
@@ -2770,12 +2866,14 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
     ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.ellipse(-5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.ellipse(5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.arc(6 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.fill();
   }
+  if (hat) { drawHat(t, f); if (djReady) { ctx.fillStyle = '#9ef9ff'; ctx.beginPath(); ctx.arc(0, -40, 3, 0, 7); ctx.fill(); } }
 }
 
 function drawParticles(world) {
   const lim = Math.max(20, Math.round(400 * GFX.fx * Perf.fxK)), arr = world.parts, start = Math.max(0, arr.length - lim);
   for (let i = start; i < arr.length; i++) {
     const q = arr[i], a = q.life / q.max;
+    if (q.ring2) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1.4 - a * .4), 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring) { const r = (1 - a) * 90; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col === '#fff' ? '#ffd9b0' : q.col; ctx.lineWidth = 4 * a + 1; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     ctx.globalAlpha = Math.min(1, a * 1.5);
     if (q.add) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (0.5 + a * .5), 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; }
@@ -3441,7 +3539,7 @@ const hexNum = h => parseInt(String(h).replace('#', ''), 16) || 0;
 /* the player character as a three.js group (used by the 3D chase and the 3D platformer view) */
 function buildHeroMesh(keep) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(keep(new THREE.SphereGeometry(0.5, 18, 14)), keep(new THREE.MeshLambertMaterial({ color: hexNum(colOf('player')) })));
+  const body = new THREE.Mesh(keep(new THREE.SphereGeometry(0.5, 18, 14)), keep(new THREE.MeshLambertMaterial({ color: skinBody3() })));
   body.scale.set(1, 1.18, 0.95); body.position.y = 0.78; g.add(body);
   const scarfM = keep(new THREE.MeshLambertMaterial({ color: hexNum(colOf('scarf')) }));
   const scarf = new THREE.Mesh(keep(new THREE.TorusGeometry(0.47, 0.11, 6, 18)), scarfM);
@@ -3458,6 +3556,7 @@ function buildHeroMesh(keep) {
   sprout.position.set(0, 1.48, 0); g.add(sprout);
   const leaf = new THREE.Mesh(keep(new THREE.SphereGeometry(0.12, 8, 6)), keep(new THREE.MeshLambertMaterial({ color: hexNum(mixHex(colOf('moss'), '#ffffff', .25)) })));
   leaf.scale.set(1.4, 0.5, 0.8); leaf.position.set(0.1, 1.64, 0); g.add(leaf);
+  if (buildHat3(g, keep)) sprout.visible = leaf.visible = false;
   const legG = keep(new THREE.SphereGeometry(0.16, 8, 6)), legM = keep(new THREE.MeshLambertMaterial({ color: 0x3b2a52 }));
   const legs = [-1, 1].map(sx => { const l = new THREE.Mesh(legG, legM); l.scale.set(1, 0.8, 1.3); l.position.set(sx * 0.2, 0.14, 0); g.add(l); return l; });
   const glowMat = keep(new THREE.MeshBasicMaterial({ map: keep(Run3D.prototype.radialTex('rgba(255,226,176,0.5)', 'rgba(255,226,176,0)')), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -4541,6 +4640,7 @@ class P3D {
     h.legs[0].position.z = run ? Math.sin(ph) * .22 : 0; h.legs[1].position.z = run ? -Math.sin(ph) * .22 : 0;
     h.tail.forEach((m, i) => { m.position.x = 0.15 + Math.sin(t * 14 - i) * 0.08 * (i + 1); });
     if (this.pLight) { this.pLight.position.set(fx, fy + .5, 2); this.pLight.intensity = 2.4 * (1 + Math.sin(t * 9) * .04); this.hemi.intensity = .12 + w.lightning * 1.2; }
+    emitTrail(w, t);
     // particles
     const parts = w.parts, N = Math.min(this.pN, parts.length), pos = this.pPos, col = this.pCol;
     for (let i = 0; i < N; i++) {
@@ -4633,7 +4733,7 @@ const TAUNTS = ['هه! 😈', 'انتظارشو نداشتی، نه؟', 'یه ب
 const SAVE_KEY = 'telezar_v2';
 const DDESC = ['تله‌های پنهان کم‌رنگ دیده می‌شن و همه‌چیز آروم‌تره', 'همون‌طور که باید باشه', 'تله‌ها سریع‌ترن و تله‌های اضافه داری',
   'بازی تندتره، خارها تیزترن و تله‌های بیشتر', 'سرعت بالا، بدون بخشش، همه تله‌ها فعال. موفق باشی!'];
-const ST = { deaths: 0, gems: 0, time: 0, wins: 0, ach: {}, secret: false, realm: 0 };
+const ST = { deaths: 0, gems: 0, time: 0, wins: 0, ach: {}, secret: false, realm: 0, spent: 0, owned: {}, wear: {} };
 function loadSave() {
   try { const v = JSON.parse(localStorage.getItem(SAVE_KEY)); if (v) return v;
     const old = JSON.parse(localStorage.getItem('telezar_v1')); if (old) return { diff: 1, sound: old.sound, prog: { 1: { unlocked: old.unlocked || 1, completed: old.completed || 0 } } };
@@ -4742,7 +4842,7 @@ function hudTick() {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats']) $(s).classList.toggle('on', s === id); this.screen = id; },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop']) $(s).classList.toggle('on', s === id); this.screen = id; },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click');
@@ -5103,10 +5203,49 @@ function renderStats() {
     <div class="sec"><h3>رکورد مرحله‌ها (${DIFFS[app.diff].name})</h3><div class="lvStars">${LEVELS.map((L, i) => `<div title="${esc(L.name)}"><b>${faNum(i + 1)}</b>${stars[i] ? '<span style="color:var(--gold)">' + '★'.repeat(stars[i]) + '</span>' : '—'}<br>${best[i] ? fmtT(best[i]) : ''}</div>`).join('')}</div></div>`;
   $('statsBody').innerHTML = h;
 }
+
+/* gem shop: colours, hats and trails */
+let shopTab = 'color', shopAnim = 0;
+const gemBalance = () => Math.max(0, ST.gems - (ST.spent || 0));
+function renderShop(tab) {
+  if (tab) shopTab = tab;
+  const bal = gemBalance(), cur = skinOf(shopTab).id;
+  $('shopBal').textContent = '💎 ' + faNum(bal);
+  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
+  $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
+    const own = it.p === 0 || ST.owned[shopTab + ':' + it.id], on = cur === it.id;
+    return `<button class="shopit${on ? ' on' : ''}${!own && bal < it.p ? ' poor' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
+  }).join('');
+}
+function shopPreview() {
+  if (app.screen !== 'sShop') { shopAnim = 0; return; }
+  const c = $('shopPv'), g = c.getContext('2d'), t = performance.now() / 1000, main = ctx;
+  const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play' });
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+  ctx = g; ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
+  fw.p.x = 61 - PW / 2; fw.p.y = 82 - PHT; emitTrail(fw, t);
+  for (let i = fw.parts.length - 1; i >= 0; i--) { const q = fw.parts[i]; q.life -= 1 / 60; if (q.life <= 0) { fw.parts.splice(i, 1); continue; } q.x += (q.vx - 120) / 60; q.y += q.vy / 60; }
+  drawParticles(fw);
+  ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore();
+  ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, 83, 150, 2);
+  ctx = main;
+  requestAnimationFrame(shopPreview);
+}
+$('shopTabs').addEventListener('click', e => { const b = e.target.closest('[data-stab]'); if (b) { Sound.play('click'); renderShop(b.dataset.stab); } });
+$('shopGrid').addEventListener('click', e => {
+  const b = e.target.closest('[data-item]'); if (!b) return;
+  const it = SKINS[shopTab].find(s => s.id === b.dataset.item), key = shopTab + ':' + it.id, own = it.p === 0 || ST.owned[key];
+  if (!own) {
+    if (gemBalance() < it.p) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
+    ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win');
+  } else Sound.play('click');
+  ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
+});
+$('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };
 /* ============================ MAIN LOOP ============================ */
 const sv = loadSave();
 app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);
-if (sv.stats) { Object.assign(ST, sv.stats); ST.ach = Object.assign({}, sv.stats.ach || {}); }
+if (sv.stats) { Object.assign(ST, sv.stats); ST.ach = Object.assign({}, sv.stats.ach || {}); ST.owned = Object.assign({}, sv.stats.owned || {}); ST.wear = Object.assign({}, sv.stats.wear || {}); ST.spent = sv.stats.spent || 0; }
 { const pr = app.prog[app.diff] || {}; app.unlocked = clamp(pr.unlocked || 1, 1, LEVELS.length); app.completed = pr.completed || 0; }
 renderDiffs();
 if (sv.sound === false) Sound.on = false;

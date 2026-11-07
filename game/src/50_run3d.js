@@ -52,7 +52,7 @@ const hexNum = h => parseInt(String(h).replace('#', ''), 16) || 0;
 /* the player character as a three.js group (used by the 3D chase and the 3D platformer view) */
 function buildHeroMesh(keep) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(keep(new THREE.SphereGeometry(0.5, 18, 14)), keep(new THREE.MeshLambertMaterial({ color: hexNum(colOf('player')) })));
+  const body = new THREE.Mesh(keep(new THREE.SphereGeometry(0.5, 18, 14)), keep(new THREE.MeshLambertMaterial({ color: skinBody3() })));
   body.scale.set(1, 1.18, 0.95); body.position.y = 0.78; g.add(body);
   const scarfM = keep(new THREE.MeshLambertMaterial({ color: hexNum(colOf('scarf')) }));
   const scarf = new THREE.Mesh(keep(new THREE.TorusGeometry(0.47, 0.11, 6, 18)), scarfM);
@@ -69,6 +69,7 @@ function buildHeroMesh(keep) {
   sprout.position.set(0, 1.48, 0); g.add(sprout);
   const leaf = new THREE.Mesh(keep(new THREE.SphereGeometry(0.12, 8, 6)), keep(new THREE.MeshLambertMaterial({ color: hexNum(mixHex(colOf('moss'), '#ffffff', .25)) })));
   leaf.scale.set(1.4, 0.5, 0.8); leaf.position.set(0.1, 1.64, 0); g.add(leaf);
+  if (buildHat3(g, keep)) sprout.visible = leaf.visible = false;
   const legG = keep(new THREE.SphereGeometry(0.16, 8, 6)), legM = keep(new THREE.MeshLambertMaterial({ color: 0x3b2a52 }));
   const legs = [-1, 1].map(sx => { const l = new THREE.Mesh(legG, legM); l.scale.set(1, 0.8, 1.3); l.position.set(sx * 0.2, 0.14, 0); g.add(l); return l; });
   const glowMat = keep(new THREE.MeshBasicMaterial({ map: keep(Run3D.prototype.radialTex('rgba(255,226,176,0.5)', 'rgba(255,226,176,0)')), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));

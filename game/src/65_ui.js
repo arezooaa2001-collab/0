@@ -127,3 +127,42 @@ function renderStats() {
     <div class="sec"><h3>رکورد مرحله‌ها (${DIFFS[app.diff].name})</h3><div class="lvStars">${LEVELS.map((L, i) => `<div title="${esc(L.name)}"><b>${faNum(i + 1)}</b>${stars[i] ? '<span style="color:var(--gold)">' + '★'.repeat(stars[i]) + '</span>' : '—'}<br>${best[i] ? fmtT(best[i]) : ''}</div>`).join('')}</div></div>`;
   $('statsBody').innerHTML = h;
 }
+
+/* gem shop: colours, hats and trails */
+let shopTab = 'color', shopAnim = 0;
+const gemBalance = () => Math.max(0, ST.gems - (ST.spent || 0));
+function renderShop(tab) {
+  if (tab) shopTab = tab;
+  const bal = gemBalance(), cur = skinOf(shopTab).id;
+  $('shopBal').textContent = '💎 ' + faNum(bal);
+  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
+  $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
+    const own = it.p === 0 || ST.owned[shopTab + ':' + it.id], on = cur === it.id;
+    return `<button class="shopit${on ? ' on' : ''}${!own && bal < it.p ? ' poor' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
+  }).join('');
+}
+function shopPreview() {
+  if (app.screen !== 'sShop') { shopAnim = 0; return; }
+  const c = $('shopPv'), g = c.getContext('2d'), t = performance.now() / 1000, main = ctx;
+  const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play' });
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+  ctx = g; ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
+  fw.p.x = 61 - PW / 2; fw.p.y = 82 - PHT; emitTrail(fw, t);
+  for (let i = fw.parts.length - 1; i >= 0; i--) { const q = fw.parts[i]; q.life -= 1 / 60; if (q.life <= 0) { fw.parts.splice(i, 1); continue; } q.x += (q.vx - 120) / 60; q.y += q.vy / 60; }
+  drawParticles(fw);
+  ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore();
+  ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, 83, 150, 2);
+  ctx = main;
+  requestAnimationFrame(shopPreview);
+}
+$('shopTabs').addEventListener('click', e => { const b = e.target.closest('[data-stab]'); if (b) { Sound.play('click'); renderShop(b.dataset.stab); } });
+$('shopGrid').addEventListener('click', e => {
+  const b = e.target.closest('[data-item]'); if (!b) return;
+  const it = SKINS[shopTab].find(s => s.id === b.dataset.item), key = shopTab + ':' + it.id, own = it.p === 0 || ST.owned[key];
+  if (!own) {
+    if (gemBalance() < it.p) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
+    ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win');
+  } else Sound.play('click');
+  ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
+});
+$('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };

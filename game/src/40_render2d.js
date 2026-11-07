@@ -466,6 +466,7 @@ function drawLaser(e, t) {
 
 function drawPlayer(world, t) {
   const p = world.p; if (world.state === 'dead') return;
+  emitTrail(world, t);
   const g = p.g, cx = p.x + PW / 2, feet = g > 0 ? p.y + PHT : p.y;
   if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.28 * p.winS + .05) * Math.min(1, glowK()); ctx.drawImage(TEX.gWarm, cx - 70, p.y + PHT / 2 - 70, 140, 140); ctx.restore(); }
   ctx.save();
@@ -494,11 +495,14 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
   ctx.beginPath(); ctx.ellipse(5 + l2, -3 + ly2, 5, 3.6, 0, 0, 7); ctx.fill();
   const bob = run ? Math.abs(Math.sin(ph)) * 1.6 : Math.sin(t * 3) * .6;
   ctx.translate(0, -bob);
-  const gr = ctx.createLinearGradient(0, -34, 0, -4); gr.addColorStop(0, PAL.bodyTop); gr.addColorStop(1, PAL.bodyBot);
+  const [cTop, cBot] = heroCols(t), hat = skinOf('hat').id !== 'none';
+  const gr = ctx.createLinearGradient(0, -34, 0, -4); gr.addColorStop(0, cTop); gr.addColorStop(1, cBot);
   ctx.fillStyle = gr; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14, -34, 28, 30, 12) : ctx.rect(-14, -34, 28, 30); ctx.fill();
   ctx.strokeStyle = 'rgba(90,40,50,.45)'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.strokeStyle = PAL.moss; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(f * 2, -34); ctx.quadraticCurveTo(f * 3, -41, f * 7 - Math.sin(t * 4) * 1.5, -42); ctx.stroke();
-  ctx.fillStyle = djReady ? '#9ef9ff' : mixHex(PAL.moss, '#ffffff', .25); ctx.beginPath(); ctx.ellipse(f * 7 - Math.sin(t * 4) * 1.5, -42, 4, 2.4, -f * .5, 0, 7); ctx.fill();
+  if (!hat) {
+    ctx.strokeStyle = PAL.moss; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(f * 2, -34); ctx.quadraticCurveTo(f * 3, -41, f * 7 - Math.sin(t * 4) * 1.5, -42); ctx.stroke();
+    ctx.fillStyle = djReady ? '#9ef9ff' : mixHex(PAL.moss, '#ffffff', .25); ctx.beginPath(); ctx.ellipse(f * 7 - Math.sin(t * 4) * 1.5, -42, 4, 2.4, -f * .5, 0, 7); ctx.fill();
+  }
   ctx.fillStyle = PAL.scarf; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14.5, -17, 29, 6, 3) : ctx.rect(-14.5, -17, 29, 6); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-12, -16, 24, 1.5);
   ctx.fillStyle = 'rgba(255,110,120,.45)'; ctx.beginPath(); ctx.ellipse(-8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.ellipse(8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.fill();
@@ -508,12 +512,14 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
     ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.ellipse(-5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.ellipse(5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.arc(6 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.fill();
   }
+  if (hat) { drawHat(t, f); if (djReady) { ctx.fillStyle = '#9ef9ff'; ctx.beginPath(); ctx.arc(0, -40, 3, 0, 7); ctx.fill(); } }
 }
 
 function drawParticles(world) {
   const lim = Math.max(20, Math.round(400 * GFX.fx * Perf.fxK)), arr = world.parts, start = Math.max(0, arr.length - lim);
   for (let i = start; i < arr.length; i++) {
     const q = arr[i], a = q.life / q.max;
+    if (q.ring2) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1.4 - a * .4), 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring) { const r = (1 - a) * 90; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col === '#fff' ? '#ffd9b0' : q.col; ctx.lineWidth = 4 * a + 1; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     ctx.globalAlpha = Math.min(1, a * 1.5);
     if (q.add) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (0.5 + a * .5), 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; }

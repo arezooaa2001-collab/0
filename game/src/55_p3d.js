@@ -280,6 +280,7 @@ class P3D {
     h.legs[0].position.z = run ? Math.sin(ph) * .22 : 0; h.legs[1].position.z = run ? -Math.sin(ph) * .22 : 0;
     h.tail.forEach((m, i) => { m.position.x = 0.15 + Math.sin(t * 14 - i) * 0.08 * (i + 1); });
     if (this.pLight) { this.pLight.position.set(fx, fy + .5, 2); this.pLight.intensity = 2.4 * (1 + Math.sin(t * 9) * .04); this.hemi.intensity = .12 + w.lightning * 1.2; }
+    emitTrail(w, t);
     // particles
     const parts = w.parts, N = Math.min(this.pN, parts.length), pos = this.pPos, col = this.pCol;
     for (let i = 0; i < N; i++) {

@@ -218,3 +218,17 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #sMode .panel.tall > *{flex-shrink:0}
 #sMode .modes{overflow:visible;min-height:auto}
 #camBox{margin-top:10px}
+
+.btn.hot{background:linear-gradient(180deg,rgba(255,211,110,.28),rgba(255,93,138,.18));border-color:rgba(255,211,110,.55)}
+.bal{font-size:18px;color:#7af7ff;margin-right:8px;vertical-align:middle}
+.shopTop{display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+#shopPv{width:220px;height:150px;border-radius:16px;background:radial-gradient(ellipse at 50% 80%,#3a2a66,#140d2c);border:1px solid var(--line)}
+.shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;overflow:auto;min-height:0;padding:2px}
+.shopit{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px;border-radius:14px;background:rgba(255,255,255,.06);border:2px solid var(--line);color:#fff}
+.shopit i{font-style:normal;font-size:28px;line-height:1.1}
+.shopit b{font-size:13px}.shopit small{font-size:12px;color:#ffd36e}
+.shopit.on{border-color:#6ff3c4;background:rgba(111,243,196,.14)}.shopit.on small{color:#6ff3c4}
+.shopit.poor{opacity:.55}
+.shopit.nope{animation:nope .35s}
+@keyframes nope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#sShop .panel.tall{overflow:auto}#sShop .panel.tall > *{flex-shrink:0}#sShop .shopGrid{overflow:visible}
