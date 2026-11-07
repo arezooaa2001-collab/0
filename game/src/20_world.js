@@ -5,15 +5,18 @@ class Level {
     this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0; this.flags = [];
     if (def.secs) {
       // long scrolling level: sections placed one after another (each with its own x offset and id prefix)
-      def.secs.forEach((sec, i) => {
-        if (only && !only.includes(i)) return;
-        const P = secBuilder(this, sec, i, i === def.secs.length - 1);
-        sec.build(P); P.done();
-        if (i > 0) this.flags.push(this.add('flag' + i, { type: 'flag', i, x: (sec.x0 + .45) * T, y: (sec.t0 - 2.6) * T, w: 14, h: 2.6 * T, on: false, wave: 0 }));
-      });
+      def.secs.forEach((sec, i) => { if (!only || only.includes(i)) this.addSec(sec, i, i === def.secs.length - 1 && !def.endless); });
       this.width = def.width * T;
-    } else { def.build(this); this.width = W; }
-    for (const e of this.ents) if (e.parent) { const p = this.byId[e.parent]; e.par = p; e.offx = e.x - p.x; e.offy = e.y - p.y; }
+    } else { def.build(this); this.width = W; this.link(0); }
+  }
+  link(from) { for (let j = from; j < this.ents.length; j++) { const e = this.ents[j]; if (e.parent) { const p = this.byId[e.parent]; e.par = p; e.offx = e.x - p.x; e.offy = e.y - p.y; } } }
+  // one section of a long level (also used to grow the endless course while it is played)
+  addSec(sec, i, last) {
+    const n0 = this.ents.length, P = secBuilder(this, sec, i, last);
+    sec.build(P); P.done();
+    if (i > 0) this.flags.push(this.add('flag' + i, { type: 'flag', i, x: (sec.x0 + .45) * T, y: (sec.t0 - 2.6) * T, w: 14, h: 2.6 * T, on: false, wave: 0 }));
+    this.link(n0);
+    return this.ents.slice(n0);
   }
   add(id, e) {
     e.id = id; e.moves = []; e.dx = 0; e.dy = 0; e.shake = 0;
@@ -145,6 +148,8 @@ class World {
     if (this.rev && this.onRev) this.onRev(false);
     this.rev = false;
     this.dark = !!this.def.dark;
+    // endless course: only the sections around the checkpoint are built
+    if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); }
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
     // gems stay collected across deaths
     this.got = this.got || new Set(); let ng = 0;
@@ -158,6 +163,24 @@ class World {
     this.look = 0; this.camX = this.camTarget(); this.act = this.lv.ents; this.actX = -1e9;
     this.state = 'play';
     if (!first) { this.burst(this.p.x + PW / 2, this.p.y + PHT / 2, 18, { col: '#fff1c9', sp: 220, life: .45, add: true, size: 3, inward: true }); this.sfx('spawn'); }
+  }
+  // endless course: new sections appended ahead, old ones far behind dropped. Returns what changed (for the 3D view).
+  extend(add) {
+    const d = this.def, n0 = d.secs.length; d.secs.push(...add); d.relayout();
+    let added = [];
+    for (let i = n0; i < d.secs.length; i++) { added = added.concat(this.lv.addSec(d.secs[i], i, false)); if (this.only) this.only.push(i); }
+    this.lv.width = d.width * T; this.lw = this.lv.width;
+    const keep = Math.max(0, this.ck - 1), cut = d.secs[keep].x0 * T - 300, dropped = new Set();
+    for (const e of this.lv.ents) if (!e.moves.length && !e.patrol && (e.x + (e.w || 0) + (e.r || 0) < cut)) dropped.add(e);
+    if (dropped.size) {
+      this.lv.ents = this.lv.ents.filter(e => !dropped.has(e) || e === this.p.ground);
+      for (const k in this.lv.byId) if (dropped.has(this.lv.byId[k])) delete this.lv.byId[k];
+      this.lv.flags = this.lv.flags.filter(f => !dropped.has(f));
+      this.only = this.only && this.only.filter(i => i >= keep);
+    }
+    for (const e of added) if (e.type === 'gem') { if (this.got.has(e.id)) e.gone = true; else this.gemTotal++; }
+    this.actX = -1e9;
+    return { added, dropped };
   }
   sfx(n) { if (!this.silent) Sound.play(n); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }

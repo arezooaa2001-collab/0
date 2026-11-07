@@ -90,6 +90,7 @@ const ACH = [
   ['allgems', '💠', 'جواهر کامل', 'همه‌ی جواهرهای یک مرحله‌ی سکوبازی رو جمع کن و ببر'],
   ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
   ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
+  ['endless', '♾️', 'ماراتن', 'توی حالت بی‌پایان ۵۰۰ متر برو'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -141,12 +142,13 @@ let hudLast = '';
 function hudTick() {
   let s = '';
   const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
-  const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : app.kind === 'plat' && app.world && app.world.gemTotal && app.state !== 'title' ? `💎 ${faNum(app.world.got.size)}/${faNum(app.world.gemTotal)}` : '';
+  const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : app.endless && app.world ? `💎 ${faNum(app.world.got.size)}` : app.kind === 'plat' && app.world && app.world.gemTotal && app.state !== 'title' ? `💎 ${faNum(app.world.got.size)}/${faNum(app.world.gemTotal)}` : '';
   let pw = '';
   if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
     const k = clamp((app.world.p.x + PW) / app.world.lw, 0, 1), q = Math.round(k * 200);
     if (q !== hudTick.pq) { hudTick.pq = q; $('pprog').firstChild.style.transform = `scaleX(${(q / 200).toFixed(3)})`; }
   }
+  if (app.endless && app.world && app.state === 'play') { const m = Math.max(0, Math.floor(app.world.p.x / T)); if (m > app.endless.dist) { app.endless.dist = m; app.updTag(); if (m === app.endless.best + 1 && app.endless.best > 0) app.taunt('🏆 رکورد شکسته شد!', '#ffd36e'); } }
   if (app.kind === 'plat' && app.world && app.state !== 'title') { const p = app.world.p; if (p.shield) pw += '🛡️'; for (const k of ['star', 'slow', 'magnet', 'jump']) { const v = p[POWS[k].t]; if (v > 0) pw += ' ' + POWS[k].i + faNum(Math.ceil(v)); } }
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
   const fp = CFG.fps ? faNum(Perf.fpsShow) + ' FPS · ' + faNum(Math.round(Perf.dyn * 100)) + '٪' : '';
@@ -158,26 +160,63 @@ function hudTick() {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop']) $(s).classList.toggle('on', s === id); this.screen = id; },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver']) $(s).classList.toggle('on', s === id); this.screen = id; },
   open(id) { this.show(id); },
   goBack() {
-    Sound.play('click');
+    Sound.play('click'); if (this.state === 'over') return this.menu();
     const b = this.state === 'pause' ? 'sPause' : this.state === 'end' ? 'sEnd' : 'sTitle';
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
   updTag() {
+    if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `♾️ بی‌پایان · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
     const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
     $('pprog').classList.toggle('on', !!n);
   },
-  label() { return this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
+  label() { return this.endless ? '♾️ حالت بی‌پایان' : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
-    this.realmIdx = -1; this.idx = i;
+    this.realmIdx = -1; this.idx = i; this.endless = null;
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
     if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
   },
-  startRealm(r, opt = {}) { this.realmIdx = r; this.startDef(REALM[r], opt); },
+  startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.startDef(REALM[r], opt); },
+  // endless mode: 3 lives, the course grows ahead, a life every 5 checkpoints, zones change colour
+  startEndless() {
+    const seed = (Math.random() * 1e6) | 0, def = makeEndless(seed);
+    this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
+    this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, best: (ST.endBest || {})[this.diff] || 0 };
+    this.startDef(def, {});
+    setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
+  },
+  endlessCheck(i) {
+    const E = this.endless, w = this.world, d = w.def;
+    if (i >= d.secs.length - 3) {
+      const ch = w.extend([endlessNext(d.E), endlessNext(d.E)]);
+      if (this.p3) { this.p3.dropEnts(ch.dropped); this.p3.addEnts(ch.added); }
+    }
+    if (i % 5 === 0 && E.lives < 5) { E.lives++; Sound.play('win'); setTimeout(() => this.taunt('❤️ یه جون اضافه!', '#ff7ab8'), 900); }
+    const z = Math.floor(i / ENDLESS_ZONE);
+    if (z !== E.zone) {
+      E.zone = z; const b = endlessZoneBiome(d, i);
+      if (b && BIOMES[b] && BIOMES[b] !== BIOME) {
+        setBiome(b); d.biome = b; if (this.p3) { this.p3.dispose(); this.p3 = new P3D(w); }
+        $('bSmall').textContent = `منطقه‌ی ${faNum(z + 1)}`; $('bBig').textContent = BIOMES[b].n || 'منطقه‌ی جدید';
+        $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 1800);
+      }
+    }
+  },
+  endlessOver() {
+    const E = this.endless; if (!E) return;
+    ST.endBest = ST.endBest || {}; const best = ST.endBest[this.diff] || 0, rec = E.dist > best;
+    if (rec) ST.endBest[this.diff] = E.dist;
+    if (E.dist >= 500) unlockAch('endless');
+    writeSave();
+    $('oDist').textContent = faNum(E.dist); $('oBest').textContent = faNum(Math.max(best, E.dist)); $('oGems').textContent = faNum(this.world ? this.world.got.size : 0); $('oCk').textContent = faNum(this.world ? this.world.ck : 0);
+    $('oSub').textContent = rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…';
+    if (rec) Sound.play('win');
+    this.state = 'over'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch(); this.show('sOver');
+  },
   teardown() { if (this.run) { this.run.dispose(); this.run = null; } if (this.p3) { this.p3.dispose(); this.p3 = null; } },
   startDef(def, opt = {}) {
     this.teardown(); this.resumed = !!opt.resumed;
@@ -216,6 +255,7 @@ const app = {
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
+    if (def.endless) $('bSmall').textContent = `${faNum(this.endless ? this.endless.lives : 3)} جون · رکورد: ${faNum(this.endless ? this.endless.best : 0)} متر`;
     if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از چک‌پوینت ${faNum(this.world.ck)} از ${faNum(this.world.secs.length - 1)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
@@ -236,6 +276,11 @@ const app = {
     resize3(); this.dirty = true;
   },
   onDeath(c) {
+    if (this.endless && this.kind === 'plat') {
+      const E = this.endless; if (E.lives <= 0) return; E.lives--; this.updTag();
+      if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') this.endlessOver(); else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
+      else this.taunt(E.lives === 1 ? '⚠️ آخرین جون!' : `${'❤️'.repeat(E.lives)} مونده`, '#ff7ab8');
+    }
     this.deaths++; this.levelDeaths++; ST.deaths++; this.updDeaths(); $('deaths').classList.remove('bump'); void $('deaths').offsetWidth; $('deaths').classList.add('bump');
     if (CFG.vib && navigator.vibrate) navigator.vibrate([30, 20, 40]);
     if (this.kind === 'plat' && Math.random() < .75) this.taunt(TAUNTS[Math.floor(Math.random() * TAUNTS.length)], '#ff5d8a');
@@ -256,6 +301,7 @@ const app = {
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
   onCheckpoint(i) {
+    if (this.endless) { this.endlessCheck(i); this.updTag(); this.taunt(`🚩 چک‌پوینت ${faNum(i)}`, '#9ef9dc'); return; }
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
     this.updTag();
@@ -319,6 +365,7 @@ const app = {
   restartLevel() {
     // whole level from the very start (forgets a saved checkpoint)
     if (!this.def) return;
+    if (this.endless) return this.startEndless();
     if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { ck: 0 });
     const pr = progOf(this.diff); if (pr.ck && pr.ck[this.idx]) { delete pr.ck[this.idx]; writeSave(); }
     this.startLevel(this.idx, { ck: 0 });
@@ -326,7 +373,7 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu() {
-    this.teardown(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
+    this.teardown(); this.endless = null; this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(LEVELS[0].biome);
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },
@@ -337,7 +384,7 @@ const app = {
     writeSave(); renderDiffs();
     if (this.state === 'pause') {
       if (this.realmIdx < 0) { this.unlocked = Math.max(this.unlocked, this.idx + 1); writeSave(); }
-      this.state = 'play'; this.show(null); this.startDef(this.def);
+      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else this.startDef(this.def);
     }
     if ($('sLevels').classList.contains('on')) this.buildGrid();
   },

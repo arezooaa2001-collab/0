@@ -165,4 +165,7 @@ $('shopGrid').addEventListener('click', e => {
   } else Sound.play('click');
   ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
 });
+$('bEndless').onclick = () => { Sound.init(); Sound.play('click'); app.startEndless(); };
+$('bOverAgain').onclick = () => { Sound.play('click'); app.startEndless(); };
+$('bOverMenu').onclick = () => { Sound.play('click'); app.menu(); };
 $('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };

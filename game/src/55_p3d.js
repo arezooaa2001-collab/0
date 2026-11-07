@@ -85,6 +85,12 @@ class P3D {
     this.meshes.clear(); this.lvUid = this.world.lv.uid; this.order = [];
     for (const e of this.world.lv.ents) { const m = this.mk(e); if (m) { this.meshes.set(e, m); this.order.push([e, m]); this.scene.add(m.o); } }
   }
+  // endless course: meshes for new sections, old ones removed
+  addEnts(list) { for (const e of list) { const m = this.mk(e); if (m) { this.meshes.set(e, m); this.order.push([e, m]); this.scene.add(m.o); } } }
+  dropEnts(set) {
+    for (const e of set) { const m = this.meshes.get(e); if (!m) continue; this.scene.remove(m.o); if (m.hint) this.scene.remove(m.hint); if (m.extra) this.scene.remove(m.extra); this.meshes.delete(e); }
+    this.order = this.order.filter(([e]) => !set.has(e));
+  }
   // a respawn rebuilds the level with the same entities in the same order: reuse the meshes instead of rebuilding them
   rebind() {
     const old = this.order || [], M = P3D.MESHED, ents = this.world.lv.ents.filter(e => M.has(e.type));
