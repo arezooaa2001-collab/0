@@ -1455,7 +1455,7 @@ function WorldGenModule(ids, seed) {
   }
   function buildVillage(v, set, put, get, surf, chests, spawns, X0, Z0) {
     const st = v.style;
-    const M = st === 'desert' ? { log: ids.sandstone, plank: ids.sandstone, floor: ids.sandstone, stairs: ids.sandstone_stairs, path: ids.gravel, fence: ids.oak_fence } :
+    const M = st === 'desert' ? { log: ids.terracotta, plank: ids.sandstone, floor: ids.terracotta, stairs: ids.brick_stairs, path: ids.gravel, fence: ids.oak_fence } :
       st === 'snow' ? { log: ids.spruce_log, plank: ids.spruce_planks, floor: ids.cobblestone, stairs: ids.spruce_stairs, path: ids.dirt_path, fence: ids.spruce_fence } :
         { log: ids.oak_log, plank: ids.oak_planks, floor: ids.cobblestone, stairs: ids.oak_stairs, path: ids.dirt_path, fence: ids.oak_fence };
     // paths
@@ -1484,7 +1484,7 @@ function WorldGenModule(ids, seed) {
         for (let x = -4; x <= 4; x++) for (let z = -3; z <= 3; z++) {
           for (let y = 1; y <= 3; y++) W(x, y, z, A);
           const edge = Math.abs(x) === 4 || Math.abs(z) === 3;
-          if (edge) W(x, 0, z, M.log === ids.sandstone ? ids.sandstone : ids.oak_log, 0);
+          if (edge) W(x, 0, z, st === 'desert' ? ids.terracotta : ids.oak_log, 0);
           else if (z === 0) W(x, 0, z, WATER);
           else { W(x, 0, z, ids.farmland, 7); const crop = [ids.wheat, ids.carrots, ids.potatoes][(Math.abs(x) + (z > 0 ? 1 : 0)) % 3]; W(x, 1, z, crop, (hr() * 8) | 0); }
           for (let y = -3; y < 0; y++) W(x, y, z, ids.dirt, 0, 3);
@@ -1544,7 +1544,8 @@ function WorldGenModule(ids, seed) {
     }
     return { x: 0.5, z: 0.5, h: column(0, 0).h };
   }
-  return { generate, column, growTree, findSpawn, BIO, noise: { n2: SA.n2, n3: SA.n3 } };
+  function findVillage(x, z, maxR) { let best = null, bd = 1e18; const r0 = Math.floor((x - maxR) / VR), r1 = Math.floor((x + maxR) / VR), s0 = Math.floor((z - maxR) / VR), s1 = Math.floor((z + maxR) / VR); for (let rx = r0; rx <= r1; rx++) for (let rz = s0; rz <= s1; rz++) { const v = villagePlan(rx, rz); if (!v) continue; const d = (v.cx - x) ** 2 + (v.cz - z) ** 2; if (d < bd) { bd = d; best = { x: v.cx, y: v.y, z: v.cz }; } } return best; }
+  return { generate, column, growTree, findSpawn, findVillage, BIO, noise: { n2: SA.n2, n3: SA.n3 } };
 }
 /* ============================ WORLD & LIGHT ============================ */
 const ST_GEN = 1, ST_LIT = 2, ST_MESHED = 3;
@@ -2125,7 +2126,7 @@ const GLSL_COMMON = `
 precision highp sampler2DArray; precision highp sampler3D;
 uniform vec3 uSunDir; uniform vec3 uLightDir; uniform vec3 uLightColor; uniform vec3 uAmbient; uniform vec3 uSkyZenith; uniform vec3 uSkyHorizon; uniform vec3 uSunGlow;
 uniform float uFogDensity; uniform float uTime; uniform vec3 uCamPos; uniform float uUnderwater; uniform vec3 uWaterFog; uniform float uEncode; uniform float uNight;
-uniform float uRain; uniform vec3 uBlockLightColor; uniform float uLightning; uniform vec2 uWind; uniform float uClipY; uniform float uFlicker; uniform float uHaze;
+uniform float uRain; uniform vec3 uBlockLightColor; uniform float uLightning; uniform vec2 uWind; uniform float uClipY; uniform float uFlicker; uniform float uHaze; uniform float uCave;
 float hash13(vec3 p3){ p3 = fract(p3 * 0.1031); p3 += dot(p3, p3.zyx + 31.32); return fract((p3.x + p3.y) * p3.z); }
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 vec3 skyColor(vec3 d){
@@ -2143,7 +2144,8 @@ vec3 applyFog(vec3 col, vec3 wp){
   float f = 1.0 - exp(-pow(dist * uFogDensity, 4.0));
   float hz = 1.0 - exp(-dist * uHaze * (1.0 + exp(-max(wp.y - 62.0, 0.0) * 0.04)));
   f = clamp(max(f, hz * 0.8), 0.0, 1.0);
-  return mix(col, skyColor(normalize(dv)), f);
+  vec3 fc = mix(skyColor(normalize(dv)), uAmbient * 0.02 + vec3(0.002, 0.0025, 0.004), uCave);
+  return mix(col, fc, f * (1.0 - uCave * 0.35));
 }
 vec3 encodeOut(vec3 c){ c = max(c, vec3(0.0)); return mix(c, c / (1.0 + c), uEncode); }
 `;
@@ -2215,7 +2217,7 @@ function makeUniforms() {
   const tints = []; for (let i = 0; i < 64; i++) tints.push(new THREE.Vector3(1, 1, 1));
   return {
     uSunDir: V3(0, 1, 0), uLightDir: V3(0, 1, 0), uLightColor: V3(3, 3, 3), uAmbient: V3(0.5, 0.6, 0.8), uSkyZenith: V3(0.2, 0.4, 0.9), uSkyHorizon: V3(0.6, 0.75, 1), uSunGlow: V3(1, 0.8, 0.6),
-    uFogDensity: { value: 0.006 }, uHaze: { value: 0.002 }, uTime: { value: 0 }, uCamPos: V3(0, 0, 0), uUnderwater: { value: 0 }, uWaterFog: V3(0.02, 0.08, 0.12), uEncode: { value: 0 }, uNight: { value: 0 },
+    uFogDensity: { value: 0.006 }, uHaze: { value: 0.002 }, uCave: { value: 0 }, uTime: { value: 0 }, uCamPos: V3(0, 0, 0), uUnderwater: { value: 0 }, uWaterFog: V3(0.02, 0.08, 0.12), uEncode: { value: 0 }, uNight: { value: 0 },
     uRain: { value: 0 }, uBlockLightColor: V3(1.0, 0.72, 0.42), uLightning: { value: 0 }, uWind: { value: new THREE.Vector2(0.3, 0.1) }, uClipY: { value: -1000 }, uFlicker: { value: 1 },
     uAtlas: { value: null }, uTints: { value: tints }, uSway: { value: 1 }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) }, uShadowTaps: { value: 4 },
     uShadowMatrix: { value: new THREE.Matrix4() }, uCloudTex: { value: null }, uCloudCover: { value: 0.45 }, uCloudShadowOn: { value: 0 }, uCaustics: { value: 1 }, uSnow: { value: 0 }, uWet: { value: 0 },
@@ -2274,7 +2276,7 @@ void main(){
   float skyL = sky * sky;
   vec3 amb = uAmbient * (0.03 + 0.97 * skyL) * (0.72 + 0.28 * (N.y * 0.5 + 0.5));
   float fl2 = uFlicker;
-  vec3 bl = uBlockLightColor * pow(blk, 2.4) * 2.6 * fl2;
+  vec3 bl = uBlockLightColor * pow(blk, 2.4) * 2.0 * fl2;
   float aoF = mix(0.32, 1.0, ao);
   if (uSnow > 0.0 && N.y > 0.5 && sky > 0.93 && (fl & 1) == 0) alb = mix(alb, vec3(0.85, 0.88, 0.95), uSnow * smoothstep(0.93, 1.0, sky));
   if (uWet > 0.0 && sky > 0.9) alb *= 1.0 - 0.25 * uWet;
@@ -2301,7 +2303,7 @@ varying vec3 vWorld; varying vec2 vUv; varying vec4 vW; varying vec4 vF; varying
 void main(){
   if (vWorld.y < uClipY) discard;
   vec3 V = normalize(uCamPos - vWorld); float sky = vW.x, blk = vW.y;
-  vec3 bl = uBlockLightColor * pow(blk, 2.4) * 2.6;
+  vec3 bl = uBlockLightColor * pow(blk, 2.4) * 2.0;
   if (vF.z > 0.5) { // lava
     vec2 q = vWorld.xz * 0.35 + vF.xy * uTime * 0.25; if (vF.w > 0.5 && vF.w < 1.5) q = vec2(vUv.x * 0.35, vWorld.y * 0.35 + uTime * 0.4);
     float n = texture(uWaterNormal, q * 0.3 + uTime * 0.01).z * 0.6 + texture(uWaterNormal, q * 0.7 - uTime * 0.015).z * 0.4;
@@ -2425,7 +2427,7 @@ void main(){
   vec3 alb = pow(vColor, vec3(2.2)) * uTintE;
   if (uPix > 0.0) alb *= 0.9 + 0.2 * hash12(floor(vUv * uPix) + floor(vWorld.y * 0.0));
   float ndl = dot(vN, uLightDir); float sh = uShadowOn > 0.5 ? sampleShadow(vSP, ndl) : 1.0; sh = min(sh, smoothstep(0.6, 0.95, uSkyL));
-  vec3 col = alb * (uLightColor * max(ndl, 0.0) * sh + uAmbient * (0.05 + 0.95 * uSkyL * uSkyL) * (0.75 + 0.25 * vN.y) + uBlockLightColor * pow(uBlkL, 2.4) * 2.6);
+  vec3 col = alb * (uLightColor * max(ndl, 0.0) * sh + uAmbient * (0.05 + 0.95 * uSkyL * uSkyL) * (0.75 + 0.25 * vN.y) + uBlockLightColor * pow(uBlkL, 2.4) * 2.0);
   col = mix(col, vec3(1.0, 0.1, 0.05) * 0.8, uHurt * 0.55);
   col += alb * uGlow * 2.0;
   col = applyFog(col, vWorld);
@@ -4481,7 +4483,8 @@ const Items = {
       case 'door': { if (world.get(x, y + 1, z) !== 0 && !T_REPL[world.get(x, y + 1, z)]) return false; meta = look; break; }
       case 'bed': { const [dx, dz] = FD4[look]; const hx = x + dx, hz = z + dz; const hb = world.get(hx, y, hz); if (!(hb === 0 || T_REPL[hb])) return false; meta = look; break; }
     }
-    if (needsSupport(bid) && !supportOK(x, y, z, bid, meta)) return false;
+    if (d.shape === 'door' || d.shape === 'bed') { const bl = world.get(x, y - 1, z); if (!T_SOLID[bl] || !T_OPAQUE[bl] && BLOCKS[bl].shape !== 'slab' && BLOCKS[bl].shape !== 'stairs') return false; if (d.shape === 'bed') { const [dx, dz] = FD4[meta & 3]; if (!T_SOLID[world.get(x + dx, y - 1, z + dz)]) return false; } }
+    else if (needsSupport(bid) && !supportOK(x, y, z, bid, meta)) return false;
     // collision validation against player and mobs
     if (T_SOLID[bid]) {
       const bx = []; collBoxes(bid, meta, x, y, z, bx, false);
@@ -5325,6 +5328,7 @@ function renderFrame(dt) {
   const pc = R.post.comp.uniforms; const cx = Math.floor(cam.position.x), cy = Math.floor(cam.position.y), cz = Math.floor(cam.position.z);
   let skyF = 0, blkF = 0; for (const [ox, oy, oz] of [[0, 0, 0], [0, 2, 0], [2, 1, 0], [-2, 1, 0], [0, 1, 2], [0, 1, -2]]) { const l = world.getLight(cx + ox, cy + oy, cz + oz); skyF = Math.max(skyF, (l >> 4) / 15); blkF = Math.max(blkF, (l & 15) / 15); }
   const Bv = 0.08 + 0.92 * Math.max(skyF * skyF * (0.3 + 0.7 * Sky.daylight), blkF * blkF * 0.75);
+  U.uCave.value = lerp(U.uCave.value, uw ? 0 : clamp(1 - skyF * skyF * 1.15, 0, 1), 1 - Math.exp(-(dt || 0.016) * 1.5));
   const target = clamp(1 / Math.pow(Bv, 0.4), 0.95, 2.3) * (PHOTO.active ? PHOTO.exposure : 1); pc.uExposure.value = lerp(pc.uExposure.value, target, 1 - Math.exp(-(dt || 0.016) * 0.9));
   const sp = U.uSunDir.value.clone().multiplyScalar(500).add(cam.position).project(cam); const vis = sp.z < 1 && U.uSunDir.value.y > -0.02 ? smooth(1.3, 0.6, Math.max(Math.abs(sp.x), Math.abs(sp.y))) * smooth(-0.02, 0.1, U.uSunDir.value.y) * (1 - Weather.rainI) * (1 - Weather.cover * 0.6) : 0;
   pc.uSunScr.value.set(sp.x * 0.5 + 0.5, sp.y * 0.5 + 0.5); pc.uSunVis.value = vis * (uw ? 0.3 : 1); pc.uGodCol.value.copy(U.uLightColor.value).multiplyScalar(0.35);
