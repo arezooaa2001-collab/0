@@ -1261,8 +1261,11 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
     keys.forEach((key, i) => {
       const kd = KINDS[key], pos = (ci * CHUNK + i) / Math.max(1, opt.n - 1);
       G.k = clamp(opt.k0 * .85 + pos * .3, 0, 1);
-      // bring the floor to a height this obstacle can be built at
-      for (let g = 0; g < 4 && kd.can && !kd.can(G.t); g++) { G.F(G.x, 2); G.x += 2; G.t = clamp(G.t < 12.5 ? G.t + 2 : G.t - 2, TOP_MIN, TOP_MAX); }
+      // bring the floor to the nearest height this obstacle can be built at (a drop going down, steps going up)
+      if (kd.can && !kd.can(G.t)) {
+        let best = null; for (let tt = TOP_MIN; tt <= TOP_MAX; tt++) if (kd.can(tt) && (best === null || Math.abs(tt - G.t) < Math.abs(best - G.t))) best = tt;
+        if (best !== null) while (G.t !== best) { G.F(G.x, 2); G.x += 2; G.t = best > G.t ? best : Math.max(best, G.t - 2); }
+      }
       const pad = 1 + (r() < .35 ? 1 : 0) + (opt.k0 < .15 ? 1 : 0) + (i > 0 && KINDS[keys[i - 1]].launch ? 2 : 0);
       G.F(G.x, pad); G.x += pad;
       kd.build(G);
