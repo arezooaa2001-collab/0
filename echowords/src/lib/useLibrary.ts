@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { recognizeEnglish } from './asr';
-import { sha256Hex } from './audio';
+import { newId, sha256Hex } from './audio';
 import { autoBackupDue, downloadBackup } from './backup';
 import * as db from './db';
 import type { Word } from './db';
@@ -34,6 +34,10 @@ export interface Library {
   recognizeTake: (take: Take, hint: string | null) => Promise<Analysis>;
   /** Save a take after the learner pressed «تایید». */
   saveTake: (take: Take, opts: SaveOptions) => Promise<Word>;
+  /** Save a typed English word/sentence right away (no recording yet). */
+  saveText: (text: string, accent: Accent) => Promise<Word>;
+  /** Attach the learner's own recording to a saved word that has none yet. */
+  attachTake: (id: string, take: Take, analysis: Analysis | null) => Promise<Word>;
   transcribe: (id: string) => Promise<Word | null>;
   correct: (id: string, text: string) => Promise<Word>;
   toggleFavorite: (w: Word) => Promise<void>;
@@ -93,11 +97,12 @@ export function useLibrary(): Library {
       setTx(id, true);
       const job = queue.current.then(async () => {
         try {
-          const bytes = await db.getAudio(id);
           const word = await db.getWord(id);
-          if (!bytes || !word) return null;
+          if (!word || !db.hasAudio(word)) return null;
+          const bytes = await db.getAudio(id);
+          if (!bytes) return null;
           upsert(await db.updateWord(id, { sttStatus: 'processing' }));
-          const raw = await recognizeEnglish(new Blob([bytes], { type: word.audioMime }), (p) => setModelProgress(p < 1 ? p : null));
+          const raw = await recognizeEnglish(new Blob([bytes], { type: word.audioMime ?? '' }), (p) => setModelProgress(p < 1 ? p : null));
           setModelProgress(null);
           const a = analyzeResult(raw, word.hint);
           const patch: db.WordPatch = { sttStatus: a.status, sttHeard: a.heard, sttReason: a.reason };
@@ -142,7 +147,7 @@ export function useLibrary(): Library {
       const sha = await sha256Hex(bytes);
       const now = new Date().toISOString();
       const word: Word = {
-        id: crypto.randomUUID(),
+        id: newId(),
         createdAt: now,
         updatedAt: now,
         durationMs: Math.max(1, Math.round(take.durationMs)),
@@ -169,6 +174,54 @@ export function useLibrary(): Library {
       void db.requestPersistentStorage();
       upsert(word);
       return word;
+    },
+    [upsert],
+  );
+
+  const saveText = useCallback(
+    async (text: string, accent: Accent) => {
+      const now = new Date().toISOString();
+      const word: Word = {
+        id: newId(),
+        createdAt: now,
+        updatedAt: now,
+        durationMs: null,
+        audioMime: null,
+        audioBytes: null,
+        audioSha256: null,
+        accent,
+        hint: text,
+        transcript: text,
+        transcriptEdited: true,
+        sttStatus: 'none',
+        sttHeard: null,
+        sttReason: null,
+        favorite: false,
+      };
+      await db.addWord(word, null);
+      const back = await db.getWord(word.id); // read back: proves it is really stored
+      if (!back || back.transcript !== text) throw new Error('verify_failed');
+      void db.requestPersistentStorage();
+      upsert(back);
+      return back;
+    },
+    [upsert],
+  );
+
+  const attachTake = useCallback(
+    async (id: string, take: Take, analysis: Analysis | null) => {
+      const bytes = await take.blob.arrayBuffer();
+      const sha = await sha256Hex(bytes);
+      const meta = { durationMs: Math.max(1, Math.round(take.durationMs)), audioMime: take.mimeType, audioBytes: bytes.byteLength, audioSha256: sha };
+      const w = await db.addAudio(id, meta, bytes, {
+        sttStatus: analysis ? analysis.status : 'none',
+        sttHeard: analysis?.heard ?? null,
+        sttReason: analysis?.reason ?? null,
+      });
+      const back = await db.getAudio(id);
+      if (!back || (await sha256Hex(back)) !== sha) throw new Error('verify_failed');
+      upsert(w);
+      return w;
     },
     [upsert],
   );
@@ -203,7 +256,7 @@ export function useLibrary(): Library {
     if (hit) return hit;
     const bytes = await db.getAudio(w.id);
     if (!bytes) throw new Error('audio_missing');
-    const entry = { url: URL.createObjectURL(new Blob([bytes], { type: w.audioMime })), verified: (await sha256Hex(bytes)) === w.audioSha256 };
+    const entry = { url: URL.createObjectURL(new Blob([bytes], { type: w.audioMime ?? '' })), verified: (await sha256Hex(bytes)) === w.audioSha256 };
     audioUrls.set(w.id, entry);
     return entry;
   }, []);
@@ -228,6 +281,7 @@ export function useLibrary(): Library {
     try {
       const h = await db.checkStorage();
       const all = await db.listWords();
+      // Only IndexedDB counts as lasting storage; anything weaker gets a backup file after every change.
       if (!autoBackupDue(all, h.mode === 'device')) return false;
       await downloadBackup();
       return true;
@@ -237,5 +291,5 @@ export function useLibrary(): Library {
     }
   }, []);
 
-  return { health, autoBackupIfDue, words, loading, loadError, modelProgress, transcribing, refresh, recognizeTake, saveTake, transcribe, correct, toggleFavorite, remove, getAudioUrl };
+  return { health, autoBackupIfDue, words, loading, loadError, modelProgress, transcribing, refresh, recognizeTake, saveTake, saveText, attachTake, transcribe, correct, toggleFavorite, remove, getAudioUrl };
 }

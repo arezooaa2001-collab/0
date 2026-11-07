@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { t } from '../lib/strings';
+import type { Word } from '../lib/db';
 import type { Library } from '../lib/useLibrary';
 import { useToast } from './Toast';
 import { RestoreButton } from './RestoreButton';
 import { WordCard } from './WordCard';
 
-export function LibraryScreen({ lib }: { lib: Library }) {
+export function LibraryScreen({ lib, onAddVoice }: { lib: Library; onAddVoice: (w: Word) => void }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [favOnly, setFavOnly] = useState(false);
@@ -74,7 +75,7 @@ export function LibraryScreen({ lib }: { lib: Library }) {
       ) : (
         <div className="word-list">
           {shown.map((w) => (
-            <WordCard key={w.id} word={w} lib={lib} />
+            <WordCard key={w.id} word={w} lib={lib} onAddVoice={onAddVoice} />
           ))}
         </div>
       )}

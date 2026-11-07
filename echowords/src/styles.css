@@ -257,3 +257,9 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .restore-card { display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: center; border-style: dashed; }
 .storage-banner { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .storage-banner p { margin: 0; }
+
+.save-typed { margin-top: 4px; }
+.hint-form { flex-direction: column; }
+.saved-card { align-items: center; text-align: center; }
+.saved-card .msg { width: 100%; }
+.add-voice { flex: 1 1 220px; }

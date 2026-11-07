@@ -3,7 +3,7 @@ import { formatDate, formatSeconds } from '../lib/format';
 import { standardPronunciationSupported, speakStandard } from '../lib/speech';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
-import type { Word } from '../lib/db';
+import { type Word, hasAudio } from '../lib/db';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PlayButton } from './PlayButton';
 import { useToast } from './Toast';
@@ -15,6 +15,8 @@ interface Props {
   /** Large "result" layout right after recording. */
   result?: boolean;
   onRecordAgain?: () => void;
+  /** Open the recorder to add the learner's voice to a word saved as text only. */
+  onAddVoice?: (w: Word) => void;
 }
 
 const STUCK_MS = 2 * 60_000;
@@ -30,7 +32,7 @@ function reasonText(reason: string | null): string {
   }
 }
 
-export function WordCard({ word, lib, result, onRecordAgain }: Props) {
+export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -160,7 +162,15 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
       </div>
 
       <div className="row wrap actions">
-        <PlayButton playKey={word.id} getUrl={getUrl} big onError={(m) => toast(m, 'error')} />
+        {hasAudio(word) ? (
+          <PlayButton playKey={word.id} getUrl={getUrl} big onError={(m) => toast(m, 'error')} />
+        ) : (
+          onAddVoice && (
+            <button className="btn btn-stop btn-big add-voice" onClick={() => onAddVoice(word)}>
+              🎤 {t.addMyVoice}
+            </button>
+          )
+        )}
         {text && standardPronunciationSupported() && (
           <button
             className="btn btn-tts"
@@ -174,7 +184,8 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
 
       <div className="word-foot">
         <span className="meta">
-          {formatDate(word.createdAt)} · {formatSeconds(word.durationMs)}
+          {formatDate(word.createdAt)}
+          {word.durationMs ? ` · ${formatSeconds(word.durationMs)}` : ''}
         </span>
         {!editing && (
           <span className="row">

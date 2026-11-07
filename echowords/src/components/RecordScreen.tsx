@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Word } from '../lib/db';
+import { hasAudio } from '../lib/db';
 import { formatDuration } from '../lib/format';
-import type { Accent, Analysis } from '../lib/stt';
+import { type Accent, type Analysis, sameWords } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
 import { useRecorder } from '../lib/useRecorder';
-import { validateEnglish, validateHint } from '../lib/validation';
+import { validateEnglish } from '../lib/validation';
 import { ConfirmDialog } from './ConfirmDialog';
-import { RestoreButton } from './RestoreButton';
 import { LevelMeter } from './LevelMeter';
 import { PlayButton } from './PlayButton';
+import { RestoreButton } from './RestoreButton';
 import { useToast } from './Toast';
 import { WordCard } from './WordCard';
 
@@ -18,50 +20,66 @@ function reasonText(reason: string | null): string {
   return reason === 'not_english' ? t.reasonNotEnglish : reason === 'mismatch' ? t.reasonMismatch : t.reasonEmpty;
 }
 
-export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; accent: Accent; onOpenLibrary: () => void }) {
+interface Props {
+  lib: Library;
+  accent: Accent;
+  onOpenLibrary: () => void;
+  /** A saved word (opened from the library) whose recording the learner wants to add. */
+  initialTarget?: Word | null;
+}
+
+export function RecordScreen({ lib, accent, onOpenLibrary, initialTarget = null }: Props) {
   const rec = useRecorder();
   const toast = useToast();
-  const [hint, setHint] = useState('');
-  const [hintError, setHintError] = useState<string | null>(null);
-  /** The word/sentence the learner wrote and confirmed with «تایید» before recording. */
-  const [hintConfirmed, setHintConfirmed] = useState<string | null>(null);
+
+  // Step 1: typed word, saved with «تایید و ذخیره».
+  const [typed, setTyped] = useState('');
+  const [typedError, setTypedError] = useState<string | null>(null);
+  /** The saved word we are now recording for (null = recording a brand-new word). */
+  const [targetId, setTargetId] = useState<string | null>(initialTarget?.id ?? null);
+  const target = targetId ? lib.words.find((w) => w.id === targetId) ?? null : null;
+
   const [phase, setPhase] = useState<Phase>('record');
-  const [wordId, setWordId] = useState<string | null>(null);
+  const [resultId, setResultId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // Review step: what the recognizer heard, and the text the learner will confirm.
+
+  // Review step.
   const [recog, setRecog] = useState<'working' | 'failed' | Analysis>('working');
   const [text, setText] = useState('');
   const [textError, setTextError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  /** Once the learner types, the recognizer must not overwrite their text. */
   const typedRef = useRef(false);
 
-  const word = wordId ? lib.words.find((w) => w.id === wordId) ?? null : null;
+  const resultWord = resultId ? lib.words.find((w) => w.id === resultId) ?? null : null;
   const isLive = rec.state === 'recording' || rec.state === 'paused';
+  const attachMode = !!target && !hasAudio(target);
 
-  /** «تایید» next to the writing box (also the keyboard's Enter key). */
-  const confirmHint = (): boolean => {
-    if (!hint.trim()) {
-      setHintError(t.emptyText);
-      return false;
-    }
-    const h = validateHint(hint);
-    if (!h.ok) {
-      setHintError(h.error);
-      return false;
-    }
-    setHintError(null);
-    setHintConfirmed(h.value);
-    return true;
+  const backupAfterSave = async () => {
+    // Still inside the tap: browsers allow the backup download now.
+    if (await lib.autoBackupIfDue()) toast(t.autoBackupSaved, 'success');
   };
 
-  const startRecording = () => {
-    // Text typed but not confirmed yet: confirm it now (if it is valid English).
-    if (!hintConfirmed && hint.trim() && !confirmHint()) return;
-    void rec.start();
+  /** «✅ تایید و ذخیره» next to the writing box: saves the word immediately. */
+  const saveTyped = async () => {
+    if (saving) return;
+    const v = validateEnglish(typed);
+    if (!v.ok) return setTypedError(v.error);
+    setSaving(true);
+    try {
+      const w = await lib.saveText(v.value, accent);
+      setTargetId(w.id);
+      setTyped('');
+      setTypedError(null);
+      await backupAfterSave();
+    } catch (e) {
+      console.error('save failed', e);
+      setTypedError(t.saveFailed);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // As soon as a take is ready, write down what was said so the learner can check it.
+  // As soon as a take is ready, write down what was said (in the background; never blocks saving).
   const take = rec.state === 'ready' ? rec.take : null;
   useEffect(() => {
     if (!take) return;
@@ -69,11 +87,9 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
     setRecog('working');
     setText('');
     setTextError(null);
-    // The learner's own confirmed word goes straight into the box; the recognizer won't overwrite it.
-    setText(hintConfirmed ?? '');
-    typedRef.current = !!hintConfirmed;
+    typedRef.current = false;
     lib
-      .recognizeTake(take, hintConfirmed)
+      .recognizeTake(take, target?.transcript ?? null)
       .then((a) => {
         if (!alive) return;
         setRecog(a);
@@ -86,10 +102,12 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [take]);
 
-  const confirmAndSave = async () => {
+  /** «✅ تایید و ذخیره» on the review card. */
+  const confirmTake = async () => {
     if (!rec.take || saving) return;
+    const analysis = typeof recog === 'object' ? recog : null;
     let finalText: string | null = null;
-    if (text.trim()) {
+    if (!attachMode && text.trim()) {
       const v = validateEnglish(text);
       if (!v.ok) return setTextError(v.error);
       finalText = v.value;
@@ -97,21 +115,15 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
     setSaving(true);
     setPhase('saving');
     try {
-      const analysis = typeof recog === 'object' ? recog : null;
-      const w = await lib.saveTake(rec.take, {
-        hint: hintConfirmed,
-        accent,
-        text: finalText,
-        analysis,
-        pendingTranscription: recog === 'working',
-      });
-      setWordId(w.id);
+      const w = attachMode
+        ? await lib.attachTake(target!.id, rec.take, analysis)
+        : await lib.saveTake(rec.take, { hint: null, accent, text: finalText, analysis, pendingTranscription: recog === 'working' });
+      setResultId(w.id);
       setPhase('result');
-      if (w.sttStatus === 'pending') void lib.transcribe(w.id); // finish writing it in the background
-      // Still inside the tap on «تایید»: browsers allow the backup download now.
-      if (await lib.autoBackupIfDue()) toast(t.autoBackupSaved, 'success');
-    } catch {
-      // The take is still in memory: the learner can simply press Save again.
+      if (!attachMode && w.sttStatus === 'pending') void lib.transcribe(w.id);
+      await backupAfterSave();
+    } catch (e) {
+      console.error('save failed', e);
       toast(t.saveFailed, 'error');
       setPhase('record');
     } finally {
@@ -119,12 +131,12 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
     }
   };
 
-  const newRecording = () => {
+  const startOver = () => {
     rec.reset();
-    setHint('');
-    setHintConfirmed(null);
-    setHintError(null);
-    setWordId(null);
+    setTyped('');
+    setTypedError(null);
+    setTargetId(null);
+    setResultId(null);
     setPhase('record');
   };
 
@@ -139,122 +151,115 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
   if (phase === 'result') {
     return (
       <section className="screen record-screen">
-        {word ? (
-          <WordCard word={word} lib={lib} result onRecordAgain={newRecording} />
-        ) : (
-          <p className="state state-busy"><span className="spinner" aria-hidden /> {t.authWait}</p>
-        )}
+        {resultWord && <WordCard word={resultWord} lib={lib} result onRecordAgain={startOver} />}
         <p className="msg msg-success" role="status">{t.savedInLibrary}</p>
-        <button className="btn btn-primary btn-big wide" onClick={newRecording}>🎤 {t.recordNewOne}</button>
+        <button className="btn btn-primary btn-big wide" onClick={startOver}>➕ {t.newWord}</button>
         <button className="btn btn-secondary btn-big wide" onClick={onOpenLibrary}>📚 {t.goToLibrary}</button>
       </section>
     );
   }
 
+  const idle = rec.state === 'idle' || rec.state === 'error';
+  const voiceFeedback =
+    attachMode && typeof recog === 'object' ? (
+      recog.heard && target?.transcript && sameWords(recog.heard, target.transcript) ? (
+        <p className="msg msg-success">{t.saidItRight}</p>
+      ) : recog.heard ? (
+        <p className="msg msg-info">
+          {t.deviceHeard} <b dir="ltr" lang="en">{recog.heard}</b>
+        </p>
+      ) : null
+    ) : null;
+
   return (
     <section className="screen record-screen">
       <h1 className="title">{t.recordTitle}</h1>
 
-      {(rec.state === 'idle' || rec.state === 'error') && (
+      {/* ── Step 1: write and save ─────────────────────────────── */}
+      {idle && !target && (
         <div className="card step hint-field">
           <p className="step-title">{t.step1Title}</p>
-          {hintConfirmed ? (
-            <div className="hint-confirmed" role="status">
-              <span className="meta">✅ {t.hintConfirmedLabel}</span>
-              <b className="hint-word" dir="ltr" lang="en">{hintConfirmed}</b>
-              <button className="btn-link" onClick={() => setHintConfirmed(null)}>✏️ {t.hintChange}</button>
-            </div>
-          ) : (
-            <form
-              className="hint-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                confirmHint();
+          <form
+            className="hint-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveTyped();
+            }}
+          >
+            <input
+              className="input input-en"
+              dir="ltr"
+              lang="en"
+              placeholder={t.hintPlaceholder}
+              value={typed}
+              maxLength={200}
+              autoCapitalize="none"
+              autoCorrect="off"
+              enterKeyHint="done"
+              aria-label={t.step1Title}
+              onChange={(e) => {
+                setTyped(e.target.value);
+                setTypedError(null);
               }}
-            >
-              <input
-                className="input input-en"
-                dir="ltr"
-                lang="en"
-                placeholder={t.hintPlaceholder}
-                value={hint}
-                maxLength={100}
-                autoCapitalize="none"
-                autoCorrect="off"
-                enterKeyHint="done"
-                aria-label={t.step1Title}
-                onChange={(e) => {
-                  setHint(e.target.value);
-                  setHintError(null);
-                }}
-                aria-invalid={!!hintError}
-              />
-              <button type="submit" className="btn btn-confirm hint-ok">✅ {t.hintOk}</button>
-            </form>
-          )}
-          {!hintConfirmed && <small className="meta">{t.hintHelp}</small>}
-          {hintError && <p className="msg msg-error" role="alert">{hintError}</p>}
+              aria-invalid={!!typedError}
+            />
+            <button type="submit" className="btn btn-confirm btn-big wide save-typed" disabled={saving}>
+              ✅ {t.confirmSave}
+            </button>
+          </form>
+          {typedError && <p className="msg msg-error" role="alert">{typedError}</p>}
+        </div>
+      )}
+
+      {idle && target && (
+        <div className="card step saved-card" role="status">
+          <p className="msg msg-success">✅ {t.savedWordIs}</p>
+          <b className="hint-word" dir="ltr" lang="en">{target.transcript}</b>
+          <div className="row wrap center">
+            <button className="btn btn-secondary" onClick={onOpenLibrary}>📚 {t.goToLibrary}</button>
+            <button className="btn btn-ghost" onClick={startOver}>➕ {t.newWord}</button>
+          </div>
         </div>
       )}
 
       {rec.error && <p className="msg msg-error" role="alert">{rec.error}</p>}
 
-      {(rec.state === 'idle' || rec.state === 'error' || rec.state === 'requesting') && (
+      {/* ── Step 2: record (optional) ──────────────────────────── */}
+      {(idle || rec.state === 'requesting') && (!target || attachMode) && (
         <div className="mic-zone">
-          {(rec.state === 'idle' || rec.state === 'error') && (
-            <p className="step-title">{hintConfirmed ? t.step2TitleWord(hintConfirmed) : t.step2Title}</p>
-          )}
-          <button
-            className="mic-btn"
-            onClick={startRecording}
-            disabled={rec.state === 'requesting'}
-            aria-label={t.record}
-          >
+          {idle && <p className="step-title">{target ? t.step2SayIt(target.transcript ?? '') : t.step2OrJustRecord}</p>}
+          <button className="mic-btn" onClick={() => void rec.start()} disabled={rec.state === 'requesting'} aria-label={t.record}>
             <span aria-hidden>{rec.state === 'requesting' ? '⏳' : '🎤'}</span>
             <b>{rec.state === 'requesting' ? t.requestingMic : t.record}</b>
           </button>
           <p className="meta">{rec.state === 'requesting' ? t.allowMicHelp : t.pressToRecord}</p>
-          {rec.state === 'requesting' && (
-            <button className="btn btn-ghost" onClick={rec.cancel}>{t.cancel}</button>
-          )}
-        </div>
-      )}
-
-      {rec.state === 'idle' && !lib.loading && lib.words.length === 0 && (
-        <div className="card restore-card">
-          <p className="state-title">{t.emptyRestoreTitle}</p>
-          <p className="meta">{t.emptyRestoreHelp}</p>
-          <RestoreButton lib={lib} />
+          {rec.state === 'requesting' && <button className="btn btn-ghost" onClick={rec.cancel}>{t.cancel}</button>}
         </div>
       )}
 
       {(isLive || rec.state === 'stopping') && (
         <div className="mic-zone live" aria-live="polite">
+          {target && <b className="hint-word" dir="ltr" lang="en">{target.transcript}</b>}
           <p className={`live-label${rec.state === 'paused' ? ' paused' : ''}`}>
             <span className="dot" aria-hidden /> {rec.state === 'paused' ? t.paused : t.recording}
           </p>
           <p className="timer" aria-label="timer">{formatDuration(rec.elapsedMs)}</p>
           <LevelMeter level={rec.level} active={rec.state === 'recording'} />
           <div className="row wrap center">
-            <button className="btn btn-stop btn-big" onClick={rec.stop} disabled={rec.state === 'stopping'}>
-              ⏹️ {t.stop}
-            </button>
-            {rec.canPause && rec.state === 'recording' && (
-              <button className="btn btn-secondary" onClick={rec.pause}>⏸️ {t.pause}</button>
-            )}
-            {rec.canPause && rec.state === 'paused' && (
-              <button className="btn btn-secondary" onClick={rec.resume}>▶️ {t.resume}</button>
-            )}
+            <button className="btn btn-stop btn-big" onClick={rec.stop} disabled={rec.state === 'stopping'}>⏹️ {t.stop}</button>
+            {rec.canPause && rec.state === 'recording' && <button className="btn btn-secondary" onClick={rec.pause}>⏸️ {t.pause}</button>}
+            {rec.canPause && rec.state === 'paused' && <button className="btn btn-secondary" onClick={rec.resume}>▶️ {t.resume}</button>}
             <button className="btn btn-ghost" onClick={rec.cancel} disabled={rec.state === 'stopping'}>✖️ {t.cancel}</button>
           </div>
         </div>
       )}
 
+      {/* ── Review: listen, check, confirm ─────────────────────── */}
       {rec.state === 'ready' && rec.take && (
         <div className="card preview review">
           {rec.notice && <p className="msg msg-info">{rec.notice}</p>}
-          <p className="state-title">{t.reviewTitle}</p>
-          <p className="meta">{t.reviewHelp}</p>
+          <p className="state-title">{attachMode ? t.reviewVoiceTitle : t.reviewTitle}</p>
+          {attachMode && <b className="hint-word" dir="ltr" lang="en">{target!.transcript}</b>}
           <PlayButton playKey="preview" getUrl={async () => rec.take!.url} label={t.listenToMine} big />
           <p className="meta" dir="ltr">{formatDuration(rec.take.durationMs)}</p>
 
@@ -266,61 +271,62 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
                 : t.transcribing}
             </p>
           )}
-          {recog === 'working' && <p className="meta">{t.reviewStillListening}</p>}
-          {recog === 'failed' && <p className="msg msg-info">{t.reviewNoModel}</p>}
-          {typeof recog === 'object' && recog.status === 'unclear' && (
-            <div className="state state-unclear">
-              <p className="state-title">{t.notSure}</p>
-              <p>{reasonText(recog.reason)}</p>
-              {(() => {
-                const options = [recog.reason !== 'not_english' ? recog.heard : null, hintConfirmed].filter(
-                  (o, i, all): o is string => !!o && all.indexOf(o) === i,
-                );
-                return options.length ? (
-                  <>
-                    <p className="meta">{t.tapToUse}</p>
-                    <div className="row wrap">
-                      {options.map((o) => (
-                        <button key={o} className="chip chip-en" dir="ltr" lang="en" onClick={() => {
-                            typedRef.current = true;
-                            setText(o);
-                            setTextError(null);
-                          }}>
-                          {o}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : null;
-              })()}
-            </div>
+          {voiceFeedback}
+
+          {!attachMode && (
+            <>
+              {recog === 'working' && <p className="meta">{t.reviewStillListening}</p>}
+              {recog === 'failed' && <p className="msg msg-info">{t.reviewNoModel}</p>}
+              {typeof recog === 'object' && recog.status === 'unclear' && (
+                <div className="state state-unclear">
+                  <p className="state-title">{t.notSure}</p>
+                  <p>{reasonText(recog.reason)}</p>
+                  {recog.heard && recog.reason !== 'not_english' && (
+                    <>
+                      <p className="meta">{t.tapToUse}</p>
+                      <button
+                        className="chip chip-en"
+                        dir="ltr"
+                        lang="en"
+                        onClick={() => {
+                          typedRef.current = true;
+                          setText(recog.heard!);
+                          setTextError(null);
+                        }}
+                      >
+                        {recog.heard}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              <label className="field wide">
+                <span>{t.reviewTextLabel}</span>
+                <input
+                  className="input input-en review-input"
+                  dir="ltr"
+                  lang="en"
+                  placeholder={t.reviewTypeHere}
+                  value={text}
+                  maxLength={200}
+                  autoCapitalize="sentences"
+                  autoCorrect="off"
+                  onChange={(e) => {
+                    typedRef.current = true;
+                    setText(e.target.value);
+                    setTextError(null);
+                  }}
+                  aria-invalid={!!textError}
+                />
+                {!text.trim() && <small>{t.reviewNoTextNote}</small>}
+                {textError && <p className="msg msg-error" role="alert">{textError}</p>}
+              </label>
+            </>
           )}
 
-          <label className="field wide">
-            <span>{t.reviewTextLabel}</span>
-            <input
-              className="input input-en review-input"
-              dir="ltr"
-              lang="en"
-              placeholder={t.reviewTypeHere}
-              value={text}
-              maxLength={200}
-              autoCapitalize="sentences"
-              autoCorrect="off"
-              onChange={(e) => {
-                typedRef.current = true;
-                setText(e.target.value);
-                setTextError(null);
-              }}
-              aria-invalid={!!textError}
-            />
-            {!text.trim() && <small>{t.reviewNoTextNote}</small>}
-            {textError && <p className="msg msg-error" role="alert">{textError}</p>}
-          </label>
-
           <div className="confirm-bar">
-            <button className="btn btn-confirm btn-big wide" onClick={confirmAndSave} disabled={saving}>
-              ✅ {t.confirmSave}
+            <button className="btn btn-confirm btn-big wide" onClick={confirmTake} disabled={saving}>
+              ✅ {attachMode ? t.confirmSaveVoice : t.confirmSave}
             </button>
           </div>
           <div className="row wrap center">
@@ -334,11 +340,19 @@ export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; acc
               danger
               onConfirm={() => {
                 setConfirmDiscard(false);
-                newRecording();
+                rec.reset();
               }}
               onCancel={() => setConfirmDiscard(false)}
             />
           )}
+        </div>
+      )}
+
+      {idle && !target && !lib.loading && lib.words.length === 0 && (
+        <div className="card restore-card">
+          <p className="state-title">{t.emptyRestoreTitle}</p>
+          <p className="meta">{t.emptyRestoreHelp}</p>
+          <RestoreButton lib={lib} />
         </div>
       )}
     </section>

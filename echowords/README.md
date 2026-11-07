@@ -31,6 +31,8 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
   - the exact recorded bytes are stored, with a SHA-256 fingerprint;
   - the fingerprint is checked after saving, on playback, and when restoring a backup;
   - «تلفظ استاندارد» (Standard pronunciation) is a separate, clearly labelled machine voice.
+- **Type and save.** Type an English word or sentence and press «✅ تایید و ذخیره» (Confirm and save), or the keyboard's Enter. It is saved at once in «کلمه‌ها و جمله‌هایم» (My words and sentences); no recording is needed. The child can then say it (optional), or later tap «🎤 صدای خودم را اضافه کن» (Add my voice) on the word card. A word gets its recording once, and that recording never changes.
+- **Works where the page has limited powers.** Saving does not need `crypto.subtle` or `crypto.randomUUID`, which are missing on non-https pages; there are plain-JS fallbacks. If IndexedDB is blocked, words go to localStorage, and they move back into IndexedDB once it works again.
 - **Confirm before saving.** After recording, the text box and the «✅ تایید و ذخیره» (Confirm and save) button appear immediately. Recognition fills the box in the background, but the child never has to wait for it. If the model download stalls (no progress for 20 s), the app stops waiting and says so. Nothing is saved until confirm is pressed. After saving, a button opens «کلمه‌ها و جمله‌هایم» (My words and sentences).
 - **No guessing.** If nothing English was heard, or the result differs from the word the child typed as a hint, the app asks «مطمئن نیستم چی گفتی 🤔» (I'm not sure what you said). The child can then:
   - accept what was heard,

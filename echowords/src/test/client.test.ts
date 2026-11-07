@@ -115,22 +115,85 @@ describe('automatic backup rules', () => {
   });
 });
 
-describe('page that cannot keep data', () => {
-  it('falls back to memory instead of failing', async () => {
+describe('storage tiers', () => {
+  it('uses localStorage when IndexedDB is blocked, memory when both are, and moves words back later', async () => {
     const saved = globalThis.indexedDB;
-    // @ts-expect-error simulate a browser/viewer without IndexedDB
+    // @ts-expect-error simulate a viewer without IndexedDB
     delete globalThis.indexedDB;
     db._resetStorageCheck();
+    localStorage.clear();
     try {
-      expect((await db.checkStorage()).mode).toBe('memory');
+      expect((await db.checkStorage()).mode).toBe('local');
       const bytes = new Uint8Array([9, 8, 7]).buffer;
-      await db.addWord(makeWord('m1', bytes, await sha256Hex(bytes)), bytes);
-      expect((await db.listWords()).map((x) => x.id)).toEqual(['m1']);
-      expect(new Uint8Array((await db.getAudio('m1'))!)).toEqual(new Uint8Array([9, 8, 7]));
+      await db.addWord(makeWord('ls1', bytes, await sha256Hex(bytes)), bytes);
+      expect((await db.listWords()).map((x) => x.id)).toEqual(['ls1']);
+      expect(new Uint8Array((await db.getAudio('ls1'))!)).toEqual(new Uint8Array([9, 8, 7]));
+
+      // Both blocked → memory
+      db._resetStorageCheck();
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = () => {
+        throw new Error('blocked');
+      };
+      try {
+        expect((await db.checkStorage()).mode).toBe('memory');
+        await db.addWord(makeWord('m1', bytes, await sha256Hex(bytes)), bytes);
+        expect((await db.listWords()).map((x) => x.id)).toEqual(['m1']);
+      } finally {
+        Storage.prototype.setItem = setItem;
+      }
     } finally {
       globalThis.indexedDB = saved;
       db._resetStorageCheck();
     }
+    // IndexedDB works again → the word kept in localStorage is moved into it
     expect((await db.checkStorage()).mode).toBe('device');
+    expect((await db.getWord('ls1'))?.id).toBe('ls1');
+    expect(new Uint8Array((await db.getAudio('ls1'))!)).toEqual(new Uint8Array([9, 8, 7]));
+    expect(localStorage.getItem('echowords-ls-words')).toBe('[]');
+  });
+});
+
+describe('typed words and adding a recording later', () => {
+  it('saves text only, then accepts exactly one recording', async () => {
+    const now = new Date().toISOString();
+    const word: db.Word = {
+      ...makeWord('t1', new ArrayBuffer(0), ''),
+      durationMs: null, audioMime: null, audioBytes: null, audioSha256: null,
+      transcript: 'cat', transcriptEdited: true, sttStatus: 'none', createdAt: now, updatedAt: now,
+    };
+    await db.addWord(word, null);
+    expect((await db.getWord('t1'))?.transcript).toBe('cat');
+    expect(await db.getAudio('t1')).toBeNull();
+
+    const bytes = new Uint8Array([1, 2, 3]).buffer;
+    const sha = await sha256Hex(bytes);
+    const w = await db.addAudio('t1', { durationMs: 900, audioMime: 'audio/webm', audioBytes: 3, audioSha256: sha }, bytes);
+    expect(w.audioSha256).toBe(sha);
+    expect(w.transcript).toBe('cat');
+    expect(new Uint8Array((await db.getAudio('t1'))!)).toEqual(new Uint8Array([1, 2, 3]));
+    await expect(db.addAudio('t1', { durationMs: 1, audioMime: 'audio/webm', audioBytes: 1, audioSha256: 'x' }, new ArrayBuffer(1))).rejects.toThrow();
+
+    // backups keep text-only words too
+    await db.addWord({ ...word, id: 't2', transcript: 'dog' }, null);
+    const backup = await buildBackup();
+    await db.deleteWord('t2');
+    await restoreBackup(backup);
+    expect((await db.getWord('t2'))?.transcript).toBe('dog');
+  });
+});
+
+describe('works on pages without Web Crypto', () => {
+  it('plain-JS SHA-256 matches known vectors', async () => {
+    const { sha256HexJs } = await import('../lib/audio');
+    const enc = (s: string) => new TextEncoder().encode(s);
+    expect(sha256HexJs(enc(''))).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    expect(sha256HexJs(enc('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    const big = new Uint8Array(100_000).map((_, i) => i % 251);
+    expect(sha256HexJs(big)).toBe(await sha256Hex(big.buffer));
+  });
+  it('makes valid ids', async () => {
+    const { newId } = await import('../lib/audio');
+    expect(newId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });

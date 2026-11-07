@@ -60,12 +60,7 @@ async function open(wav) {
   return { ctx, page };
 }
 
-async function record(page, ms, hint) {
-  if (hint !== undefined) {
-    await page.locator('.hint-field input').fill(hint);
-    await page.getByRole('button', { name: /^✅ تایید$/ }).click();
-    await page.locator('.hint-confirmed', { hasText: hint }).waitFor({ timeout: 5000 });
-  }
+async function record(page, ms) {
   await page.locator('.mic-btn').click();
   await page.getByText('دارم گوش می‌دهم').waitFor({ timeout: 10000 });
   const bars = [];
@@ -100,18 +95,42 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله انگلیسی بگو').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۶/.test(await page.textContent('.topbar')));
-  await page.locator('.hint-field input').fill('سیب');
-  await page.getByRole('button', { name: /^✅ تایید$/ }).click();
-  check('written word: Persian is refused', await page.getByText('فقط با حروف انگلیسی').isVisible());
-  await page.locator('.hint-field input').fill('banana');
-  await page.locator('.hint-field input').press('Enter');
-  await page.locator('.hint-confirmed', { hasText: 'banana' }).waitFor({ timeout: 5000 });
-  check('written word: «تایید» / Enter confirms it', await page.getByText('«banana» را بگو').isVisible());
-  await page.screenshot({ path: `${OUT}/00-word-confirmed.png` });
-  await page.getByRole('button', { name: /عوض کن/ }).click();
-  await page.locator('.hint-field input').fill('');
+  check('version number is shown', /نسخه ۷/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
+
+  // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
+  await page.locator('.hint-field input').fill('گربه');
+  await page.locator('.save-typed').click();
+  check('typed word: Persian is refused', await page.getByText('فقط با حروف انگلیسی').isVisible());
+  await page.locator('.hint-field input').fill('cat');
+  const [firstBackup] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), page.locator('.hint-field input').press('Enter')]);
+  await page.locator('.saved-card', { hasText: 'cat' }).waitFor({ timeout: 5000 });
+  check('typed word «cat» is saved with «تایید و ذخیره» (or Enter)', (await countSaved(page)) === 1);
+  check('first save also drops a backup file in Downloads', !!firstBackup, firstBackup?.suggestedFilename());
+  await page.screenshot({ path: `${OUT}/00-word-saved.png` });
+  await page.locator('.saved-card').getByRole('button', { name: /برو به کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card .word-text', { hasText: 'cat' }).waitFor({ timeout: 5000 });
+  check('«cat» is shown in «کلمه‌ها و جمله‌هایم»', true);
+  await page.screenshot({ path: `${OUT}/00-library-cat.png` });
+
+  // close the app completely and open it again
+  await ctx.close();
+  ({ ctx, page } = await open(process.env.SPEECH_WAV));
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card .word-text', { hasText: 'cat' }).waitFor({ timeout: 10000 });
+  check('«cat» is still there after closing and reopening', true);
+
+  // add my own voice to «cat»
+  await page.getByRole('button', { name: /صدای خودم را اضافه کن/ }).click();
+  await page.getByText('را با صدای خودت بگو').waitFor({ timeout: 5000 });
+  await record(page, 3000);
+  await page.getByText('صدایت را گوش بده').waitFor({ timeout: 10000 });
+  await page.getByText('دستگاه این را شنید').waitFor({ timeout: 120000 });
+  await page.screenshot({ path: `${OUT}/00-voice-review.png` });
+  await page.getByRole('button', { name: /تایید و ذخیره صدا/ }).click();
+  await page.locator('.word-card-result .word-text', { hasText: 'cat' }).waitFor({ timeout: 10000 });
+  check('my voice is added to «cat» (still one word, now with sound)', (await countSaved(page)) === 1 && (await page.locator('.word-card-result .btn-play').isVisible()));
+  await page.getByRole('button', { name: /یک کلمه یا جمله تازه/ }).last().click();
 
   // 1. Record → preview → save → on-device transcription
   const { bars, timer } = await record(page, 3500);
@@ -126,38 +145,23 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => document.querySelector('.review-input')?.value, null, { timeout: 120000 });
   const heard = await reviewInput(page).inputValue();
   check('speech transcribed on the device, shown for checking', /learning english/i.test(heard), JSON.stringify(heard));
-  check('nothing is saved before the confirm button', (await countSaved(page)) === 0);
+  check('nothing is saved before the confirm button', (await countSaved(page)) === 1);
   await page.screenshot({ path: `${OUT}/02-review.png` });
-  const [autoBackup] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), confirmBtn(page).click()]);
+  await confirmBtn(page).click();
   await page.locator('.word-card-result .word-text').waitFor({ timeout: 10000 });
-  check('first save also drops a backup file in Downloads', !!autoBackup, autoBackup?.suggestedFilename());
-  check('confirm button saves the word', (await countSaved(page)) === 1, await page.locator('.word-card-result .word-text').textContent());
+  check('confirm button saves the word', (await countSaved(page)) === 2, await page.locator('.word-card-result .word-text').textContent());
   await page.screenshot({ path: `${OUT}/02-result.png` });
 
   // 1b. Cancel on the review step discards the take
-  await page.getByRole('button', { name: /تازه ضبط کن/ }).last().click();
+  await page.getByRole('button', { name: /یک کلمه یا جمله تازه/ }).last().click();
   await record(page, 1500);
   await reviewInput(page).waitFor({ timeout: 120000 });
   await page.getByRole('button', { name: /لغو/ }).click();
   await page.getByRole('button', { name: 'آره، پاکش کن' }).click();
   await page.locator('.mic-btn').waitFor();
-  check('cancel throws the take away without saving', (await countSaved(page)) === 1);
-
-  // 2. Hint that does not match → the app asks instead of guessing
-  await record(page, 3000, 'apple');
-  check('confirmed written word is already in the review box', (await reviewInput(page).inputValue()) === 'apple');
-  await page.getByText('مطمئن نیستم').waitFor({ timeout: 120000 });
-  check('mismatch with what was heard is pointed out', (await reviewInput(page).inputValue()) === 'apple');
-  await page.screenshot({ path: `${OUT}/03-unclear.png` });
-  await page.locator('.chip-en', { hasText: 'learning' }).click();
-  check('tapping a suggestion fills the box', /learning/i.test(await reviewInput(page).inputValue()));
-  await page.locator('.chip-en', { hasText: 'apple' }).click();
-  await confirmBtn(page).click();
-  await page.locator('.word-card-result .word-text', { hasText: 'apple' }).waitFor({ timeout: 5000 });
-  check('learner can confirm the word they meant', true);
+  check('cancel throws the take away without saving', (await countSaved(page)) === 2);
 
   // 3. Silent recording is rejected
-  await page.getByRole('button', { name: /تازه ضبط کن/ }).last().click();
   await ctx.close();
   ({ ctx, page } = await open(process.env.SILENT_WAV));
   await record(page, 1500);
@@ -279,6 +283,48 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('text is filled in afterwards', /learning english/i.test(await page.locator('.word-card-result .word-text').textContent()));
   await ctx3.close();
 
+  // 9b. A viewer that blocks IndexedDB but allows localStorage: words still survive closing
+  const lsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-ls-'));
+  const lsOpts = { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', acceptDownloads: true };
+  const blockIdb = () => {
+    IDBFactory.prototype.open = function () {
+      throw new DOMException('denied', 'SecurityError');
+    };
+  };
+  let ctxL = await chromium.launchPersistentContext(lsDir, lsOpts);
+  await ctxL.addInitScript(blockIdb);
+  page = ctxL.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.hint-field input').fill('dog');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'dog' }).waitFor({ timeout: 5000 });
+  await ctxL.close();
+  ctxL = await chromium.launchPersistentContext(lsDir, lsOpts);
+  await ctxL.addInitScript(blockIdb);
+  page = ctxL.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card .word-text', { hasText: 'dog' }).waitFor({ timeout: 10000 });
+  check('IndexedDB blocked: second storage keeps «dog» after closing', true);
+  await ctxL.close();
+
+  // 9c. A page without Web Crypto (crypto.subtle / randomUUID are missing outside https)
+  const ncDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-nocrypto-'));
+  const ctxN = await chromium.launchPersistentContext(ncDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', acceptDownloads: true });
+  await ctxN.addInitScript(() => {
+    Object.defineProperty(Crypto.prototype, 'subtle', { get: () => undefined });
+    Crypto.prototype.randomUUID = undefined;
+  });
+  page = ctxN.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.hint-field input').fill('bird');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'bird' }).waitFor({ timeout: 5000 });
+  await page.locator('.saved-card').getByRole('button', { name: /برو به کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card .word-text', { hasText: 'bird' }).waitFor({ timeout: 5000 });
+  check('no Web Crypto: saving still works', true);
+  await ctxN.close();
+
   // 10. A place that cannot keep data (in-app file viewer, private tab…): warn, keep working, back up after each save
   const blockedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-blocked-'));
   const ctx4 = await chromium.launchPersistentContext(blockedDir, {
@@ -288,6 +334,9 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await ctx4.addInitScript(() => {
     IDBFactory.prototype.open = function () {
       throw new DOMException('The user denied permission to access the database.', 'SecurityError');
+    };
+    Storage.prototype.setItem = function () {
+      throw new DOMException('blocked', 'SecurityError');
     };
     window.__ECHOWORDS_ASR__ = { libUrl: 'http://127.0.0.1:1/none.js', model: 'x' }; // no recognizer here
   });

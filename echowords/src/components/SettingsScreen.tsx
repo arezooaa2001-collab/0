@@ -37,7 +37,7 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
     }
   };
 
-  const totalBytes = lib.words.reduce((s, w) => s + w.audioBytes, 0);
+  const totalBytes = lib.words.reduce((s, w) => s + (w.audioBytes ?? 0), 0);
   const mb = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024);
   const health = lib.health;
 

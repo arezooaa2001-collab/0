@@ -1,17 +1,24 @@
-// On-device library (IndexedDB). Word details and the original audio bytes are stored
-// in two object stores and always written together in ONE transaction.
+// On-device library. A word can be saved as text only (typed and confirmed) and get the
+// learner's own recording later — once. A recording, after it is attached, never changes.
+//
+// Storage, best first (chosen by a write/read test when the app starts):
+//   1. 'device'  IndexedDB  — large, the normal case
+//   2. 'local'   localStorage — smaller (~5 MB), used when a viewer blocks IndexedDB
+//   3. 'memory'  nothing can be kept → the app warns and makes backup files after each save
+import { fromBase64, toBase64 } from './audio';
 import type { Accent } from './stt';
 
-export type SttStatus = 'pending' | 'processing' | 'done' | 'unclear' | 'failed';
+export type SttStatus = 'pending' | 'processing' | 'done' | 'unclear' | 'failed' | 'none';
 
 export interface Word {
   id: string;
   createdAt: string;
   updatedAt: string;
-  durationMs: number;
-  audioMime: string;
-  audioBytes: number;
-  audioSha256: string;
+  /** Recording details: all null while the word has no recording yet. */
+  durationMs: number | null;
+  audioMime: string | null;
+  audioBytes: number | null;
+  audioSha256: string | null;
   accent: Accent;
   hint: string | null;
   transcript: string | null;
@@ -22,72 +29,39 @@ export interface Word {
   favorite: boolean;
 }
 
-/** Fields that may change after saving. The audio and its fingerprint never change. */
-export type WordPatch = Partial<Pick<Word, 'transcript' | 'transcriptEdited' | 'sttStatus' | 'sttHeard' | 'sttReason' | 'favorite'>>;
+export interface AudioMeta {
+  durationMs: number;
+  audioMime: string;
+  audioBytes: number;
+  audioSha256: string;
+}
 
+/** Fields that may change after saving. Recording fields are only set by addAudio. */
+export type WordPatch = Partial<Pick<Word, 'transcript' | 'transcriptEdited' | 'sttStatus' | 'sttHeard' | 'sttReason' | 'favorite'>>;
+const PATCHABLE = ['transcript', 'transcriptEdited', 'sttStatus', 'sttHeard', 'sttReason', 'favorite'] as const;
+
+export const hasAudio = (w: Pick<Word, 'audioSha256'>): boolean => !!w.audioSha256;
+
+interface Backend {
+  list(): Promise<Word[]>;
+  get(id: string): Promise<Word | undefined>;
+  add(word: Word, audio: ArrayBuffer | null): Promise<void>;
+  put(word: Word): Promise<void>;
+  /** Store word details + audio together. */
+  putWithAudio(word: Word, audio: ArrayBuffer): Promise<void>;
+  getAudio(id: string): Promise<ArrayBuffer | null>;
+  remove(id: string): Promise<void>;
+}
+
+// ── 1. IndexedDB ────────────────────────────────────────────────────────────
 const DB_NAME = 'echowords-library';
 const WORDS = 'words';
 const AUDIO = 'audio';
-
 let dbPromise: Promise<IDBDatabase> | null = null;
 
-// ── Storage health ──────────────────────────────────────────────────────────
-// Some places that can open an HTML file (in-app file viewers, private tabs, some
-// Android "content://" pages) do not let a page keep data. The app detects this at
-// start-up instead of failing silently, keeps working in memory for this visit, and
-// tells the learner to make a backup file before closing.
-
-export type StorageMode = 'unknown' | 'device' | 'memory';
-export interface StorageHealth {
-  mode: StorageMode;
-  persisted: boolean;
-}
-
-let mode: StorageMode = 'unknown';
-let healthPromise: Promise<StorageHealth> | null = null;
-const mem = { words: new Map<string, Word>(), audio: new Map<string, ArrayBuffer>() };
-const PROBE = '__echowords_probe__';
-
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('storage timeout')), ms))]);
-}
-
-/** Write, read back and delete a test record. Decides once whether the device can keep data. */
-export function checkStorage(): Promise<StorageHealth> {
-  if (!healthPromise) {
-    healthPromise = (async () => {
-      try {
-        if (typeof indexedDB === 'undefined') throw new Error('no indexedDB');
-        const bytes = new Uint8Array([7, 7, 7]).buffer;
-        await withTimeout(rawRun<void>([AUDIO], 'readwrite', (tx) => void tx.objectStore(AUDIO).put({ id: PROBE, bytes })), 5000);
-        const back = await withTimeout(rawRun<{ bytes: ArrayBuffer } | undefined>([AUDIO], 'readonly', (tx) => tx.objectStore(AUDIO).get(PROBE)), 5000);
-        if (!back || new Uint8Array(back.bytes)[2] !== 7) throw new Error('probe mismatch');
-        await withTimeout(rawRun<void>([AUDIO], 'readwrite', (tx) => void tx.objectStore(AUDIO).delete(PROBE)), 5000);
-        mode = 'device';
-      } catch (e) {
-        console.warn('Device storage unavailable, using memory for this visit', e);
-        mode = 'memory';
-      }
-      const persisted = mode === 'device' ? await requestPersistentStorage() : false;
-      return { mode, persisted };
-    })();
-  }
-  return healthPromise;
-}
-
-async function onDevice(): Promise<boolean> {
-  return (await checkStorage()).mode === 'device';
-}
-
-/** For tests only. */
-export function _resetStorageCheck(): void {
-  healthPromise = null;
-  mode = 'unknown';
-}
-
-function open(): Promise<IDBDatabase> {
+function openIdb(): Promise<IDBDatabase> {
   if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
+    dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
       req.onupgradeneeded = () => {
         const db = req.result;
@@ -106,16 +80,19 @@ function open(): Promise<IDBDatabase> {
         dbPromise = null;
         reject(req.error);
       };
+    }).catch((e) => {
+      dbPromise = null;
+      throw e;
     });
   }
-  return dbPromise;
+  return dbPromise!;
 }
 
-function rawRun<T>(stores: string[], txMode: IDBTransactionMode, fn: (tx: IDBTransaction) => IDBRequest<T> | void): Promise<T> {
-  return open().then(
+function idbRun<T>(stores: string[], mode: IDBTransactionMode, fn: (tx: IDBTransaction) => IDBRequest<T> | void): Promise<T> {
+  return openIdb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const tx = db.transaction(stores, txMode);
+        const tx = db.transaction(stores, mode);
         const req = fn(tx);
         let result: T;
         if (req) req.onsuccess = () => (result = req.result);
@@ -126,39 +103,219 @@ function rawRun<T>(stores: string[], txMode: IDBTransactionMode, fn: (tx: IDBTra
   );
 }
 
-const run = rawRun;
+const idb: Backend = {
+  list: () => idbRun<Word[]>([WORDS], 'readonly', (tx) => tx.objectStore(WORDS).getAll()),
+  get: (id) => idbRun<Word | undefined>([WORDS], 'readonly', (tx) => tx.objectStore(WORDS).get(id)),
+  add: (word, audio) =>
+    idbRun<void>([WORDS, AUDIO], 'readwrite', (tx) => {
+      tx.objectStore(WORDS).add(word);
+      if (audio) tx.objectStore(AUDIO).add({ id: word.id, bytes: audio });
+    }),
+  put: (word) => idbRun<void>([WORDS], 'readwrite', (tx) => void tx.objectStore(WORDS).put(word)),
+  putWithAudio: (word, audio) =>
+    idbRun<void>([WORDS, AUDIO], 'readwrite', (tx) => {
+      tx.objectStore(WORDS).put(word);
+      tx.objectStore(AUDIO).add({ id: word.id, bytes: audio }); // add: never overwrites an existing recording
+    }),
+  getAudio: async (id) =>
+    (await idbRun<{ bytes: ArrayBuffer } | undefined>([AUDIO], 'readonly', (tx) => tx.objectStore(AUDIO).get(id)))?.bytes ?? null,
+  remove: (id) =>
+    idbRun<void>([WORDS, AUDIO], 'readwrite', (tx) => {
+      tx.objectStore(WORDS).delete(id);
+      tx.objectStore(AUDIO).delete(id);
+    }),
+};
 
+// ── 2. localStorage ─────────────────────────────────────────────────────────
+const LS_WORDS = 'echowords-ls-words';
+const lsAudioKey = (id: string) => `echowords-ls-audio-${id}`;
+
+function lsRead(): Word[] {
+  const raw = localStorage.getItem(LS_WORDS);
+  return raw ? (JSON.parse(raw) as Word[]) : [];
+}
+function lsWrite(words: Word[]): void {
+  localStorage.setItem(LS_WORDS, JSON.stringify(words));
+}
+
+const ls: Backend = {
+  list: async () => lsRead(),
+  get: async (id) => lsRead().find((w) => w.id === id),
+  add: async (word, audio) => {
+    const all = lsRead();
+    if (all.some((w) => w.id === word.id)) throw new Error('exists');
+    if (audio) localStorage.setItem(lsAudioKey(word.id), toBase64(audio));
+    try {
+      lsWrite([...all, word]);
+    } catch (e) {
+      localStorage.removeItem(lsAudioKey(word.id));
+      throw e;
+    }
+  },
+  put: async (word) => lsWrite(lsRead().map((w) => (w.id === word.id ? word : w))),
+  putWithAudio: async (word, audio) => {
+    if (localStorage.getItem(lsAudioKey(word.id))) throw new Error('recording exists');
+    localStorage.setItem(lsAudioKey(word.id), toBase64(audio));
+    try {
+      lsWrite(lsRead().map((w) => (w.id === word.id ? word : w)));
+    } catch (e) {
+      localStorage.removeItem(lsAudioKey(word.id));
+      throw e;
+    }
+  },
+  getAudio: async (id) => {
+    const b64 = localStorage.getItem(lsAudioKey(id));
+    return b64 ? fromBase64(b64) : null;
+  },
+  remove: async (id) => {
+    localStorage.removeItem(lsAudioKey(id));
+    lsWrite(lsRead().filter((w) => w.id !== id));
+  },
+};
+
+// ── 3. memory ───────────────────────────────────────────────────────────────
+const memWords = new Map<string, Word>();
+const memAudio = new Map<string, ArrayBuffer>();
+const memory: Backend = {
+  list: async () => [...memWords.values()],
+  get: async (id) => memWords.get(id),
+  add: async (word, audio) => {
+    if (memWords.has(word.id)) throw new Error('exists');
+    memWords.set(word.id, { ...word });
+    if (audio) memAudio.set(word.id, audio.slice(0));
+  },
+  put: async (word) => void memWords.set(word.id, { ...word }),
+  putWithAudio: async (word, audio) => {
+    if (memAudio.has(word.id)) throw new Error('recording exists');
+    memAudio.set(word.id, audio.slice(0));
+    memWords.set(word.id, { ...word });
+  },
+  getAudio: async (id) => memAudio.get(id)?.slice(0) ?? null,
+  remove: async (id) => {
+    memWords.delete(id);
+    memAudio.delete(id);
+  },
+};
+
+// ── Choosing the storage ────────────────────────────────────────────────────
+export type StorageMode = 'unknown' | 'device' | 'local' | 'memory';
+export interface StorageHealth {
+  mode: StorageMode;
+  persisted: boolean;
+}
+
+let healthPromise: Promise<StorageHealth> | null = null;
+let backend: Backend = memory;
+const PROBE = '__echowords_probe__';
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('storage timeout')), ms))]);
+}
+
+async function probeIdb(): Promise<boolean> {
+  try {
+    if (typeof indexedDB === 'undefined') return false;
+    const bytes = new Uint8Array([7, 7, 7]).buffer;
+    await withTimeout(idbRun<void>([AUDIO], 'readwrite', (tx) => void tx.objectStore(AUDIO).put({ id: PROBE, bytes })), 5000);
+    const back = await withTimeout(idbRun<{ bytes: ArrayBuffer } | undefined>([AUDIO], 'readonly', (tx) => tx.objectStore(AUDIO).get(PROBE)), 5000);
+    await withTimeout(idbRun<void>([AUDIO], 'readwrite', (tx) => void tx.objectStore(AUDIO).delete(PROBE)), 5000);
+    return !!back && new Uint8Array(back.bytes)[2] === 7;
+  } catch (e) {
+    console.warn('IndexedDB unavailable', e);
+    return false;
+  }
+}
+
+function probeLocalStorage(): boolean {
+  try {
+    localStorage.setItem(PROBE, '7');
+    const ok = localStorage.getItem(PROBE) === '7';
+    localStorage.removeItem(PROBE);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Decide once (per page load) where words are kept. */
+export function checkStorage(): Promise<StorageHealth> {
+  if (!healthPromise) {
+    healthPromise = (async () => {
+      let mode: StorageMode;
+      if (await probeIdb()) {
+        mode = 'device';
+        backend = idb;
+        await adoptLocalStorageWords(); // words saved earlier while IndexedDB was blocked
+      } else if (probeLocalStorage()) {
+        mode = 'local';
+        backend = ls;
+      } else {
+        mode = 'memory';
+        backend = memory;
+      }
+      const persisted = mode === 'memory' ? false : await requestPersistentStorage();
+      return { mode, persisted };
+    })();
+  }
+  return healthPromise;
+}
+
+/** If an earlier visit had to use localStorage, move those words into IndexedDB. */
+async function adoptLocalStorageWords(): Promise<void> {
+  try {
+    if (!probeLocalStorage()) return;
+    const old = lsRead();
+    for (const w of old) {
+      if (!(await idb.get(w.id))) await idb.add(w, await ls.getAudio(w.id));
+      await ls.remove(w.id);
+    }
+  } catch (e) {
+    console.warn('could not move older words', e);
+  }
+}
+
+async function store(): Promise<Backend> {
+  await checkStorage();
+  return backend;
+}
+
+/** For tests only. */
+export function _resetStorageCheck(): void {
+  healthPromise = null;
+  backend = memory;
+  memWords.clear();
+  memAudio.clear();
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
 export async function listWords(): Promise<Word[]> {
-  const rows = (await onDevice()) ? await run<Word[]>([WORDS], 'readonly', (tx) => tx.objectStore(WORDS).getAll()) : [...mem.words.values()];
+  const rows = await (await store()).list();
   return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getWord(id: string): Promise<Word | undefined> {
-  if (!(await onDevice())) return mem.words.get(id);
-  return run<Word | undefined>([WORDS], 'readonly', (tx) => tx.objectStore(WORDS).get(id));
+  return (await store()).get(id);
 }
 
-/** Save a new word and its original audio atomically (both or neither). */
-export async function addWord(word: Word, audio: ArrayBuffer): Promise<void> {
-  if (!(await onDevice())) {
-    if (mem.words.has(word.id)) throw new Error('exists');
-    mem.words.set(word.id, { ...word });
-    mem.audio.set(word.id, audio.slice(0));
-    return;
-  }
-  return run<void>([WORDS, AUDIO], 'readwrite', (tx) => {
-    tx.objectStore(WORDS).add(word);
-    tx.objectStore(AUDIO).add({ id: word.id, bytes: audio });
-  });
+/** Save a new word, with or without its original recording (both together or neither). */
+export async function addWord(word: Word, audio: ArrayBuffer | null): Promise<void> {
+  return (await store()).add(word, audio);
 }
 
 export async function getAudio(id: string): Promise<ArrayBuffer | null> {
-  if (!(await onDevice())) return mem.audio.get(id)?.slice(0) ?? null;
-  const row = await run<{ id: string; bytes: ArrayBuffer } | undefined>([AUDIO], 'readonly', (tx) => tx.objectStore(AUDIO).get(id));
-  return row?.bytes ?? null;
+  return (await store()).getAudio(id);
 }
 
-const PATCHABLE = ['transcript', 'transcriptEdited', 'sttStatus', 'sttHeard', 'sttReason', 'favorite'] as const;
+/** Attach the learner's recording to a word that has none yet. A recording is never replaced. */
+export async function addAudio(id: string, meta: AudioMeta, audio: ArrayBuffer, patch: WordPatch = {}): Promise<Word> {
+  const s = await store();
+  const cur = await s.get(id);
+  if (!cur) throw new Error('Word not found');
+  if (hasAudio(cur)) throw new Error('This word already has its recording');
+  const next: Word = { ...applyPatch(cur, patch), ...meta };
+  await s.putWithAudio(next, audio);
+  return next;
+}
 
 function applyPatch(cur: Word, patch: WordPatch): Word {
   const allowed: WordPatch = {};
@@ -167,38 +324,16 @@ function applyPatch(cur: Word, patch: WordPatch): Word {
 }
 
 export async function updateWord(id: string, patch: WordPatch): Promise<Word> {
-  if (!(await onDevice())) {
-    const cur = mem.words.get(id);
-    if (!cur) throw new Error('Word not found');
-    const next = applyPatch(cur, patch);
-    mem.words.set(id, next);
-    return next;
-  }
-  let updated: Word | undefined;
-  await run<void>([WORDS], 'readwrite', (tx) => {
-    const store = tx.objectStore(WORDS);
-    const req = store.get(id);
-    req.onsuccess = () => {
-      const cur = req.result as Word | undefined;
-      if (!cur) return tx.abort();
-      updated = applyPatch(cur, patch);
-      store.put(updated);
-    };
-  });
-  if (!updated) throw new Error('Word not found');
-  return updated;
+  const s = await store();
+  const cur = await s.get(id);
+  if (!cur) throw new Error('Word not found');
+  const next = applyPatch(cur, patch);
+  await s.put(next);
+  return next;
 }
 
 export async function deleteWord(id: string): Promise<void> {
-  if (!(await onDevice())) {
-    mem.words.delete(id);
-    mem.audio.delete(id);
-    return;
-  }
-  return run<void>([WORDS, AUDIO], 'readwrite', (tx) => {
-    tx.objectStore(WORDS).delete(id);
-    tx.objectStore(AUDIO).delete(id);
-  });
+  return (await store()).remove(id);
 }
 
 /** Ask the browser not to clear this app's data when the device is low on space. */
@@ -208,14 +343,5 @@ export async function requestPersistentStorage(): Promise<boolean> {
     return (await navigator.storage?.persist?.()) ?? false;
   } catch {
     return false;
-  }
-}
-
-export async function storageInfo(): Promise<{ persisted: boolean; usage: number | null }> {
-  try {
-    const [persisted, est] = await Promise.all([navigator.storage?.persisted?.() ?? false, navigator.storage?.estimate?.()]);
-    return { persisted: !!persisted, usage: est?.usage ?? null };
-  } catch {
-    return { persisted: false, usage: null };
   }
 }
