@@ -1,5 +1,7 @@
 /* ============================ LEVELS ============================ */
 // L.d = difficulty index (0 easy … 4 insane). Harder difficulties add extra traps.
+// Each of these hand-made screens is the finale of its long level (see 15_course.js): the generated course
+// comes first and this screen, with its door, closes the level.
 const L2D = [
   { name: 'اولین قدم', spawn: [2, 14], build(L) {
       L.block(null, 0, 15, 14, 3);
@@ -67,9 +69,10 @@ const L2D = [
       L.spikes(null, 15, 14, 1, 'up');
       L.block('cr', 18, 15, 4, 3, { crumble: 0.1 });
       L.block(null, 22, 15, 10, 3);
-      L.block('wall', -7, 0, 6, 15);
-      L.spikes(null, -1, 0, 15, 'right', { parent: 'wall' });
-      L.trig(5, 12, 1, 3, () => { L.move('wall', 27, 0, 5.2, 0.35); L.sfx('rumble'); L.shake(6); L.say('فرار کن!'); });
+      // the wall waits hidden just left of the screen (where the previous part of the level is) until it is triggered
+      L.block('wall', -7, 0, 6, 15, { hidden: true });
+      L.spikes('ws', -1, 0, 15, 'right', { parent: 'wall', hidden: true });
+      L.trig(5, 12, 1, 3, () => { L.pop('wall'); L.pop('ws'); L.move('wall', 27, 0, 5.2, 0.35); L.sfx('rumble'); L.shake(6); L.say('فرار کن!'); });
       L.door(29, 13);
   }},
   { name: 'وارونه', spawn: [2, 14], build(L) {
@@ -171,12 +174,12 @@ const L2D = [
       L.block('st2', 18, 10.5, 2, 0.6, { hidden: true });
       L.block('st1', 21, 12.5, 2, 0.6, { hidden: true });
       L.spikes('ms', 13.3, 7.5, 2, 'up', { hidden: true });
-      L.saw('sweep', -3, 14.1, 0.9);
+      L.saw('sweep', -3, 14.1, 0.9, { hidden: true });
       L.trig(24, 13, 1, 2, () => {
         L.move('door', 0, -6.5, 30); L.move('door', -16.1, 0, 30);
         L.pop('st1', 0.25); L.pop('st2', 0.4); L.pop('mp', 0.55); L.say('بیا بالا اگه جرئت داری');
       }, { ground: true });
-      L.trig(18, 9.5, 2, 1, () => { L.move('sweep', 40, 0, 10); L.sfx('saw'); }, { ground: true });
+      L.trig(18, 9.5, 2, 1, () => { L.pop('sweep'); L.move('sweep', 40, 0, 10); L.sfx('saw'); }, { ground: true });
       L.trig(15.9, 7.5, 1.1, 1, () => L.pop('ms'), { ground: true });
   }},
 ];
@@ -266,9 +269,9 @@ const NEW2D = [
       L.spikes(null, 17, 14, 1, 'up');
       L.spikes(null, 22, 17, 2, 'up');
       L.block(null, 24, 15, 8, 3);
-      L.block('wall', -7, 0, 6, 15);
-      L.spikes(null, -1, 0, 15, 'right', { parent: 'wall' });
-      L.trig(5, 2, 0.5, 13, () => { L.reverse(true); L.move('wall', 27, 0, 4.4, 0.6); L.sfx('rumble'); L.shake(6); L.say('برعکس بدو!'); });
+      L.block('wall', -7, 0, 6, 15, { hidden: true });
+      L.spikes('ws', -1, 0, 15, 'right', { parent: 'wall', hidden: true });
+      L.trig(5, 2, 0.5, 13, () => { L.pop('wall'); L.pop('ws'); L.reverse(true); L.move('wall', 27, 0, 4.4, 0.6); L.sfx('rumble'); L.shake(6); L.say('برعکس بدو!'); });
       if (L.d >= 3) L.trig(19, 2, 0.5, 13, () => { L.reverse(false); L.say('دوباره عادی!'); });
       L.door(29, 13);
   }},
@@ -371,7 +374,7 @@ const MORE2D = [
       L.block(null, 26, 7, 4, 0.6, { crumble: 1.2 });
       L.block(null, 19, 5, 4, 0.6);
       L.block(null, 11, 3.5, 5, 0.6);
-      L.block('lava', 0, 18.6, 32, 12, { lava: true, ghost: true });
+      L.block('lava', -40, 18.6, 72, 12, { lava: true, ghost: true });
       L.at(1.2, () => { L.move('lava', 0, -12.3, 0.95); L.say('گدازه داره بالا میاد!'); L.sfx('rumble'); L.shake(5); });
       L.door(12.2, 1.5);
   }},

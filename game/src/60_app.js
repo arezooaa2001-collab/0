@@ -61,8 +61,11 @@ function writeSave() {
   } catch (e) {}
 }
 const progOf = d => app.prog[d] || (app.prog[d] = {});
-// room reached in an unfinished long level (0 = start); ignored if the level's room count changed
-const savedRoom = (d, i) => { const r = (progOf(d).room || {})[i] | 0, n = LEVELS[i] && LEVELS[i].rooms ? LEVELS[i].rooms.length : 1; return r > 0 && r < n ? r : 0; };
+// checkpoint reached in an unfinished long level (0 = start); ignored if the level's checkpoint count changed
+const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] && LEVELS[i].secs ? LEVELS[i].secs.length : 1; return r > 0 && r < n ? r : 0; };
+// level colours (biomes); rebuilding textures and background only when the scheme changes
+function setBiome(key) { const b = key && BIOMES[key] || null; if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
+const parTime = def => Math.round((def.nObs || 10) * 2.6 + 25);
 const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${faNum(m)}:${faNum(r.toFixed(0).padStart(2, '0'))}` : faNum(r.toFixed(1)); };
 
 /* ---------- achievements ---------- */
@@ -81,7 +84,7 @@ const ACH = [
   ['d50', '💀', 'سرسخت', '۵۰ بار بمیر و ادامه بده'],
   ['d500', '☠️', 'خستگی‌ناپذیر', '۵۰۰ بار بمیر'],
   ['insane', '🔥', 'دیوانه', 'یه مرحله رو روی دیوانه‌وار ببر'],
-  ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو با میانگین زیر ۸ ثانیه برای هر اتاق تموم کن'],
+  ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو زیر زمان طلایی تموم کن (حدود ۲٫۶ ثانیه برای هر مانع)'],
   ['stars', '⭐', 'ستاره‌باران', '۶۰ ستاره جمع کن (در یک سطح سختی)'],
   ['modes', '🎮', 'همه‌کاره', 'توی هر چهار حالت بازی یه مرحله رو ببر'],
 ];
@@ -136,6 +139,10 @@ function hudTick() {
   const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
   const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : '';
   let pw = '';
+  if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
+    const k = clamp((app.world.p.x + PW) / app.world.lw, 0, 1), q = Math.round(k * 200);
+    if (q !== hudTick.pq) { hudTick.pq = q; $('pprog').firstChild.style.transform = `scaleX(${(q / 200).toFixed(3)})`; }
+  }
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
   const fp = CFG.fps ? faNum(Perf.fpsShow) + ' FPS · ' + faNum(Math.round(Perf.dyn * 100)) + '٪' : '';
   s = tm + '|' + gm + '|' + pw + '|' + fp;
@@ -154,14 +161,15 @@ const app = {
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
   updTag() {
-    const w = this.kind === 'plat' && this.world, rm = w && w.rooms.length > 1 ? ` · اتاق ${faNum(w.room + 1)}/${faNum(w.rooms.length)}` : '';
-    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : rm);
+    const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
+    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
+    $('pprog').classList.toggle('on', !!n);
   },
   label() { return this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
     this.realmIdx = -1; this.idx = i;
-    // long levels: continue from the room reached last time (saved per difficulty)
-    if (opt.room == null) { const sr = savedRoom(this.diff, i); if (sr > 0) opt = Object.assign({}, opt, { room: sr, resumed: true }); }
+    // long levels: continue from the checkpoint reached last time (saved per difficulty)
+    if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
   },
   startRealm(r, opt = {}) { this.realmIdx = r; this.startDef(REALM[r], opt); },
@@ -172,7 +180,7 @@ const app = {
     let v = viewOf(def);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if ((v === 'p25') !== !!BG.far) buildBackground();
+    if (this.kind === 'plat') setBiome(def.biome);
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
@@ -181,7 +189,8 @@ const app = {
     this.updTag();
     this.updDeaths();
     if (this.kind === 'plat') {
-      const w = this.world = new World(def, { diff: this.diff, room: opt.room || 0 });
+      const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
+      w.onCheckpoint = i => this.onCheckpoint(i);
       w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
@@ -196,19 +205,19 @@ const app = {
     }
     resize3();
     $('banner').classList.toggle('low', this.kind === 'run');
-    const size = def.rooms && def.rooms.length > 1 ? ` · ${faNum(def.rooms.length)} اتاق` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
+    const size = def.secs ? ` · ${faNum(def.nObs)} مانع · ${faNum(def.secs.length - 1)} چک‌پوینت` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
     $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
-    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.room + 1)} از ${faNum(this.world.rooms.length)}`, '#9ef9ff'), 2100);
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از چک‌پوینت ${faNum(this.world.ck)} از ${faNum(this.world.secs.length - 1)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
     if (!this.def || (this.state !== 'play' && this.state !== 'pause')) return;
     const st = this.state, sc = this.screen;
     // keep the room / checkpoint, time and deaths: only the view is rebuilt
-    const o = { keep: true, resumed: this.resumed, room: this.kind === 'plat' && this.world ? this.world.room : 0, ck: this.run ? this.run.ckS : 0 };
+    const o = { keep: true, resumed: this.resumed, ck: this.kind === 'plat' && this.world ? this.world.ck : this.run ? this.run.ckS : 0 };
     if (this.realmIdx >= 0) this.startRealm(this.realmIdx, o); else { this.realmIdx = -1; this.startDef(this.def, o); }
     if (st === 'pause') { this.state = 'pause'; this.show(sc || 'sPause'); $('banner').classList.remove('show'); }
   },
@@ -239,25 +248,16 @@ const app = {
     this.taunt('وارد ابعاد پنهان شدی! 🌀', '#c59bff'); Sound.play('orb');
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
-  nextRoom() {
-    const w = this.world, d = w.winDoor, flat = this.view === 'p2' || this.view === 'p25';
-    const go = () => {
-      w.nextRoom();
-      if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.room || (pr.room = {}))[this.idx] = w.room; writeSave(); }
-      if (this.p3) { this.p3.dispose(); this.p3 = new P3D(w); }
-      this.updTag(); $('revBadge').classList.remove('on');
-      this.taunt(`اتاق ${faNum(w.room + 1)} از ${faNum(w.rooms.length)}` + (w.room === w.rooms.length - 1 ? ' — آخرین اتاق!' : ''), '#9ef9ff');
-      if (flat) startTrans('open', .45, null, w.p.x + PW / 2, w.p.y + PHT / 2); else $('fade').classList.remove('on');
-      Sound.play('spawn'); Perf.reset(1); this.dirty = true;
-    };
-    if (flat) startTrans('close', .42, go, d.x + d.w / 2, d.y + d.h / 2);
-    else { $('fade').classList.add('on'); setTimeout(go, 420); }
+  onCheckpoint(i) {
+    const w = this.world, n = w.secs.length - 1;
+    if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
+    this.updTag();
+    this.taunt(i === n ? '🚩 آخرین چک‌پوینت! در نزدیکه' : `🚩 چک‌پوینت ${faNum(i)} از ${faNum(n)}`, '#9ef9dc');
   },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
-    if (this.kind === 'plat' && this.world && this.world.winKind === 'room') return this.nextRoom();
     const t = this.levelT, d = this.levelDeaths;
-    const nr = this.kind === 'plat' && this.world ? this.world.rooms.length : 1;
+    const nr = this.kind === 'plat' && this.world && this.world.secs ? this.world.secs.length : 1;
     const stars = this.kind === 'run' ? (d === 0 ? 3 : d <= 2 ? 2 : 1) : (d <= nr ? 3 : d <= nr * 4 ? 2 : 1);
     ST.wins++;
     const modesWon = ST.modes || (ST.modes = {}); modesWon[CFG.mode] = 1; if (Object.keys(modesWon).length >= 4) unlockAch('modes');
@@ -272,8 +272,8 @@ const app = {
     } else {
       const pr = progOf(this.diff); pr.stars = pr.stars || {}; pr.best = pr.best || {};
       pr.stars[this.idx] = Math.max(pr.stars[this.idx] || 0, stars);
-      if (pr.room) delete pr.room[this.idx];
-      // a run continued from a saved room does not count for best time
+      if (pr.ck) delete pr.ck[this.idx];
+      // a run continued from a saved checkpoint does not count for best time
       if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));
       this.completed = Math.max(this.completed || 0, this.idx + 1);
@@ -283,7 +283,7 @@ const app = {
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }
-    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < nr * 8) unlockAch('speed');
+    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const flat = v => v === 'p2' || v === 'p25';
@@ -294,7 +294,7 @@ const app = {
   },
   finish() {
     this.teardown(); this.view = 'p2'; this.kind = 'plat'; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    this.world = new World(0, { silent: true });
+    setBiome(LEVELS[0].biome); this.world = new World(0, { silent: true });
     this.state = 'end'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch();
     const secs = Math.round((performance.now() - this.runStart) / 1000);
     $('eDeaths').textContent = faNum(this.deaths); $('eDiff').textContent = DIFFS[this.diff].name; $('eDiff').style.color = DIFFS[this.diff].col; $('eTime').textContent = `${faNum(Math.floor(secs / 60))}:${faNum(String(secs % 60).padStart(2, '0'))}`;
@@ -307,17 +307,17 @@ const app = {
     if (this.world && this.world.state === 'play') { this.world.respawn(false); }
   },
   restartLevel() {
-    // whole level from room 1 / from the start of the chase (forgets a saved room)
+    // whole level from the very start (forgets a saved checkpoint)
     if (!this.def) return;
-    if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { room: 0 });
-    const pr = progOf(this.diff); if (pr.room && pr.room[this.idx]) { delete pr.room[this.idx]; writeSave(); }
-    this.startLevel(this.idx, { room: 0 });
+    if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { ck: 0 });
+    const pr = progOf(this.diff); if (pr.ck && pr.ck[this.idx]) { delete pr.ck[this.idx]; writeSave(); }
+    this.startLevel(this.idx, { ck: 0 });
   },
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu() {
     this.teardown(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    if (BG.far) buildBackground();
+    setBiome(LEVELS[0].biome);
     this.state = 'title'; $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },
   setDiff(d) {
@@ -335,9 +335,9 @@ const app = {
     const g = $('lvGrid'); g.innerHTML = ''; const pr = progOf(this.diff), stars = pr.stars || {};
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
-      const sr = savedRoom(this.diff, i);
-      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sr > 0 ? `<span class="rs">▶${faNum(sr + 1)}</span>` : '');
-      b.title = L.name + (sr > 0 ? ` — ادامه از اتاق ${faNum(sr + 1)}` : ''); b.disabled = i >= this.unlocked;
+      const sc = savedCk(this.diff, i);
+      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚩${faNum(sc)}</span>` : '');
+      b.title = L.name + (sc > 0 ? ` — ادامه از چک‌پوینت ${faNum(sc)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);
     });

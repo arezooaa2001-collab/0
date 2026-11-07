@@ -1,9 +1,18 @@
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
-  constructor(def, world) {
+  constructor(def, world, only) {
     this.def = def; this.w = world; this.d = world.d; this.D = world.D; this.uid = ++levelUid;
-    this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0;
-    def.build(this);
+    this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0; this.flags = [];
+    if (def.secs) {
+      // long scrolling level: sections placed one after another (each with its own x offset and id prefix)
+      def.secs.forEach((sec, i) => {
+        if (only && !only.includes(i)) return;
+        const P = secBuilder(this, sec, i, i === def.secs.length - 1);
+        sec.build(P); P.done();
+        if (i > 0) this.flags.push(this.add('flag' + i, { type: 'flag', i, x: (sec.x0 + .45) * T, y: (sec.t0 - 2.6) * T, w: 14, h: 2.6 * T, on: false, wave: 0 }));
+      });
+      this.width = def.width * T;
+    } else { def.build(this); this.width = W; }
     for (const e of this.ents) if (e.parent) { const p = this.byId[e.parent]; e.par = p; e.offx = e.x - p.x; e.offy = e.y - p.y; }
   }
   add(id, e) {
@@ -60,13 +69,53 @@ class Level {
   sfx(n) { this.w.sfx(n); }
   say(t) { this.w.say(t); }
 }
+/* Builder handed to one section of a long level: same API as Level, but every x is shifted by the section's
+   start column and every id gets a section prefix, so hand-made screens and generated chunks can be chained.
+   Timers started while building (L.at) wait until the player reaches the section. Only the last section keeps its door. */
+function secBuilder(L, sec, si, last) {
+  const ox = sec.x0, pre = 's' + si + '.';
+  const pid = id => typeof id === 'string' ? pre + id : id;
+  const fixO = o => {
+    if (!o) return o; const c = Object.assign({}, o);
+    if (c.patrol) c.patrol = c.patrol.map(([x, y]) => [x + ox, y]);
+    if (c.parent) c.parent = pid(c.parent); if (c.fake) c.fake = pid(c.fake);
+    return c;
+  };
+  let building = true; const pend = [];
+  const P = {
+    d: L.d, D: L.D, w: L.w, sec,
+    add(id, e) { e.x += ox * T; if (e.fake) e.fake = pid(e.fake); return L.add(pid(id), e); },
+    block: (id, x, y, w, h, o) => L.block(pid(id), x + ox, y, w, h, fixO(o)),
+    spikes: (id, x, y, n, dir, o) => L.spikes(pid(id), x + ox, y, n, dir, fixO(o)),
+    door: (x, y, o) => last ? L.add(pid('door'), Object.assign({ type: 'door', x: (x + ox) * T, y: y * T, w: 1.4 * T, h: 2 * T }, fixO(o))) : null,
+    saw: (id, cx, cy, r, o) => L.saw(pid(id), cx + ox, cy, r, fixO(o)),
+    laser: (id, x, y, len, dir, o) => L.laser(pid(id), x + ox, y, len, dir, o),
+    portal: (id, x, y, o) => L.portal(pid(id), x + ox, y, o),
+    openPortal: (id, delay = 0) => delay > 0 ? P.at(delay, () => L.openPortal(pid(id))) : L.openPortal(pid(id)),
+    spring: (id, x, y, o) => L.spring(pid(id), x + ox, y, fixO(o)),
+    orb: (id, cx, cy) => L.orb(pid(id), cx + ox, cy),
+    trig: (x, y, w, h, fn, o) => L.trig(x + ox, y, w, h, () => fn(P, L.w), o),
+    e: id => L.e(pid(id)),
+    move: (id, dx, dy, sp, delay) => L.move(pid(id), dx, dy, sp, delay),
+    fall: (id, delay) => L.fall(pid(id), delay),
+    pop: (id, delay) => L.pop(pid(id), delay),
+    after: (t, fn) => L.after(t, fn),
+    at: (t, fn) => { if (building) pend.push([t, fn]); else L.at(t, fn); },
+    reverse: on => L.reverse(on), shake: a => L.shake(a), sfx: n => L.sfx(n), say: t => L.say(t),
+    done() {
+      building = false;
+      if (pend.length) L.trig(ox - 1, -4, sec.spawn[0] + 2, 26, () => pend.forEach(([t, fn]) => L.at(t, fn)));
+    },
+  };
+  return P;
+}
 
 /* ============================ WORLD / PHYSICS ============================ */
 class World {
   constructor(idx, opt = {}) {
     this.idx = typeof idx === 'number' ? idx : -1; this.def = typeof idx === 'number' ? LEVELS[idx] : idx; this.silent = !!opt.silent;
     this.dj = !!this.def.dj; this.winKind = 'door';
-    this.rooms = this.def.rooms || [this.def]; this.room = clamp(opt.room || 0, 0, this.rooms.length - 1);
+    this.secs = this.def.secs || null; this.ck = this.secs ? clamp(opt.ck || 0, 0, this.secs.length - 1) : 0; this.only = opt.only || null;
     this.d = clamp(opt.diff ?? 1, 0, DIFFS.length - 1); this.D = DIFFS[this.d];
     this.parts = []; this.shakeA = 0; this.flash = 0; this.time = 0; this.lightning = 0; this.lightT = 3;
     this.respawn(true);
@@ -74,11 +123,14 @@ class World {
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
     this.rev = false;
-    this.rdef = this.rooms[this.room]; this.dark = !!(this.rdef.dark ?? this.def.dark);
-    this.lv = new Level(this.rdef, this);
-    const [sx, sy] = this.rdef.spawn;
+    this.dark = !!this.def.dark;
+    this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
+    const sec = this.secs ? this.secs[this.ck] : null;
+    const [sx, sy] = sec ? [sec.x0 + sec.spawn[0], sec.spawn[1]] : this.def.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
       jumpHeld: true, jumping: false, sx: 1, sy: 1, runPhase: 0, dustT: 0, winS: 1, rot: 0, blink: 2, landV: 0, air2: false };
+    for (const f of this.lv.flags) f.on = f.i <= this.ck;
+    this.look = 0; this.camX = this.camTarget(); this.act = this.lv.ents; this.actX = -1e9;
     this.state = 'play';
     if (!first) { this.burst(this.p.x + PW / 2, this.p.y + PHT / 2, 18, { col: '#fff1c9', sp: 220, life: .45, add: true, size: 3, inward: true }); this.sfx('spawn'); }
   }
@@ -86,10 +138,20 @@ class World {
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
   isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost; }
-  solids() { return this.lv.ents.filter(e => this.isSolid(e)); }
+  solids() { return this.act.filter(e => this.isSolid(e)); }
+  // camera: keeps the player a bit left of centre, looking ahead in the running direction
+  camTarget() { return clamp(this.p.x + PW / 2 - W * .42 + this.look, 0, Math.max(0, this.lw - W)); }
+  // long levels: only entities within ~1.3 screens of the player are simulated (far ones wait, frozen)
+  updAct() {
+    const px = this.p.x;
+    if (this.lw <= W + 1 || Math.abs(px - this.actX) < 40) return;
+    this.actX = px; const a = px - 1700, b = px + 1900;
+    this.act = this.lv.ents.filter(e => !e.gone && e.x + (e.w || 0) + (e.r || 0) + (e.orbit ? e.orbit.rad * T : 0) > a && e.x - (e.r || 0) - (e.orbit ? e.orbit.rad * T : 0) < b || e.moves.length > 0 && !e.gone);
+  }
 
   step(dt, inp) {
     this.time += dt;
+    this.updAct();
     if (this.state === 'play') {
       const lv = this.lv; lv.t += dt;
       for (let i = lv.timers.length - 1; i >= 0; i--) { const tm = lv.timers[i]; tm.t -= dt; if (tm.t <= 0) { lv.timers.splice(i, 1); tm.fn(); } }
@@ -97,6 +159,7 @@ class World {
       if (this.state === 'play') this.updatePlayer(dt, inp);
       if (this.state === 'play') this.checkTriggers();
       if (this.state === 'play') this.checkHazards(dt);
+      if (this.state === 'play' && this.lv.flags.length) this.checkFlags();
     } else if (this.state === 'dead') {
       this.updateEntities(dt, true);
       this.deadT -= dt; if (this.deadT <= 0) this.respawn(false);
@@ -115,6 +178,8 @@ class World {
       q.vx *= (1 - q.drag * dt); q.vy = q.vy * (1 - q.drag * dt) + q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt;
     }
     if (this.silent) this.parts.length = 0;
+    if (this.state !== 'dead') { this.look = lerp(this.look, this.p.face * 70, Math.min(1, dt * 1.6)); this.camX = lerp(this.camX, this.camTarget(), Math.min(1, dt * 7)); }
+    for (const f of this.lv.flags) if (f.wave > 0) f.wave = Math.max(0, f.wave - dt);
     this.shakeA = Math.max(0, this.shakeA - dt * 40);
     this.flash = Math.max(0, this.flash - dt * 2.5);
     if (this.dark) { this.lightT -= dt; if (this.lightT <= 0) { this.lightning = 1; this.lightT = rand(2.6, 4.2); this.sfx('thunder'); } this.lightning = Math.max(0, this.lightning - dt * 3.2); }
@@ -134,7 +199,7 @@ class World {
       if (e.fallDelay > 0) { e.fallDelay -= dt; e.shake = 1; return; }
       e.shake = 0; e.vy = Math.min(e.vy + PH.g * dt, 1500); e.y += e.vy * dt;
       if (e.type === 'block') {
-        for (const s of this.lv.ents) {
+        for (const s of this.act) {
           if (s !== e && this.isSolid(s) && !s.falling && hit(e, s)) {
             e.y = s.y - e.h; e.falling = false; e.vy = 0; e.landed = true;
             this.shake(10); this.sfx('thud');
@@ -144,7 +209,7 @@ class World {
         }
       }
       if (e.type === 'spike') {
-        for (const s of this.lv.ents) {
+        for (const s of this.act) {
           if (this.isSolid(s) && !s.falling && hit(e, s) && !(e.dir === 'down' && s.y + s.h <= e.y + 2)) {
             e.gone = true; this.sfx('crack'); this.shake(3);
             this.burst(e.x + e.w / 2, s.y, 16, { col: '#cfd3ef', sp: 220, life: .5, size: 2.5, g: 700, up: true, sq: true, spreadX: e.w / 2 });
@@ -169,7 +234,7 @@ class World {
   }
 
   updateEntities(dt, noPlayer) {
-    const p = this.p, ents = this.lv.ents;
+    const p = this.p, ents = this.act;
     for (const e of ents) { if (e.gone || e.par) continue; const ox = e.x, oy = e.y; this.updEnt(e, dt); e.dx = e.x - ox; e.dy = e.y - oy; }
     for (const e of ents) {
       if (!e.par || e.gone) continue;
@@ -229,7 +294,7 @@ class World {
     if (p.onGround && p.ground && p.ground.conv) p.x += p.ground.conv * T * dt;
     p.x += p.vx * dt;
     for (const s of sol) if (hit(p, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
-    if (p.x < 0) { p.x = 0; p.vx = 0; } if (p.x > W - PW) { p.x = W - PW; p.vx = 0; }
+    if (p.x < 0) { p.x = 0; p.vx = 0; } if (p.x > this.lw - PW) { p.x = this.lw - PW; p.vx = 0; }
     // Y
     const was = p.onGround, vyBefore = p.vy;
     p.onGround = false; p.ground = null;
@@ -273,9 +338,16 @@ class World {
     }
   }
 
+  checkFlags() {
+    const p = this.p, cx = p.x + PW / 2;
+    for (const f of this.lv.flags) if (!f.on && cx >= f.x) {
+      f.on = true; f.wave = .8;
+      if (f.i > this.ck) { this.ck = f.i; this.sfx('gem'); this.burst(f.x + 8, f.y + 14, 24, { col: '#9ef9dc', sp: 240, life: .6, add: true, size: 3 }); if (this.onCheckpoint) this.onCheckpoint(f.i); }
+    }
+  }
   checkHazards(dt) {
     const p = this.p;
-    for (const e of this.lv.ents) {
+    for (const e of this.act) {
       if (e.gone || e.hidden) continue;
       if (e.type === 'spike') { if (e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die('spike'); }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
@@ -306,9 +378,9 @@ class World {
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   save() {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
     const lv = this.lv, ents = lv.ents;
-    return {
+    return { ck: this.ck, camX: this.camX, look: this.look,
       ents: ents.map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
       p: Object.assign({}, this.p, { ground: ents.indexOf(this.p.ground) }),
       trigs: lv.trigs.slice(), fired: lv.trigs.map(t => t.fired),
@@ -317,8 +389,9 @@ class World {
     };
   }
   load(sn) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
     const lv = this.lv, ents = lv.ents;
+    this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
     ents.forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });
     this.p = Object.assign({}, sn.p, { ground: sn.p.ground >= 0 ? ents[sn.p.ground] : null });
     lv.trigs = sn.trigs.slice(); lv.trigs.forEach((t, i) => t.fired = sn.fired[i]);
@@ -353,10 +426,8 @@ class World {
     this.shake(16); this.sfx('die');
     if (this.onDeath) this.onDeath(cause);
   }
-  nextRoom() { if (this.room < this.rooms.length - 1) { this.room++; this.respawn(true); } }
   win(door, kind = 'door') {
     if (this.state !== 'play') return;
-    if (kind === 'door' && this.room < this.rooms.length - 1) kind = 'room';
     this.state = 'win'; this.winT = 0; this.winDoor = door; this.winFired = false; this.winKind = kind;
     this.sfx('win'); this.burst(door.x + door.w / 2, door.y + door.h / 2, 40, { col: '#ffe08a', sp: 320, life: .9, add: true, size: 3 });
   }

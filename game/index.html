@@ -156,7 +156,10 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #bars i:first-child{top:0}#bars i:last-child{bottom:0}
 #bars.on i{height:7.5vh}
 .tb{opacity:var(--top,1)}
-#hudSub{position:absolute;top:calc(env(safe-area-inset-top) + 52px);left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:none;white-space:nowrap}
+#pprog{position:absolute;top:calc(env(safe-area-inset-top) + 49px);left:50%;transform:translateX(-50%);width:min(240px,40vw);height:5px;border-radius:9px;background:rgba(22,16,52,.7);border:1px solid var(--line);overflow:hidden;display:none}
+#pprog.on{display:block}
+#pprog i{display:block;height:100%;width:100%;transform-origin:right;transform:scaleX(0);background:linear-gradient(90deg,#6ff3c4,#ffd36e)}
+#hudSub{position:absolute;top:calc(env(safe-area-inset-top) + 60px);left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:none;white-space:nowrap}
 #hudSub span{font-size:13px;font-weight:800;padding:2px 10px;border-radius:999px;background:rgba(22,16,52,.7);border:1px solid var(--line)}
 #hudSub span:empty{display:none}
 #danger{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 0 rgba(255,40,80,0);transition:box-shadow .15s}
@@ -240,6 +243,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   <button class="hbtn" id="bPause" aria-label="توقف"><svg viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
   <button class="hbtn" id="bRestart" aria-label="شروع دوباره"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/></svg></button>
   <div id="lvlTag" class="fa"></div>
+  <div id="pprog"><i></i></div>
   <div id="deaths"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C7 2 3.5 5.6 3.5 10.3c0 2.7 1.2 4.6 3 5.8V19a1 1 0 0 0 1 1h1.3v-2h1.4v2h3.6v-2h1.4v2h1.3a1 1 0 0 0 1-1v-2.9c1.8-1.2 3-3.1 3-5.8C20.5 5.6 17 2 12 2zM8.6 13.6a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm6.8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg><span id="dCount">۰</span></div>
   <div id="hudSub" class="fa"><span id="tmr"></span><span id="gemC"></span><span id="pwr"></span><span id="fps"></span></div>
   <div id="banner" class="fa"><small id="bSmall"></small><b id="bBig"></b></div>
@@ -521,13 +525,14 @@ function applyMood() {
 
 /* ---------- derived palette for drawing (rebuilt when colours change) ---------- */
 const PAL = {};
+let BIOME = null; // colour scheme of the level being played; colours the player picked in settings always win
 function buildPal() {
-  const p = colOf('player'), s = colOf('scarf');
+  const p = colOf('player'), s = colOf('scarf'), bio = k => colSet(k) || !BIOME || !BIOME[k] ? colOf(k) : BIOME[k];
   PAL.bodyTop = mixHex(p, '#ffffff', .55); PAL.bodyBot = mixHex(p, '#ff9a50', colSet('player') ? .12 : .35);
   PAL.scarf = s; PAL.scarfHi = mixHex(s, '#ffffff', .4);
-  PAL.moss = colOf('moss'); PAL.door = colOf('door'); PAL.hazard = colOf('hazard'); PAL.saw = colOf('saw'); PAL.block = colOf('block');
+  PAL.moss = bio('moss'); PAL.door = colOf('door'); PAL.hazard = colOf('hazard'); PAL.saw = colOf('saw'); PAL.block = bio('block');
   // sky: hue/saturation/lightness ratio relative to the default dusk sky
-  const [h0, s0, l0] = hexHsl(COLOR_DEF.sky), [h1, s1, l1] = hexHsl(colOf('sky'));
+  const [h0, s0, l0] = hexHsl(COLOR_DEF.sky), [h1, s1, l1] = hexHsl(bio('sky'));
   PAL.skyDh = h1 - h0; PAL.skySr = clamp(s1 / Math.max(.01, s0), 0, 1.6); PAL.skyLr = clamp(l1 / Math.max(.01, l0), .4, 2.2);
   PAL.skyCol = h => { const [a, b, c] = hexHsl(h); return hslHex(a + PAL.skyDh, b * PAL.skySr, c * PAL.skyLr); };
   PAL.ver = (PAL.ver || 0) + 1;
@@ -535,6 +540,8 @@ function buildPal() {
 buildPal();
 /* ============================ LEVELS ============================ */
 // L.d = difficulty index (0 easy … 4 insane). Harder difficulties add extra traps.
+// Each of these hand-made screens is the finale of its long level (see 15_course.js): the generated course
+// comes first and this screen, with its door, closes the level.
 const L2D = [
   { name: 'اولین قدم', spawn: [2, 14], build(L) {
       L.block(null, 0, 15, 14, 3);
@@ -602,9 +609,10 @@ const L2D = [
       L.spikes(null, 15, 14, 1, 'up');
       L.block('cr', 18, 15, 4, 3, { crumble: 0.1 });
       L.block(null, 22, 15, 10, 3);
-      L.block('wall', -7, 0, 6, 15);
-      L.spikes(null, -1, 0, 15, 'right', { parent: 'wall' });
-      L.trig(5, 12, 1, 3, () => { L.move('wall', 27, 0, 5.2, 0.35); L.sfx('rumble'); L.shake(6); L.say('فرار کن!'); });
+      // the wall waits hidden just left of the screen (where the previous part of the level is) until it is triggered
+      L.block('wall', -7, 0, 6, 15, { hidden: true });
+      L.spikes('ws', -1, 0, 15, 'right', { parent: 'wall', hidden: true });
+      L.trig(5, 12, 1, 3, () => { L.pop('wall'); L.pop('ws'); L.move('wall', 27, 0, 5.2, 0.35); L.sfx('rumble'); L.shake(6); L.say('فرار کن!'); });
       L.door(29, 13);
   }},
   { name: 'وارونه', spawn: [2, 14], build(L) {
@@ -706,12 +714,12 @@ const L2D = [
       L.block('st2', 18, 10.5, 2, 0.6, { hidden: true });
       L.block('st1', 21, 12.5, 2, 0.6, { hidden: true });
       L.spikes('ms', 13.3, 7.5, 2, 'up', { hidden: true });
-      L.saw('sweep', -3, 14.1, 0.9);
+      L.saw('sweep', -3, 14.1, 0.9, { hidden: true });
       L.trig(24, 13, 1, 2, () => {
         L.move('door', 0, -6.5, 30); L.move('door', -16.1, 0, 30);
         L.pop('st1', 0.25); L.pop('st2', 0.4); L.pop('mp', 0.55); L.say('بیا بالا اگه جرئت داری');
       }, { ground: true });
-      L.trig(18, 9.5, 2, 1, () => { L.move('sweep', 40, 0, 10); L.sfx('saw'); }, { ground: true });
+      L.trig(18, 9.5, 2, 1, () => { L.pop('sweep'); L.move('sweep', 40, 0, 10); L.sfx('saw'); }, { ground: true });
       L.trig(15.9, 7.5, 1.1, 1, () => L.pop('ms'), { ground: true });
   }},
 ];
@@ -801,9 +809,9 @@ const NEW2D = [
       L.spikes(null, 17, 14, 1, 'up');
       L.spikes(null, 22, 17, 2, 'up');
       L.block(null, 24, 15, 8, 3);
-      L.block('wall', -7, 0, 6, 15);
-      L.spikes(null, -1, 0, 15, 'right', { parent: 'wall' });
-      L.trig(5, 2, 0.5, 13, () => { L.reverse(true); L.move('wall', 27, 0, 4.4, 0.6); L.sfx('rumble'); L.shake(6); L.say('برعکس بدو!'); });
+      L.block('wall', -7, 0, 6, 15, { hidden: true });
+      L.spikes('ws', -1, 0, 15, 'right', { parent: 'wall', hidden: true });
+      L.trig(5, 2, 0.5, 13, () => { L.pop('wall'); L.pop('ws'); L.reverse(true); L.move('wall', 27, 0, 4.4, 0.6); L.sfx('rumble'); L.shake(6); L.say('برعکس بدو!'); });
       if (L.d >= 3) L.trig(19, 2, 0.5, 13, () => { L.reverse(false); L.say('دوباره عادی!'); });
       L.door(29, 13);
   }},
@@ -906,7 +914,7 @@ const MORE2D = [
       L.block(null, 26, 7, 4, 0.6, { crumble: 1.2 });
       L.block(null, 19, 5, 4, 0.6);
       L.block(null, 11, 3.5, 5, 0.6);
-      L.block('lava', 0, 18.6, 32, 12, { lava: true, ghost: true });
+      L.block('lava', -40, 18.6, 72, 12, { lava: true, ghost: true });
       L.at(1.2, () => { L.move('lava', 0, -12.3, 0.95); L.say('گدازه داره بالا میاد!'); L.sfx('rumble'); L.shake(5); });
       L.door(12.2, 1.5);
   }},
@@ -964,197 +972,393 @@ const LEVELS = [
   MORE2D[0], MORE2D[1], MORE2D[2], MORE2D[3], L3D[7], MORE2D[4], MORE2D[5], MORE2D[6], L2D[15], L3D[8],
 ];
 const PORTAL_LEVEL = 36; // level 37 holds the secret portal
-/* ============================ LONGER LEVELS: ROOMS ============================ */
-// Every platformer level is a long chain of rooms (screens): 8 rooms on level 1 up to 18 on the last
-// platformer levels, 12 in each hidden-realm level. Room 1 is the hand-made screen of the level; the
-// following rooms are packed with trap segments: the level's own themed traps mixed with a shared pool
-// that unlocks more trap types as the game goes on, getting harder towards the end of each level and of
-// the game. Dying sends you back to the start of the current room (checkpoint).
-// Room seeds were checked with the auto-solver on easy and insane; ROOM_SEED_FIX holds seeds swapped in
-// where the first seed produced a layout the solver could not finish.
-const ROOM_SEED_FIX = {};
+/* ============================ LONG LEVELS: COURSE GENERATOR ============================ */
+// Every platformer level is one long scrolling course. It is made of chunks of about five obstacles, each
+// chunk starting with a checkpoint flag, and it ends with the level's hand-made screen and its door.
+// Obstacles come from a catalogue of distinct obstacle designs (KINDS). Inside one level no design is
+// used twice. Each level leans on its own families of traps (FLAVOR), gets its own order and its own
+// colours (BIOMES), so two levels never play the same. Coordinates below are tiles relative to the chunk.
+const TOP_MIN = 10, TOP_MAX = 15, CHUNK = 5;
+// chunk seeds replaced after checking every chunk with the auto-solver (easy + insane)
+const CHUNK_FIX = {};
 
-/* segment library: each builds a feature starting at column x using at most m columns and returns the
-   columns used (0 = does not fit). F(x, w) registers plain floor that is merged into long blocks later. */
-const SEG = {
-  pit(L, x, m, r, k, id, F, o) { const w = 2 + Math.floor(r() * (2 + k * 1.6)) + (o.dj ? 2 : 0); if (w > m) return 0; L.spikes(null, x, 17, w, 'up'); return w; },
-  spikes(L, x, m, r, k, id, F) { const n = 1 + (r() < .35 + k * .4 ? 1 : 0); if (n + 1 > m) return 0; F(x, n + 1); L.spikes(null, x, 14, n, 'up'); return n + 1; },
-  hidden(L, x, m, r, k, id, F) {
-    const n = 1 + (r() < .5 ? 1 : 0); if (n + 2 > m) return 0;
-    F(x, n + 2); L.spikes(id, x + 1, 14, n, 'up', { hidden: true }); L.trig(x - .5, 13.5, .5, 1.5, () => L.pop(id), { ground: true }); return n + 2;
-  },
-  drop(L, x, m, r, k, id) {
-    const w = 2 + Math.floor(r() * (1.5 + k)); if (w > m) return 0;
-    L.spikes(null, x, 17, w, 'up'); L.block(id, x, 15, w, 3, { fallV: 200 });
-    L.trig(x + .05, 14, .6, 1, () => { L.fall(id, .05); L.sfx('rumble'); }, { ground: true }); return w;
-  },
-  crumble(L, x, m, r, k, id) {
-    const n = 2 + (r() < k ? 1 : 0), w = n * 4 + 2; if (w > m) return 0;
-    L.spikes(null, x, 17, w, 'up');
-    for (let i = 0; i < n; i++) L.block(null, x + 2 + i * 4, 14, 2, .5, { crumble: .5 - k * .1 });
-    return w;
-  },
-  saw(L, x, m, r, k, id, F) {
-    const w = 5 + Math.floor(r() * 2); if (w > m) return 0;
-    F(x, w); L.saw(id, x + 1, 14.35, .6, { patrol: [[x + .8, 14.35], [x + w - .8, 14.35]], speed: 2.4 + k * 1.8 }); return w;
-  },
-  wall(L, x, m, r, k, id, F) {
-    if (5 > m) return 0; F(x, 5); L.block(null, x + 1.5, 13, 2, 2);
-    if (k > .45) { L.spikes(id, x + 2, 12, 1, 'up', { hidden: true }); L.trig(x + 1.5, 11.5, 2, 1.5, () => L.pop(id), { ground: true }); }
-    return 5;
-  },
-  crusher(L, x, m, r, k, id, F) {
-    if (5 > m) return 0; F(x, 5);
-    L.block(null, x, 0, 5, 2.5, { ceil: true });
-    L.block(id, x + 1.5, 2.5, 2, 2, { fallV: 150 }); L.spikes(null, x + 1.5, 4.5, 2, 'down', { parent: id });
-    L.trig(x - .7, 2.5, .5, 12.5, () => { L.fall(id, .3); L.sfx('rumble'); }); return 5;
-  },
-  spring(L, x, m, r, k, id, F) {
-    if (7 > m) return 0; F(x, 7); L.spring(null, x + .8, 14); L.block(null, x + 3.6, 9, 2, 6); return 7;
-  },
-  orbit(L, x, m, r, k, id) {
-    if (7 > m) return 0; L.spikes(null, x, 17, 7, 'up'); L.block(null, x + 2.5, 13.5, 2, .6);
-    L.saw(id, x + 3.5, 11.6, .5, { orbit: { rad: 2.1, w: (2 + k) * (r() < .5 ? 1 : -1), ph: r() * 6.28 } }); return 7;
-  },
-  laser(L, x, m, r, k, id, F) {
-    if (4 > m) return 0; F(x, 4); L.laser(id, x + 2, 8.5, 6.5, 'v', { on: .9 + k * .3, off: 1.5 - k * .3, ph: r() * 2 }); return 4;
-  },
-  ice(L, x, m, r, k, id) { if (6 > m) return 0; L.block(null, x, 15, 6, 3, { ice: true }); L.spikes(null, x + 3, 14, 1, 'up'); return 6; },
-  conveyor(L, x, m, r, k, id) { if (6 > m) return 0; L.block(null, x, 15, 6, 3, { conv: -(2.5 + k * 1.5) }); L.spikes(null, x + 3, 14, 1, 'up'); return 6; },
-  ghost(L, x, m, r, k, id) { const w = 2 + Math.floor(r() * 2); if (w > m) return 0; L.spikes(null, x, 17, w, 'up'); L.block(null, x, 15, w, 3, { ghost: true }); return w; },
-  bump(L, x, m, r, k, id, F) {
-    if (6 > m) return 0; F(x, 6); L.spikes(null, x + 3, 14, 1, 'up');
-    L.block(id, x + 2.5, 10.5, 2, 1, { hidden: true }); L.trig(x + 2, 11.5, 3, 1.2, () => L.pop(id), { rising: true }); return 6;
-  },
-  fallSpikes(L, x, m, r, k, id, F) {
-    if (6 > m) return 0; F(x, 6); L.block(null, x, 0, 6, 2, { ceil: true }); L.spikes(id, x + 3, 2, 2, 'down');
-    L.trig(x - 1.2, 2, .5, 13, () => { L.fall(id, .1); L.sfx('crack'); }); return 6;
-  },
-  movingPlat(L, x, m, r, k, id) {
-    const w = 7 + (k > .5 ? 1 : 0); if (w > m) return 0; L.spikes(null, x, 17, w, 'up');
-    L.block(id, x + 1, 14, 2, .6, { patrol: [[x + 1, 14], [x + w - 3, 14]], speed: 2 + k }); return w;
-  },
-  orbFlip(L, x, m, r, k, id, F) {
-    // flip onto the ceiling over a spike pit, hop one ceiling spike, flip back down and land on a long floor
-    const w = 8, land = 5; if (w + land > m) return 0;
-    L.block(null, x - .5, 0, w + 1, 3.5, { ceil: true }); L.spikes(null, x + 1, 17, w - 1, 'up');
-    F(x, 1); L.orb(id + 'a', x + .5, 14.4); L.spikes(null, x + 4, 3.5, 1, 'down'); L.orb(id + 'b', x + w - .5, 3.9);
-    F(x + w, land); return w + land;
-  },
-  pillarHop(L, x, m, r, k, id) {
-    // hop across 1-tile pillars of alternating height over a spike pit
-    const n = 2 + (r() < .3 + k * .5 ? 1 : 0), w = n * 3 + 2; if (w > m) return 0;
-    for (let i = 0; i <= n; i++) L.spikes(null, x + i * 3, 17, 2, 'up');
-    for (let i = 0; i < n; i++) { const top = i % 2 ? 13 : 14; L.block(null, x + 2 + i * 3, top, 1, 18 - top); }
-    return w;
-  },
-  stairs(L, x, m, r, k, id, F) {
-    // climb three steps, then leap over a spike strip from the top step
-    const n = 2 + (k > .5 ? 1 : 0), w = 9 + n; if (w > m) return 0; F(x, w);
-    L.block(null, x + 1, 14, 2, 1); L.block(null, x + 3, 13, 2, 2); L.block(null, x + 5, 12, 2, 3);
-    L.spikes(null, x + 7, 14, n, 'up'); return w;
-  },
-  sawRail(L, x, m, r, k, id) {
-    // a saw rides up and down through a spike pit: time the jump
-    const w = 3 + (k > .6 ? 1 : 0); if (w > m) return 0;
-    L.spikes(null, x, 17, w, 'up');
-    L.saw(id, x + w / 2, 16.2, .55, { patrol: [[x + w / 2, 16.2], [x + w / 2, 10.6]], speed: 2.2 + k * 2 }); return w;
-  },
-  doubleSpike(L, x, m, r, k, id, F) {
-    // two spike strips with a one-tile island between them
-    const a = 1 + (r() < k ? 1 : 0), w = a * 2 + 3; if (w > m) return 0;
-    F(x, w); L.spikes(null, x + 1, 14, a, 'up'); L.spikes(null, x + 2 + a, 14, a, 'up'); return w;
-  },
-  lowCeil(L, x, m, r, k, id, F) {
-    // spiked ceiling hangs low: a full jump hits it, so hop the floor spike with a short tap
-    if (7 > m) return 0; F(x, 7);
-    L.block(null, x, 0, 7, 10.6, { ceil: true }); L.spikes(null, x, 10.6, 7, 'down');
-    L.spikes(null, x + 3, 14, 1, 'up'); return 7;
-  },
-};
-// shared trap pool, unlocked step by step through the game (by level progress k0)
-const POOL = [
-  [0, ['pit', 'spikes', 'hidden', 'drop', 'doubleSpike', 'pillarHop', 'stairs']],
-  [.22, ['saw', 'crumble', 'sawRail', 'wall']],
-  [.42, ['crusher', 'fallSpikes', 'bump', 'ghost', 'movingPlat', 'lowCeil']],
-  [.65, ['orbit']],
-];
-const HIDDEN_SEG = new Set(['hidden', 'drop', 'ghost', 'bump']); // traps you cannot see before they spring
-const poolFor = k0 => POOL.filter(([u]) => k0 >= u).flatMap(([, l]) => l);
-// which segments each platformer level uses (by position in LEVELS), plus room-wide extras
-const ROOM_THEMES = {
-  0: { seg: ['pit', 'drop', 'spikes'] }, 2: { seg: ['hidden', 'spikes', 'pit'] }, 3: { seg: ['wall', 'pit', 'hidden'] },
-  5: { seg: ['crusher', 'pit', 'spikes'] }, 6: { seg: ['crumble', 'saw', 'pit'] }, 7: { seg: ['spring', 'drop', 'spikes'] },
-  8: { seg: ['pit', 'spikes', 'drop'], wall: 4.6 }, 10: { seg: ['orbFlip', 'pit', 'spikes'] }, 11: { seg: ['pit', 'saw', 'hidden'], dark: true },
-  12: { seg: ['ghost', 'bump', 'pit'] }, 13: { seg: ['pit', 'spikes', 'hidden'], rev: true }, 15: { seg: ['fallSpikes', 'pit', 'spikes'] },
-  16: { seg: ['movingPlat', 'pit', 'ghost'] }, 17: { seg: ['hidden', 'wall', 'spikes'] }, 18: { seg: ['saw', 'crusher', 'spikes'] },
-  20: { seg: ['wall', 'ghost', 'crumble'] }, 21: { seg: ['saw', 'orbit', 'pit'] }, 22: { seg: ['orbFlip', 'pit', 'hidden'] },
-  23: { seg: ['drop', 'crumble', 'pit'] }, 25: { seg: ['spring', 'hidden', 'spikes'] }, 26: { seg: ['movingPlat', 'saw', 'orbit'] },
-  27: { seg: ['spring', 'pit', 'hidden'], dark: true }, 28: { seg: ['pit', 'spikes'], wall: 4.2, rev: true }, 30: { seg: ['ice', 'pit', 'spikes'] },
-  31: { seg: ['conveyor', 'pit', 'saw'] }, 32: { seg: ['crusher', 'fallSpikes', 'pit'] }, 33: { seg: ['orbit', 'movingPlat', 'pit'] },
-  35: { seg: ['movingPlat', 'crumble', 'saw'] }, 36: { seg: ['spring', 'hidden', 'drop'] }, 37: { seg: ['crumble', 'drop', 'pit', 'saw'] },
-  38: { seg: ['hidden', 'drop', 'crusher', 'saw', 'crumble', 'ghost', 'bump', 'fallSpikes'] },
-};
-const REALM_THEME = { seg: ['laser', 'movingPlat', 'orbit', 'pit', 'ice', 'conveyor', 'laser'], dj: true };
+/* ---------- obstacle catalogue ----------
+   fam: family; lvl: unlocks at this level progress (0..1); df: base difficulty 1..3; can(t): needs floor top t;
+   need: 'grav' | 'ice' | 'conv' | 'laser'; wait: needs waiting/timing (left out of chase levels);
+   ceil: has a ceiling; launch: throws the player high (never followed directly by a ceiling obstacle). */
+const KINDS = {};
+function kind(key, fam, lvl, df, o, build) { KINDS[key] = Object.assign({ key, fam, lvl, df, build }, o); }
 
-function genRoom(theme, seed, k, extra = {}, pool = []) {
-  const o = Object.assign({}, theme, extra);
-  return { spawn: [1, 14], dark: !!o.dark, gen: true, seed, remake: sd => genRoom(theme, sd, k, extra, pool), build(L) {
-    const r = srand(seed * 9973 + 7), floors = [];
-    const F = (x, w) => floors.push([x, x + w]);
-    F(0, 3);
-    let x = 3, i = 0, tries = 0, nHid = 0, last = '';
-    const END = 28, maxHid = 1 + (k > .55 ? 1 : 0);
-    while (x < END - 2 && tries++ < 60) {
-      // the level's own traps most of the time, the shared pool for variety; at most one or two invisible
-      // traps per room (so a room never looks empty) and never the same trap twice in a row
-      const list = pool.length && r() < .42 ? pool : o.seg;
-      const name = list[Math.floor(r() * list.length)];
-      if (name === last || (HIDDEN_SEG.has(name) && nHid >= maxHid)) continue;
-      const pad = 1 + (r() < .28 ? 1 : 0);
-      const used = SEG[name](L, x + pad, END - (x + pad), r, k, 'g' + i, F, o);
-      if (!used) continue;
-      if (HIDDEN_SEG.has(name)) nHid++;
-      F(x, pad); x += pad + used; i++; last = name;
-    }
-    F(x, 32 - x);
-    // merge plain floor pieces into long blocks
-    floors.sort((a, b) => a[0] - b[0]);
-    const merged = [];
-    for (const f of floors) { const lst = merged[merged.length - 1]; if (lst && f[0] <= lst[1] + 1e-6) lst[1] = Math.max(lst[1], f[1]); else merged.push(f.slice()); }
-    for (const [a, b] of merged) L.block(null, a, 15, b - a, 3);
-    if (o.wall) { L.block('cw', -7, 0, 6, 15); L.spikes(null, -1, 0, 15, 'right', { parent: 'cw' }); L.trig(3.5, 2, .5, 13, () => { L.move('cw', 27, 0, o.wall + k, 0.4); L.sfx('rumble'); L.shake(6); L.say('فرار کن!'); }); }
-    if (o.rev) { L.trig(4.5, 2, .5, 13, () => { L.reverse(true); L.say('کنترل‌ها برعکس شد!'); }); L.trig(27.2, 2, .5, 13, () => L.reverse(false)); }
-    L.door(29.6, 13);
-  }};
+// --- pits and gaps
+kind('gapPlain', 'pits', 0, 1, {}, G => { const w = G.ri(2, 3 + (G.k > .45 ? 1 : 0)) + (G.dj ? 2 : 0); G.pit(G.x, w); G.x += w; });
+kind('gapUp', 'pits', 0, 1, { can: t => t - 1 >= TOP_MIN }, G => {
+  const dh = G.t - 2 >= TOP_MIN && G.r() < .5 ? 2 : 1, w = G.ri(2, 3) + (G.dj ? 1 : 0); G.pit(G.x, w); G.x += w; G.t -= dh;
+});
+kind('gapDown', 'pits', 0, 1, { can: t => t + 1 <= TOP_MAX }, G => {
+  const dh = Math.min(TOP_MAX - G.t, G.ri(1, 3)), w = G.ri(2, 4) + (G.dj ? 2 : 0); G.pit(G.x, w); G.x += w; G.t += dh;
+});
+kind('stoneHop', 'pits', 0, 1, {}, G => {
+  const a = G.ri(2, 3), b = G.ri(2, 3) + (G.k > .5 ? 1 : 0), top = G.t - (G.r() < .5 ? 1 : 0), x = G.x;
+  G.pit(x, a); G.L.block(null, x + a, top, 1, 18 - top); G.pit(x + a + 1, b); G.x += a + 1 + b;
+});
+kind('islands', 'pits', .05, 2, {}, G => {
+  const n = 2 + (G.k > .45 ? 1 : 0), span = n * 4 + 2, x = G.x; G.pit(x, span);
+  for (let i = 0; i < n; i++) G.L.block(null, x + 2 + i * 4, G.t - 1 - (i % 2) - (G.k > .6 && i === n - 1 ? 1 : 0), 2, .6);
+  G.x += span;
+});
+kind('lowJump', 'ceiling', .2, 2, { ceil: true }, G => {
+  // a spiked ceiling hangs over a short gap: only a flat jump gets across
+  const w = G.ri(2, 3), x = G.x, top = G.t - 4; G.F(x, 2); G.pit(x + 2, w); G.F(x + 2 + w, 3);
+  G.L.block(null, x, 0, w + 5, top, { ceil: true }); G.L.spikes(null, x, top, w + 5, 'down'); G.x += w + 5;
+});
+kind('hiddenLanding', 'hidden', .1, 2, {}, G => {
+  // the landing grows a spike while you are in the air
+  const w = 3 + (G.dj ? 1 : 0), x = G.x, id = G.id(); G.pit(x, w); G.F(x + w, 5);
+  G.L.spikes(id, x + w + 1, G.t - 1, 1, 'up', { hidden: true }); G.L.trig(x + .3, 0, w - .6, G.t, () => G.L.pop(id), { rising: true });
+  G.x += w + 5;
+});
+kind('dropLanding', 'falling', .1, 2, {}, G => {
+  // land on a stone that sinks away: jump on at once
+  const x = G.x, id = G.id(); G.pit(x, 6);
+  G.L.block(id, x + 2, G.t, 2, 18 - G.t, { fallV: 200 }); G.L.trig(x + 2, G.t - 1, 2, 1, () => { G.L.fall(id, .32); G.L.sfx('rumble'); }, { ground: true });
+  G.x += 6;
+});
+kind('ghostLanding', 'hidden', .2, 2, {}, G => { const x = G.x; G.pit(x, 4); G.L.block(null, x + 2, G.t, 2, 18 - G.t, { ghost: true }); G.x += 4; });
+kind('springLeap', 'springs', .1, 1, { launch: true }, G => {
+  const x = G.x, w = G.ri(7, 8); G.F(x, 1); G.L.spring(null, x, G.t - 1); G.pit(x + 1, w); G.x += 1 + w;
+});
+kind('springPit', 'springs', .2, 2, { launch: true }, G => {
+  const x = G.x; G.pit(x, 3); G.L.block(null, x + 3, G.t, 1, 18 - G.t); G.L.spring(null, x + 3, G.t - 1); G.pit(x + 4, 6); G.x += 10;
+});
+// --- gravity orbs
+kind('orbCeilRun', 'gravity', .1, 2, { need: 'grav', ceil: true }, G => {
+  const w = 8, x = G.x; G.L.block(null, x - .5, 0, w + 1, 3.5, { ceil: true }); G.F(x, 1); G.pit(x + 1, w - 1);
+  G.L.orb(G.id(), x + .5, G.t - .6); G.L.spikes(null, x + 4, 3.5, 1, 'down'); G.L.orb(G.id(), x + w - .5, 3.9); G.F(x + w, 5); G.x += w + 5;
+});
+kind('orbFloorSpikes', 'gravity', .3, 2, { need: 'grav', ceil: true }, G => {
+  const x = G.x; G.F(x, 11); G.L.spikes(null, x + 2, G.t - 1, 6, 'up'); G.L.block(null, x - .5, 0, 12, 3.5, { ceil: true });
+  G.L.orb(G.id(), x + 1, G.t - .6); G.L.orb(G.id(), x + 9, 3.9); G.x += 11;
+});
+// --- moving platforms and moving hazards
+kind('movingBridge', 'movers', .1, 2, { wait: true }, G => {
+  const w = 7 + (G.k > .5 ? 1 : 0), x = G.x; G.pit(x, w);
+  G.L.block(G.id(), x + 1, G.t - 1, 2, .6, { patrol: [[x + 1, G.t - 1], [x + w - 3, G.t - 1]], speed: 2 + G.k }); G.x += w;
+});
+kind('elevatorUp', 'movers', .2, 2, { wait: true, can: t => t - 4 >= TOP_MIN }, G => {
+  const x = G.x; G.pit(x, 5); G.L.block(G.id(), x + 1.5, G.t, 2, .6, { patrol: [[x + 1.5, G.t], [x + 1.5, G.t - 4]], speed: 1.8 + G.k });
+  G.x += 5; G.t -= 4;
+});
+kind('liftDown', 'movers', .25, 2, { wait: true, can: t => t + 4 <= TOP_MAX }, G => {
+  const x = G.x; G.pit(x, 5); G.L.block(G.id(), x + 1.5, G.t, 2, .6, { patrol: [[x + 1.5, G.t], [x + 1.5, G.t + 4]], speed: 1.8 + G.k });
+  G.x += 5; G.t += 4;
+});
+kind('spikeBlockPatrol', 'movers', .2, 2, {}, G => {
+  const x = G.x; G.F(x, 9); G.L.spikes(G.id(), x + 7, G.t - 1, 1, 'up', { patrol: [[x + 7, G.t - 1], [x + 1.5, G.t - 1]], speed: 2 + G.k * 1.5 }); G.x += 9;
+});
+// --- falling floors
+kind('dropFloor', 'falling', 0, 1, {}, G => {
+  const w = 2 + Math.floor(G.r() * (1.5 + G.k)), x = G.x, id = G.id(); G.pit(x, w);
+  G.L.block(id, x, G.t, w, 18 - G.t, { fallV: 200 }); G.L.trig(x + .05, G.t - 1, .6, 1, () => { G.L.fall(id, .05); G.L.sfx('rumble'); }, { ground: true }); G.x += w;
+});
+kind('crumbleBridge', 'falling', .1, 2, {}, G => {
+  const n = 2 + (G.k > .5 ? 1 : 0), w = n * 4 + 2, x = G.x; G.pit(x, w);
+  for (let i = 0; i < n; i++) G.L.block(null, x + 2 + i * 4, G.t - 1, 2, .5, { crumble: .5 - G.k * .1 });
+  G.x += w;
+});
+kind('collapseRun', 'falling', .25, 2, {}, G => {
+  // a long bridge collapses behind you, stone after stone: keep running
+  const n = 7 + (G.k > .5 ? 2 : 0), x = G.x, ids = []; G.pit(x, n);
+  for (let i = 0; i < n; i++) { const id = G.id(); ids.push(id); G.L.block(id, x + i, G.t, 1, .8, { fallV: 80 }); }
+  G.L.trig(x, G.t - 1, 1, 1, () => { ids.forEach((id, i) => G.L.fall(id, .3 + i * .14)); G.L.sfx('rumble'); G.L.shake(3); }, { ground: true });
+  G.x += n;
+});
+kind('fallSpikeGap', 'falling', .3, 2, { wait: true, ceil: true }, G => {
+  const w = 3, x = G.x, id = G.id(); G.L.block(null, x - 1, 0, w + 2, 2, { ceil: true }); G.L.spikes(id, x, 2, w, 'down');
+  G.L.trig(x - 3, 0, .5, 18, () => { G.L.fall(id, .05); G.L.sfx('crack'); }); G.pit(x, w); G.x += w;
+});
+// --- ceilings
+kind('crusher', 'ceiling', .05, 1, { ceil: true }, G => {
+  const x = G.x, id = G.id(); G.F(x, 5); G.L.block(null, x, 0, 5, 2.5, { ceil: true });
+  G.L.block(id, x + 1.5, 2.5, 2, 2, { fallV: 150 }); G.L.spikes(null, x + 1.5, 4.5, 2, 'down', { parent: id });
+  G.L.trig(x - .7, 2.5, .5, 15, () => { G.L.fall(id, .3); G.L.sfx('rumble'); }); G.x += 5;
+});
+kind('spikeRain', 'ceiling', .15, 2, { ceil: true }, G => {
+  const x = G.x; G.F(x, 10); G.L.block(null, x, 0, 10, 2, { ceil: true });
+  [2, 5, 8].forEach((c, i) => { const id = G.id(); G.L.spikes(id, x + c, 2, 1 + (G.k > .6 && i === 1 ? 1 : 0), 'down'); G.L.trig(x + c - 2.2, 0, .5, 18, () => { G.L.fall(id, .1); G.L.sfx('crack'); }); });
+  G.x += 10;
+});
+kind('lowCeil', 'ceiling', .3, 2, { ceil: true }, G => {
+  const x = G.x; G.F(x, 7); G.L.block(null, x, 0, 7, G.t - 4.4, { ceil: true }); G.L.spikes(null, x, G.t - 4.4, 7, 'down');
+  G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.x += 7;
+});
+kind('closingCeiling', 'ceiling', .3, 3, { ceil: true }, G => {
+  // a spiked ceiling starts to come down as you walk in: run through before it closes
+  const x = G.x, id = G.id(); G.F(x, 6); G.L.block(null, x, 0, 6, 1, { ceil: true });
+  G.L.block(id, x + 1, 1, 4, G.t - 6, { ceil: true }); G.L.spikes(null, x + 1, G.t - 5, 4, 'down', { parent: id });
+  G.L.trig(x - .5, 0, .5, 18, () => { G.L.move(id, 0, 3.9, 2.4 + G.k * .6, .25); G.L.sfx('rumble'); G.L.shake(3); }); G.x += 6;
+});
+kind('tunnelSaw', 'saws', .3, 3, { wait: true, ceil: true }, G => {
+  const x = G.x; G.F(x, 9); G.L.block(null, x, 0, 9, G.t - 2.7, { ceil: true });
+  G.L.saw(G.id(), x + 2, G.t - .5, .45, { patrol: [[x + 1.2, G.t - .5], [x + 7.8, G.t - .5]], speed: 2.2 + G.k }); G.x += 9;
+});
+// --- saws
+kind('sawFloor', 'saws', 0, 1, {}, G => {
+  const w = 5 + Math.floor(G.r() * 2), x = G.x; G.F(x, w);
+  G.L.saw(G.id(), x + 1, G.t - .65, .6, { patrol: [[x + .8, G.t - .65], [x + w - .8, G.t - .65]], speed: 2.4 + G.k * 1.8 }); G.x += w;
+});
+kind('twinSaws', 'saws', .2, 2, { wait: true }, G => {
+  const x = G.x, sp = 2.4 + G.k * 1.5; G.F(x, 11);
+  G.L.saw(G.id(), x + 1.5, G.t - .65, .6, { patrol: [[x + 1, G.t - .65], [x + 5, G.t - .65]], speed: sp });
+  G.L.saw(G.id(), x + 9.5, G.t - .65, .6, { patrol: [[x + 10, G.t - .65], [x + 6, G.t - .65]], speed: sp }); G.x += 11;
+});
+kind('sawHead', 'saws', .2, 2, { wait: true }, G => {
+  const x = G.x; G.F(x, 8); G.L.spikes(null, x + 4, G.t - 1, 1, 'up');
+  G.L.saw(G.id(), x + 1, G.t - 2.4, .55, { patrol: [[x + 1, G.t - 2.4], [x + 7, G.t - 2.4]], speed: 2.4 + G.k }); G.x += 8;
+});
+kind('wheel', 'saws', .35, 3, { wait: true }, G => {
+  const x = G.x; G.F(x, 8);
+  G.L.saw(G.id(), x + 4, G.t - 3.6, .55, { orbit: { rad: 3, w: (1.5 + G.k) * (G.r() < .5 ? 1 : -1), ph: G.r() * 6.28 } }); G.x += 8;
+});
+kind('sawRail', 'saws', .15, 2, { wait: true }, G => {
+  const w = 3 + (G.k > .6 ? 1 : 0) + (G.dj ? 1 : 0), x = G.x; G.pit(x, w);
+  G.L.saw(G.id(), x + w / 2, 16.2, .55, { patrol: [[x + w / 2, 16.2], [x + w / 2, G.t - 4.4]], speed: 2.2 + G.k * 2 }); G.x += w;
+});
+kind('orbitPit', 'saws', .3, 2, { wait: true }, G => {
+  const x = G.x; G.pit(x, 7); G.L.block(null, x + 2.5, G.t - 1.5, 2, .6);
+  G.L.saw(G.id(), x + 3.5, G.t - 3.4, .5, { orbit: { rad: 2.1, w: (2 + G.k) * (G.r() < .5 ? 1 : -1), ph: G.r() * 6.28 } }); G.x += 7;
+});
+kind('plateauSaw', 'saws', .25, 2, { can: t => t - 2 >= TOP_MIN }, G => {
+  const x = G.x, top = G.t - 2; G.F(x, 1); G.F(x + 1, 8, top);
+  G.L.saw(G.id(), x + 2, top - .65, .6, { patrol: [[x + 1.8, top - .65], [x + 8.2, top - .65]], speed: 2.2 + G.k }); G.x += 9;
+});
+// --- spikes on the ground
+kind('spikeStrip', 'spikes', 0, 1, {}, G => { const n = 1 + (G.r() < .35 + G.k * .4 ? 1 : 0), x = G.x; G.F(x, n + 1); G.L.spikes(null, x, G.t - 1, n, 'up'); G.x += n + 1; });
+kind('doubleSpike', 'spikes', 0, 1, {}, G => {
+  const a = 1 + (G.r() < G.k ? 1 : 0), w = a * 2 + 3, x = G.x; G.F(x, w);
+  G.L.spikes(null, x + 1, G.t - 1, a, 'up'); G.L.spikes(null, x + 2 + a, G.t - 1, a, 'up'); G.x += w;
+});
+kind('risingWave', 'spikes', .25, 2, {}, G => {
+  // spikes burst out of the ground one after another right behind you
+  const x = G.x, ids = []; G.F(x, 10); G.L.spikes(null, x + 5, G.t - 1, 1, 'up');
+  for (let i = 0; i < 9; i++) { if (i === 5) continue; const id = G.id(); ids.push([i, id]); G.L.spikes(id, x + i, G.t - 1, 1, 'up', { hidden: true }); }
+  G.L.trig(x + .3, G.t - 2, .5, 2, () => { G.L.sfx('rumble'); ids.forEach(([i, id]) => G.L.at(.32 + i * .12, () => G.L.pop(id))); }, { ground: true });
+  G.x += 10;
+});
+// --- invisible traps
+kind('hiddenPop', 'hidden', 0, 1, {}, G => {
+  const n = 1 + (G.r() < .5 ? 1 : 0), x = G.x, id = G.id(); G.F(x, n + 2);
+  G.L.spikes(id, x + 1, G.t - 1, n, 'up', { hidden: true }); G.L.trig(x - .5, G.t - 1.5, .5, 1.5, () => G.L.pop(id), { ground: true }); G.x += n + 2;
+});
+kind('bumpBlock', 'hidden', .2, 2, {}, G => {
+  const x = G.x, id = G.id(); G.F(x, 6); G.L.spikes(null, x + 3, G.t - 1, 1, 'up');
+  G.L.block(id, x + 2.5, G.t - 4.5, 2, 1, { hidden: true }); G.L.trig(x + 2, G.t - 3.5, 3, 1.2, () => G.L.pop(id), { rising: true }); G.x += 6;
+});
+kind('ghostFloor', 'hidden', .15, 1, {}, G => {
+  const w = 2 + Math.floor(G.r() * 2), x = G.x; G.pit(x, w); G.L.block(null, x, G.t, w, 18 - G.t, { ghost: true }); G.x += w;
+});
+kind('wallHidden', 'hidden', .1, 1, {}, G => {
+  const x = G.x; G.F(x, 5); G.L.block(null, x + 1.5, G.t - 2, 2, 2);
+  if (G.k > .3) { const id = G.id(); G.L.spikes(id, x + 2, G.t - 3, 1, 'up', { hidden: true }); G.L.trig(x + 1.5, G.t - 3.5, 2, 1.5, () => G.L.pop(id), { ground: true }); }
+  G.x += 5;
+});
+// --- steps, towers, valleys
+kind('stepUpSpike', 'steps', 0, 1, { can: t => t - 2 >= TOP_MIN }, G => { const x = G.x; G.F(x, 1); G.L.spikes(null, x, G.t - 1, 1, 'up'); G.x += 1; G.t -= 2; });
+kind('stairsUp', 'steps', 0, 1, { can: t => t - 3 >= TOP_MIN }, G => {
+  const x = G.x; G.F(x, 2, G.t - 1); G.F(x + 2, 2, G.t - 2); if (G.k > .3) G.L.spikes(null, x + 3, G.t - 3, 1, 'up'); G.x += 4; G.t -= 3;
+});
+kind('stairsDown', 'steps', 0, 1, { can: t => t + 2 <= TOP_MAX }, G => {
+  const x = G.x; G.F(x, 2, G.t + 1); G.F(x + 2, 2, G.t + 2); if (G.k > .25) G.L.spikes(null, x + 2, G.t + 1, 1, 'up'); G.x += 4; G.t += 2;
+});
+kind('pillarHop', 'steps', 0, 2, {}, G => {
+  const n = 2 + (G.r() < .3 + G.k * .5 ? 1 : 0), w = n * 3 + 2, x = G.x;
+  for (let i = 0; i <= n; i++) G.pit(x + i * 3, 2);
+  for (let i = 0; i < n; i++) { const top = G.t - 1 - (i % 2); G.L.block(null, x + 2 + i * 3, top, 1, 18 - top); }
+  G.x += w;
+});
+kind('towerClimb', 'steps', .3, 2, {}, G => {
+  const x = G.x; G.F(x, 10); G.L.block(null, x + 1, G.t - 2.2, 2, .6); G.L.block(null, x + 3.5, G.t - 4.2, 2, .6);
+  G.L.block(null, x + 6, G.t - 5.5, 2, 5.5); G.x += 10;
+});
+kind('valleySpikes', 'steps', .1, 1, { can: t => t + 2 <= TOP_MAX }, G => {
+  const x = G.x; G.F(x, 6, G.t + 2); G.L.spikes(null, x + 2, G.t + 1, 2, 'up'); G.x += 6;
+});
+kind('wallSpring', 'springs', .05, 1, { launch: true }, G => {
+  const x = G.x; G.F(x, 7); G.L.spring(null, x + .8, G.t - 1); G.L.block(null, x + 3.6, G.t - 6, 2, 6); G.x += 7;
+});
+// --- slippery and moving floors (unlocked by their own levels)
+kind('iceSpikes', 'ice', .5, 2, { need: 'ice' }, G => { const x = G.x; G.L.block(null, x, G.t, 6, 18 - G.t, { ice: true }); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.x += 6; });
+kind('iceTakeoff', 'ice', .5, 2, { need: 'ice' }, G => { const x = G.x; G.L.block(null, x, G.t, 6, 18 - G.t, { ice: true }); G.pit(x + 6, 3 + (G.dj ? 1 : 0)); G.x += 9 + (G.dj ? 1 : 0); });
+kind('conveyorSpikes', 'conveyor', .5, 2, { need: 'conv' }, G => {
+  const x = G.x; G.L.block(null, x, G.t, 6, 18 - G.t, { conv: -(2.5 + G.k * 1.5) }); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.x += 6;
+});
+kind('conveyorTakeoff', 'conveyor', .5, 2, { need: 'conv' }, G => {
+  const x = G.x; G.L.block(null, x, G.t, 5, 18 - G.t, { conv: -(2 + G.k) }); G.pit(x + 5, 3); G.x += 8;
+});
+// --- lasers (hidden realm only)
+kind('laserGate', 'lasers', 0, 2, { need: 'laser', wait: true }, G => {
+  const x = G.x; G.F(x, 4); G.L.laser(G.id(), x + 2, G.t - 6.5, 6.5, 'v', { on: .9 + G.k * .3, off: 1.5 - G.k * .3, ph: G.r() * 2 }); G.x += 4;
+});
+kind('laserHurdle', 'lasers', 0, 2, { need: 'laser', wait: true }, G => {
+  const x = G.x; G.F(x, 7); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.laser(G.id(), x + .5, G.t - 1.6, 6, 'h', { on: 1, off: 1.4, ph: G.r() * 2 }); G.x += 7;
+});
+kind('laserTwin', 'lasers', 0, 3, { need: 'laser', wait: true }, G => {
+  const x = G.x, ph = G.r() * 2; G.pit(x, 6);
+  // the second beam goes off a moment after the first: cross on the 'green wave'
+  G.L.laser(G.id(), x + 2, G.t - 6, 6, 'v', { on: .7, off: 1.3, ph }); G.L.laser(G.id(), x + 4, G.t - 6, 6, 'v', { on: .7, off: 1.3, ph: ph - .35 }); G.x += 6;
+});
+
+/* ---------- per-level flavour (which families a level leans on), by position in LEVELS ---------- */
+const FLAVOR = {
+  0: ['falling', 'pits'], 2: ['hidden', 'spikes'], 3: ['steps', 'hidden'], 5: ['ceiling', 'pits'], 6: ['falling', 'saws'], 7: ['springs', 'steps'],
+  8: ['pits', 'spikes'], 10: ['gravity', 'pits'], 11: ['saws', 'steps'], 12: ['hidden', 'falling'], 13: ['pits', 'spikes'], 15: ['ceiling', 'falling'],
+  16: ['movers', 'pits'], 17: ['hidden', 'steps'], 18: ['saws', 'ceiling'], 20: ['steps', 'hidden'], 21: ['saws', 'movers'], 22: ['gravity', 'hidden'],
+  23: ['falling', 'pits'], 25: ['springs', 'hidden'], 26: ['movers', 'saws'], 27: ['springs', 'pits'], 28: ['spikes', 'pits'], 30: ['ice', 'pits'],
+  31: ['conveyor', 'saws'], 32: ['ceiling', 'falling'], 33: ['saws', 'movers'], 35: ['movers', 'falling'], 36: ['springs', 'hidden'], 37: ['falling', 'steps'],
+  38: ['hidden', 'saws'],
+};
+const CHASE_LV = { 8: 3.7, 28: 3.5 }, REV_LV = { 13: 1, 28: 1 };
+
+/* ---------- colour schemes: every level looks different ---------- */
+const BIOMES = {
+  dusk:    { n: 'غروب بنفش', sky: '#3a1c5e', block: '#2f2858', moss: '#4fd8a8' },
+  forest:  { n: 'جنگل شب', sky: '#1d4a3c', block: '#2a4426', moss: '#9be05a' },
+  desert:  { n: 'بیابان', sky: '#7a3a22', block: '#5a3a24', moss: '#ffc46a' },
+  ice:     { n: 'یخچال', sky: '#1d4677', block: '#2c4a70', moss: '#c8f4ff' },
+  volcano: { n: 'آتشفشان', sky: '#5c1616', block: '#3e1c1c', moss: '#ff8a3d' },
+  toxic:   { n: 'مرداب سمی', sky: '#284a16', block: '#26321e', moss: '#c6ff3a' },
+  ocean:   { n: 'اعماق', sky: '#0b3c6c', block: '#16385a', moss: '#3cf0e0' },
+  candy:   { n: 'آب‌نبات', sky: '#7a3a9a', block: '#5c3480', moss: '#ff9ae0' },
+  gold:    { n: 'طلایی', sky: '#5a4012', block: '#3c3020', moss: '#ffd36e' },
+  storm:   { n: 'طوفان', sky: '#2c3346', block: '#2a2f3e', moss: '#a8c4e6' },
+  crimson: { n: 'شب سرخ', sky: '#4e1030', block: '#3a1832', moss: '#ff6f9a' },
+  aurora:  { n: 'شفق', sky: '#0f3040', block: '#1c2c44', moss: '#7af7c8' },
+};
+const BIOME_ORDER = ['dusk', 'forest', 'desert', 'ice', 'crimson', 'toxic', 'ocean', 'gold', 'volcano', 'aurora', 'candy', 'storm'];
+
+/* ---------- generation ---------- */
+function mkG(P, r, t0, dj) {
+  return {
+    L: P, r, k: 0, dj, x: 0, t: t0, n: 0, fl: [],
+    id() { return 'k' + this.n++; },
+    ri(a, b) { return a + Math.floor(this.r() * (b - a + 1)); },
+    F(x, w, top = this.t) { if (w > 0) this.fl.push([x, x + w, top]); },
+    pit(x, w) { if (w > 0) this.L.spikes(null, x, 17, w, 'up'); },
+    flush() {
+      // plain floor pieces of the same height that touch are merged into long blocks
+      this.fl.sort((a, b) => a[0] - b[0]); const m = [];
+      for (const f of this.fl) { const l = m[m.length - 1]; if (l && l[2] === f[2] && f[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], f[1]); else m.push(f.slice()); }
+      for (const [a, b, top] of m) this.L.block(null, a, top, b - a, 18 - top);
+    },
+  };
 }
-// attach rooms: 8 rooms on the first level growing to 18 on the last platformer levels; hidden realm 12 each.
-// k (difficulty of a room) grows with the level and with the position of the room inside the level.
-const roomCount = idx => 8 + Math.round(idx * 10 / 38);
+const NOP = new Proxy({}, { get: () => () => null });
+// lays out one chunk; called once with a dummy builder (to measure it) and then every time the level is built
+function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
+  const last = ci === nChunks - 1;
+  return P => {
+    const r = srand(seed * 9973 + 7), G = mkG(P, r, t0, opt.dj);
+    G.F(0, 3); G.x = 3;
+    keys.forEach((key, i) => {
+      const kd = KINDS[key], pos = (ci * CHUNK + i) / Math.max(1, opt.n - 1);
+      G.k = clamp(opt.k0 * .85 + pos * .3, 0, 1);
+      // bring the floor to a height this obstacle can be built at
+      for (let g = 0; g < 4 && kd.can && !kd.can(G.t); g++) { G.F(G.x, 2); G.x += 2; G.t = clamp(G.t < 12.5 ? G.t + 2 : G.t - 2, TOP_MIN, TOP_MAX); }
+      const pad = 1 + (r() < .35 ? 1 : 0) + (opt.k0 < .15 ? 1 : 0) + (i > 0 && KINDS[keys[i - 1]].launch ? 2 : 0);
+      G.F(G.x, pad); G.x += pad;
+      kd.build(G);
+    });
+    G.F(G.x, 2); G.x += 2;
+    if (last && G.t !== TOP_MAX) { G.t = TOP_MAX; G.F(G.x, 3); G.x += 3; }
+    G.flush();
+    const w = G.x;
+    if (opt.chase) {
+      // a spiked wall wakes up behind you at the start of the chunk and chases you to its end
+      P.block('cw', -7, 0, 6, 15, { hidden: true }); P.spikes('cws', -1, 0, 15, 'right', { parent: 'cw', hidden: true });
+      P.trig(3.5, 0, .5, 18, () => { P.pop('cw'); P.pop('cws'); P.move('cw', w + 2, 0, opt.chase + G.k * .6, .5); P.sfx('rumble'); P.shake(6); P.say('فرار کن!'); });
+    }
+    if (opt.rev && ci % 2 === 1) {
+      P.trig(3.5, 0, .5, 18, () => { P.reverse(true); P.say('کنترل‌ها برعکس شد!'); });
+      P.trig(w - 1.2, 0, .5, 18, () => P.reverse(false));
+    }
+    return { w, tEnd: G.t };
+  };
+}
+function makeChunk(keys, seed, t0, opt, ci, nChunks) {
+  const lay = chunkLayout(keys, seed, t0, opt, ci, nChunks), m = lay(NOP);
+  return { gen: true, keys, seed, t0, w: m.w, tEnd: m.tEnd, spawn: [1, t0 - 1], build: P => { lay(P); } };
+}
+function pickKinds(opt, r) {
+  const ok = kd => kd.lvl <= opt.k0 + .12 && (!kd.need || opt[kd.need]) && !(opt.chase && kd.wait);
+  const avail = Object.values(KINDS).filter(ok);
+  // designs used by the previous level are strongly avoided, so neighbouring levels feel different
+  const wOf = kd => (opt.pri[0] === kd.fam ? 3.4 : opt.pri.includes(kd.fam) ? 2.4 : 1) * (.6 + r() * .8) * (opt.prev && opt.prev.has(kd.key) ? .22 : 1);
+  const pool = avail.map(kd => ({ kd, w: wOf(kd), s: r() * 1.7 })), out = [];
+  // each level uses about 70% of the designs it may use, so neighbouring levels draw different sets
+  const n = Math.min(Math.round(pool.length * .72), opt.n);
+  while (out.length < n) {
+    let tot = 0; for (const q of pool) tot += q.w;
+    let x = r() * tot, j = 0; while (j < pool.length - 1 && (x -= pool[j].w) > 0) j++;
+    out.push(pool.splice(j, 1)[0]);
+  }
+  // easier designs first; then avoid two of the same family in a row and a ceiling right after a launch
+  out.sort((a, b) => (a.kd.df + a.s) - (b.kd.df + b.s));
+  const bad = (a, b) => a.kd.fam === b.kd.fam || (a.kd.launch && b.kd.ceil);
+  // the level opens with one of its own signature traps
+  const sig = out.findIndex(q => q.kd.fam === opt.pri[0] && q.kd.df <= 2);
+  if (sig > 0) out.unshift(out.splice(sig, 1)[0]);
+  for (let pass = 0; pass < 3; pass++) for (let i = 1; i < out.length; i++) if (bad(out[i - 1], out[i])) {
+    for (let j = i + 1; j < out.length; j++) if (!bad(out[i - 1], out[j]) && (i + 1 >= out.length || !bad(out[j], out[i + 1]))) { [out[i], out[j]] = [out[j], out[i]]; break; }
+  }
+  return out.map(q => q.kd.key);
+}
+function buildCourse(def, opt) {
+  const r = srand(opt.seed * 7919 + 13), keys = pickKinds(opt, r);
+  opt.n = keys.length;
+  const groups = []; for (let i = 0; i < keys.length; i += CHUNK) groups.push(keys.slice(i, i + CHUNK));
+  const secs = []; let t = TOP_MAX;
+  groups.forEach((ks, ci) => {
+    const fk = opt.key + ':' + ci, seed = CHUNK_FIX[fk] ?? (opt.seed * 100 + ci);
+    const c = makeChunk(ks, seed, t, opt, ci, groups.length); secs.push(c); t = c.tEnd;
+  });
+  // the hand-made screen closes the level
+  secs.push({ hand: true, w: 32, t0: TOP_MAX, spawn: def.spawn, build: def.build });
+  def.secs = secs; def.nObs = keys.length; def.course = opt;
+  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
+  def.remakeChunk = (ci, seed) => { const c = def.secs[ci]; def.secs[ci] = makeChunk(c.keys, seed, c.t0, opt, ci, groups.length); def.relayout(); };
+  def.relayout();
+}
+let prevKeys = null;
 LEVELS.forEach((def, idx) => {
   if (def.kind === '3d') return;
-  const th = ROOM_THEMES[idx]; if (!th) return;
-  const n = roomCount(idx), k0 = idx / 39, pool = poolFor(k0);
-  def.rooms = [def];
-  for (let room = 1; room < n; room++) {
-    const key = idx + ':' + room, seed = ROOM_SEED_FIX[key] ?? (idx * 100 + room);
-    def.rooms.push(genRoom(th, seed, clamp(k0 + room / n * .35, 0, 1), {}, pool));
-  }
+  const k0 = idx / 39;
+  buildCourse(def, { prev: prevKeys,
+    key: 'L' + idx, seed: idx + 1, k0, n: Math.round(18 + idx * .9), pri: FLAVOR[idx] || ['pits', 'spikes'],
+    grav: idx >= 10, ice: idx >= 30, conv: idx >= 31, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx],
+  });
+  prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
+  def.biome = def.biome || BIOME_ORDER[LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length % BIOME_ORDER.length];
 });
 REALM.forEach((def, ri) => {
-  def.rooms = [def];
-  const n = 12, pool = poolFor(1);
-  for (let room = 1; room < n; room++) {
-    const key = 'r' + ri + ':' + room, seed = ROOM_SEED_FIX[key] ?? (5000 + ri * 100 + room);
-    def.rooms.push(genRoom(REALM_THEME, seed, clamp(.72 + ri * .08 + room / n * .2, 0, 1), { dark: ri === 2 && room >= n - 3 }, pool));
-  }
+  buildCourse(def, {
+    key: 'R' + ri, seed: 500 + ri, k0: .82 + ri * .06, n: 40 + ri * 5, pri: [['lasers', 'movers'], ['lasers', 'saws'], ['lasers', 'gravity']][ri],
+    grav: true, ice: true, conv: true, laser: true, dj: true, chase: 0, rev: false,
+  });
 });
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
-  constructor(def, world) {
+  constructor(def, world, only) {
     this.def = def; this.w = world; this.d = world.d; this.D = world.D; this.uid = ++levelUid;
-    this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0;
-    def.build(this);
+    this.ents = []; this.byId = {}; this.trigs = []; this.timers = []; this.t = 0; this.flags = [];
+    if (def.secs) {
+      // long scrolling level: sections placed one after another (each with its own x offset and id prefix)
+      def.secs.forEach((sec, i) => {
+        if (only && !only.includes(i)) return;
+        const P = secBuilder(this, sec, i, i === def.secs.length - 1);
+        sec.build(P); P.done();
+        if (i > 0) this.flags.push(this.add('flag' + i, { type: 'flag', i, x: (sec.x0 + .45) * T, y: (sec.t0 - 2.6) * T, w: 14, h: 2.6 * T, on: false, wave: 0 }));
+      });
+      this.width = def.width * T;
+    } else { def.build(this); this.width = W; }
     for (const e of this.ents) if (e.parent) { const p = this.byId[e.parent]; e.par = p; e.offx = e.x - p.x; e.offy = e.y - p.y; }
   }
   add(id, e) {
@@ -1211,13 +1415,53 @@ class Level {
   sfx(n) { this.w.sfx(n); }
   say(t) { this.w.say(t); }
 }
+/* Builder handed to one section of a long level: same API as Level, but every x is shifted by the section's
+   start column and every id gets a section prefix, so hand-made screens and generated chunks can be chained.
+   Timers started while building (L.at) wait until the player reaches the section. Only the last section keeps its door. */
+function secBuilder(L, sec, si, last) {
+  const ox = sec.x0, pre = 's' + si + '.';
+  const pid = id => typeof id === 'string' ? pre + id : id;
+  const fixO = o => {
+    if (!o) return o; const c = Object.assign({}, o);
+    if (c.patrol) c.patrol = c.patrol.map(([x, y]) => [x + ox, y]);
+    if (c.parent) c.parent = pid(c.parent); if (c.fake) c.fake = pid(c.fake);
+    return c;
+  };
+  let building = true; const pend = [];
+  const P = {
+    d: L.d, D: L.D, w: L.w, sec,
+    add(id, e) { e.x += ox * T; if (e.fake) e.fake = pid(e.fake); return L.add(pid(id), e); },
+    block: (id, x, y, w, h, o) => L.block(pid(id), x + ox, y, w, h, fixO(o)),
+    spikes: (id, x, y, n, dir, o) => L.spikes(pid(id), x + ox, y, n, dir, fixO(o)),
+    door: (x, y, o) => last ? L.add(pid('door'), Object.assign({ type: 'door', x: (x + ox) * T, y: y * T, w: 1.4 * T, h: 2 * T }, fixO(o))) : null,
+    saw: (id, cx, cy, r, o) => L.saw(pid(id), cx + ox, cy, r, fixO(o)),
+    laser: (id, x, y, len, dir, o) => L.laser(pid(id), x + ox, y, len, dir, o),
+    portal: (id, x, y, o) => L.portal(pid(id), x + ox, y, o),
+    openPortal: (id, delay = 0) => delay > 0 ? P.at(delay, () => L.openPortal(pid(id))) : L.openPortal(pid(id)),
+    spring: (id, x, y, o) => L.spring(pid(id), x + ox, y, fixO(o)),
+    orb: (id, cx, cy) => L.orb(pid(id), cx + ox, cy),
+    trig: (x, y, w, h, fn, o) => L.trig(x + ox, y, w, h, () => fn(P, L.w), o),
+    e: id => L.e(pid(id)),
+    move: (id, dx, dy, sp, delay) => L.move(pid(id), dx, dy, sp, delay),
+    fall: (id, delay) => L.fall(pid(id), delay),
+    pop: (id, delay) => L.pop(pid(id), delay),
+    after: (t, fn) => L.after(t, fn),
+    at: (t, fn) => { if (building) pend.push([t, fn]); else L.at(t, fn); },
+    reverse: on => L.reverse(on), shake: a => L.shake(a), sfx: n => L.sfx(n), say: t => L.say(t),
+    done() {
+      building = false;
+      if (pend.length) L.trig(ox - 1, -4, sec.spawn[0] + 2, 26, () => pend.forEach(([t, fn]) => L.at(t, fn)));
+    },
+  };
+  return P;
+}
 
 /* ============================ WORLD / PHYSICS ============================ */
 class World {
   constructor(idx, opt = {}) {
     this.idx = typeof idx === 'number' ? idx : -1; this.def = typeof idx === 'number' ? LEVELS[idx] : idx; this.silent = !!opt.silent;
     this.dj = !!this.def.dj; this.winKind = 'door';
-    this.rooms = this.def.rooms || [this.def]; this.room = clamp(opt.room || 0, 0, this.rooms.length - 1);
+    this.secs = this.def.secs || null; this.ck = this.secs ? clamp(opt.ck || 0, 0, this.secs.length - 1) : 0; this.only = opt.only || null;
     this.d = clamp(opt.diff ?? 1, 0, DIFFS.length - 1); this.D = DIFFS[this.d];
     this.parts = []; this.shakeA = 0; this.flash = 0; this.time = 0; this.lightning = 0; this.lightT = 3;
     this.respawn(true);
@@ -1225,11 +1469,14 @@ class World {
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
     this.rev = false;
-    this.rdef = this.rooms[this.room]; this.dark = !!(this.rdef.dark ?? this.def.dark);
-    this.lv = new Level(this.rdef, this);
-    const [sx, sy] = this.rdef.spawn;
+    this.dark = !!this.def.dark;
+    this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
+    const sec = this.secs ? this.secs[this.ck] : null;
+    const [sx, sy] = sec ? [sec.x0 + sec.spawn[0], sec.spawn[1]] : this.def.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
       jumpHeld: true, jumping: false, sx: 1, sy: 1, runPhase: 0, dustT: 0, winS: 1, rot: 0, blink: 2, landV: 0, air2: false };
+    for (const f of this.lv.flags) f.on = f.i <= this.ck;
+    this.look = 0; this.camX = this.camTarget(); this.act = this.lv.ents; this.actX = -1e9;
     this.state = 'play';
     if (!first) { this.burst(this.p.x + PW / 2, this.p.y + PHT / 2, 18, { col: '#fff1c9', sp: 220, life: .45, add: true, size: 3, inward: true }); this.sfx('spawn'); }
   }
@@ -1237,10 +1484,20 @@ class World {
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
   isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost; }
-  solids() { return this.lv.ents.filter(e => this.isSolid(e)); }
+  solids() { return this.act.filter(e => this.isSolid(e)); }
+  // camera: keeps the player a bit left of centre, looking ahead in the running direction
+  camTarget() { return clamp(this.p.x + PW / 2 - W * .42 + this.look, 0, Math.max(0, this.lw - W)); }
+  // long levels: only entities within ~1.3 screens of the player are simulated (far ones wait, frozen)
+  updAct() {
+    const px = this.p.x;
+    if (this.lw <= W + 1 || Math.abs(px - this.actX) < 40) return;
+    this.actX = px; const a = px - 1700, b = px + 1900;
+    this.act = this.lv.ents.filter(e => !e.gone && e.x + (e.w || 0) + (e.r || 0) + (e.orbit ? e.orbit.rad * T : 0) > a && e.x - (e.r || 0) - (e.orbit ? e.orbit.rad * T : 0) < b || e.moves.length > 0 && !e.gone);
+  }
 
   step(dt, inp) {
     this.time += dt;
+    this.updAct();
     if (this.state === 'play') {
       const lv = this.lv; lv.t += dt;
       for (let i = lv.timers.length - 1; i >= 0; i--) { const tm = lv.timers[i]; tm.t -= dt; if (tm.t <= 0) { lv.timers.splice(i, 1); tm.fn(); } }
@@ -1248,6 +1505,7 @@ class World {
       if (this.state === 'play') this.updatePlayer(dt, inp);
       if (this.state === 'play') this.checkTriggers();
       if (this.state === 'play') this.checkHazards(dt);
+      if (this.state === 'play' && this.lv.flags.length) this.checkFlags();
     } else if (this.state === 'dead') {
       this.updateEntities(dt, true);
       this.deadT -= dt; if (this.deadT <= 0) this.respawn(false);
@@ -1266,6 +1524,8 @@ class World {
       q.vx *= (1 - q.drag * dt); q.vy = q.vy * (1 - q.drag * dt) + q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt;
     }
     if (this.silent) this.parts.length = 0;
+    if (this.state !== 'dead') { this.look = lerp(this.look, this.p.face * 70, Math.min(1, dt * 1.6)); this.camX = lerp(this.camX, this.camTarget(), Math.min(1, dt * 7)); }
+    for (const f of this.lv.flags) if (f.wave > 0) f.wave = Math.max(0, f.wave - dt);
     this.shakeA = Math.max(0, this.shakeA - dt * 40);
     this.flash = Math.max(0, this.flash - dt * 2.5);
     if (this.dark) { this.lightT -= dt; if (this.lightT <= 0) { this.lightning = 1; this.lightT = rand(2.6, 4.2); this.sfx('thunder'); } this.lightning = Math.max(0, this.lightning - dt * 3.2); }
@@ -1285,7 +1545,7 @@ class World {
       if (e.fallDelay > 0) { e.fallDelay -= dt; e.shake = 1; return; }
       e.shake = 0; e.vy = Math.min(e.vy + PH.g * dt, 1500); e.y += e.vy * dt;
       if (e.type === 'block') {
-        for (const s of this.lv.ents) {
+        for (const s of this.act) {
           if (s !== e && this.isSolid(s) && !s.falling && hit(e, s)) {
             e.y = s.y - e.h; e.falling = false; e.vy = 0; e.landed = true;
             this.shake(10); this.sfx('thud');
@@ -1295,7 +1555,7 @@ class World {
         }
       }
       if (e.type === 'spike') {
-        for (const s of this.lv.ents) {
+        for (const s of this.act) {
           if (this.isSolid(s) && !s.falling && hit(e, s) && !(e.dir === 'down' && s.y + s.h <= e.y + 2)) {
             e.gone = true; this.sfx('crack'); this.shake(3);
             this.burst(e.x + e.w / 2, s.y, 16, { col: '#cfd3ef', sp: 220, life: .5, size: 2.5, g: 700, up: true, sq: true, spreadX: e.w / 2 });
@@ -1320,7 +1580,7 @@ class World {
   }
 
   updateEntities(dt, noPlayer) {
-    const p = this.p, ents = this.lv.ents;
+    const p = this.p, ents = this.act;
     for (const e of ents) { if (e.gone || e.par) continue; const ox = e.x, oy = e.y; this.updEnt(e, dt); e.dx = e.x - ox; e.dy = e.y - oy; }
     for (const e of ents) {
       if (!e.par || e.gone) continue;
@@ -1380,7 +1640,7 @@ class World {
     if (p.onGround && p.ground && p.ground.conv) p.x += p.ground.conv * T * dt;
     p.x += p.vx * dt;
     for (const s of sol) if (hit(p, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
-    if (p.x < 0) { p.x = 0; p.vx = 0; } if (p.x > W - PW) { p.x = W - PW; p.vx = 0; }
+    if (p.x < 0) { p.x = 0; p.vx = 0; } if (p.x > this.lw - PW) { p.x = this.lw - PW; p.vx = 0; }
     // Y
     const was = p.onGround, vyBefore = p.vy;
     p.onGround = false; p.ground = null;
@@ -1424,9 +1684,16 @@ class World {
     }
   }
 
+  checkFlags() {
+    const p = this.p, cx = p.x + PW / 2;
+    for (const f of this.lv.flags) if (!f.on && cx >= f.x) {
+      f.on = true; f.wave = .8;
+      if (f.i > this.ck) { this.ck = f.i; this.sfx('gem'); this.burst(f.x + 8, f.y + 14, 24, { col: '#9ef9dc', sp: 240, life: .6, add: true, size: 3 }); if (this.onCheckpoint) this.onCheckpoint(f.i); }
+    }
+  }
   checkHazards(dt) {
     const p = this.p;
-    for (const e of this.lv.ents) {
+    for (const e of this.act) {
       if (e.gone || e.hidden) continue;
       if (e.type === 'spike') { if (e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die('spike'); }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
@@ -1457,9 +1724,9 @@ class World {
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   save() {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
     const lv = this.lv, ents = lv.ents;
-    return {
+    return { ck: this.ck, camX: this.camX, look: this.look,
       ents: ents.map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
       p: Object.assign({}, this.p, { ground: ents.indexOf(this.p.ground) }),
       trigs: lv.trigs.slice(), fired: lv.trigs.map(t => t.fired),
@@ -1468,8 +1735,9 @@ class World {
     };
   }
   load(sn) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
     const lv = this.lv, ents = lv.ents;
+    this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
     ents.forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });
     this.p = Object.assign({}, sn.p, { ground: sn.p.ground >= 0 ? ents[sn.p.ground] : null });
     lv.trigs = sn.trigs.slice(); lv.trigs.forEach((t, i) => t.fired = sn.fired[i]);
@@ -1504,10 +1772,8 @@ class World {
     this.shake(16); this.sfx('die');
     if (this.onDeath) this.onDeath(cause);
   }
-  nextRoom() { if (this.room < this.rooms.length - 1) { this.room++; this.respawn(true); } }
   win(door, kind = 'door') {
     if (this.state !== 'play') return;
-    if (kind === 'door' && this.room < this.rooms.length - 1) kind = 'room';
     this.state = 'win'; this.winT = 0; this.winDoor = door; this.winFired = false; this.winKind = kind;
     this.sfx('win'); this.burst(door.x + door.w / 2, door.y + door.h / 2, 40, { col: '#ffe08a', sp: 320, life: .9, add: true, size: 3 });
   }
@@ -1702,6 +1968,7 @@ function buildTextures(ctx) {
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d', { alpha: false });
 let cw = 0, ch = 0, dpr = 1, S = 1, OX = 0, OY = 0, EXT = { l: 0, r: 0, t: 0, b: 0 };
+let CAMX = 0, LW = W; // camera left edge and level width (world px) of the level being drawn
 const BG = {};
 const motes = Array.from({ length: 60 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
 const glowK = () => GFX.glow * (CFG.glow / 100) * (Perf.fxDrop ? .6 : 1);
@@ -1729,6 +1996,7 @@ function layoutTouch() {
 }
 function buildBackground() {
   const R = srand(11), sk = PAL.skyCol;
+  STT.tiles.clear();
   // sky
   const sky = mkC(cw, ch), g = sky.getContext('2d');
   let gr = g.createLinearGradient(0, 0, 0, ch);
@@ -1742,29 +2010,26 @@ function buildBackground() {
   gr = g.createRadialGradient(mx - mr * .3, my - mr * .3, mr * .1, mx, my, mr); gr.addColorStop(0, '#fff6e6'); gr.addColorStop(1, '#ffc9a0');
   g.fillStyle = gr; g.beginPath(); g.arc(mx, my, mr, 0, 7); g.fill();
   g.fillStyle = 'rgba(200,120,110,.25)'; [[.3, -.2, .18], [-.35, .25, .12], [.1, .4, .1]].forEach(([a, b, r]) => { g.beginPath(); g.arc(mx + a * mr, my + b * mr, r * mr, 0, 7); g.fill(); });
-  // mountain layers
+  // mountain ranges: seamless strips that wrap around, so they can scroll forever with the camera (parallax)
+  const P = Math.ceil(cw + 240 * dpr);
   const layer = (col, base, amp, rough, seed, fog) => {
-    const c = mkC(cw + 240 * dpr, ch), q = c.getContext('2d'), r = srand(seed);
+    const c = mkC(P, ch), q = c.getContext('2d'), r = srand(seed), n = Math.ceil(P / (18 * dpr)), ys = [];
+    let y = base;
+    for (let i = 0; i <= n; i++) { y += (r() - .5) * rough * dpr; y = clamp(y, base - amp, base + amp * .4); ys.push(y); }
+    const d = ys[n] - ys[0]; for (let i = 0; i <= n; i++) ys[i] -= d * i / n;
     q.fillStyle = sk(col); q.beginPath(); q.moveTo(0, ch);
-    let y = base; const stepX = 18 * dpr;
-    for (let x = 0; x <= c.width + stepX; x += stepX) { y += (r() - .5) * rough * dpr; y = clamp(y, base - amp, base + amp * .4); q.lineTo(x, OY + y * S); }
-    q.lineTo(c.width, ch); q.closePath(); q.fill();
+    for (let i = 0; i <= n; i++) q.lineTo(i * P / n, OY + ys[i] * S);
+    q.lineTo(P, ch); q.closePath(); q.fill();
     if (fog) { const fg = q.createLinearGradient(0, OY + (base - amp) * S, 0, ch); fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, fog); q.globalCompositeOperation = 'source-atop'; q.fillStyle = fg; q.fillRect(0, 0, c.width, ch); }
     return c;
   };
   const far = layer('#33205a', 420, 170, 60, 3, rgbaHex(sk('#a04678'), .55));
   const mid = layer('#211541', 520, 120, 46, 5, rgbaHex(sk('#6e285a'), .5));
   const near = layer('#140d2c', 610, 70, 34, 9, rgbaHex(sk('#280f32'), .6));
-  // flattened picture (one blit per frame); separate layers kept only for the 2.5D parallax view
-  const sc = BG.scene = mkC(cw, ch), sg = sc.getContext('2d', { alpha: false });
-  sg.drawImage(sky, 0, 0);
-  for (const l of [far, mid, near]) sg.drawImage(l, -120 * dpr, 0);
-  if (needLayers()) {
-    // 2.5D parallax: one opaque back picture (sky + far range) and two thin strips cropped to where the nearer ranges are
-    const back = mkC(cw, ch), bg2 = back.getContext('2d', { alpha: false }); bg2.drawImage(sky, 0, 0); bg2.drawImage(far, -120 * dpr, 0);
-    const strip = (src, top) => { const y0 = Math.max(0, Math.floor(OY + top * S)), c = mkC(src.width, ch - y0); c.getContext('2d').drawImage(src, 0, -y0); c.y0 = y0; return c; };
-    BG.far = back; BG.mid = strip(mid, 520 - 125); BG.near = strip(near, 610 - 75);
-  } else BG.far = BG.mid = BG.near = null;
+  // one opaque back picture (sky + far range) and two thin strips cropped to where the nearer ranges are
+  const back = mkC(cw, ch), bg2 = back.getContext('2d', { alpha: false }); bg2.drawImage(sky, 0, 0); bg2.drawImage(far, -120 * dpr, 0);
+  const strip = (src, top) => { const y0 = Math.max(0, Math.floor(OY + top * S)), c = mkC(src.width, ch - y0); c.getContext('2d').drawImage(src, 0, -y0); c.y0 = y0; return c; };
+  BG.far = back; BG.mid = strip(mid, 520 - 125); BG.near = strip(near, 610 - 75);
   // hidden realm: neon void with a perspective grid
   { const rc = BG.realm = mkC(cw, ch), q = rc.getContext('2d', { alpha: false }), r2 = srand(23);
     const gg = q.createLinearGradient(0, 0, 0, ch); gg.addColorStop(0, '#03010c'); gg.addColorStop(.55, '#170636'); gg.addColorStop(1, '#3a0a52'); q.fillStyle = gg; q.fillRect(0, 0, cw, ch);
@@ -1776,13 +2041,21 @@ function buildBackground() {
     for (let k = 1; k < 14; k++) { const yy = hy + (ch - hy) * Math.pow(k / 13, 2.2); q.globalAlpha = .25 + k / 20; q.beginPath(); q.moveTo(0, yy); q.lineTo(cw, yy); q.stroke(); }
     q.globalAlpha = 1; }
   BG.dark = mkC(Math.ceil(cw / 4), Math.ceil(ch / 4)); BG.darkG = BG.dark.getContext('2d');
-  BASE.key = ''; FRONT.key = '';
 }
-const needLayers = () => typeof app !== 'undefined' && app.view === 'p25';
+// sky + scrolling mountain strips; scroll = extra horizontal shift in device px (2.5D vanishing point)
+function drawBack(world, sx, sy, scroll = 0) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const dx = Math.round(sx * S), dy = Math.round(sy * S);
+  if (dx || dy) { ctx.fillStyle = '#07061c'; ctx.fillRect(0, 0, cw, ch); }
+  if (realmMode) { ctx.drawImage(BG.realm, dx - scroll * .04 - 4 * dpr, dy, cw + 8 * dpr, ch); return; }
+  ctx.drawImage(BG.far, dx, dy);
+  const strip = (c, k) => { const P = c.width, o = ((CAMX * S * k + scroll * k) % P + P) % P; ctx.drawImage(c, dx - o, c.y0 + dy); if (P - o < cw) ctx.drawImage(c, dx - o + P, c.y0 + dy); };
+  strip(BG.mid, .1); strip(BG.near, .2);
+}
 
-/* Static layer caches: every block/spike that is not moving is drawn once and redrawn only when that set changes.
-   BASE = sky + statics (classic 2D);  FRONT = transparent statics only (2.5D, drawn over the extruded depth faces). */
-const BASE = { c: null, g: null, key: '' }, FRONT = { c: null, g: null, key: '' };
+/* Static layer cache: blocks/spikes that are not moving are drawn once into tiles 640 world px wide. Only the
+   tiles on screen are drawn each frame; a tile is redrawn only when it scrolls into view or its statics change. */
+const STT = { tiles: new Map(), tw: 640, renders: 0 };
 let levelUid = 0;
 function isStaticEnt(e) {
   if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol || e.conv) return false;
@@ -1790,33 +2063,42 @@ function isStaticEnt(e) {
   if (e.type === 'spike') return e.pop >= 1;
   return false;
 }
-function baseKey(world) {
+function statKey(world, a, b) {
   let h = world.lv.uid * 7919 + (hints ? 3 : 0) + PAL.ver * 104729 + (realmMode ? 5 : 0);
   const ents = world.lv.ents;
-  for (let i = 0; i < ents.length; i++) if (isStaticEnt(ents[i])) h = (Math.imul(h, 31) + i * 97 + (ents[i].y | 0)) | 0;
+  for (let i = 0; i < ents.length; i++) { const e = ents[i]; if (e.x > b || e.x + e.w < a || !isStaticEnt(e)) continue; h = (Math.imul(h, 31) + i * 97 + (e.y | 0)) | 0; }
   return h;
 }
-function getLayer(L, world, withSky) {
-  const key = world ? baseKey(world) : -1;
-  if (L.c && L.key === key && L.c.width === cw && L.c.height === ch) return L.c;
-  if (!L.c || L.c.width !== cw || L.c.height !== ch) { L.c = mkC(cw, ch); L.g = L.c.getContext('2d', { alpha: !withSky }); }
-  const g = L.g;
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  if (withSky) g.drawImage(world && world.def.realm ? BG.realm : BG.scene, 0, 0); else g.clearRect(0, 0, cw, ch);
-  let y0 = ch, y1 = 0;
-  if (world) {
-    const main = ctx; ctx = g; worldTransform(0, 0);
-    for (const e of world.lv.ents) if (e.type === 'spike' && isStaticEnt(e)) { drawSpike(e); y0 = Math.min(y0, e.y); y1 = Math.max(y1, e.y + e.h); }
-    for (const e of world.lv.ents) if (e.type === 'block' && isStaticEnt(e)) { drawBlock(e, 0); const [, by, , bh] = blockRect(e); y0 = Math.min(y0, by - 12); y1 = Math.max(y1, by + bh); }
-    ctx = main;
-  }
-  L.y0 = clamp(Math.floor(OY + y0 * S) - 2, 0, ch); L.y1 = clamp(Math.ceil(OY + y1 * S) + 2, 0, ch);
-  L.key = key;
-  return L.c;
+function getTile(world, ti) {
+  const tw = STT.tw, a = ti * tw, b = a + tw, key = statKey(world, a - 60, b + 60), wpx = Math.ceil(tw * S) + 2;
+  let tl = STT.tiles.get(ti);
+  if (tl && tl.key === key && tl.c.width === wpx && tl.c.height === ch) return tl;
+  if (!tl || tl.c.width !== wpx || tl.c.height !== ch) { tl = { c: mkC(wpx, ch) }; tl.g = tl.c.getContext('2d'); STT.tiles.set(ti, tl); }
+  STT.renders++;
+  const g = tl.g; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, wpx, ch);
+  let y0 = H, y1 = 0;
+  const main = ctx; ctx = g; ctx.setTransform(S, 0, 0, S, -a * S, OY);
+  for (const e of world.lv.ents) if (e.type === 'spike' && e.x < b + 60 && e.x + e.w > a - 60 && isStaticEnt(e)) { drawSpike(e); y0 = Math.min(y0, e.y); y1 = Math.max(y1, e.y + e.h); }
+  for (const e of world.lv.ents) if (e.type === 'block' && e.x < b + 60 && e.x + e.w > a - 60 && isStaticEnt(e)) { drawBlock(e, 0); const [, by, , bh] = blockRect(e); y0 = Math.min(y0, by - 12); y1 = Math.max(y1, by + bh); }
+  ctx = main;
+  tl.key = key; tl.y0 = clamp(Math.floor(OY + y0 * S) - 2, 0, ch); tl.y1 = clamp(Math.ceil(OY + y1 * S) + 2, 0, ch);
+  return tl;
 }
-const getBase = world => getLayer(BASE, world, true);
+function drawStatics(world, sx, sy) {
+  if (!world) return;
+  const tw = STT.tw, x0 = CAMX - OX / S, x1 = x0 + cw / S, t0 = Math.floor(x0 / tw), t1 = Math.floor(x1 / tw);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let ti = t0; ti <= t1; ti++) {
+    const tl = getTile(world, ti), h = tl.y1 - tl.y0; if (h <= 0) continue;
+    ctx.drawImage(tl.c, 0, tl.y0, tl.c.width, h, Math.round(OX + (ti * tw - CAMX + sx) * S), tl.y0 + Math.round(sy * S), tl.c.width, h);
+  }
+  // pre-draw the next tile in the running direction while nothing else is being drawn into a tile this frame
+  const ahead = world.p.face >= 0 ? t1 + 1 : t0 - 1;
+  if (ahead >= 0 && ahead * tw < (world.lw || W) && !STT.tiles.has(ahead)) getTile(world, ahead);
+  if (STT.tiles.size > 8) for (const k of [...STT.tiles.keys()]) if (k < t0 - 2 || k > t1 + 2) STT.tiles.delete(k);
+}
 
-function worldTransform(sx, sy) { ctx.setTransform(S, 0, 0, S, OX + sx * S, OY + sy * S); }
+function worldTransform(sx, sy) { ctx.setTransform(S, 0, 0, S, OX + (sx - CAMX) * S, OY + sy * S); }
 
 let hints = false, realmMode = false;
 function drawHint(e) {
@@ -1828,14 +2110,15 @@ function drawHint(e) {
 function blockRect(e) {
   let x = e.x, y = e.y, w = e.w, h = e.h;
   if (e.x <= 0.5) { x = -EXT.l; w = e.x + e.w + EXT.l; }
-  if (e.x + e.w >= W - 0.5) w = W + EXT.r - x;
+  if (e.x + e.w >= LW - 0.5) w = LW + EXT.r - x;
   if (e.y + e.h >= H - 0.5 && !e.falling) h = H + EXT.b - y;
   if (e.y <= 0.5 && !e.falling) { h = e.y + e.h + EXT.t; y = -EXT.t; }
   return [x, y, w, h];
 }
 function drawLava(e, t) {
-  const x = -EXT.l, w = W + EXT.l + EXT.r, y = e.y;
-  if (y > H + EXT.b) return;
+  const y = e.y; if (y > H + EXT.b) return;
+  const x = Math.max(e.x <= .5 ? -EXT.l : e.x, CAMX - EXT.l - 30), x1 = Math.min(e.x + e.w >= LW - .5 ? LW + EXT.r : e.x + e.w, CAMX + W + EXT.r + 30), w = x1 - x;
+  if (w <= 0) return;
   ctx.save();
   const gr = ctx.createLinearGradient(0, y, 0, y + 260); gr.addColorStop(0, '#ffe08a'); gr.addColorStop(.06, '#ff7a1a'); gr.addColorStop(.45, '#b8240e'); gr.addColorStop(1, '#3a0606');
   ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x, y + 900);
@@ -1843,7 +2126,7 @@ function drawLava(e, t) {
   ctx.lineTo(x + w + 20, y + 900); ctx.closePath(); ctx.fill();
   if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; const g2 = ctx.createLinearGradient(0, y - 90, 0, y + 10); g2.addColorStop(0, 'rgba(255,90,20,0)'); g2.addColorStop(1, 'rgba(255,120,30,.35)'); ctx.fillStyle = g2; ctx.fillRect(x, y - 90, w, 100); }
   ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(255,230,150,.7)';
-  for (let i = 0; i < 9; i++) { const bx = ((i * 157 + t * 40 * (i % 3 + 1)) % (W + 80)) - 40, ph = (t * 1.3 + i * .37) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(bx, y + 6 - ph * 18, 3 + i % 3, 0, 7); ctx.fill(); }
+  for (let i = 0; i < 9; i++) { const bx = x + ((i * 157 + t * 40 * (i % 3 + 1)) % (w + 80)) - 40, ph = (t * 1.3 + i * .37) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(bx, y + 6 - ph * 18, 3 + i % 3, 0, 7); ctx.fill(); }
   ctx.restore();
 }
 function drawBlock(e, t) {
@@ -2035,19 +2318,49 @@ function drawParticles(world) {
 
 function drawMotes(t, dt) {
   const n = Math.round(GFX.motes * Perf.fxK); if (!n) return;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  // screen-space dust that drifts slower than the camera (parallax)
+  ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
+  const span = W + EXT.l + EXT.r + 40, off = CAMX * .35;
   for (let i = 0; i < n; i++) {
     const m = motes[i];
     m.x += m.sp * dt * .4; m.y += Math.sin(t * .8 + m.ph) * .25 - m.sp * dt * .25;
     if (m.y < -20) { m.y = H + 20; } if (m.x > W + EXT.r + 20) m.x = -EXT.l - 20;
+    const mx = ((m.x - off + EXT.l + 20) % span + span) % span - EXT.l - 20;
     const s = m.s * 6 * (0.75 + Math.sin(t * 2 + m.ph) * .25);
-    ctx.globalAlpha = .55; ctx.drawImage(TEX[m.c], m.x - s, m.y - s, s * 2, s * 2);
+    ctx.globalAlpha = .55; ctx.drawImage(TEX[m.c], mx - s, m.y - s, s * 2, s * 2);
   }
   ctx.restore();
 }
 
+// entities near the camera (long levels can hold a thousand of them)
+function viewEnts(world) {
+  const a = CAMX - EXT.l - 160, b = CAMX + W + EXT.r + 160, out = [];
+  for (const e of world.lv.ents) {
+    if (e.gone) continue;
+    let x0, x1;
+    if (e.type === 'saw') { const r = e.r + (e.orbit ? e.orbit.rad * T : 0); x0 = (e.orbit ? e.ocx : e.x) - r; x1 = (e.orbit ? e.ocx : e.x) + r;
+      if (e.patrol0) for (const q of e.patrol0.pts) { x0 = Math.min(x0, q[0] - e.r); x1 = Math.max(x1, q[0] + e.r); } }
+    else if (e.type === 'laser') { x0 = e.x - 10; x1 = e.x + (e.dir === 'h' ? e.len : 0) + 10; }
+    else { x0 = e.x; x1 = e.x + (e.w || 0); }
+    if (x1 > a && x0 < b) out.push(e);
+  }
+  return out;
+}
+function drawFlag(e, t) {
+  const x = e.x, top = e.y, h = e.h, on = e.on, wv = e.wave || 0;
+  if (on && glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.35 + wv * .5) * Math.min(1, glowK()); ctx.drawImage(TEX.gMint, x - 46, top - 30, 110, 110); ctx.restore(); }
+  ctx.fillStyle = '#2a2547'; ctx.fillRect(x - 5, top + h - 6, 14, 6);
+  ctx.fillStyle = '#d8d2ee'; ctx.fillRect(x, top, 4, h - 4);
+  ctx.fillStyle = on ? PAL.moss : '#ff5d8a'; ctx.beginPath(); ctx.moveTo(x + 4, top + 2);
+  for (let i = 0; i <= 6; i++) { const u = i / 6; ctx.lineTo(x + 4 + u * 30, top + 2 + Math.sin(t * 6 + u * 4) * 3 * u * (1 + wv * 2)); }
+  for (let i = 6; i >= 0; i--) { const u = i / 6; ctx.lineTo(x + 4 + u * 30, top + 20 - u * 4 + Math.sin(t * 6 + u * 4) * 3 * u * (1 + wv * 2)); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x + 6, top + 5, 12, 2);
+  ctx.fillStyle = '#ffd36e'; ctx.beginPath(); ctx.arc(x + 2, top - 2, 4, 0, 7); ctx.fill();
+}
 function drawDynamic(world, t, dt, depth) {
-  const ents = world.lv.ents;
+  const ents = viewEnts(world);
+  for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
   for (const e of ents) if (!e.gone && e.type === 'saw' && (e.patrol0 || e.orbit)) drawTrack(e);
   for (const e of ents) if (!e.gone && e.type === 'laser') drawLaser(e, t);
@@ -2079,9 +2392,9 @@ function render(world, t, dt) {
   const sh = shakeOf(world);
   const sx = sh ? rand(-sh, sh) * .6 : 0, sy = sh ? rand(-sh, sh) * .6 : 0;
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (sh) { ctx.fillStyle = '#07061c'; ctx.fillRect(0, 0, cw, ch); }
-  ctx.drawImage(getBase(world), Math.round(sx * S), Math.round(sy * S));
+  CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
+  drawBack(world, sx, sy);
+  drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawMotes(t, dt);
   if (world) drawDynamic(world, t, dt, null);
@@ -2093,26 +2406,25 @@ function render25(world, t, dt) {
   if (!BG.far || !BG.mid) buildBackground();
   const sh = shakeOf(world), sx = sh ? rand(-sh, sh) * .6 : 0, sy = sh ? rand(-sh, sh) * .6 : 0;
   hints = !!world.D.hints; realmMode = !!world.def.realm;
-  const p = world.p, px = p.x + PW / 2, py = p.y + PHT / 2;
+  CAMX = world.camX || 0; LW = world.lw || W;
+  // vanishing point follows the player on screen (screen-relative), expressed in world coordinates
+  const p = world.p, px = p.x + PW / 2 - CAMX, py = p.y + PHT / 2;
   const cam = world.cam25 || (world.cam25 = { x: px, y: py });
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
-  const vp = { x: W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const off = (vp.x - W / 2) * S;
-  if (realmMode) ctx.drawImage(BG.realm, -off * .04 - 4 * dpr, 0, cw + 8 * dpr, ch);
-  else { ctx.drawImage(BG.far, 0, 0); ctx.drawImage(BG.mid, -120 * dpr - off * .1, BG.mid.y0); ctx.drawImage(BG.near, -120 * dpr - off * .18, BG.near.y0); }
+  const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
+  drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
   worldTransform(sx, sy);
   drawMotes(t, dt);
   // depth faces (faces hidden behind a touching neighbour block are skipped)
   ctx.lineJoin = 'round';
-  vp.blocks = world.lv.ents.filter(e => e.type === 'block' && !e.gone && !e.hidden && !e.lava && e.appear >= 1);
-  for (const e of world.lv.ents) {
-    if (e.gone || e.hidden) continue;
+  const near = viewEnts(world);
+  vp.blocks = near.filter(e => e.type === 'block' && !e.hidden && !e.lava && e.appear >= 1);
+  for (const e of near) {
+    if (e.hidden) continue;
     if (e.type === 'block' && !e.lava && !(e.ghost && hints)) drawExtrude(e, vp);
     else if (e.type === 'spike' && e.pop > 0) drawSpikeBack(e, vp);
   }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  { const fr = getLayer(FRONT, world, false), h = FRONT.y1 - FRONT.y0; if (h > 0) ctx.drawImage(fr, 0, FRONT.y0, cw, h, Math.round(sx * S), FRONT.y0 + Math.round(sy * S), cw, h); }
+  drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawDynamic(world, t, dt, vp);
   drawOverlays(world, t);
@@ -2156,11 +2468,11 @@ function drawDark(world, t) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, c.width, c.height);
   g.fillStyle = `rgba(3,2,12,${0.95 - world.lightning * .8})`; g.fillRect(0, 0, c.width, c.height);
   g.globalCompositeOperation = 'destination-out';
-  const hole = (x, y, r, a) => { const sx = (OX + x * S) * q, sy = (OY + y * S) * q, rr = r * S * q; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
+  const hole = (x, y, r, a) => { const sx = (OX + (x - CAMX) * S) * q, sy = (OY + y * S) * q, rr = r * S * q; if (sx + rr < 0 || sx - rr > c.width) return; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
   const p = world.p; const fl = 1 + Math.sin(t * 9) * .03 + Math.sin(t * 23) * .02;
   if (world.state !== 'dead') hole(p.x + PW / 2, p.y + PHT / 2, 230 * fl, 1);
-  for (const e of world.lv.ents) {
-    if (e.gone) continue;
+  for (const e of viewEnts(world)) {
+    if (e.type === 'flag' && e.on) hole(e.x + 10, e.y + 20, 70, .6);
     if (e.type === 'door' || (e.type === 'portal' && e.open > 0)) hole(e.x + e.w / 2, e.y + e.h / 2, 120, .9);
     if (e.type === 'saw') hole(e.x, e.y, 80, .55);
     if (e.type === 'laser' && e.act) { const n = Math.max(1, Math.round(e.len / 80)); for (let i = 0; i <= n; i++) hole(e.x + (e.dir === 'h' ? e.len * i / n : 0), e.y + (e.dir === 'v' ? e.len * i / n : 0), 60, .45); }
@@ -2177,7 +2489,7 @@ function drawTransition() {
   if (!trans) return;
   const k = clamp(trans.t / trans.dur, 0, 1);
   const e = trans.dir === 'close' ? 1 - k * k : k * (2 - k);
-  const cx = OX + (trans.cx ?? W / 2) * S, cy = OY + (trans.cy ?? H / 2) * S;
+  const cx = OX + ((trans.cx ?? CAMX + W / 2) - CAMX) * S, cy = OY + (trans.cy ?? H / 2) * S;
   const maxR = Math.hypot(Math.max(cx, cw - cx), Math.max(cy, ch - cy));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#07051a'; ctx.beginPath(); ctx.rect(0, 0, cw, ch); ctx.arc(cx, cy, Math.max(0.01, e * maxR), 0, Math.PI * 2, true); ctx.fill();
@@ -3257,6 +3569,7 @@ function bot3(run) {
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -3279,27 +3592,29 @@ class P3D {
       vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: 'uniform vec3 c0; uniform vec3 c1; uniform vec3 c2; varying vec3 vP; void main(){ float h = vP.y; vec3 c = h > 0.0 ? mix(c1, c0, smoothstep(0.0, 0.6, h)) : mix(c1, c2, smoothstep(0.0, -0.4, h)); gl_FragColor = vec4(c, 1.0); }',
       side: THREE.BackSide, depthWrite: false, fog: false }));
-    const sky = new THREE.Mesh(keep(new THREE.SphereGeometry(300, 24, 14)), skyMat); sky.position.set(16, 6, 0); sc.add(sky);
+    const sky = this.sky = new THREE.Mesh(keep(new THREE.SphereGeometry(300, 24, 14)), skyMat); sky.position.set(16, 6, 0); sc.add(sky);
+    // stars, moon and mountains travel with the camera (slightly slower: parallax) along long levels
+    const bg = this.bg = new THREE.Group(); sc.add(bg);
     const glowTex = keep(RP.radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)')); this.glowTex = glowTex;
     // stars
     { const n = GFXK === 'go' ? 120 : 300, pos = new Float32Array(n * 3), r = srand(5);
       for (let i = 0; i < n; i++) { pos[i * 3] = -60 + r() * 150; pos[i * 3 + 1] = 4 + r() * 60; pos[i * 3 + 2] = -90 - r() * 40; }
       const g = keep(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      sc.add(new THREE.Points(g, keep(new THREE.PointsMaterial({ color: this.realm ? 0x9ef9ff : 0xffffff, size: 0.35, fog: false })))); }
+      bg.add(new THREE.Points(g, keep(new THREE.PointsMaterial({ color: this.realm ? 0x9ef9ff : 0xffffff, size: 0.35, fog: false })))); }
     if (!this.realm) {
-      const moon = new THREE.Mesh(keep(new THREE.CircleGeometry(4.5, 32)), keep(new THREE.MeshBasicMaterial({ color: 0xffd9b8, fog: false }))); moon.position.set(30, 22, -85); sc.add(moon);
-      const mg = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffc8a0, transparent: true, opacity: .5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))); mg.scale.set(40, 40, 1); mg.position.set(30, 22, -86); sc.add(mg);
+      const moon = new THREE.Mesh(keep(new THREE.CircleGeometry(4.5, 32)), keep(new THREE.MeshBasicMaterial({ color: 0xffd9b8, fog: false }))); moon.position.set(30, 22, -85); bg.add(moon);
+      const mg = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffc8a0, transparent: true, opacity: .5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))); mg.scale.set(40, 40, 1); mg.position.set(30, 22, -86); bg.add(mg);
       // mountain ranges behind the level
       const cone = keep(flatG(new THREE.ConeGeometry(1, 1, 6))); cone.translate(0, .5, 0); const r = srand(9);
       [[sk('#33205a'), -95, 22], [sk('#211541'), -60, 26]].forEach(([c, z, n]) => {
         const m = new THREE.InstancedMesh(cone, keep(new THREE.MeshLambertMaterial({ color: hexNum(c) })), n); m.frustumCulled = false;
         const M = new THREE.Matrix4(); for (let i = 0; i < n; i++) { const hgt = 18 + r() * 30, w = 14 + r() * 14; M.makeScale(w, hgt, w); M.setPosition(-70 + i * 9 + r() * 5, -8, z - r() * 14); m.setMatrixAt(i, M); }
-        sc.add(m); keep(m);
+        bg.add(m); keep(m);
       });
     } else {
-      const grid = new THREE.GridHelper(260, 80, 0xff4fd8, 0x00e5d0); grid.position.set(16, -6, -30); grid.material.transparent = true; grid.material.opacity = .45; keep(grid.geometry); keep(grid.material); sc.add(grid);
+      const grid = new THREE.GridHelper(260, 80, 0xff4fd8, 0x00e5d0); grid.position.set(16, -6, -30); grid.material.transparent = true; grid.material.opacity = .45; keep(grid.geometry); keep(grid.material); bg.add(grid);
       const cube = keep(new THREE.BoxGeometry(1, 1, 1)), r = srand(3), cm = keep(new THREE.MeshBasicMaterial({ color: 0x9a4dff, wireframe: true }));
-      for (let i = 0; i < 18; i++) { const m = new THREE.Mesh(cube, cm); const s = 1 + r() * 3; m.scale.set(s, s, s); m.position.set(-20 + r() * 72, -2 + r() * 26, -14 - r() * 40); m.rotation.set(r() * 3, r() * 3, 0); sc.add(m); }
+      for (let i = 0; i < 18; i++) { const m = new THREE.Mesh(cube, cm); const s = 1 + r() * 3; m.scale.set(s, s, s); m.position.set(-20 + r() * 72, -2 + r() * 26, -14 - r() * 40); m.rotation.set(r() * 3, r() * 3, 0); bg.add(m); }
     }
     // materials shared by all blocks
     const stone = keep(RP.stoneTex(hexNum(mixHex(PAL.block, '#ffffff', .22)))); stone.wrapS = stone.wrapT = THREE.RepeatWrapping;
@@ -3312,6 +3627,9 @@ class P3D {
       spike: keep(new THREE.MeshLambertMaterial({ color: hexNum(PAL.hazard) })),
       tip: keep(new THREE.MeshBasicMaterial({ color: 0xff5d8a })),
       lava: keep(new THREE.MeshBasicMaterial({ color: 0xff5a14 })),
+      flagOn: keep(new THREE.MeshBasicMaterial({ color: hexNum(PAL.moss), side: THREE.DoubleSide })),
+      flagOff: keep(new THREE.MeshBasicMaterial({ color: 0xff5d8a, side: THREE.DoubleSide })),
+      pole: keep(new THREE.MeshLambertMaterial({ color: 0xd8d2ee })),
     };
     { const ct = keep(new THREE.CanvasTexture(TEX.convC)); ct.wrapS = THREE.RepeatWrapping; this.convTex = ct; this.mat.conv = keep(new THREE.MeshBasicMaterial({ map: ct })); }
     this.unit = keep(new THREE.BoxGeometry(1, 1, 1));
@@ -3328,24 +3646,40 @@ class P3D {
   X(px) { return px / T; } Y(py) { return (H - py) / T; }
   buildEnts() {
     for (const m of this.meshes.values()) { this.scene.remove(m.o); if (m.hint) this.scene.remove(m.hint); if (m.extra) this.scene.remove(m.extra); }
-    this.meshes.clear(); this.lvUid = this.world.lv.uid;
-    for (const e of this.world.lv.ents) { const m = this.mk(e); if (m) { this.meshes.set(e, m); this.scene.add(m.o); } }
+    this.meshes.clear(); this.lvUid = this.world.lv.uid; this.order = [];
+    for (const e of this.world.lv.ents) { const m = this.mk(e); if (m) { this.meshes.set(e, m); this.order.push([e, m]); this.scene.add(m.o); } }
+  }
+  // a respawn rebuilds the level with the same entities in the same order: reuse the meshes instead of rebuilding them
+  rebind() {
+    const old = this.order || [], M = P3D.MESHED, ents = this.world.lv.ents.filter(e => M.has(e.type));
+    const same = ents.length === old.length && ents.every((e, i) => { const o = old[i][0]; return e.type === o.type && e.w === o.w && e.h === o.h && e.n === o.n && e.r === o.r && !!e.hidden === !!o.hidden0; });
+    if (!same) return this.buildEnts();
+    this.meshes.clear(); ents.forEach((e, i) => { e.hidden0 = !!e.hidden; old[i][0] = e; this.meshes.set(e, old[i][1]); }); this.lvUid = this.world.lv.uid;
   }
   cache(k, f) { let v = this.cm.get(k); if (!v) { v = f(); this.cm.set(k, v); this.disp.push(v); } return v; }
   mk(e) {
     const C = (k, f) => this.cache(k, f), RP = Run3D.prototype, D = 2.4, mat = this.mat;
+    e.hidden0 = !!e.hidden;
+    if (e.type === 'flag') {
+      const g = new THREE.Group(), h = e.h / T;
+      const pole = new THREE.Mesh(C('poleG', () => new THREE.CylinderGeometry(.05, .05, 1, 6)), mat.pole); pole.scale.y = h; pole.position.set(0, h / 2, 0); g.add(pole);
+      const cloth = new THREE.Mesh(C('clothG', () => new THREE.PlaneGeometry(.8, .5, 4, 1).translate(.4, 0, 0)), mat.flagOff); cloth.position.set(.05, h - .3, 0); g.add(cloth);
+      const ball = new THREE.Mesh(C('ballG', () => new THREE.SphereGeometry(.1, 8, 6)), C('ballM', () => new THREE.MeshBasicMaterial({ color: 0xffd36e }))); ball.position.y = h + .05; g.add(ball);
+      return { o: g, kind: 'flag', cloth };
+    }
     const glowM = (col, op) => C('glow' + col + op, () => new THREE.MeshBasicMaterial({ map: this.glowTex, color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending }));
     const plane = C('plane', () => new THREE.PlaneGeometry(1, 1));
     const edges = C('edges', () => new THREE.EdgesGeometry(this.unit));
     if (e.type === 'block') {
       const g = new THREE.Group();
       if (e.lava) {
-        const m = new THREE.Mesh(this.unit, mat.lava); m.scale.set(60, 30, D + 1); m.position.set(16, -15, 0); g.add(m);
-        const gl = new THREE.Mesh(plane, glowM(0xff7a1a, .7)); gl.scale.set(70, 6, 1); gl.position.set(16, 0.6, D / 2 + .6); g.add(gl);
+        const lw = e.w / T + 28, lx = (e.x + e.w / 2) / T;
+        const m = new THREE.Mesh(this.unit, mat.lava); m.scale.set(lw, 30, D + 1); m.position.set(lx, -15, 0); g.add(m);
+        const gl = new THREE.Mesh(plane, glowM(0xff7a1a, .7)); gl.scale.set(lw + 10, 6, 1); gl.position.set(lx, 0.6, D / 2 + .6); g.add(gl);
         return { o: g, kind: 'lava' };
       }
       let x0 = e.x / T, x1 = (e.x + e.w) / T, y0 = (H - e.y - e.h) / T, y1 = (H - e.y) / T;
-      if (e.x <= .5) x0 -= 8; if (e.x + e.w >= W - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
+      if (e.x <= .5) x0 -= 8; if (e.x + e.w >= this.world.lw - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
       const w = x1 - x0, h = y1 - y0;
       const geo = C('box' + w.toFixed(2) + ',' + h.toFixed(2), () => { const b = RP.geoBuilder(); b.box(-w / 2, w / 2, -h / 2, h / 2, -D / 2, D / 2, true); return b.build(); });
       const body = new THREE.Mesh(geo, e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
@@ -3421,10 +3755,16 @@ class P3D {
   }
   sync(t) {
     const w = this.world, hints = !!w.D.hints;
-    if (w.lv.uid !== this.lvUid) this.buildEnts();    // respawn creates a fresh level
+    if (w.lv.uid !== this.lvUid) this.rebind();    // respawn creates a fresh level
+    const cc = (w.camX + W / 2) / T, c0 = cc - 34, c1 = cc + 34;
     for (const [e, m] of this.meshes) {
       const o = m.o;
       if (m.kind === 'lava') { o.position.y = this.Y(e.y); continue; }
+      // long levels: only what is near the camera is shown and updated
+      const ex0 = e.type === 'saw' ? e.x / T - 4 : e.x / T, ex1 = e.type === 'saw' ? e.x / T + 4 : (e.x + (e.type === 'laser' && e.dir === 'h' ? e.len : e.w || 0)) / T;
+      if (ex1 < c0 || ex0 > c1) { o.visible = false; if (m.hint) m.hint.visible = false; if (m.extra) m.extra.visible = false; continue; }
+      if (m.extra) m.extra.visible = !e.gone && !e.hidden;
+      if (m.kind === 'flag') { o.visible = true; o.position.set(this.X(e.x + 2), this.Y(e.y + e.h), 0); m.cloth.material = e.on ? this.mat.flagOn : this.mat.flagOff; m.cloth.rotation.y = Math.sin(t * 5 + e.x) * .35 * (1 + (e.wave || 0) * 2); continue; }
       const hidden = e.gone || (e.hidden && m.kind !== 'portal');
       o.visible = !hidden;
       if (m.hint) { m.hint.visible = hints && e.hidden && !e.gone; if (m.hint.visible) m.hint.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), 0); }
@@ -3483,7 +3823,9 @@ class P3D {
     // camera framing the whole level, drifting gently with the player
     const W3 = innerWidth, H3 = innerHeight, aspect = W3 / H3, cam = this.cam;
     const tan = Math.tan(cam.fov * Math.PI / 360), d = Math.max(10.4 / tan, 17.6 / (tan * aspect)) + 1.5;
-    const cx = 16 + (fx - 16) * .18, cy = 9 + (fy - 9) * .1;
+    const cc = (w.camX + W / 2) / T, cx = cc + (fx - cc) * .18, cy = 9 + (fy - 9) * .1;
+    this.sky.position.x = cx; this.bg.position.x = cx * .9 - 16 * .9;
+    this.sun.position.set(cx - 10, 26, 18); this.sun.target.position.set(cx, 6, 0); this.sun.target.updateMatrixWorld();
     const sh = w.shakeA * (CFG.shake / 100) * .03;
     cam.position.set(cx + (Math.random() - .5) * sh, cy + 1.6 + (Math.random() - .5) * sh, d);
     cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
@@ -3559,8 +3901,11 @@ function writeSave() {
   } catch (e) {}
 }
 const progOf = d => app.prog[d] || (app.prog[d] = {});
-// room reached in an unfinished long level (0 = start); ignored if the level's room count changed
-const savedRoom = (d, i) => { const r = (progOf(d).room || {})[i] | 0, n = LEVELS[i] && LEVELS[i].rooms ? LEVELS[i].rooms.length : 1; return r > 0 && r < n ? r : 0; };
+// checkpoint reached in an unfinished long level (0 = start); ignored if the level's checkpoint count changed
+const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] && LEVELS[i].secs ? LEVELS[i].secs.length : 1; return r > 0 && r < n ? r : 0; };
+// level colours (biomes); rebuilding textures and background only when the scheme changes
+function setBiome(key) { const b = key && BIOMES[key] || null; if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
+const parTime = def => Math.round((def.nObs || 10) * 2.6 + 25);
 const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${faNum(m)}:${faNum(r.toFixed(0).padStart(2, '0'))}` : faNum(r.toFixed(1)); };
 
 /* ---------- achievements ---------- */
@@ -3579,7 +3924,7 @@ const ACH = [
   ['d50', '💀', 'سرسخت', '۵۰ بار بمیر و ادامه بده'],
   ['d500', '☠️', 'خستگی‌ناپذیر', '۵۰۰ بار بمیر'],
   ['insane', '🔥', 'دیوانه', 'یه مرحله رو روی دیوانه‌وار ببر'],
-  ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو با میانگین زیر ۸ ثانیه برای هر اتاق تموم کن'],
+  ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو زیر زمان طلایی تموم کن (حدود ۲٫۶ ثانیه برای هر مانع)'],
   ['stars', '⭐', 'ستاره‌باران', '۶۰ ستاره جمع کن (در یک سطح سختی)'],
   ['modes', '🎮', 'همه‌کاره', 'توی هر چهار حالت بازی یه مرحله رو ببر'],
 ];
@@ -3634,6 +3979,10 @@ function hudTick() {
   const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
   const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : '';
   let pw = '';
+  if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
+    const k = clamp((app.world.p.x + PW) / app.world.lw, 0, 1), q = Math.round(k * 200);
+    if (q !== hudTick.pq) { hudTick.pq = q; $('pprog').firstChild.style.transform = `scaleX(${(q / 200).toFixed(3)})`; }
+  }
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
   const fp = CFG.fps ? faNum(Perf.fpsShow) + ' FPS · ' + faNum(Math.round(Perf.dyn * 100)) + '٪' : '';
   s = tm + '|' + gm + '|' + pw + '|' + fp;
@@ -3652,14 +4001,15 @@ const app = {
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
   updTag() {
-    const w = this.kind === 'plat' && this.world, rm = w && w.rooms.length > 1 ? ` · اتاق ${faNum(w.room + 1)}/${faNum(w.rooms.length)}` : '';
-    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : rm);
+    const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
+    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
+    $('pprog').classList.toggle('on', !!n);
   },
   label() { return this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
     this.realmIdx = -1; this.idx = i;
-    // long levels: continue from the room reached last time (saved per difficulty)
-    if (opt.room == null) { const sr = savedRoom(this.diff, i); if (sr > 0) opt = Object.assign({}, opt, { room: sr, resumed: true }); }
+    // long levels: continue from the checkpoint reached last time (saved per difficulty)
+    if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
   },
   startRealm(r, opt = {}) { this.realmIdx = r; this.startDef(REALM[r], opt); },
@@ -3670,7 +4020,7 @@ const app = {
     let v = viewOf(def);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if ((v === 'p25') !== !!BG.far) buildBackground();
+    if (this.kind === 'plat') setBiome(def.biome);
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
@@ -3679,7 +4029,8 @@ const app = {
     this.updTag();
     this.updDeaths();
     if (this.kind === 'plat') {
-      const w = this.world = new World(def, { diff: this.diff, room: opt.room || 0 });
+      const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
+      w.onCheckpoint = i => this.onCheckpoint(i);
       w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
@@ -3694,19 +4045,19 @@ const app = {
     }
     resize3();
     $('banner').classList.toggle('low', this.kind === 'run');
-    const size = def.rooms && def.rooms.length > 1 ? ` · ${faNum(def.rooms.length)} اتاق` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
+    const size = def.secs ? ` · ${faNum(def.nObs)} مانع · ${faNum(def.secs.length - 1)} چک‌پوینت` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
     $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
-    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.room + 1)} از ${faNum(this.world.rooms.length)}`, '#9ef9ff'), 2100);
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از چک‌پوینت ${faNum(this.world.ck)} از ${faNum(this.world.secs.length - 1)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
     if (!this.def || (this.state !== 'play' && this.state !== 'pause')) return;
     const st = this.state, sc = this.screen;
     // keep the room / checkpoint, time and deaths: only the view is rebuilt
-    const o = { keep: true, resumed: this.resumed, room: this.kind === 'plat' && this.world ? this.world.room : 0, ck: this.run ? this.run.ckS : 0 };
+    const o = { keep: true, resumed: this.resumed, ck: this.kind === 'plat' && this.world ? this.world.ck : this.run ? this.run.ckS : 0 };
     if (this.realmIdx >= 0) this.startRealm(this.realmIdx, o); else { this.realmIdx = -1; this.startDef(this.def, o); }
     if (st === 'pause') { this.state = 'pause'; this.show(sc || 'sPause'); $('banner').classList.remove('show'); }
   },
@@ -3737,25 +4088,16 @@ const app = {
     this.taunt('وارد ابعاد پنهان شدی! 🌀', '#c59bff'); Sound.play('orb');
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
-  nextRoom() {
-    const w = this.world, d = w.winDoor, flat = this.view === 'p2' || this.view === 'p25';
-    const go = () => {
-      w.nextRoom();
-      if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.room || (pr.room = {}))[this.idx] = w.room; writeSave(); }
-      if (this.p3) { this.p3.dispose(); this.p3 = new P3D(w); }
-      this.updTag(); $('revBadge').classList.remove('on');
-      this.taunt(`اتاق ${faNum(w.room + 1)} از ${faNum(w.rooms.length)}` + (w.room === w.rooms.length - 1 ? ' — آخرین اتاق!' : ''), '#9ef9ff');
-      if (flat) startTrans('open', .45, null, w.p.x + PW / 2, w.p.y + PHT / 2); else $('fade').classList.remove('on');
-      Sound.play('spawn'); Perf.reset(1); this.dirty = true;
-    };
-    if (flat) startTrans('close', .42, go, d.x + d.w / 2, d.y + d.h / 2);
-    else { $('fade').classList.add('on'); setTimeout(go, 420); }
+  onCheckpoint(i) {
+    const w = this.world, n = w.secs.length - 1;
+    if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
+    this.updTag();
+    this.taunt(i === n ? '🚩 آخرین چک‌پوینت! در نزدیکه' : `🚩 چک‌پوینت ${faNum(i)} از ${faNum(n)}`, '#9ef9dc');
   },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
-    if (this.kind === 'plat' && this.world && this.world.winKind === 'room') return this.nextRoom();
     const t = this.levelT, d = this.levelDeaths;
-    const nr = this.kind === 'plat' && this.world ? this.world.rooms.length : 1;
+    const nr = this.kind === 'plat' && this.world && this.world.secs ? this.world.secs.length : 1;
     const stars = this.kind === 'run' ? (d === 0 ? 3 : d <= 2 ? 2 : 1) : (d <= nr ? 3 : d <= nr * 4 ? 2 : 1);
     ST.wins++;
     const modesWon = ST.modes || (ST.modes = {}); modesWon[CFG.mode] = 1; if (Object.keys(modesWon).length >= 4) unlockAch('modes');
@@ -3770,8 +4112,8 @@ const app = {
     } else {
       const pr = progOf(this.diff); pr.stars = pr.stars || {}; pr.best = pr.best || {};
       pr.stars[this.idx] = Math.max(pr.stars[this.idx] || 0, stars);
-      if (pr.room) delete pr.room[this.idx];
-      // a run continued from a saved room does not count for best time
+      if (pr.ck) delete pr.ck[this.idx];
+      // a run continued from a saved checkpoint does not count for best time
       if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));
       this.completed = Math.max(this.completed || 0, this.idx + 1);
@@ -3781,7 +4123,7 @@ const app = {
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }
-    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < nr * 8) unlockAch('speed');
+    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const flat = v => v === 'p2' || v === 'p25';
@@ -3792,7 +4134,7 @@ const app = {
   },
   finish() {
     this.teardown(); this.view = 'p2'; this.kind = 'plat'; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    this.world = new World(0, { silent: true });
+    setBiome(LEVELS[0].biome); this.world = new World(0, { silent: true });
     this.state = 'end'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch();
     const secs = Math.round((performance.now() - this.runStart) / 1000);
     $('eDeaths').textContent = faNum(this.deaths); $('eDiff').textContent = DIFFS[this.diff].name; $('eDiff').style.color = DIFFS[this.diff].col; $('eTime').textContent = `${faNum(Math.floor(secs / 60))}:${faNum(String(secs % 60).padStart(2, '0'))}`;
@@ -3805,17 +4147,17 @@ const app = {
     if (this.world && this.world.state === 'play') { this.world.respawn(false); }
   },
   restartLevel() {
-    // whole level from room 1 / from the start of the chase (forgets a saved room)
+    // whole level from the very start (forgets a saved checkpoint)
     if (!this.def) return;
-    if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { room: 0 });
-    const pr = progOf(this.diff); if (pr.room && pr.room[this.idx]) { delete pr.room[this.idx]; writeSave(); }
-    this.startLevel(this.idx, { room: 0 });
+    if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { ck: 0 });
+    const pr = progOf(this.diff); if (pr.ck && pr.ck[this.idx]) { delete pr.ck[this.idx]; writeSave(); }
+    this.startLevel(this.idx, { ck: 0 });
   },
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu() {
     this.teardown(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    if (BG.far) buildBackground();
+    setBiome(LEVELS[0].biome);
     this.state = 'title'; $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },
   setDiff(d) {
@@ -3833,9 +4175,9 @@ const app = {
     const g = $('lvGrid'); g.innerHTML = ''; const pr = progOf(this.diff), stars = pr.stars || {};
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
-      const sr = savedRoom(this.diff, i);
-      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sr > 0 ? `<span class="rs">▶${faNum(sr + 1)}</span>` : '');
-      b.title = L.name + (sr > 0 ? ` — ادامه از اتاق ${faNum(sr + 1)}` : ''); b.disabled = i >= this.unlocked;
+      const sc = savedCk(this.diff, i);
+      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚩${faNum(sc)}</span>` : '');
+      b.title = L.name + (sc > 0 ? ` — ادامه از چک‌پوینت ${faNum(sc)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);
     });
@@ -3989,7 +4331,7 @@ if (sv.stats) { Object.assign(ST, sv.stats); ST.ach = Object.assign({}, sv.stats
 renderDiffs();
 if (sv.sound === false) Sound.on = false;
 soundLabel();
-resize(); buildTextures(ctx); applyMood();
+resize(); buildTextures(ctx); applyMood(); setBiome(LEVELS[0].biome);
 Perf.cb = () => { resize(); resize3(); applyMood(); app.dirty = true; };
 addEventListener('resize', () => { resize(); resize3(); app.dirty = true; });
 app.world = new World(0, { silent: true });

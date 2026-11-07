@@ -145,13 +145,14 @@ function applyMood() {
 
 /* ---------- derived palette for drawing (rebuilt when colours change) ---------- */
 const PAL = {};
+let BIOME = null; // colour scheme of the level being played; colours the player picked in settings always win
 function buildPal() {
-  const p = colOf('player'), s = colOf('scarf');
+  const p = colOf('player'), s = colOf('scarf'), bio = k => colSet(k) || !BIOME || !BIOME[k] ? colOf(k) : BIOME[k];
   PAL.bodyTop = mixHex(p, '#ffffff', .55); PAL.bodyBot = mixHex(p, '#ff9a50', colSet('player') ? .12 : .35);
   PAL.scarf = s; PAL.scarfHi = mixHex(s, '#ffffff', .4);
-  PAL.moss = colOf('moss'); PAL.door = colOf('door'); PAL.hazard = colOf('hazard'); PAL.saw = colOf('saw'); PAL.block = colOf('block');
+  PAL.moss = bio('moss'); PAL.door = colOf('door'); PAL.hazard = colOf('hazard'); PAL.saw = colOf('saw'); PAL.block = bio('block');
   // sky: hue/saturation/lightness ratio relative to the default dusk sky
-  const [h0, s0, l0] = hexHsl(COLOR_DEF.sky), [h1, s1, l1] = hexHsl(colOf('sky'));
+  const [h0, s0, l0] = hexHsl(COLOR_DEF.sky), [h1, s1, l1] = hexHsl(bio('sky'));
   PAL.skyDh = h1 - h0; PAL.skySr = clamp(s1 / Math.max(.01, s0), 0, 1.6); PAL.skyLr = clamp(l1 / Math.max(.01, l0), .4, 2.2);
   PAL.skyCol = h => { const [a, b, c] = hexHsl(h); return hslHex(a + PAL.skyDh, b * PAL.skySr, c * PAL.skyLr); };
   PAL.ver = (PAL.ver || 0) + 1;

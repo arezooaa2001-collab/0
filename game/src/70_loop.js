@@ -6,7 +6,7 @@ if (sv.stats) { Object.assign(ST, sv.stats); ST.ach = Object.assign({}, sv.stats
 renderDiffs();
 if (sv.sound === false) Sound.on = false;
 soundLabel();
-resize(); buildTextures(ctx); applyMood();
+resize(); buildTextures(ctx); applyMood(); setBiome(LEVELS[0].biome);
 Perf.cb = () => { resize(); resize3(); applyMood(); app.dirty = true; };
 addEventListener('resize', () => { resize(); resize3(); app.dirty = true; });
 app.world = new World(0, { silent: true });

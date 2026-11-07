@@ -1,6 +1,7 @@
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -23,27 +24,29 @@ class P3D {
       vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: 'uniform vec3 c0; uniform vec3 c1; uniform vec3 c2; varying vec3 vP; void main(){ float h = vP.y; vec3 c = h > 0.0 ? mix(c1, c0, smoothstep(0.0, 0.6, h)) : mix(c1, c2, smoothstep(0.0, -0.4, h)); gl_FragColor = vec4(c, 1.0); }',
       side: THREE.BackSide, depthWrite: false, fog: false }));
-    const sky = new THREE.Mesh(keep(new THREE.SphereGeometry(300, 24, 14)), skyMat); sky.position.set(16, 6, 0); sc.add(sky);
+    const sky = this.sky = new THREE.Mesh(keep(new THREE.SphereGeometry(300, 24, 14)), skyMat); sky.position.set(16, 6, 0); sc.add(sky);
+    // stars, moon and mountains travel with the camera (slightly slower: parallax) along long levels
+    const bg = this.bg = new THREE.Group(); sc.add(bg);
     const glowTex = keep(RP.radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)')); this.glowTex = glowTex;
     // stars
     { const n = GFXK === 'go' ? 120 : 300, pos = new Float32Array(n * 3), r = srand(5);
       for (let i = 0; i < n; i++) { pos[i * 3] = -60 + r() * 150; pos[i * 3 + 1] = 4 + r() * 60; pos[i * 3 + 2] = -90 - r() * 40; }
       const g = keep(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      sc.add(new THREE.Points(g, keep(new THREE.PointsMaterial({ color: this.realm ? 0x9ef9ff : 0xffffff, size: 0.35, fog: false })))); }
+      bg.add(new THREE.Points(g, keep(new THREE.PointsMaterial({ color: this.realm ? 0x9ef9ff : 0xffffff, size: 0.35, fog: false })))); }
     if (!this.realm) {
-      const moon = new THREE.Mesh(keep(new THREE.CircleGeometry(4.5, 32)), keep(new THREE.MeshBasicMaterial({ color: 0xffd9b8, fog: false }))); moon.position.set(30, 22, -85); sc.add(moon);
-      const mg = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffc8a0, transparent: true, opacity: .5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))); mg.scale.set(40, 40, 1); mg.position.set(30, 22, -86); sc.add(mg);
+      const moon = new THREE.Mesh(keep(new THREE.CircleGeometry(4.5, 32)), keep(new THREE.MeshBasicMaterial({ color: 0xffd9b8, fog: false }))); moon.position.set(30, 22, -85); bg.add(moon);
+      const mg = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffc8a0, transparent: true, opacity: .5, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))); mg.scale.set(40, 40, 1); mg.position.set(30, 22, -86); bg.add(mg);
       // mountain ranges behind the level
       const cone = keep(flatG(new THREE.ConeGeometry(1, 1, 6))); cone.translate(0, .5, 0); const r = srand(9);
       [[sk('#33205a'), -95, 22], [sk('#211541'), -60, 26]].forEach(([c, z, n]) => {
         const m = new THREE.InstancedMesh(cone, keep(new THREE.MeshLambertMaterial({ color: hexNum(c) })), n); m.frustumCulled = false;
         const M = new THREE.Matrix4(); for (let i = 0; i < n; i++) { const hgt = 18 + r() * 30, w = 14 + r() * 14; M.makeScale(w, hgt, w); M.setPosition(-70 + i * 9 + r() * 5, -8, z - r() * 14); m.setMatrixAt(i, M); }
-        sc.add(m); keep(m);
+        bg.add(m); keep(m);
       });
     } else {
-      const grid = new THREE.GridHelper(260, 80, 0xff4fd8, 0x00e5d0); grid.position.set(16, -6, -30); grid.material.transparent = true; grid.material.opacity = .45; keep(grid.geometry); keep(grid.material); sc.add(grid);
+      const grid = new THREE.GridHelper(260, 80, 0xff4fd8, 0x00e5d0); grid.position.set(16, -6, -30); grid.material.transparent = true; grid.material.opacity = .45; keep(grid.geometry); keep(grid.material); bg.add(grid);
       const cube = keep(new THREE.BoxGeometry(1, 1, 1)), r = srand(3), cm = keep(new THREE.MeshBasicMaterial({ color: 0x9a4dff, wireframe: true }));
-      for (let i = 0; i < 18; i++) { const m = new THREE.Mesh(cube, cm); const s = 1 + r() * 3; m.scale.set(s, s, s); m.position.set(-20 + r() * 72, -2 + r() * 26, -14 - r() * 40); m.rotation.set(r() * 3, r() * 3, 0); sc.add(m); }
+      for (let i = 0; i < 18; i++) { const m = new THREE.Mesh(cube, cm); const s = 1 + r() * 3; m.scale.set(s, s, s); m.position.set(-20 + r() * 72, -2 + r() * 26, -14 - r() * 40); m.rotation.set(r() * 3, r() * 3, 0); bg.add(m); }
     }
     // materials shared by all blocks
     const stone = keep(RP.stoneTex(hexNum(mixHex(PAL.block, '#ffffff', .22)))); stone.wrapS = stone.wrapT = THREE.RepeatWrapping;
@@ -56,6 +59,9 @@ class P3D {
       spike: keep(new THREE.MeshLambertMaterial({ color: hexNum(PAL.hazard) })),
       tip: keep(new THREE.MeshBasicMaterial({ color: 0xff5d8a })),
       lava: keep(new THREE.MeshBasicMaterial({ color: 0xff5a14 })),
+      flagOn: keep(new THREE.MeshBasicMaterial({ color: hexNum(PAL.moss), side: THREE.DoubleSide })),
+      flagOff: keep(new THREE.MeshBasicMaterial({ color: 0xff5d8a, side: THREE.DoubleSide })),
+      pole: keep(new THREE.MeshLambertMaterial({ color: 0xd8d2ee })),
     };
     { const ct = keep(new THREE.CanvasTexture(TEX.convC)); ct.wrapS = THREE.RepeatWrapping; this.convTex = ct; this.mat.conv = keep(new THREE.MeshBasicMaterial({ map: ct })); }
     this.unit = keep(new THREE.BoxGeometry(1, 1, 1));
@@ -72,24 +78,40 @@ class P3D {
   X(px) { return px / T; } Y(py) { return (H - py) / T; }
   buildEnts() {
     for (const m of this.meshes.values()) { this.scene.remove(m.o); if (m.hint) this.scene.remove(m.hint); if (m.extra) this.scene.remove(m.extra); }
-    this.meshes.clear(); this.lvUid = this.world.lv.uid;
-    for (const e of this.world.lv.ents) { const m = this.mk(e); if (m) { this.meshes.set(e, m); this.scene.add(m.o); } }
+    this.meshes.clear(); this.lvUid = this.world.lv.uid; this.order = [];
+    for (const e of this.world.lv.ents) { const m = this.mk(e); if (m) { this.meshes.set(e, m); this.order.push([e, m]); this.scene.add(m.o); } }
+  }
+  // a respawn rebuilds the level with the same entities in the same order: reuse the meshes instead of rebuilding them
+  rebind() {
+    const old = this.order || [], M = P3D.MESHED, ents = this.world.lv.ents.filter(e => M.has(e.type));
+    const same = ents.length === old.length && ents.every((e, i) => { const o = old[i][0]; return e.type === o.type && e.w === o.w && e.h === o.h && e.n === o.n && e.r === o.r && !!e.hidden === !!o.hidden0; });
+    if (!same) return this.buildEnts();
+    this.meshes.clear(); ents.forEach((e, i) => { e.hidden0 = !!e.hidden; old[i][0] = e; this.meshes.set(e, old[i][1]); }); this.lvUid = this.world.lv.uid;
   }
   cache(k, f) { let v = this.cm.get(k); if (!v) { v = f(); this.cm.set(k, v); this.disp.push(v); } return v; }
   mk(e) {
     const C = (k, f) => this.cache(k, f), RP = Run3D.prototype, D = 2.4, mat = this.mat;
+    e.hidden0 = !!e.hidden;
+    if (e.type === 'flag') {
+      const g = new THREE.Group(), h = e.h / T;
+      const pole = new THREE.Mesh(C('poleG', () => new THREE.CylinderGeometry(.05, .05, 1, 6)), mat.pole); pole.scale.y = h; pole.position.set(0, h / 2, 0); g.add(pole);
+      const cloth = new THREE.Mesh(C('clothG', () => new THREE.PlaneGeometry(.8, .5, 4, 1).translate(.4, 0, 0)), mat.flagOff); cloth.position.set(.05, h - .3, 0); g.add(cloth);
+      const ball = new THREE.Mesh(C('ballG', () => new THREE.SphereGeometry(.1, 8, 6)), C('ballM', () => new THREE.MeshBasicMaterial({ color: 0xffd36e }))); ball.position.y = h + .05; g.add(ball);
+      return { o: g, kind: 'flag', cloth };
+    }
     const glowM = (col, op) => C('glow' + col + op, () => new THREE.MeshBasicMaterial({ map: this.glowTex, color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending }));
     const plane = C('plane', () => new THREE.PlaneGeometry(1, 1));
     const edges = C('edges', () => new THREE.EdgesGeometry(this.unit));
     if (e.type === 'block') {
       const g = new THREE.Group();
       if (e.lava) {
-        const m = new THREE.Mesh(this.unit, mat.lava); m.scale.set(60, 30, D + 1); m.position.set(16, -15, 0); g.add(m);
-        const gl = new THREE.Mesh(plane, glowM(0xff7a1a, .7)); gl.scale.set(70, 6, 1); gl.position.set(16, 0.6, D / 2 + .6); g.add(gl);
+        const lw = e.w / T + 28, lx = (e.x + e.w / 2) / T;
+        const m = new THREE.Mesh(this.unit, mat.lava); m.scale.set(lw, 30, D + 1); m.position.set(lx, -15, 0); g.add(m);
+        const gl = new THREE.Mesh(plane, glowM(0xff7a1a, .7)); gl.scale.set(lw + 10, 6, 1); gl.position.set(lx, 0.6, D / 2 + .6); g.add(gl);
         return { o: g, kind: 'lava' };
       }
       let x0 = e.x / T, x1 = (e.x + e.w) / T, y0 = (H - e.y - e.h) / T, y1 = (H - e.y) / T;
-      if (e.x <= .5) x0 -= 8; if (e.x + e.w >= W - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
+      if (e.x <= .5) x0 -= 8; if (e.x + e.w >= this.world.lw - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
       const w = x1 - x0, h = y1 - y0;
       const geo = C('box' + w.toFixed(2) + ',' + h.toFixed(2), () => { const b = RP.geoBuilder(); b.box(-w / 2, w / 2, -h / 2, h / 2, -D / 2, D / 2, true); return b.build(); });
       const body = new THREE.Mesh(geo, e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
@@ -165,10 +187,16 @@ class P3D {
   }
   sync(t) {
     const w = this.world, hints = !!w.D.hints;
-    if (w.lv.uid !== this.lvUid) this.buildEnts();    // respawn creates a fresh level
+    if (w.lv.uid !== this.lvUid) this.rebind();    // respawn creates a fresh level
+    const cc = (w.camX + W / 2) / T, c0 = cc - 34, c1 = cc + 34;
     for (const [e, m] of this.meshes) {
       const o = m.o;
       if (m.kind === 'lava') { o.position.y = this.Y(e.y); continue; }
+      // long levels: only what is near the camera is shown and updated
+      const ex0 = e.type === 'saw' ? e.x / T - 4 : e.x / T, ex1 = e.type === 'saw' ? e.x / T + 4 : (e.x + (e.type === 'laser' && e.dir === 'h' ? e.len : e.w || 0)) / T;
+      if (ex1 < c0 || ex0 > c1) { o.visible = false; if (m.hint) m.hint.visible = false; if (m.extra) m.extra.visible = false; continue; }
+      if (m.extra) m.extra.visible = !e.gone && !e.hidden;
+      if (m.kind === 'flag') { o.visible = true; o.position.set(this.X(e.x + 2), this.Y(e.y + e.h), 0); m.cloth.material = e.on ? this.mat.flagOn : this.mat.flagOff; m.cloth.rotation.y = Math.sin(t * 5 + e.x) * .35 * (1 + (e.wave || 0) * 2); continue; }
       const hidden = e.gone || (e.hidden && m.kind !== 'portal');
       o.visible = !hidden;
       if (m.hint) { m.hint.visible = hints && e.hidden && !e.gone; if (m.hint.visible) m.hint.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), 0); }
@@ -227,7 +255,9 @@ class P3D {
     // camera framing the whole level, drifting gently with the player
     const W3 = innerWidth, H3 = innerHeight, aspect = W3 / H3, cam = this.cam;
     const tan = Math.tan(cam.fov * Math.PI / 360), d = Math.max(10.4 / tan, 17.6 / (tan * aspect)) + 1.5;
-    const cx = 16 + (fx - 16) * .18, cy = 9 + (fy - 9) * .1;
+    const cc = (w.camX + W / 2) / T, cx = cc + (fx - cc) * .18, cy = 9 + (fy - 9) * .1;
+    this.sky.position.x = cx; this.bg.position.x = cx * .9 - 16 * .9;
+    this.sun.position.set(cx - 10, 26, 18); this.sun.target.position.set(cx, 6, 0); this.sun.target.updateMatrixWorld();
     const sh = w.shakeA * (CFG.shake / 100) * .03;
     cam.position.set(cx + (Math.random() - .5) * sh, cy + 1.6 + (Math.random() - .5) * sh, d);
     cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();

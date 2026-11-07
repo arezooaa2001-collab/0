@@ -82,6 +82,7 @@ function buildTextures(ctx) {
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d', { alpha: false });
 let cw = 0, ch = 0, dpr = 1, S = 1, OX = 0, OY = 0, EXT = { l: 0, r: 0, t: 0, b: 0 };
+let CAMX = 0, LW = W; // camera left edge and level width (world px) of the level being drawn
 const BG = {};
 const motes = Array.from({ length: 60 }, () => ({ x: rand(-200, W + 200), y: rand(0, H), s: rand(1, 3), sp: rand(6, 22), ph: rand(0, 7), c: Math.random() < .6 ? 'gMint' : 'gGold' }));
 const glowK = () => GFX.glow * (CFG.glow / 100) * (Perf.fxDrop ? .6 : 1);
@@ -109,6 +110,7 @@ function layoutTouch() {
 }
 function buildBackground() {
   const R = srand(11), sk = PAL.skyCol;
+  STT.tiles.clear();
   // sky
   const sky = mkC(cw, ch), g = sky.getContext('2d');
   let gr = g.createLinearGradient(0, 0, 0, ch);
@@ -122,29 +124,26 @@ function buildBackground() {
   gr = g.createRadialGradient(mx - mr * .3, my - mr * .3, mr * .1, mx, my, mr); gr.addColorStop(0, '#fff6e6'); gr.addColorStop(1, '#ffc9a0');
   g.fillStyle = gr; g.beginPath(); g.arc(mx, my, mr, 0, 7); g.fill();
   g.fillStyle = 'rgba(200,120,110,.25)'; [[.3, -.2, .18], [-.35, .25, .12], [.1, .4, .1]].forEach(([a, b, r]) => { g.beginPath(); g.arc(mx + a * mr, my + b * mr, r * mr, 0, 7); g.fill(); });
-  // mountain layers
+  // mountain ranges: seamless strips that wrap around, so they can scroll forever with the camera (parallax)
+  const P = Math.ceil(cw + 240 * dpr);
   const layer = (col, base, amp, rough, seed, fog) => {
-    const c = mkC(cw + 240 * dpr, ch), q = c.getContext('2d'), r = srand(seed);
+    const c = mkC(P, ch), q = c.getContext('2d'), r = srand(seed), n = Math.ceil(P / (18 * dpr)), ys = [];
+    let y = base;
+    for (let i = 0; i <= n; i++) { y += (r() - .5) * rough * dpr; y = clamp(y, base - amp, base + amp * .4); ys.push(y); }
+    const d = ys[n] - ys[0]; for (let i = 0; i <= n; i++) ys[i] -= d * i / n;
     q.fillStyle = sk(col); q.beginPath(); q.moveTo(0, ch);
-    let y = base; const stepX = 18 * dpr;
-    for (let x = 0; x <= c.width + stepX; x += stepX) { y += (r() - .5) * rough * dpr; y = clamp(y, base - amp, base + amp * .4); q.lineTo(x, OY + y * S); }
-    q.lineTo(c.width, ch); q.closePath(); q.fill();
+    for (let i = 0; i <= n; i++) q.lineTo(i * P / n, OY + ys[i] * S);
+    q.lineTo(P, ch); q.closePath(); q.fill();
     if (fog) { const fg = q.createLinearGradient(0, OY + (base - amp) * S, 0, ch); fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, fog); q.globalCompositeOperation = 'source-atop'; q.fillStyle = fg; q.fillRect(0, 0, c.width, ch); }
     return c;
   };
   const far = layer('#33205a', 420, 170, 60, 3, rgbaHex(sk('#a04678'), .55));
   const mid = layer('#211541', 520, 120, 46, 5, rgbaHex(sk('#6e285a'), .5));
   const near = layer('#140d2c', 610, 70, 34, 9, rgbaHex(sk('#280f32'), .6));
-  // flattened picture (one blit per frame); separate layers kept only for the 2.5D parallax view
-  const sc = BG.scene = mkC(cw, ch), sg = sc.getContext('2d', { alpha: false });
-  sg.drawImage(sky, 0, 0);
-  for (const l of [far, mid, near]) sg.drawImage(l, -120 * dpr, 0);
-  if (needLayers()) {
-    // 2.5D parallax: one opaque back picture (sky + far range) and two thin strips cropped to where the nearer ranges are
-    const back = mkC(cw, ch), bg2 = back.getContext('2d', { alpha: false }); bg2.drawImage(sky, 0, 0); bg2.drawImage(far, -120 * dpr, 0);
-    const strip = (src, top) => { const y0 = Math.max(0, Math.floor(OY + top * S)), c = mkC(src.width, ch - y0); c.getContext('2d').drawImage(src, 0, -y0); c.y0 = y0; return c; };
-    BG.far = back; BG.mid = strip(mid, 520 - 125); BG.near = strip(near, 610 - 75);
-  } else BG.far = BG.mid = BG.near = null;
+  // one opaque back picture (sky + far range) and two thin strips cropped to where the nearer ranges are
+  const back = mkC(cw, ch), bg2 = back.getContext('2d', { alpha: false }); bg2.drawImage(sky, 0, 0); bg2.drawImage(far, -120 * dpr, 0);
+  const strip = (src, top) => { const y0 = Math.max(0, Math.floor(OY + top * S)), c = mkC(src.width, ch - y0); c.getContext('2d').drawImage(src, 0, -y0); c.y0 = y0; return c; };
+  BG.far = back; BG.mid = strip(mid, 520 - 125); BG.near = strip(near, 610 - 75);
   // hidden realm: neon void with a perspective grid
   { const rc = BG.realm = mkC(cw, ch), q = rc.getContext('2d', { alpha: false }), r2 = srand(23);
     const gg = q.createLinearGradient(0, 0, 0, ch); gg.addColorStop(0, '#03010c'); gg.addColorStop(.55, '#170636'); gg.addColorStop(1, '#3a0a52'); q.fillStyle = gg; q.fillRect(0, 0, cw, ch);
@@ -156,13 +155,21 @@ function buildBackground() {
     for (let k = 1; k < 14; k++) { const yy = hy + (ch - hy) * Math.pow(k / 13, 2.2); q.globalAlpha = .25 + k / 20; q.beginPath(); q.moveTo(0, yy); q.lineTo(cw, yy); q.stroke(); }
     q.globalAlpha = 1; }
   BG.dark = mkC(Math.ceil(cw / 4), Math.ceil(ch / 4)); BG.darkG = BG.dark.getContext('2d');
-  BASE.key = ''; FRONT.key = '';
 }
-const needLayers = () => typeof app !== 'undefined' && app.view === 'p25';
+// sky + scrolling mountain strips; scroll = extra horizontal shift in device px (2.5D vanishing point)
+function drawBack(world, sx, sy, scroll = 0) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const dx = Math.round(sx * S), dy = Math.round(sy * S);
+  if (dx || dy) { ctx.fillStyle = '#07061c'; ctx.fillRect(0, 0, cw, ch); }
+  if (realmMode) { ctx.drawImage(BG.realm, dx - scroll * .04 - 4 * dpr, dy, cw + 8 * dpr, ch); return; }
+  ctx.drawImage(BG.far, dx, dy);
+  const strip = (c, k) => { const P = c.width, o = ((CAMX * S * k + scroll * k) % P + P) % P; ctx.drawImage(c, dx - o, c.y0 + dy); if (P - o < cw) ctx.drawImage(c, dx - o + P, c.y0 + dy); };
+  strip(BG.mid, .1); strip(BG.near, .2);
+}
 
-/* Static layer caches: every block/spike that is not moving is drawn once and redrawn only when that set changes.
-   BASE = sky + statics (classic 2D);  FRONT = transparent statics only (2.5D, drawn over the extruded depth faces). */
-const BASE = { c: null, g: null, key: '' }, FRONT = { c: null, g: null, key: '' };
+/* Static layer cache: blocks/spikes that are not moving are drawn once into tiles 640 world px wide. Only the
+   tiles on screen are drawn each frame; a tile is redrawn only when it scrolls into view or its statics change. */
+const STT = { tiles: new Map(), tw: 640, renders: 0 };
 let levelUid = 0;
 function isStaticEnt(e) {
   if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol || e.conv) return false;
@@ -170,33 +177,42 @@ function isStaticEnt(e) {
   if (e.type === 'spike') return e.pop >= 1;
   return false;
 }
-function baseKey(world) {
+function statKey(world, a, b) {
   let h = world.lv.uid * 7919 + (hints ? 3 : 0) + PAL.ver * 104729 + (realmMode ? 5 : 0);
   const ents = world.lv.ents;
-  for (let i = 0; i < ents.length; i++) if (isStaticEnt(ents[i])) h = (Math.imul(h, 31) + i * 97 + (ents[i].y | 0)) | 0;
+  for (let i = 0; i < ents.length; i++) { const e = ents[i]; if (e.x > b || e.x + e.w < a || !isStaticEnt(e)) continue; h = (Math.imul(h, 31) + i * 97 + (e.y | 0)) | 0; }
   return h;
 }
-function getLayer(L, world, withSky) {
-  const key = world ? baseKey(world) : -1;
-  if (L.c && L.key === key && L.c.width === cw && L.c.height === ch) return L.c;
-  if (!L.c || L.c.width !== cw || L.c.height !== ch) { L.c = mkC(cw, ch); L.g = L.c.getContext('2d', { alpha: !withSky }); }
-  const g = L.g;
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  if (withSky) g.drawImage(world && world.def.realm ? BG.realm : BG.scene, 0, 0); else g.clearRect(0, 0, cw, ch);
-  let y0 = ch, y1 = 0;
-  if (world) {
-    const main = ctx; ctx = g; worldTransform(0, 0);
-    for (const e of world.lv.ents) if (e.type === 'spike' && isStaticEnt(e)) { drawSpike(e); y0 = Math.min(y0, e.y); y1 = Math.max(y1, e.y + e.h); }
-    for (const e of world.lv.ents) if (e.type === 'block' && isStaticEnt(e)) { drawBlock(e, 0); const [, by, , bh] = blockRect(e); y0 = Math.min(y0, by - 12); y1 = Math.max(y1, by + bh); }
-    ctx = main;
-  }
-  L.y0 = clamp(Math.floor(OY + y0 * S) - 2, 0, ch); L.y1 = clamp(Math.ceil(OY + y1 * S) + 2, 0, ch);
-  L.key = key;
-  return L.c;
+function getTile(world, ti) {
+  const tw = STT.tw, a = ti * tw, b = a + tw, key = statKey(world, a - 60, b + 60), wpx = Math.ceil(tw * S) + 2;
+  let tl = STT.tiles.get(ti);
+  if (tl && tl.key === key && tl.c.width === wpx && tl.c.height === ch) return tl;
+  if (!tl || tl.c.width !== wpx || tl.c.height !== ch) { tl = { c: mkC(wpx, ch) }; tl.g = tl.c.getContext('2d'); STT.tiles.set(ti, tl); }
+  STT.renders++;
+  const g = tl.g; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, wpx, ch);
+  let y0 = H, y1 = 0;
+  const main = ctx; ctx = g; ctx.setTransform(S, 0, 0, S, -a * S, OY);
+  for (const e of world.lv.ents) if (e.type === 'spike' && e.x < b + 60 && e.x + e.w > a - 60 && isStaticEnt(e)) { drawSpike(e); y0 = Math.min(y0, e.y); y1 = Math.max(y1, e.y + e.h); }
+  for (const e of world.lv.ents) if (e.type === 'block' && e.x < b + 60 && e.x + e.w > a - 60 && isStaticEnt(e)) { drawBlock(e, 0); const [, by, , bh] = blockRect(e); y0 = Math.min(y0, by - 12); y1 = Math.max(y1, by + bh); }
+  ctx = main;
+  tl.key = key; tl.y0 = clamp(Math.floor(OY + y0 * S) - 2, 0, ch); tl.y1 = clamp(Math.ceil(OY + y1 * S) + 2, 0, ch);
+  return tl;
 }
-const getBase = world => getLayer(BASE, world, true);
+function drawStatics(world, sx, sy) {
+  if (!world) return;
+  const tw = STT.tw, x0 = CAMX - OX / S, x1 = x0 + cw / S, t0 = Math.floor(x0 / tw), t1 = Math.floor(x1 / tw);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let ti = t0; ti <= t1; ti++) {
+    const tl = getTile(world, ti), h = tl.y1 - tl.y0; if (h <= 0) continue;
+    ctx.drawImage(tl.c, 0, tl.y0, tl.c.width, h, Math.round(OX + (ti * tw - CAMX + sx) * S), tl.y0 + Math.round(sy * S), tl.c.width, h);
+  }
+  // pre-draw the next tile in the running direction while nothing else is being drawn into a tile this frame
+  const ahead = world.p.face >= 0 ? t1 + 1 : t0 - 1;
+  if (ahead >= 0 && ahead * tw < (world.lw || W) && !STT.tiles.has(ahead)) getTile(world, ahead);
+  if (STT.tiles.size > 8) for (const k of [...STT.tiles.keys()]) if (k < t0 - 2 || k > t1 + 2) STT.tiles.delete(k);
+}
 
-function worldTransform(sx, sy) { ctx.setTransform(S, 0, 0, S, OX + sx * S, OY + sy * S); }
+function worldTransform(sx, sy) { ctx.setTransform(S, 0, 0, S, OX + (sx - CAMX) * S, OY + sy * S); }
 
 let hints = false, realmMode = false;
 function drawHint(e) {
@@ -208,14 +224,15 @@ function drawHint(e) {
 function blockRect(e) {
   let x = e.x, y = e.y, w = e.w, h = e.h;
   if (e.x <= 0.5) { x = -EXT.l; w = e.x + e.w + EXT.l; }
-  if (e.x + e.w >= W - 0.5) w = W + EXT.r - x;
+  if (e.x + e.w >= LW - 0.5) w = LW + EXT.r - x;
   if (e.y + e.h >= H - 0.5 && !e.falling) h = H + EXT.b - y;
   if (e.y <= 0.5 && !e.falling) { h = e.y + e.h + EXT.t; y = -EXT.t; }
   return [x, y, w, h];
 }
 function drawLava(e, t) {
-  const x = -EXT.l, w = W + EXT.l + EXT.r, y = e.y;
-  if (y > H + EXT.b) return;
+  const y = e.y; if (y > H + EXT.b) return;
+  const x = Math.max(e.x <= .5 ? -EXT.l : e.x, CAMX - EXT.l - 30), x1 = Math.min(e.x + e.w >= LW - .5 ? LW + EXT.r : e.x + e.w, CAMX + W + EXT.r + 30), w = x1 - x;
+  if (w <= 0) return;
   ctx.save();
   const gr = ctx.createLinearGradient(0, y, 0, y + 260); gr.addColorStop(0, '#ffe08a'); gr.addColorStop(.06, '#ff7a1a'); gr.addColorStop(.45, '#b8240e'); gr.addColorStop(1, '#3a0606');
   ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x, y + 900);
@@ -223,7 +240,7 @@ function drawLava(e, t) {
   ctx.lineTo(x + w + 20, y + 900); ctx.closePath(); ctx.fill();
   if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; const g2 = ctx.createLinearGradient(0, y - 90, 0, y + 10); g2.addColorStop(0, 'rgba(255,90,20,0)'); g2.addColorStop(1, 'rgba(255,120,30,.35)'); ctx.fillStyle = g2; ctx.fillRect(x, y - 90, w, 100); }
   ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(255,230,150,.7)';
-  for (let i = 0; i < 9; i++) { const bx = ((i * 157 + t * 40 * (i % 3 + 1)) % (W + 80)) - 40, ph = (t * 1.3 + i * .37) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(bx, y + 6 - ph * 18, 3 + i % 3, 0, 7); ctx.fill(); }
+  for (let i = 0; i < 9; i++) { const bx = x + ((i * 157 + t * 40 * (i % 3 + 1)) % (w + 80)) - 40, ph = (t * 1.3 + i * .37) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(bx, y + 6 - ph * 18, 3 + i % 3, 0, 7); ctx.fill(); }
   ctx.restore();
 }
 function drawBlock(e, t) {
@@ -415,19 +432,49 @@ function drawParticles(world) {
 
 function drawMotes(t, dt) {
   const n = Math.round(GFX.motes * Perf.fxK); if (!n) return;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  // screen-space dust that drifts slower than the camera (parallax)
+  ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
+  const span = W + EXT.l + EXT.r + 40, off = CAMX * .35;
   for (let i = 0; i < n; i++) {
     const m = motes[i];
     m.x += m.sp * dt * .4; m.y += Math.sin(t * .8 + m.ph) * .25 - m.sp * dt * .25;
     if (m.y < -20) { m.y = H + 20; } if (m.x > W + EXT.r + 20) m.x = -EXT.l - 20;
+    const mx = ((m.x - off + EXT.l + 20) % span + span) % span - EXT.l - 20;
     const s = m.s * 6 * (0.75 + Math.sin(t * 2 + m.ph) * .25);
-    ctx.globalAlpha = .55; ctx.drawImage(TEX[m.c], m.x - s, m.y - s, s * 2, s * 2);
+    ctx.globalAlpha = .55; ctx.drawImage(TEX[m.c], mx - s, m.y - s, s * 2, s * 2);
   }
   ctx.restore();
 }
 
+// entities near the camera (long levels can hold a thousand of them)
+function viewEnts(world) {
+  const a = CAMX - EXT.l - 160, b = CAMX + W + EXT.r + 160, out = [];
+  for (const e of world.lv.ents) {
+    if (e.gone) continue;
+    let x0, x1;
+    if (e.type === 'saw') { const r = e.r + (e.orbit ? e.orbit.rad * T : 0); x0 = (e.orbit ? e.ocx : e.x) - r; x1 = (e.orbit ? e.ocx : e.x) + r;
+      if (e.patrol0) for (const q of e.patrol0.pts) { x0 = Math.min(x0, q[0] - e.r); x1 = Math.max(x1, q[0] + e.r); } }
+    else if (e.type === 'laser') { x0 = e.x - 10; x1 = e.x + (e.dir === 'h' ? e.len : 0) + 10; }
+    else { x0 = e.x; x1 = e.x + (e.w || 0); }
+    if (x1 > a && x0 < b) out.push(e);
+  }
+  return out;
+}
+function drawFlag(e, t) {
+  const x = e.x, top = e.y, h = e.h, on = e.on, wv = e.wave || 0;
+  if (on && glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.35 + wv * .5) * Math.min(1, glowK()); ctx.drawImage(TEX.gMint, x - 46, top - 30, 110, 110); ctx.restore(); }
+  ctx.fillStyle = '#2a2547'; ctx.fillRect(x - 5, top + h - 6, 14, 6);
+  ctx.fillStyle = '#d8d2ee'; ctx.fillRect(x, top, 4, h - 4);
+  ctx.fillStyle = on ? PAL.moss : '#ff5d8a'; ctx.beginPath(); ctx.moveTo(x + 4, top + 2);
+  for (let i = 0; i <= 6; i++) { const u = i / 6; ctx.lineTo(x + 4 + u * 30, top + 2 + Math.sin(t * 6 + u * 4) * 3 * u * (1 + wv * 2)); }
+  for (let i = 6; i >= 0; i--) { const u = i / 6; ctx.lineTo(x + 4 + u * 30, top + 20 - u * 4 + Math.sin(t * 6 + u * 4) * 3 * u * (1 + wv * 2)); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x + 6, top + 5, 12, 2);
+  ctx.fillStyle = '#ffd36e'; ctx.beginPath(); ctx.arc(x + 2, top - 2, 4, 0, 7); ctx.fill();
+}
 function drawDynamic(world, t, dt, depth) {
-  const ents = world.lv.ents;
+  const ents = viewEnts(world);
+  for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
   for (const e of ents) if (!e.gone && e.type === 'saw' && (e.patrol0 || e.orbit)) drawTrack(e);
   for (const e of ents) if (!e.gone && e.type === 'laser') drawLaser(e, t);
@@ -459,9 +506,9 @@ function render(world, t, dt) {
   const sh = shakeOf(world);
   const sx = sh ? rand(-sh, sh) * .6 : 0, sy = sh ? rand(-sh, sh) * .6 : 0;
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (sh) { ctx.fillStyle = '#07061c'; ctx.fillRect(0, 0, cw, ch); }
-  ctx.drawImage(getBase(world), Math.round(sx * S), Math.round(sy * S));
+  CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
+  drawBack(world, sx, sy);
+  drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawMotes(t, dt);
   if (world) drawDynamic(world, t, dt, null);
@@ -473,26 +520,25 @@ function render25(world, t, dt) {
   if (!BG.far || !BG.mid) buildBackground();
   const sh = shakeOf(world), sx = sh ? rand(-sh, sh) * .6 : 0, sy = sh ? rand(-sh, sh) * .6 : 0;
   hints = !!world.D.hints; realmMode = !!world.def.realm;
-  const p = world.p, px = p.x + PW / 2, py = p.y + PHT / 2;
+  CAMX = world.camX || 0; LW = world.lw || W;
+  // vanishing point follows the player on screen (screen-relative), expressed in world coordinates
+  const p = world.p, px = p.x + PW / 2 - CAMX, py = p.y + PHT / 2;
   const cam = world.cam25 || (world.cam25 = { x: px, y: py });
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
-  const vp = { x: W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const off = (vp.x - W / 2) * S;
-  if (realmMode) ctx.drawImage(BG.realm, -off * .04 - 4 * dpr, 0, cw + 8 * dpr, ch);
-  else { ctx.drawImage(BG.far, 0, 0); ctx.drawImage(BG.mid, -120 * dpr - off * .1, BG.mid.y0); ctx.drawImage(BG.near, -120 * dpr - off * .18, BG.near.y0); }
+  const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
+  drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
   worldTransform(sx, sy);
   drawMotes(t, dt);
   // depth faces (faces hidden behind a touching neighbour block are skipped)
   ctx.lineJoin = 'round';
-  vp.blocks = world.lv.ents.filter(e => e.type === 'block' && !e.gone && !e.hidden && !e.lava && e.appear >= 1);
-  for (const e of world.lv.ents) {
-    if (e.gone || e.hidden) continue;
+  const near = viewEnts(world);
+  vp.blocks = near.filter(e => e.type === 'block' && !e.hidden && !e.lava && e.appear >= 1);
+  for (const e of near) {
+    if (e.hidden) continue;
     if (e.type === 'block' && !e.lava && !(e.ghost && hints)) drawExtrude(e, vp);
     else if (e.type === 'spike' && e.pop > 0) drawSpikeBack(e, vp);
   }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  { const fr = getLayer(FRONT, world, false), h = FRONT.y1 - FRONT.y0; if (h > 0) ctx.drawImage(fr, 0, FRONT.y0, cw, h, Math.round(sx * S), FRONT.y0 + Math.round(sy * S), cw, h); }
+  drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawDynamic(world, t, dt, vp);
   drawOverlays(world, t);
@@ -536,11 +582,11 @@ function drawDark(world, t) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, c.width, c.height);
   g.fillStyle = `rgba(3,2,12,${0.95 - world.lightning * .8})`; g.fillRect(0, 0, c.width, c.height);
   g.globalCompositeOperation = 'destination-out';
-  const hole = (x, y, r, a) => { const sx = (OX + x * S) * q, sy = (OY + y * S) * q, rr = r * S * q; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
+  const hole = (x, y, r, a) => { const sx = (OX + (x - CAMX) * S) * q, sy = (OY + y * S) * q, rr = r * S * q; if (sx + rr < 0 || sx - rr > c.width) return; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
   const p = world.p; const fl = 1 + Math.sin(t * 9) * .03 + Math.sin(t * 23) * .02;
   if (world.state !== 'dead') hole(p.x + PW / 2, p.y + PHT / 2, 230 * fl, 1);
-  for (const e of world.lv.ents) {
-    if (e.gone) continue;
+  for (const e of viewEnts(world)) {
+    if (e.type === 'flag' && e.on) hole(e.x + 10, e.y + 20, 70, .6);
     if (e.type === 'door' || (e.type === 'portal' && e.open > 0)) hole(e.x + e.w / 2, e.y + e.h / 2, 120, .9);
     if (e.type === 'saw') hole(e.x, e.y, 80, .55);
     if (e.type === 'laser' && e.act) { const n = Math.max(1, Math.round(e.len / 80)); for (let i = 0; i <= n; i++) hole(e.x + (e.dir === 'h' ? e.len * i / n : 0), e.y + (e.dir === 'v' ? e.len * i / n : 0), 60, .45); }
@@ -557,7 +603,7 @@ function drawTransition() {
   if (!trans) return;
   const k = clamp(trans.t / trans.dur, 0, 1);
   const e = trans.dir === 'close' ? 1 - k * k : k * (2 - k);
-  const cx = OX + (trans.cx ?? W / 2) * S, cy = OY + (trans.cy ?? H / 2) * S;
+  const cx = OX + ((trans.cx ?? CAMX + W / 2) - CAMX) * S, cy = OY + (trans.cy ?? H / 2) * S;
   const maxR = Math.hypot(Math.max(cx, cw - cx), Math.max(cy, ch - cy));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#07051a'; ctx.beginPath(); ctx.rect(0, 0, cw, ch); ctx.arc(cx, cy, Math.max(0.01, e * maxR), 0, Math.PI * 2, true); ctx.fill();
