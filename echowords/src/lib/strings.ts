@@ -7,8 +7,18 @@ export const t = {
 
   // Setup
   setupTitle: 'برنامه هنوز به ابر وصل نشده',
-  setupBody:
-    'یک بزرگ‌تر باید آدرس و کلید عمومی Supabase را در فایل ‎.env‎ بنویسد. راهنمای کامل در فایل README هست.',
+  setupBody: 'این قسمت برای مامان یا باباست. فقط یک بار لازم است.',
+  setupUrl: 'آدرس پروژه Supabase (Project URL)',
+  setupKey: 'کلید عمومی (anon / publishable key)',
+  setupKeyHelp: 'از Supabase ← Project Settings ← API. هرگز کلید service_role یا secret را اینجا نگذارید.',
+  setupConnect: 'اتصال به ابر',
+  setupChecking: 'در حال بررسی اتصال…',
+  setupBadUrl: 'آدرس درست نیست. باید با https:// شروع شود.',
+  setupBadKey: 'این کلید عمومی (anon) نیست.',
+  setupSecretKey: 'این کلید مخفی (service_role/secret) است! آن را اینجا نگذارید و اگر جایی پخش شده، عوضش کنید.',
+  setupFailed: 'اتصال برقرار نشد. آدرس و کلید را دوباره بررسی کنید.',
+  setupChange: 'تغییر اتصال ابری',
+  setupChangeConfirm: 'اتصال ابری این دستگاه پاک شود؟ کلمه‌ها در ابر می‌مانند.',
 
   // Auth
   authHello: 'سلام! 👋',

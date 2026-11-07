@@ -52,6 +52,17 @@ The child can then:
 
 Confidence percentages are shown only when the provider actually returns one (Deepgram does; Whisper does not).
 
+## Single HTML file
+
+`release/echowords.html` is the whole app in one file (JS, CSS, fonts, icon). Rebuild it with `npm run build:single`.
+
+On first open it shows a setup form for a parent. Enter the Supabase **Project URL** and the **public anon/publishable key**. They are remembered on that device. The form refuses `service_role`/secret keys. The file contains no keys.
+
+The Supabase steps below (database, Edge Function, Deepgram key) are still required, because the cloud library and transcription run there.
+
+- **Best (Android tablet):** upload the file to any HTTPS host (for example GitHub Pages or Netlify Drop). Open the address in Chrome, then use "Add to Home screen".
+- **Computer:** double-clicking the file in Chrome works too; Chrome allows the microphone for local files.
+
 ## Setup
 
 ### 1. Supabase project

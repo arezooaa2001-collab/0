@@ -24,7 +24,7 @@ enable_refresh_token_rotation = true
 enable_signup = true
 
 [auth.email]
-enable_signup = true
+enabled = true
 # For a child's account the parent signs up; set to true in production if you want e-mail confirmation.
 enable_confirmations = false
 

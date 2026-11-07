@@ -8,6 +8,8 @@ interface Props {
   accent: Accent;
   onAccent: (a: Accent) => void;
   onLogout: () => void;
+  /** Present only when the cloud connection was entered on this device. */
+  onResetCloud?: () => void;
 }
 
 const ACCENTS: { value: Accent; label: string }[] = [
@@ -16,8 +18,9 @@ const ACCENTS: { value: Accent; label: string }[] = [
   { value: 'uk', label: t.accentUK },
 ];
 
-export function SettingsScreen({ email, accent, onAccent, onLogout }: Props) {
+export function SettingsScreen({ email, accent, onAccent, onLogout, onResetCloud }: Props) {
   const [confirm, setConfirm] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   return (
     <section className="screen settings-screen">
       <h1 className="title">{t.settingsTitle}</h1>
@@ -53,8 +56,22 @@ export function SettingsScreen({ email, accent, onAccent, onLogout }: Props) {
       <div className="card">
         <h2>{t.account}</h2>
         <p dir="ltr" className="email">{email}</p>
-        <button className="btn btn-ghost" onClick={() => setConfirm(true)}>🚪 {t.logout}</button>
+        <div className="row wrap">
+          <button className="btn btn-ghost" onClick={() => setConfirm(true)}>🚪 {t.logout}</button>
+          {onResetCloud && (
+            <button className="btn btn-ghost" onClick={() => setConfirmReset(true)}>🛠️ {t.setupChange}</button>
+          )}
+        </div>
       </div>
+
+      {confirmReset && onResetCloud && (
+        <ConfirmDialog
+          message={t.setupChangeConfirm}
+          confirmLabel={t.ok}
+          onConfirm={onResetCloud}
+          onCancel={() => setConfirmReset(false)}
+        />
+      )}
 
       {confirm && (
         <ConfirmDialog

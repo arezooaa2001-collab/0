@@ -2,11 +2,12 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import type { Accent } from '../supabase/functions/_shared/stt';
 import { AuthScreen } from './components/AuthScreen';
+import { SetupScreen } from './components/SetupScreen';
 import { LibraryScreen } from './components/LibraryScreen';
 import { RecordScreen } from './components/RecordScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { useToast } from './components/Toast';
-import { isConfigured } from './lib/config';
+import { clearRuntimeConfig, isConfigured, isRuntimeConfigured } from './lib/config';
 import { stopPlayback } from './lib/player';
 import { accentFromMetadata, readLocalAccent, saveAccent } from './lib/settings';
 import { t } from './lib/strings';
@@ -15,18 +16,6 @@ import { useLibrary } from './lib/useLibrary';
 import { clearAudioCache } from './lib/words';
 
 type Tab = 'record' | 'library' | 'settings';
-
-function SetupNeeded() {
-  return (
-    <main className="auth">
-      <div className="auth-card card">
-        <div className="logo" aria-hidden>🛠️</div>
-        <h1>{t.setupTitle}</h1>
-        <p>{t.setupBody}</p>
-      </div>
-    </main>
-  );
-}
 
 function Home({ session }: { session: Session }) {
   const toast = useToast();
@@ -65,6 +54,15 @@ function Home({ session }: { session: Session }) {
               clearAudioCache();
               await supabase!.auth.signOut();
             }}
+            onResetCloud={
+              isRuntimeConfigured
+                ? async () => {
+                    await supabase!.auth.signOut().catch(() => undefined);
+                    clearRuntimeConfig();
+                    window.location.reload();
+                  }
+                : undefined
+            }
           />
         )}
       </main>
@@ -94,7 +92,7 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (!isConfigured) return <SetupNeeded />;
+  if (!isConfigured) return <SetupScreen />;
   if (session === undefined)
     return (
       <main className="auth">

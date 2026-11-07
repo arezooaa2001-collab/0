@@ -38,7 +38,7 @@ export function AuthScreen() {
         const { data, error } = await sb().auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: /^https?:$/.test(window.location.protocol) ? { emailRedirectTo: window.location.origin } : undefined,
         });
         if (error) setError(authError(error));
         else if (!data.session) {
