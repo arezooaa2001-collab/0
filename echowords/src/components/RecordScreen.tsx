@@ -1,25 +1,16 @@
 import { useState } from 'react';
-import type { Accent } from '../../supabase/functions/_shared/stt';
 import { formatDuration } from '../lib/format';
+import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
-import { type Library, SaveError } from '../lib/useLibrary';
+import type { Library } from '../lib/useLibrary';
 import { useRecorder } from '../lib/useRecorder';
 import { validateHint } from '../lib/validation';
-import type { SaveStage } from '../lib/words';
 import { LevelMeter } from './LevelMeter';
 import { PlayButton } from './PlayButton';
 import { useToast } from './Toast';
 import { WordCard } from './WordCard';
 
-type Phase = 'record' | 'saving' | 'result' | 'saveFailed';
-type Stage = SaveStage | 'local';
-
-const STAGES: { key: Stage | 'transcribe'; label: string }[] = [
-  { key: 'local', label: t.stageLocal },
-  { key: 'upload', label: t.stageUpload },
-  { key: 'verify', label: t.stageVerify },
-  { key: 'record', label: t.stageRecord },
-];
+type Phase = 'record' | 'saving' | 'result';
 
 export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) {
   const rec = useRecorder();
@@ -27,9 +18,7 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
   const [hint, setHint] = useState('');
   const [hintError, setHintError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('record');
-  const [stage, setStage] = useState<Stage>('local');
   const [wordId, setWordId] = useState<string | null>(null);
-  const [failedId, setFailedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const word = wordId ? lib.words.find((w) => w.id === wordId) ?? null : null;
@@ -49,20 +38,15 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
     setSaving(true);
     setPhase('saving');
     try {
-      const w = await lib.saveTake(rec.take, { hint: h.value, accent }, setStage);
+      const w = await lib.saveTake(rec.take, { hint: h.value, accent });
       setWordId(w.id);
       setPhase('result');
-      toast(t.savedToCloud, 'success');
+      toast(t.saved, 'success');
       void lib.transcribe(w.id);
-    } catch (e) {
-      // If even the local copy failed, there is nothing to retry: go back to the take.
-      if (!(e instanceof SaveError)) {
-        toast(t.errGeneric, 'error');
-        setPhase('record');
-        return;
-      }
-      setFailedId(e.itemId);
-      setPhase('saveFailed');
+    } catch {
+      // The take is still in memory: the learner can simply press Save again.
+      toast(t.saveFailed, 'error');
+      setPhase('record');
     } finally {
       setSaving(false);
     }
@@ -72,52 +56,13 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
     rec.reset();
     setHint('');
     setWordId(null);
-    setFailedId(null);
     setPhase('record');
   };
 
   if (phase === 'saving') {
-    const idx = STAGES.findIndex((s) => s.key === stage);
     return (
       <section className="screen record-screen" aria-busy="true">
-        <h1 className="title">{t.savingTitle}</h1>
-        <ol className="stages">
-          {STAGES.map((s, i) => (
-            <li key={s.key} className={i < idx ? 'done' : i === idx ? 'now' : ''}>
-              <span aria-hidden>{i < idx ? '✅' : i === idx ? '⏳' : '⚪'}</span> {s.label}
-            </li>
-          ))}
-        </ol>
-      </section>
-    );
-  }
-
-  if (phase === 'saveFailed') {
-    return (
-      <section className="screen record-screen">
-        <div className="card state state-failed" role="alert">
-          <p className="state-title">☁️❌</p>
-          <p>{t.saveFailed}</p>
-          <div className="row wrap">
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                setPhase('saving');
-                setStage('upload');
-                const done = failedId ? await lib.retryPending(failedId) : [];
-                const w = done.find((x) => x.id === failedId);
-                if (w) {
-                  setWordId(w.id);
-                  setPhase('result');
-                  toast(t.savedToCloud, 'success');
-                } else setPhase('saveFailed');
-              }}
-            >
-              🔁 {t.retry}
-            </button>
-            <button className="btn btn-secondary" onClick={newRecording}>🎤 {t.recordNewOne}</button>
-          </div>
-        </div>
+        <p className="state state-busy"><span className="spinner" aria-hidden /> {t.savingTitle}</p>
       </section>
     );
   }

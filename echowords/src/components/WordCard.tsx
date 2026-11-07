@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { formatDate, formatPercent, formatSeconds } from '../lib/format';
+import { formatDate, formatSeconds } from '../lib/format';
 import { standardPronunciationSupported, speakStandard } from '../lib/speech';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
-import { type Word, getOriginalAudioUrl } from '../lib/words';
+import type { Word } from '../lib/db';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PlayButton } from './PlayButton';
 import { useToast } from './Toast';
@@ -23,10 +23,8 @@ function reasonText(reason: string | null): string {
   switch (reason) {
     case 'not_english':
       return t.reasonNotEnglish;
-    case 'low_confidence':
-      return t.reasonLowConfidence;
-    case 'no_speech':
-      return t.reasonNoSpeech;
+    case 'mismatch':
+      return t.reasonMismatch;
     default:
       return t.reasonEmpty;
   }
@@ -40,11 +38,11 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
 
   const isTranscribing =
     lib.transcribing.has(word.id) ||
-    (word.stt_status === 'processing' && Date.now() - new Date(word.updated_at).getTime() < STUCK_MS);
+    (word.sttStatus === 'processing' && Date.now() - new Date(word.updatedAt).getTime() < STUCK_MS);
   const text = word.transcript;
 
   const getUrl = async () => {
-    const { url, verified } = await getOriginalAudioUrl(word);
+    const { url, verified } = await lib.getAudioUrl(word);
     if (!verified) toast(t.audioChanged, 'error');
     return url;
   };
@@ -78,7 +76,7 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
   if (editing) {
     body = (
       <TranscriptEditor
-        initial={text ?? word.stt_transcript ?? word.hint ?? ''}
+        initial={text ?? word.sttHeard ?? word.hint ?? ''}
         onCancel={() => setEditing(false)}
         onSave={async (v) => {
           await lib.correct(word.id, v);
@@ -91,37 +89,40 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
       <div className="word-text-wrap">
         {result && <p className="praise">{t.greatYouSaid}</p>}
         <p className="word-text" dir="ltr" lang="en">{text}</p>
-        {word.transcript_edited ? (
-          <p className="meta">{t.editedByYou}</p>
-        ) : (
-          word.stt_confidence !== null && (
-            <p className="meta">
-              {t.howSure} {formatPercent(word.stt_confidence)}
-            </p>
-          )
-        )}
+        {word.transcriptEdited && <p className="meta">{t.editedByYou}</p>}
       </div>
     );
   } else if (isTranscribing) {
     body = (
       <p className="state state-busy" aria-live="polite">
-        <span className="spinner" aria-hidden /> {t.transcribing}
+        <span className="spinner" aria-hidden />{' '}
+        {lib.modelProgress !== null
+          ? t.modelDownloading(new Intl.NumberFormat('fa-IR', { style: 'percent' }).format(lib.modelProgress))
+          : t.transcribing}
       </p>
     );
-  } else if (word.stt_status === 'unclear') {
+  } else if (word.sttStatus === 'unclear') {
     body = (
       <div className="state state-unclear" role="status">
         <p className="state-title">{t.notSure}</p>
-        <p>{reasonText(word.stt_reason)}</p>
-        {word.stt_transcript && word.stt_reason !== 'not_english' && (
+        <p>{reasonText(word.sttReason)}</p>
+        {word.sttReason === 'mismatch' && word.hint && (
           <p className="suggestion">
-            {t.maybeYouSaid} <b dir="ltr" lang="en">{word.stt_transcript}</b>
+            {t.youWrote} <b dir="ltr" lang="en">{word.hint}</b>
+          </p>
+        )}
+        {word.sttHeard && word.sttReason !== 'not_english' && (
+          <p className="suggestion">
+            {t.maybeYouSaid} <b dir="ltr" lang="en">{word.sttHeard}</b>
           </p>
         )}
         <p className="meta">{t.retryOrType}</p>
         <div className="row wrap">
-          {word.stt_transcript && word.stt_reason !== 'not_english' && (
-            <button className="btn btn-primary" onClick={() => accept(word.stt_transcript!)}>👍 {t.yesCorrect}</button>
+          {word.sttHeard && word.sttReason !== 'not_english' && (
+            <button className="btn btn-primary" onClick={() => accept(word.sttHeard!)}>👍 {t.yesCorrect}</button>
+          )}
+          {word.sttReason === 'mismatch' && word.hint && (
+            <button className="btn btn-secondary" onClick={() => accept(word.hint!)}>📝 {t.useMyHint}</button>
           )}
           <button className="btn btn-secondary" onClick={() => setEditing(true)}>✏️ {t.writeItMyself}</button>
           {onRecordAgain && <button className="btn btn-secondary" onClick={onRecordAgain}>🎤 {t.recordAgain}</button>}
@@ -132,7 +133,8 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
     // pending, failed, or stuck in processing
     body = (
       <div className="state state-failed" role="status">
-        <p className="state-title">{word.stt_status === 'failed' ? t.transcribeFailed : t.waitingText}</p>
+        <p className="state-title">{word.sttStatus === 'failed' ? t.transcribeFailed : t.waitingText}</p>
+        {word.sttStatus === 'failed' && <p className="meta">{t.modelNeedsInternet}</p>}
         <div className="row wrap">
           <button className="btn btn-secondary" onClick={retranscribe}>🔁 {t.tryAgainTranscribe}</button>
           <button className="btn btn-secondary" onClick={() => setEditing(true)}>✏️ {t.writeItMyself}</button>
@@ -172,11 +174,11 @@ export function WordCard({ word, lib, result, onRecordAgain }: Props) {
 
       <div className="word-foot">
         <span className="meta">
-          {formatDate(word.created_at)} · {formatSeconds(word.duration_ms)}
+          {formatDate(word.createdAt)} · {formatSeconds(word.durationMs)}
         </span>
         {!editing && (
           <span className="row">
-            {(text || word.stt_status === 'done') && (
+            {(text || word.sttStatus === 'done') && (
               <button className="btn-link" onClick={() => setEditing(true)}>✏️ {t.edit}</button>
             )}
             <button className="btn-link danger" onClick={() => setConfirmDelete(true)} disabled={deleting}>🗑️ {t.delete}</button>

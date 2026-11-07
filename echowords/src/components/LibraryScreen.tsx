@@ -1,38 +1,8 @@
 import { useMemo, useState } from 'react';
-import { formatDate, formatSeconds } from '../lib/format';
 import { t } from '../lib/strings';
-import type { Library, PendingUpload } from '../lib/useLibrary';
-import { PlayButton } from './PlayButton';
+import type { Library } from '../lib/useLibrary';
 import { useToast } from './Toast';
 import { WordCard } from './WordCard';
-
-function PendingCard({ p, lib }: { p: PendingUpload; lib: Library }) {
-  const [url] = useState(() => URL.createObjectURL(p.item.blob));
-  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-  return (
-    <article className="card word-card pending-card">
-      <p className="state-title">
-        ☁️ {t.notInCloudYet}
-        {p.item.hint && (
-          <>
-            {' · '}
-            <b dir="ltr" lang="en">{p.item.hint}</b>
-          </>
-        )}
-      </p>
-      <p className="meta">
-        {p.status === 'uploading' ? t.uploading : offline ? t.waitingForInternet : p.status === 'failed' ? t.saveFailed : t.uploading}
-      </p>
-      <div className="row wrap actions">
-        <PlayButton playKey={`pending-${p.item.id}`} getUrl={async () => url} big />
-        {p.status !== 'uploading' && (
-          <button className="btn btn-secondary" onClick={() => lib.retryPending(p.item.id)}>🔁 {t.retry}</button>
-        )}
-      </div>
-      <p className="meta">{formatDate(p.item.createdAt)} · {formatSeconds(p.item.durationMs)}</p>
-    </article>
-  );
-}
 
 export function LibraryScreen({ lib }: { lib: Library }) {
   const toast = useToast();
@@ -44,7 +14,7 @@ export function LibraryScreen({ lib }: { lib: Library }) {
     return lib.words.filter((w) => {
       if (favOnly && !w.favorite) return false;
       if (!needle) return true;
-      return [w.transcript, w.stt_transcript, w.hint].some((s) => s?.toLowerCase().includes(needle));
+      return [w.transcript, w.sttHeard, w.hint].some((s) => s?.toLowerCase().includes(needle));
     });
   }, [lib.words, q, favOnly]);
 
@@ -70,19 +40,12 @@ export function LibraryScreen({ lib }: { lib: Library }) {
         </button>
         <button
           className="chip"
-          onClick={() => {
-            void lib.refresh();
-            void lib.retryPending();
-          }}
+          onClick={() => void lib.refresh()}
           aria-label={t.refresh}
         >
           🔄 {t.refresh}
         </button>
       </div>
-
-      {lib.pending.map((p) => (
-        <PendingCard key={p.item.id} p={p} lib={lib} />
-      ))}
 
       {lib.loadError && (
         <div className="msg msg-error" role="alert">

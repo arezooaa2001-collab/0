@@ -1,6 +1,6 @@
 // OPTIONAL, clearly separate feature: a machine voice reading the English text.
 // It is never used in place of the learner's own recording.
-import type { Accent } from '../../supabase/functions/_shared/stt';
+import type { Accent } from './stt';
 
 export function standardPronunciationSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';

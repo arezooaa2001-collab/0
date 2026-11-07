@@ -1,131 +1,53 @@
-# گنجینه صدای من — EchoWords Cloud
+# گنجینه صدای من — EchoWords
 
-This app helps a 9-year-old learn English. The child records English words with their own voice and the app writes down what they said, **in English only**. Every recording is kept in a private cloud library and can be replayed any number of times.
+This app helps a 9-year-old learn English. The child records English words with their own voice, sees what they said written **in English**, and replays their recordings any time.
 
-- **Interface:** Persian, right-to-left, designed for a child (big buttons, emoji, simple wording).
-- **Learning content:** English only. Speech is transcribed only as English (automatic, American 🇺🇸 or British 🇬🇧). There is no translation and no other language.
-- **Original audio:** "صدای خودم" (My recording) always plays the child's exact original file. "تلفظ استاندارد" (Standard pronunciation) is a separate, clearly labelled machine voice.
+**Nothing to set up.** There is no account, no cloud, and no server. Everything is saved on the device itself.
 
 ![Screens](docs/screens-1.png)
-![Screens](docs/screens-2.png)
 
-## How it works
+## Use it
 
-```
-Browser (React + TS)                         Supabase
-────────────────────                         ────────
-getUserMedia + MediaRecorder  ──► save to IndexedDB outbox (on-device safety net)
-                              ──► upload original bytes ──► Storage bucket "recordings" (private)
-                              ◄── download again + compare SHA-256 (proves it is byte-identical)
-                              ──► insert row ────────────► Postgres table "words" (RLS)
-                              ──► invoke "transcribe" ───► Edge Function ──► Deepgram (English only)
-                                                              writes the result to the row
-```
+Open `release/echowords.html` in Chrome. It is the whole app in one file. On an Android tablet, open the file from the Downloads folder with Chrome; if Chrome will not open it, put it on any website address instead.
 
-| Requirement | Where it is handled |
+- **First transcription:** the browser downloads the English speech model once (about 40 MB, needs internet). After that, transcription works offline.
+- **No internet the first time:** the recording is still saved. The child presses «دوباره بنویس» (Write again) later.
+- **Backup:** Settings → «ساختن فایل پشتیبان» (Make backup file) saves one file with every word and recording. «برگرداندن از فایل پشتیبان» (Restore from backup) brings them back, on the same or another device.
+  > Clearing the browser's data deletes the words. Make a backup now and then.
+
+## What it does
+
+- **Interface:** Persian, right-to-left, kid-friendly (big buttons, emoji, simple wording).
+- **English only.** Speech is transcribed with Whisper `tiny.en`, an English-only model, running inside the browser. There is no translation. Text in other scripts is rejected.
+- **Real microphone recording:**
+  - live timer and level meter, pause/resume, cancel, preview and re-record;
+  - silent, too-short or broken recordings are rejected;
+  - the microphone is always released afterwards.
+- **Original voice preserved:**
+  - the exact recorded bytes are stored, with a SHA-256 fingerprint;
+  - the fingerprint is checked after saving, on playback, and when restoring a backup;
+  - «تلفظ استاندارد» (Standard pronunciation) is a separate, clearly labelled machine voice.
+- **No guessing.** If nothing English was heard, or the result differs from the word the child typed as a hint, the app asks «مطمئن نیستم چی گفتی 🤔» (I'm not sure what you said). The child can then:
+  - accept what was heard,
+  - use the word they typed,
+  - type the word themselves (English letters only),
+  - record again.
+
+## Code
+
+| | |
 |---|---|
-| Real microphone; timer; live level meter; pause/resume; cancel; preview; re-record | `src/lib/useRecorder.ts` |
-| Permission denied, no microphone, microphone in use, http (not https), unsupported browser | `micErrorMessage()` in `useRecorder.ts` |
-| Silent, too short, empty or corrupt recordings are rejected | `finalize()` in `useRecorder.ts` |
-| App goes to background or microphone is unplugged: recording stops and what was captured is kept | `visibilitychange`, `pagehide` and `track.onended` handlers |
-| Microphone released after stop, cancel, or leaving the screen; only one session at a time | `releaseHardware()` and the unmount cleanup |
-| Uploads that are interrupted (no internet, tab closed) are recovered | `src/lib/outbox.ts` and `useLibrary.retryPending()` |
-| Original can never be overwritten | Storage has no UPDATE policy; a database trigger blocks changes to the audio columns |
-| Each account sees only its own data | RLS on `words` and `storage.objects` (`supabase/migrations/…_init.sql`) |
-| English only; no invented transcriptions | `supabase/functions/_shared/stt.ts` → `analyzeResult()` |
-| Manual correction never changes the audio | `setTranscript()`; the machine result stays in `stt_transcript` |
+| `src/lib/useRecorder.ts` | getUserMedia + MediaRecorder; error, background and unmount handling |
+| `src/lib/db.ts` | IndexedDB library; audio and details are written in one transaction; audio fields can never be updated |
+| `src/lib/asr.ts` | On-device Whisper through transformers.js; decodes a temporary 16 kHz copy |
+| `src/lib/stt.ts` | Decides when a result can be trusted |
+| `src/lib/backup.ts` | Backup and restore, with fingerprint checks |
 
-### When the app is not sure
-
-The app does **not** guess. In these cases the word is marked "مطمئن نیستم" (I'm not sure) and no text is saved automatically:
-
-- the provider returns nothing, or no Latin letters;
-- the text contains non-Latin letters (for example Persian);
-- the provider's own confidence is below 0.6;
-- Whisper reports a high no-speech probability or a low log-probability.
-
-The child can then:
-
-- accept what the machine heard ("آره، درسته" / Yes, that's right);
-- type the word themselves (English letters only);
-- record again.
-
-Confidence percentages are shown only when the provider actually returns one (Deepgram does; Whisper does not).
-
-## Single HTML file
-
-`release/echowords.html` is the whole app in one file (JS, CSS, fonts, icon). Rebuild it with `npm run build:single`.
-
-On first open it shows a setup form for a parent. Enter the Supabase **Project URL** and the **public anon/publishable key**. They are remembered on that device. The form refuses `service_role`/secret keys. The file contains no keys.
-
-The Supabase steps below (database, Edge Function, Deepgram key) are still required, because the cloud library and transcription run there.
-
-- **Best (Android tablet):** upload the file to any HTTPS host (for example GitHub Pages or Netlify Drop). Open the address in Chrome, then use "Add to Home screen".
-- **Computer:** double-clicking the file in Chrome works too; Chrome allows the microphone for local files.
-
-## Setup
-
-### 1. Supabase project
-1. Create a project at supabase.com.
-2. Install the Supabase CLI, then run:
-   ```bash
-   cd echowords
-   npx supabase link --project-ref <your-project-ref>
-   npx supabase db push                     # creates the table, policies and private bucket
-   ```
-3. Under Authentication → Providers, keep Email enabled. A parent creates the child's account.
-
-### 2. Speech-to-text (server-side secret only)
-Deepgram is recommended: it supports en-US/en-GB, accepts a vocabulary hint, and returns a real confidence score.
 ```bash
-npx supabase secrets set DEEPGRAM_API_KEY=...        # never put this in .env or the browser
-npx supabase functions deploy transcribe
-```
-Optional settings:
-
-- `DEEPGRAM_MODEL` (default `nova-3`)
-- `DEEPGRAM_API_BASE` (for example `https://api.eu.deepgram.com`)
-- To use OpenAI instead: `STT_PROVIDER=openai` and `OPENAI_API_KEY=...`. This uses `whisper-1` with `language=en`. Caution: forced-English Whisper sometimes *translates* non-English speech instead of rejecting it, which is why Deepgram is the default.
-
-### 3. Web app
-```bash
-cp .env.example .env      # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (public values)
 npm install
-npm run dev               # development
-npm run build             # production files in dist/ → any static HTTPS host
-```
-The microphone only works on **HTTPS** (or `localhost`). After deploying, open the address in Chrome on the Android tablet and use "Add to Home screen" to install it like an app.
-
-## Tests
-
-```bash
-npm test          # unit tests: STT decision logic, English validation, MIME/sha256, IndexedDB outbox
-npm run typecheck
+npm run dev             # development server
+npm test                # unit tests
+npm run build:single    # → release/echowords.html
 ```
 
-### End-to-end test (local Supabase in Docker)
-```bash
-npx supabase start
-python3 -m venv .venv && .venv/bin/pip install pocketsphinx
-.venv/bin/python e2e/fake-deepgram.py 8787 &          # offline English recognizer, test only
-printf 'DEEPGRAM_API_KEY=test\nDEEPGRAM_API_BASE=http://host.docker.internal:8787\n' > supabase/functions/.env
-npx supabase functions serve --env-file supabase/functions/.env &
-npm run dev &
-SB_ANON=... SB_SERVICE=... SPEECH_WAV=speech.wav SILENT_WAV=silent.wav npm run e2e
-```
-Chromium records from a WAV file through its fake microphone device, using the same `getUserMedia` → `MediaRecorder` code a phone uses. The 24 checks cover:
-
-- sign up and persistent login after a browser restart;
-- real timer and level meter;
-- microphone release;
-- cloud copy byte-identical to the recording (SHA-256);
-- server transcription;
-- replaying the original 3 times;
-- Persian rejected in the editor;
-- correction leaves the audio untouched;
-- silent recording rejected;
-- offline save followed by automatic upload;
-- privacy and overwrite protection (another user cannot read, download or overwrite; even the owner cannot overwrite);
-- delete removes both the file and the row.
-
-`e2e/fake-deepgram.py` is a **test stand-in** for Deepgram that uses the much weaker PocketSphinx recognizer. It proves the plumbing works. Real recognition quality comes from Deepgram in production.
+`e2e/run.cjs` drives Chromium's fake microphone against the built file and checks recording, transcription, the hint mismatch, silence rejection, persistence after restart, replay, editing, backup/restore and the offline first run. The test machine cannot reach Hugging Face, so it serves the library and a Whisper model locally (see the comment at the top of the file).
