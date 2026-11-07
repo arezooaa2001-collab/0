@@ -35,6 +35,15 @@ describe('analyzeResult', () => {
   });
 });
 
+describe('other languages', () => {
+  it('accepts results in the word\'s language and rejects other scripts', () => {
+    expect(analyzeResult(' گربه.', null, 'fa')).toMatchObject({ status: 'done', transcript: 'گربه' });
+    expect(analyzeResult('cat', null, 'fa')).toMatchObject({ status: 'unclear', reason: 'empty' });
+    expect(analyzeResult('猫。', null, 'zh')).toMatchObject({ status: 'done', transcript: '猫' });
+    expect(analyzeResult('Bonjour', 'bonjour', 'fr').status).toBe('done');
+  });
+});
+
 describe('helpers', () => {
   it('compares words loosely', () => {
     expect(sameWords("Don’t", "don't")).toBe(true);

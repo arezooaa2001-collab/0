@@ -64,13 +64,13 @@ export function librarySignature(words: Word[]): string {
   return `${words.length}:${words.reduce((m, w) => (w.updatedAt > m ? w.updatedAt : m), '')}`;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * When should the app save a backup file by itself?
  * - the page cannot keep data → after every change (otherwise it is lost when closed)
- * - otherwise: the first time, then at most once a day when something changed,
- *   or straight away after 10 new words.
+ * - otherwise: the first time, then at most once a week when something changed,
+ *   or straight away after 25 new words — so the Downloads folder does not fill up.
  */
 export function autoBackupDue(words: Word[], deviceStorage: boolean, now = Date.now()): boolean {
   if (!words.length) return false;
@@ -78,8 +78,8 @@ export function autoBackupDue(words: Word[], deviceStorage: boolean, now = Date.
   const sig = librarySignature(words);
   if (meta?.signature === sig) return false;
   if (!deviceStorage || !meta) return true;
-  if (words.length - meta.count >= 10) return true;
-  return now - new Date(meta.lastAt).getTime() >= DAY_MS;
+  if (words.length - meta.count >= 25) return true;
+  return now - new Date(meta.lastAt).getTime() >= WEEK_MS;
 }
 
 /** Build the backup and hand it to the browser as a download. Returns the file name. */

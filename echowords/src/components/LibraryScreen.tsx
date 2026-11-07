@@ -1,24 +1,29 @@
 import { useMemo, useState } from 'react';
 import { t } from '../lib/strings';
 import type { Word } from '../lib/db';
+import { LANGS, type LangCode, langOf } from '../lib/langs';
+import type { Accent } from '../lib/stt';
 import type { Library } from '../lib/useLibrary';
 import { useToast } from './Toast';
 import { RestoreButton } from './RestoreButton';
 import { WordCard } from './WordCard';
 
-export function LibraryScreen({ lib, onAddVoice }: { lib: Library; onAddVoice: (w: Word) => void }) {
+export function LibraryScreen({ lib, accent, onAddVoice }: { lib: Library; accent: Accent; onAddVoice: (w: Word) => void }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [favOnly, setFavOnly] = useState(false);
+  const [langFilter, setLangFilter] = useState<LangCode | null>(null);
+  const langsInUse = [...new Set(lib.words.map(langOf))];
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return lib.words.filter((w) => {
       if (favOnly && !w.favorite) return false;
+      if (langFilter && langOf(w) !== langFilter) return false;
       if (!needle) return true;
       return [w.transcript, w.sttHeard, w.hint].some((s) => s?.toLowerCase().includes(needle));
     });
-  }, [lib.words, q, favOnly]);
+  }, [lib.words, q, favOnly, langFilter]);
 
   return (
     <section className="screen library-screen">
@@ -37,6 +42,12 @@ export function LibraryScreen({ lib, onAddVoice }: { lib: Library; onAddVoice: (
           onChange={(e) => setQ(e.target.value)}
           aria-label={t.searchPlaceholder}
         />
+        {langsInUse.length > 1 &&
+          langsInUse.map((l) => (
+            <button key={l} className={`chip${langFilter === l ? ' on' : ''}`} aria-pressed={langFilter === l} onClick={() => setLangFilter(langFilter === l ? null : l)}>
+              {LANGS[l].flag} {LANGS[l].name}
+            </button>
+          ))}
         <button className={`chip${favOnly ? ' on' : ''}`} aria-pressed={favOnly} onClick={() => setFavOnly((v) => !v)}>
           ⭐ {t.favoritesOnly}
         </button>
@@ -75,7 +86,7 @@ export function LibraryScreen({ lib, onAddVoice }: { lib: Library; onAddVoice: (
       ) : (
         <div className="word-list">
           {shown.map((w) => (
-            <WordCard key={w.id} word={w} lib={lib} onAddVoice={onAddVoice} />
+            <WordCard key={w.id} word={w} lib={lib} accent={accent} onAddVoice={onAddVoice} />
           ))}
         </div>
       )}

@@ -1,18 +1,22 @@
 import { useState } from 'react';
+import { type Word, hasAudio } from '../lib/db';
 import { formatDate, formatSeconds } from '../lib/format';
-import { standardPronunciationSupported, speakStandard } from '../lib/speech';
+import { LANGS, langOf } from '../lib/langs';
+import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
-import { type Word, hasAudio } from '../lib/db';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PlayButton } from './PlayButton';
+import { PronounceButton } from './PronounceButton';
 import { useToast } from './Toast';
 import { TranscriptEditor } from './TranscriptEditor';
 
 interface Props {
   word: Word;
   lib: Library;
-  /** Large "result" layout right after recording. */
+  /** English accent for «تلفظ» (defaults to the word's own). */
+  accent?: Accent;
+  /** Large "result" layout right after saving. */
   result?: boolean;
   onRecordAgain?: () => void;
   /** Open the recorder to add the learner's voice to a word saved as text only. */
@@ -22,26 +26,20 @@ interface Props {
 const STUCK_MS = 2 * 60_000;
 
 function reasonText(reason: string | null): string {
-  switch (reason) {
-    case 'not_english':
-      return t.reasonNotEnglish;
-    case 'mismatch':
-      return t.reasonMismatch;
-    default:
-      return t.reasonEmpty;
-  }
+  return reason === 'not_english' ? t.reasonNotEnglish : reason === 'mismatch' ? t.reasonMismatch : t.reasonEmpty;
 }
 
-export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props) {
+export function WordCard({ word, lib, accent, result, onRecordAgain, onAddVoice }: Props) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isTranscribing =
-    lib.transcribing.has(word.id) ||
-    (word.sttStatus === 'processing' && Date.now() - new Date(word.updatedAt).getTime() < STUCK_MS);
+  const lang = langOf(word);
+  const info = LANGS[lang];
   const text = word.transcript;
+  const isTranscribing =
+    lib.transcribing.has(word.id) || (word.sttStatus === 'processing' && Date.now() - new Date(word.updatedAt).getTime() < STUCK_MS);
 
   const getUrl = async () => {
     const { url, verified } = await lib.getAudioUrl(word);
@@ -78,6 +76,7 @@ export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props
   if (editing) {
     body = (
       <TranscriptEditor
+        lang={lang}
         initial={text ?? word.sttHeard ?? word.hint ?? ''}
         onCancel={() => setEditing(false)}
         onSave={async (v) => {
@@ -90,8 +89,7 @@ export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props
     body = (
       <div className="word-text-wrap">
         {result && <p className="praise">{t.greatYouSaid}</p>}
-        <p className="word-text" dir="ltr" lang="en">{text}</p>
-        {word.transcriptEdited && <p className="meta">{t.editedByYou}</p>}
+        <p className="word-text" dir={info.dir} lang={lang}>{text}</p>
       </div>
     );
   } else if (isTranscribing) {
@@ -108,23 +106,14 @@ export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props
       <div className="state state-unclear" role="status">
         <p className="state-title">{t.notSure}</p>
         <p>{reasonText(word.sttReason)}</p>
-        {word.sttReason === 'mismatch' && word.hint && (
-          <p className="suggestion">
-            {t.youWrote} <b dir="ltr" lang="en">{word.hint}</b>
-          </p>
-        )}
         {word.sttHeard && word.sttReason !== 'not_english' && (
           <p className="suggestion">
-            {t.maybeYouSaid} <b dir="ltr" lang="en">{word.sttHeard}</b>
+            {t.maybeYouSaid} <b dir={info.dir} lang={lang}>{word.sttHeard}</b>
           </p>
         )}
-        <p className="meta">{t.retryOrType}</p>
         <div className="row wrap">
           {word.sttHeard && word.sttReason !== 'not_english' && (
             <button className="btn btn-primary" onClick={() => accept(word.sttHeard!)}>👍 {t.yesCorrect}</button>
-          )}
-          {word.sttReason === 'mismatch' && word.hint && (
-            <button className="btn btn-secondary" onClick={() => accept(word.hint!)}>📝 {t.useMyHint}</button>
           )}
           <button className="btn btn-secondary" onClick={() => setEditing(true)}>✏️ {t.writeItMyself}</button>
           {onRecordAgain && <button className="btn btn-secondary" onClick={onRecordAgain}>🎤 {t.recordAgain}</button>}
@@ -132,7 +121,6 @@ export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props
       </div>
     );
   } else {
-    // pending, failed, or stuck in processing
     body = (
       <div className="state state-failed" role="status">
         <p className="state-title">{word.sttStatus === 'failed' ? t.transcribeFailed : t.waitingText}</p>
@@ -146,10 +134,10 @@ export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props
   }
 
   return (
-    <article className={`card word-card${result ? ' word-card-result' : ''}${deleting ? ' is-deleting' : ''}`}>
+    <article className={`card word-card${result ? ' word-card-result' : ' word-card-compact'}${deleting ? ' is-deleting' : ''}`}>
       <div className="word-head">
         {body}
-        {!result && (
+        {!result && !editing && (
           <button
             className={`star${word.favorite ? ' on' : ''}`}
             aria-label={t.favorite}
@@ -161,41 +149,33 @@ export function WordCard({ word, lib, result, onRecordAgain, onAddVoice }: Props
         )}
       </div>
 
-      <div className="row wrap actions">
-        {hasAudio(word) ? (
-          <PlayButton playKey={word.id} getUrl={getUrl} big onError={(m) => toast(m, 'error')} />
-        ) : (
-          onAddVoice && (
-            <button className="btn btn-stop btn-big add-voice" onClick={() => onAddVoice(word)}>
-              🎤 {t.addMyVoice}
-            </button>
-          )
-        )}
-        {text && standardPronunciationSupported() && (
-          <button
-            className="btn btn-tts"
-            onClick={() => speakStandard(text, word.accent)}
-            title={t.standardPronunciationNote}
-          >
-            <span aria-hidden>🤖</span> {t.standardPronunciation}
-          </button>
-        )}
-      </div>
+      {!editing && (
+        <div className="word-actions">
+          {text && <PronounceButton text={text} lang={lang} accent={accent ?? word.accent} big={result} />}
+          {hasAudio(word) ? (
+            <PlayButton playKey={word.id} getUrl={getUrl} big={result} onError={(m) => toast(m, 'error')} />
+          ) : (
+            onAddVoice && (
+              <button className="btn btn-stop add-voice" onClick={() => onAddVoice(word)}>
+                🎤 {t.addMyVoice}
+              </button>
+            )
+          )}
+        </div>
+      )}
 
-      <div className="word-foot">
-        <span className="meta">
-          {formatDate(word.createdAt)}
-          {word.durationMs ? ` · ${formatSeconds(word.durationMs)}` : ''}
-        </span>
-        {!editing && (
-          <span className="row">
-            {(text || word.sttStatus === 'done') && (
-              <button className="btn-link" onClick={() => setEditing(true)}>✏️ {t.edit}</button>
-            )}
-            <button className="btn-link danger" onClick={() => setConfirmDelete(true)} disabled={deleting}>🗑️ {t.delete}</button>
+      {!editing && (
+        <div className="word-foot">
+          <span className="meta">
+            {info.flag} {formatDate(word.createdAt)}
+            {word.durationMs ? ` · ${formatSeconds(word.durationMs)}` : ''}
           </span>
-        )}
-      </div>
+          <span className="row">
+            <button className="btn-link" onClick={() => setEditing(true)} aria-label={t.edit}>✏️</button>
+            <button className="btn-link danger" onClick={() => setConfirmDelete(true)} disabled={deleting} aria-label={t.delete}>🗑️</button>
+          </span>
+        </div>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog message={t.deleteConfirm} confirmLabel={t.yesDelete} danger onConfirm={doDelete} onCancel={() => setConfirmDelete(false)} />

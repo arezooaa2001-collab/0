@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pickMimeType, resolveMime, rmsLevel } from './audio';
-import { MAX_AUDIO_BYTES, MAX_RECORDING_MS, MIN_AUDIO_BYTES, MIN_RECORDING_MS, SILENCE_PEAK } from './config';
+import { MAX_AUDIO_BYTES, MAX_RECORDING_MS, VOICE_BITRATE, MIN_AUDIO_BYTES, MIN_RECORDING_MS, SILENCE_PEAK } from './config';
 import { t } from './strings';
 
 export type RecorderState = 'idle' | 'requesting' | 'recording' | 'paused' | 'stopping' | 'ready' | 'error';
@@ -241,7 +241,8 @@ export function useRecorder(): RecorderApi {
     mimeRef.current = mime;
     let rec: MediaRecorder;
     try {
-      rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      // Voice quality (32 kbit/s) is plenty for speech and keeps each recording small (~4 KB per second).
+      rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: VOICE_BITRATE });
     } catch {
       try {
         rec = new MediaRecorder(stream);

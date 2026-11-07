@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { t } from '../lib/strings';
-import { validateEnglish } from '../lib/validation';
+import { LANGS, type LangCode } from '../lib/langs';
+import { validateText } from '../lib/validation';
 
 interface Props {
+  lang: LangCode;
   initial: string;
   onSave: (text: string) => Promise<void>;
   onCancel: () => void;
 }
 
 /** Manual correction of the English text. The original audio is never affected. */
-export function TranscriptEditor({ initial, onSave, onCancel }: Props) {
+export function TranscriptEditor({ lang, initial, onSave, onCancel }: Props) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = validateEnglish(value);
+    const r = validateText(value, lang);
     if (!r.ok) return setError(r.error);
     setBusy(true);
     setError(null);
@@ -33,9 +35,9 @@ export function TranscriptEditor({ initial, onSave, onCancel }: Props) {
       <label className="field">
         <span>{t.editLabel}</span>
         <input
-          className="input input-en"
-          dir="ltr"
-          lang="en"
+          className="input input-word"
+          dir={LANGS[lang].dir}
+          lang={lang}
           inputMode="text"
           autoCapitalize="sentences"
           autoCorrect="off"

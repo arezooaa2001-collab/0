@@ -4,7 +4,9 @@ import { baseMime, extensionFor, pickMimeType, resolveMime, rmsLevel, sha256Hex,
 import { buildBackup, restoreBackup } from '../lib/backup';
 import * as db from '../lib/db';
 import { formatDuration } from '../lib/format';
-import { validateEnglish, validateHint } from '../lib/validation';
+import { validateEnglish, validateText } from '../lib/validation';
+import { guessLang, isInLang } from '../lib/langs';
+import { pickVoice } from '../lib/speech';
 
 describe('audio helpers', () => {
   it('picks the first supported recording format', () => {
@@ -44,8 +46,34 @@ describe('validation', () => {
     expect(validateEnglish('apple سیب').ok).toBe(false);
     expect(validateEnglish('   ').ok).toBe(false);
   });
-  it('allows an empty hint', () => {
-    expect(validateHint('')).toEqual({ ok: true, value: null });
+  it('checks each language by its own letters', () => {
+    expect(validateText('گربه', 'fa')).toEqual({ ok: true, value: 'گربه' });
+    expect(validateText('می‌خواهم بخوانم.', 'fa').ok).toBe(true); // ZWNJ + punctuation
+    expect(validateText('cat', 'fa').ok).toBe(false);
+    expect(validateText('Bonjour, ça va ?', 'fr').ok).toBe(true);
+    expect(validateText('猫', 'zh').ok).toBe(true);
+    expect(validateText('ねこ', 'ja').ok).toBe(true);
+    expect(validateText('コーヒー', 'ja').ok).toBe(true);
+    expect(validateText('बिल्ली', 'hi').ok).toBe(true); // vowel signs are marks
+    expect(validateText('बिल्ली', 'en').ok).toBe(false);
+  });
+  it('guesses the language from the letters', () => {
+    const all = ['fa', 'en', 'fr', 'zh', 'ja', 'hi'] as const;
+    expect(guessLang('گربه', [...all], 'en')).toBe('fa');
+    expect(guessLang('cat', [...all], 'fa')).toBe('en');
+    expect(guessLang('chat', [...all], 'fr')).toBe('fr'); // Latin fits the current one
+    expect(guessLang('ねこ', [...all], 'en')).toBe('ja');
+    expect(guessLang('猫', [...all], 'en')).toBe('zh');
+    expect(guessLang('बिल्ली', [...all], 'en')).toBe('hi');
+    expect(guessLang('گربه', ['en'], 'en')).toBe('en'); // Persian not switched on
+    expect(isInLang('123', 'en')).toBe(false);
+  });
+  it('picks a device voice for the language', () => {
+    const v = (lang: string) => ({ lang }) as SpeechSynthesisVoice;
+    const voices = [v('en-GB'), v('en-US'), v('fr_FR'), v('hi-IN')];
+    expect(pickVoice(voices, 'en-US')?.lang).toBe('en-US');
+    expect(pickVoice(voices, 'fr-FR')?.lang).toBe('fr_FR');
+    expect(pickVoice(voices, 'fa-IR')).toBeNull();
   });
 });
 
@@ -107,11 +135,12 @@ describe('automatic backup rules', () => {
     localStorage.setItem('echowords-backup-meta', JSON.stringify({ lastAt: new Date().toISOString(), count: 1, signature: librarySignature(words) }));
     expect(autoBackupDue(words, true)).toBe(false); // nothing changed
     const more = [...words, w('b', '2026-01-02T00:00:00Z')];
-    expect(autoBackupDue(more, true)).toBe(false); // changed, but backed up less than a day ago
-    expect(autoBackupDue(more, true, Date.now() + 25 * 3600 * 1000)).toBe(true); // a day later
+    expect(autoBackupDue(more, true)).toBe(false); // changed, but backed up less than a week ago
+    expect(autoBackupDue(more, true, Date.now() + 2 * 24 * 3600 * 1000)).toBe(false); // 2 days: still not
+    expect(autoBackupDue(more, true, Date.now() + 8 * 24 * 3600 * 1000)).toBe(true); // a week later
     expect(autoBackupDue(more, false)).toBe(true); // page cannot keep data: every change
-    const ten = Array.from({ length: 11 }, (_, i) => w(`n${i}`, `2026-02-0${(i % 9) + 1}T00:00:00Z`));
-    expect(autoBackupDue(ten, true)).toBe(true); // 10+ new words: right away
+    const many = Array.from({ length: 26 }, (_, i) => w(`n${i}`, `2026-02-0${(i % 9) + 1}T00:00:00Z`));
+    expect(autoBackupDue(many, true)).toBe(true); // 25+ new words: right away
   });
 });
 

@@ -7,9 +7,12 @@
 // The original recording is never changed: a temporary 16 kHz copy is decoded in memory
 // for the recognizer and thrown away.
 
+import { LANGS, type LangCode } from './langs';
+
 export interface AsrConfig {
   libUrl: string;
-  model: string;
+  /** Forces one model for every language (self-hosting/tests). Otherwise chosen per language. */
+  model?: string;
   /** Optional mirrors (for self-hosting); undefined = library defaults (Hugging Face / jsDelivr). */
   remoteHost?: string;
   remotePathTemplate?: string;
@@ -18,8 +21,17 @@ export interface AsrConfig {
 
 const DEFAULTS: AsrConfig = {
   libUrl: 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js',
-  model: 'Xenova/whisper-tiny.en',
 };
+/** English-only model: best for English, used when English is the only language switched on. */
+export const MODEL_EN = 'Xenova/whisper-tiny.en';
+/** One multilingual model for Persian, French, Chinese, Japanese, Hindi (and English when mixed). */
+export const MODEL_MULTI = 'Xenova/whisper-tiny';
+
+export function modelFor(lang: LangCode, enabled: LangCode[]): string {
+  const forced = config().model;
+  if (forced) return forced;
+  return lang === 'en' && enabled.every((l) => l === 'en') ? MODEL_EN : MODEL_MULTI;
+}
 
 function config(): AsrConfig {
   const override = (globalThis as { __ECHOWORDS_ASR__?: Partial<AsrConfig> }).__ECHOWORDS_ASR__;
@@ -35,13 +47,13 @@ export const STALL_MS = 20_000;
 /** Upper limit for recognizing one recording once the model is ready. */
 export const RECOGNIZE_MS = 90_000;
 
-let pipePromise: Promise<Pipe> | null = null;
+const pipes = new Map<string, Promise<Pipe>>();
 let lastActivity = 0;
 const progressListeners = new Set<ProgressFn>();
 
 export class AsrUnavailable extends Error {}
 
-function startLoading(): Promise<Pipe> {
+function startLoading(model: string): Promise<Pipe> {
   const cfg = config();
   const files = new Map<string, { loaded: number; total: number }>();
   lastActivity = Date.now();
@@ -57,7 +69,7 @@ function startLoading(): Promise<Pipe> {
     } catch {
       lib.env.useBrowserCache = false;
     }
-    const pipe = await lib.pipeline('automatic-speech-recognition', cfg.model, {
+    const pipe = await lib.pipeline('automatic-speech-recognition', model, {
       dtype: 'q8',
       device: 'wasm',
       progress_callback: (p: { status: string; file?: string; loaded?: number; total?: number }) => {
@@ -77,7 +89,7 @@ function startLoading(): Promise<Pipe> {
     progressListeners.forEach((l) => l(1));
     return pipe as Pipe;
   })().catch((e) => {
-    pipePromise = null; // allow a later retry (e.g. when the internet is back)
+    pipes.delete(model); // allow a later retry (e.g. when the internet is back)
     throw e;
   });
 }
@@ -86,10 +98,10 @@ function startLoading(): Promise<Pipe> {
  * Load (once) the recognizer. Progress is reported 0..1 while the model downloads.
  * Rejects with AsrUnavailable if the download stalls, so the app never waits forever.
  */
-export function loadRecognizer(onProgress?: ProgressFn): Promise<Pipe> {
+export function loadRecognizer(model: string, onProgress?: ProgressFn): Promise<Pipe> {
   if (onProgress) progressListeners.add(onProgress);
-  if (!pipePromise) pipePromise = startLoading();
-  const loading = pipePromise;
+  if (!pipes.has(model)) pipes.set(model, startLoading(model));
+  const loading = pipes.get(model)!;
   let timer: ReturnType<typeof setInterval> | undefined;
   const watchdog = new Promise<never>((_, reject) => {
     timer = setInterval(() => {
@@ -118,12 +130,12 @@ export async function decodeTo16kMono(original: Blob): Promise<Float32Array> {
   return rendered.getChannelData(0);
 }
 
-/** Recognize English speech in a recording. Returns the raw text from the model. */
-export async function recognizeEnglish(original: Blob, onProgress?: ProgressFn): Promise<string> {
-  const [pipe, samples] = await Promise.all([loadRecognizer(onProgress), decodeTo16kMono(original)]);
-  const model = config().model;
-  // English-only (".en") models need no language option; a multilingual model is forced to English.
-  const opts: Record<string, unknown> = model.endsWith('.en') ? {} : { language: 'english', task: 'transcribe' };
+/** Recognize speech in one language. Returns the raw text from the model. */
+export async function recognizeSpeech(original: Blob, lang: LangCode, enabled: LangCode[], onProgress?: ProgressFn): Promise<string> {
+  const model = modelFor(lang, enabled);
+  const [pipe, samples] = await Promise.all([loadRecognizer(model, onProgress), decodeTo16kMono(original)]);
+  // ".en" models are English-only and take no language option; the multilingual model is told the language.
+  const opts: Record<string, unknown> = model.endsWith('.en') ? {} : { language: LANGS[lang].whisper, task: 'transcribe' };
   await new Promise((r) => setTimeout(r, 30)); // let the UI paint "working…" before the CPU-heavy step
   let limit: ReturnType<typeof setTimeout> | undefined;
   const out = await Promise.race([

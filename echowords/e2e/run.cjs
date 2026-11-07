@@ -45,6 +45,14 @@ async function open(wav) {
       remotePathTemplate: '{model}/',
       wasmPaths: `${base}/lib/`,
     };
+    // Record what the device would say (headless Chromium has no voices).
+    window.__spoken = [];
+    const voices = ['en-US', 'en-GB', 'fa-IR', 'fr-FR'].map((lang) => ({ lang, name: lang, voiceURI: lang, default: false, localService: true }));
+    speechSynthesis.getVoices = () => voices;
+    speechSynthesis.speak = (u) => {
+      window.__spoken.push({ text: u.text, lang: u.lang });
+      setTimeout(() => u.onend && u.onend(new Event('end')), 50);
+    };
     window.__streams = [];
     if (!navigator.mediaDevices) return;
     const orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
@@ -93,24 +101,30 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
 
 (async () => {
   let { ctx, page } = await open(process.env.SPEECH_WAV);
-  await page.getByText('یک کلمه یا جمله انگلیسی بگو').waitFor();
+  await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۷/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۸/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
   await page.locator('.hint-field input').fill('گربه');
   await page.locator('.save-typed').click();
-  check('typed word: Persian is refused', await page.getByText('فقط با حروف انگلیسی').isVisible());
+  check('typed word: Persian (switched off) is refused with a hint', await page.getByText('زبان فارسی را روشن کن').isVisible());
   await page.locator('.hint-field input').fill('cat');
   const [firstBackup] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), page.locator('.hint-field input').press('Enter')]);
   await page.locator('.saved-card', { hasText: 'cat' }).waitFor({ timeout: 5000 });
   check('typed word «cat» is saved with «تایید و ذخیره» (or Enter)', (await countSaved(page)) === 1);
   check('first save also drops a backup file in Downloads', !!firstBackup, firstBackup?.suggestedFilename());
+  await page.waitForTimeout(300);
+  check('new word is pronounced once automatically', await page.evaluate(() => window.__spoken.some((x) => x.text === 'cat' && x.lang === 'en-US')));
   await page.screenshot({ path: `${OUT}/00-word-saved.png` });
   await page.locator('.saved-card').getByRole('button', { name: /برو به کلمه‌ها و جمله‌هایم/ }).click();
   await page.locator('.word-card .word-text', { hasText: 'cat' }).waitFor({ timeout: 5000 });
   check('«cat» is shown in «کلمه‌ها و جمله‌هایم»', true);
+  const before = await page.evaluate(() => window.__spoken.length);
+  await page.locator('.word-card .btn-tts').first().click();
+  await page.waitForTimeout(300);
+  check('every saved word has a «🔊 تلفظ» button that speaks it', (await page.evaluate(() => window.__spoken.length)) === before + 1);
   await page.screenshot({ path: `${OUT}/00-library-cat.png` });
 
   // close the app completely and open it again
@@ -188,7 +202,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const input = page.locator('.editor input');
   await input.fill('سیب');
   await page.getByRole('button', { name: /ثبت/ }).click();
-  check('Persian text is rejected in the English editor', await page.getByText('فقط با حروف انگلیسی').isVisible());
+  check('Persian text is rejected in the English editor', await page.getByText('لطفاً با حروف انگلیسی بنویس').isVisible());
   await input.fill('Apple');
   await page.getByRole('button', { name: /ثبت/ }).click();
   await page.locator('.word-text', { hasText: 'Apple' }).waitFor({ timeout: 5000 });
@@ -202,6 +216,8 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await download.saveAs(backupPath);
   const backup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
   const hashesOk = backup.words.every((w) => crypto.createHash('sha256').update(Buffer.from(w.audio, 'base64')).digest('hex') === w.audioSha256);
+  const rates = backup.words.filter((w) => w.audioBytes).map((w) => Math.round(w.audioBytes / (w.durationMs / 1000)));
+  check('recordings are small (voice quality)', rates.length > 0 && rates.every((r) => r < 6000), `${rates.join(', ')} bytes/second`);
   check('backup file holds every word with its exact audio', backup.words.length === 2 && hashesOk, download.suggestedFilename());
 
   await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
@@ -218,9 +234,35 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.word-card').first().waitFor();
   check('restore brings everything back', (await page.locator('.word-card').count()) === 2);
 
-  // 7. No internet the first time → recording kept, text can be made later
-  await ctx.route(/\/models\//, (r) => r.abort());
+  // 6b. Languages and pronunciation in each language
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.locator('.lang-option.all input').check();
+  check('settings: all languages switched on with «همه با هم»', (await page.locator('.lang-option.on').count()) === 7);
+  await page.screenshot({ path: `${OUT}/11-settings-langs.png` });
+  await page.locator('.tabbar button').first().click();
+  await page.locator('.lang-picker').waitFor({ timeout: 5000 });
+  await page.locator('.hint-field input').fill('گربه');
+  check('typing Persian picks «فارسی» by itself', await page.locator('.lang-picker .chip.on', { hasText: 'فارسی' }).isVisible());
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'گربه' }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(300);
+  check('Persian word is pronounced in Persian', await page.evaluate(() => window.__spoken.some((x) => x.text === 'گربه' && x.lang === 'fa-IR')));
+  await page.screenshot({ path: `${OUT}/12-persian-saved.png` });
+  await page.locator('.saved-card').getByRole('button', { name: /یک کلمه یا جمله تازه/ }).click();
+  await page.locator('.hint-field input').fill('ねこ');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'ねこ' }).waitFor({ timeout: 5000 });
+  await page.locator('.saved-card .btn-tts').click();
+  await page.getByText('این دستگاه صدای ژاپنی ندارد').waitFor({ timeout: 5000 });
+  check('missing device voice is explained, not silent', true);
+  await page.locator('.saved-card').getByRole('button', { name: /برو به کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card', { hasText: 'ねこ' }).waitFor();
+  await page.screenshot({ path: `${OUT}/13-library-langs.png` });
+  await page.locator('.toolbar .chip', { hasText: 'ژاپنی' }).click();
+  check('library can be filtered by language', (await page.locator('.word-card').count()) === 1);
   await ctx.close();
+
+  // 7. No internet the first time → recording kept, text can be made later
   // A fresh profile = a new device that has never downloaded the model.
   const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-fresh-'));
   const ctx2 = await chromium.launchPersistentContext(fresh, {

@@ -6,6 +6,7 @@
 //   2. 'local'   localStorage — smaller (~5 MB), used when a viewer blocks IndexedDB
 //   3. 'memory'  nothing can be kept → the app warns and makes backup files after each save
 import { fromBase64, toBase64 } from './audio';
+import type { LangCode } from './langs';
 import type { Accent } from './stt';
 
 export type SttStatus = 'pending' | 'processing' | 'done' | 'unclear' | 'failed' | 'none';
@@ -20,6 +21,8 @@ export interface Word {
   audioBytes: number | null;
   audioSha256: string | null;
   accent: Accent;
+  /** Language of the word (missing on words saved before languages existed = English). */
+  lang?: LangCode;
   hint: string | null;
   transcript: string | null;
   transcriptEdited: boolean;

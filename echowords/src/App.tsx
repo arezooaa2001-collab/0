@@ -9,13 +9,15 @@ import { fa, t } from './lib/strings';
 import { APP_VERSION } from './lib/config';
 import { useLibrary } from './lib/useLibrary';
 import type { Word } from './lib/db';
+import { type LangCode, readEnabledLangs, saveEnabledLangs } from './lib/langs';
 import { downloadBackup } from './lib/backup';
 import { useToast } from './components/Toast';
 
 type Tab = 'record' | 'library' | 'settings';
 
 export default function App() {
-  const lib = useLibrary();
+  const [enabledLangs, setEnabledLangs] = useState<LangCode[]>(readEnabledLangs);
+  const lib = useLibrary(enabledLangs);
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('record');
   const [accent, setAccent] = useState<Accent>(readAccent);
@@ -49,10 +51,11 @@ export default function App() {
           </div>
         )}
         {/* The record screen is unmounted when leaving it: this always releases the microphone. */}
-        {tab === 'record' && <RecordScreen key={recordKey} lib={lib} accent={accent} initialTarget={voiceFor} onOpenLibrary={() => go('library')} />}
+        {tab === 'record' && <RecordScreen key={recordKey} lib={lib} accent={accent} initialTarget={voiceFor} enabledLangs={enabledLangs} onOpenLibrary={() => go('library')} />}
         {tab === 'library' && (
           <LibraryScreen
             lib={lib}
+            accent={accent}
             onAddVoice={(w) => {
               setVoiceFor(w);
               setRecordKey((k) => k + 1);
@@ -63,6 +66,11 @@ export default function App() {
         {tab === 'settings' && (
           <SettingsScreen
             lib={lib}
+            enabledLangs={enabledLangs}
+            onLangs={(l) => {
+              setEnabledLangs(l);
+              saveEnabledLangs(l);
+            }}
             accent={accent}
             onAccent={(a) => {
               setAccent(a);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { downloadBackup, lastBackupAt } from '../lib/backup';
 import { formatDate } from '../lib/format';
+import { ALL_LANGS, LANGS, type LangCode } from '../lib/langs';
 import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
@@ -9,6 +10,8 @@ import { useToast } from './Toast';
 
 interface Props {
   lib: Library;
+  enabledLangs: LangCode[];
+  onLangs: (l: LangCode[]) => void;
   accent: Accent;
   onAccent: (a: Accent) => void;
 }
@@ -19,7 +22,7 @@ const ACCENTS: { value: Accent; label: string }[] = [
   { value: 'uk', label: t.accentUK },
 ];
 
-export function SettingsScreen({ lib, accent, onAccent }: Props) {
+export function SettingsScreen({ lib, accent, onAccent, enabledLangs, onLangs }: Props) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(lastBackupAt);
@@ -38,12 +41,45 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
   };
 
   const totalBytes = lib.words.reduce((s, w) => s + (w.audioBytes ?? 0), 0);
-  const mb = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(totalBytes / 1024 / 1024);
+  const nf = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 });
+  const mb = totalBytes < 1024 * 1024 ? `${nf.format(Math.max(1, Math.round(totalBytes / 1024)))} کیلوبایت` : `${nf.format(totalBytes / 1024 / 1024)} مگابایت`;
   const health = lib.health;
 
   return (
     <section className="screen settings-screen">
       <h1 className="title">{t.settingsTitle}</h1>
+
+      <div className="card">
+        <h2>🌍 {t.englishOnlyTitle}</h2>
+        <p className="meta">{t.englishOnlyBody}</p>
+        <div className="lang-grid">
+          {ALL_LANGS.map((l) => {
+            const on = enabledLangs.includes(l);
+            return (
+              <label key={l} className={`lang-option${on ? ' on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => {
+                    const next = on ? enabledLangs.filter((x) => x !== l) : ALL_LANGS.filter((x) => x === l || enabledLangs.includes(x));
+                    if (!next.length) return toast(t.atLeastOneLang, 'error');
+                    onLangs(next);
+                  }}
+                />
+                <span>{LANGS[l].flag} {LANGS[l].name}</span>
+              </label>
+            );
+          })}
+          <label className={`lang-option all${enabledLangs.length === ALL_LANGS.length ? ' on' : ''}`}>
+            <input
+              type="checkbox"
+              checked={enabledLangs.length === ALL_LANGS.length}
+              onChange={() => onLangs(enabledLangs.length === ALL_LANGS.length ? ['en'] : [...ALL_LANGS])}
+            />
+            <span>🌍 {t.allLangs}</span>
+          </label>
+        </div>
+      </div>
 
       <div className="card">
         <h2>{t.storageTitle}</h2>
@@ -69,7 +105,7 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
       </div>
 
       <div className="card">
-        <h2>{t.accentTitle}</h2>
+        <h2>🇬🇧 {t.accentTitle}</h2>
         <p className="meta">{t.accentHelp}</p>
         <div className="segmented" role="radiogroup" aria-label={t.accentTitle}>
           {ACCENTS.map((a) => (
@@ -80,10 +116,7 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
         </div>
       </div>
 
-      <div className="card">
-        <h2>🇬🇧 {t.englishOnlyTitle}</h2>
-        <p>{t.englishOnlyBody}</p>
-      </div>
+
 
       <div className="card">
         <h2>🔒 {t.privacyTitle}</h2>

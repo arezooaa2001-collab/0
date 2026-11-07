@@ -1,23 +1,29 @@
+import { LANGS, type LangCode, isInLang } from './langs';
 import { t } from './strings';
 
 export const MAX_TEXT = 200;
 
+type Result = { ok: true; value: string } | { ok: false; error: string };
+
 /**
- * Validate English text typed by the learner (manual correction or hint).
- * Allowed: Latin letters (incl. accents such as café), digits, spaces, and common punctuation.
+ * Validate a word/sentence typed by the learner for one language.
+ * Letters must belong to that language's script; digits, spaces, punctuation and
+ * combining marks (e.g. Hindi vowel signs, Persian diacritics) are allowed.
  */
-export function validateEnglish(raw: string): { ok: true; value: string } | { ok: false; error: string } {
+export function validateText(raw: string, lang: LangCode): Result {
   const value = raw.replace(/\s+/g, ' ').trim();
   if (!value) return { ok: false, error: t.emptyText };
   if (value.length > MAX_TEXT) return { ok: false, error: t.tooLong };
-  if (!/\p{Script=Latin}/u.test(value)) return { ok: false, error: t.onlyEnglish };
-  if (!/^[\p{Script=Latin}\p{N}\s'’‘".,!?;:()\-–—&/]+$/u.test(value)) return { ok: false, error: t.onlyEnglish };
+  const wrong = t.wrongScript(LANGS[lang].name);
+  if (!isInLang(value, lang)) return { ok: false, error: wrong };
+  for (const ch of value) {
+    if (/\p{L}/u.test(ch)) continue; // already checked by isInLang
+    if (!/[\p{M}\p{N}\p{P}\s‌‍&/+=~^`$%@#]/u.test(ch)) return { ok: false, error: wrong };
+  }
   return { ok: true, value };
 }
 
-/** Optional hint: empty is fine, otherwise must be valid English. */
-export function validateHint(raw: string): { ok: true; value: string | null } | { ok: false; error: string } {
-  if (!raw.trim()) return { ok: true, value: null };
-  const r = validateEnglish(raw);
-  return r.ok ? { ok: true, value: r.value.slice(0, 100) } : r;
+/** English only (kept for older callers). */
+export function validateEnglish(raw: string): Result {
+  return validateText(raw, 'en');
 }

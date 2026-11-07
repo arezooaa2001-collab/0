@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { recognizeEnglish } from './asr';
+import { recognizeSpeech } from './asr';
+import { type LangCode, langOf } from './langs';
 import { newId, sha256Hex } from './audio';
 import { autoBackupDue, downloadBackup } from './backup';
 import * as db from './db';
@@ -10,6 +11,7 @@ import type { Take } from './useRecorder';
 export interface SaveOptions {
   hint: string | null;
   accent: Accent;
+  lang: LangCode;
   /** English text the learner confirmed (null = no text yet). */
   text: string | null;
   /** True when the learner confirmed before recognition finished: the library will finish it. */
@@ -31,11 +33,11 @@ export interface Library {
   transcribing: Set<string>;
   refresh: () => Promise<void>;
   /** Recognize a recording that is not saved yet (for the review step). Throws if the recognizer is unavailable. */
-  recognizeTake: (take: Take, hint: string | null) => Promise<Analysis>;
+  recognizeTake: (take: Take, hint: string | null, lang: LangCode) => Promise<Analysis>;
   /** Save a take after the learner pressed «تایید». */
   saveTake: (take: Take, opts: SaveOptions) => Promise<Word>;
   /** Save a typed English word/sentence right away (no recording yet). */
-  saveText: (text: string, accent: Accent) => Promise<Word>;
+  saveText: (text: string, accent: Accent, lang: LangCode) => Promise<Word>;
   /** Attach the learner's own recording to a saved word that has none yet. */
   attachTake: (id: string, take: Take, analysis: Analysis | null) => Promise<Word>;
   transcribe: (id: string) => Promise<Word | null>;
@@ -47,7 +49,9 @@ export interface Library {
 
 const audioUrls = new Map<string, { url: string; verified: boolean }>();
 
-export function useLibrary(): Library {
+export function useLibrary(enabledLangs: LangCode[] = ['en']): Library {
+  const enabledRef = useRef(enabledLangs);
+  enabledRef.current = enabledLangs;
   const [words, setWords] = useState<Word[]>([]);
   const [health, setHealth] = useState<db.StorageHealth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,9 +106,12 @@ export function useLibrary(): Library {
           const bytes = await db.getAudio(id);
           if (!bytes) return null;
           upsert(await db.updateWord(id, { sttStatus: 'processing' }));
-          const raw = await recognizeEnglish(new Blob([bytes], { type: word.audioMime ?? '' }), (p) => setModelProgress(p < 1 ? p : null));
+          const lang = langOf(word);
+          const raw = await recognizeSpeech(new Blob([bytes], { type: word.audioMime ?? '' }), lang, enabledRef.current, (p) =>
+            setModelProgress(p < 1 ? p : null),
+          );
           setModelProgress(null);
-          const a = analyzeResult(raw, word.hint);
+          const a = analyzeResult(raw, word.hint, lang);
           const patch: db.WordPatch = { sttStatus: a.status, sttHeard: a.heard, sttReason: a.reason };
           if (a.status === 'done' && !word.transcriptEdited) patch.transcript = a.transcript;
           const saved = await db.updateWord(id, patch);
@@ -128,11 +135,11 @@ export function useLibrary(): Library {
     [setTx, upsert],
   );
 
-  const recognizeTake = useCallback((take: Take, hint: string | null): Promise<Analysis> => {
+  const recognizeTake = useCallback((take: Take, hint: string | null, lang: LangCode): Promise<Analysis> => {
     const job = queue.current.then(async () => {
       try {
-        const raw = await recognizeEnglish(take.blob, (p) => setModelProgress(p < 1 ? p : null));
-        return analyzeResult(raw, hint);
+        const raw = await recognizeSpeech(take.blob, lang, enabledRef.current, (p) => setModelProgress(p < 1 ? p : null));
+        return analyzeResult(raw, hint, lang);
       } finally {
         setModelProgress(null);
       }
@@ -142,7 +149,7 @@ export function useLibrary(): Library {
   }, []);
 
   const saveTake = useCallback(
-    async (take: Take, { hint, accent, text, analysis, pendingTranscription }: SaveOptions) => {
+    async (take: Take, { hint, accent, lang, text, analysis, pendingTranscription }: SaveOptions) => {
       const bytes = await take.blob.arrayBuffer();
       const sha = await sha256Hex(bytes);
       const now = new Date().toISOString();
@@ -155,6 +162,7 @@ export function useLibrary(): Library {
         audioBytes: bytes.byteLength,
         audioSha256: sha,
         accent,
+        lang,
         hint,
         transcript: text,
         transcriptEdited: !!text && text !== analysis?.transcript,
@@ -179,7 +187,7 @@ export function useLibrary(): Library {
   );
 
   const saveText = useCallback(
-    async (text: string, accent: Accent) => {
+    async (text: string, accent: Accent, lang: LangCode) => {
       const now = new Date().toISOString();
       const word: Word = {
         id: newId(),
@@ -190,6 +198,7 @@ export function useLibrary(): Library {
         audioBytes: null,
         audioSha256: null,
         accent,
+        lang,
         hint: text,
         transcript: text,
         transcriptEdited: true,

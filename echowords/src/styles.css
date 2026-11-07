@@ -263,3 +263,24 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .saved-card { align-items: center; text-align: center; }
 .saved-card .msg { width: 100%; }
 .add-voice { flex: 1 1 220px; }
+
+/* Languages */
+.lang-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+.lang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-top: 8px; }
+.lang-option { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 12px; border: 3px solid var(--line); border-radius: 16px; background: #fff; font-weight: 700; cursor: pointer; }
+.lang-option.on { border-color: var(--primary); background: #efeaff; color: var(--primary); }
+.lang-option input { width: 22px; height: 22px; accent-color: var(--primary); }
+.lang-option.all { grid-column: 1 / -1; justify-content: center; }
+.input-word { font-size: 22px; }
+.input-word[dir='ltr'] { text-align: left; }
+
+/* Compact, tidy word cards in the library */
+.word-card-compact { padding: 14px; gap: 8px; }
+.word-card-compact .word-text { font-size: 28px; line-height: 1.3; }
+.word-card-compact .word-text[dir='rtl'] { text-align: right; }
+.word-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.word-actions > :only-child { grid-column: 1 / -1; }
+.word-card-compact .word-actions .btn { min-height: 52px; font-size: 17px; padding: 8px 10px; }
+.btn-tts { background: #3aa0ff; color: #fff; border: 0; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.15); }
+.btn-tts.is-speaking { background: #1c7fdc; }
+.word-foot .btn-link { font-size: 20px; min-width: 44px; }
