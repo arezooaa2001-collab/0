@@ -422,7 +422,7 @@ const PALETTES = {
   mono: { n: 'سیاه‌وسفید', c: { player: '#ffffff', scarf: '#bdbdbd', block: '#2a2a2a', moss: '#cfcfcf', hazard: '#e0e0e0', saw: '#d0d0d0', door: '#ffffff', sky: '#161616', road: '#444444', obstacle: '#ffffff', giant: '#555555' } },
 };
 const CFG = {
-  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true,
+  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true, under: 'auto', underLv: [],
   mc: { br: 100, ct: 100, sat: 100, hue: 0, tint: '#ff8844', tintA: 0 },
   bars: false, grain: false, vig: 55, glow: 100, shake: 100,
   musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, tsize: 100, topac: 100,
@@ -1006,7 +1006,7 @@ const PORTAL_LEVEL = 36; // level 37 holds the secret portal
 // colours (BIOMES), so two levels never play the same. Coordinates below are tiles relative to the chunk.
 const TOP_MIN = 10, TOP_MAX = 15, CHUNK = 5;
 // chunk seeds replaced after checking every chunk with the auto-solver (easy + insane)
-const CHUNK_FIX = { 'L17:4': 2804, 'L33:4': 5404 };
+const CHUNK_FIX = {};
 
 /* ---------- obstacle catalogue ----------
    fam: family; lvl: unlocks at this level progress (0..1); df: base difficulty 1..3; can(t): needs floor top t;
@@ -1050,18 +1050,18 @@ kind('dropLanding', 'falling', .1, 2, {}, G => {
   G.x += 6;
 });
 kind('ghostLanding', 'hidden', .2, 2, {}, G => { const x = G.x; G.pit(x, 4); G.L.block(null, x + 2, G.t, 2, 18 - G.t, { ghost: true }); G.x += 4; });
-kind('springLeap', 'springs', .1, 1, { launch: true }, G => {
+kind('springLeap', 'springs', .1, 1, { tall: true, launch: true }, G => {
   const x = G.x, w = G.ri(7, 8); G.F(x, 1); G.L.spring(null, x, G.t - 1); G.pit(x + 1, w); G.x += 1 + w;
 });
-kind('springPit', 'springs', .2, 2, { launch: true }, G => {
+kind('springPit', 'springs', .2, 2, { tall: true, launch: true }, G => {
   const x = G.x; G.pit(x, 3); G.L.block(null, x + 3, G.t, 1, 18 - G.t); G.L.spring(null, x + 3, G.t - 1); G.pit(x + 4, 6); G.x += 10;
 });
 // --- gravity orbs
-kind('orbCeilRun', 'gravity', .1, 2, { need: 'grav', ceil: true }, G => {
+kind('orbCeilRun', 'gravity', .1, 2, { tall: true, need: 'grav', ceil: true }, G => {
   const w = 8, x = G.x; G.L.block(null, x - .5, 0, w + 1, 3.5, { ceil: true }); G.F(x, 1); G.pit(x + 1, w - 1);
   G.L.orb(G.id(), x + .5, G.t - .6); G.L.spikes(null, x + 4, 3.5, 1, 'down'); G.L.orb(G.id(), x + w - .5, 3.9); G.F(x + w, 5); G.x += w + 5;
 });
-kind('orbFloorSpikes', 'gravity', .3, 2, { need: 'grav', ceil: true }, G => {
+kind('orbFloorSpikes', 'gravity', .3, 2, { tall: true, need: 'grav', ceil: true }, G => {
   const x = G.x; G.F(x, 11); G.L.spikes(null, x + 2, G.t - 1, 6, 'up'); G.L.block(null, x - .5, 0, 12, 3.5, { ceil: true });
   G.L.orb(G.id(), x + 1, G.t - .6); G.L.orb(G.id(), x + 9, 3.9); G.x += 11;
 });
@@ -1070,11 +1070,11 @@ kind('movingBridge', 'movers', .1, 2, { wait: true }, G => {
   const w = 7 + (G.k > .5 ? 1 : 0), x = G.x; G.pit(x, w);
   G.L.block(G.id(), x + 1, G.t - 1, 2, .6, { patrol: [[x + 1, G.t - 1], [x + w - 3, G.t - 1]], speed: 2 + G.k }); G.x += w;
 });
-kind('elevatorUp', 'movers', .2, 2, { wait: true, can: t => t - 4 >= TOP_MIN }, G => {
+kind('elevatorUp', 'movers', .2, 2, { tall: true, wait: true, can: t => t - 4 >= TOP_MIN }, G => {
   const x = G.x; G.pit(x, 5); G.L.block(G.id(), x + 1.5, G.t, 2, .6, { patrol: [[x + 1.5, G.t], [x + 1.5, G.t - 4]], speed: 1.8 + G.k });
   G.x += 5; G.t -= 4;
 });
-kind('liftDown', 'movers', .25, 2, { wait: true, can: t => t + 4 <= TOP_MAX }, G => {
+kind('liftDown', 'movers', .25, 2, { tall: true, wait: true, can: t => t + 4 <= TOP_MAX }, G => {
   const x = G.x; G.pit(x, 5); G.L.block(G.id(), x + 1.5, G.t, 2, .6, { patrol: [[x + 1.5, G.t], [x + 1.5, G.t + 4]], speed: 1.8 + G.k });
   G.x += 5; G.t += 4;
 });
@@ -1098,17 +1098,17 @@ kind('collapseRun', 'falling', .25, 2, {}, G => {
   G.L.trig(x, G.t - 1, 1, 1, () => { ids.forEach((id, i) => G.L.fall(id, .3 + i * .14)); G.L.sfx('rumble'); G.L.shake(3); }, { ground: true });
   G.x += n;
 });
-kind('fallSpikeGap', 'falling', .3, 2, { wait: true, ceil: true }, G => {
+kind('fallSpikeGap', 'falling', .3, 2, { tall: true, wait: true, ceil: true }, G => {
   const w = 3, x = G.x, id = G.id(); G.L.block(null, x - 1, 0, w + 2, 2, { ceil: true }); G.L.spikes(id, x, 2, w, 'down');
   G.L.trig(x - 3, 0, .5, 18, () => { G.L.fall(id, .05); G.L.sfx('crack'); }); G.pit(x, w); G.x += w;
 });
 // --- ceilings
-kind('crusher', 'ceiling', .05, 1, { ceil: true }, G => {
+kind('crusher', 'ceiling', .05, 1, { tall: true, ceil: true }, G => {
   const x = G.x, id = G.id(); G.F(x, 5); G.L.block(null, x, 0, 5, 2.5, { ceil: true });
   G.L.block(id, x + 1.5, 2.5, 2, 2, { fallV: 150 }); G.L.spikes(null, x + 1.5, 4.5, 2, 'down', { parent: id });
   G.L.trig(x - .7, 2.5, .5, 15, () => { G.L.fall(id, .3); G.L.sfx('rumble'); }); G.x += 5;
 });
-kind('spikeRain', 'ceiling', .15, 2, { ceil: true }, G => {
+kind('spikeRain', 'ceiling', .15, 2, { tall: true, ceil: true }, G => {
   const x = G.x; G.F(x, 10); G.L.block(null, x, 0, 10, 2, { ceil: true });
   [2, 5, 8].forEach((c, i) => { const id = G.id(); G.L.spikes(id, x + c, 2, 1 + (G.k > .6 && i === 1 ? 1 : 0), 'down'); G.L.trig(x + c - 2.2, 0, .5, 18, () => { G.L.fall(id, .1); G.L.sfx('crack'); }); });
   G.x += 10;
@@ -1141,7 +1141,7 @@ kind('sawHead', 'saws', .2, 2, { wait: true }, G => {
   const x = G.x; G.F(x, 8); G.L.spikes(null, x + 4, G.t - 1, 1, 'up');
   G.L.saw(G.id(), x + 1, G.t - 2.4, .55, { patrol: [[x + 1, G.t - 2.4], [x + 7, G.t - 2.4]], speed: 2.4 + G.k }); G.x += 8;
 });
-kind('wheel', 'saws', .35, 3, { wait: true }, G => {
+kind('wheel', 'saws', .35, 3, { tall: true, wait: true }, G => {
   const x = G.x; G.F(x, 8);
   G.L.saw(G.id(), x + 4, G.t - 3.6, .55, { orbit: { rad: 3, w: (1.5 + G.k) * (G.r() < .5 ? 1 : -1), ph: G.r() * 6.28 } }); G.x += 8;
 });
@@ -1149,11 +1149,11 @@ kind('sawRail', 'saws', .15, 2, { wait: true }, G => {
   const w = 3 + (G.k > .6 ? 1 : 0) + (G.dj ? 1 : 0), x = G.x; G.pit(x, w);
   G.L.saw(G.id(), x + w / 2, 16.2, .55, { patrol: [[x + w / 2, 16.2], [x + w / 2, G.t - 4.4]], speed: 2.2 + G.k * 2 }); G.x += w;
 });
-kind('orbitPit', 'saws', .3, 2, { wait: true }, G => {
+kind('orbitPit', 'saws', .3, 2, { tall: true, wait: true }, G => {
   const x = G.x; G.pit(x, 7); G.L.block(null, x + 2.5, G.t - 1.5, 2, .6);
   G.L.saw(G.id(), x + 3.5, G.t - 3.4, .5, { orbit: { rad: 2.1, w: (2 + G.k) * (G.r() < .5 ? 1 : -1), ph: G.r() * 6.28 } }); G.x += 7;
 });
-kind('plateauSaw', 'saws', .25, 2, { can: t => t - 2 >= TOP_MIN }, G => {
+kind('plateauSaw', 'saws', .25, 2, { tall: true, can: t => t - 2 >= TOP_MIN }, G => {
   const x = G.x, top = G.t - 2; G.F(x, 1); G.F(x + 1, 8, top);
   G.L.saw(G.id(), x + 2, top - .65, .6, { patrol: [[x + 1.8, top - .65], [x + 8.2, top - .65]], speed: 2.2 + G.k }); G.x += 9;
 });
@@ -1189,7 +1189,7 @@ kind('wallHidden', 'hidden', .1, 1, {}, G => {
 });
 // --- steps, towers, valleys
 kind('stepUpSpike', 'steps', 0, 1, { can: t => t - 2 >= TOP_MIN }, G => { const x = G.x; G.F(x, 1); G.L.spikes(null, x, G.t - 1, 1, 'up'); G.x += 1; G.t -= 2; });
-kind('stairsUp', 'steps', 0, 1, { can: t => t - 3 >= TOP_MIN }, G => {
+kind('stairsUp', 'steps', 0, 1, { tall: true, can: t => t - 3 >= TOP_MIN }, G => {
   const x = G.x; G.F(x, 2, G.t - 1); G.F(x + 2, 2, G.t - 2); if (G.k > .3) G.L.spikes(null, x + 3, G.t - 3, 1, 'up'); G.x += 4; G.t -= 3;
 });
 kind('stairsDown', 'steps', 0, 1, { can: t => t + 2 <= TOP_MAX }, G => {
@@ -1201,14 +1201,14 @@ kind('pillarHop', 'steps', 0, 2, {}, G => {
   for (let i = 0; i < n; i++) { const top = G.t - 1 - (i % 2); G.L.block(null, x + 2 + i * 3, top, 1, 18 - top); }
   G.x += w;
 });
-kind('towerClimb', 'steps', .3, 2, {}, G => {
+kind('towerClimb', 'steps', .3, 2, { tall: true,}, G => {
   const x = G.x; G.F(x, 10); G.L.block(null, x + 1, G.t - 2.2, 2, .6); G.L.block(null, x + 3.5, G.t - 4.2, 2, .6);
   G.L.block(null, x + 6, G.t - 5.5, 2, 5.5); G.x += 10;
 });
 kind('valleySpikes', 'steps', .1, 1, { can: t => t + 2 <= TOP_MAX }, G => {
   const x = G.x; G.F(x, 6, G.t + 2); G.L.spikes(null, x + 2, G.t + 1, 2, 'up'); G.x += 6;
 });
-kind('wallSpring', 'springs', .05, 1, { launch: true }, G => {
+kind('wallSpring', 'springs', .05, 1, { tall: true, launch: true }, G => {
   const x = G.x; G.F(x, 7); G.L.spring(null, x + .8, G.t - 1); G.L.block(null, x + 3.6, G.t - 6, 2, 6); G.x += 7;
 });
 // --- slippery and moving floors (unlocked by their own levels)
@@ -1233,6 +1233,242 @@ kind('laserTwin', 'lasers', 0, 3, { need: 'laser', wait: true }, G => {
   G.L.laser(G.id(), x + 2, G.t - 6, 6, 'v', { on: .7, off: 1.3, ph }); G.L.laser(G.id(), x + 4, G.t - 6, 6, 'v', { on: .7, off: 1.3, ph: ph - .35 }); G.x += 6;
 });
 
+/* ---------- 71 more designs built on the newer mechanics (trampolines, wind, low gravity, teleporters,
+   blinking blocks, pendulums and wheels, arrows, lava/acid, dash pads, one-way planks, maces, trolls) ---------- */
+const LAVA = (G, x, w, o = {}) => G.L.block(null, x, 16.3, w, 2.2, Object.assign({ lava: true, ghost: true }, o));
+// trampolines
+kind('trampGap', 'bounce', 0, 1, { tall: true,}, G => { const x = G.x; G.L.block(null, x, G.t, 2, 18 - G.t, { bounce: 26 }); G.pit(x + 2, 6); G.x += 8; });
+kind('trampWall', 'bounce', 0, 1, { tall: true,}, G => { const x = G.x; G.F(x, 1); G.L.block(null, x + 1, G.t, 2, 18 - G.t, { bounce: 26 }); G.F(x + 3, 5); G.L.block(null, x + 4, G.t - 5, 2, 5); G.x += 8; });
+kind('trampChain', 'bounce', .15, 2, { tall: true,}, G => { const x = G.x; G.pit(x, 12); G.L.block(null, x + 3, G.t, 1.5, 18 - G.t, { bounce: 20 }); G.L.block(null, x + 7.5, G.t, 1.5, 18 - G.t, { bounce: 20 }); G.x += 12; });
+kind('trapTramp', 'bounce', .2, 2, { tall: true, ceil: true }, G => {
+  // a trampoline under spikes: do NOT step on it, jump over it
+  const x = G.x; G.F(x, 3); G.L.block(null, x + 3, G.t, 2, 18 - G.t, { bounce: 26 }); G.F(x + 5, 3);
+  G.L.block(null, x + 2, 0, 4, G.t - 5, { ceil: true }); G.L.spikes(null, x + 2, G.t - 5, 4, 'down'); G.x += 8;
+});
+kind('trampLedge', 'bounce', .25, 2, { tall: true,}, G => {
+  const x = G.x; G.pit(x, 1); G.L.block(null, x + 1, G.t + 1, 2, 17 - G.t, { bounce: 27 }); G.pit(x + 3, 1); G.F(x + 4, 5, G.t - 4); G.x += 9;
+});
+kind('bouncePadsSaw', 'bounce', .4, 3, { tall: true, wait: true }, G => {
+  const x = G.x; G.pit(x, 12); G.L.block(null, x + 3, G.t, 1.5, 18 - G.t, { bounce: 20 }); G.L.block(null, x + 7.5, G.t, 1.5, 18 - G.t, { bounce: 20 });
+  G.L.saw(G.id(), x + 8.25, G.t - 4, .45, { orbit: { rad: 1.6, w: 2 * (G.r() < .5 ? 1 : -1), ph: G.r() * 6.28 } }); G.x += 12;
+});
+// wind
+kind('windGap', 'wind', .1, 2, {}, G => { const x = G.x; G.pit(x, 3); G.L.zone(G.id(), 'wind', x - 1, 0, 5, G.t, { fx: -1.8 }); G.x += 3; });
+kind('windAssist', 'wind', 0, 1, {}, G => { const x = G.x; G.pit(x, 6); G.L.zone(G.id(), 'wind', x - 1.5, 0, 9, G.t, { fx: 3.5 }); G.x += 6; });
+kind('windUp', 'wind', .2, 2, { tall: true,}, G => { const x = G.x; G.pit(x, 7); G.L.zone(G.id(), 'wind', x + 2.5, G.t - 8, 2, 26 - G.t, { fy: -16 }); G.x += 7; });
+kind('geyserTimed', 'wind', .3, 2, { tall: true, wait: true }, G => { const x = G.x; G.pit(x, 8); G.L.zone(G.id(), 'wind', x + 3, G.t - 7, 2, 25 - G.t, { fy: -20, on: 1.4, off: 1.6, ph: G.r() * 2 }); G.x += 8; });
+kind('windCorridor', 'wind', .3, 2, { ceil: true }, G => {
+  const x = G.x; G.F(x, 9); G.L.block(null, x, 0, 9, G.t - 3.2, { ceil: true }); G.L.zone(G.id(), 'wind', x, G.t - 3.2, 9, 3.2, { fx: -2.5 });
+  G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 6, G.t - 1, 1, 'up'); G.x += 9;
+});
+kind('windDown', 'wind', .35, 2, {}, G => { const x = G.x; G.pit(x, 3); G.L.zone(G.id(), 'wind', x - .5, 0, 4, G.t, { fy: 12 }); G.x += 3; });
+kind('fanTunnel', 'wind', .3, 2, { tall: true,}, G => { const x = G.x; G.F(x, 10); G.L.zone(G.id(), 'wind', x + 2, 0, 2, G.t, { fy: -18 }); G.L.block(null, x + 4, G.t - 7, 2, 7); G.x += 10; });
+// low gravity
+kind('floatPit', 'float', .15, 1, { tall: true,}, G => { const x = G.x; G.pit(x, 9); G.L.zone(G.id(), 'float', x - 1, 0, 11, 18, { g: .35 }); G.x += 9; });
+kind('floatSpikes', 'float', .3, 2, { ceil: true }, G => {
+  const x = G.x; G.F(x, 9); G.L.zone(G.id(), 'float', x, 0, 9, G.t, { g: .35 }); G.L.block(null, x, 0, 9, G.t - 5.5, { ceil: true }); G.L.spikes(null, x, G.t - 5.5, 9, 'down');
+  G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 6, G.t - 1, 1, 'up'); G.x += 9;
+});
+kind('floatTower', 'float', .25, 1, { tall: true,}, G => { const x = G.x; G.F(x, 10); G.L.block(null, x + 4, G.t - 7, 2, 7); G.L.zone(G.id(), 'float', x, 0, 10, G.t, { g: .38 }); G.x += 10; });
+// teleporters
+kind('warpGap', 'warp', .1, 1, {}, G => {
+  const x = G.x, a = G.id(), b = G.id(); G.F(x, 3); G.L.block(null, x + 3, G.t - 9, 4, 9); G.F(x + 7, 4);
+  G.L.tele(a, x + 1, G.t - 1.6, b); G.L.tele(b, x + 8.5, G.t - 1.6); G.x += 11;
+});
+kind('warpUp', 'warp', .2, 2, { tall: true,}, G => {
+  const x = G.x, a = G.id(), b = G.id(); G.F(x, 12); G.L.spikes(null, x + 3, G.t - 1, 6, 'up'); G.L.block(null, x + 4, G.t - 6, 5, .6);
+  G.L.tele(a, x + 1, G.t - 1.6, b); G.L.tele(b, x + 5.5, G.t - 7.6); G.x += 12;
+});
+kind('warpPit', 'warp', .3, 2, {}, G => {
+  // the only way past the tall wall is to jump INTO the pit, through the glowing portal down there
+  const x = G.x, a = G.id(), b = G.id(); G.F(x, 1); G.pit(x + 1, 4); G.F(x + 5, 6); G.L.block(null, x + 5, G.t - 8, 2, 8);
+  G.L.tele(a, x + 2.55, G.t + .4, b); G.L.tele(b, x + 8.6, G.t - 1.6); G.x += 11;
+});
+kind('warpChain', 'warp', .4, 2, {}, G => {
+  const x = G.x, a = G.id(), b = G.id(), c = G.id(), d = G.id(); G.F(x, 12);
+  G.L.spikes(null, x + 2, G.t - 1, 2.5, 'up'); G.L.spikes(null, x + 7.5, G.t - 1, 3, 'up'); G.L.block(null, x + 4.5, G.t - 1, 3, 1);
+  G.L.tele(a, x + .8, G.t - 1.6, b); G.L.tele(b, x + 4.6, G.t - 2.6); G.L.tele(c, x + 6.5, G.t - 2.6, d); G.L.tele(d, x + 10.8, G.t - 1.6); G.x += 12;
+});
+kind('teleSaw', 'warp', .4, 3, { wait: true }, G => {
+  const x = G.x, a = G.id(), b = G.id(); G.F(x, 3); G.L.block(null, x + 3, G.t - 9, 2, 9); G.F(x + 5, 7);
+  G.L.tele(a, x + 1, G.t - 1.6, b); G.L.tele(b, x + 5.3, G.t - 1.6);
+  G.L.saw(G.id(), x + 9, G.t - .65, .6, { patrol: [[x + 11.2, G.t - .65], [x + 6.6, G.t - .65]], speed: 2.4 + G.k }); G.x += 12;
+});
+// blinking blocks
+kind('blinkBridge', 'blink', .15, 2, { wait: true }, G => {
+  const x = G.x, ph = G.r() * 2; G.pit(x, 10);
+  for (let i = 0; i < 3; i++) G.L.block(null, x + 1.5 + i * 3, G.t, 2, .6, { blink: { on: 1.6, off: 1, ph: ph + i * .6 } }); G.x += 10;
+});
+kind('blinkStairs', 'blink', .3, 2, { tall: true, wait: true }, G => {
+  const x = G.x, ph = G.r() * 2; G.F(x, 8.5);
+  [[1, 1.5], [3.5, 3], [6, 4.5]].forEach(([dx, h], i) => G.L.block(null, x + dx, G.t - h, 2, .6, { blink: { on: 1.8, off: 1, ph: ph + i * .5 } }));
+  G.F(x + 8.5, 4, G.t - 4.5); G.x += 12.5;
+});
+kind('blinkFloor', 'blink', .2, 2, { wait: true }, G => { const x = G.x; G.F(x, 1); G.pit(x + 1, 5); G.L.block(null, x + 1, G.t, 5, 18 - G.t, { blink: { on: 2, off: 1.2, ph: G.r() * 2 } }); G.F(x + 6, 1); G.x += 7; });
+kind('blinkWall', 'blink', .25, 2, { wait: true }, G => { const x = G.x; G.F(x, 6); G.L.block(null, x + 2, 0, 2, G.t, { ceil: true, blink: { on: 1.6, off: 1.4, ph: G.r() * 2 } }); G.x += 6; });
+// swinging and wheeling platforms / blades
+kind('ferris', 'swing', .3, 2, { tall: true, wait: true }, G => {
+  const x = G.x, ph = G.r() * 6.28; G.pit(x, 10);
+  for (let i = 0; i < 3; i++) G.L.block(null, x + 4, G.t - 3, 2, .5, { orbit: { rad: 2.6, w: .9, ph: ph + i * 2.094 } }); G.x += 10;
+});
+kind('swingPlat', 'swing', .2, 2, { tall: true, wait: true }, G => { const x = G.x; G.pit(x, 8); G.L.block(null, x + 2.75, G.t - .5, 2.5, .5, { pend: { len: 4, amp: .9, w: 1.6, ph: G.r() * 6.28 } }); G.x += 8; });
+kind('swingAxe', 'swing', .25, 2, { wait: true }, G => { const x = G.x; G.F(x, 8); G.L.saw(G.id(), x + 4, G.t - .8, .6, { mace: true, pend: { len: 5, amp: 1.1, w: 2.2, ph: G.r() * 6.28 } }); G.x += 8; });
+kind('doubleAxe', 'swing', .4, 3, { wait: true }, G => {
+  const x = G.x, ph = G.r() * 6.28; G.F(x, 11);
+  G.L.saw(G.id(), x + 3.5, G.t - .8, .6, { mace: true, pend: { len: 5, amp: 1.05, w: 2.1, ph } }); G.L.saw(G.id(), x + 7.5, G.t - .8, .6, { mace: true, pend: { len: 5, amp: 1.05, w: 2.1, ph: ph + Math.PI } }); G.x += 11;
+});
+kind('orbitPair', 'swing', .45, 3, { wait: true }, G => {
+  const x = G.x, ph = G.r() * 6.28; G.pit(x, 13);
+  G.L.block(null, x + 2.5, G.t - 2, 2, .5, { orbit: { rad: 1.8, w: 1.1, ph } }); G.L.block(null, x + 8.5, G.t - 2, 2, .5, { orbit: { rad: 1.8, w: -1.1, ph: ph + 1 } }); G.x += 13;
+});
+// arrows
+const ARROW = (G, x0, x1, y, sp, ph) => G.L.spikes(G.id(), x0 - (x0 - x1) * ph, y, 1, x1 < x0 ? 'left' : 'right', { arrow: true, pjump: true, patrol: [[x0, y], [x1, y]], speed: sp });
+kind('arrowWall', 'arrows', .2, 2, { wait: true }, G => {
+  const x = G.x; G.F(x, 10); G.L.block(null, x + 9.5, G.t - 1.6, 1, 1.6); ARROW(G, x + 8.6, x - 1, G.t - .95, 7 + G.k * 2, 0); ARROW(G, x + 8.6, x - 1, G.t - .95, 7 + G.k * 2, .5); G.x += 10.5;
+});
+kind('arrowHigh', 'arrows', .3, 2, { wait: true }, G => {
+  const x = G.x; G.F(x, 10); G.L.block(null, x + 9.5, G.t - 3.4, 1, 1.6); G.L.spikes(null, x + 4, G.t - 1, 1, 'up'); ARROW(G, x + 8.6, x - 1, G.t - 2.6, 8, G.r()); G.x += 10.5;
+});
+kind('arrowRain', 'arrows', .3, 2, { tall: true, wait: true }, G => {
+  const x = G.x; G.F(x, 9); G.L.block(null, x, 0, 9, 1, { ceil: true });
+  [2, 4.5, 7].forEach((c, i) => G.L.spikes(G.id(), x + c, 1 + (G.t - 1) * ((i * .37 + G.r() * .3) % 1), 1, 'down', { arrow: true, pjump: true, patrol: [[x + c, 1], [x + c, G.t + .5]], speed: 9 }));
+  G.x += 9;
+});
+kind('arrowPair', 'arrows', .45, 3, { wait: true }, G => {
+  const x = G.x; G.F(x, 11); G.L.block(null, x + 10.5, G.t - 3.4, 1, 3.4); ARROW(G, x + 9.6, x - 1, G.t - .95, 7, 0); ARROW(G, x + 9.6, x - 1, G.t - 2.6, 7, .5); G.x += 11.5;
+});
+// lava and acid
+kind('lavaPit', 'lava', 0, 1, {}, G => { const x = G.x, w = 3 + (G.k > .5 ? 1 : 0); LAVA(G, x, w); G.x += w; });
+kind('acidPool', 'lava', .1, 1, {}, G => { const x = G.x; LAVA(G, x, 2, { acid: true }); G.L.block(null, x + 2, G.t - .5, 1, 18.5 - G.t); LAVA(G, x + 3, 2.5, { acid: true }); G.x += 5.5; });
+kind('lavaRise', 'lava', .3, 2, { wait: true }, G => {
+  const x = G.x; G.L.block(null, x + 2.5, G.t, 1, 18 - G.t); G.L.block(null, x + 5, G.t, 1, 18 - G.t);
+  G.L.block(G.id(), x, 16.8, 8, 3, { lava: true, ghost: true, patrol: [[x, 16.8], [x, G.t - .6]], speed: 1.6 }); G.x += 8;
+});
+kind('lavaSteps', 'lava', .2, 2, {}, G => { const x = G.x; LAVA(G, x, 9); [[2, 0], [4.5, 1], [7, 0]].forEach(([d, h]) => G.L.block(null, x + d, G.t - h, 1, 18.3 - G.t + h)); G.x += 9; });
+// dash pads
+kind('dashGap', 'dash', .1, 1, {}, G => { const x = G.x; G.F(x, 3); G.L.dash(G.id(), x + .5, G.t - 1); G.pit(x + 3, 7); G.x += 10; });
+kind('dashRamp', 'dash', .25, 2, { tall: true,}, G => { const x = G.x; G.F(x, 3); G.L.dash(G.id(), x + .5, G.t - 1); G.pit(x + 3, 5); G.F(x + 8, 3, G.t - 2); G.x += 8; G.t -= 2; });
+kind('dashCrusher', 'dash', .35, 2, { ceil: true }, G => {
+  const x = G.x, id = G.id(); G.F(x, 12); G.L.dash(G.id(), x + .5, G.t - 1); G.L.block(null, x + 2, 0, 9, 1, { ceil: true });
+  G.L.block(id, x + 3, 1, 7, G.t - 6, { ceil: true }); G.L.spikes(null, x + 3, G.t - 5, 7, 'down', { parent: id });
+  G.L.trig(x + .3, 0, .5, 18, () => { G.L.move(id, 0, 3.9, 3.2 + G.k * .6, .2); G.L.sfx('rumble'); }); G.x += 12;
+});
+kind('dashOneway', 'dash', .3, 2, {}, G => {
+  const x = G.x; G.F(x, 3); G.L.dash(G.id(), x + .5, G.t - 1); G.pit(x + 3, 10); G.L.block(null, x + 7, G.t - 1.5, 2, .3, { oneway: true }); G.L.block(null, x + 10, G.t - 2.5, 2, .3, { oneway: true }); G.x += 13;
+});
+// one-way planks
+kind('onewayStairs', 'oneway', .05, 1, { tall: true,}, G => {
+  const x = G.x; G.F(x, 8.5); [[1, 2], [3.5, 4], [6, 6]].forEach(([d, h]) => G.L.block(null, x + d, G.t - h, 2.5, .3, { oneway: true })); G.F(x + 8.5, 4, G.t - 6); G.x += 12.5;
+});
+kind('onewayPit', 'oneway', .15, 2, {}, G => { const x = G.x; G.pit(x, 10); [[1.5, 1], [4.5, 2.5], [7.5, 1]].forEach(([d, h]) => G.L.block(null, x + d, G.t - h, 2, .3, { oneway: true })); G.x += 10; });
+kind('onewayTrap', 'oneway', .3, 2, {}, G => {
+  const x = G.x; G.F(x, 12); G.L.spikes(null, x + 1, G.t - 1, 10, 'up');
+  G.L.block(null, x + 1.5, G.t - 2, 2.5, .3, { oneway: true }); G.L.block(null, x + 5, G.t - 3, 2.5, .3, { oneway: true, sink: 1.4 }); G.L.block(null, x + 8.5, G.t - 2, 2.5, .3, { oneway: true }); G.x += 12;
+});
+// maces
+kind('maceFloor', 'maces', .1, 1, {}, G => { const x = G.x; G.F(x, 9); G.L.saw(G.id(), x + 7, G.t - .85, .8, { mace: true, patrol: [[x + 7.5, G.t - .85], [x + 1.5, G.t - .85]], speed: 2.2 + G.k }); G.x += 9; });
+kind('maceDrop', 'maces', .2, 2, { tall: true, wait: true }, G => { const x = G.x; G.F(x, 8); G.L.saw(G.id(), x + 4, G.t - 6, .7, { mace: true, patrol: [[x + 4, G.t - 6], [x + 4, G.t - .75]], speed: 4 + G.k * 2 }); G.x += 8; });
+kind('maceOrbit', 'maces', .35, 3, { wait: true }, G => {
+  const x = G.x, ph = G.r() * 6.28; G.F(x, 10); G.L.block(null, x + 4, G.t - 2, 2, 2);
+  G.L.saw(G.id(), x + 5, G.t - 2, .5, { mace: true, orbit: { rad: 2.4, w: 1.6, ph } }); G.L.saw(G.id(), x + 5, G.t - 2, .5, { mace: true, orbit: { rad: 2.4, w: 1.6, ph: ph + Math.PI } }); G.x += 10;
+});
+// trolls
+kind('fakeSpikes', 'trolls', .15, 1, {}, G => {
+  // the spikes are fake (walk through them); the landing past them is not a floor
+  const x = G.x, id = G.id(); G.F(x, 6); G.L.spikes(null, x + 1, G.t - 1, 5, 'up', { fake: true });
+  G.pit(x + 6, 2); G.L.block(id, x + 6, G.t, 2, 18 - G.t, { fallV: 200 });
+  G.L.trig(x + 6.05, G.t - 1, .6, 1, () => G.L.fall(id, .35), { ground: true }); G.F(x + 8, 2); G.x += 10;
+});
+kind('faithBridge', 'trolls', .25, 2, {}, G => {
+  // an invisible bridge over the pit appears stone by stone as you walk onto it
+  const x = G.x, n = 8; G.pit(x, n);
+  for (let i = 0; i < n; i++) { const id = G.id(); G.L.block(id, x + i, G.t, 1, .8, { hidden: true }); G.L.trig(x + i - 1.6, 0, .5, 18, () => G.L.pop(id)); }
+  G.x += n;
+});
+kind('shadeZone', 'trolls', .2, 2, {}, G => {
+  const x = G.x; G.F(x, 11); G.L.zone(G.id(), 'shade', x, 0, 11, 18); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 7, G.t - 1, 1, 'up');
+  G.L.saw(G.id(), x + 5, G.t - 2.6, .45, { patrol: [[x + 2, G.t - 2.6], [x + 9, G.t - 2.6]], speed: 2.2 }); G.x += 11;
+});
+kind('revZone', 'trolls', .35, 2, { need: 'revz' }, G => {
+  const x = G.x; G.F(x, 10); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 6.5, G.t - 1, 1, 'up');
+  G.L.trig(x + .5, 0, .5, 18, () => { G.L.reverse(true); G.L.say('کنترل‌ها برعکس!'); }); G.L.trig(x + 9.3, 0, .5, 18, () => G.L.reverse(false)); G.x += 10;
+});
+kind('risingSawPit', 'trolls', .35, 2, {}, G => {
+  const x = G.x, id = G.id(); G.pit(x, 3); G.L.saw(id, x + 1.5, 17.6, .6, { hidden: true });
+  G.L.trig(x + .2, 0, 2.6, G.t, () => { G.L.pop(id); G.L.move(id, 0, -(17.6 - (G.t - 2.2)), 5); G.L.sfx('saw'); }, { rising: true }); G.x += 3;
+});
+// more combinations of the classic traps
+kind('sawStairs', 'saws', .25, 2, { tall: true, can: t => t - 3 >= TOP_MIN }, G => {
+  const x = G.x, t = G.t; G.F(x, 2, t - 1); G.F(x + 2, 2, t - 2); G.F(x + 4, 2, t - 3);
+  G.L.saw(G.id(), x + 1, t - 1.65, .5, { patrol: [[x + 1, t - 1.65], [x + 3, t - 2.65], [x + 5, t - 3.65]], speed: 2 + G.k }); G.x += 6; G.t -= 3;
+});
+kind('crusherRow', 'ceiling', .3, 2, { tall: true, ceil: true }, G => {
+  const x = G.x; G.F(x, 11); G.L.block(null, x, 0, 11, 2.5, { ceil: true });
+  [1.5, 4.5, 7.5].forEach(d => { const id = G.id(); G.L.block(id, x + d, 2.5, 2, 2, { fallV: 150 }); G.L.spikes(null, x + d, 4.5, 2, 'down', { parent: id }); G.L.trig(x + d - 1.2, 2.5, .5, 15, () => { G.L.fall(id, .25); G.L.sfx('rumble'); }); });
+  G.x += 11;
+});
+kind('pistonGaps', 'movers', .3, 2, { wait: true }, G => {
+  const x = G.x, ph = G.r(); G.F(x, 1);
+  for (let i = 0; i < 3; i++) {
+    const px = x + 1 + i * 3, id = G.id(); G.pit(px, 1.5); G.F(px + 1.5, 1.5);
+    const lo = G.t + 2.5, hi = G.t - 2, y0 = lo + (hi - lo) * ((ph + i * .33) % 1);
+    G.L.block(id, px, y0, 1.5, 3, { patrol: [[px, lo], [px, hi]], speed: 3 }); G.L.spikes(null, px, y0 - 1, 1.5, 'up', { parent: id });
+  }
+  G.x += 10;
+});
+kind('pistonCeiling', 'ceiling', .35, 2, { wait: true, ceil: true }, G => {
+  const x = G.x; G.F(x, 9); G.L.block(null, x, 0, 9, 1, { ceil: true });
+  [2, 5.5].forEach((d, i) => { const id = G.id(), y0 = i ? 1 : G.t - 4; G.L.block(id, x + d, y0, 1.5, 2, { ceil: true, patrol: [[x + d, 1], [x + d, G.t - 3.2]], speed: 4 }); G.L.spikes(null, x + d, y0 + 2, 1.5, 'down', { parent: id }); });
+  G.x += 9;
+});
+kind('spikeWallSlide', 'movers', .2, 2, {}, G => {
+  const x = G.x, id = G.id(); G.F(x, 9); G.L.block(id, x + 7, G.t - 1.4, 1, 1.4, { patrol: [[x + 7.5, G.t - 1.4], [x + 1, G.t - 1.4]], speed: 2.4 + G.k });
+  G.L.spikes(null, x + 7, G.t - 2.4, 1, 'up', { parent: id }); G.x += 9;
+});
+kind('gapCeilSaw', 'saws', .25, 2, { wait: true }, G => { const x = G.x; G.pit(x, 4); G.L.saw(G.id(), x + 2, G.t - 3, .5, { patrol: [[x - 1, G.t - 3], [x + 5, G.t - 3]], speed: 3 + G.k }); G.x += 4; });
+kind('pillarSaws', 'saws', .4, 3, { wait: true }, G => {
+  const x = G.x; for (let i = 0; i <= 2; i++) G.pit(x + i * 3, 2);
+  for (let i = 0; i < 2; i++) { G.L.block(null, x + 2 + i * 3, G.t - 1, 1, 19 - G.t); G.L.saw(G.id(), x + 2.5 + i * 3, G.t - 1, .4, { orbit: { rad: 1.5, w: 1.8 * (i ? -1 : 1), ph: G.r() * 6.28 } }); }
+  G.x += 8;
+});
+kind('elevatorSaw', 'movers', .4, 3, { tall: true, wait: true, can: t => t - 4 >= TOP_MIN }, G => {
+  const x = G.x; G.pit(x, 5); G.L.block(G.id(), x + 1.5, G.t, 2, .6, { patrol: [[x + 1.5, G.t], [x + 1.5, G.t - 4]], speed: 1.8 + G.k });
+  G.F(x + 5, 6, G.t - 4); G.L.saw(G.id(), x + 7, G.t - 4.65, .5, { patrol: [[x + 6, G.t - 4.65], [x + 10.5, G.t - 4.65]], speed: 2.2 }); G.x += 11; G.t -= 4;
+});
+kind('crumbleStairs', 'falling', .2, 2, { tall: true,}, G => {
+  const x = G.x; G.F(x, 8.5); [[1, 1.5], [3.5, 3], [6, 4.5]].forEach(([d, h]) => G.L.block(null, x + d, G.t - h, 2, .5, { crumble: .55 })); G.F(x + 8.5, 4, G.t - 4.5); G.x += 12.5;
+});
+kind('sinkingIsles', 'falling', .2, 2, {}, G => { const x = G.x; G.pit(x, 11); for (let i = 0; i < 3; i++) G.L.block(null, x + 1.5 + i * 3, G.t, 2, .8, { sink: 1.6 }); G.x += 11; });
+kind('hiddenStairs', 'hidden', .25, 2, { tall: true,}, G => {
+  const x = G.x; G.F(x, 8.5);
+  [[1, 1.5], [3.5, 3], [6, 4.5]].forEach(([d, h]) => { const id = G.id(); G.L.block(id, x + d, G.t - h, 2, .6, { hidden: true }); G.L.trig(x + d - 1.5, 0, 1, 18, () => G.L.pop(id)); });
+  G.F(x + 8.5, 4, G.t - 4.5); G.x += 12.5;
+});
+kind('spikeTeeth', 'ceiling', .4, 3, { wait: true, ceil: true }, G => {
+  const x = G.x, id = G.id(); G.F(x, 9); G.L.spikes(null, x + 2, G.t - 1, 1, 'up'); G.L.spikes(null, x + 5.5, G.t - 1, 1, 'up');
+  G.L.block(id, x, 0, 9, G.t - 5, { ceil: true, patrol: [[x, 0], [x, 1.6]], speed: .9 }); G.L.spikes(null, x, G.t - 5, 9, 'down', { parent: id }); G.x += 9;
+});
+kind('icePlatforms', 'ice', .5, 2, { need: 'ice' }, G => { const x = G.x; G.pit(x, 10); for (let i = 0; i < 3; i++) G.L.block(null, x + 1.5 + i * 3, G.t - (i % 2), 2, .6, { ice: true }); G.x += 10; });
+kind('conveyorBridge', 'conveyor', .5, 2, { need: 'conv' }, G => { const x = G.x; G.pit(x, 10); for (let i = 0; i < 2; i++) G.L.block(null, x + 2 + i * 4, G.t, 2.5, .6, { conv: -(2 + G.k) }); G.x += 10; });
+kind('gravityZigzag', 'gravity', .3, 2, { tall: true, need: 'grav', ceil: true }, G => {
+  const x = G.x; G.F(x, 15); G.L.block(null, x - .5, 0, 16, 3.5, { ceil: true });
+  G.L.spikes(null, x + 2, G.t - 1, 5, 'up'); G.L.orb(G.id(), x + 1, G.t - .6); G.L.spikes(null, x + 4.5, 3.5, 1, 'down'); G.L.orb(G.id(), x + 7.5, 3.9);
+  G.L.spikes(null, x + 9.5, G.t - 1, 1, 'up'); G.x += 15;
+});
+kind('orbSaw', 'gravity', .4, 3, { tall: true, need: 'grav', wait: true, ceil: true }, G => {
+  const x = G.x; G.F(x, 12); G.L.block(null, x - .5, 0, 13, 3.5, { ceil: true }); G.L.spikes(null, x + 2, G.t - 1, 7, 'up');
+  G.L.orb(G.id(), x + 1, G.t - .6); G.L.orb(G.id(), x + 10, 3.9); G.L.saw(G.id(), x + 5, 4.1, .45, { patrol: [[x + 3, 4.1], [x + 8.5, 4.1]], speed: 2 + G.k }); G.x += 12;
+});
+// lasers (hidden realm)
+kind('laserSweep', 'lasers', 0, 2, { need: 'laser', wait: true }, G => {
+  // a beam that sweeps back and forth while blinking
+  const x = G.x; G.F(x, 10); G.L.laser(G.id(), x + 1, G.t - 6, 6, 'v', { on: 1, off: 1.2, ph: G.r() * 2, patrol: [[x + 1, G.t - 6], [x + 9, G.t - 6]], speed: 1.6 }); G.x += 10;
+});
+kind('laserGrid', 'lasers', 0, 3, { need: 'laser', wait: true }, G => {
+  const x = G.x, ph = G.r() * 2; G.F(x, 9); G.L.spikes(null, x + 4, G.t - 1, 1, 'up');
+  G.L.laser(G.id(), x + .5, G.t - 1.5, 8, 'h', { on: .9, off: 1.3, ph }); G.L.laser(G.id(), x + 6.5, G.t - 6, 6, 'v', { on: .9, off: 1.3, ph: ph + 1.1 }); G.x += 9;
+});
+
 /* ---------- per-level flavour (which families a level leans on), by position in LEVELS ---------- */
 const FLAVOR = {
   0: ['falling', 'pits'], 2: ['hidden', 'spikes'], 3: ['steps', 'hidden'], 5: ['ceiling', 'pits'], 6: ['falling', 'saws'], 7: ['springs', 'steps'],
@@ -1243,6 +1479,8 @@ const FLAVOR = {
   38: ['hidden', 'saws'],
 };
 const CHASE_LV = { 8: 3.7, 28: 3.5 }, REV_LV = { 13: 1, 28: 1 };
+// every level also leans on one of the newer mechanic families, in turn
+const NEWFAM = ['bounce', 'oneway', 'wind', 'lava', 'warp', 'maces', 'dash', 'blink', 'float', 'swing', 'arrows', 'trolls'];
 
 /* ---------- colour schemes: every level looks different ---------- */
 const BIOMES = {
@@ -1280,7 +1518,7 @@ function mkG(P, r, t0, dj) {
 const NOP = new Proxy({}, { get: () => () => null });
 // lays out one chunk; called once with a dummy builder (to measure it) and then every time the level is built
 function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
-  const last = ci === nChunks - 1;
+  const last = ci === nChunks - 1, cave = opt.cave && ci === opt.caveCi;
   return P => {
     const r = srand(seed * 9973 + 7), G = mkG(P, r, t0, opt.dj);
     G.F(0, 3); G.x = 3;
@@ -1294,12 +1532,23 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
       }
       const pad = 1 + (r() < .35 ? 1 : 0) + (opt.k0 < .15 ? 1 : 0) + (i > 0 && KINDS[keys[i - 1]].launch ? 2 : 0);
       G.F(G.x, pad); G.x += pad;
+      const gx = G.x, gt = G.t;
       kd.build(G);
+      P.gem((gx + G.x) / 2, Math.min(gt, G.t) - 2.6);
     });
     G.F(G.x, 2); G.x += 2;
     if (last && G.t !== TOP_MAX) { G.t = TOP_MAX; G.F(G.x, 3); G.x += 3; }
+    const top = Math.min(...G.fl.map(f => f[2]));
     G.flush();
     const w = G.x;
+    if (cave) {
+      // underground: a rock ceiling (with stalactites) closes over the whole chunk, with a dark cave wall behind
+      const ceil = Math.max(2, top - 6.5), r2 = srand(seed * 77 + 5);
+      P.zone('cave', 'cave', 2, 0, w - 3.5, 18);
+      P.block(null, 2.5, 0, w - 4.5, ceil, { ceil: true, rock: true });
+      for (let c = 4 + r2() * 3; c < w - 4; c += 4 + r2() * 4) P.spikes(null, c, ceil, 1, 'down');
+      P.trig(3, 0, .5, 18, () => P.say('راه زیرزمینی! ⛏️'));
+    }
     if (opt.chase) {
       // a spiked wall wakes up behind you at the start of the chunk and chases you to its end
       P.block('cw', -7, 0, 6, 15, { hidden: true }); P.spikes('cws', -1, 0, 15, 'right', { parent: 'cw', hidden: true });
@@ -1314,7 +1563,14 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
 }
 function makeChunk(keys, seed, t0, opt, ci, nChunks) {
   const lay = chunkLayout(keys, seed, t0, opt, ci, nChunks), m = lay(NOP);
-  return { gen: true, keys, seed, t0, w: m.w, tEnd: m.tEnd, spawn: [1, t0 - 1], build: P => { lay(P); } };
+  return { gen: true, keys, seed, t0, w: m.w, tEnd: m.tEnd, spawn: [1, t0 - 1], cave: !!(opt.cave && ci === opt.caveCi), build: P => { lay(P); } };
+}
+const caveOk = kd => !kd.tall && !kd.launch && kd.need !== 'grav';
+// which levels get an underground stretch: settings 'auto' (a few levels), 'all', 'pick' (chosen levels) or 'off'
+const AUTO_CAVE = new Set();
+function caveFor(idx) {
+  const u = CFG.under || 'auto';
+  return u === 'all' ? true : u === 'pick' ? (CFG.underLv || []).includes(idx) : u === 'auto' ? AUTO_CAVE.has(idx) : false;
 }
 function pickKinds(opt, r) {
   const ok = kd => kd.lvl <= opt.k0 + .12 && (!kd.need || opt[kd.need]) && !(opt.chase && kd.wait);
@@ -1341,12 +1597,19 @@ function pickKinds(opt, r) {
   return out.map(q => q.kd.key);
 }
 function buildCourse(def, opt) {
+  def.courseOpt = opt;
   const r = srand(opt.seed * 7919 + 13), keys = pickKinds(opt, r);
   opt.n = keys.length;
   const groups = []; for (let i = 0; i < keys.length; i += CHUNK) groups.push(keys.slice(i, i + CHUNK));
+  // underground stretch: the middle chunk goes into a cave; designs that need a high ceiling are swapped for cave-friendly ones
+  opt.caveCi = Math.floor((groups.length - 1) / 2);
+  if (opt.cave) {
+    const used = new Set(keys), alt = Object.values(KINDS).filter(kd => caveOk(kd) && !used.has(kd.key) && kd.lvl <= opt.k0 + .12 && (!kd.need || opt[kd.need]) && !(opt.chase && kd.wait));
+    groups[opt.caveCi] = groups[opt.caveCi].map(k => { if (caveOk(KINDS[k])) return k; const a = alt.shift(); return a ? a.key : k; });
+  }
   const secs = []; let t = TOP_MAX;
   groups.forEach((ks, ci) => {
-    const fk = opt.key + ':' + ci, seed = CHUNK_FIX[fk] ?? (opt.seed * 100 + ci);
+    const fk = opt.key + ':' + ci + (opt.cave && ci === opt.caveCi ? 'c' : ''), seed = CHUNK_FIX[fk] ?? (opt.seed * 100 + ci);
     const c = makeChunk(ks, seed, t, opt, ci, groups.length); secs.push(c); t = c.tEnd;
   });
   // the hand-made screen closes the level
@@ -1360,19 +1623,26 @@ let prevKeys = null;
 LEVELS.forEach((def, idx) => {
   if (def.kind === '3d') return;
   const k0 = idx / 39;
+  const nth = LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length;
+  if (nth % 6 === 4) AUTO_CAVE.add(idx);
   buildCourse(def, { prev: prevKeys,
-    key: 'L' + idx, seed: idx + 1, k0, n: Math.round(18 + idx * .9), pri: FLAVOR[idx] || ['pits', 'spikes'],
-    grav: idx >= 10, ice: idx >= 30, conv: idx >= 31, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx],
+    key: 'L' + idx, seed: idx + 1, k0, n: Math.round(20 + idx), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
+    grav: idx >= 10, ice: idx >= 30, conv: idx >= 31, revz: idx >= 13, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx], cave: caveFor(idx),
   });
   prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
   def.biome = def.biome || BIOME_ORDER[LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length % BIOME_ORDER.length];
 });
 REALM.forEach((def, ri) => {
   buildCourse(def, {
-    key: 'R' + ri, seed: 500 + ri, k0: .82 + ri * .06, n: 40 + ri * 5, pri: [['lasers', 'movers'], ['lasers', 'saws'], ['lasers', 'gravity']][ri],
+    key: 'R' + ri, seed: 500 + ri, k0: .82 + ri * .06, n: 48 + ri * 4, revz: true, pri: [['lasers', 'movers'], ['lasers', 'saws'], ['lasers', 'gravity']][ri],
     grav: true, ice: true, conv: true, laser: true, dj: true, chase: 0, rev: false,
   });
 });
+
+// the underground setting changed: rebuild the courses (applied when a level starts)
+function refreshCaves() {
+  LEVELS.forEach((def, idx) => { if (!def.courseOpt) return; const want = caveFor(idx); if (!!def.courseOpt.cave !== want) buildCourse(def, Object.assign({}, def.courseOpt, { cave: want })); });
+}
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
   constructor(def, world, only) {
@@ -1392,7 +1662,11 @@ class Level {
   }
   add(id, e) {
     e.id = id; e.moves = []; e.dx = 0; e.dy = 0; e.shake = 0;
-    if (Array.isArray(e.patrol)) e.patrol = { pts: e.patrol.map(p => [p[0] * T, p[1] * T]), sp: (e.speed || 3) * T * this.D.trapV, i: 1 };
+    if (Array.isArray(e.patrol)) e.patrol = { pts: e.patrol.map(p => [p[0] * T, p[1] * T]), sp: (e.speed || 3) * T * this.D.trapV, i: 1, jump: !!e.pjump };
+    // any entity can circle around its starting point (orbit) or swing below a pivot (pendulum)
+    if (e.orbit && e.ocx == null) { e.ocx = e.x; e.ocy = e.y; e.a = e.orbit.ph || 0; }
+    if (e.pend) { e.pcx = e.x; e.pcy = e.y - e.pend.len * T; e.pt = 0; }
+    if (e.blink) e.lt = e.blink.ph || 0;
     e.patrol0 = e.patrol || null;
     this.ents.push(e); if (id) this.byId[id] = e; return e;
   }
@@ -1410,7 +1684,7 @@ class Level {
   /* timed laser beam: dir 'h' or 'v', starts at (x,y) tiles, len tiles. on/off in seconds */
   laser(id, x, y, len, dir = 'h', o = {}) {
     const on = o.on ?? 1.1, off = (o.off ?? 1.4) * this.D.trapT;
-    return this.add(id, { type: 'laser', dir, x: x * T, y: y * T, len: len * T, w: dir === 'h' ? len * T : 10, h: dir === 'h' ? 10 : len * T, on, off, lt: o.ph || 0, act: false, warn: false });
+    return this.add(id, Object.assign({ type: 'laser', dir, x: x * T, y: y * T, len: len * T, w: dir === 'h' ? len * T : 10, h: dir === 'h' ? 10 : len * T, on, off, lt: o.ph || 0, act: false, warn: false }, o.patrol ? { patrol: o.patrol, speed: o.speed } : {}));
   }
   /* secret portal: appears (opens) when openPortal(id) is called */
   portal(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'portal', x: x * T, y: y * T, w: 1.4 * T, h: 2 * T, open: 0, opening: false }, o)); }
@@ -1419,6 +1693,12 @@ class Level {
     const e = this.e(id); if (!e || e.opening) return; e.opening = true; this.sfx('orb'); this.shake(5); this.say('یه پرتال مخفی باز شد! 🌀');
     this.w.burst(e.x + e.w / 2, e.y + e.h / 2, 26, { col: '#c59bff', sp: 260, life: .7, add: true, size: 3 });
   }
+  /* area effects: kind 'wind' (push fx/fy tiles per second, optional on/off timing), 'float' (gravity scale g), 'shade' (darkness) */
+  zone(id, kind, x, y, w, h, o = {}) { return this.add(id, Object.assign({ type: 'zone', kind, x: x * T, y: y * T, w: w * T, h: h * T, act: true, lt: o.ph || 0 }, o)); }
+  /* one-way teleporter: touching it moves the player to the entity 'to' */
+  tele(id, x, y, to, o = {}) { return this.add(id, Object.assign({ type: 'tele', x: x * T, y: y * T, w: .9 * T, h: 1.6 * T, to, cd: 0 }, o)); }
+  /* dash pad on the floor: run over it for a burst of speed */
+  dash(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'dash', x: x * T, y: (y + 1) * T - 8, w: 2 * T, h: 8 }, o)); }
   spring(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'spring', x: x * T, y: (y + 1) * T - 16, w: T, h: 16, anim: 0 }, o)); }
   orb(id, cx, cy) { return this.add(id, { type: 'orb', x: cx * T, y: cy * T, r: 0.42 * T, cd: 0 }); }
   trig(x, y, w, h, fn, o = {}) { this.trigs.push({ x: x * T, y: y * T, w: w * T, h: h * T, fn, ground: !!o.ground, rising: !!o.rising, fired: false }); }
@@ -1456,7 +1736,7 @@ function secBuilder(L, sec, si, last) {
     if (c.parent) c.parent = pid(c.parent); if (c.fake) c.fake = pid(c.fake);
     return c;
   };
-  let building = true; const pend = [];
+  let building = true; const pend = [], gems = [];
   const P = {
     d: L.d, D: L.D, w: L.w, sec,
     add(id, e) { e.x += ox * T; if (e.fake) e.fake = pid(e.fake); return L.add(pid(id), e); },
@@ -1464,11 +1744,15 @@ function secBuilder(L, sec, si, last) {
     spikes: (id, x, y, n, dir, o) => L.spikes(pid(id), x + ox, y, n, dir, fixO(o)),
     door: (x, y, o) => last ? L.add(pid('door'), Object.assign({ type: 'door', x: (x + ox) * T, y: y * T, w: 1.4 * T, h: 2 * T }, fixO(o))) : null,
     saw: (id, cx, cy, r, o) => L.saw(pid(id), cx + ox, cy, r, fixO(o)),
-    laser: (id, x, y, len, dir, o) => L.laser(pid(id), x + ox, y, len, dir, o),
+    laser: (id, x, y, len, dir, o) => L.laser(pid(id), x + ox, y, len, dir, fixO(o)),
     portal: (id, x, y, o) => L.portal(pid(id), x + ox, y, o),
     openPortal: (id, delay = 0) => delay > 0 ? P.at(delay, () => L.openPortal(pid(id))) : L.openPortal(pid(id)),
     spring: (id, x, y, o) => L.spring(pid(id), x + ox, y, fixO(o)),
     orb: (id, cx, cy) => L.orb(pid(id), cx + ox, cy),
+    zone: (id, kind, x, y, w, h, o) => L.zone(pid(id), kind, x + ox, y, w, h, o),
+    tele: (id, x, y, to, o) => L.tele(pid(id), x + ox, y, pid(to), o),
+    dash: (id, x, y, o) => L.dash(pid(id), x + ox, y, o),
+    gem: (x, y) => gems.push([x + ox, y]),
     trig: (x, y, w, h, fn, o) => L.trig(x + ox, y, w, h, () => fn(P, L.w), o),
     e: id => L.e(pid(id)),
     move: (id, dx, dy, sp, delay) => L.move(pid(id), dx, dy, sp, delay),
@@ -1479,6 +1763,12 @@ function secBuilder(L, sec, si, last) {
     reverse: on => L.reverse(on), shake: a => L.shake(a), sfx: n => L.sfx(n), say: t => L.say(t),
     done() {
       building = false;
+      const solid = L.ents.filter(e => e.type === 'block' && !e.ghost && !e.hidden && !e.lava && !e.patrol && !e.orbit && !e.pend);
+      gems.forEach(([gx, gy], i) => {
+        let y = gy; const inside = yy => solid.some(e => gx * T > e.x - 14 && gx * T < e.x + e.w + 14 && yy * T > e.y - 14 && yy * T < e.y + e.h + 14);
+        while (inside(y) && y > gy - 4) y -= .5;
+        if (!inside(y) && y > .8) L.add(pre + 'gem' + i, { type: 'gem', x: gx * T, y: y * T, w: 0, r: 13, ph: i });
+      });
       if (pend.length) L.trig(ox - 1, -4, sec.spawn[0] + 2, 26, () => pend.forEach(([t, fn]) => L.at(t, fn)));
     },
   };
@@ -1500,6 +1790,10 @@ class World {
     this.rev = false;
     this.dark = !!this.def.dark;
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
+    // gems stay collected across deaths
+    this.got = this.got || new Set(); let ng = 0;
+    for (const e of this.lv.ents) if (e.type === 'gem') { ng++; if (this.got.has(e.id)) e.gone = true; }
+    this.gemTotal = ng;
     const sec = this.secs ? this.secs[this.ck] : null;
     const [sx, sy] = sec ? [sec.x0 + sec.spawn[0], sec.spawn[1]] : this.def.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
@@ -1512,7 +1806,7 @@ class World {
   sfx(n) { if (!this.silent) Sound.play(n); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
-  isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost; }
+  isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost && !e.off; }
   solids() { return this.act.filter(e => this.isSolid(e)); }
   // camera: keeps the player a bit left of centre, looking ahead in the running direction
   camTarget() { return clamp(this.p.x + PW / 2 - W * .42 + this.look, 0, Math.max(0, this.lw - W)); }
@@ -1569,6 +1863,11 @@ class World {
     if (e.type === 'portal' && e.opening && e.open < 1) e.open = Math.min(1, e.open + dt * 1.6);
     if (e.type === 'laser') { e.lt += dt; const per = e.on + e.off, ph = e.lt % per; e.act = ph < e.on; e.warn = !e.act && ph > per - 0.4; }
     if (e.orbit) { e.a += e.orbit.w * dt * this.D.trapV; e.x = e.ocx + Math.cos(e.a) * e.orbit.rad * T; e.y = e.ocy + Math.sin(e.a) * e.orbit.rad * T; }
+    if (e.pend) { e.pt += dt * this.D.trapV; const a = e.pend.amp * Math.sin(e.pend.w * e.pt + (e.pend.ph || 0)); e.x = e.pcx + Math.sin(a) * e.pend.len * T; e.y = e.pcy + Math.cos(a) * e.pend.len * T; }
+    if (e.blink) { e.lt += dt; const b = e.blink, per = b.on + b.off * this.D.trapT, ph = e.lt % per; e.off = ph >= b.on; e.warn = !e.off && ph > b.on - .45; }
+    if (e.type === 'zone' && e.on != null) { e.lt += dt; const per = e.on + e.off, ph = e.lt % per; e.act = ph < e.on; e.warn = !e.act && ph > per - .5; }
+    if (e.type === 'tele' && e.cd > 0) e.cd -= dt;
+    if (e.sink && e.sinking) { e.y += e.sink * T * dt; if (e.y > H + 200) e.gone = true; }
     if (e.par) return;
     if (e.falling) {
       if (e.fallDelay > 0) { e.fallDelay -= dt; e.shake = 1; return; }
@@ -1619,7 +1918,7 @@ class World {
     }
     if (noPlayer) return;
     for (const e of ents) {
-      if (!this.isSolid(e) || (!e.dx && !e.dy)) continue;
+      if (!this.isSolid(e) || (!e.dx && !e.dy) || (e.oneway && p.ground !== e)) continue;
       if (p.ground === e && !e.falling) { p.x += e.dx; p.y += e.dy; continue; }
       if (hit(p, { x: e.x, y: e.y, w: e.w, h: e.h })) {
         if (Math.abs(e.dx) > Math.abs(e.dy)) p.x = e.dx > 0 ? e.x + e.w : e.x - PW;
@@ -1628,11 +1927,21 @@ class World {
       }
     }
     const pr = { x: p.x + 1, y: p.y + 1, w: PW - 2, h: PHT - 2 };
-    for (const e of ents) if (this.isSolid(e) && hit(pr, e)) { this.die('crush'); return; }
+    for (const e of ents) if (this.isSolid(e) && !e.oneway && hit(pr, e)) { this.die('crush'); return; }
   }
 
   updatePlayer(dt, inp) {
     const p = this.p, g = p.g;
+    // area effects around the player
+    let wx = 0, wy = 0, gk = 1; this.shade = false; this.cave = false;
+    for (const e of this.act) {
+      if (e.type !== 'zone' || e.gone || !e.act || !hit(p, e)) continue;
+      if (e.kind === 'wind') { wx += (e.fx || 0) * T; wy += (e.fy || 0) * T; }
+      else if (e.kind === 'float') gk = Math.min(gk, e.g || .4);
+      else if (e.kind === 'shade') this.shade = true;
+      else if (e.kind === 'cave') this.cave = true;
+    }
+    if (p.dashT > 0) p.dashT -= dt;
     const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     const onIce = p.onGround && p.ground && p.ground.ice;
     if (p.onGround) p.air2 = false;
@@ -1640,7 +1949,8 @@ class World {
       p.face = dir;
       let acc = p.onGround ? (onIce ? 900 : PH.accG) : PH.accA;
       if (Math.sign(p.vx) !== dir && p.vx !== 0) acc *= onIce ? 0.9 : 1.7;
-      p.vx = clamp(p.vx + dir * acc * dt, -PH.run, PH.run);
+      const mx = PH.run * (p.dashT > 0 ? 1.9 : 1);
+      p.vx = clamp(p.vx + dir * acc * dt, -mx, mx);
     } else {
       const f = (p.onGround ? (onIce ? 210 : PH.fric) : PH.fric * 0.45) * dt;
       p.vx = Math.abs(p.vx) <= f ? 0 : p.vx - Math.sign(p.vx) * f;
@@ -1661,20 +1971,22 @@ class World {
     }
     if (!inp.jump && p.jumping && p.vy * g < -PH.cut) p.vy = -PH.cut * g;
     if (p.vy * g >= 0) p.jumping = false;
-    p.vy += PH.g * g * dt;
-    if (p.vy * g > PH.maxFall) p.vy = PH.maxFall * g;
+    p.vy += PH.g * g * dt * gk + wy * dt * 4;
+    const mf = PH.maxFall * (gk < 1 ? .45 : 1); if (p.vy * g > mf) p.vy = mf * g;
 
     const sol = this.solids();
     // X
     if (p.onGround && p.ground && p.ground.conv) p.x += p.ground.conv * T * dt;
-    p.x += p.vx * dt;
-    for (const s of sol) if (hit(p, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
+    const ox = p.x; p.x += p.vx * dt + wx * dt;
+    for (const s of sol) if (!s.oneway && hit(p, s)) { if (p.x > ox) p.x = s.x - PW; else if (p.x < ox) p.x = s.x + s.w; p.vx = 0; }
     if (p.x < 0) { p.x = 0; p.vx = 0; } if (p.x > this.lw - PW) { p.x = this.lw - PW; p.vx = 0; }
     // Y
-    const was = p.onGround, vyBefore = p.vy;
+    const was = p.onGround, vyBefore = p.vy, oy = p.y;
     p.onGround = false; p.ground = null;
     p.y += p.vy * dt;
     for (const s of sol) if (hit(p, s)) {
+      // one-way planks only hold you when you come down onto them from above
+      if (s.oneway) { if (g > 0 && p.vy >= 0 && oy + PHT <= s.y + 2) { p.y = s.y - PHT; p.onGround = true; p.ground = s; p.vy = 0; } continue; }
       if (p.vy > 0) { p.y = s.y - PHT; if (g > 0) { p.onGround = true; p.ground = s; } }
       else if (p.vy < 0) { p.y = s.y + s.h; if (g < 0) { p.onGround = true; p.ground = s; } }
       p.vy = 0;
@@ -1685,6 +1997,12 @@ class World {
       for (let i = 0; i < 9; i++) this.parts.push(this.mkPart(p.x + PW / 2 + rand(-10, 10), g > 0 ? p.y + PHT : p.y, { col: '#b8acdf', sp: 120, life: .4, size: rand(2, 4.5), g: 250 * g, up: g > 0, side: true }));
     }
     if (p.ground && p.ground.crumble && !p.ground.falling) { this.lv.fall(p.ground, p.ground.crumble); this.sfx('crack'); }
+    if (p.ground && p.ground.sink && !p.ground.sinking) { p.ground.sinking = true; this.sfx('rumble'); }
+    // trampolines throw you up as soon as you land on them
+    if (p.ground && p.ground.bounce && g > 0) {
+      p.vy = -p.ground.bounce * T; p.onGround = false; p.ground = null; p.jumping = false; p.coy = 0; p.sx = .7; p.sy = 1.4; this.sfx('spring');
+      this.burst(p.x + PW / 2, p.y + PHT, 10, { col: '#ff8fd0', sp: 180, life: .4, size: 3, g: 300, up: true, add: true });
+    }
     // animation state
     p.sx = lerp(p.sx, 1, Math.min(1, dt * 12)); p.sy = lerp(p.sy, 1, Math.min(1, dt * 12));
     if (p.onGround && Math.abs(p.vx) > 40) {
@@ -1724,7 +2042,17 @@ class World {
     const p = this.p;
     for (const e of this.act) {
       if (e.gone || e.hidden) continue;
-      if (e.type === 'spike') { if (e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die('spike'); }
+      if (e.type === 'spike') { if (!e.fake && e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die(e.arrow ? 'arrow' : 'spike'); }
+      else if (e.type === 'tele') {
+        if (e.cd <= 0 && hit(p, e)) { const d = this.lv.e(e.to); if (d) {
+          this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#7af7ff', sp: 200, life: .45, add: true, size: 3 });
+          p.x = d.x + (d.w - PW) / 2; p.y = d.y + d.h - PHT - 2; e.cd = d.cd = .6; this.sfx('orb'); this.actX = -1e9;
+          this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#c59bff', sp: 200, life: .45, add: true, size: 3 }); } }
+      }
+      else if (e.type === 'gem') {
+        if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) { e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(); }
+      }
+      else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser'); }
       else if (e.type === 'block' && e.lava) { if (hit(p, { x: e.x, y: e.y + 8, w: e.w, h: e.h })) return this.die('lava'); }
@@ -1753,7 +2081,7 @@ class World {
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   save() {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking'];
     const lv = this.lv, ents = lv.ents;
     return { ck: this.ck, camX: this.camX, look: this.look,
       ents: ents.map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
@@ -1764,7 +2092,7 @@ class World {
     };
   }
   load(sn) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking'];
     const lv = this.lv, ents = lv.ents;
     this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
     ents.forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });
@@ -2128,7 +2456,7 @@ function drawBack(world, sx, sy, scroll = 0) {
 const STT = { tiles: new Map(), tw: 640, renders: 0 };
 let levelUid = 0;
 function isStaticEnt(e) {
-  if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol || e.conv) return false;
+  if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol || e.conv || e.orbit || e.pend || e.blink || e.sinking) return false;
   if (e.type === 'block') return e.appear >= 1 && !e.shake;
   if (e.type === 'spike') return e.pop >= 1;
   return false;
@@ -2153,6 +2481,25 @@ function getTile(world, ti) {
   ctx = main;
   tl.key = key; tl.y0 = clamp(Math.floor(OY + y0 * S) - 2, 0, ch); tl.y1 = clamp(Math.ceil(OY + y1 * S) + 2, 0, ch);
   return tl;
+}
+function drawCaves(world, sx, sy, t) {
+  if (!world) return;
+  for (const e of world.lv.ents) {
+    if (e.type !== 'zone' || e.kind !== 'cave' || e.x > CAMX + W + EXT.r || e.x + e.w < CAMX - EXT.l) continue;
+    worldTransform(sx, sy);
+    const gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#120a14'); gr.addColorStop(.6, '#22141f'); gr.addColorStop(1, '#2c1a22');
+    ctx.fillStyle = gr; ctx.fillRect(e.x, 0, e.w, H + EXT.b);
+    ctx.globalAlpha = .18; ctx.fillStyle = TEX.stone; ctx.fillRect(e.x, 0, e.w, H + EXT.b); ctx.globalAlpha = 1;
+    // fading cave mouth on both ends
+    for (const [x0, d] of [[e.x, 1], [e.x + e.w, -1]]) { const g2 = ctx.createLinearGradient(x0, 0, x0 + d * 70, 0); g2.addColorStop(0, 'rgba(0,0,0,.45)'); g2.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g2; ctx.fillRect(d > 0 ? x0 : x0 - 70, 0, 70, H + EXT.b); }
+    // torches on the wall
+    for (let x = e.x + 150; x < e.x + e.w - 60; x += 320) {
+      ctx.fillStyle = '#3a2618'; ctx.fillRect(x - 3, 330, 6, 26);
+      const f = 1 + Math.sin(t * 13 + x) * .12 + Math.sin(t * 29 + x) * .06;
+      if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .7; ctx.drawImage(TEX.gGold, x - 60 * f, 270 - 60 * f, 120 * f, 120 * f); ctx.restore(); }
+      ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.ellipse(x, 322, 5 * f, 10 * f, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#fff1b0'; ctx.beginPath(); ctx.ellipse(x, 325, 2.5, 5, 0, 0, 7); ctx.fill();
+    }
+  }
 }
 function drawStatics(world, sx, sy) {
   if (!world) return;
@@ -2190,11 +2537,13 @@ function drawLava(e, t) {
   const x = Math.max(e.x <= .5 ? -EXT.l : e.x, CAMX - EXT.l - 30), x1 = Math.min(e.x + e.w >= LW - .5 ? LW + EXT.r : e.x + e.w, CAMX + W + EXT.r + 30), w = x1 - x;
   if (w <= 0) return;
   ctx.save();
-  const gr = ctx.createLinearGradient(0, y, 0, y + 260); gr.addColorStop(0, '#ffe08a'); gr.addColorStop(.06, '#ff7a1a'); gr.addColorStop(.45, '#b8240e'); gr.addColorStop(1, '#3a0606');
+  const gr = ctx.createLinearGradient(0, y, 0, y + 260);
+  if (e.acid) { gr.addColorStop(0, '#e8ff8a'); gr.addColorStop(.06, '#7cff3a'); gr.addColorStop(.45, '#1e9a2a'); gr.addColorStop(1, '#062a0a'); }
+  else { gr.addColorStop(0, '#ffe08a'); gr.addColorStop(.06, '#ff7a1a'); gr.addColorStop(.45, '#b8240e'); gr.addColorStop(1, '#3a0606'); }
   ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x, y + 900);
   for (let xx = x; xx <= x + w + 20; xx += 20) ctx.lineTo(xx, y + Math.sin(xx * .05 + t * 3) * 4 + Math.sin(xx * .013 - t * 2) * 3);
   ctx.lineTo(x + w + 20, y + 900); ctx.closePath(); ctx.fill();
-  if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; const g2 = ctx.createLinearGradient(0, y - 90, 0, y + 10); g2.addColorStop(0, 'rgba(255,90,20,0)'); g2.addColorStop(1, 'rgba(255,120,30,.35)'); ctx.fillStyle = g2; ctx.fillRect(x, y - 90, w, 100); }
+  if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; const g2 = ctx.createLinearGradient(0, y - 90, 0, y + 10); g2.addColorStop(0, e.acid ? 'rgba(90,255,40,0)' : 'rgba(255,90,20,0)'); g2.addColorStop(1, e.acid ? 'rgba(120,255,60,.3)' : 'rgba(255,120,30,.35)'); ctx.fillStyle = g2; ctx.fillRect(x, y - 90, w, 100); }
   ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(255,230,150,.7)';
   for (let i = 0; i < 9; i++) { const bx = x + ((i * 157 + t * 40 * (i % 3 + 1)) % (w + 80)) - 40, ph = (t * 1.3 + i * .37) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.arc(bx, y + 6 - ph * 18, 3 + i % 3, 0, 7); ctx.fill(); }
   ctx.restore();
@@ -2202,6 +2551,20 @@ function drawLava(e, t) {
 function drawBlock(e, t) {
   if (e.lava) return drawLava(e, t);
   const [x, y, w, h] = blockRect(e);
+  if (e.blink && e.off) { ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = rgbaHex(PAL.moss, .45); ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, w - 4, h - 4); ctx.restore(); return; }
+  if (e.oneway) {
+    // wooden plank you can jump through from below
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = '#8a5a3a'; ctx.fillRect(0, 0, w, 10); ctx.fillStyle = '#b07a4e'; ctx.fillRect(0, 0, w, 3);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; for (let i = 18; i < w; i += 22) ctx.fillRect(i, 2, 2, 8);
+    ctx.strokeStyle = 'rgba(255,220,170,.5)'; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(0, 12); ctx.lineTo(w, 12); ctx.stroke(); ctx.restore(); return;
+  }
+  if (e.rock) {
+    // cave ceiling: dark rock with a jagged lower edge
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = TEX.stone; ctx.fillRect(0, 0, w, h); ctx.fillStyle = 'rgba(12,6,10,.55)'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1a1018'; ctx.beginPath(); ctx.moveTo(0, h); for (let i = 0; i <= w; i += 16) ctx.lineTo(i, h + 4 + Math.abs(Math.sin((e.x + i) * .21)) * 9); ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+    ctx.restore(); return;
+  }
+  if (e.blink && e.warn && Math.floor(t * 14) % 2) { ctx.save(); ctx.globalAlpha = .45; }
   const ceil = e.ceil || (e.y <= 0.5 && !e.moves.length && !e.falling);
   let sx = 0, sy = 0;
   if (e.shake) { sx = rand(-2.5, 2.5); sy = rand(-1.5, 1.5); }
@@ -2225,12 +2588,25 @@ function drawBlock(e, t) {
     ctx.restore();
   } else if (!ceil) { ctx.translate(0, -7); ctx.fillStyle = e.ice || realmMode ? TEX.ice : TEX.moss; ctx.fillRect(0, 0, w, 20); }
   else { ctx.fillStyle = rgbaHex(PAL.moss, .35); ctx.fillRect(0, h - 3, w, 2); }
+  if (e.bounce) { ctx.fillStyle = '#ff5dbb'; ctx.fillRect(0, -2, w, 9); ctx.fillStyle = '#ffd0ef'; ctx.fillRect(0, -2, w, 2); ctx.fillStyle = 'rgba(80,0,60,.4)'; for (let i = 6; i < w; i += 14) ctx.fillRect(i, 2, 6, 4); }
+  if (e.sink) { ctx.fillStyle = 'rgba(120,200,255,.25)'; ctx.fillRect(0, 0, w, h); }
   ctx.restore();
+  if (e.blink && e.warn && Math.floor(t * 14) % 2) ctx.restore();
 }
 
+function drawArrow(e) {
+  const vert = e.dir === 'up' || e.dir === 'down', cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate({ left: 0, right: Math.PI, up: Math.PI / 2, down: -Math.PI / 2 }[e.dir]);
+  ctx.strokeStyle = '#d8c39a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-T * .45, 0); ctx.lineTo(T * .5, 0); ctx.stroke();
+  ctx.fillStyle = PAL.hazard; ctx.beginPath(); ctx.moveTo(-T * .55, 0); ctx.lineTo(-T * .25, -8); ctx.lineTo(-T * .25, 8); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ff5d8a'; ctx.beginPath(); ctx.moveTo(T * .3, 0); ctx.lineTo(T * .55, -7); ctx.lineTo(T * .5, 0); ctx.lineTo(T * .55, 7); ctx.closePath(); ctx.fill();
+  ctx.restore(); if (vert) return;
+}
 function drawSpike(e) {
+  if (e.arrow) return drawArrow(e);
   const spr = TEX.spike[e.dir]; const k = e.pop < 1 ? e.pop : 1;
   if (k <= 0) return;
+  if (e.fake && hints) { ctx.save(); ctx.globalAlpha = .4; }
   let sx = e.shake ? rand(-2.5, 2.5) : 0;
   for (let i = 0; i < e.n; i++) {
     let x = e.x + sx, y = e.y;
@@ -2239,6 +2615,7 @@ function drawSpike(e) {
     else if (e.dir === 'right') ctx.drawImage(spr, x, y + i * T, T * k, T);
     else ctx.drawImage(spr, x + T * (1 - k), y + i * T, T * k, T);
   }
+  if (e.fake && hints) ctx.restore();
 }
 
 function archPath(r, top, h, inset) { ctx.beginPath(); ctx.moveTo(-r - inset, h / 2); ctx.lineTo(-r - inset, top + r); ctx.arc(0, top + r, r + inset, Math.PI, 0); ctx.lineTo(r + inset, h / 2); ctx.closePath(); }
@@ -2279,13 +2656,28 @@ function drawPortal(e, t, world) {
   drawGate(e, t * 1.7, world, '#c59bff', TEX.gViolet, k);
 }
 
+function drawMace(e, t) {
+  const r = e.r;
+  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.rot * .25);
+  ctx.fillStyle = PAL.hazard; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(Math.cos(a - .22) * r * .8, Math.sin(a - .22) * r * .8); ctx.lineTo(Math.cos(a) * r * 1.45, Math.sin(a) * r * 1.45); ctx.lineTo(Math.cos(a + .22) * r * .8, Math.sin(a + .22) * r * .8); ctx.fill(); }
+  const gr = ctx.createRadialGradient(-r * .3, -r * .3, 2, 0, 0, r); gr.addColorStop(0, '#9a94b8'); gr.addColorStop(1, '#2a2547');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.fillStyle = '#ff5d8a'; ctx.beginPath(); ctx.arc(0, 0, r * .25, 0, 7); ctx.fill();
+  ctx.restore();
+}
 function drawSaw(e, t) {
+  if (e.mace) return drawMace(e, t);
   const gk = glowK();
   if (gk > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .35 * Math.min(1, gk); ctx.drawImage(TEX.gRose, e.x - e.r * 2, e.y - e.r * 2, e.r * 4, e.r * 4); ctx.restore(); }
   ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.rot); const s = e.r * 2.5; ctx.drawImage(TEX.saw, -s / 2, -s / 2, s, s); ctx.restore();
 }
 function drawTrack(e) {
   ctx.save(); ctx.strokeStyle = 'rgba(20,12,40,.75)'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  if (e.pend) {   // chain from the pivot
+    const cx = e.type === 'saw' ? e.x : e.x + e.w / 2, cy = e.type === 'saw' ? e.y : e.y;
+    ctx.lineWidth = 3; ctx.strokeStyle = '#8a86a8'; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(e.pcx + (e.type === 'saw' ? 0 : e.w / 2), e.pcy); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#2a2547'; ctx.beginPath(); ctx.arc(e.pcx + (e.type === 'saw' ? 0 : e.w / 2), e.pcy, 7, 0, 7); ctx.fill(); ctx.restore(); return;
+  }
+  if (e.orbit && e.type === 'block') { ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(138,134,168,.6)'; ctx.beginPath(); ctx.moveTo(e.ocx + e.w / 2, e.ocy); ctx.lineTo(e.x + e.w / 2, e.y); ctx.stroke(); ctx.fillStyle = '#2a2547'; ctx.beginPath(); ctx.arc(e.ocx + e.w / 2, e.ocy, 8, 0, 7); ctx.fill(); ctx.restore(); return; }
   if (e.orbit) { ctx.beginPath(); ctx.arc(e.ocx, e.ocy, e.orbit.rad * T, 0, 7); ctx.stroke(); ctx.strokeStyle = 'rgba(255,93,138,.35)'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#2a2547'; ctx.beginPath(); ctx.arc(e.ocx, e.ocy, 7, 0, 7); ctx.fill(); }
   else if (e.patrol0) { const p = e.patrol0.pts; ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); for (const q of p) ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.strokeStyle = 'rgba(255,93,138,.35)'; ctx.lineWidth = 2; ctx.stroke(); }
   ctx.restore();
@@ -2416,6 +2808,47 @@ function viewEnts(world) {
   }
   return out;
 }
+function drawZone(e, t) {
+  if (e.kind === 'shade') return;
+  const on = e.act;
+  ctx.save(); ctx.beginPath(); ctx.rect(e.x, e.y, e.w, e.h); ctx.clip();
+  if (e.kind === 'wind') {
+    const up = Math.abs(e.fy || 0) > Math.abs(e.fx || 0), sgn = up ? Math.sign(e.fy || -1) : Math.sign(e.fx || 1);
+    ctx.fillStyle = on ? 'rgba(160,240,255,.10)' : (e.warn && Math.floor(t * 10) % 2 ? 'rgba(160,240,255,.08)' : 'rgba(160,240,255,.03)'); ctx.fillRect(e.x, e.y, e.w, e.h);
+    if (on) { ctx.strokeStyle = 'rgba(210,250,255,.55)'; ctx.lineWidth = 2; ctx.beginPath();
+      for (let i = 0; i < 12; i++) { const r1 = (i * 97.3) % 1, sp = 260, len = 26;
+        if (up) { const x = e.x + ((i * 53) % e.w), y = e.y + e.h - (((t * sp + i * 61) % (e.h + len))); ctx.moveTo(x, sgn < 0 ? y : e.y + e.h - y + e.y); ctx.lineTo(x, (sgn < 0 ? y : e.y + e.h - y + e.y) + len * -sgn); }
+        else { const y = e.y + ((i * 37) % e.h), x0 = (t * sp + i * 71) % (e.w + len); const x = sgn > 0 ? e.x + x0 : e.x + e.w - x0; ctx.moveTo(x, y); ctx.lineTo(x - len * sgn, y); } }
+      ctx.stroke(); }
+  } else if (e.kind === 'float') {
+    ctx.fillStyle = 'rgba(170,140,255,.11)'; ctx.fillRect(e.x, e.y, e.w, e.h);
+    ctx.fillStyle = 'rgba(220,200,255,.45)'; for (let i = 0; i < 14; i++) { const x = e.x + ((i * 67) % e.w), y = e.y + e.h - ((t * 30 + i * 47) % e.h); ctx.beginPath(); ctx.arc(x + Math.sin(t * 2 + i) * 6, y, 2.5 + (i % 3), 0, 7); ctx.fill(); }
+  }
+  ctx.restore();
+}
+function drawTele(e, t) {
+  const cx = e.x + e.w / 2, cy = e.y + e.h / 2, exit = !e.to, col = exit ? '#c59bff' : '#7af7ff';
+  if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .5; ctx.drawImage(exit ? TEX.gViolet : TEX.gCyan, cx - 60, cy - 60, 120, 120); ctx.restore(); }
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 1.6);
+  for (let i = 0; i < 3; i++) { ctx.strokeStyle = rgbaHex(col, .9 - i * .25); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, 14 - i * 4, t * (3 + i) * (exit ? -1 : 1), t * (3 + i) * (exit ? -1 : 1) + 4.6); ctx.stroke(); }
+  ctx.restore();
+}
+function drawDash(e, t) {
+  ctx.save();
+  if (glowK() > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45; ctx.drawImage(TEX.gGold, e.x - 20, e.y - 40, e.w + 40, 70); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
+  ctx.fillStyle = '#2a2236'; ctx.fillRect(e.x, e.y, e.w, e.h); ctx.fillStyle = '#ffb347'; ctx.fillRect(e.x, e.y, e.w, 2);
+  for (let i = 0; i < 4; i++) { const a = (Math.sin(t * 9 - i * 1.2) + 1) / 2; ctx.fillStyle = `rgba(255,${190 + a * 60 | 0},90,${.5 + a * .5})`; const x = e.x + 6 + i * 18, y = e.y - 14;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 10, y + 6); ctx.lineTo(x, y + 12); ctx.lineTo(x + 4, y + 6); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+}
+function drawGem(e, t) {
+  const y = e.y + Math.sin(t * 3 + e.ph) * 4, s = 11;
+  if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .55; ctx.drawImage(TEX.gCyan, e.x - 34, y - 34, 68, 68); ctx.restore(); }
+  ctx.save(); ctx.translate(e.x, y); ctx.scale(Math.cos(t * 2.5 + e.ph) * .35 + .75, 1);
+  ctx.fillStyle = '#7af7ff'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .8, 0); ctx.lineTo(0, s); ctx.lineTo(-s * .8, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .35, -1); ctx.lineTo(0, 2); ctx.lineTo(-s * .35, -1); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
 function drawFlag(e, t) {
   const x = e.x, top = e.y, h = e.h, on = e.on, wv = e.wave || 0;
   if (on && glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.35 + wv * .5) * Math.min(1, glowK()); ctx.drawImage(TEX.gMint, x - 46, top - 30, 110, 110); ctx.restore(); }
@@ -2430,20 +2863,25 @@ function drawFlag(e, t) {
 }
 function drawDynamic(world, t, dt, depth) {
   const ents = VIEW_ENTS = viewEnts(world);
+  for (const e of ents) if (e.type === 'zone') drawZone(e, t);
   for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
+  for (const e of ents) if (e.type === 'dash') drawDash(e, t);
+  for (const e of ents) if (e.type === 'gem') drawGem(e, t);
+  for (const e of ents) if (e.type === 'block' && !e.gone && !e.hidden && (e.pend || e.orbit)) drawTrack(e);
   if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
-  for (const e of ents) if (!e.gone && e.type === 'saw' && (e.patrol0 || e.orbit)) drawTrack(e);
+  for (const e of ents) if (!e.gone && !e.hidden && e.type === 'saw' && (e.patrol0 || e.orbit || e.pend)) drawTrack(e);
   for (const e of ents) if (!e.gone && e.type === 'laser') drawLaser(e, t);
   for (const e of ents) if (!e.gone && !e.hidden && e.type === 'saw') { if (depth) drawSawBack(e, depth); drawSaw(e, t); }
   for (const e of ents) if (!e.gone && !e.hidden && e.type === 'spike' && !isStaticEnt(e)) drawSpike(e);
   for (const e of ents) if (!e.gone && !e.hidden && e.type === 'block' && !isStaticEnt(e)) drawBlock(e, t);
   for (const e of ents) if (!e.gone && e.type === 'spring') drawSpring(e);
   for (const e of ents) if (!e.gone && e.type === 'orb') drawOrb(e, t);
+  for (const e of ents) if (!e.gone && e.type === 'tele') drawTele(e, t);
   for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   drawPlayer(world, t);
   drawParticles(world);
-  if (world.dark) drawDark(world, t);
+  if (world.dark || world.shade || world.cave) drawDark(world, t);
 }
 function drawOverlays(world, t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2464,6 +2902,7 @@ function render(world, t, dt) {
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
   CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
   drawBack(world, sx, sy);
+  drawCaves(world, sx, sy, t);
   drawStatics(world, sx, sy);
   worldTransform(sx, sy);
   drawMotes(t, dt);
@@ -2484,6 +2923,7 @@ function render25(world, t, dt) {
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
   const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
   drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
+  drawCaves(world, sx, sy, t);
   worldTransform(sx, sy);
   drawMotes(t, dt);
   // depth faces (faces hidden behind a touching neighbour block are skipped)
@@ -2492,7 +2932,7 @@ function render25(world, t, dt) {
   vp.blocks = near.filter(e => e.type === 'block' && !e.hidden && !e.lava && e.appear >= 1);
   for (const e of near) {
     if (e.hidden) continue;
-    if (e.type === 'block' && !e.lava && !(e.ghost && hints)) drawExtrude(e, vp);
+    if (e.type === 'block' && !e.lava && !(e.ghost && hints) && !(e.blink && e.off)) drawExtrude(e, vp);
     else if (e.type === 'spike' && e.pop > 0) drawSpikeBack(e, vp);
   }
   drawStatics(world, sx, sy);
@@ -2538,7 +2978,8 @@ function drawSawBack(e, vp) {
 function drawDark(world, t) {
   const c = BG.dark, g = BG.darkG, q = c.width / cw;
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, c.width, c.height);
-  g.fillStyle = `rgba(3,2,12,${0.95 - world.lightning * .8})`; g.fillRect(0, 0, c.width, c.height);
+  const base = world.dark || world.shade ? .95 : .7;   // caves are dim, not pitch black
+  g.fillStyle = `rgba(3,2,12,${base - world.lightning * .8})`; g.fillRect(0, 0, c.width, c.height);
   g.globalCompositeOperation = 'destination-out';
   const hole = (x, y, r, a) => { const sx = (OX + (x - CAMX) * S) * q, sy = (OY + y * S) * q, rr = r * S * q; if (sx + rr < 0 || sx - rr > c.width) return; g.globalAlpha = a; g.drawImage(TEX.glow, sx - rr, sy - rr, rr * 2, rr * 2); };
   const p = world.p; const fl = 1 + Math.sin(t * 9) * .03 + Math.sin(t * 23) * .02;
@@ -3814,7 +4255,7 @@ function bot3(run) {
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
-  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag']);
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -3907,6 +4348,30 @@ class P3D {
   mk(e) {
     const C = (k, f) => this.cache(k, f), RP = Run3D.prototype, D = 2.4, mat = this.mat;
     e.hidden0 = !!e.hidden;
+    if (e.type === 'zone') {
+      const g = new THREE.Group(); if (e.kind === 'shade') return { o: g, kind: 'zone' };
+      if (e.kind === 'cave') {
+        const m = new THREE.Mesh(this.unit, C('caveM', () => new THREE.MeshLambertMaterial({ color: 0x2a1820 }))); m.scale.set(e.w / T, 26, .4); g.add(m);
+        return { o: g, kind: 'cave', cx: e.w / T / 2 };
+      }
+      const m = new THREE.Mesh(this.unit, C('zoneM' + e.kind, () => new THREE.MeshBasicMaterial({ color: e.kind === 'wind' ? 0x9ef9ff : 0xb18cff, transparent: true, opacity: .14, depthWrite: false })));
+      m.scale.set(e.w / T, e.h / T, 2.2); g.add(m); return { o: g, kind: 'zone', m, cx: e.w / T / 2, cy: -e.h / T / 2 };
+    }
+    if (e.type === 'tele') {
+      const g = new THREE.Group(), col = e.to ? 0x7af7ff : 0xc59bff;
+      const ring = new THREE.Mesh(C('teleR', () => new THREE.TorusGeometry(.5, .08, 8, 24)), C('teleM' + col, () => new THREE.MeshBasicMaterial({ color: col })));
+      ring.scale.set(1, 1.6, 1); g.add(ring);
+      const gl = new THREE.Mesh(C('plane', () => new THREE.PlaneGeometry(1, 1)), C('glow' + col + '.6', () => new THREE.MeshBasicMaterial({ map: this.glowTex, color: col, transparent: true, opacity: .6, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.set(3, 4, 1); g.add(gl);
+      return { o: g, kind: 'tele', ring };
+    }
+    if (e.type === 'gem') {
+      const g = new THREE.Group(), m = new THREE.Mesh(C('gemG', () => new THREE.OctahedronGeometry(.3, 0)), C('gemM', () => new THREE.MeshBasicMaterial({ color: 0x7af7ff }))); m.scale.y = 1.3; g.add(m);
+      return { o: g, kind: 'gem', m };
+    }
+    if (e.type === 'dash') {
+      const g = new THREE.Group(), m = new THREE.Mesh(this.unit, C('dashM', () => new THREE.MeshBasicMaterial({ color: 0xffb347 }))); m.scale.set(e.w / T, .12, 1.6); g.add(m);
+      return { o: g, kind: 'dash', m };
+    }
     if (e.type === 'flag') {
       const g = new THREE.Group(), h = e.h / T;
       const pole = new THREE.Mesh(C('poleG', () => new THREE.CylinderGeometry(.05, .05, 1, 6)), mat.pole); pole.scale.y = h; pole.position.set(0, h / 2, 0); g.add(pole);
@@ -3920,8 +4385,8 @@ class P3D {
     if (e.type === 'block') {
       const g = new THREE.Group();
       if (e.lava) {
-        const lw = e.w / T + 28, lx = (e.x + e.w / 2) / T;
-        const m = new THREE.Mesh(this.unit, mat.lava); m.scale.set(lw, 30, D + 1); m.position.set(lx, -15, 0); g.add(m);
+        const wide = e.x <= .5 || e.x + e.w >= this.world.lw - .5 || e.w > 30 * T, lw = e.w / T + (wide ? 28 : .1), lx = (e.x + e.w / 2) / T;
+        const m = new THREE.Mesh(this.unit, e.acid ? C('acidM', () => new THREE.MeshBasicMaterial({ color: 0x5cff3a })) : mat.lava); m.scale.set(lw, 30, D + 1); m.position.set(lx, -15, 0); g.add(m);
         const gl = new THREE.Mesh(plane, glowM(0xff7a1a, .7)); gl.scale.set(lw + 10, 6, 1); gl.position.set(lx, 0.6, D / 2 + .6); g.add(gl);
         return { o: g, kind: 'lava' };
       }
@@ -3929,8 +4394,8 @@ class P3D {
       if (e.x <= .5) x0 -= 8; if (e.x + e.w >= this.world.lw - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
       const w = x1 - x0, h = y1 - y0;
       const geo = C('box' + w.toFixed(2) + ',' + h.toFixed(2), () => { const b = RP.geoBuilder(); b.box(-w / 2, w / 2, -h / 2, h / 2, -D / 2, D / 2, true); return b.build(); });
-      const body = new THREE.Mesh(geo, e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
-      if (!(e.ceil || e.y <= 0.5)) { const top = new THREE.Mesh(this.unit, e.conv ? mat.conv : e.ice ? mat.ice : mat.moss); top.scale.set(w + .02, .14, D + .02); top.position.set(0, h / 2 + .06, 0); g.add(top); }
+      const body = new THREE.Mesh(geo, e.rock ? C('rockM', () => new THREE.MeshLambertMaterial({ map: mat.stone.map, color: 0x6a5060 })) : e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
+      if (!(e.ceil || e.y <= 0.5)) { const top = new THREE.Mesh(this.unit, e.bounce ? C('bounceM', () => new THREE.MeshLambertMaterial({ color: 0xff5dbb, emissive: 0x501040 })) : e.oneway ? C('plankM', () => new THREE.MeshLambertMaterial({ color: 0xb07a4e })) : e.conv ? mat.conv : e.ice ? mat.ice : mat.moss); top.scale.set(w + .02, .14, D + .02); top.position.set(0, h / 2 + .06, 0); g.add(top); }
       let hint = null;
       if (e.hidden) { hint = new THREE.LineSegments(edges, mat.hint); hint.scale.set(w, h, D); this.scene.add(hint); }
       return { o: g, kind: 'block', cx: (x0 + x1) / 2 - e.x / T, cy: (y0 + y1) / 2 - (H - e.y) / T, hint, body };
@@ -3952,6 +4417,12 @@ class P3D {
         for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, a2 = (i + .5) / n * Math.PI * 2; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r * .8, Math.sin(a) * r * .8); sh.lineTo(Math.cos(a2 - .08) * r * 1.12, Math.sin(a2 - .08) * r * 1.12); }
         const gg = new THREE.ExtrudeGeometry(sh, { depth: .22, bevelEnabled: false }); gg.translate(0, 0, -.11); return gg; });
       const g = new THREE.Group(), disc = new THREE.Group();
+      if (e.mace) {
+        const ball = new THREE.Mesh(C('maceB' + r.toFixed(2), () => flatG(new THREE.IcosahedronGeometry(r, 1))), C('maceM', () => new THREE.MeshLambertMaterial({ color: 0x5a5478 }))); disc.add(ball);
+        const sp = C('maceS', () => new THREE.ConeGeometry(.12, .5, 5));
+        for (let i = 0; i < 8; i++) { const c = new THREE.Mesh(sp, mat.spike), a = i / 8 * Math.PI * 2; c.position.set(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05, 0); c.rotation.z = a - Math.PI / 2; disc.add(c); }
+        g.add(disc); return { o: g, kind: 'saw', disc, extra: null };
+      }
       const m = new THREE.Mesh(geo, C('sawM', () => new THREE.MeshLambertMaterial({ color: hexNum(PAL.saw) }))); m.castShadow = this.SH; disc.add(m);
       const hub = new THREE.Mesh(C('hub' + r.toFixed(2), () => new THREE.CylinderGeometry(r * .22, r * .22, .3, 12)), mat.tip); hub.rotation.x = Math.PI / 2; disc.add(hub);
       g.add(disc);
@@ -4011,8 +4482,13 @@ class P3D {
       const ex0 = e.type === 'saw' ? e.x / T - 4 : e.x / T, ex1 = e.type === 'saw' ? e.x / T + 4 : (e.x + (e.type === 'laser' && e.dir === 'h' ? e.len : e.w || 0)) / T;
       if (ex1 < c0 || ex0 > c1) { o.visible = false; if (m.hint) m.hint.visible = false; if (m.extra) m.extra.visible = false; continue; }
       if (m.extra) m.extra.visible = !e.gone && !e.hidden;
+      if (m.kind === 'cave') { o.visible = true; o.position.set(this.X(e.x) + m.cx, 5, -1.6); continue; }
+      if (m.kind === 'zone') { o.visible = !!m.m && e.act; if (m.m) { o.position.set(this.X(e.x) + m.cx, this.Y(e.y) + m.cy, 0); m.m.material.opacity = .1 + Math.sin(t * 4) * .04; } continue; }
+      if (m.kind === 'gem') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .1, .3); m.m.rotation.y = t * 2 + e.ph; continue; }
+      if (m.kind === 'tele') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), .2); m.ring.rotation.z = t * (e.to ? 3 : -3); continue; }
+      if (m.kind === 'dash') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h) + .06, 0); m.m.material.color.setHSL(.09, 1, .55 + Math.sin(t * 8) * .12); continue; }
       if (m.kind === 'flag') { o.visible = true; o.position.set(this.X(e.x + 2), this.Y(e.y + e.h), 0); m.cloth.material = e.on ? this.mat.flagOn : this.mat.flagOff; m.cloth.rotation.y = Math.sin(t * 5 + e.x) * .35 * (1 + (e.wave || 0) * 2); continue; }
-      const hidden = e.gone || (e.hidden && m.kind !== 'portal');
+      const hidden = e.gone || (e.hidden && m.kind !== 'portal') || (e.off && m.kind === 'block') || (e.blink && e.warn && Math.floor(t * 14) % 2 === 1);
       o.visible = !hidden;
       if (m.hint) { m.hint.visible = hints && e.hidden && !e.gone; if (m.hint.visible) m.hint.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), 0); }
       if (hidden) continue;
@@ -4089,7 +4565,7 @@ class P3D {
       cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
     }
     if (third) this.wx.update(dt, this.cs.lx, this.cs.y, 0); else this.wx.update(dt, cx, cy, 0);
-    if (!this.dark) this.hemi.intensity = .85 + WX.flash * 1.2;
+    if (!this.dark) this.hemi.intensity = (w.cave ? .45 : .85) + WX.flash * 1.2;
     this.scene.fog.far = this.fogF * (1 - .3 * Math.min(1, WX.rain + WX.snow));
     toneMap3(r);
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);
@@ -4240,7 +4716,7 @@ let hudLast = '';
 function hudTick() {
   let s = '';
   const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
-  const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : '';
+  const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : app.kind === 'plat' && app.world && app.world.gemTotal && app.state !== 'title' ? `💎 ${faNum(app.world.got.size)}/${faNum(app.world.gemTotal)}` : '';
   let pw = '';
   if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
     const k = clamp((app.world.p.x + PW) / app.world.lw, 0, 1), q = Math.round(k * 200);
@@ -4283,7 +4759,7 @@ const app = {
     let v = viewOf(def);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if (this.kind === 'plat') setBiome(def.biome);
+    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
@@ -4294,6 +4770,7 @@ const app = {
     if (this.kind === 'plat') {
       const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
       w.onCheckpoint = i => this.onCheckpoint(i);
+      w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); };
       w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
@@ -4376,6 +4853,7 @@ const app = {
       const pr = progOf(this.diff); pr.stars = pr.stars || {}; pr.best = pr.best || {};
       pr.stars[this.idx] = Math.max(pr.stars[this.idx] || 0, stars);
       if (pr.ck) delete pr.ck[this.idx];
+      if (this.world && this.world.gemTotal) { pr.gems = pr.gems || {}; pr.gems[this.idx] = Math.max(pr.gems[this.idx] || 0, this.world.got.size); }
       // a run continued from a saved checkpoint does not count for best time
       if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));
@@ -4498,7 +4976,7 @@ function setPath(p, v) { const [a, b] = p.split('.'); if (b) CFG[a][b] = v; else
 
 function renderSettings(tab) {
   if (tab) setTab = tab;
-  const tabs = [['gfx', '🖥️ گرافیک'], ['wx', '🌦️ آب و هوا'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
+  const tabs = [['gfx', '🖥️ گرافیک'], ['wx', '🌦️ آب و هوا'], ['route', '⛏️ مسیرها'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
   $('setTabs').innerHTML = tabs.map(([k, n]) => `<button class="tab${k === setTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
   let h = '';
   if (setTab === 'gfx') {
@@ -4517,6 +4995,14 @@ function renderSettings(tab) {
       <p>${CFG.weather === 'auto' ? `خودکار: هوا خودش هر چند وقت یک بار عوض می‌شه و با رنگ‌وبوی هر مرحله جور درمیاد (الان: ${WX_KINDS[cur].i} ${WX_KINDS[cur].n}).` : 'بارون، برف، سیل و طوفان روی هر چهار حالت بازی و مرحله‌های سه‌بعدی دیده می‌شن.'}</p>
       <p>آب و هوا فقط ظاهر و صدای بازی رو عوض می‌کنه؛ سختی مرحله‌ها همون می‌مونه.</p></div>
       <div class="sec"><h3>شدت</h3>${rng('weatherI', 'شدت بارش', 10, 100, '٪')}${sw('wsnd', 'صدای بارون، باد و رعد')}</div>`;
+  } else if (setTab === 'route') {
+    const U = { auto: 'خودکار', all: 'همه‌ی مرحله‌ها', pick: 'انتخاب دستی', off: 'خاموش' }, u = CFG.under || 'auto';
+    const plat = LEVELS.map((d, i) => d.secs ? i : -1).filter(i => i >= 0);
+    h += `<div class="sec"><h3>راه زیرزمینی</h3><div class="chips">${Object.keys(U).map(k => chip(u === k, U[k], `data-under="${k}"`)).join('')}</div>
+      <p>توی مرحله‌هایی که راه زیرزمینی دارن، وسط مسیر یهو راه می‌ره زیر زمین: سقف سنگی پایین میاد، غار تاریک‌تره و باید مانع‌های زیرزمین رو رد کنی تا دوباره به سطح برسی.</p>
+      <p>${u === 'auto' ? `خودکار: ${faNum(AUTO_CAVE.size)} مرحله (${[...AUTO_CAVE].map(i => faNum(i + 1)).join('، ')}) راه زیرزمینی دارن.` : u === 'pick' ? 'مرحله‌هایی که می‌خوای راه زیرزمینی داشته باشن رو انتخاب کن:' : u === 'all' ? 'همه‌ی مرحله‌های سکوبازی راه زیرزمینی دارن.' : 'هیچ مرحله‌ای راه زیرزمینی نداره.'}</p>
+      ${u === 'pick' ? `<div class="chips">${plat.map(i => chip((CFG.underLv || []).includes(i), faNum(i + 1), `data-ulv="${i}"`)).join('')}</div>` : ''}
+      <p>تغییر از مرحله‌ی بعدی (یا شروع دوباره‌ی مرحله) اعمال می‌شه.</p></div>`;
   } else if (setTab === 'light') {
     h += `<div class="sec"><h3>جلوه‌ی نور</h3><div class="chips">${Object.keys(MOODS).map(k => chip(CFG.mood === k, MOODS[k].n, `data-mood="${k}"`)).join('')}</div>
       ${!GFX.filt && CFG.mood !== 'custom' && CFG.mood !== 'default' ? '<p>روی کیفیت Go و Plus بخشی از جلوه‌ی نور برای حفظ سرعت ساده‌تر نمایش داده می‌شه.</p>' : ''}</div>`;
@@ -4548,6 +5034,8 @@ $('setBody').addEventListener('click', e => {
   const d = b.dataset;
   if (d.gfx) { CFG.gfx = d.gfx; saveCfg(); gfxChanged(); applyMood(); }
   else if (d.wx) { CFG.weather = d.wx; if (d.wx === 'auto') WX.autoT = 0; saveCfg(); }
+  else if (d.under) { CFG.under = d.under; saveCfg(); }
+  else if (d.ulv) { const i = +d.ulv, a = CFG.underLv || (CFG.underLv = []), j = a.indexOf(i); if (j >= 0) a.splice(j, 1); else a.push(i); saveCfg(); }
   else if (d.mood) { CFG.mood = d.mood; saveCfg(); applyMood(); }
   else if (d.t) { CFG[d.t] = !CFG[d.t]; saveCfg(); applyMood(); hudLast = ''; }
   else if (d.pal) { CFG.pal = d.pal; for (const k of COLOR_KEYS) CFG.colors[k] = PALETTES[d.pal].c[k] || ''; colorsChanged(); }

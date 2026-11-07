@@ -1,7 +1,7 @@
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
-  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag']);
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -94,6 +94,30 @@ class P3D {
   mk(e) {
     const C = (k, f) => this.cache(k, f), RP = Run3D.prototype, D = 2.4, mat = this.mat;
     e.hidden0 = !!e.hidden;
+    if (e.type === 'zone') {
+      const g = new THREE.Group(); if (e.kind === 'shade') return { o: g, kind: 'zone' };
+      if (e.kind === 'cave') {
+        const m = new THREE.Mesh(this.unit, C('caveM', () => new THREE.MeshLambertMaterial({ color: 0x2a1820 }))); m.scale.set(e.w / T, 26, .4); g.add(m);
+        return { o: g, kind: 'cave', cx: e.w / T / 2 };
+      }
+      const m = new THREE.Mesh(this.unit, C('zoneM' + e.kind, () => new THREE.MeshBasicMaterial({ color: e.kind === 'wind' ? 0x9ef9ff : 0xb18cff, transparent: true, opacity: .14, depthWrite: false })));
+      m.scale.set(e.w / T, e.h / T, 2.2); g.add(m); return { o: g, kind: 'zone', m, cx: e.w / T / 2, cy: -e.h / T / 2 };
+    }
+    if (e.type === 'tele') {
+      const g = new THREE.Group(), col = e.to ? 0x7af7ff : 0xc59bff;
+      const ring = new THREE.Mesh(C('teleR', () => new THREE.TorusGeometry(.5, .08, 8, 24)), C('teleM' + col, () => new THREE.MeshBasicMaterial({ color: col })));
+      ring.scale.set(1, 1.6, 1); g.add(ring);
+      const gl = new THREE.Mesh(C('plane', () => new THREE.PlaneGeometry(1, 1)), C('glow' + col + '.6', () => new THREE.MeshBasicMaterial({ map: this.glowTex, color: col, transparent: true, opacity: .6, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.set(3, 4, 1); g.add(gl);
+      return { o: g, kind: 'tele', ring };
+    }
+    if (e.type === 'gem') {
+      const g = new THREE.Group(), m = new THREE.Mesh(C('gemG', () => new THREE.OctahedronGeometry(.3, 0)), C('gemM', () => new THREE.MeshBasicMaterial({ color: 0x7af7ff }))); m.scale.y = 1.3; g.add(m);
+      return { o: g, kind: 'gem', m };
+    }
+    if (e.type === 'dash') {
+      const g = new THREE.Group(), m = new THREE.Mesh(this.unit, C('dashM', () => new THREE.MeshBasicMaterial({ color: 0xffb347 }))); m.scale.set(e.w / T, .12, 1.6); g.add(m);
+      return { o: g, kind: 'dash', m };
+    }
     if (e.type === 'flag') {
       const g = new THREE.Group(), h = e.h / T;
       const pole = new THREE.Mesh(C('poleG', () => new THREE.CylinderGeometry(.05, .05, 1, 6)), mat.pole); pole.scale.y = h; pole.position.set(0, h / 2, 0); g.add(pole);
@@ -107,8 +131,8 @@ class P3D {
     if (e.type === 'block') {
       const g = new THREE.Group();
       if (e.lava) {
-        const lw = e.w / T + 28, lx = (e.x + e.w / 2) / T;
-        const m = new THREE.Mesh(this.unit, mat.lava); m.scale.set(lw, 30, D + 1); m.position.set(lx, -15, 0); g.add(m);
+        const wide = e.x <= .5 || e.x + e.w >= this.world.lw - .5 || e.w > 30 * T, lw = e.w / T + (wide ? 28 : .1), lx = (e.x + e.w / 2) / T;
+        const m = new THREE.Mesh(this.unit, e.acid ? C('acidM', () => new THREE.MeshBasicMaterial({ color: 0x5cff3a })) : mat.lava); m.scale.set(lw, 30, D + 1); m.position.set(lx, -15, 0); g.add(m);
         const gl = new THREE.Mesh(plane, glowM(0xff7a1a, .7)); gl.scale.set(lw + 10, 6, 1); gl.position.set(lx, 0.6, D / 2 + .6); g.add(gl);
         return { o: g, kind: 'lava' };
       }
@@ -116,8 +140,8 @@ class P3D {
       if (e.x <= .5) x0 -= 8; if (e.x + e.w >= this.world.lw - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
       const w = x1 - x0, h = y1 - y0;
       const geo = C('box' + w.toFixed(2) + ',' + h.toFixed(2), () => { const b = RP.geoBuilder(); b.box(-w / 2, w / 2, -h / 2, h / 2, -D / 2, D / 2, true); return b.build(); });
-      const body = new THREE.Mesh(geo, e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
-      if (!(e.ceil || e.y <= 0.5)) { const top = new THREE.Mesh(this.unit, e.conv ? mat.conv : e.ice ? mat.ice : mat.moss); top.scale.set(w + .02, .14, D + .02); top.position.set(0, h / 2 + .06, 0); g.add(top); }
+      const body = new THREE.Mesh(geo, e.rock ? C('rockM', () => new THREE.MeshLambertMaterial({ map: mat.stone.map, color: 0x6a5060 })) : e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
+      if (!(e.ceil || e.y <= 0.5)) { const top = new THREE.Mesh(this.unit, e.bounce ? C('bounceM', () => new THREE.MeshLambertMaterial({ color: 0xff5dbb, emissive: 0x501040 })) : e.oneway ? C('plankM', () => new THREE.MeshLambertMaterial({ color: 0xb07a4e })) : e.conv ? mat.conv : e.ice ? mat.ice : mat.moss); top.scale.set(w + .02, .14, D + .02); top.position.set(0, h / 2 + .06, 0); g.add(top); }
       let hint = null;
       if (e.hidden) { hint = new THREE.LineSegments(edges, mat.hint); hint.scale.set(w, h, D); this.scene.add(hint); }
       return { o: g, kind: 'block', cx: (x0 + x1) / 2 - e.x / T, cy: (y0 + y1) / 2 - (H - e.y) / T, hint, body };
@@ -139,6 +163,12 @@ class P3D {
         for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, a2 = (i + .5) / n * Math.PI * 2; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r * .8, Math.sin(a) * r * .8); sh.lineTo(Math.cos(a2 - .08) * r * 1.12, Math.sin(a2 - .08) * r * 1.12); }
         const gg = new THREE.ExtrudeGeometry(sh, { depth: .22, bevelEnabled: false }); gg.translate(0, 0, -.11); return gg; });
       const g = new THREE.Group(), disc = new THREE.Group();
+      if (e.mace) {
+        const ball = new THREE.Mesh(C('maceB' + r.toFixed(2), () => flatG(new THREE.IcosahedronGeometry(r, 1))), C('maceM', () => new THREE.MeshLambertMaterial({ color: 0x5a5478 }))); disc.add(ball);
+        const sp = C('maceS', () => new THREE.ConeGeometry(.12, .5, 5));
+        for (let i = 0; i < 8; i++) { const c = new THREE.Mesh(sp, mat.spike), a = i / 8 * Math.PI * 2; c.position.set(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05, 0); c.rotation.z = a - Math.PI / 2; disc.add(c); }
+        g.add(disc); return { o: g, kind: 'saw', disc, extra: null };
+      }
       const m = new THREE.Mesh(geo, C('sawM', () => new THREE.MeshLambertMaterial({ color: hexNum(PAL.saw) }))); m.castShadow = this.SH; disc.add(m);
       const hub = new THREE.Mesh(C('hub' + r.toFixed(2), () => new THREE.CylinderGeometry(r * .22, r * .22, .3, 12)), mat.tip); hub.rotation.x = Math.PI / 2; disc.add(hub);
       g.add(disc);
@@ -198,8 +228,13 @@ class P3D {
       const ex0 = e.type === 'saw' ? e.x / T - 4 : e.x / T, ex1 = e.type === 'saw' ? e.x / T + 4 : (e.x + (e.type === 'laser' && e.dir === 'h' ? e.len : e.w || 0)) / T;
       if (ex1 < c0 || ex0 > c1) { o.visible = false; if (m.hint) m.hint.visible = false; if (m.extra) m.extra.visible = false; continue; }
       if (m.extra) m.extra.visible = !e.gone && !e.hidden;
+      if (m.kind === 'cave') { o.visible = true; o.position.set(this.X(e.x) + m.cx, 5, -1.6); continue; }
+      if (m.kind === 'zone') { o.visible = !!m.m && e.act; if (m.m) { o.position.set(this.X(e.x) + m.cx, this.Y(e.y) + m.cy, 0); m.m.material.opacity = .1 + Math.sin(t * 4) * .04; } continue; }
+      if (m.kind === 'gem') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .1, .3); m.m.rotation.y = t * 2 + e.ph; continue; }
+      if (m.kind === 'tele') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), .2); m.ring.rotation.z = t * (e.to ? 3 : -3); continue; }
+      if (m.kind === 'dash') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h) + .06, 0); m.m.material.color.setHSL(.09, 1, .55 + Math.sin(t * 8) * .12); continue; }
       if (m.kind === 'flag') { o.visible = true; o.position.set(this.X(e.x + 2), this.Y(e.y + e.h), 0); m.cloth.material = e.on ? this.mat.flagOn : this.mat.flagOff; m.cloth.rotation.y = Math.sin(t * 5 + e.x) * .35 * (1 + (e.wave || 0) * 2); continue; }
-      const hidden = e.gone || (e.hidden && m.kind !== 'portal');
+      const hidden = e.gone || (e.hidden && m.kind !== 'portal') || (e.off && m.kind === 'block') || (e.blink && e.warn && Math.floor(t * 14) % 2 === 1);
       o.visible = !hidden;
       if (m.hint) { m.hint.visible = hints && e.hidden && !e.gone; if (m.hint.visible) m.hint.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), 0); }
       if (hidden) continue;
@@ -276,7 +311,7 @@ class P3D {
       cam.lookAt(cx, cy + .1, 0); cam.aspect = aspect; cam.updateProjectionMatrix();
     }
     if (third) this.wx.update(dt, this.cs.lx, this.cs.y, 0); else this.wx.update(dt, cx, cy, 0);
-    if (!this.dark) this.hemi.intensity = .85 + WX.flash * 1.2;
+    if (!this.dark) this.hemi.intensity = (w.cave ? .45 : .85) + WX.flash * 1.2;
     this.scene.fog.far = this.fogF * (1 - .3 * Math.min(1, WX.rain + WX.snow));
     toneMap3(r);
     r.setScissorTest(false); r.setViewport(0, 0, W3, H3);

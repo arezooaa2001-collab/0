@@ -33,7 +33,7 @@ const PALETTES = {
   mono: { n: 'سیاه‌وسفید', c: { player: '#ffffff', scarf: '#bdbdbd', block: '#2a2a2a', moss: '#cfcfcf', hazard: '#e0e0e0', saw: '#d0d0d0', door: '#ffffff', sky: '#161616', road: '#444444', obstacle: '#ffffff', giant: '#555555' } },
 };
 const CFG = {
-  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true,
+  gfx: 'auto', mode: 'classic', mood: 'default', pal: 'def', cam3d: 'side', weather: 'auto', weatherI: 70, wsnd: true, under: 'auto', underLv: [],
   mc: { br: 100, ct: 100, sat: 100, hue: 0, tint: '#ff8844', tintA: 0 },
   bars: false, grain: false, vig: 55, glow: 100, shake: 100,
   musicV: 70, sfxV: 90, vib: true, fps: false, timer: false, tsize: 100, topac: 100,

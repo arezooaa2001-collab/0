@@ -17,7 +17,11 @@ class Level {
   }
   add(id, e) {
     e.id = id; e.moves = []; e.dx = 0; e.dy = 0; e.shake = 0;
-    if (Array.isArray(e.patrol)) e.patrol = { pts: e.patrol.map(p => [p[0] * T, p[1] * T]), sp: (e.speed || 3) * T * this.D.trapV, i: 1 };
+    if (Array.isArray(e.patrol)) e.patrol = { pts: e.patrol.map(p => [p[0] * T, p[1] * T]), sp: (e.speed || 3) * T * this.D.trapV, i: 1, jump: !!e.pjump };
+    // any entity can circle around its starting point (orbit) or swing below a pivot (pendulum)
+    if (e.orbit && e.ocx == null) { e.ocx = e.x; e.ocy = e.y; e.a = e.orbit.ph || 0; }
+    if (e.pend) { e.pcx = e.x; e.pcy = e.y - e.pend.len * T; e.pt = 0; }
+    if (e.blink) e.lt = e.blink.ph || 0;
     e.patrol0 = e.patrol || null;
     this.ents.push(e); if (id) this.byId[id] = e; return e;
   }
@@ -35,7 +39,7 @@ class Level {
   /* timed laser beam: dir 'h' or 'v', starts at (x,y) tiles, len tiles. on/off in seconds */
   laser(id, x, y, len, dir = 'h', o = {}) {
     const on = o.on ?? 1.1, off = (o.off ?? 1.4) * this.D.trapT;
-    return this.add(id, { type: 'laser', dir, x: x * T, y: y * T, len: len * T, w: dir === 'h' ? len * T : 10, h: dir === 'h' ? 10 : len * T, on, off, lt: o.ph || 0, act: false, warn: false });
+    return this.add(id, Object.assign({ type: 'laser', dir, x: x * T, y: y * T, len: len * T, w: dir === 'h' ? len * T : 10, h: dir === 'h' ? 10 : len * T, on, off, lt: o.ph || 0, act: false, warn: false }, o.patrol ? { patrol: o.patrol, speed: o.speed } : {}));
   }
   /* secret portal: appears (opens) when openPortal(id) is called */
   portal(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'portal', x: x * T, y: y * T, w: 1.4 * T, h: 2 * T, open: 0, opening: false }, o)); }
@@ -44,6 +48,12 @@ class Level {
     const e = this.e(id); if (!e || e.opening) return; e.opening = true; this.sfx('orb'); this.shake(5); this.say('یه پرتال مخفی باز شد! 🌀');
     this.w.burst(e.x + e.w / 2, e.y + e.h / 2, 26, { col: '#c59bff', sp: 260, life: .7, add: true, size: 3 });
   }
+  /* area effects: kind 'wind' (push fx/fy tiles per second, optional on/off timing), 'float' (gravity scale g), 'shade' (darkness) */
+  zone(id, kind, x, y, w, h, o = {}) { return this.add(id, Object.assign({ type: 'zone', kind, x: x * T, y: y * T, w: w * T, h: h * T, act: true, lt: o.ph || 0 }, o)); }
+  /* one-way teleporter: touching it moves the player to the entity 'to' */
+  tele(id, x, y, to, o = {}) { return this.add(id, Object.assign({ type: 'tele', x: x * T, y: y * T, w: .9 * T, h: 1.6 * T, to, cd: 0 }, o)); }
+  /* dash pad on the floor: run over it for a burst of speed */
+  dash(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'dash', x: x * T, y: (y + 1) * T - 8, w: 2 * T, h: 8 }, o)); }
   spring(id, x, y, o = {}) { return this.add(id, Object.assign({ type: 'spring', x: x * T, y: (y + 1) * T - 16, w: T, h: 16, anim: 0 }, o)); }
   orb(id, cx, cy) { return this.add(id, { type: 'orb', x: cx * T, y: cy * T, r: 0.42 * T, cd: 0 }); }
   trig(x, y, w, h, fn, o = {}) { this.trigs.push({ x: x * T, y: y * T, w: w * T, h: h * T, fn, ground: !!o.ground, rising: !!o.rising, fired: false }); }
@@ -81,7 +91,7 @@ function secBuilder(L, sec, si, last) {
     if (c.parent) c.parent = pid(c.parent); if (c.fake) c.fake = pid(c.fake);
     return c;
   };
-  let building = true; const pend = [];
+  let building = true; const pend = [], gems = [];
   const P = {
     d: L.d, D: L.D, w: L.w, sec,
     add(id, e) { e.x += ox * T; if (e.fake) e.fake = pid(e.fake); return L.add(pid(id), e); },
@@ -89,11 +99,15 @@ function secBuilder(L, sec, si, last) {
     spikes: (id, x, y, n, dir, o) => L.spikes(pid(id), x + ox, y, n, dir, fixO(o)),
     door: (x, y, o) => last ? L.add(pid('door'), Object.assign({ type: 'door', x: (x + ox) * T, y: y * T, w: 1.4 * T, h: 2 * T }, fixO(o))) : null,
     saw: (id, cx, cy, r, o) => L.saw(pid(id), cx + ox, cy, r, fixO(o)),
-    laser: (id, x, y, len, dir, o) => L.laser(pid(id), x + ox, y, len, dir, o),
+    laser: (id, x, y, len, dir, o) => L.laser(pid(id), x + ox, y, len, dir, fixO(o)),
     portal: (id, x, y, o) => L.portal(pid(id), x + ox, y, o),
     openPortal: (id, delay = 0) => delay > 0 ? P.at(delay, () => L.openPortal(pid(id))) : L.openPortal(pid(id)),
     spring: (id, x, y, o) => L.spring(pid(id), x + ox, y, fixO(o)),
     orb: (id, cx, cy) => L.orb(pid(id), cx + ox, cy),
+    zone: (id, kind, x, y, w, h, o) => L.zone(pid(id), kind, x + ox, y, w, h, o),
+    tele: (id, x, y, to, o) => L.tele(pid(id), x + ox, y, pid(to), o),
+    dash: (id, x, y, o) => L.dash(pid(id), x + ox, y, o),
+    gem: (x, y) => gems.push([x + ox, y]),
     trig: (x, y, w, h, fn, o) => L.trig(x + ox, y, w, h, () => fn(P, L.w), o),
     e: id => L.e(pid(id)),
     move: (id, dx, dy, sp, delay) => L.move(pid(id), dx, dy, sp, delay),
@@ -104,6 +118,12 @@ function secBuilder(L, sec, si, last) {
     reverse: on => L.reverse(on), shake: a => L.shake(a), sfx: n => L.sfx(n), say: t => L.say(t),
     done() {
       building = false;
+      const solid = L.ents.filter(e => e.type === 'block' && !e.ghost && !e.hidden && !e.lava && !e.patrol && !e.orbit && !e.pend);
+      gems.forEach(([gx, gy], i) => {
+        let y = gy; const inside = yy => solid.some(e => gx * T > e.x - 14 && gx * T < e.x + e.w + 14 && yy * T > e.y - 14 && yy * T < e.y + e.h + 14);
+        while (inside(y) && y > gy - 4) y -= .5;
+        if (!inside(y) && y > .8) L.add(pre + 'gem' + i, { type: 'gem', x: gx * T, y: y * T, w: 0, r: 13, ph: i });
+      });
       if (pend.length) L.trig(ox - 1, -4, sec.spawn[0] + 2, 26, () => pend.forEach(([t, fn]) => L.at(t, fn)));
     },
   };
@@ -125,6 +145,10 @@ class World {
     this.rev = false;
     this.dark = !!this.def.dark;
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
+    // gems stay collected across deaths
+    this.got = this.got || new Set(); let ng = 0;
+    for (const e of this.lv.ents) if (e.type === 'gem') { ng++; if (this.got.has(e.id)) e.gone = true; }
+    this.gemTotal = ng;
     const sec = this.secs ? this.secs[this.ck] : null;
     const [sx, sy] = sec ? [sec.x0 + sec.spawn[0], sec.spawn[1]] : this.def.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
@@ -137,7 +161,7 @@ class World {
   sfx(n) { if (!this.silent) Sound.play(n); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
-  isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost; }
+  isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost && !e.off; }
   solids() { return this.act.filter(e => this.isSolid(e)); }
   // camera: keeps the player a bit left of centre, looking ahead in the running direction
   camTarget() { return clamp(this.p.x + PW / 2 - W * .42 + this.look, 0, Math.max(0, this.lw - W)); }
@@ -194,6 +218,11 @@ class World {
     if (e.type === 'portal' && e.opening && e.open < 1) e.open = Math.min(1, e.open + dt * 1.6);
     if (e.type === 'laser') { e.lt += dt; const per = e.on + e.off, ph = e.lt % per; e.act = ph < e.on; e.warn = !e.act && ph > per - 0.4; }
     if (e.orbit) { e.a += e.orbit.w * dt * this.D.trapV; e.x = e.ocx + Math.cos(e.a) * e.orbit.rad * T; e.y = e.ocy + Math.sin(e.a) * e.orbit.rad * T; }
+    if (e.pend) { e.pt += dt * this.D.trapV; const a = e.pend.amp * Math.sin(e.pend.w * e.pt + (e.pend.ph || 0)); e.x = e.pcx + Math.sin(a) * e.pend.len * T; e.y = e.pcy + Math.cos(a) * e.pend.len * T; }
+    if (e.blink) { e.lt += dt; const b = e.blink, per = b.on + b.off * this.D.trapT, ph = e.lt % per; e.off = ph >= b.on; e.warn = !e.off && ph > b.on - .45; }
+    if (e.type === 'zone' && e.on != null) { e.lt += dt; const per = e.on + e.off, ph = e.lt % per; e.act = ph < e.on; e.warn = !e.act && ph > per - .5; }
+    if (e.type === 'tele' && e.cd > 0) e.cd -= dt;
+    if (e.sink && e.sinking) { e.y += e.sink * T * dt; if (e.y > H + 200) e.gone = true; }
     if (e.par) return;
     if (e.falling) {
       if (e.fallDelay > 0) { e.fallDelay -= dt; e.shake = 1; return; }
@@ -244,7 +273,7 @@ class World {
     }
     if (noPlayer) return;
     for (const e of ents) {
-      if (!this.isSolid(e) || (!e.dx && !e.dy)) continue;
+      if (!this.isSolid(e) || (!e.dx && !e.dy) || (e.oneway && p.ground !== e)) continue;
       if (p.ground === e && !e.falling) { p.x += e.dx; p.y += e.dy; continue; }
       if (hit(p, { x: e.x, y: e.y, w: e.w, h: e.h })) {
         if (Math.abs(e.dx) > Math.abs(e.dy)) p.x = e.dx > 0 ? e.x + e.w : e.x - PW;
@@ -253,11 +282,21 @@ class World {
       }
     }
     const pr = { x: p.x + 1, y: p.y + 1, w: PW - 2, h: PHT - 2 };
-    for (const e of ents) if (this.isSolid(e) && hit(pr, e)) { this.die('crush'); return; }
+    for (const e of ents) if (this.isSolid(e) && !e.oneway && hit(pr, e)) { this.die('crush'); return; }
   }
 
   updatePlayer(dt, inp) {
     const p = this.p, g = p.g;
+    // area effects around the player
+    let wx = 0, wy = 0, gk = 1; this.shade = false; this.cave = false;
+    for (const e of this.act) {
+      if (e.type !== 'zone' || e.gone || !e.act || !hit(p, e)) continue;
+      if (e.kind === 'wind') { wx += (e.fx || 0) * T; wy += (e.fy || 0) * T; }
+      else if (e.kind === 'float') gk = Math.min(gk, e.g || .4);
+      else if (e.kind === 'shade') this.shade = true;
+      else if (e.kind === 'cave') this.cave = true;
+    }
+    if (p.dashT > 0) p.dashT -= dt;
     const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     const onIce = p.onGround && p.ground && p.ground.ice;
     if (p.onGround) p.air2 = false;
@@ -265,7 +304,8 @@ class World {
       p.face = dir;
       let acc = p.onGround ? (onIce ? 900 : PH.accG) : PH.accA;
       if (Math.sign(p.vx) !== dir && p.vx !== 0) acc *= onIce ? 0.9 : 1.7;
-      p.vx = clamp(p.vx + dir * acc * dt, -PH.run, PH.run);
+      const mx = PH.run * (p.dashT > 0 ? 1.9 : 1);
+      p.vx = clamp(p.vx + dir * acc * dt, -mx, mx);
     } else {
       const f = (p.onGround ? (onIce ? 210 : PH.fric) : PH.fric * 0.45) * dt;
       p.vx = Math.abs(p.vx) <= f ? 0 : p.vx - Math.sign(p.vx) * f;
@@ -286,20 +326,22 @@ class World {
     }
     if (!inp.jump && p.jumping && p.vy * g < -PH.cut) p.vy = -PH.cut * g;
     if (p.vy * g >= 0) p.jumping = false;
-    p.vy += PH.g * g * dt;
-    if (p.vy * g > PH.maxFall) p.vy = PH.maxFall * g;
+    p.vy += PH.g * g * dt * gk + wy * dt * 4;
+    const mf = PH.maxFall * (gk < 1 ? .45 : 1); if (p.vy * g > mf) p.vy = mf * g;
 
     const sol = this.solids();
     // X
     if (p.onGround && p.ground && p.ground.conv) p.x += p.ground.conv * T * dt;
-    p.x += p.vx * dt;
-    for (const s of sol) if (hit(p, s)) { if (p.vx > 0) p.x = s.x - PW; else if (p.vx < 0) p.x = s.x + s.w; p.vx = 0; }
+    const ox = p.x; p.x += p.vx * dt + wx * dt;
+    for (const s of sol) if (!s.oneway && hit(p, s)) { if (p.x > ox) p.x = s.x - PW; else if (p.x < ox) p.x = s.x + s.w; p.vx = 0; }
     if (p.x < 0) { p.x = 0; p.vx = 0; } if (p.x > this.lw - PW) { p.x = this.lw - PW; p.vx = 0; }
     // Y
-    const was = p.onGround, vyBefore = p.vy;
+    const was = p.onGround, vyBefore = p.vy, oy = p.y;
     p.onGround = false; p.ground = null;
     p.y += p.vy * dt;
     for (const s of sol) if (hit(p, s)) {
+      // one-way planks only hold you when you come down onto them from above
+      if (s.oneway) { if (g > 0 && p.vy >= 0 && oy + PHT <= s.y + 2) { p.y = s.y - PHT; p.onGround = true; p.ground = s; p.vy = 0; } continue; }
       if (p.vy > 0) { p.y = s.y - PHT; if (g > 0) { p.onGround = true; p.ground = s; } }
       else if (p.vy < 0) { p.y = s.y + s.h; if (g < 0) { p.onGround = true; p.ground = s; } }
       p.vy = 0;
@@ -310,6 +352,12 @@ class World {
       for (let i = 0; i < 9; i++) this.parts.push(this.mkPart(p.x + PW / 2 + rand(-10, 10), g > 0 ? p.y + PHT : p.y, { col: '#b8acdf', sp: 120, life: .4, size: rand(2, 4.5), g: 250 * g, up: g > 0, side: true }));
     }
     if (p.ground && p.ground.crumble && !p.ground.falling) { this.lv.fall(p.ground, p.ground.crumble); this.sfx('crack'); }
+    if (p.ground && p.ground.sink && !p.ground.sinking) { p.ground.sinking = true; this.sfx('rumble'); }
+    // trampolines throw you up as soon as you land on them
+    if (p.ground && p.ground.bounce && g > 0) {
+      p.vy = -p.ground.bounce * T; p.onGround = false; p.ground = null; p.jumping = false; p.coy = 0; p.sx = .7; p.sy = 1.4; this.sfx('spring');
+      this.burst(p.x + PW / 2, p.y + PHT, 10, { col: '#ff8fd0', sp: 180, life: .4, size: 3, g: 300, up: true, add: true });
+    }
     // animation state
     p.sx = lerp(p.sx, 1, Math.min(1, dt * 12)); p.sy = lerp(p.sy, 1, Math.min(1, dt * 12));
     if (p.onGround && Math.abs(p.vx) > 40) {
@@ -349,7 +397,17 @@ class World {
     const p = this.p;
     for (const e of this.act) {
       if (e.gone || e.hidden) continue;
-      if (e.type === 'spike') { if (e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die('spike'); }
+      if (e.type === 'spike') { if (!e.fake && e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die(e.arrow ? 'arrow' : 'spike'); }
+      else if (e.type === 'tele') {
+        if (e.cd <= 0 && hit(p, e)) { const d = this.lv.e(e.to); if (d) {
+          this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#7af7ff', sp: 200, life: .45, add: true, size: 3 });
+          p.x = d.x + (d.w - PW) / 2; p.y = d.y + d.h - PHT - 2; e.cd = d.cd = .6; this.sfx('orb'); this.actX = -1e9;
+          this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#c59bff', sp: 200, life: .45, add: true, size: 3 }); } }
+      }
+      else if (e.type === 'gem') {
+        if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) { e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(); }
+      }
+      else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser'); }
       else if (e.type === 'block' && e.lava) { if (hit(p, { x: e.x, y: e.y + 8, w: e.w, h: e.h })) return this.die('lava'); }
@@ -378,7 +436,7 @@ class World {
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   save() {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking'];
     const lv = this.lv, ents = lv.ents;
     return { ck: this.ck, camX: this.camX, look: this.look,
       ents: ents.map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
@@ -389,7 +447,7 @@ class World {
     };
   }
   load(sn) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking'];
     const lv = this.lv, ents = lv.ents;
     this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
     ents.forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });

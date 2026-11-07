@@ -137,7 +137,7 @@ let hudLast = '';
 function hudTick() {
   let s = '';
   const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
-  const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : '';
+  const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : app.kind === 'plat' && app.world && app.world.gemTotal && app.state !== 'title' ? `💎 ${faNum(app.world.got.size)}/${faNum(app.world.gemTotal)}` : '';
   let pw = '';
   if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
     const k = clamp((app.world.p.x + PW) / app.world.lw, 0, 1), q = Math.round(k * 200);
@@ -180,7 +180,7 @@ const app = {
     let v = viewOf(def);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if (this.kind === 'plat') setBiome(def.biome);
+    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
@@ -191,6 +191,7 @@ const app = {
     if (this.kind === 'plat') {
       const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
       w.onCheckpoint = i => this.onCheckpoint(i);
+      w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); };
       w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
@@ -273,6 +274,7 @@ const app = {
       const pr = progOf(this.diff); pr.stars = pr.stars || {}; pr.best = pr.best || {};
       pr.stars[this.idx] = Math.max(pr.stars[this.idx] || 0, stars);
       if (pr.ck) delete pr.ck[this.idx];
+      if (this.world && this.world.gemTotal) { pr.gems = pr.gems || {}; pr.gems[this.idx] = Math.max(pr.gems[this.idx] || 0, this.world.got.size); }
       // a run continued from a saved checkpoint does not count for best time
       if (!this.resumed && (!pr.best[this.idx] || t < pr.best[this.idx])) pr.best[this.idx] = +t.toFixed(2);
       this.unlocked = Math.max(this.unlocked, Math.min(LEVELS.length, this.idx + 2));

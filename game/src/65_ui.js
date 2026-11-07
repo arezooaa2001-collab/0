@@ -12,7 +12,7 @@ function setPath(p, v) { const [a, b] = p.split('.'); if (b) CFG[a][b] = v; else
 
 function renderSettings(tab) {
   if (tab) setTab = tab;
-  const tabs = [['gfx', '🖥️ گرافیک'], ['wx', '🌦️ آب و هوا'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
+  const tabs = [['gfx', '🖥️ گرافیک'], ['wx', '🌦️ آب و هوا'], ['route', '⛏️ مسیرها'], ['light', '💡 نور و جلوه'], ['color', '🎨 رنگ‌ها'], ['ctrl', '🔊 صدا و کنترل']];
   $('setTabs').innerHTML = tabs.map(([k, n]) => `<button class="tab${k === setTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('');
   let h = '';
   if (setTab === 'gfx') {
@@ -31,6 +31,14 @@ function renderSettings(tab) {
       <p>${CFG.weather === 'auto' ? `خودکار: هوا خودش هر چند وقت یک بار عوض می‌شه و با رنگ‌وبوی هر مرحله جور درمیاد (الان: ${WX_KINDS[cur].i} ${WX_KINDS[cur].n}).` : 'بارون، برف، سیل و طوفان روی هر چهار حالت بازی و مرحله‌های سه‌بعدی دیده می‌شن.'}</p>
       <p>آب و هوا فقط ظاهر و صدای بازی رو عوض می‌کنه؛ سختی مرحله‌ها همون می‌مونه.</p></div>
       <div class="sec"><h3>شدت</h3>${rng('weatherI', 'شدت بارش', 10, 100, '٪')}${sw('wsnd', 'صدای بارون، باد و رعد')}</div>`;
+  } else if (setTab === 'route') {
+    const U = { auto: 'خودکار', all: 'همه‌ی مرحله‌ها', pick: 'انتخاب دستی', off: 'خاموش' }, u = CFG.under || 'auto';
+    const plat = LEVELS.map((d, i) => d.secs ? i : -1).filter(i => i >= 0);
+    h += `<div class="sec"><h3>راه زیرزمینی</h3><div class="chips">${Object.keys(U).map(k => chip(u === k, U[k], `data-under="${k}"`)).join('')}</div>
+      <p>توی مرحله‌هایی که راه زیرزمینی دارن، وسط مسیر یهو راه می‌ره زیر زمین: سقف سنگی پایین میاد، غار تاریک‌تره و باید مانع‌های زیرزمین رو رد کنی تا دوباره به سطح برسی.</p>
+      <p>${u === 'auto' ? `خودکار: ${faNum(AUTO_CAVE.size)} مرحله (${[...AUTO_CAVE].map(i => faNum(i + 1)).join('، ')}) راه زیرزمینی دارن.` : u === 'pick' ? 'مرحله‌هایی که می‌خوای راه زیرزمینی داشته باشن رو انتخاب کن:' : u === 'all' ? 'همه‌ی مرحله‌های سکوبازی راه زیرزمینی دارن.' : 'هیچ مرحله‌ای راه زیرزمینی نداره.'}</p>
+      ${u === 'pick' ? `<div class="chips">${plat.map(i => chip((CFG.underLv || []).includes(i), faNum(i + 1), `data-ulv="${i}"`)).join('')}</div>` : ''}
+      <p>تغییر از مرحله‌ی بعدی (یا شروع دوباره‌ی مرحله) اعمال می‌شه.</p></div>`;
   } else if (setTab === 'light') {
     h += `<div class="sec"><h3>جلوه‌ی نور</h3><div class="chips">${Object.keys(MOODS).map(k => chip(CFG.mood === k, MOODS[k].n, `data-mood="${k}"`)).join('')}</div>
       ${!GFX.filt && CFG.mood !== 'custom' && CFG.mood !== 'default' ? '<p>روی کیفیت Go و Plus بخشی از جلوه‌ی نور برای حفظ سرعت ساده‌تر نمایش داده می‌شه.</p>' : ''}</div>`;
@@ -62,6 +70,8 @@ $('setBody').addEventListener('click', e => {
   const d = b.dataset;
   if (d.gfx) { CFG.gfx = d.gfx; saveCfg(); gfxChanged(); applyMood(); }
   else if (d.wx) { CFG.weather = d.wx; if (d.wx === 'auto') WX.autoT = 0; saveCfg(); }
+  else if (d.under) { CFG.under = d.under; saveCfg(); }
+  else if (d.ulv) { const i = +d.ulv, a = CFG.underLv || (CFG.underLv = []), j = a.indexOf(i); if (j >= 0) a.splice(j, 1); else a.push(i); saveCfg(); }
   else if (d.mood) { CFG.mood = d.mood; saveCfg(); applyMood(); }
   else if (d.t) { CFG[d.t] = !CFG[d.t]; saveCfg(); applyMood(); hudLast = ''; }
   else if (d.pal) { CFG.pal = d.pal; for (const k of COLOR_KEYS) CFG.colors[k] = PALETTES[d.pal].c[k] || ''; colorsChanged(); }
