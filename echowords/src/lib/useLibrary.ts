@@ -11,6 +11,8 @@ export interface SaveOptions {
   accent: Accent;
   /** English text the learner confirmed (null = no text yet). */
   text: string | null;
+  /** True when the learner confirmed before recognition finished: the library will finish it. */
+  pendingTranscription?: boolean;
   /** What the recognizer produced, or null if it could not run. */
   analysis: Analysis | null;
 }
@@ -128,7 +130,7 @@ export function useLibrary(): Library {
   }, []);
 
   const saveTake = useCallback(
-    async (take: Take, { hint, accent, text, analysis }: SaveOptions) => {
+    async (take: Take, { hint, accent, text, analysis, pendingTranscription }: SaveOptions) => {
       const bytes = await take.blob.arrayBuffer();
       const sha = await sha256Hex(bytes);
       const now = new Date().toISOString();
@@ -145,7 +147,7 @@ export function useLibrary(): Library {
         transcript: text,
         transcriptEdited: !!text && text !== analysis?.transcript,
         // With confirmed text the word is finished; without it, the library offers "write again".
-        sttStatus: text ? 'done' : analysis ? analysis.status : 'failed',
+        sttStatus: text ? 'done' : analysis ? analysis.status : pendingTranscription ? 'pending' : 'failed',
         sttHeard: analysis?.heard ?? null,
         sttReason: analysis?.reason ?? null,
         favorite: false,

@@ -30,50 +30,74 @@ type Pipe = (audio: Float32Array, opts: Record<string, unknown>) => Promise<{ te
 
 export type ProgressFn = (fraction: number) => void;
 
+/** If the download makes no progress for this long, stop waiting (it may continue in the background). */
+export const STALL_MS = 20_000;
+/** Upper limit for recognizing one recording once the model is ready. */
+export const RECOGNIZE_MS = 90_000;
+
 let pipePromise: Promise<Pipe> | null = null;
+let lastActivity = 0;
 const progressListeners = new Set<ProgressFn>();
 
-/** Load (once) the recognizer. Progress is reported 0..1 while the model downloads. */
+export class AsrUnavailable extends Error {}
+
+function startLoading(): Promise<Pipe> {
+  const cfg = config();
+  const files = new Map<string, { loaded: number; total: number }>();
+  lastActivity = Date.now();
+  return (async () => {
+    const lib = await import(/* @vite-ignore */ cfg.libUrl);
+    lastActivity = Date.now();
+    lib.env.allowLocalModels = false;
+    if (cfg.remoteHost) lib.env.remoteHost = cfg.remoteHost;
+    if (cfg.remotePathTemplate) lib.env.remotePathTemplate = cfg.remotePathTemplate;
+    if (cfg.wasmPaths) lib.env.backends.onnx.wasm.wasmPaths = cfg.wasmPaths;
+    try {
+      lib.env.useBrowserCache = typeof caches !== 'undefined';
+    } catch {
+      lib.env.useBrowserCache = false;
+    }
+    const pipe = await lib.pipeline('automatic-speech-recognition', cfg.model, {
+      dtype: 'q8',
+      device: 'wasm',
+      progress_callback: (p: { status: string; file?: string; loaded?: number; total?: number }) => {
+        lastActivity = Date.now();
+        if (p.status === 'progress' && p.file && p.total) {
+          files.set(p.file, { loaded: p.loaded ?? 0, total: p.total });
+          let loaded = 0;
+          let total = 0;
+          for (const f of files.values()) {
+            loaded += f.loaded;
+            total += f.total;
+          }
+          progressListeners.forEach((l) => l(total ? loaded / total : 0));
+        }
+      },
+    });
+    progressListeners.forEach((l) => l(1));
+    return pipe as Pipe;
+  })().catch((e) => {
+    pipePromise = null; // allow a later retry (e.g. when the internet is back)
+    throw e;
+  });
+}
+
+/**
+ * Load (once) the recognizer. Progress is reported 0..1 while the model downloads.
+ * Rejects with AsrUnavailable if the download stalls, so the app never waits forever.
+ */
 export function loadRecognizer(onProgress?: ProgressFn): Promise<Pipe> {
   if (onProgress) progressListeners.add(onProgress);
-  if (!pipePromise) {
-    const cfg = config();
-    const files = new Map<string, { loaded: number; total: number }>();
-    pipePromise = (async () => {
-      const lib = await import(/* @vite-ignore */ cfg.libUrl);
-      lib.env.allowLocalModels = false;
-      if (cfg.remoteHost) lib.env.remoteHost = cfg.remoteHost;
-      if (cfg.remotePathTemplate) lib.env.remotePathTemplate = cfg.remotePathTemplate;
-      if (cfg.wasmPaths) lib.env.backends.onnx.wasm.wasmPaths = cfg.wasmPaths;
-      try {
-        lib.env.useBrowserCache = typeof caches !== 'undefined';
-      } catch {
-        lib.env.useBrowserCache = false;
-      }
-      const pipe = await lib.pipeline('automatic-speech-recognition', cfg.model, {
-        dtype: 'q8',
-        device: 'wasm',
-        progress_callback: (p: { status: string; file?: string; loaded?: number; total?: number }) => {
-          if (p.status === 'progress' && p.file && p.total) {
-            files.set(p.file, { loaded: p.loaded ?? 0, total: p.total });
-            let loaded = 0;
-            let total = 0;
-            for (const f of files.values()) {
-              loaded += f.loaded;
-              total += f.total;
-            }
-            progressListeners.forEach((l) => l(total ? loaded / total : 0));
-          }
-        },
-      });
-      progressListeners.forEach((l) => l(1));
-      return pipe as Pipe;
-    })().catch((e) => {
-      pipePromise = null; // allow a later retry (e.g. when the internet is back)
-      throw e;
-    });
-  }
-  return pipePromise.finally(() => {
+  if (!pipePromise) pipePromise = startLoading();
+  const loading = pipePromise;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const watchdog = new Promise<never>((_, reject) => {
+    timer = setInterval(() => {
+      if (Date.now() - lastActivity > STALL_MS) reject(new AsrUnavailable('model download stalled'));
+    }, 1000);
+  });
+  return Promise.race([loading, watchdog]).finally(() => {
+    clearInterval(timer);
     if (onProgress) progressListeners.delete(onProgress);
   });
 }
@@ -101,6 +125,12 @@ export async function recognizeEnglish(original: Blob, onProgress?: ProgressFn):
   // English-only (".en") models need no language option; a multilingual model is forced to English.
   const opts: Record<string, unknown> = model.endsWith('.en') ? {} : { language: 'english', task: 'transcribe' };
   await new Promise((r) => setTimeout(r, 30)); // let the UI paint "working…" before the CPU-heavy step
-  const out = await pipe(samples, opts);
+  let limit: ReturnType<typeof setTimeout> | undefined;
+  const out = await Promise.race([
+    pipe(samples, opts),
+    new Promise<never>((_, reject) => {
+      limit = setTimeout(() => reject(new AsrUnavailable('recognition took too long')), RECOGNIZE_MS);
+    }),
+  ]).finally(() => clearTimeout(limit));
   return Array.isArray(out) ? out.map((o) => o.text).join(' ') : out.text;
 }

@@ -94,7 +94,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
 
 (async () => {
   let { ctx, page } = await open(process.env.SPEECH_WAV);
-  await page.getByText('یک کلمه انگلیسی بگو').waitFor();
+  await page.getByText('یک کلمه یا جمله انگلیسی بگو').waitFor();
   check('opens from a file with no login or setup', true);
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
@@ -107,7 +107,8 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /صدای خودم را گوش بده/ }).click();
   await page.waitForTimeout(300);
   check('preview plays my recording', (await page.getByRole('button', { name: /صدای خودم را گوش بده/ }).getAttribute('aria-pressed')) === 'true');
-  await reviewInput(page).waitFor({ timeout: 120000 });
+  check('confirm button is visible and usable right away', (await confirmBtn(page).isVisible()) && (await confirmBtn(page).isEnabled()));
+  await page.waitForFunction(() => document.querySelector('.review-input')?.value, null, { timeout: 120000 });
   const heard = await reviewInput(page).inputValue();
   check('speech transcribed on the device, shown for checking', /learning english/i.test(heard), JSON.stringify(heard));
   check('nothing is saved before the confirm button', (await countSaved(page)) === 0);
@@ -118,7 +119,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.screenshot({ path: `${OUT}/02-result.png` });
 
   // 1b. Cancel on the review step discards the take
-  await page.getByRole('button', { name: /یک کلمه تازه ضبط کن/ }).last().click();
+  await page.getByRole('button', { name: /تازه ضبط کن/ }).last().click();
   await record(page, 1500);
   await reviewInput(page).waitFor({ timeout: 120000 });
   await page.getByRole('button', { name: /لغو/ }).click();
@@ -128,7 +129,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
 
   // 2. Hint that does not match → the app asks instead of guessing
   await record(page, 3000, 'apple');
-  await reviewInput(page).waitFor({ timeout: 120000 });
+  await page.getByText('مطمئن نیستم').waitFor({ timeout: 120000 });
   check('mismatch with the hint is asked about, not guessed', (await page.getByText('مطمئن نیستم').isVisible()) && (await reviewInput(page).inputValue()) === '');
   await page.screenshot({ path: `${OUT}/03-unclear.png` });
   await page.locator('.chip-en', { hasText: 'apple' }).click();
@@ -138,7 +139,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('learner can confirm the word they meant', true);
 
   // 3. Silent recording is rejected
-  await page.getByRole('button', { name: /یک کلمه تازه ضبط کن/ }).last().click();
+  await page.getByRole('button', { name: /تازه ضبط کن/ }).last().click();
   await ctx.close();
   ({ ctx, page } = await open(process.env.SILENT_WAV));
   await record(page, 1500);
@@ -146,7 +147,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('silent recording is not saved', true);
 
   // 4. After "closing the app", the library is still there and plays repeatedly
-  await page.getByRole('button', { name: /کلمه‌های من/ }).click();
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
   await page.locator('.word-card').first().waitFor({ timeout: 10000 });
   check('words survive closing and reopening the app', (await page.locator('.word-card').count()) === 2);
   const play = page.locator('.word-card .btn-play').first();
@@ -181,7 +182,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const hashesOk = backup.words.every((w) => crypto.createHash('sha256').update(Buffer.from(w.audio, 'base64')).digest('hex') === w.audioSha256);
   check('backup file holds every word with its exact audio', backup.words.length === 2 && hashesOk, download.suggestedFilename());
 
-  await page.getByRole('button', { name: /کلمه‌های من/ }).click();
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
   for (let i = 0; i < 2; i++) {
     await page.getByRole('button', { name: /پاک کردن/ }).first().click();
     await page.getByRole('button', { name: 'آره، پاک کن' }).click();
@@ -191,7 +192,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /تنظیمات/ }).click();
   await page.locator('input[type=file]').setInputFiles(backupPath);
   await page.getByText('کلمه برگشت').waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /کلمه‌های من/ }).click();
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
   await page.locator('.word-card').first().waitFor();
   check('restore brings everything back', (await page.locator('.word-card').count()) === 2);
 
@@ -221,6 +222,44 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.word-card-result .word-text').waitFor({ timeout: 120000 });
   check('text is made later when the model is reachable', true, await page.locator('.word-card-result .word-text').textContent());
   await ctx2.close();
+
+  // 8. Model download hangs forever (blocked/slow host): confirm must still work, nothing may hang
+  const fresh2 = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-hang-'));
+  const ctx3 = await chromium.launchPersistentContext(fresh2, {
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${process.env.SPEECH_WAV}`, '--allow-file-access-from-files'],
+    viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', permissions: ['microphone'],
+  });
+  await ctx3.addInitScript(([base, model]) => {
+    window.__ECHOWORDS_ASR__ = { libUrl: `${base}/lib/transformers.min.js`, model, remoteHost: `${base}/models/`, remotePathTemplate: '{model}/', wasmPaths: `${base}/lib/` };
+  }, [ASR, process.env.ASR_MODEL || 'Xenova/whisper-tiny']);
+  await ctx3.route(/\/models\//, () => {}); // never answers
+  page = ctx3.pages()[0];
+  await page.goto(FILE);
+  await record(page, 2500);
+  await page.getByText('درسته؟').waitFor();
+  check('hanging download: confirm button usable immediately', (await confirmBtn(page).isEnabled()) && (await reviewInput(page).isVisible()));
+  const t0 = Date.now();
+  await page.getByText('الان نتوانستم بنویسم چی گفتی').waitFor({ timeout: 40000 });
+  check('hanging download: app stops waiting by itself', true, `${Math.round((Date.now() - t0) / 1000)}s`);
+  await reviewInput(page).fill('I like apples.');
+  await confirmBtn(page).click();
+  await page.locator('.word-card-result .word-text', { hasText: 'I like apples.' }).waitFor({ timeout: 10000 });
+  await page.screenshot({ path: `${OUT}/07-confirmed.png` });
+  await page.getByRole('button', { name: /برو به کلمه‌ها و جمله‌هایم/ }).click();
+  await page.locator('.word-card .word-text', { hasText: 'I like apples.' }).waitFor({ timeout: 10000 });
+  check('confirmed sentence appears in «کلمه‌ها و جمله‌هایم»', true);
+  await page.screenshot({ path: `${OUT}/08-library.png` });
+
+  // 9. Confirm while recognition is still running: saved at once, text filled in afterwards
+  await page.locator('.tabbar button').first().click();
+  await ctx3.unroute(/\/models\//);
+  await record(page, 3000);
+  await confirmBtn(page).click();
+  await page.locator('.word-card-result').waitFor({ timeout: 10000 });
+  check('early confirm saves immediately', (await countSaved(page)) === 2);
+  await page.locator('.word-card-result .word-text').waitFor({ timeout: 120000 });
+  check('text is filled in afterwards', /learning english/i.test(await page.locator('.word-card-result .word-text').textContent()));
+  await ctx3.close();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatDuration } from '../lib/format';
 import type { Accent, Analysis } from '../lib/stt';
 import { t } from '../lib/strings';
@@ -17,7 +17,7 @@ function reasonText(reason: string | null): string {
   return reason === 'not_english' ? t.reasonNotEnglish : reason === 'mismatch' ? t.reasonMismatch : t.reasonEmpty;
 }
 
-export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) {
+export function RecordScreen({ lib, accent, onOpenLibrary }: { lib: Library; accent: Accent; onOpenLibrary: () => void }) {
   const rec = useRecorder();
   const toast = useToast();
   const [hint, setHint] = useState('');
@@ -30,6 +30,8 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
   const [text, setText] = useState('');
   const [textError, setTextError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  /** Once the learner types, the recognizer must not overwrite their text. */
+  const typedRef = useRef(false);
 
   const word = wordId ? lib.words.find((w) => w.id === wordId) ?? null : null;
   const isLive = rec.state === 'recording' || rec.state === 'paused';
@@ -49,13 +51,14 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
     setRecog('working');
     setText('');
     setTextError(null);
+    typedRef.current = false;
     const h = validateHint(hint);
     lib
       .recognizeTake(take, h.ok ? h.value : null)
       .then((a) => {
         if (!alive) return;
         setRecog(a);
-        if (a.status === 'done' && a.transcript) setText(a.transcript);
+        if (a.status === 'done' && a.transcript && !typedRef.current) setText(a.transcript);
       })
       .catch(() => alive && setRecog('failed'));
     return () => {
@@ -65,7 +68,7 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
   }, [take]);
 
   const confirmAndSave = async () => {
-    if (!rec.take || saving || recog === 'working') return;
+    if (!rec.take || saving) return;
     const h = validateHint(hint);
     let finalText: string | null = null;
     if (text.trim()) {
@@ -77,10 +80,16 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
     setPhase('saving');
     try {
       const analysis = typeof recog === 'object' ? recog : null;
-      const w = await lib.saveTake(rec.take, { hint: h.ok ? h.value : null, accent, text: finalText, analysis });
+      const w = await lib.saveTake(rec.take, {
+        hint: h.ok ? h.value : null,
+        accent,
+        text: finalText,
+        analysis,
+        pendingTranscription: recog === 'working',
+      });
       setWordId(w.id);
       setPhase('result');
-      toast(t.saved, 'success');
+      if (w.sttStatus === 'pending') void lib.transcribe(w.id); // finish writing it in the background
     } catch {
       // The take is still in memory: the learner can simply press Save again.
       toast(t.saveFailed, 'error');
@@ -113,7 +122,9 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
         ) : (
           <p className="state state-busy"><span className="spinner" aria-hidden /> {t.authWait}</p>
         )}
+        <p className="msg msg-success" role="status">{t.savedInLibrary}</p>
         <button className="btn btn-primary btn-big wide" onClick={newRecording}>🎤 {t.recordNewOne}</button>
+        <button className="btn btn-secondary btn-big wide" onClick={onOpenLibrary}>📚 {t.goToLibrary}</button>
       </section>
     );
   }
@@ -203,6 +214,7 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
                 : t.transcribing}
             </p>
           )}
+          {recog === 'working' && <p className="meta">{t.reviewStillListening}</p>}
           {recog === 'failed' && <p className="msg msg-info">{t.reviewNoModel}</p>}
           {typeof recog === 'object' && recog.status === 'unclear' && (
             <div className="state state-unclear">
@@ -217,7 +229,11 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
                     <p className="meta">{t.tapToUse}</p>
                     <div className="row wrap">
                       {options.map((o) => (
-                        <button key={o} className="chip chip-en" dir="ltr" lang="en" onClick={() => { setText(o); setTextError(null); }}>
+                        <button key={o} className="chip chip-en" dir="ltr" lang="en" onClick={() => {
+                            typedRef.current = true;
+                            setText(o);
+                            setTextError(null);
+                          }}>
                           {o}
                         </button>
                       ))}
@@ -228,32 +244,33 @@ export function RecordScreen({ lib, accent }: { lib: Library; accent: Accent }) 
             </div>
           )}
 
-          {recog !== 'working' && (
-            <label className="field wide">
-              <span>{t.reviewTextLabel}</span>
-              <input
-                className="input input-en review-input"
-                dir="ltr"
-                lang="en"
-                placeholder={t.reviewTypeHere}
-                value={text}
-                maxLength={200}
-                autoCapitalize="sentences"
-                autoCorrect="off"
-                onChange={(e) => {
-                  setText(e.target.value);
-                  setTextError(null);
-                }}
-                aria-invalid={!!textError}
-              />
-              {!text.trim() && <small>{t.reviewNoTextNote}</small>}
-              {textError && <p className="msg msg-error" role="alert">{textError}</p>}
-            </label>
-          )}
+          <label className="field wide">
+            <span>{t.reviewTextLabel}</span>
+            <input
+              className="input input-en review-input"
+              dir="ltr"
+              lang="en"
+              placeholder={t.reviewTypeHere}
+              value={text}
+              maxLength={200}
+              autoCapitalize="sentences"
+              autoCorrect="off"
+              onChange={(e) => {
+                typedRef.current = true;
+                setText(e.target.value);
+                setTextError(null);
+              }}
+              aria-invalid={!!textError}
+            />
+            {!text.trim() && <small>{t.reviewNoTextNote}</small>}
+            {textError && <p className="msg msg-error" role="alert">{textError}</p>}
+          </label>
 
-          <button className="btn btn-confirm btn-big wide" onClick={confirmAndSave} disabled={saving || recog === 'working'}>
-            ✅ {t.confirmSave}
-          </button>
+          <div className="confirm-bar">
+            <button className="btn btn-confirm btn-big wide" onClick={confirmAndSave} disabled={saving}>
+              ✅ {t.confirmSave}
+            </button>
+          </div>
           <div className="row wrap center">
             <button className="btn btn-secondary" onClick={() => rec.reset()}>🔁 {t.recordAgain}</button>
             <button className="btn btn-ghost" onClick={() => setConfirmDiscard(true)}>🗑️ {t.cancel}</button>

@@ -27,7 +27,7 @@ export default function App() {
       </header>
       <main className="content">
         {/* The record screen is unmounted when leaving it: this always releases the microphone. */}
-        {tab === 'record' && <RecordScreen lib={lib} accent={accent} />}
+        {tab === 'record' && <RecordScreen lib={lib} accent={accent} onOpenLibrary={() => go('library')} />}
         {tab === 'library' && <LibraryScreen lib={lib} />}
         {tab === 'settings' && (
           <SettingsScreen

@@ -9,11 +9,11 @@ export const t = {
 
   // Tabs
   tabRecord: 'ضبط',
-  tabLibrary: 'کلمه‌های من',
+  tabLibrary: 'کلمه‌ها و جمله‌هایم',
   tabSettings: 'تنظیمات',
 
   // Record screen
-  recordTitle: 'یک کلمه انگلیسی بگو! 🎤',
+  recordTitle: 'یک کلمه یا جمله انگلیسی بگو! 🎤',
   hintLabel: 'می‌خواهی چه کلمه‌ای بگویی؟ (اختیاری، به انگلیسی)',
   hintPlaceholder: 'e.g. apple',
   hintHelp: 'اگر کلمه را بنویسی، برنامه بهتر می‌فهمد چی گفتی.',
@@ -35,6 +35,9 @@ export const t = {
   reviewHelp: 'به صدایت گوش بده و نوشته را ببین. اگر درست است «تایید و ذخیره» را بزن.',
   reviewTextLabel: 'کلمه یا جمله‌ای که گفتی (به انگلیسی)',
   reviewTypeHere: 'اینجا به انگلیسی بنویس',
+  reviewStillListening: 'دارم سعی می‌کنم بنویسم چی گفتی… لازم نیست صبر کنی؛ می‌توانی خودت بنویسی و تایید کنی.',
+  goToLibrary: 'برو به کلمه‌ها و جمله‌هایم',
+  savedInLibrary: 'در «کلمه‌ها و جمله‌هایم» ذخیره شد ✅',
   reviewNoModel: 'الان نتوانستم بنویسم چی گفتی (بار اول اینترنت لازم است). می‌توانی خودت بنویسی، یا همین‌طوری ذخیره کنی و بعداً «دوباره بنویس» را بزنی.',
   reviewNoTextNote: 'اگر الان ننویسی، صدایت ذخیره می‌شود و بعداً می‌توانی بنویسی.',
   tapToUse: 'برای نوشتن، رویش بزن:',
@@ -57,7 +60,7 @@ export const t = {
   yesCorrect: 'آره، درسته',
   writeItMyself: 'خودم می‌نویسم',
   tryAgainTranscribe: 'دوباره بنویس',
-  recordNewOne: 'یک کلمه تازه ضبط کن',
+  recordNewOne: 'یک کلمه یا جمله تازه ضبط کن',
   reasonEmpty: 'صدایی که بشود به انگلیسی نوشت نشنیدم.',
   reasonNotEnglish: 'به نظر رسید انگلیسی نبود. فقط انگلیسی بگو.',
   retryOrType: 'می‌توانی دوباره ضبط کنی یا خودت کلمه را بنویسی. صدایت ذخیره شده است.',
@@ -94,9 +97,9 @@ export const t = {
   backupBad: 'این فایل، فایل پشتیبان این برنامه نیست.',
 
   // Library
-  libraryTitle: 'گنجینه کلمه‌های من 📚',
+  libraryTitle: 'کلمه‌ها و جمله‌های من 📚',
   searchPlaceholder: 'جست‌وجوی کلمه…',
-  emptyLibrary: 'هنوز کلمه‌ای نداری. برو به «ضبط» و اولین کلمه‌ات را بگو!',
+  emptyLibrary: 'هنوز چیزی اینجا نیست. برو به «ضبط»، یک کلمه یا جمله بگو و «تایید و ذخیره» را بزن!',
   noResults: 'چیزی پیدا نشد.',
   playMine: 'صدای خودم',
   standardPronunciation: 'تلفظ استاندارد',
@@ -114,7 +117,7 @@ export const t = {
   loadFailed: 'فهرست کلمه‌ها باز نشد. صفحه را دوباره باز کن.',
   audioLoadFailed: 'صدا باز نشد. دوباره بزن.',
   audioChanged: 'هشدار: فایل صدا با نسخه اصلی یکی نیست.',
-  wordsCount: (n: number) => `${fa(n)} کلمه`,
+  wordsCount: (n: number) => `${fa(n)} مورد`,
   favoritesOnly: 'فقط ستاره‌دارها',
 
   // Settings
