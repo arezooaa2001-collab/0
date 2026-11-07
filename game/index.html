@@ -247,6 +247,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .shopit.nope{animation:nope .35s}
 @keyframes nope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 #sShop .panel.tall{overflow:auto}#sShop .panel.tall > *{flex-shrink:0}#sShop .shopGrid{overflow:visible}
+#sEndless .mcard{cursor:pointer;color:#fff;font:inherit}#sEndless .mcard b{font-size:17px}#sEndless .mcard small{font-size:13px}
 </style>
 </head>
 <body>
@@ -366,6 +367,14 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   </div>
 </div>
 
+<div class="screen fa" id="sEndless">
+  <div class="panel tall">
+    <h2>♾️ بی‌پایان</h2>
+    <p class="sub small">مسیری که تموم نمی‌شه: هرچی جلوتر بری سخت‌تر می‌شه. ۳ جون داری و هر ۵ چک‌پوینت یه جون اضافه می‌گیری.</p>
+    <div class="modes" id="endList"></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
 <div class="screen fa" id="sOver">
   <div class="panel">
     <div style="font-size:44px;line-height:1">♾️</div><h1 class="logo" style="font-size:clamp(36px,7vw,62px)">تموم شد!</h1>
@@ -1947,7 +1956,7 @@ class World {
     this.rev = false;
     this.dark = !!this.def.dark;
     // endless course: only the sections around the checkpoint are built
-    if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); }
+    if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
     // gems stay collected across deaths
     this.got = this.got || new Set(); let ng = 0;
@@ -1975,6 +1984,7 @@ class World {
       for (const k in this.lv.byId) if (dropped.has(this.lv.byId[k])) delete this.lv.byId[k];
       this.lv.flags = this.lv.flags.filter(f => !dropped.has(f));
       this.only = this.only && this.only.filter(i => i >= keep);
+      this.minX = Math.max(this.minX || 0, d.secs[keep].x0 * T);
     }
     for (const e of added) if (e.type === 'gem') { if (this.got.has(e.id)) e.gone = true; else this.gemTotal++; }
     this.actX = -1e9;
@@ -1986,7 +1996,7 @@ class World {
   isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost && !e.off; }
   solids() { return this.act.filter(e => this.isSolid(e)); }
   // camera: keeps the player a bit left of centre, looking ahead in the running direction
-  camTarget() { return clamp(this.p.x + PW / 2 - W * .42 + this.look, 0, Math.max(0, this.lw - W)); }
+  camTarget() { const m = this.minX || 0; return clamp(this.p.x + PW / 2 - W * .42 + this.look, m, Math.max(m, this.lw - W)); }
   // long levels: only entities within ~1.3 screens of the player are simulated (far ones wait, frozen)
   updAct() {
     const px = this.p.x;
@@ -2123,6 +2133,7 @@ class World {
     for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
     // last safe standing spot (for the shield's rescue from a fall)
     const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) p.safe = [p.x, p.y, p.g];
+    if (this.minX && p.x < this.minX) { p.x = this.minX; if (p.vx < 0) p.vx = 0; }   // endless: the course behind is gone
     const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     const onIce = p.onGround && p.ground && p.ground.ice;
     if (p.onGround) p.air2 = false;
@@ -5047,6 +5058,10 @@ function hudTick() {
   $('tmr').textContent = tm; $('gemC').textContent = gm; $('pwr').textContent = pw; $('fps').textContent = fp;
 }
 
+// daily challenge: the same endless course for everyone on the same day (the date is the seed)
+const dayKey = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+const dailyBest = () => ST.daily && ST.daily.day === dayKey() ? ST.daily.best : 0;
+
 /* ---------- ghost of your best run (2D levels): recorded at 10 Hz, saved when you beat your best time ---------- */
 const Ghost = {
   rec: null, play: null,
@@ -5078,7 +5093,7 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver']) $(s).classList.toggle('on', s === id); this.screen = id; },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless']) $(s).classList.toggle('on', s === id); this.screen = id; },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click'); if (this.state === 'over') return this.menu();
@@ -5086,12 +5101,12 @@ const app = {
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
   updTag() {
-    if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `♾️ بی‌پایان · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
+    if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `${E.daily ? '🗓️ چالش امروز' : '♾️ بی‌پایان'} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
     const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
     $('pprog').classList.toggle('on', !!n);
   },
-  label() { return this.endless ? '♾️ حالت بی‌پایان' : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
+  label() { return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
     this.realmIdx = -1; this.idx = i; this.endless = null;
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
@@ -5100,10 +5115,10 @@ const app = {
   },
   startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.startDef(REALM[r], opt); },
   // endless mode: 3 lives, the course grows ahead, a life every 5 checkpoints, zones change colour
-  startEndless() {
-    const seed = (Math.random() * 1e6) | 0, def = makeEndless(seed);
+  startEndless(daily = this.endless ? this.endless.daily : false) {
+    const seed = daily ? dayKey() : (Math.random() * 1e6) | 0, def = makeEndless(seed);
     this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
-    this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, best: (ST.endBest || {})[this.diff] || 0 };
+    this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, daily, best: daily ? dailyBest() : (ST.endBest || {})[this.diff] || 0 };
     this.startDef(def, {});
     setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
   },
@@ -5126,12 +5141,13 @@ const app = {
   },
   endlessOver() {
     const E = this.endless; if (!E) return;
-    ST.endBest = ST.endBest || {}; const best = ST.endBest[this.diff] || 0, rec = E.dist > best;
-    if (rec) ST.endBest[this.diff] = E.dist;
+    ST.endBest = ST.endBest || {}; const best = E.daily ? dailyBest() : ST.endBest[this.diff] || 0, rec = E.dist > best;
+    if (rec) { if (E.daily) ST.daily = { day: dayKey(), best: E.dist }; else ST.endBest[this.diff] = E.dist; }
+    if (E.dist > (ST.endBest[this.diff] || 0)) ST.endBest[this.diff] = E.dist;
     if (E.dist >= 500) unlockAch('endless');
     writeSave();
     $('oDist').textContent = faNum(E.dist); $('oBest').textContent = faNum(Math.max(best, E.dist)); $('oGems').textContent = faNum(this.world ? this.world.got.size : 0); $('oCk').textContent = faNum(this.world ? this.world.ck : 0);
-    $('oSub').textContent = rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…';
+    $('oSub').textContent = (E.daily ? '🗓️ چالش امروز · ' : '') + (rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…');
     if (rec) Sound.play('win');
     this.state = 'over'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch(); this.show('sOver');
   },
@@ -5481,7 +5497,8 @@ function renderStats() {
   const pr = progOf(app.diff), stars = pr.stars || {}, best = pr.best || {};
   const won = Object.keys(stars).length, got = ACH.filter(a => ST.ach[a[0]]).length;
   let h = `<div class="kv"><div><b>${faNum(won)}/${faNum(LEVELS.length)}</b><span>مرحله‌ی برده‌شده</span></div><div><b>${faNum(totalStars(app.diff))}</b><span>ستاره (${DIFFS[app.diff].name})</span></div>
-    <div><b>${faNum(ST.deaths)}</b><span>کل مرگ‌ها</span></div><div><b>${faNum(ST.gems)}</b><span>جواهر</span></div><div><b>${faNum(Math.floor(ST.time / 60))}</b><span>دقیقه بازی</span></div><div><b>${faNum(got)}/${faNum(ACH.length)}</b><span>دستاورد</span></div></div>
+    <div><b>${faNum(ST.deaths)}</b><span>کل مرگ‌ها</span></div><div><b>${faNum(ST.gems)}</b><span>جواهر</span></div><div><b>${faNum(Math.floor(ST.time / 60))}</b><span>دقیقه بازی</span></div><div><b>${faNum(got)}/${faNum(ACH.length)}</b><span>دستاورد</span></div>
+    <div><b>${faNum((ST.endBest || {})[app.diff] || 0)}</b><span>♾️ رکورد بی‌پایان (متر)</span></div><div><b>${faNum(ST.pows || 0)}</b><span>پاورآپ</span></div><div><b>${faNum(gemBalance())}</b><span>جواهر برای خرید</span></div></div>
     <div class="sec"><h3>دستاوردها</h3><div class="achs">${ACH.map(a => `<div class="ach${ST.ach[a[0]] ? ' got' : ''}"><i>${ST.ach[a[0]] ? a[1] : '🔒'}</i><div><b>${a[2]}</b><small>${a[3]}</small></div></div>`).join('')}</div></div>
     <div class="sec"><h3>رکورد مرحله‌ها (${DIFFS[app.diff].name})</h3><div class="lvStars">${LEVELS.map((L, i) => `<div title="${esc(L.name)}"><b>${faNum(i + 1)}</b>${stars[i] ? '<span style="color:var(--gold)">' + '★'.repeat(stars[i]) + '</span>' : '—'}<br>${best[i] ? fmtT(best[i]) : ''}</div>`).join('')}</div></div>`;
   $('statsBody').innerHTML = h;
@@ -5503,6 +5520,7 @@ function renderShop(tab) {
 function shopPreview() {
   if (app.screen !== 'sShop') { shopAnim = 0; return; }
   const c = $('shopPv'), g = c.getContext('2d'), t = performance.now() / 1000, main = ctx;
+  try {
   const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play' });
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
   ctx = g; ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
@@ -5511,7 +5529,7 @@ function shopPreview() {
   drawParticles(fw);
   ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore();
   ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, 83, 150, 2);
-  ctx = main;
+  } finally { ctx = main; }
   requestAnimationFrame(shopPreview);
 }
 $('shopTabs').addEventListener('click', e => { const b = e.target.closest('[data-stab]'); if (b) { Sound.play('click'); renderShop(b.dataset.stab); } });
@@ -5524,7 +5542,13 @@ $('shopGrid').addEventListener('click', e => {
   } else Sound.play('click');
   ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
 });
-$('bEndless').onclick = () => { Sound.init(); Sound.play('click'); app.startEndless(); };
+function renderEndless() {
+  const best = (ST.endBest || {})[app.diff] || 0, d = dailyBest();
+  $('endList').innerHTML = `<button class="mcard" data-end="0"><b>♾️ بی‌پایان آزاد</b><small>هر بار یه مسیر تازه و تصادفی.<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${faNum(best)} متر</b></small></button>
+    <button class="mcard" data-end="1"><b>🗓️ چالش امروز</b><small>یه مسیر ثابت برای امروز؛ فردا عوض می‌شه.<br>رکورد امروز: <b style="color:var(--gold)">${faNum(d)} متر</b></small></button>`;
+}
+$('endList').addEventListener('click', e => { const b = e.target.closest('[data-end]'); if (b) { Sound.play('click'); app.startEndless(b.dataset.end === '1'); } });
+$('bEndless').onclick = () => { Sound.init(); Sound.play('click'); renderEndless(); app.open('sEndless'); };
 $('bOverAgain').onclick = () => { Sound.play('click'); app.startEndless(); };
 $('bOverMenu').onclick = () => { Sound.play('click'); app.menu(); };
 $('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };

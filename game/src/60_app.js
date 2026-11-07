@@ -157,6 +157,10 @@ function hudTick() {
   $('tmr').textContent = tm; $('gemC').textContent = gm; $('pwr').textContent = pw; $('fps').textContent = fp;
 }
 
+// daily challenge: the same endless course for everyone on the same day (the date is the seed)
+const dayKey = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+const dailyBest = () => ST.daily && ST.daily.day === dayKey() ? ST.daily.best : 0;
+
 /* ---------- ghost of your best run (2D levels): recorded at 10 Hz, saved when you beat your best time ---------- */
 const Ghost = {
   rec: null, play: null,
@@ -188,7 +192,7 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver']) $(s).classList.toggle('on', s === id); this.screen = id; },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless']) $(s).classList.toggle('on', s === id); this.screen = id; },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click'); if (this.state === 'over') return this.menu();
@@ -196,12 +200,12 @@ const app = {
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
   updTag() {
-    if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `♾️ بی‌پایان · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
+    if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `${E.daily ? '🗓️ چالش امروز' : '♾️ بی‌پایان'} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
     const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
     $('pprog').classList.toggle('on', !!n);
   },
-  label() { return this.endless ? '♾️ حالت بی‌پایان' : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
+  label() { return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
     this.realmIdx = -1; this.idx = i; this.endless = null;
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
@@ -210,10 +214,10 @@ const app = {
   },
   startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.startDef(REALM[r], opt); },
   // endless mode: 3 lives, the course grows ahead, a life every 5 checkpoints, zones change colour
-  startEndless() {
-    const seed = (Math.random() * 1e6) | 0, def = makeEndless(seed);
+  startEndless(daily = this.endless ? this.endless.daily : false) {
+    const seed = daily ? dayKey() : (Math.random() * 1e6) | 0, def = makeEndless(seed);
     this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
-    this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, best: (ST.endBest || {})[this.diff] || 0 };
+    this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, daily, best: daily ? dailyBest() : (ST.endBest || {})[this.diff] || 0 };
     this.startDef(def, {});
     setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
   },
@@ -236,12 +240,13 @@ const app = {
   },
   endlessOver() {
     const E = this.endless; if (!E) return;
-    ST.endBest = ST.endBest || {}; const best = ST.endBest[this.diff] || 0, rec = E.dist > best;
-    if (rec) ST.endBest[this.diff] = E.dist;
+    ST.endBest = ST.endBest || {}; const best = E.daily ? dailyBest() : ST.endBest[this.diff] || 0, rec = E.dist > best;
+    if (rec) { if (E.daily) ST.daily = { day: dayKey(), best: E.dist }; else ST.endBest[this.diff] = E.dist; }
+    if (E.dist > (ST.endBest[this.diff] || 0)) ST.endBest[this.diff] = E.dist;
     if (E.dist >= 500) unlockAch('endless');
     writeSave();
     $('oDist').textContent = faNum(E.dist); $('oBest').textContent = faNum(Math.max(best, E.dist)); $('oGems').textContent = faNum(this.world ? this.world.got.size : 0); $('oCk').textContent = faNum(this.world ? this.world.ck : 0);
-    $('oSub').textContent = rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…';
+    $('oSub').textContent = (E.daily ? '🗓️ چالش امروز · ' : '') + (rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…');
     if (rec) Sound.play('win');
     this.state = 'over'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch(); this.show('sOver');
   },

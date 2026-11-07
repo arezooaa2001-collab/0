@@ -122,7 +122,8 @@ function renderStats() {
   const pr = progOf(app.diff), stars = pr.stars || {}, best = pr.best || {};
   const won = Object.keys(stars).length, got = ACH.filter(a => ST.ach[a[0]]).length;
   let h = `<div class="kv"><div><b>${faNum(won)}/${faNum(LEVELS.length)}</b><span>مرحله‌ی برده‌شده</span></div><div><b>${faNum(totalStars(app.diff))}</b><span>ستاره (${DIFFS[app.diff].name})</span></div>
-    <div><b>${faNum(ST.deaths)}</b><span>کل مرگ‌ها</span></div><div><b>${faNum(ST.gems)}</b><span>جواهر</span></div><div><b>${faNum(Math.floor(ST.time / 60))}</b><span>دقیقه بازی</span></div><div><b>${faNum(got)}/${faNum(ACH.length)}</b><span>دستاورد</span></div></div>
+    <div><b>${faNum(ST.deaths)}</b><span>کل مرگ‌ها</span></div><div><b>${faNum(ST.gems)}</b><span>جواهر</span></div><div><b>${faNum(Math.floor(ST.time / 60))}</b><span>دقیقه بازی</span></div><div><b>${faNum(got)}/${faNum(ACH.length)}</b><span>دستاورد</span></div>
+    <div><b>${faNum((ST.endBest || {})[app.diff] || 0)}</b><span>♾️ رکورد بی‌پایان (متر)</span></div><div><b>${faNum(ST.pows || 0)}</b><span>پاورآپ</span></div><div><b>${faNum(gemBalance())}</b><span>جواهر برای خرید</span></div></div>
     <div class="sec"><h3>دستاوردها</h3><div class="achs">${ACH.map(a => `<div class="ach${ST.ach[a[0]] ? ' got' : ''}"><i>${ST.ach[a[0]] ? a[1] : '🔒'}</i><div><b>${a[2]}</b><small>${a[3]}</small></div></div>`).join('')}</div></div>
     <div class="sec"><h3>رکورد مرحله‌ها (${DIFFS[app.diff].name})</h3><div class="lvStars">${LEVELS.map((L, i) => `<div title="${esc(L.name)}"><b>${faNum(i + 1)}</b>${stars[i] ? '<span style="color:var(--gold)">' + '★'.repeat(stars[i]) + '</span>' : '—'}<br>${best[i] ? fmtT(best[i]) : ''}</div>`).join('')}</div></div>`;
   $('statsBody').innerHTML = h;
@@ -144,6 +145,7 @@ function renderShop(tab) {
 function shopPreview() {
   if (app.screen !== 'sShop') { shopAnim = 0; return; }
   const c = $('shopPv'), g = c.getContext('2d'), t = performance.now() / 1000, main = ctx;
+  try {
   const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play' });
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
   ctx = g; ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
@@ -152,7 +154,7 @@ function shopPreview() {
   drawParticles(fw);
   ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore();
   ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, 83, 150, 2);
-  ctx = main;
+  } finally { ctx = main; }
   requestAnimationFrame(shopPreview);
 }
 $('shopTabs').addEventListener('click', e => { const b = e.target.closest('[data-stab]'); if (b) { Sound.play('click'); renderShop(b.dataset.stab); } });
@@ -165,7 +167,13 @@ $('shopGrid').addEventListener('click', e => {
   } else Sound.play('click');
   ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
 });
-$('bEndless').onclick = () => { Sound.init(); Sound.play('click'); app.startEndless(); };
+function renderEndless() {
+  const best = (ST.endBest || {})[app.diff] || 0, d = dailyBest();
+  $('endList').innerHTML = `<button class="mcard" data-end="0"><b>♾️ بی‌پایان آزاد</b><small>هر بار یه مسیر تازه و تصادفی.<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${faNum(best)} متر</b></small></button>
+    <button class="mcard" data-end="1"><b>🗓️ چالش امروز</b><small>یه مسیر ثابت برای امروز؛ فردا عوض می‌شه.<br>رکورد امروز: <b style="color:var(--gold)">${faNum(d)} متر</b></small></button>`;
+}
+$('endList').addEventListener('click', e => { const b = e.target.closest('[data-end]'); if (b) { Sound.play('click'); app.startEndless(b.dataset.end === '1'); } });
+$('bEndless').onclick = () => { Sound.init(); Sound.play('click'); renderEndless(); app.open('sEndless'); };
 $('bOverAgain').onclick = () => { Sound.play('click'); app.startEndless(); };
 $('bOverMenu').onclick = () => { Sound.play('click'); app.menu(); };
 $('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };

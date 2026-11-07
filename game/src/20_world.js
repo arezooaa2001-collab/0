@@ -149,7 +149,7 @@ class World {
     this.rev = false;
     this.dark = !!this.def.dark;
     // endless course: only the sections around the checkpoint are built
-    if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); }
+    if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
     // gems stay collected across deaths
     this.got = this.got || new Set(); let ng = 0;
@@ -177,6 +177,7 @@ class World {
       for (const k in this.lv.byId) if (dropped.has(this.lv.byId[k])) delete this.lv.byId[k];
       this.lv.flags = this.lv.flags.filter(f => !dropped.has(f));
       this.only = this.only && this.only.filter(i => i >= keep);
+      this.minX = Math.max(this.minX || 0, d.secs[keep].x0 * T);
     }
     for (const e of added) if (e.type === 'gem') { if (this.got.has(e.id)) e.gone = true; else this.gemTotal++; }
     this.actX = -1e9;
@@ -188,7 +189,7 @@ class World {
   isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost && !e.off; }
   solids() { return this.act.filter(e => this.isSolid(e)); }
   // camera: keeps the player a bit left of centre, looking ahead in the running direction
-  camTarget() { return clamp(this.p.x + PW / 2 - W * .42 + this.look, 0, Math.max(0, this.lw - W)); }
+  camTarget() { const m = this.minX || 0; return clamp(this.p.x + PW / 2 - W * .42 + this.look, m, Math.max(m, this.lw - W)); }
   // long levels: only entities within ~1.3 screens of the player are simulated (far ones wait, frozen)
   updAct() {
     const px = this.p.x;
@@ -325,6 +326,7 @@ class World {
     for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
     // last safe standing spot (for the shield's rescue from a fall)
     const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) p.safe = [p.x, p.y, p.g];
+    if (this.minX && p.x < this.minX) { p.x = this.minX; if (p.vx < 0) p.vx = 0; }   // endless: the course behind is gone
     const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     const onIce = p.onGround && p.ground && p.ground.ice;
     if (p.onGround) p.air2 = false;
