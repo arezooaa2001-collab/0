@@ -5,7 +5,7 @@ class P3D {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
     const RP = Run3D.prototype, def = world.def;
-    this.realm = !!def.realm; this.dark = !!def.dark;
+    this.realm = !!def.realm; this.dark = !!world.dark;
     const sc = this.scene = new THREE.Scene();
     const sk = PAL.skyCol, fogC = this.realm ? 0x0a0320 : this.dark ? 0x05030c : hexNum(sk('#3a1c5e'));
     sc.fog = new THREE.Fog(fogC, this.dark ? 16 : 34, this.dark ? 46 : 110);

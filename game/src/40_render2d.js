@@ -440,7 +440,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   drawPlayer(world, t);
   drawParticles(world);
-  if (world.def.dark) drawDark(world, t);
+  if (world.dark) drawDark(world, t);
 }
 function drawOverlays(world, t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);

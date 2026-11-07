@@ -85,7 +85,8 @@ class Run3D {
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
     this.checkpoints = [];
-    if (this.DD.ck && this.len >= 900) { const n = this.len >= 2000 ? 4 : 3; for (let i = 1; i < n; i++) this.checkpoints.push(Math.round(this.len * i / n)); }
+    // insane: no checkpoints on short runs, a single one halfway on the very long ones (3800 m and up)
+    { const step = [700, 700, 750, 1500, 2500][this.d], n = this.d === 4 ? Math.round(this.len / step) : Math.max(2, Math.round(this.len / step)); for (let i = 1; i < n; i++) this.checkpoints.push(Math.round(this.len * i / n)); }
     this.ckS = 0; this.firstIntro = true;
     this.time = 0; this.shake = 0; this.flash = 0;
     if (!this.noScene) this.buildScene();

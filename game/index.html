@@ -810,15 +810,15 @@ const NEW2D = [
 /* ---------- 3D chase levels ---------- */
 const ALL3D = ['bar', 'wall', 'gap', 'mover', 'spikes', 'roller'];
 const L3D = [
-  { kind: '3d', name: 'فرار از غول', theme: 'dusk', len: 560, giants: 1, speed: 14, gap: 24, types: [], noObst: true, zig: 0.55, seed: 1 },
-  { kind: '3d', name: 'جنگل غول', theme: 'forest', len: 820, giants: 1, speed: 15, gap: 22, gs: 0.965, types: ['bar', 'wall', 'gap'], dens: 0.65, seed: 2 },
-  { kind: '3d', name: 'بیابان لرزان', theme: 'desert', len: 1000, giants: 2, speed: 16, gap: 22, gs: 0.97, types: ['bar', 'wall', 'gap', 'mover'], dens: 0.75, seed: 3 },
-  { kind: '3d', name: 'کوه یخی', theme: 'snow', len: 1200, giants: 3, speed: 16.5, gap: 21, gs: 0.972, types: ['bar', 'wall', 'gap', 'mover', 'spikes'], dens: 0.85, zig: 0.12, seed: 4 },
-  { kind: '3d', name: 'رود آتش', theme: 'lava', len: 1400, giants: 5, speed: 17, gap: 21, gs: 0.975, types: ALL3D, dens: 0.9, zig: 0.1, seed: 5 },
-  { kind: '3d', name: 'شب بی‌پایان', theme: 'night', len: 1600, giants: 8, speed: 17.5, gap: 20, gs: 0.978, types: ALL3D, dens: 1, zig: 0.12, seed: 6 },
-  { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 1850, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
-  { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 2150, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
-  { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 3600, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
+  { kind: '3d', name: 'فرار از غول', theme: 'dusk', len: 1300, giants: 1, speed: 14, gap: 24, types: [], noObst: true, zig: 0.55, seed: 1 },
+  { kind: '3d', name: 'جنگل غول', theme: 'forest', len: 1800, giants: 1, speed: 15, gap: 22, gs: 0.965, types: ['bar', 'wall', 'gap'], dens: 0.65, seed: 2 },
+  { kind: '3d', name: 'بیابان لرزان', theme: 'desert', len: 2200, giants: 2, speed: 16, gap: 22, gs: 0.97, types: ['bar', 'wall', 'gap', 'mover'], dens: 0.75, seed: 3 },
+  { kind: '3d', name: 'کوه یخی', theme: 'snow', len: 2600, giants: 3, speed: 16.5, gap: 21, gs: 0.972, types: ['bar', 'wall', 'gap', 'mover', 'spikes'], dens: 0.85, zig: 0.12, seed: 4 },
+  { kind: '3d', name: 'رود آتش', theme: 'lava', len: 3000, giants: 5, speed: 17, gap: 21, gs: 0.975, types: ALL3D, dens: 0.9, zig: 0.1, seed: 5 },
+  { kind: '3d', name: 'شب بی‌پایان', theme: 'night', len: 3400, giants: 8, speed: 17.5, gap: 20, gs: 0.978, types: ALL3D, dens: 1, zig: 0.12, seed: 6 },
+  { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 3800, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
+  { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 4400, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
+  { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 6000, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
 ];
 
 /* ---------- 7 more hand-made levels (replace the old mirrored copies) ---------- */
@@ -962,6 +962,142 @@ const LEVELS = [
   MORE2D[0], MORE2D[1], MORE2D[2], MORE2D[3], L3D[7], MORE2D[4], MORE2D[5], MORE2D[6], L2D[15], L3D[8],
 ];
 const PORTAL_LEVEL = 36; // level 37 holds the secret portal
+/* ============================ LONGER LEVELS: ROOMS ============================ */
+// Every platformer level is a chain of rooms (screens). Room 1 is the hand-made screen of the level;
+// the following rooms are built from a library of trap segments that matches the level's theme, getting
+// harder towards the end of the game. Dying sends you back to the start of the current room (checkpoint).
+// Room seeds were checked with the auto-solver on easy and insane; ROOM_SEED_FIX holds seeds swapped in
+// where the first seed produced an unsolvable layout.
+const ROOM_SEED_FIX = {};
+
+/* segment library: each builds a feature starting at column x using at most m columns and returns the
+   columns used (0 = does not fit). F(x, w) registers plain floor that is merged into long blocks later. */
+const SEG = {
+  pit(L, x, m, r, k, id, F, o) { const w = 2 + Math.floor(r() * (2 + k * 1.6)) + (o.dj ? 2 : 0); if (w > m) return 0; L.spikes(null, x, 17, w, 'up'); return w; },
+  spikes(L, x, m, r, k, id, F) { const n = 1 + (r() < .35 + k * .4 ? 1 : 0); if (n + 1 > m) return 0; F(x, n + 1); L.spikes(null, x, 14, n, 'up'); return n + 1; },
+  hidden(L, x, m, r, k, id, F) {
+    const n = 1 + (r() < .5 ? 1 : 0); if (n + 2 > m) return 0;
+    F(x, n + 2); L.spikes(id, x + 1, 14, n, 'up', { hidden: true }); L.trig(x - .5, 13.5, .5, 1.5, () => L.pop(id), { ground: true }); return n + 2;
+  },
+  drop(L, x, m, r, k, id) {
+    const w = 2 + Math.floor(r() * (1.5 + k)); if (w > m) return 0;
+    L.spikes(null, x, 17, w, 'up'); L.block(id, x, 15, w, 3, { fallV: 200 });
+    L.trig(x + .05, 14, .6, 1, () => { L.fall(id, .05); L.sfx('rumble'); }, { ground: true }); return w;
+  },
+  crumble(L, x, m, r, k, id) {
+    const n = 2 + (r() < k ? 1 : 0), w = n * 4 + 2; if (w > m) return 0;
+    L.spikes(null, x, 17, w, 'up');
+    for (let i = 0; i < n; i++) L.block(null, x + 2 + i * 4, 14, 2, .5, { crumble: .5 - k * .1 });
+    return w;
+  },
+  saw(L, x, m, r, k, id, F) {
+    const w = 5 + Math.floor(r() * 2); if (w > m) return 0;
+    F(x, w); L.saw(id, x + 1, 14.35, .6, { patrol: [[x + .8, 14.35], [x + w - .8, 14.35]], speed: 2.4 + k * 1.8 }); return w;
+  },
+  wall(L, x, m, r, k, id, F) {
+    if (5 > m) return 0; F(x, 5); L.block(null, x + 1.5, 13, 2, 2);
+    if (k > .45) { L.spikes(id, x + 2, 12, 1, 'up', { hidden: true }); L.trig(x + 1.5, 11.5, 2, 1.5, () => L.pop(id), { ground: true }); }
+    return 5;
+  },
+  crusher(L, x, m, r, k, id, F) {
+    if (5 > m) return 0; F(x, 5);
+    L.block(null, x, 0, 5, 2.5, { ceil: true });
+    L.block(id, x + 1.5, 2.5, 2, 2, { fallV: 150 }); L.spikes(null, x + 1.5, 4.5, 2, 'down', { parent: id });
+    L.trig(x - .7, 2.5, .5, 12.5, () => { L.fall(id, .3); L.sfx('rumble'); }); return 5;
+  },
+  spring(L, x, m, r, k, id, F) {
+    if (7 > m) return 0; F(x, 7); L.spring(null, x + .8, 14); L.block(null, x + 3.6, 9, 2, 6); return 7;
+  },
+  orbit(L, x, m, r, k, id) {
+    if (7 > m) return 0; L.spikes(null, x, 17, 7, 'up'); L.block(null, x + 2.5, 13.5, 2, .6);
+    L.saw(id, x + 3.5, 11.6, .5, { orbit: { rad: 2.1, w: (2 + k) * (r() < .5 ? 1 : -1), ph: r() * 6.28 } }); return 7;
+  },
+  laser(L, x, m, r, k, id, F) {
+    if (4 > m) return 0; F(x, 4); L.laser(id, x + 2, 8.5, 6.5, 'v', { on: .9 + k * .3, off: 1.5 - k * .3, ph: r() * 2 }); return 4;
+  },
+  ice(L, x, m, r, k, id) { if (6 > m) return 0; L.block(null, x, 15, 6, 3, { ice: true }); L.spikes(null, x + 3, 14, 1, 'up'); return 6; },
+  conveyor(L, x, m, r, k, id) { if (6 > m) return 0; L.block(null, x, 15, 6, 3, { conv: -(2.5 + k * 1.5) }); L.spikes(null, x + 3, 14, 1, 'up'); return 6; },
+  ghost(L, x, m, r, k, id) { const w = 2 + Math.floor(r() * 2); if (w > m) return 0; L.spikes(null, x, 17, w, 'up'); L.block(null, x, 15, w, 3, { ghost: true }); return w; },
+  bump(L, x, m, r, k, id, F) {
+    if (6 > m) return 0; F(x, 6); L.spikes(null, x + 3, 14, 1, 'up');
+    L.block(id, x + 2.5, 10.5, 2, 1, { hidden: true }); L.trig(x + 2, 11.5, 3, 1.2, () => L.pop(id), { rising: true }); return 6;
+  },
+  fallSpikes(L, x, m, r, k, id, F) {
+    if (6 > m) return 0; F(x, 6); L.block(null, x, 0, 6, 2, { ceil: true }); L.spikes(id, x + 3, 2, 2, 'down');
+    L.trig(x - 1.2, 2, .5, 13, () => { L.fall(id, .1); L.sfx('crack'); }); return 6;
+  },
+  movingPlat(L, x, m, r, k, id) {
+    const w = 7 + (k > .5 ? 1 : 0); if (w > m) return 0; L.spikes(null, x, 17, w, 'up');
+    L.block(id, x + 1, 14, 2, .6, { patrol: [[x + 1, 14], [x + w - 3, 14]], speed: 2 + k }); return w;
+  },
+  orbFlip(L, x, m, r, k, id, F) {
+    // flip onto the ceiling over a spike pit, hop one ceiling spike, flip back down and land on a long floor
+    const w = 8, land = 5; if (w + land > m) return 0;
+    L.block(null, x - .5, 0, w + 1, 3.5, { ceil: true }); L.spikes(null, x + 1, 17, w - 1, 'up');
+    F(x, 1); L.orb(id + 'a', x + .5, 14.4); L.spikes(null, x + 4, 3.5, 1, 'down'); L.orb(id + 'b', x + w - .5, 3.9);
+    F(x + w, land); return w + land;
+  },
+};
+// which segments each platformer level uses (by position in LEVELS), plus room-wide extras
+const ROOM_THEMES = {
+  0: { seg: ['pit', 'drop', 'spikes'] }, 2: { seg: ['hidden', 'spikes', 'pit'] }, 3: { seg: ['wall', 'pit', 'hidden'] },
+  5: { seg: ['crusher', 'pit', 'spikes'] }, 6: { seg: ['crumble', 'saw', 'pit'] }, 7: { seg: ['spring', 'drop', 'spikes'] },
+  8: { seg: ['pit', 'spikes', 'drop'], wall: 4.6 }, 10: { seg: ['orbFlip', 'pit', 'spikes'] }, 11: { seg: ['pit', 'saw', 'hidden'], dark: true },
+  12: { seg: ['ghost', 'bump', 'pit'] }, 13: { seg: ['pit', 'spikes', 'hidden'], rev: true }, 15: { seg: ['fallSpikes', 'pit', 'spikes'] },
+  16: { seg: ['movingPlat', 'pit', 'ghost'] }, 17: { seg: ['hidden', 'wall', 'spikes'] }, 18: { seg: ['saw', 'crusher', 'spikes'] },
+  20: { seg: ['wall', 'ghost', 'crumble'] }, 21: { seg: ['saw', 'orbit', 'pit'] }, 22: { seg: ['orbFlip', 'pit', 'hidden'] },
+  23: { seg: ['drop', 'crumble', 'pit'] }, 25: { seg: ['spring', 'hidden', 'spikes'] }, 26: { seg: ['movingPlat', 'saw', 'orbit'] },
+  27: { seg: ['spring', 'pit', 'hidden'], dark: true }, 28: { seg: ['pit', 'spikes'], wall: 4.2, rev: true }, 30: { seg: ['ice', 'pit', 'spikes'] },
+  31: { seg: ['conveyor', 'pit', 'saw'] }, 32: { seg: ['crusher', 'fallSpikes', 'pit'] }, 33: { seg: ['orbit', 'movingPlat', 'pit'] },
+  35: { seg: ['movingPlat', 'crumble', 'saw'] }, 36: { seg: ['spring', 'hidden', 'drop'] }, 37: { seg: ['crumble', 'drop', 'pit', 'saw'] },
+  38: { seg: ['hidden', 'drop', 'crusher', 'saw', 'crumble', 'ghost', 'bump', 'fallSpikes'] },
+};
+const REALM_THEME = { seg: ['laser', 'movingPlat', 'orbit', 'pit', 'ice', 'conveyor', 'laser'], dj: true };
+
+function genRoom(theme, seed, k, extra = {}) {
+  const o = Object.assign({}, theme, extra);
+  return { spawn: [1, 14], dark: !!o.dark, gen: true, seed, remake: sd => genRoom(theme, sd, k, extra), build(L) {
+    const r = srand(seed * 9973 + 7), floors = [];
+    const F = (x, w) => floors.push([x, x + w]);
+    F(0, 3);
+    let x = 3, i = 0, tries = 0;
+    const END = 27.5;
+    while (x < END - 3 && tries++ < 40) {
+      const name = o.seg[Math.floor(r() * o.seg.length)];
+      const pad = 1 + (r() < .45 ? 1 : 0);
+      const used = SEG[name](L, x + pad, END - (x + pad), r, k, 'g' + i, F, o);
+      if (!used) continue;
+      F(x, pad); x += pad + used; i++;
+    }
+    F(x, 32 - x);
+    // merge plain floor pieces into long blocks
+    floors.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const f of floors) { const lst = merged[merged.length - 1]; if (lst && f[0] <= lst[1] + 1e-6) lst[1] = Math.max(lst[1], f[1]); else merged.push(f.slice()); }
+    for (const [a, b] of merged) L.block(null, a, 15, b - a, 3);
+    if (o.wall) { L.block('cw', -7, 0, 6, 15); L.spikes(null, -1, 0, 15, 'right', { parent: 'cw' }); L.trig(3.5, 2, .5, 13, () => { L.move('cw', 27, 0, o.wall + k, 0.4); L.sfx('rumble'); L.shake(6); L.say('فرار کن!'); }); }
+    if (o.rev) { L.trig(4.5, 2, .5, 13, () => { L.reverse(true); L.say('کنترل‌ها برعکس شد!'); }); L.trig(27.2, 2, .5, 13, () => L.reverse(false)); }
+    L.door(29.6, 13);
+  }};
+}
+// attach rooms: early levels 3 rooms, middle 4, late 5; hidden realm 4 each
+LEVELS.forEach((def, idx) => {
+  if (def.kind === '3d') return;
+  const th = ROOM_THEMES[idx]; if (!th) return;
+  const n = idx < 10 ? 3 : idx < 20 ? 4 : 5;
+  def.rooms = [def];
+  for (let room = 1; room < n; room++) {
+    const key = idx + ':' + room, seed = ROOM_SEED_FIX[key] ?? (idx * 100 + room);
+    def.rooms.push(genRoom(th, seed, clamp(idx / 39 + room * .07, 0, 1)));
+  }
+});
+REALM.forEach((def, ri) => {
+  def.rooms = [def];
+  for (let room = 1; room < 4; room++) {
+    const key = 'r' + ri + ':' + room, seed = ROOM_SEED_FIX[key] ?? (5000 + ri * 100 + room);
+    def.rooms.push(genRoom(REALM_THEME, seed, clamp(.75 + ri * .1 + room * .04, 0, 1), { dark: ri === 2 && room === 3 }));
+  }
+});
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
   constructor(def, world) {
@@ -1030,6 +1166,7 @@ class World {
   constructor(idx, opt = {}) {
     this.idx = typeof idx === 'number' ? idx : -1; this.def = typeof idx === 'number' ? LEVELS[idx] : idx; this.silent = !!opt.silent;
     this.dj = !!this.def.dj; this.winKind = 'door';
+    this.rooms = this.def.rooms || [this.def]; this.room = clamp(opt.room || 0, 0, this.rooms.length - 1);
     this.d = clamp(opt.diff ?? 1, 0, DIFFS.length - 1); this.D = DIFFS[this.d];
     this.parts = []; this.shakeA = 0; this.flash = 0; this.time = 0; this.lightning = 0; this.lightT = 3;
     this.respawn(true);
@@ -1037,8 +1174,9 @@ class World {
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
     this.rev = false;
-    this.lv = new Level(this.def, this);
-    const [sx, sy] = this.def.spawn;
+    this.rdef = this.rooms[this.room]; this.dark = !!(this.rdef.dark ?? this.def.dark);
+    this.lv = new Level(this.rdef, this);
+    const [sx, sy] = this.rdef.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
       jumpHeld: true, jumping: false, sx: 1, sy: 1, runPhase: 0, dustT: 0, winS: 1, rot: 0, blink: 2, landV: 0, air2: false };
     this.state = 'play';
@@ -1079,7 +1217,7 @@ class World {
     if (this.silent) this.parts.length = 0;
     this.shakeA = Math.max(0, this.shakeA - dt * 40);
     this.flash = Math.max(0, this.flash - dt * 2.5);
-    if (this.def.dark) { this.lightT -= dt; if (this.lightT <= 0) { this.lightning = 1; this.lightT = rand(2.6, 4.2); this.sfx('thunder'); } this.lightning = Math.max(0, this.lightning - dt * 3.2); }
+    if (this.dark) { this.lightT -= dt; if (this.lightT <= 0) { this.lightning = 1; this.lightT = rand(2.6, 4.2); this.sfx('thunder'); } this.lightning = Math.max(0, this.lightning - dt * 3.2); }
   }
 
   updEnt(e, dt) {
@@ -1315,8 +1453,10 @@ class World {
     this.shake(16); this.sfx('die');
     if (this.onDeath) this.onDeath(cause);
   }
+  nextRoom() { if (this.room < this.rooms.length - 1) { this.room++; this.respawn(true); } }
   win(door, kind = 'door') {
     if (this.state !== 'play') return;
+    if (kind === 'door' && this.room < this.rooms.length - 1) kind = 'room';
     this.state = 'win'; this.winT = 0; this.winDoor = door; this.winFired = false; this.winKind = kind;
     this.sfx('win'); this.burst(door.x + door.w / 2, door.y + door.h / 2, 40, { col: '#ffe08a', sp: 320, life: .9, add: true, size: 3 });
   }
@@ -1869,7 +2009,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   drawPlayer(world, t);
   drawParticles(world);
-  if (world.def.dark) drawDark(world, t);
+  if (world.dark) drawDark(world, t);
 }
 function drawOverlays(world, t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2304,7 +2444,8 @@ class Run3D {
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
     this.checkpoints = [];
-    if (this.DD.ck && this.len >= 900) { const n = this.len >= 2000 ? 4 : 3; for (let i = 1; i < n; i++) this.checkpoints.push(Math.round(this.len * i / n)); }
+    // insane: no checkpoints on short runs, a single one halfway on the very long ones (3800 m and up)
+    { const step = [700, 700, 750, 1500, 2500][this.d], n = this.d === 4 ? Math.round(this.len / step) : Math.max(2, Math.round(this.len / step)); for (let i = 1; i < n; i++) this.checkpoints.push(Math.round(this.len * i / n)); }
     this.ckS = 0; this.firstIntro = true;
     this.time = 0; this.shake = 0; this.flash = 0;
     if (!this.noScene) this.buildScene();
@@ -3007,7 +3148,7 @@ class P3D {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
     const RP = Run3D.prototype, def = world.def;
-    this.realm = !!def.realm; this.dark = !!def.dark;
+    this.realm = !!def.realm; this.dark = !!world.dark;
     const sc = this.scene = new THREE.Scene();
     const sk = PAL.skyCol, fogC = this.realm ? 0x0a0320 : this.dark ? 0x05030c : hexNum(sk('#3a1c5e'));
     sc.fog = new THREE.Fog(fogC, this.dark ? 16 : 34, this.dark ? 46 : 110);
@@ -3323,7 +3464,7 @@ const ACH = [
   ['d50', '💀', 'سرسخت', '۵۰ بار بمیر و ادامه بده'],
   ['d500', '☠️', 'خستگی‌ناپذیر', '۵۰۰ بار بمیر'],
   ['insane', '🔥', 'دیوانه', 'یه مرحله رو روی دیوانه‌وار ببر'],
-  ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو زیر ۶ ثانیه تموم کن'],
+  ['speed', '⚡', 'برق‌آسا', 'یه مرحله‌ی سکوبازی رو با میانگین زیر ۸ ثانیه برای هر اتاق تموم کن'],
   ['stars', '⭐', 'ستاره‌باران', '۶۰ ستاره جمع کن (در یک سطح سختی)'],
   ['modes', '🎮', 'همه‌کاره', 'توی هر چهار حالت بازی یه مرحله رو ببر'],
 ];
@@ -3395,6 +3536,10 @@ const app = {
     const b = this.state === 'pause' ? 'sPause' : this.state === 'end' ? 'sEnd' : 'sTitle';
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
+  updTag() {
+    const w = this.kind === 'plat' && this.world, rm = w && w.rooms.length > 1 ? ` · اتاق ${faNum(w.room + 1)}/${faNum(w.rooms.length)}` : '';
+    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : rm);
+  },
   label() { return this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i) { this.realmIdx = -1; this.idx = i; this.startDef(LEVELS[i]); },
   startRealm(r) { this.realmIdx = r; this.startDef(REALM[r]); },
@@ -3411,13 +3556,13 @@ const app = {
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
     tLayer.classList.toggle('vert', v === 'r2');
     if (v === 'r2') setTimeout(() => this.taunt(isTouch ? '▲ ▼ = جابه‌جایی بالا و پایین جاده' : '← → = جابه‌جایی بالا و پایین جاده', '#9ef9ff'), 2300);
-    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : '');
+    this.updTag();
     this.updDeaths();
     if (this.kind === 'plat') {
       const w = this.world = new World(def, { diff: this.diff });
       w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
-      $('r3hud').classList.remove('on');
+      $('r3hud').classList.remove('on'); this.updTag();
     } else {
       const run = this.run = new Run3D(def, this.diff, { noScene: v !== 'x3' });
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };
@@ -3428,7 +3573,8 @@ const app = {
     }
     resize3();
     $('banner').classList.toggle('low', this.kind === 'run');
-    $('bSmall').textContent = this.label() + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
+    const size = def.rooms && def.rooms.length > 1 ? ` · ${faNum(def.rooms.length)} اتاق` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
+    $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
@@ -3467,10 +3613,25 @@ const app = {
     this.taunt('وارد ابعاد پنهان شدی! 🌀', '#c59bff'); Sound.play('orb');
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
+  nextRoom() {
+    const w = this.world, d = w.winDoor, flat = this.view === 'p2' || this.view === 'p25';
+    const go = () => {
+      w.nextRoom();
+      if (this.p3) { this.p3.dispose(); this.p3 = new P3D(w); }
+      this.updTag(); $('revBadge').classList.remove('on');
+      this.taunt(`اتاق ${faNum(w.room + 1)} از ${faNum(w.rooms.length)}` + (w.room === w.rooms.length - 1 ? ' — آخرین اتاق!' : ''), '#9ef9ff');
+      if (flat) startTrans('open', .45, null, w.p.x + PW / 2, w.p.y + PHT / 2); else $('fade').classList.remove('on');
+      Sound.play('spawn'); Perf.reset(1); this.dirty = true;
+    };
+    if (flat) startTrans('close', .42, go, d.x + d.w / 2, d.y + d.h / 2);
+    else { $('fade').classList.add('on'); setTimeout(go, 420); }
+  },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
+    if (this.kind === 'plat' && this.world && this.world.winKind === 'room') return this.nextRoom();
     const t = this.levelT, d = this.levelDeaths;
-    const stars = this.kind === 'run' ? (d === 0 ? 3 : d <= 2 ? 2 : 1) : (d <= 1 ? 3 : d <= 5 ? 2 : 1);
+    const nr = this.kind === 'plat' && this.world ? this.world.rooms.length : 1;
+    const stars = this.kind === 'run' ? (d === 0 ? 3 : d <= 2 ? 2 : 1) : (d <= nr ? 3 : d <= nr * 4 ? 2 : 1);
     ST.wins++;
     const modesWon = ST.modes || (ST.modes = {}); modesWon[CFG.mode] = 1; if (Object.keys(modesWon).length >= 4) unlockAch('modes');
     let next;
@@ -3493,7 +3654,7 @@ const app = {
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }
-    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && t < 6) unlockAch('speed');
+    if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && t < nr * 8) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const flat = v => v === 'p2' || v === 'p25';

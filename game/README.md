@@ -17,6 +17,7 @@ ARTIFACT_OUT=out.html python3 build.py   # also writes a variant without <html>/
 |---|---|
 | `src/05_settings.js` | settings persistence, graphics presets (Go … Max Ultra), adaptive resolution (`Perf`), light/mood presets, colour palettes |
 | `src/10_levels.js` | all level definitions: 2D platformer levels, 3D chase levels, hidden realm, final order |
+| `src/15_rooms.js` | longer levels: each platformer level is a chain of rooms (room 1 hand-made, later rooms generated from a themed trap-segment library; each room is a checkpoint) |
 | `src/20_world.js` | 2D platformer simulation (traps, physics, save/load snapshots) |
 | `src/40_render2d.js` | 2D canvas renderer: classic view and the 2.5D extruded view |
 | `src/45_views.js` | chase levels drawn in 2D (side view) and pseudo-3D (road) |

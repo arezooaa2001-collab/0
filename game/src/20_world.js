@@ -66,6 +66,7 @@ class World {
   constructor(idx, opt = {}) {
     this.idx = typeof idx === 'number' ? idx : -1; this.def = typeof idx === 'number' ? LEVELS[idx] : idx; this.silent = !!opt.silent;
     this.dj = !!this.def.dj; this.winKind = 'door';
+    this.rooms = this.def.rooms || [this.def]; this.room = clamp(opt.room || 0, 0, this.rooms.length - 1);
     this.d = clamp(opt.diff ?? 1, 0, DIFFS.length - 1); this.D = DIFFS[this.d];
     this.parts = []; this.shakeA = 0; this.flash = 0; this.time = 0; this.lightning = 0; this.lightT = 3;
     this.respawn(true);
@@ -73,8 +74,9 @@ class World {
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
     this.rev = false;
-    this.lv = new Level(this.def, this);
-    const [sx, sy] = this.def.spawn;
+    this.rdef = this.rooms[this.room]; this.dark = !!(this.rdef.dark ?? this.def.dark);
+    this.lv = new Level(this.rdef, this);
+    const [sx, sy] = this.rdef.spawn;
     this.p = { x: sx * T + (T - PW) / 2, y: (sy + 1) * T - PHT, w: PW, h: PHT, vx: 0, vy: 0, g: 1, face: 1, onGround: true, ground: null, coy: 0, buf: 0,
       jumpHeld: true, jumping: false, sx: 1, sy: 1, runPhase: 0, dustT: 0, winS: 1, rot: 0, blink: 2, landV: 0, air2: false };
     this.state = 'play';
@@ -115,7 +117,7 @@ class World {
     if (this.silent) this.parts.length = 0;
     this.shakeA = Math.max(0, this.shakeA - dt * 40);
     this.flash = Math.max(0, this.flash - dt * 2.5);
-    if (this.def.dark) { this.lightT -= dt; if (this.lightT <= 0) { this.lightning = 1; this.lightT = rand(2.6, 4.2); this.sfx('thunder'); } this.lightning = Math.max(0, this.lightning - dt * 3.2); }
+    if (this.dark) { this.lightT -= dt; if (this.lightT <= 0) { this.lightning = 1; this.lightT = rand(2.6, 4.2); this.sfx('thunder'); } this.lightning = Math.max(0, this.lightning - dt * 3.2); }
   }
 
   updEnt(e, dt) {
@@ -351,8 +353,10 @@ class World {
     this.shake(16); this.sfx('die');
     if (this.onDeath) this.onDeath(cause);
   }
+  nextRoom() { if (this.room < this.rooms.length - 1) { this.room++; this.respawn(true); } }
   win(door, kind = 'door') {
     if (this.state !== 'play') return;
+    if (kind === 'door' && this.room < this.rooms.length - 1) kind = 'room';
     this.state = 'win'; this.winT = 0; this.winDoor = door; this.winFired = false; this.winKind = kind;
     this.sfx('win'); this.burst(door.x + door.w / 2, door.y + door.h / 2, 40, { col: '#ffe08a', sp: 320, life: .9, add: true, size: 3 });
   }

@@ -277,15 +277,15 @@ const NEW2D = [
 /* ---------- 3D chase levels ---------- */
 const ALL3D = ['bar', 'wall', 'gap', 'mover', 'spikes', 'roller'];
 const L3D = [
-  { kind: '3d', name: 'فرار از غول', theme: 'dusk', len: 560, giants: 1, speed: 14, gap: 24, types: [], noObst: true, zig: 0.55, seed: 1 },
-  { kind: '3d', name: 'جنگل غول', theme: 'forest', len: 820, giants: 1, speed: 15, gap: 22, gs: 0.965, types: ['bar', 'wall', 'gap'], dens: 0.65, seed: 2 },
-  { kind: '3d', name: 'بیابان لرزان', theme: 'desert', len: 1000, giants: 2, speed: 16, gap: 22, gs: 0.97, types: ['bar', 'wall', 'gap', 'mover'], dens: 0.75, seed: 3 },
-  { kind: '3d', name: 'کوه یخی', theme: 'snow', len: 1200, giants: 3, speed: 16.5, gap: 21, gs: 0.972, types: ['bar', 'wall', 'gap', 'mover', 'spikes'], dens: 0.85, zig: 0.12, seed: 4 },
-  { kind: '3d', name: 'رود آتش', theme: 'lava', len: 1400, giants: 5, speed: 17, gap: 21, gs: 0.975, types: ALL3D, dens: 0.9, zig: 0.1, seed: 5 },
-  { kind: '3d', name: 'شب بی‌پایان', theme: 'night', len: 1600, giants: 8, speed: 17.5, gap: 20, gs: 0.978, types: ALL3D, dens: 1, zig: 0.12, seed: 6 },
-  { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 1850, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
-  { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 2150, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
-  { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 3600, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
+  { kind: '3d', name: 'فرار از غول', theme: 'dusk', len: 1300, giants: 1, speed: 14, gap: 24, types: [], noObst: true, zig: 0.55, seed: 1 },
+  { kind: '3d', name: 'جنگل غول', theme: 'forest', len: 1800, giants: 1, speed: 15, gap: 22, gs: 0.965, types: ['bar', 'wall', 'gap'], dens: 0.65, seed: 2 },
+  { kind: '3d', name: 'بیابان لرزان', theme: 'desert', len: 2200, giants: 2, speed: 16, gap: 22, gs: 0.97, types: ['bar', 'wall', 'gap', 'mover'], dens: 0.75, seed: 3 },
+  { kind: '3d', name: 'کوه یخی', theme: 'snow', len: 2600, giants: 3, speed: 16.5, gap: 21, gs: 0.972, types: ['bar', 'wall', 'gap', 'mover', 'spikes'], dens: 0.85, zig: 0.12, seed: 4 },
+  { kind: '3d', name: 'رود آتش', theme: 'lava', len: 3000, giants: 5, speed: 17, gap: 21, gs: 0.975, types: ALL3D, dens: 0.9, zig: 0.1, seed: 5 },
+  { kind: '3d', name: 'شب بی‌پایان', theme: 'night', len: 3400, giants: 8, speed: 17.5, gap: 20, gs: 0.978, types: ALL3D, dens: 1, zig: 0.12, seed: 6 },
+  { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 3800, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
+  { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 4400, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
+  { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 6000, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
 ];
 
 /* ---------- 7 more hand-made levels (replace the old mirrored copies) ---------- */
