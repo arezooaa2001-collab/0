@@ -1,7 +1,7 @@
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
-  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem']);
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem', 'pow']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -69,6 +69,8 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // shield / star bubble around the hero
+    this.bubble = new THREE.Mesh(keep(new THREE.SphereGeometry(.62, 20, 14)), keep(new THREE.MeshBasicMaterial({ color: 0x7af7ff, transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending }))); this.bubble.visible = false; sc.add(this.bubble);
     this.fogF = sc.fog.far; this.wx = new Wx3(sc, keep, [26, 12, 7], f => (H - (17.25 - f * 1.45) * T) / T);
     // particles
     const N = this.pN = 420; this.pPos = new Float32Array(N * 3); this.pCol = new Float32Array(N * 3);
@@ -113,6 +115,13 @@ class P3D {
     if (e.type === 'gem') {
       const g = new THREE.Group(), m = new THREE.Mesh(C('gemG', () => new THREE.OctahedronGeometry(.3, 0)), C('gemM', () => new THREE.MeshBasicMaterial({ color: 0x7af7ff }))); m.scale.y = 1.3; g.add(m);
       return { o: g, kind: 'gem', m };
+    }
+    if (e.type === 'pow') {
+      const g = new THREE.Group(), tex = C('powT' + e.kind, () => new THREE.CanvasTexture(powImg(e.kind)));
+      const s = new THREE.Sprite(C('powM' + e.kind, () => new THREE.SpriteMaterial({ map: tex, transparent: true }))); s.scale.set(.95, .95, 1); g.add(s);
+      const gl = new THREE.Mesh(C('plane', () => new THREE.PlaneGeometry(1, 1)), C('powG' + e.kind, () => new THREE.MeshBasicMaterial({ map: this.glowTex, color: hexNum(POWS[e.kind].col), transparent: true, opacity: .7, depthWrite: false, blending: THREE.AdditiveBlending })));
+      gl.scale.set(2.6, 2.6, 1); gl.position.z = -.05; g.add(gl);
+      return { o: g, kind: 'pow' };
     }
     if (e.type === 'dash') {
       const g = new THREE.Group(), m = new THREE.Mesh(this.unit, C('dashM', () => new THREE.MeshBasicMaterial({ color: 0xffb347 }))); m.scale.set(e.w / T, .12, 1.6); g.add(m);
@@ -230,6 +239,7 @@ class P3D {
       if (m.extra) m.extra.visible = !e.gone && !e.hidden;
       if (m.kind === 'cave') { o.visible = true; o.position.set(this.X(e.x) + m.cx, 5, -1.6); continue; }
       if (m.kind === 'zone') { o.visible = !!m.m && e.act; if (m.m) { o.position.set(this.X(e.x) + m.cx, this.Y(e.y) + m.cy, 0); m.m.material.opacity = .1 + Math.sin(t * 4) * .04; } continue; }
+      if (m.kind === 'pow') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .12, .4); continue; }
       if (m.kind === 'gem') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .1, .3); m.m.rotation.y = t * 2 + e.ph; continue; }
       if (m.kind === 'tele') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), .2); m.ring.rotation.z = t * (e.to ? 3 : -3); continue; }
       if (m.kind === 'dash') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h) + .06, 0); m.m.material.color.setHSL(.09, 1, .55 + Math.sin(t * 8) * .12); continue; }
@@ -268,9 +278,13 @@ class P3D {
     this.sync(t);
     // hero
     const h = this.hero, g = h.g, flip = p.g < 0;
-    g.visible = w.state !== 'dead';
+    g.visible = w.state !== 'dead' && !(p.inv > 0 && Math.floor(t * 18) % 2 === 0);
     const fx = this.X(p.x + PW / 2), fy = flip ? this.Y(p.y) : this.Y(p.y + PHT);
     g.position.set(fx, fy, 0);
+    { const bb = this.bubble, on = w.state === 'play' && (p.shield || p.starT > 0 || p.slowT > 0); bb.visible = on;
+      if (on) { bb.position.set(fx, fy + (flip ? -.45 : .45), .1); bb.scale.setScalar(1 + Math.sin(t * 5) * .04);
+        if (p.starT > 0) bb.material.color.setHSL((t * 1.5) % 1, 1, .6); else bb.material.color.set(p.shield ? 0x7af7ff : 0xb18cff);
+        bb.material.opacity = p.shield || p.starT > 0 ? .24 : .1; } }
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);

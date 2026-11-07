@@ -466,15 +466,17 @@ function drawLaser(e, t) {
 
 function drawPlayer(world, t) {
   const p = world.p; if (world.state === 'dead') return;
-  emitTrail(world, t);
+  emitTrail(world, t); drawPowFx(world, t, true);
+  if (p.inv > 0 && Math.floor(t * 18) % 2 === 0) { drawPowFx(world, t, false); return; }
   const g = p.g, cx = p.x + PW / 2, feet = g > 0 ? p.y + PHT : p.y;
   if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.28 * p.winS + .05) * Math.min(1, glowK()); ctx.drawImage(TEX.gWarm, cx - 70, p.y + PHT / 2 - 70, 140, 140); ctx.restore(); }
   ctx.save();
   ctx.translate(cx, feet); if (g < 0) ctx.scale(1, -1);
   if (world.state === 'win') { ctx.translate(0, -16); ctx.rotate(p.rot); ctx.scale(p.winS, p.winS); ctx.translate(0, 16); }
   ctx.scale(p.sx, p.sy);
-  drawHero(t, p.face, p.onGround, p.vx, p.vy * g, p.runPhase, p.blink, world.dj && !p.air2 && !p.onGround);
+  drawHero(t, p.face, p.onGround, p.vx, p.vy * g, p.runPhase, p.blink, (world.dj || p.jumpT > 0) && !p.air2 && !p.onGround);
   ctx.restore();
+  drawPowFx(world, t, false);
 }
 /* the character itself, drawn at the origin (feet at 0,0). Also used by the 2D chase views. */
 function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
@@ -600,6 +602,54 @@ function drawGem(e, t) {
   ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .35, -1); ctx.lineTo(0, 2); ctx.lineTo(-s * .35, -1); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
+/* power-ups: a glossy bubble with the power's icon (drawn once per kind, reused by the 3D view as a texture) */
+const POW_IMG = {}, POW_GLOW = { shield: 'gCyan', star: 'gGold', slow: 'gViolet', magnet: 'gRose', jump: 'gMint' };
+function powImg(k) {
+  if (POW_IMG[k]) return POW_IMG[k];
+  const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d'), P = POWS[k];
+  const gr = g.createRadialGradient(36, 32, 4, 48, 48, 44); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(.4, P.col); gr.addColorStop(1, mixHex(P.col, '#1a1030', .55));
+  g.fillStyle = gr; g.beginPath(); g.arc(48, 48, 43, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 4; g.stroke();
+  // vector icon (no emoji font needed)
+  g.translate(48, 50); g.fillStyle = '#fff'; g.strokeStyle = '#1a1030'; g.lineWidth = 3; g.lineJoin = 'round'; g.lineCap = 'round';
+  g.beginPath();
+  if (k === 'shield') { g.moveTo(0, -24); g.lineTo(20, -16); g.quadraticCurveTo(20, 10, 0, 24); g.quadraticCurveTo(-20, 10, -20, -16); g.closePath(); }
+  else if (k === 'star') for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 10 : 25; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  else if (k === 'slow') { g.moveTo(-15, -22); g.lineTo(15, -22); g.lineTo(2, 0); g.lineTo(15, 22); g.lineTo(-15, 22); g.lineTo(-2, 0); g.closePath(); }
+  else if (k === 'magnet') { g.moveTo(-18, -18); g.lineTo(-18, 4); g.arc(0, 4, 18, Math.PI, 0, true); g.lineTo(18, -18); g.lineTo(8, -18); g.lineTo(8, 4); g.arc(0, 4, 8, 0, Math.PI); g.lineTo(-8, -18); g.closePath(); }
+  else { for (const y of [-6, 12]) { g.moveTo(-18, y + 8); g.lineTo(0, y - 10); g.lineTo(18, y + 8); g.lineTo(10, y + 12); g.lineTo(0, y + 2); g.lineTo(-10, y + 12); g.closePath(); } }
+  g.closePath(); g.stroke(); g.fill();
+  if (k === 'magnet') { g.fillStyle = '#ff3d4a'; g.fillRect(-18, -18, 10, 7); g.fillRect(8, -18, 10, 7); }
+  if (k === 'slow') { g.fillStyle = P.col; g.beginPath(); g.moveTo(-9, 18); g.lineTo(9, 18); g.lineTo(0, 8); g.closePath(); g.fill(); }
+  return POW_IMG[k] = c;
+}
+function drawPow(e, t) {
+  const y = e.y + Math.sin(t * 3 + e.ph) * 5, s = e.r * 2.4 * (1 + Math.sin(t * 6 + e.ph) * .05);
+  if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .75; ctx.drawImage(TEX[POW_GLOW[e.kind]], e.x - s * 1.6, y - s * 1.6, s * 3.2, s * 3.2); ctx.restore(); }
+  ctx.drawImage(powImg(e.kind), e.x - s / 2, y - s / 2, s, s);
+  ctx.save(); ctx.translate(e.x, y); ctx.rotate(t * 2.2); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2; ctx.setLineDash([4, 7]); ctx.beginPath(); ctx.arc(0, 0, s * .66, 0, 7); ctx.stroke(); ctx.restore();
+}
+// shield bubble, star glow, sneaker wings, magnet ring, blink while invulnerable
+function drawPowFx(world, t, under) {
+  const p = world.p, cx = p.x + PW / 2, cy = p.y + PHT / 2, ending = k => p[k] > 0 && p[k] < 1.6 && Math.floor(t * 10) % 2 === 0;
+  if (under) {
+    if (p.magT > 0 && !ending('magT')) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(-t * 1.5); ctx.strokeStyle = 'rgba(255,93,138,.28)'; ctx.lineWidth = 2; ctx.setLineDash([10, 14]); ctx.beginPath(); ctx.arc(0, 0, 190, 0, 7); ctx.stroke(); ctx.restore(); }
+    if (p.starT > 0 && glowK() > 0 && !ending('starT')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .8 + Math.sin(t * 20) * .2; ctx.drawImage(TEX.gGold, cx - 80, cy - 80, 160, 160); ctx.restore(); }
+    if (p.starT > 0 && !world.silent && Math.random() < .5) world.parts.push({ x: cx + rand(-14, 14), y: cy + rand(-16, 16), vx: rand(-30, 30), vy: rand(-60, -10), life: .5, max: .5, size: 3, col: hslHex((t * 400 + Math.random() * 90) % 360, 1, .65), g: 0, drag: 1, add: true });
+    return;
+  }
+  if (p.shield) {
+    const r = 27 + Math.sin(t * 5) * 1.5;
+    ctx.save(); ctx.fillStyle = 'rgba(122,247,255,.13)'; ctx.strokeStyle = 'rgba(160,250,255,.75)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, r - 6, -2.4, -1.6); ctx.stroke(); ctx.restore();
+  }
+  if (p.jumpT > 0 && !ending('jumpT')) {
+    const flap = p.onGround ? 0 : Math.sin(t * 26) * .45, by = p.g > 0 ? p.y + PHT * .45 : p.y + PHT * .55;
+    ctx.save(); ctx.fillStyle = p.air2 ? 'rgba(232,255,246,.45)' : '#e8fff6'; ctx.strokeStyle = '#6ff3c4'; ctx.lineWidth = 1.5;
+    for (const s of [-1, 1]) { ctx.save(); ctx.translate(cx - p.face * 9, by); ctx.rotate(s * (.5 + flap) - p.face * .2); ctx.beginPath(); ctx.ellipse(s * 2, -9, 5, 11, 0, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore(); }
+    ctx.restore();
+  }
+}
 function drawFlag(e, t) {
   const x = e.x, top = e.y, h = e.h, on = e.on, wv = e.wave || 0;
   if (on && glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (.35 + wv * .5) * Math.min(1, glowK()); ctx.drawImage(TEX.gMint, x - 46, top - 30, 110, 110); ctx.restore(); }
@@ -618,6 +668,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   for (const e of ents) if (e.type === 'dash') drawDash(e, t);
   for (const e of ents) if (e.type === 'gem') drawGem(e, t);
+  for (const e of ents) if (e.type === 'pow' && !e.gone) drawPow(e, t);
   for (const e of ents) if (e.type === 'block' && !e.gone && !e.hidden && (e.pend || e.orbit)) drawTrack(e);
   if (hints) for (const e of ents) if (!e.gone && e.hidden && (e.type === 'spike' || e.type === 'block')) drawHint(e);
   for (const e of ents) if (!e.gone && !e.hidden && e.type === 'saw' && (e.patrol0 || e.orbit || e.pend)) drawTrack(e);
@@ -640,6 +691,10 @@ function drawOverlays(world, t) {
   if (world && world.rev) {
     const a = 0.35 + Math.sin(t * 6) * 0.15, b = 26 * dpr;
     ctx.fillStyle = `rgba(197,155,255,${a})`; ctx.fillRect(0, 0, cw, b * .35); ctx.fillRect(0, ch - b * .35, cw, b * .35); ctx.fillRect(0, 0, b * .35, ch); ctx.fillRect(cw - b * .35, 0, b * .35, ch);
+  }
+  if (world && world.p && world.p.slowT > 0) {
+    const a = Math.min(1, world.p.slowT * 2) * (.85 + Math.sin(t * 4) * .15), gr = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * .3, cw / 2, ch / 2, Math.max(cw, ch) * .7);
+    gr.addColorStop(0, 'rgba(120,90,255,0)'); gr.addColorStop(1, `rgba(120,90,255,${.32 * a})`); ctx.fillStyle = gr; ctx.fillRect(0, 0, cw, ch);
   }
   if (world && world.lightning > 0) { ctx.fillStyle = `rgba(210,200,255,${world.lightning * .12})`; ctx.fillRect(0, 0, cw, ch); }
   drawTransition();

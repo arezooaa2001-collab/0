@@ -90,6 +90,7 @@ const ACH = [
   ['allgems', '💠', 'جواهر کامل', 'همه‌ی جواهرهای یک مرحله‌ی سکوبازی رو جمع کن و ببر'],
   ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
   ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
+  ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
 function unlockAch(id) {
@@ -146,6 +147,7 @@ function hudTick() {
     const k = clamp((app.world.p.x + PW) / app.world.lw, 0, 1), q = Math.round(k * 200);
     if (q !== hudTick.pq) { hudTick.pq = q; $('pprog').firstChild.style.transform = `scaleX(${(q / 200).toFixed(3)})`; }
   }
+  if (app.kind === 'plat' && app.world && app.state !== 'title') { const p = app.world.p; if (p.shield) pw += '🛡️'; for (const k of ['star', 'slow', 'magnet', 'jump']) { const v = p[POWS[k].t]; if (v > 0) pw += ' ' + POWS[k].i + faNum(Math.ceil(v)); } }
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
   const fp = CFG.fps ? faNum(Perf.fpsShow) + ' FPS · ' + faNum(Math.round(Perf.dyn * 100)) + '٪' : '';
   s = tm + '|' + gm + '|' + pw + '|' + fp;
@@ -195,7 +197,7 @@ const app = {
       const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); };
-      w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
+      w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
     } else {
@@ -243,6 +245,7 @@ const app = {
   onPick(k) {
     if (k === 'gem') { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); return; }
     if (k === 'shieldUsed') { unlockAch('shield'); this.taunt('سپر نجاتت داد! 🛡️', '#8fd3ff'); return; }
+    if (k.startsWith('pow:')) { const P = POWS[k.slice(4)]; ST.pows = (ST.pows || 0) + 1; if (ST.pows >= 25) unlockAch('pow25'); this.taunt(`${P.i} ${P.n}! ${P.d}`, P.col); if (CFG.vib && navigator.vibrate) navigator.vibrate(25); return; }
     this.taunt({ shield: 'سپر گرفتی! 🛡️', boost: 'سرعت توربو! ⚡', freeze: 'غول‌ها یخ زدن! ❄️' }[k] || '', '#9ef9ff');
     Sound.play('spawn');
   },

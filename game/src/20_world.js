@@ -91,7 +91,7 @@ function secBuilder(L, sec, si, last) {
     if (c.parent) c.parent = pid(c.parent); if (c.fake) c.fake = pid(c.fake);
     return c;
   };
-  let building = true; const pend = [], gems = [];
+  let building = true, npw = 0; const pend = [], gems = [];
   const P = {
     d: L.d, D: L.D, w: L.w, sec,
     add(id, e) { e.x += ox * T; if (e.fake) e.fake = pid(e.fake); return L.add(pid(id), e); },
@@ -108,6 +108,7 @@ function secBuilder(L, sec, si, last) {
     tele: (id, x, y, to, o) => L.tele(pid(id), x + ox, y, pid(to), o),
     dash: (id, x, y, o) => L.dash(pid(id), x + ox, y, o),
     gem: (x, y) => gems.push([x + ox, y]),
+    pow: (x, y, kind) => L.add(pre + 'pw' + npw++, { type: 'pow', x: (x + ox) * T, y: y * T, w: 0, r: 15, kind, ph: npw }),
     trig: (x, y, w, h, fn, o) => L.trig(x + ox, y, w, h, () => fn(P, L.w), o),
     e: id => L.e(pid(id)),
     move: (id, dx, dy, sp, delay) => L.move(pid(id), dx, dy, sp, delay),
@@ -177,9 +178,9 @@ class World {
     this.time += dt;
     this.updAct();
     if (this.state === 'play') {
-      const lv = this.lv; lv.t += dt;
-      for (let i = lv.timers.length - 1; i >= 0; i--) { const tm = lv.timers[i]; tm.t -= dt; if (tm.t <= 0) { lv.timers.splice(i, 1); tm.fn(); } }
-      this.updateEntities(dt);
+      const lv = this.lv, edt = this.p.slowT > 0 ? dt * .45 : dt; lv.t += edt;
+      for (let i = lv.timers.length - 1; i >= 0; i--) { const tm = lv.timers[i]; tm.t -= edt; if (tm.t <= 0) { lv.timers.splice(i, 1); tm.fn(); } }
+      this.updateEntities(edt);
       if (this.state === 'play') this.updatePlayer(dt, inp);
       if (this.state === 'play') this.checkTriggers();
       if (this.state === 'play') this.checkHazards(dt);
@@ -297,6 +298,9 @@ class World {
       else if (e.kind === 'cave') this.cave = true;
     }
     if (p.dashT > 0) p.dashT -= dt;
+    for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
+    // last safe standing spot (for the shield's rescue from a fall)
+    const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) p.safe = [p.x, p.y, p.g];
     const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     const onIce = p.onGround && p.ground && p.ground.ice;
     if (p.onGround) p.air2 = false;
@@ -304,7 +308,7 @@ class World {
       p.face = dir;
       let acc = p.onGround ? (onIce ? 900 : PH.accG) : PH.accA;
       if (Math.sign(p.vx) !== dir && p.vx !== 0) acc *= onIce ? 0.9 : 1.7;
-      const mx = PH.run * (p.dashT > 0 ? 1.9 : 1);
+      const mx = PH.run * (p.dashT > 0 ? 1.9 : 1) * (p.starT > 0 ? 1.22 : 1);
       p.vx = clamp(p.vx + dir * acc * dt, -mx, mx);
     } else {
       const f = (p.onGround ? (onIce ? 210 : PH.fric) : PH.fric * 0.45) * dt;
@@ -319,7 +323,7 @@ class World {
       p.sx = 0.72; p.sy = 1.3; this.sfx('jump');
       for (let k = 0; k < 7; k++) this.parts.push(this.mkPart(p.x + PW / 2, g > 0 ? p.y + PHT : p.y, { col: '#b8acdf', sp: 90, life: .35, size: rand(2, 4), g: 200 * g, up: g > 0 }));
     }
-    else if (this.dj && p.buf > 0 && !p.air2 && !p.onGround && p.coy <= 0) {
+    else if ((this.dj || p.jumpT > 0) && p.buf > 0 && !p.air2 && !p.onGround && p.coy <= 0) {
       p.vy = -PH.jump * 0.92 * g; p.buf = 0; p.air2 = true; p.jumping = true; p.sx = 0.75; p.sy = 1.25; this.sfx('spring');
       this.parts.push({ x: p.x + PW / 2, y: g > 0 ? p.y + PHT : p.y, vx: 0, vy: 0, life: .35, max: .35, size: 0, col: '#9ef9dc', g: 0, drag: 0, ring: true });
       for (let k = 0; k < 8; k++) this.parts.push(this.mkPart(p.x + PW / 2, g > 0 ? p.y + PHT : p.y, { col: '#9ef9dc', sp: 110, life: .4, size: rand(2, 3.5), g: 120 * g, add: true }));
@@ -404,7 +408,9 @@ class World {
           p.x = d.x + (d.w - PW) / 2; p.y = d.y + d.h - PHT - 2; e.cd = d.cd = .6; this.sfx('orb'); this.actX = -1e9;
           this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#c59bff', sp: 200, life: .45, add: true, size: 3 }); } }
       }
+      else if (e.type === 'pow') { if (!this.silent && circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) this.grabPow(e); }
       else if (e.type === 'gem') {
+        if (p.magT > 0) { const dx = p.x + PW / 2 - e.x, dy = p.y + PHT / 2 - e.y, d = Math.hypot(dx, dy); if (d < 190 && d > 1) { const s = Math.min(d, (260 + (190 - d) * 4) * dt); e.x += dx / d * s; e.y += dy / d * s; } }
         if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) { e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(); }
       }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
@@ -473,8 +479,28 @@ class World {
     }
   }
 
+  grabPow(e) {
+    const p = this.p, P = POWS[e.kind]; e.gone = true; this.sfx('orb');
+    this.burst(e.x, e.y, 26, { col: P.col, sp: 260, life: .6, add: true, size: 3 });
+    this.parts.push({ x: e.x, y: e.y, vx: 0, vy: 0, life: .45, max: .45, size: 0, col: P.col, g: 0, drag: 0, ring: true });
+    if (e.kind === 'shield') p.shield = true; else p[P.t] = P.dur;
+    if (this.onPick) this.onPick('pow:' + e.kind);
+  }
+  // shield or star: hazards don't kill. Falls and crushes still do (the shield even rescues from a fall)
+  saved(cause) {
+    const p = this.p;
+    if (cause === 'crush') return false;
+    if ((p.starT > 0 || p.inv > 0) && cause !== 'fall') return true;
+    if (!p.shield || cause === 'fall' && !p.safe) return false;
+    p.shield = false; p.inv = 1.5; this.shake(8); this.sfx('orb'); this.flash = .5;
+    this.burst(p.x + PW / 2, p.y + PHT / 2, 30, { col: '#7af7ff', sp: 320, life: .6, add: true, size: 3 });
+    if (cause === 'fall') { [p.x, p.y, p.g] = p.safe; p.vx = 0; p.vy = 0; p.onGround = false; p.ground = null; this.actX = -1e9; }
+    else { p.vy = -PH.jump * 1.05 * p.g; p.onGround = false; p.ground = null; p.jumping = false; }
+    if (this.onPick) this.onPick('shieldUsed');
+    return true;
+  }
   die(cause) {
-    if (this.state !== 'play') return;
+    if (this.state !== 'play' || this.saved(cause)) return;
     const p = this.p; this.state = 'dead'; this.deadT = 0.95; this.flash = 1;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
     this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });

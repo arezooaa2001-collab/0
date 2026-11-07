@@ -8,6 +8,18 @@ const TOP_MIN = 10, TOP_MAX = 15, CHUNK = 5;
 // chunk seeds replaced after checking every chunk with the auto-solver (easy + insane)
 const CHUNK_FIX = {'L18:4': 2904, 'L12:2': 4302, 'L25:8': 3608, 'L16:6': 9706, 'L30:2': 4102, 'L30:6': 5106, 'L33:9': 7409, 'L32:2': 7302, 'L37:9': 4809, 'R0:7': 51007, 'L35:6': 4606, 'L35:7': 4607, 'L35:8': 8608, 'R2:2': 51202};
 
+/* ============================ POWER-UPS (2D levels) ============================ */
+// t = timer field on the player, dur = seconds. The shield lasts until it saves you once.
+const POWS = {
+  shield: { i: '🛡️', n: 'سپر', d: 'یه بار از مرگ نجاتت می‌ده', col: '#7af7ff', t: 'shield' },
+  star: { i: '⭐', n: 'ستاره', d: 'شکست‌ناپذیر و سریع‌تر', col: '#ffd36e', t: 'starT', dur: 7 },
+  slow: { i: '⏳', n: 'زمان کند', d: 'تله‌ها آهسته می‌شن', col: '#b18cff', t: 'slowT', dur: 7 },
+  magnet: { i: '🧲', n: 'آهن‌ربا', d: 'جواهرها میان سمتت', col: '#ff5d8a', t: 'magT', dur: 12 },
+  jump: { i: '👟', n: 'کفش فنری', d: 'پرش دوبل', col: '#6ff3c4', t: 'jumpT', dur: 14 },
+};
+const POW_T = ['starT', 'slowT', 'magT', 'jumpT', 'inv'];
+const POW_KEYS = Object.keys(POWS);
+
 /* ---------- obstacle catalogue ----------
    fam: family; lvl: unlocks at this level progress (0..1); df: base difficulty 1..3; can(t): needs floor top t;
    need: 'grav' | 'ice' | 'conv' | 'laser'; wait: needs waiting/timing (left out of chase levels);
@@ -534,6 +546,8 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
       }
       const pad = 1 + (r() < .35 ? 1 : 0) + (opt.k0 < .15 ? 1 : 0) + (i > 0 && KINDS[keys[i - 1]].launch ? 2 : 0);
       G.F(G.x, pad); G.x += pad;
+      // every second chunk has a power-up on the pad before its third obstacle (no random draw, so layouts stay the same)
+      if (i === 2 && ci % 2 === 1) { const ks = POW_KEYS.filter(k => k !== 'jump' || !opt.dj); P.pow(G.x - pad / 2, G.t - .55, ks[((ci - 1) / 2 + Math.floor(Math.abs(Math.sin(opt.seed * 12.9898) * 43758.5453))) % ks.length]); }
       const gx = G.x, gt = G.t;
       kd.build(G);
       P.gem((gx + G.x) / 2, Math.min(gt, G.t) - 2.6);
