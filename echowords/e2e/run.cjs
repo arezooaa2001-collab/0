@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۴/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۵/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -522,6 +522,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.bubble.assistant.error', { hasText: 'کلید Gemini یا ChatGPT' }).waitFor({ timeout: 5000 });
   check('tutor always has a text box (explains in the chat when no AI is set up)', true);
   await page.getByRole('button', { name: /رفتن به تنظیمات/ }).click();
+  await page.locator('.ai-settings .chip', { hasText: 'Gemini' }).click();
   await page.locator('input[type=password]').fill('test-gemini-key');
   await page.getByRole('button', { name: /ذخیره کلید/ }).click();
   await page.getByRole('button', { name: /معلم/ }).click();
@@ -580,7 +581,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /معلم/ }).click();
   const t0b = Date.now();
   await page.getByRole('button', { name: '«سیب» به انگلیسی چی میشه؟' }).click();
-  await page.locator('.bubble.assistant.error', { hasText: 'جواب از هوش مصنوعی نیامد' }).waitFor({ timeout: 15000 });
+  await page.locator('.bubble.assistant.error', { hasText: 'سرور هوش مصنوعی جواب نداد' }).waitFor({ timeout: 15000 });
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
   await page.locator('.tutor-input textarea').fill('سلام');
   await page.getByRole('button', { name: /بفرست/ }).click();
@@ -645,6 +646,65 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('the translation is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('سیب') || x.includes('apple'))));
   await page.getByRole('button', { name: /بستن دوربین/ }).first().click();
   await ctxV.close();
+
+  // 13d. The real reason for failures; models that refuse settings; a custom service
+  const whyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-why-'));
+  const ctxW = await chromium.launchPersistentContext(whyDir, { viewport: { width: 412, height: 900 }, reducedMotion: 'reduce' });
+  const wCors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
+  let oaMode = 'quota';
+  const oaBodies = [];
+  await ctxW.route('https://api.openai.com/**', (r) => {
+    if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: wCors });
+    const body = JSON.parse(r.request().postData() || '{}');
+    oaBodies.push(body);
+    const json = (status, obj) => r.fulfill({ status, headers: wCors, contentType: 'application/json', body: JSON.stringify(obj) });
+    if (oaMode === 'quota') return json(429, { error: { message: 'You exceeded your current quota, please check your plan and billing details.', code: 'insufficient_quota' } });
+    if (oaMode === 'badkey') return json(401, { error: { message: 'Incorrect API key provided: sk-wrong.', code: 'invalid_api_key' } });
+    if (oaMode === 'region') return json(403, { error: { message: 'Country, region, or territory not supported', code: 'unsupported_country_region_territory' } });
+    // 'picky': a newer model that refuses max_tokens and temperature
+    if ('max_tokens' in body) return json(400, { error: { message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead." } });
+    if ('temperature' in body) return json(400, { error: { message: "Unsupported value: 'temperature' does not support 0.4 with this model." } });
+    return json(200, { choices: [{ message: { content: '{"reply":"سلام! من آماده‌ام.","items":[]}' } }] });
+  });
+  await ctxW.route('https://ai.example.test/**', (r) => {
+    if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: wCors });
+    return r.fulfill({ status: 200, headers: wCors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{"reply":"سلام از سرویس دلخواه!","items":[]}' } }] }) });
+  });
+  page = ctxW.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.locator('.ai-settings .chip', { hasText: 'ChatGPT' }).click();
+  await page.locator('.ai-key').fill('  sk-test-key  ');
+  await page.getByRole('button', { name: /ذخیره کلید/ }).click();
+  await page.getByText('اعتبار یا سهمیه آن تمام شده').waitFor({ timeout: 15000 });
+  check('right key but no credit: says so (not «wrong key»)', /insufficient|quota/i.test(await page.locator('.ai-settings .diag').textContent()));
+  await page.screenshot({ path: `${OUT}/18-ai-quota.png` });
+  oaMode = 'badkey';
+  await page.getByRole('button', { name: /امتحان اتصال/ }).click();
+  await page.getByText('خود سرویس می‌گوید این کلید درست نیست').waitFor({ timeout: 15000 });
+  check('wrong key: the service\'s own message is shown', /Incorrect API key/.test(await page.locator('.ai-settings .diag').textContent()));
+  oaMode = 'region';
+  await page.getByRole('button', { name: /امتحان اتصال/ }).click();
+  await page.getByText('محدودیت منطقه').waitFor({ timeout: 15000 });
+  check('region refused: explained as region, not key', true);
+  oaMode = 'picky';
+  oaBodies.length = 0;
+  await page.getByRole('button', { name: /امتحان اتصال/ }).click();
+  await page.getByText('ChatGPT جواب داد').waitFor({ timeout: 15000 });
+  const lastBody = oaBodies.at(-1);
+  check('a model that refuses our settings is adapted to automatically', oaBodies.length === 3 && !('max_tokens' in lastBody) && 'max_completion_tokens' in lastBody && !('temperature' in lastBody), `${oaBodies.length} requests`);
+  await page.locator('.ai-settings .chip', { hasText: 'سرویس دیگر' }).click();
+  await page.locator('.ai-settings input[inputmode=url]').fill('https://ai.example.test/v1/');
+  await page.locator('.ai-key').fill('my-key');
+  await page.locator('.ai-model').fill('some-model');
+  await page.getByRole('button', { name: /ذخیره کلید/ }).click();
+  await page.getByText('سرویس دلخواه جواب داد').waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.locator('.tutor-input textarea').fill('سلام');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant', { hasText: 'سلام از سرویس دلخواه' }).waitFor({ timeout: 10000 });
+  check('a custom OpenAI-compatible service works', true);
+  await ctxW.close();
 
   // 14. Inside Claude: the tutor uses Claude with no key at all (claude.use('sample') simulated)
   const clDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-claude-'));
@@ -721,6 +781,15 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
       requestMic: (id) => { window.__native.allowMic = true; reply(id, { granted: true }); },
       openAppSettings: () => {},
       requestCamera: (id) => reply(id, { granted: false, blocked: true }),
+      // Android's own networking: here it forwards to the page's fetch so the simulated server still answers.
+      httpRequest: (id, method, url, headersJson, b64) => {
+        window.__native.http = (window.__native.http || 0) + 1;
+        const body = b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : undefined;
+        fetch(url, { method, headers: JSON.parse(headersJson), body })
+          .then(async (r) => window.__ewNative.done(id, JSON.stringify({ ok: true, status: r.status, body: await r.text() })))
+          .catch((e) => window.__ewNative.done(id, JSON.stringify({ ok: false, error: 'network', detail: String(e) })));
+      },
+      httpCancel: () => {},
       startRecording: (id) => { window.__native.recordStarts++; reply(id, window.__native.allowMic ? { ok: true } : { ok: false, error: 'not-allowed' }); },
       recordingLevel: () => 0.3,
       pauseRecording: () => true,
@@ -781,6 +850,8 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /با صدا بپرس/ }).click();
   await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
   check('app: talking to the tutor uses Android speech recognition', (await page.evaluate(() => window.__native.listened)).includes('fa-IR'));
+  check('app: AI requests go through Android\'s own networking', (await page.evaluate(() => window.__native.http)) >= 1);
+  check('app: the new logo is shown in the top bar', (await page.locator('.topbar img.brand-logo').count()) === 1);
   // No speech recognition on this phone: the question is recorded and sent to Gemini as audio
   let sawAudio = false;
   await ctxN2.unroute('https://generativelanguage.googleapis.com/**');

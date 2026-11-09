@@ -262,3 +262,35 @@ describe('works on pages without Web Crypto', () => {
     expect(newId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });
+
+describe('AI service errors: the real reason', () => {
+  it('recognises what the services actually say', async () => {
+    const { classify, normalizeBaseUrl } = await import('../lib/ai');
+    const code = (status: number, body: string) => classify(status, body)?.code ?? null;
+    // OpenAI
+    expect(code(401, '{"error":{"message":"Incorrect API key provided: sk-abc.","code":"invalid_api_key"}}')).toBe('bad_key');
+    expect(code(429, '{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","code":"insufficient_quota"}}')).toBe('quota');
+    expect(code(403, '{"error":{"code":"unsupported_country_region_territory","message":"Country, region, or territory not supported"}}')).toBe('blocked');
+    // Gemini
+    expect(code(400, '{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}')).toBe('bad_key');
+    expect(code(400, '{"error":{"code":400,"message":"User location is not supported for the API use.","status":"FAILED_PRECONDITION"}}')).toBe('blocked');
+    expect(code(429, '{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"Resource has been exhausted"}}')).toBe('quota');
+    // A firewall page is NOT "wrong key"
+    expect(code(403, '<html><body>error code: 1020</body></html>')).toBe('denied');
+    expect(code(403, '<html>The owner of this website has banned the country or region your IP address is in (IR)</html>')).toBe('blocked');
+    expect(code(500, 'oops')).toBeNull();
+    expect(classify(401, '{"error":{"message":"Incorrect API key provided"}}')?.message).toContain('Incorrect API key');
+
+    expect(normalizeBaseUrl(' https://ai.example.com/v1/ ')).toBe('https://ai.example.com/v1');
+    expect(normalizeBaseUrl('https://ai.example.com/v1/chat/completions')).toBe('https://ai.example.com/v1');
+    expect(normalizeBaseUrl('http://insecure.example.com/v1')).toBeNull();
+    expect(normalizeBaseUrl('not a url')).toBeNull();
+  });
+
+  it('cleans a pasted key (spaces, quotes, line breaks)', async () => {
+    const { readAiSettings } = await import('../lib/ai');
+    localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'openai', key: ' "sk-abc 123\n" ', model: '' }));
+    expect(readAiSettings()).toEqual({ provider: 'openai', key: 'sk-abc123', model: 'gpt-4o-mini' });
+    localStorage.removeItem('echowords-ai');
+  });
+});

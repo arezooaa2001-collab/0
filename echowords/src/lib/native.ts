@@ -13,6 +13,8 @@ interface AndroidBridge {
   saveFile(callId: string, name: string, mime: string, base64: string): void;
   appVersion(): string;
   micGranted?(): boolean;
+  httpRequest?(callId: string, method: string, url: string, headersJson: string, bodyBase64: string, timeoutMs: number): void;
+  httpCancel?(callId: string): void;
   cameraGranted?(): boolean;
   requestCamera?(callId: string): void;
   requestMic?(callId: string): void;
@@ -215,4 +217,44 @@ export function nativeRequestCamera(): Promise<{ granted: boolean; blocked?: boo
   const b = bridge();
   if (!b?.requestCamera) return Promise.resolve(null); // not the app (or an older app): the browser asks itself
   return call<{ granted: boolean; blocked?: boolean } | null>((id) => b.requestCamera!(id), 120_000, null).then((r) => r ?? { granted: false });
+}
+
+// ── HTTPS through Android itself (APK v15+): no browser cross-site rules, explicit failures ──
+export const nativeHasHttp = (): boolean => typeof bridge()?.httpRequest === 'function';
+
+export type NativeHttpResult = { ok: true; status: number; body: string } | { ok: false; error: 'timeout' | 'dns' | 'ssl' | 'network'; detail?: string };
+
+export function nativeHttp(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: Uint8Array | null,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<NativeHttpResult> {
+  const b = bridge();
+  if (!b?.httpRequest) return Promise.resolve({ ok: false, error: 'network', detail: 'native http unavailable' });
+  let b64 = '';
+  if (body) {
+    let s = '';
+    for (let i = 0; i < body.length; i += 0x8000) s += String.fromCharCode(...body.subarray(i, i + 0x8000));
+    b64 = btoa(s);
+  }
+  let callId = '';
+  const p = call<NativeHttpResult | null>(
+    (id) => {
+      callId = id;
+      b.httpRequest!(id, method, url, JSON.stringify(headers), b64, timeoutMs);
+    },
+    timeoutMs + 12_000,
+    null,
+  ).then((r) => r ?? ({ ok: false, error: 'timeout', detail: 'no reply from the app' } as NativeHttpResult));
+  signal?.addEventListener('abort', () => {
+    try {
+      b.httpCancel?.(callId);
+    } catch {
+      /* ignore */
+    }
+  });
+  return p;
 }

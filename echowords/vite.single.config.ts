@@ -5,7 +5,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
-const icon = `data:image/svg+xml;base64,${readFileSync(new URL('./public/icon.svg', import.meta.url)).toString('base64')}`;
+const icon = `data:image/jpeg;base64,${readFileSync(new URL('./src/assets/logo.jpg', import.meta.url)).toString('base64')}`;
 
 /** Remove links to separate files (manifest/service worker need a web server) and inline the icon. */
 const standalone: Plugin = {
@@ -13,7 +13,7 @@ const standalone: Plugin = {
   transformIndexHtml(html) {
     return html
       .replace(/\s*<link rel="manifest"[^>]*>/, '')
-      .replace(/href="\/icon\.svg"/g, `href="${icon}"`);
+      .replace(/href="\/logo\.jpg"/g, `href="${icon}"`);
   },
 };
 

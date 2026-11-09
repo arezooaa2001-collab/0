@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import logo from './assets/logo.jpg?inline';
 import { LibraryScreen } from './components/LibraryScreen';
 import { RecordScreen } from './components/RecordScreen';
 import { SettingsScreen } from './components/SettingsScreen';
@@ -33,7 +34,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand"><span aria-hidden>🎤</span> {t.appName}</span>
+        <span className="brand"><img className="brand-logo" src={logo} alt="" /> {t.appName}</span>
         <span className="version">نسخه {fa(APP_VERSION)}</span>
       </header>
       <main className="content">

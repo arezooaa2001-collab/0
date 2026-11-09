@@ -35,6 +35,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -81,6 +86,7 @@ public class MainActivity extends Activity {
     private PermissionRequest pendingWebPermission;
     private String micRequestId;
     private String cameraRequestId;
+    private final Map<String, HttpURLConnection> httpCalls = new ConcurrentHashMap<String, HttpURLConnection>();
     private MediaRecorder recorder;
     private File recFile;
     private String recordStartId;
@@ -431,7 +437,7 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public String appVersion() {
-            return "14";
+            return "15";
         }
 
         @JavascriptInterface
@@ -452,6 +458,78 @@ public class MainActivity extends Activity {
                     requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_PERM_MIC);
                 }
             });
+        }
+
+        /**
+         * HTTPS request made by Android itself (not by the in-app browser), for the AI tutor.
+         * No browser cross-site rules apply, timeouts are explicit, and failures say what happened.
+         */
+        @JavascriptInterface
+        public void httpRequest(final String id, final String method, final String url, final String headersJson, final String bodyBase64, final int timeoutMs) {
+            new Thread(new Runnable() {
+                public void run() {
+                    HttpURLConnection c = null;
+                    try {
+                        if (!url.startsWith("https://")) throw new IllegalArgumentException("only https is allowed");
+                        c = (HttpURLConnection) new URL(url).openConnection();
+                        httpCalls.put(id, c);
+                        c.setRequestMethod(method);
+                        c.setConnectTimeout(Math.min(timeoutMs, 10000));
+                        c.setReadTimeout(timeoutMs);
+                        c.setUseCaches(false);
+                        JSONObject h = new JSONObject(headersJson == null || headersJson.isEmpty() ? "{}" : headersJson);
+                        for (Iterator<String> it = h.keys(); it.hasNext(); ) {
+                            String k = it.next();
+                            c.setRequestProperty(k, h.getString(k));
+                        }
+                        if (bodyBase64 != null && !bodyBase64.isEmpty()) {
+                            byte[] body = Base64.decode(bodyBase64, Base64.DEFAULT);
+                            c.setDoOutput(true);
+                            c.setFixedLengthStreamingMode(body.length);
+                            OutputStream out = c.getOutputStream();
+                            out.write(body);
+                            out.close();
+                        }
+                        int status = c.getResponseCode();
+                        InputStream in = status >= 400 ? c.getErrorStream() : c.getInputStream();
+                        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+                        if (in != null) {
+                            byte[] chunk = new byte[8192];
+                            int n;
+                            while ((n = in.read(chunk)) > 0) buf.write(chunk, 0, n);
+                            in.close();
+                        }
+                        JSONObject o = new JSONObject();
+                        o.put("ok", true);
+                        o.put("status", status);
+                        o.put("body", new String(buf.toByteArray(), "UTF-8"));
+                        done(id, o.toString());
+                    } catch (Exception e) {
+                        String kind = "network";
+                        if (e instanceof java.net.SocketTimeoutException) kind = "timeout";
+                        else if (e instanceof java.net.UnknownHostException) kind = "dns";
+                        else if (e instanceof javax.net.ssl.SSLException) kind = "ssl";
+                        try {
+                            JSONObject o = new JSONObject();
+                            o.put("ok", false);
+                            o.put("error", kind);
+                            o.put("detail", String.valueOf(e));
+                            done(id, o.toString());
+                        } catch (Exception ignored) {
+                            done(id, "{\"ok\":false,\"error\":\"network\"}");
+                        }
+                    } finally {
+                        httpCalls.remove(id);
+                        if (c != null) c.disconnect();
+                    }
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
+        public void httpCancel(String id) {
+            HttpURLConnection c = httpCalls.remove(id);
+            if (c != null) c.disconnect();
         }
 
         @JavascriptInterface

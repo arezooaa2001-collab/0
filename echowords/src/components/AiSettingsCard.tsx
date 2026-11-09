@@ -1,18 +1,31 @@
 import { useEffect, useState } from 'react';
-import { AiError, DEFAULT_MODELS, getClaude, readAiSettings, saveAiSettings, testConnection } from '../lib/ai';
+import { DEFAULT_MODELS, type KeyProvider, getClaude, normalizeBaseUrl, readAiSettings, saveAiSettings, testConnection } from '../lib/ai';
+import { aiErrorDetail, aiErrorText } from '../lib/aiErrors';
 import { t } from '../lib/strings';
 import { useToast } from './Toast';
 
-/** Parent-only: choose Gemini or ChatGPT and paste a key (used only outside Claude). */
+const PROVIDERS: { id: KeyProvider; label: string }[] = [
+  { id: 'openai', label: 'ChatGPT (OpenAI)' },
+  { id: 'gemini', label: 'Google Gemini' },
+  { id: 'custom', label: t.aiCustom },
+];
+
+/** Parent-only: choose the AI service and paste its key (used only outside Claude). */
 export function AiSettingsCard() {
   const toast = useToast();
   const saved = readAiSettings();
   const [inClaude, setInClaude] = useState(false);
-  const [provider, setProvider] = useState<'gemini' | 'openai'>(saved?.provider ?? 'gemini');
+  const [provider, setProvider] = useState<KeyProvider>(saved?.provider ?? 'openai');
   const [key, setKey] = useState(saved?.key ?? '');
-  const [model, setModel] = useState(saved?.model ?? DEFAULT_MODELS.gemini);
+  const [model, setModel] = useState(saved?.model ?? DEFAULT_MODELS[saved?.provider ?? 'openai']);
+  const [baseUrl, setBaseUrl] = useState(saved?.baseUrl ?? '');
+  const [hasSaved, setHasSaved] = useState(!!saved);
   const [testing, setTesting] = useState(false);
   const [test, setTest] = useState<{ ok: boolean; text: string; detail?: string } | null>(null);
+
+  useEffect(() => {
+    void getClaude().then((c) => setInClaude(!!c));
+  }, []);
 
   const runTest = async () => {
     setTesting(true);
@@ -20,70 +33,68 @@ export function AiSettingsCard() {
     const r = await testConnection();
     setTesting(false);
     if (r.ok) {
-      const name = r.provider === 'claude' ? 'Claude' : r.provider === 'openai' ? 'ChatGPT' : 'Gemini';
+      const name = r.provider === 'claude' ? 'Claude' : r.provider === 'openai' ? 'ChatGPT' : r.provider === 'gemini' ? 'Gemini' : t.aiCustomShort;
       setTest({ ok: true, text: t.aiTestOk(name, new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(r.ms / 1000)) });
-    } else {
-      const e = r.error;
-      const code = e instanceof AiError ? e.code : 'other';
-      const why =
-        code === 'timeout' ? t.aiTimeout : code === 'bad_key' ? t.aiBadKey : code === 'blocked' ? t.aiBlocked : code === 'network' ? t.aiNetwork : code === 'no_provider' ? t.aiNoProvider : t.aiOther;
-      setTest({ ok: false, text: `${t.aiTestFail} ${why}`, detail: `${code}: ${String(e.message).slice(0, 160)}` });
-    }
+    } else setTest({ ok: false, text: `${t.aiTestFail} ${aiErrorText(r.error)}`, detail: aiErrorDetail(r.error) });
   };
 
-  useEffect(() => {
-    void getClaude().then((c) => setInClaude(!!c));
-  }, []);
+  const save = () => {
+    const url = provider === 'custom' ? normalizeBaseUrl(baseUrl) : null;
+    if (provider === 'custom' && !url) return setTest({ ok: false, text: t.aiBadUrl });
+    saveAiSettings({ provider, key: key.trim(), model: model.trim() || DEFAULT_MODELS[provider], ...(url ? { baseUrl: url } : {}) });
+    setHasSaved(true);
+    toast(t.aiSaved, 'success');
+    void runTest(); // check right away that it really answers
+  };
 
   return (
-    <div className="card">
+    <div className="card ai-settings">
       <h2>{t.aiTitle}</h2>
       {inClaude && <p className="msg msg-success">{t.aiInClaude}</p>}
       <p className="meta">{t.aiKeyHelp}</p>
       <div className="row wrap">
         <span className="meta">{t.aiProvider}</span>
-        {(['gemini', 'openai'] as const).map((p) => (
+        {PROVIDERS.map((p) => (
           <button
-            key={p}
-            className={`chip${provider === p ? ' on' : ''}`}
+            key={p.id}
+            className={`chip${provider === p.id ? ' on' : ''}`}
+            aria-pressed={provider === p.id}
             onClick={() => {
-              setProvider(p);
-              setModel(DEFAULT_MODELS[p]);
+              setProvider(p.id);
+              setModel(DEFAULT_MODELS[p.id]);
+              setTest(null);
             }}
           >
-            {p === 'gemini' ? 'Google Gemini' : 'ChatGPT (OpenAI)'}
+            {p.label}
           </button>
         ))}
       </div>
+      {provider === 'custom' && (
+        <label className="field">
+          <span>{t.aiBaseUrl}</span>
+          <input className="input" dir="ltr" inputMode="url" spellCheck={false} placeholder="https://…/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+          <small>{t.aiBaseUrlHelp}</small>
+        </label>
+      )}
       <label className="field">
         <span>{t.aiKeyLabel}</span>
-        <input className="input" type="password" dir="ltr" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)} />
+        <input className="input ai-key" type="password" dir="ltr" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)} />
       </label>
       <label className="field">
         <span>{t.aiModelLabel}</span>
-        <input className="input" dir="ltr" spellCheck={false} value={model} onChange={(e) => setModel(e.target.value)} />
+        <input className="input ai-model" dir="ltr" spellCheck={false} value={model} onChange={(e) => setModel(e.target.value)} />
       </label>
       <div className="row wrap">
-        <button
-          className="btn btn-primary"
-          disabled={!key.trim()}
-          onClick={() => {
-            saveAiSettings({ provider, key: key.trim(), model: model.trim() || DEFAULT_MODELS[provider] });
-            toast(t.aiSaved, 'success');
-            void runTest(); // check right away that it really answers
-          }}
-        >
-          💾 {t.aiSave}
-        </button>
-        <button className="btn btn-secondary" onClick={runTest} disabled={testing}>
-          🔌 {testing ? t.aiTesting : t.aiTest}
-        </button>
-        {saved && (
+        <button className="btn btn-primary" disabled={!key.trim()} onClick={save}>💾 {t.aiSave}</button>
+        <button className="btn btn-secondary" onClick={runTest} disabled={testing}>🔌 {testing ? t.aiTesting : t.aiTest}</button>
+        {hasSaved && (
           <button
             className="btn btn-ghost"
             onClick={() => {
               saveAiSettings(null);
               setKey('');
+              setHasSaved(false);
+              setTest(null);
               toast(t.deleted, 'success');
             }}
           >
