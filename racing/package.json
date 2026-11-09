@@ -8,7 +8,11 @@
     "start": "python3 -m http.server 4180",
     "test": "node tests/sim.test.mjs",
     "test:e2e": "node tests/e2e.cjs http://localhost:4180/index.html",
-    "check": "for f in $(find js -name '*.js'); do node --check $f || exit 1; done"
+    "check": "for f in $(find js -name '*.js'); do node --check $f || exit 1; done",
+    "build:single": "node tools/build-single.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "0.24.0"
+  }
 }
