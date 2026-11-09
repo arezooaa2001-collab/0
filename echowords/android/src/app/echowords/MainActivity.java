@@ -63,6 +63,7 @@ public class MainActivity extends Activity {
     private static final int REQ_PERM_LISTEN = 2;
     private static final int REQ_PERM_MIC = 3;
     private static final int REQ_PERM_RECORD = 4;
+    private static final int REQ_PERM_CAMERA = 5;
     private static final int REQ_FILE = 10;
     private static final int REQ_SAVE = 11;
 
@@ -79,6 +80,7 @@ public class MainActivity extends Activity {
 
     private PermissionRequest pendingWebPermission;
     private String micRequestId;
+    private String cameraRequestId;
     private MediaRecorder recorder;
     private File recFile;
     private String recordStartId;
@@ -237,6 +239,11 @@ public class MainActivity extends Activity {
             String id = micRequestId;
             micRequestId = null;
             done(id, micGranted() ? "{\"granted\":true}" : "{\"granted\":false,\"blocked\":" + !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) + "}");
+        } else if (requestCode == REQ_PERM_CAMERA && cameraRequestId != null) {
+            String id = cameraRequestId;
+            cameraRequestId = null;
+            boolean ok = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+            done(id, ok ? "{\"granted\":true}" : "{\"granted\":false,\"blocked\":" + !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) + "}");
         } else if (requestCode == REQ_PERM_RECORD && recordStartId != null) {
             String id = recordStartId;
             recordStartId = null;
@@ -424,7 +431,7 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public String appVersion() {
-            return "13";
+            return "14";
         }
 
         @JavascriptInterface
@@ -443,6 +450,26 @@ public class MainActivity extends Activity {
                     }
                     micRequestId = id;
                     requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_PERM_MIC);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean cameraGranted() {
+            return checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        }
+
+        /** Show Android's own camera permission dialog (if not granted yet). */
+        @JavascriptInterface
+        public void requestCamera(final String id) {
+            main.post(new Runnable() {
+                public void run() {
+                    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        done(id, "{\"granted\":true}");
+                        return;
+                    }
+                    cameraRequestId = id;
+                    requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_PERM_CAMERA);
                 }
             });
         }

@@ -7,7 +7,7 @@ import { speakText, stopSpeaking } from '../lib/speech';
 import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
-import { CameraCapture } from './CameraCapture';
+import { CameraPanel, type CameraPanelHandle } from './CameraPanel';
 import { readLastFolder } from './FolderPicker';
 import { PronounceButton } from './PronounceButton';
 import { useToast } from './Toast';
@@ -19,6 +19,8 @@ interface Message {
   imageUrl?: string;
   reply?: TutorReply;
   error?: boolean;
+  /** Technical reason (small, for a screenshot when something fails). */
+  detail?: string;
 }
 
 const LISTEN_LANGS = [
@@ -35,6 +37,12 @@ function aiErrorText(e: unknown): string {
   if (code === 'timeout') return t.aiTimeout;
   if (code === 'no_provider') return t.aiNoProvider;
   return t.aiOther;
+}
+
+function errorDetail(e: unknown): string {
+  const code = e instanceof AiError ? e.code : (e as Error)?.name ?? 'error';
+  const msg = String((e as Error)?.message ?? e).replace(/\s+/g, ' ').slice(0, 160);
+  return `${code}: ${msg}`;
 }
 
 function listenErrorText(e: unknown): string {
@@ -55,7 +63,12 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const [live, setLive] = useState(false);
   const [listenLang, setListenLang] = useState('fa-IR');
   const [autoSpeak, setAutoSpeak] = useState(true);
-  const [camera, setCamera] = useState(false);
+  /** Live camera open: every question also sends what the camera sees. */
+  const [cameraOn, setCameraOn] = useState(false);
+  const cameraRef = useRef<CameraPanelHandle>(null);
+  const cameraOnRef = useRef(false); // read by the live-mode loop, which outlives renders
+  cameraOnRef.current = cameraOn;
+  const providerName = provider === 'claude' ? 'Claude' : provider === 'openai' ? 'ChatGPT' : 'Gemini';
   /** Recording a spoken question (used when the phone cannot turn speech into text). */
   const [note, setNote] = useState<VoiceNote | null>(null);
   const [useRecording, setUseRecording] = useState(() => !canListen());
@@ -75,6 +88,17 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     return () => clearInterval(id);
   }, [busy]);
   const cancelAsk = () => abortRef.current?.abort();
+  /** Hard limit for a whole question (whatever might get stuck), so «thinking» always ends. */
+  const withDeadline = <T,>(p: Promise<T>, ctrl: AbortController): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => {
+          ctrl.abort();
+          reject(new AiError('timeout', 'no answer within 40 s'));
+        }, 40_000),
+      ),
+    ]);
   const isAbort = (e: unknown) => (e as Error)?.name === 'AbortError';
 
   useEffect(() => {
@@ -103,12 +127,13 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     }
     setBusy(true);
     stopSpeaking();
+    if (!image && cameraOnRef.current) image = await cameraRef.current?.snapshot(); // what the camera sees right now
     add({ role: 'user', text: q, imageUrl: image ? URL.createObjectURL(image) : undefined });
     historyRef.current = [...historyRef.current, { role: 'user', text: q }];
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      const reply = await askTutor(historyRef.current, image ? await shrinkImage(image) : null, { signal: ctrl.signal, live: liveRef.current });
+      const reply = await withDeadline(askTutor(historyRef.current, image ? await shrinkImage(image) : null, { signal: ctrl.signal, live: liveRef.current }), ctrl);
       historyRef.current = [...historyRef.current, { role: 'assistant', text: reply.reply }];
       add({ role: 'assistant', text: reply.reply, reply });
       setBusy(false);
@@ -119,7 +144,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       return reply;
     } catch (e) {
       historyRef.current = historyRef.current.slice(0, -1);
-      add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e) });
+      add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e), detail: isAbort(e) ? undefined : errorDetail(e) });
       setBusy(false);
       return null;
     } finally {
@@ -140,7 +165,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     try {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      const reply = await askTutorByVoice(historyRef.current, audio, { signal: ctrl.signal });
+      const shot = cameraOnRef.current ? await cameraRef.current?.snapshot() : null;
+      const reply = await withDeadline(askTutorByVoice(historyRef.current, audio, { signal: ctrl.signal }, shot ?? null), ctrl);
       const heard = reply.heard || t.voiceQuestion;
       setMessages((prev) => prev.map((m) => (m.id === userId ? { ...m, text: `🎤 ${heard}` } : m)));
       historyRef.current = [...historyRef.current, { role: 'user', text: heard }, { role: 'assistant', text: reply.reply }];
@@ -148,7 +174,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       setBusy(false);
       if (autoSpeak) await speakText(reply.reply, accent, 'fa');
     } catch (e) {
-      add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e) });
+      add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e), detail: isAbort(e) ? undefined : errorDetail(e) });
       setBusy(false);
     }
   };
@@ -278,6 +304,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
               <div key={m.id} className={`bubble ${m.role}${m.error ? ' error' : ''}`}>
                 {m.imageUrl && <img className="bubble-photo" src={m.imageUrl} alt="" />}
                 <p dir="auto">{m.text}</p>
+                {m.detail && <p className="meta diag" dir="ltr">{m.detail}</p>}
                 {m.role === 'assistant' && !m.error && (
                   <div className="row wrap">
                     <PronounceButton text={m.text} lang="fa" accent={accent} />
@@ -301,7 +328,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
             {busy && (
               <div className="bubble assistant">
                 <p className="state-busy">
-                  <span className="spinner" aria-hidden /> {t.tutorThinking}
+                  <span className="spinner" aria-hidden /> {t.tutorThinkingWith(providerName)}
                   {waitSecs >= 3 && <span className="meta"> ({waitSecs.toLocaleString('fa-IR')} {t.seconds})</span>}
                 </p>
                 <button className="btn btn-ghost btn-small" onClick={cancelAsk}>✖️ {t.cancel}</button>
@@ -309,6 +336,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
             )}
             <div ref={endRef} />
           </div>
+
+          {cameraOn && <CameraPanel ref={cameraRef} onClose={() => setCameraOn(false)} />}
 
           <form
             className="tutor-input"
@@ -344,7 +373,9 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
               {live ? `⏹️ ${t.tutorLiveStop}` : `🔴 ${t.tutorLive}`}
             </button>
             <button className="btn btn-secondary" onClick={() => photoRef.current?.click()} disabled={busy}>📸 {t.tutorPhoto}</button>
-            <button className="btn btn-secondary" onClick={() => setCamera(true)} disabled={busy}>🎥 {t.tutorCamera}</button>
+            <button className={`btn ${cameraOn ? 'btn-stop' : 'btn-secondary'}`} onClick={() => setCameraOn((v) => !v)}>
+              🎥 {cameraOn ? t.cameraClose : t.tutorCamera}
+            </button>
             <input
               ref={photoRef}
               type="file"
@@ -372,19 +403,6 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
         </>
       )}
 
-      {camera && (
-        <CameraCapture
-          onCancel={() => setCamera(false)}
-          onFallback={() => {
-            setCamera(false);
-            photoRef.current?.click();
-          }}
-          onPhoto={(b) => {
-            setCamera(false);
-            void send(input, b);
-          }}
-        />
-      )}
     </section>
   );
 }

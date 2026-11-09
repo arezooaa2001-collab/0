@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۳/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۴/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -598,6 +598,54 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('live mode: the answer is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('dog'))));
   await ctxF.close();
 
+  // 13c. Live camera in the tutor: front/back, the picture goes with the question, answer read aloud
+  const camDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-cam-'));
+  const ctxV = await chromium.launchPersistentContext(camDir, {
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', permissions: ['camera', 'microphone'],
+  });
+  await ctxV.addInitScript(() => {
+    localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'openai', key: 'sk-test', model: 'gpt-4o-mini' }));
+    window.__spoken = [];
+    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }];
+    speechSynthesis.speak = (u) => { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(new Event('end')), 30); };
+    window.__facings = [];
+    const orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = (c) => { if (c.video) window.__facings.push(c.video.facingMode?.ideal); return orig(c); };
+  });
+  const oaCors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
+  let sawImage = false;
+  await ctxV.route('https://api.openai.com/**', (r) => {
+    if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: oaCors });
+    const body = JSON.parse(r.request().postData() || '{}');
+    const last = body.messages?.at(-1);
+    sawImage = sawImage || (Array.isArray(last?.content) && last.content.some((c) => c.type === 'image_url' && c.image_url.url.startsWith('data:image/jpeg')));
+    return r.fulfill({ status: 200, headers: oaCors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{"reply":"این کلمه apple است، یعنی «سیب».","items":[{"text":"apple","lang":"en","meaning":"سیب","say":"اَپِل"}]}' } }] }) });
+  });
+  page = ctxV.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.getByRole('button', { name: /امتحان اتصال/ }).click();
+  await page.getByText('ChatGPT جواب داد').waitFor({ timeout: 10000 });
+  check('Settings «امتحان اتصال» shows that ChatGPT answers (and how fast)', true);
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.getByRole('button', { name: /دوربین زنده/ }).click();
+  await page.waitForFunction(() => document.querySelector('.camera-live')?.videoWidth > 0, null, { timeout: 10000 });
+  await page.getByRole('button', { name: /دوربین جلو/ }).click();
+  await page.waitForFunction(() => window.__facings.length >= 2, null, { timeout: 10000 });
+  await page.waitForFunction(() => { const v = document.querySelector('.camera-live'); return v && v.readyState >= 2 && v.videoWidth > 0; }, null, { timeout: 10000 });
+  await page.waitForTimeout(500);
+  check('camera can switch between back and front', JSON.stringify(await page.evaluate(() => window.__facings.slice(0, 2))) === '["environment","user"]');
+  await page.screenshot({ path: `${OUT}/17-camera-live.png` });
+  await page.locator('.tutor-input textarea').fill('این را به فارسی ترجمه کن');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant', { hasText: 'سیب' }).waitFor({ timeout: 10000 });
+  await page.waitForTimeout(400);
+  check('with the camera on, the question carries the camera picture', sawImage && (await page.locator('.bubble.user .bubble-photo').count()) === 1);
+  check('the translation is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('سیب') || x.includes('apple'))));
+  await page.getByRole('button', { name: /بستن دوربین/ }).first().click();
+  await ctxV.close();
+
   // 14. Inside Claude: the tutor uses Claude with no key at all (claude.use('sample') simulated)
   const clDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-claude-'));
   const ctxC = await chromium.launchPersistentContext(clDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
@@ -672,6 +720,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
       micGranted: () => window.__native.allowMic,
       requestMic: (id) => { window.__native.allowMic = true; reply(id, { granted: true }); },
       openAppSettings: () => {},
+      requestCamera: (id) => reply(id, { granted: false, blocked: true }),
       startRecording: (id) => { window.__native.recordStarts++; reply(id, window.__native.allowMic ? { ok: true } : { ok: false, error: 'not-allowed' }); },
       recordingLevel: () => 0.3,
       pauseRecording: () => true,
@@ -747,6 +796,10 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /با صدا بپرس/ }).click();
   await page.getByRole('button', { name: /دارم ضبط می‌کنم/ }).click();
   await page.locator('.bubble.assistant', { hasText: 'moon' }).waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: /دوربین زنده/ }).click();
+  await page.getByText('اجازه دوربین با «دیگر نپرس» رد شده').waitFor({ timeout: 5000 });
+  check('app: camera permission comes from Android; a refusal shows how to allow it', await page.getByRole('button', { name: /تنظیمات برنامه/ }).isVisible());
+  await page.getByRole('button', { name: /بستن دوربین/ }).first().click();
   check('app without speech recognition: spoken question is recorded and understood', sawAudio && (await page.locator('.bubble.user', { hasText: 'ماه به انگلیسی چی میشه' }).isVisible()));
   await page.screenshot({ path: `${OUT}/16-voice-question.png` });
   await ctxN2.close();

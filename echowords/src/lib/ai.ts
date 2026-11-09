@@ -32,6 +32,7 @@ const INSTRUCTIONS = `You are «معلم مهربان» (Kind Teacher), a warm, 
 - The child mainly learns English (American and British) and may ask about French, Chinese, Japanese, Hindi or any other language.
 - When asked how to say something in a language: give it in that language's own script, how to pronounce it written in Persian letters, and a tiny example if it helps.
 - When given a picture: read the words in it, say which language they are, and translate them into Persian (and into English when they are not English).
+- A picture may be a live camera frame: the child may be holding up a word, a book or an object. Answer about the word or object shown. Never describe or comment on the child's face, body or surroundings.
 - Keep everything safe and suitable for a young child. If a request is not suitable, kindly steer back to learning languages. Never ask for personal information.
 Reply ONLY with JSON, no other text, exactly in this shape:
 {"reply": "<Persian answer; foreign words in their own script>", "items": [{"text": "<word or short phrase in the language being taught>", "lang": "<en|fr|zh|ja|hi|fa|other>", "meaning": "<meaning in Persian>", "say": "<pronunciation in Persian letters>"}]}
@@ -373,13 +374,13 @@ export async function toWav(audio: Blob): Promise<Blob> {
  * Ask with a voice recording. Gemini listens to the audio itself; ChatGPT uses OpenAI's
  * speech-to-text first; Claude uses the on-device recogniser first.
  */
-export async function askTutorByVoice(history: ChatTurn[], audio: Blob, opts: AskOptions = {}): Promise<TutorReply> {
+export async function askTutorByVoice(history: ChatTurn[], audio: Blob, opts: AskOptions = {}, image: Blob | null = null): Promise<TutorReply> {
   const st = (await getClaude()) ? null : readAiSettings();
   if (!st) {
     // Claude (or nothing configured): understand the speech on this device, then ask with text.
     const heard = (await recognizeSpeech(audio, 'auto', ALL_LANGS)).trim();
     if (!heard) throw new AiError('other', 'nothing heard');
-    const r = await askTutor([...history, { role: 'user', text: heard }], null, opts);
+    const r = await askTutor([...history, { role: 'user', text: heard }], image, opts);
     return { ...r, heard };
   }
   const wav = await toWav(audio);
@@ -393,13 +394,32 @@ export async function askTutorByVoice(history: ChatTurn[], audio: Blob, opts: As
     if (status < 200 || status >= 300) throw new AiError('other', `HTTP ${status}`);
     const heard = String(JSON.parse(body)?.text ?? '').trim();
     if (!heard) throw new AiError('other', 'nothing heard');
-    const r = await askTutor([...history, { role: 'user', text: heard }], null, opts);
+    const r = await askTutor([...history, { role: 'user', text: heard }], image, opts);
     return { ...r, heard };
   }
   // Gemini: send the audio with the question; it understands the speech itself.
   const contents = [
     ...history.slice(-9).map((h) => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
-    { role: 'user', parts: [{ text: 'The child asked this by voice (audio attached).' }, { inline_data: { mime_type: 'audio/wav', data: await blobToBase64(wav) } }] },
+    {
+      role: 'user',
+      parts: [
+        { text: image ? 'The child asked this by voice (audio attached) while showing the camera picture.' : 'The child asked this by voice (audio attached).' },
+        { inline_data: { mime_type: 'audio/wav', data: await blobToBase64(wav) } },
+        ...(image ? [{ inline_data: { mime_type: image.type || 'image/jpeg', data: await blobToBase64(image) } }] : []),
+      ],
+    },
   ];
   return parseTutorReply(await generate(st, geminiRequest(st, contents, opts.live), geminiText, GEMINI_MODELS, opts.signal));
+}
+
+/** Settings «امتحان اتصال»: one tiny question, with how long it took. */
+export async function testConnection(): Promise<{ ok: true; ms: number; provider: Provider } | { ok: false; error: AiError | Error }> {
+  const started = performance.now();
+  try {
+    const provider = (await currentProvider()) ?? 'gemini';
+    await askTutor([{ role: 'user', text: 'سلام' }], null, { live: true });
+    return { ok: true, ms: Math.round(performance.now() - started), provider };
+  } catch (e) {
+    return { ok: false, error: e as Error };
+  }
 }

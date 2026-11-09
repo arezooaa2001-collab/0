@@ -13,6 +13,8 @@ interface AndroidBridge {
   saveFile(callId: string, name: string, mime: string, base64: string): void;
   appVersion(): string;
   micGranted?(): boolean;
+  cameraGranted?(): boolean;
+  requestCamera?(callId: string): void;
   requestMic?(callId: string): void;
   openAppSettings?(): void;
   startRecording?(callId: string): void;
@@ -206,4 +208,11 @@ export function nativeCancelRecording(): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Android app: ask for the camera with Android's own dialog (before the live camera opens). */
+export function nativeRequestCamera(): Promise<{ granted: boolean; blocked?: boolean } | null> {
+  const b = bridge();
+  if (!b?.requestCamera) return Promise.resolve(null); // not the app (or an older app): the browser asks itself
+  return call<{ granted: boolean; blocked?: boolean } | null>((id) => b.requestCamera!(id), 120_000, null).then((r) => r ?? { granted: false });
 }
