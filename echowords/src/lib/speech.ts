@@ -1,11 +1,13 @@
 // Pronunciation («تلفظ»): the device's own text-to-speech voice reads the word.
 // A separate feature from «صدای خودم», which always plays the learner's own recording.
 import { LANGS, type LangCode, segmentByLang } from './langs';
+import { isNativeApp, nativeHasVoice, nativeSpeak, nativeStopSpeaking } from './native';
 import type { Accent } from './stt';
 
 export type SpeakResult = 'ok' | 'no-voice' | 'unsupported' | 'error';
 
 export function standardPronunciationSupported(): boolean {
+  if (isNativeApp()) return true; // Android app: the phone's own text-to-speech
   return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
 }
 
@@ -79,6 +81,25 @@ let speakRun = 0;
 export async function speakText(text: string, accent: Accent, lang: LangCode = 'en'): Promise<SpeakOutcome> {
   if (!standardPronunciationSupported()) return { result: 'unsupported', missing: [] };
   const run = ++speakRun;
+  if (isNativeApp()) {
+    nativeStopSpeaking();
+    const parts = segmentByLang(text, lang === 'fr' ? 'fr' : 'en');
+    const missing: LangCode[] = [];
+    let spoke = false;
+    for (const part of parts) {
+      if (run !== speakRun) break;
+      const tag = ttsTag(part.lang, accent);
+      if (!nativeHasVoice(tag)) {
+        if (!missing.includes(part.lang)) missing.push(part.lang);
+        continue;
+      }
+      const r = await nativeSpeak(part.text, tag);
+      if (r === 'no-voice') {
+        if (!missing.includes(part.lang)) missing.push(part.lang);
+      } else if (r === 'ok') spoke = true;
+    }
+    return { result: spoke ? 'ok' : missing.length ? 'no-voice' : 'error', missing };
+  }
   const synth = window.speechSynthesis;
   const voices = await loadVoices();
   synth.cancel();
@@ -110,5 +131,6 @@ export async function speakStandard(text: string, accent: Accent, lang: LangCode
 
 export function stopSpeaking(): void {
   speakRun++;
+  nativeStopSpeaking();
   if (standardPronunciationSupported()) window.speechSynthesis.cancel();
 }

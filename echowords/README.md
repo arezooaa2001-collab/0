@@ -19,6 +19,16 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
   - If the app ever opens empty (browser data cleared, new device, a new copy of the file), a «برگرداندن از فایل پشتیبان» (Restore from backup) card brings everything back.
   - Settings shows when the last backup was made. Keeping a copy of the backup file somewhere else (Telegram Saved Messages, Google Drive) protects against a lost or broken tablet.
 
+## Android app (APK)
+
+`release/echowords.apk` is the same app as a real Android app (Android 7 and newer).
+
+- **Microphone and camera:** asked with Android's normal «Allow?» dialog. The page is served from a secure address inside the app (`https://appassets.androidplatform.net/`), so recording and the live camera work.
+- **Storage:** words, folders and recordings live in the app's own storage. They stay after closing the app or restarting the tablet. Only uninstalling the app or «Clear data» removes them; make a backup from Settings first.
+- **Native features:** Android's text-to-speech reads «🔊 تلفظ», Android's speech recognition hears the tutor's questions and live mode, and backups are saved with the system «Save as» screen.
+- **Build:** `ECHOWORDS_KS_PASS=… android/build.sh`, using Ubuntu's `android-sdk-platform-23`, `android-sdk-build-tools` and `dalvik-exchange`; Gradle is not needed.
+- **Signing key:** never committed. `build.sh` uses `ECHOWORDS_KEYSTORE` and `ECHOWORDS_KS_PASS`, and makes a new key if none exists. Android installs an update over the old app only when both are signed with the same key. With a different key, the old app must be uninstalled first, which deletes its data, so make a backup file before installing.
+
 ## What it does
 
 - **Interface:** Persian, right-to-left, kid-friendly (big buttons, emoji, simple wording).

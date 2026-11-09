@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۹/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۰/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -600,6 +600,54 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.word-card', { hasText: 'rabbit خرگوش' }).waitFor({ timeout: 10000 });
   check('inside Claude: an empty browser gets the words back from Claude storage', true);
   await ctxD2.close();
+
+  // 16. Inside the Android app: speech, listening and backups go through the native bridge
+  const andDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-android-'));
+  const ctxN2 = await chromium.launchPersistentContext(andDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxN2.addInitScript(() => {
+    window.__native = { spoken: [], listened: [], saved: [] };
+    const reply = (id, obj) => setTimeout(() => window.__ewNative.done(id, JSON.stringify(obj)), 30);
+    window.EchoWordsAndroid = {
+      appVersion: () => '9',
+      hasVoice: (tag) => tag !== 'ja-JP',
+      speak: (id, text, tag) => { window.__native.spoken.push({ text, tag }); reply(id, { status: 'ok' }); },
+      stopSpeaking: () => {},
+      canListen: () => true,
+      listen: (id, tag) => { window.__native.listened.push(tag); reply(id, { text: 'سیب به انگلیسی چی میشه', error: null }); },
+      stopListening: () => {},
+      saveFile: (id, name, mime, b64) => { window.__native.saved.push({ name, mime, size: b64.length }); reply(id, { ok: true }); },
+    };
+    navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('denied', 'NotAllowedError'); };
+  });
+  page = ctxN2.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.hint-field input').fill('cat گربه');
+  const [noPopup] = await Promise.all([page.waitForEvent('download', { timeout: 2000 }).catch(() => null), page.locator('.save-typed').click()]);
+  await page.locator('.saved-card', { hasText: 'cat گربه' }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(300);
+  const nspoken = await page.evaluate(() => window.__native.spoken);
+  check('app: pronunciation uses Android text-to-speech, part by part', JSON.stringify(nspoken) === JSON.stringify([{ text: 'cat', tag: 'en-US' }, { text: 'گربه', tag: 'fa-IR' }]), JSON.stringify(nspoken));
+  check('app: no surprise «save file» screen after saving a word', !noPopup && (await page.evaluate(() => window.__native.saved.length)) === 0);
+  await page.locator('.mic-btn').click();
+  await page.getByText('اجازه میکروفون به برنامه داده نشد').waitFor({ timeout: 5000 });
+  check('app: microphone refusal explains the Android app setting', true);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.getByRole('button', { name: /ساختن فایل پشتیبان/ }).click();
+  await page.getByText('فایل پشتیبان ساخته شد').waitFor({ timeout: 5000 });
+  const nsaved = await page.evaluate(() => window.__native.saved);
+  check('app: backup is saved through Android «save as»', nsaved.length === 1 && nsaved[0].mime === 'application/json' && nsaved[0].size > 100, nsaved[0]?.name);
+  await page.evaluate(() => localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'gemini', key: 'k', model: 'm' })));
+  await ctxN2.route('https://generativelanguage.googleapis.com/**', (r) =>
+    r.request().method() === 'OPTIONS'
+      ? r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } })
+      : r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply":"سیب می‌شود apple.","items":[]}' }] } }] }) }),
+  );
+  await page.reload();
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.getByRole('button', { name: /با صدا بپرس/ }).click();
+  await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
+  check('app: talking to the tutor uses Android speech recognition', (await page.evaluate(() => window.__native.listened)).includes('fa-IR'));
+  await ctxN2.close();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

@@ -3,6 +3,7 @@ import { recognizeSpeech } from './asr';
 import { ALL_LANGS, type LangCode, langOf, primaryLang } from './langs';
 import { newId, sha256Hex } from './audio';
 import { autoBackupDue, downloadBackup } from './backup';
+import { isNativeApp } from './native';
 import { pullRemote, pushFolder, pushWord, removeFolderRemote, removeWordRemote } from './cloudSync';
 import * as db from './db';
 import type { Word } from './db';
@@ -367,6 +368,8 @@ export function useLibrary(enabledLangs: LangCode[] = ALL_LANGS): Library {
     try {
       const h = await db.checkStorage();
       const all = await db.listWords();
+      // Android app with working storage: no surprise «save file» screens; backups are made from Settings.
+      if (isNativeApp() && h.mode === 'device') return false;
       // Only IndexedDB counts as lasting storage; anything weaker gets a backup file after every change.
       if (!autoBackupDue(all, h.mode === 'device')) return false;
       await downloadBackup();

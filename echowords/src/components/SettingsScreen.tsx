@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isNativeApp } from '../lib/native';
 import { type MicPermission, micPermission, requestMicrophone } from '../lib/mic';
 import { downloadBackup, lastBackupAt } from '../lib/backup';
 import { formatDate } from '../lib/format';
@@ -79,6 +80,8 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
         <p className="state-title">{t.storageInfo(lib.words.length, mb)}</p>
         {health?.mode === 'memory' ? (
           <p className="msg msg-error">{t.storageBlocked}</p>
+        ) : isNativeApp() ? (
+          <p className="meta">{t.storageSafeApp}</p>
         ) : health?.persisted ? (
           <p className="meta">{t.storageSafe}</p>
         ) : (

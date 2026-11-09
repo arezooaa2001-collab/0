@@ -1,5 +1,6 @@
 // Why can't we use the microphone? Browsers give the same "NotAllowedError" for very
 // different reasons, so we look at where the page is running to give the real answer.
+import { isNativeApp } from './native';
 import { t } from './strings';
 
 export type MicPermission = 'granted' | 'denied' | 'prompt' | 'unknown';
@@ -32,6 +33,7 @@ export async function explainMicError(err: unknown): Promise<string> {
   if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return t.errInUse;
   if (!window.isSecureContext) return t.errInsecure;
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+    if (isNativeApp()) return t.errMicApp;
     if (isFilePage()) return t.errMicFilePage;
     if (isEmbedded()) return t.errMicEmbedded;
     const p = await micPermission();

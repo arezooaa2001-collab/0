@@ -1,6 +1,7 @@
 // Backup file: one JSON file with every word and its original audio (base64).
 // Restoring checks every recording against its SHA-256 fingerprint.
 import { fromBase64, sha256Hex, toBase64 } from './audio';
+import { isNativeApp, nativeSaveFile } from './native';
 import { type Folder, type Word, addWord, getAudio, getWord, listFolders, listWords, saveFolder } from './db';
 
 const FORMAT = 'echowords-backup';
@@ -88,6 +89,12 @@ export async function downloadBackup(): Promise<string> {
   const words = await listWords();
   const blob = await buildBackup();
   const name = backupFileName(words.length);
+  // Android app: the system «save as» screen (backups land where the family chooses, e.g. Downloads).
+  if (isNativeApp()) {
+    if (!(await nativeSaveFile(name, 'application/json', blob))) throw new Error('not saved');
+    writeMeta({ lastAt: new Date().toISOString(), count: words.length, signature: librarySignature(words) });
+    return name;
+  }
   // Inside Claude, a page may only save files through the «downloads» capability.
   const use = (window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude?.use;
   if (typeof use === 'function') {

@@ -1,3 +1,5 @@
+import { isNativeApp, nativeCanListen, nativeListen, nativeStopListening } from './native';
+
 // Speech-to-text for talking with the tutor (the browser's own speech recognition).
 type Rec = {
   lang: string;
@@ -17,7 +19,7 @@ function ctor(): (new () => Rec) | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export const canListen = (): boolean => !!ctor();
+export const canListen = (): boolean => nativeCanListen() || (!isNativeApp() && !!ctor());
 
 export class ListenError extends Error {
   constructor(public code: string) {
@@ -29,6 +31,13 @@ let active: Rec | null = null;
 
 /** Listen once and resolve with what was said ('' if nothing). */
 export function listenOnce(lang: string): Promise<string> {
+  if (isNativeApp()) {
+    // Android app: the phone's own speech recognition (the in-app browser has none).
+    return nativeListen(lang).then((r) => {
+      if (r.error && r.error !== 'no-speech') throw new ListenError(r.error);
+      return r.text;
+    });
+  }
   const C = ctor();
   if (!C) return Promise.reject(new ListenError('unsupported'));
   stopListening();
@@ -84,6 +93,7 @@ export function listenOnce(lang: string): Promise<string> {
 }
 
 export function stopListening(): void {
+  nativeStopListening();
   try {
     active?.abort();
   } catch {
