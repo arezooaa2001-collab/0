@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۱/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۲/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
