@@ -12,6 +12,15 @@ interface AndroidBridge {
   stopListening(): void;
   saveFile(callId: string, name: string, mime: string, base64: string): void;
   appVersion(): string;
+  micGranted?(): boolean;
+  requestMic?(callId: string): void;
+  openAppSettings?(): void;
+  startRecording?(callId: string): void;
+  recordingLevel?(): number;
+  pauseRecording?(): boolean;
+  resumeRecording?(): boolean;
+  stopRecording?(callId: string): void;
+  cancelRecording?(): void;
 }
 
 type Pending = { resolve: (v: unknown) => void; timer: ReturnType<typeof setTimeout> };
@@ -118,4 +127,83 @@ export async function nativeSaveFile(name: string, mime: string, data: Blob): Pr
   const b64 = btoa(s);
   const r = await call<{ ok: boolean } | null>((id) => b.saveFile(id, name, mime, b64), 10 * 60_000, null);
   return !!r?.ok;
+}
+
+// ── Microphone permission and native recording (APK v11+) ───────────────────
+export const nativeCanRecord = (): boolean => typeof bridge()?.startRecording === 'function';
+
+export function nativeMicGranted(): boolean | null {
+  try {
+    const b = bridge();
+    return b?.micGranted ? !!b.micGranted() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Show Android's own «Allow microphone?» dialog. `blocked` = the user chose «Don't ask again». */
+export function nativeRequestMic(): Promise<{ granted: boolean; blocked?: boolean }> {
+  const b = bridge();
+  if (!b?.requestMic) return Promise.resolve({ granted: false });
+  return call<{ granted: boolean; blocked?: boolean } | null>((id) => b.requestMic!(id), 120_000, null).then((r) => r ?? { granted: false });
+}
+
+export function nativeOpenAppSettings(): void {
+  try {
+    bridge()?.openAppSettings?.();
+  } catch {
+    /* ignore */
+  }
+}
+
+export function nativeStartRecording(): Promise<{ ok: boolean; error?: string; detail?: string }> {
+  const b = bridge();
+  if (!b?.startRecording) return Promise.resolve({ ok: false, error: 'unsupported' });
+  return call<{ ok: boolean; error?: string; detail?: string } | null>((id) => b.startRecording!(id), 120_000, null).then(
+    (r) => r ?? { ok: false, error: 'timeout' },
+  );
+}
+
+export function nativeRecordingLevel(): number {
+  try {
+    return Number(bridge()?.recordingLevel?.() ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function nativePauseRecording(): boolean {
+  try {
+    return !!bridge()?.pauseRecording?.();
+  } catch {
+    return false;
+  }
+}
+
+export function nativeResumeRecording(): boolean {
+  try {
+    return !!bridge()?.resumeRecording?.();
+  } catch {
+    return false;
+  }
+}
+
+/** Stop and get the recording (AAC in .m4a). */
+export async function nativeStopRecording(): Promise<{ ok: true; blob: Blob } | { ok: false; error: string }> {
+  const b = bridge();
+  if (!b?.stopRecording) return { ok: false, error: 'unsupported' };
+  const r = await call<{ ok: boolean; error?: string; mime?: string; b64?: string } | null>((id) => b.stopRecording!(id), 30_000, null);
+  if (!r?.ok || !r.b64) return { ok: false, error: r?.error ?? 'timeout' };
+  const bin = atob(r.b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { ok: true, blob: new Blob([bytes], { type: r.mime || 'audio/mp4' }) };
+}
+
+export function nativeCancelRecording(): void {
+  try {
+    bridge()?.cancelRecording?.();
+  } catch {
+    /* ignore */
+  }
 }

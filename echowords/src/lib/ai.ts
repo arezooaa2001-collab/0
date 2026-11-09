@@ -3,7 +3,8 @@
 // Where the answers come from (first available wins):
 //   1. Claude, when the app runs as a page inside Claude (claude.ai): no key needed.
 //   2. Google Gemini or OpenAI ChatGPT with the family's own API key, saved only on this device.
-import { isLangCode, type LangCode } from './langs';
+import { decodeTo16kMono, recognizeSpeech } from './asr';
+import { ALL_LANGS, isLangCode, type LangCode } from './langs';
 
 export type Provider = 'claude' | 'gemini' | 'openai';
 
@@ -17,6 +18,8 @@ export interface TutorItem {
 export interface TutorReply {
   reply: string;
   items: TutorItem[];
+  /** For a spoken question: what the child said (as understood). */
+  heard?: string;
 }
 
 export interface ChatTurn {
@@ -32,7 +35,8 @@ const INSTRUCTIONS = `You are «معلم مهربان» (Kind Teacher), a warm, 
 - Keep everything safe and suitable for a young child. If a request is not suitable, kindly steer back to learning languages. Never ask for personal information.
 Reply ONLY with JSON, no other text, exactly in this shape:
 {"reply": "<Persian answer; foreign words in their own script>", "items": [{"text": "<word or short phrase in the language being taught>", "lang": "<en|fr|zh|ja|hi|fa|other>", "meaning": "<meaning in Persian>", "say": "<pronunciation in Persian letters>"}]}
-"items" lists the foreign words or phrases you taught in this answer (0 to 5).`;
+"items" lists the foreign words or phrases you taught in this answer (0 to 5).
+If the child's question is an audio recording, also add "heard": exactly what the child said, in the language they spoke.`;
 
 // ── Settings (device only) ────────────────────────────────────────────────
 export interface AiSettings {
@@ -105,7 +109,8 @@ export function parseTutorReply(raw: string): TutorReply {
               say: typeof x.say === 'string' ? x.say.trim().slice(0, 120) : '',
             }))
         : [];
-      if (typeof j.reply === 'string' && j.reply.trim()) return { reply: j.reply.trim(), items };
+      if (typeof j.reply === 'string' && j.reply.trim())
+        return { reply: j.reply.trim(), items, ...(typeof j.heard === 'string' && j.heard.trim() ? { heard: j.heard.trim().slice(0, 300) } : {}) };
     } catch {
       /* fall through */
     }
@@ -225,4 +230,83 @@ export async function shrinkImage(src: Blob, maxSide = 1024): Promise<Blob> {
   } catch {
     return src;
   }
+}
+
+// ── Spoken questions (when the phone's speech recognition is not available) ──
+
+/** 16 kHz mono 16-bit WAV: a format every AI service accepts. */
+export async function toWav(audio: Blob): Promise<Blob> {
+  const samples = await decodeTo16kMono(audio);
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buf);
+  const str = (o: number, x: string) => [...x].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF');
+  v.setUint32(4, 36 + samples.length * 2, true);
+  str(8, 'WAVE');
+  str(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true);
+  v.setUint32(28, 32000, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  str(36, 'data');
+  v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, samples[i])) * 0x7fff, true);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+/**
+ * Ask with a voice recording. Gemini listens to the audio itself; ChatGPT uses OpenAI's
+ * speech-to-text first; Claude uses the on-device recogniser first.
+ */
+export async function askTutorByVoice(history: ChatTurn[], audio: Blob): Promise<TutorReply> {
+  const st = (await getClaude()) ? null : readAiSettings();
+  if (!st) {
+    // Claude (or nothing configured): understand the speech on this device, then ask with text.
+    const heard = (await recognizeSpeech(audio, 'auto', ALL_LANGS)).trim();
+    if (!heard) throw new AiError('other', 'nothing heard');
+    const r = await askTutor([...history, { role: 'user', text: heard }]);
+    return { ...r, heard };
+  }
+  const wav = await toWav(audio);
+  if (st.provider === 'openai') {
+    const form = new FormData();
+    form.append('file', new File([wav], 'question.wav', { type: 'audio/wav' }));
+    form.append('model', 'whisper-1');
+    let res: Response;
+    try {
+      res = await fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${st.key}` }, body: form });
+    } catch (e) {
+      throw new AiError('network', String((e as Error)?.message ?? e));
+    }
+    if (res.status === 401) throw new AiError('bad_key', await res.text());
+    if (!res.ok) throw new AiError('other', `HTTP ${res.status}`);
+    const heard = String((await res.json())?.text ?? '').trim();
+    if (!heard) throw new AiError('other', 'nothing heard');
+    const r = await askTutor([...history, { role: 'user', text: heard }]);
+    return { ...r, heard };
+  }
+  // Gemini: send the audio with the question.
+  const b64 = await blobToBase64(wav);
+  const contents = [
+    ...history.slice(-9).map((h) => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
+    { role: 'user', parts: [{ text: 'The child asked this by voice (audio attached).' }, { inline_data: { mime_type: 'audio/wav', data: b64 } }] },
+  ];
+  let res: Response;
+  try {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(st.model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': st.key },
+      body: JSON.stringify({ system_instruction: { parts: [{ text: INSTRUCTIONS }] }, contents, generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
+    });
+  } catch (e) {
+    throw new AiError('network', String((e as Error)?.message ?? e));
+  }
+  const body = await res.text();
+  if (res.status === 401 || res.status === 403 || (res.status === 400 && /API key/i.test(body))) throw new AiError(/location|region|country/i.test(body) ? 'blocked' : 'bad_key', body.slice(0, 300));
+  if (!res.ok) throw new AiError(/location|region|country/i.test(body) ? 'blocked' : 'other', body.slice(0, 300));
+  const j = JSON.parse(body);
+  return parseTutorReply((j?.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join(''));
 }

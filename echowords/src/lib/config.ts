@@ -1,5 +1,5 @@
 /** Shown in the app so it is easy to tell which file is open. */
-export const APP_VERSION = 10;
+export const APP_VERSION = 11;
 
 /** Recording limits. */
 export const MAX_RECORDING_MS = 60_000;

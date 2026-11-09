@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۰/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۱/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -466,6 +466,9 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /اجازه میکروفون/ }).click();
   await page.getByText('میکروفون آماده است').waitFor({ timeout: 5000 });
   check('Settings «اجازه میکروفون» asks the browser directly', true);
+  await page.getByRole('button', { name: /امتحان میکروفون/ }).click();
+  await page.getByText('میکروفون کار می‌کند').waitFor({ timeout: 10000 });
+  check('Settings microphone test records, measures and plays back', true, await page.locator('.mic-check .msg').textContent());
   await ctxMo.close();
 
   // 13. AI tutor with a Gemini key (the service is simulated here: no internet to Google in this test)
@@ -514,6 +517,10 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.goto(FILE);
   await page.getByRole('button', { name: /معلم/ }).click();
   check('tutor without a key explains how to turn it on', await page.getByText('معلم هوشمند هنوز روشن نیست').isVisible());
+  await page.locator('.tutor-input textarea').fill('سلام');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant.error', { hasText: 'کلید Gemini یا ChatGPT' }).waitFor({ timeout: 5000 });
+  check('tutor always has a text box (explains in the chat when no AI is set up)', true);
   await page.getByRole('button', { name: /رفتن به تنظیمات/ }).click();
   await page.locator('input[type=password]').fill('test-gemini-key');
   await page.getByRole('button', { name: /ذخیره کلید/ }).click();
@@ -607,18 +614,31 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await ctxN2.addInitScript(() => {
     window.__native = { spoken: [], listened: [], saved: [] };
     const reply = (id, obj) => setTimeout(() => window.__ewNative.done(id, JSON.stringify(obj)), 30);
+    window.__native.allowMic = false;
+    window.__native.recordStarts = 0;
+    window.__native.canListen = true;
     window.EchoWordsAndroid = {
-      appVersion: () => '9',
+      appVersion: () => '11',
+      micGranted: () => window.__native.allowMic,
+      requestMic: (id) => { window.__native.allowMic = true; reply(id, { granted: true }); },
+      openAppSettings: () => {},
+      startRecording: (id) => { window.__native.recordStarts++; reply(id, window.__native.allowMic ? { ok: true } : { ok: false, error: 'not-allowed' }); },
+      recordingLevel: () => 0.3,
+      pauseRecording: () => true,
+      resumeRecording: () => true,
+      stopRecording: (id) => reply(id, { ok: true, mime: 'audio/mp4', b64: window.__SPEECH_B64 }),
+      cancelRecording: () => {},
       hasVoice: (tag) => tag !== 'ja-JP',
       speak: (id, text, tag) => { window.__native.spoken.push({ text, tag }); reply(id, { status: 'ok' }); },
       stopSpeaking: () => {},
-      canListen: () => true,
+      canListen: () => window.__native.canListen,
       listen: (id, tag) => { window.__native.listened.push(tag); reply(id, { text: 'سیب به انگلیسی چی میشه', error: null }); },
       stopListening: () => {},
       saveFile: (id, name, mime, b64) => { window.__native.saved.push({ name, mime, size: b64.length }); reply(id, { ok: true }); },
     };
     navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('denied', 'NotAllowedError'); };
   });
+  await ctxN2.addInitScript((b64) => { window.__SPEECH_B64 = b64; }, fs.readFileSync(process.env.SPEECH_WAV).toString('base64'));
   page = ctxN2.pages()[0];
   await page.goto(FILE);
   await page.locator('.hint-field input').fill('cat گربه');
@@ -628,9 +648,24 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const nspoken = await page.evaluate(() => window.__native.spoken);
   check('app: pronunciation uses Android text-to-speech, part by part', JSON.stringify(nspoken) === JSON.stringify([{ text: 'cat', tag: 'en-US' }, { text: 'گربه', tag: 'fa-IR' }]), JSON.stringify(nspoken));
   check('app: no surprise «save file» screen after saving a word', !noPopup && (await page.evaluate(() => window.__native.saved.length)) === 0);
+  await page.locator('.saved-card').getByRole('button', { name: /یک کلمه یا جمله تازه/ }).click();
   await page.locator('.mic-btn').click();
   await page.getByText('اجازه میکروفون به برنامه داده نشد').waitFor({ timeout: 5000 });
   check('app: microphone refusal explains the Android app setting', true);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.getByRole('button', { name: /اجازه میکروفون/ }).click();
+  await page.getByText('میکروفون آماده است').waitFor({ timeout: 5000 });
+  check('app: «اجازه میکروفون» shows Android\'s own permission dialog', await page.evaluate(() => window.__native.allowMic));
+  await page.locator('.tabbar button').first().click();
+  await page.locator('.mic-btn').click();
+  await page.getByText('دارم گوش می‌دهم').waitFor({ timeout: 5000 });
+  await page.waitForTimeout(1500);
+  await page.getByRole('button', { name: /تمام/ }).click();
+  await page.getByText('درسته؟').waitFor({ timeout: 10000 });
+  await page.locator('.review-input').fill('hello');
+  await confirmBtn(page).click();
+  await page.locator('.word-card-result .btn-play').waitFor({ timeout: 10000 });
+  check('app: recording uses Android\'s own recorder and is saved', (await page.evaluate(() => window.__native.recordStarts)) === 2);
   await page.getByRole('button', { name: /تنظیمات/ }).click();
   await page.getByRole('button', { name: /ساختن فایل پشتیبان/ }).click();
   await page.getByText('فایل پشتیبان ساخته شد').waitFor({ timeout: 5000 });
@@ -647,6 +682,23 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /با صدا بپرس/ }).click();
   await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
   check('app: talking to the tutor uses Android speech recognition', (await page.evaluate(() => window.__native.listened)).includes('fa-IR'));
+  // No speech recognition on this phone: the question is recorded and sent to Gemini as audio
+  let sawAudio = false;
+  await ctxN2.unroute('https://generativelanguage.googleapis.com/**');
+  await ctxN2.route('https://generativelanguage.googleapis.com/**', (r) => {
+    if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } });
+    const body = JSON.parse(r.request().postData() || '{}');
+    sawAudio = sawAudio || !!body.contents?.at(-1)?.parts?.some((p) => p.inline_data?.mime_type === 'audio/wav');
+    return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply":"«ماه» به انگلیسی می‌شود moon.","items":[],"heard":"ماه به انگلیسی چی میشه"}' }] } }] }) });
+  });
+  await page.reload();
+  await page.evaluate(() => { window.__native.canListen = false; window.__native.allowMic = true; });
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.getByRole('button', { name: /با صدا بپرس/ }).click();
+  await page.getByRole('button', { name: /دارم ضبط می‌کنم/ }).click();
+  await page.locator('.bubble.assistant', { hasText: 'moon' }).waitFor({ timeout: 15000 });
+  check('app without speech recognition: spoken question is recorded and understood', sawAudio && (await page.locator('.bubble.user', { hasText: 'ماه به انگلیسی چی میشه' }).isVisible()));
+  await page.screenshot({ path: `${OUT}/16-voice-question.png` });
   await ctxN2.close();
 
   const failed = results.filter((r) => !r.ok);

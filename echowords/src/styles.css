@@ -327,3 +327,5 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .camera-dialog { display: flex; flex-direction: column; gap: 10px; }
 .camera-video { width: 100%; max-height: 60vh; border-radius: 14px; background: #000; object-fit: cover; }
 .tabbar button { font-size: 13px; }
+
+.diag { font-size: 12px; opacity: 0.7; text-align: left; overflow-wrap: anywhere; }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { pickMimeType, resolveMime, rmsLevel } from './audio';
 import { MAX_AUDIO_BYTES, MAX_RECORDING_MS, VOICE_BITRATE, MIN_AUDIO_BYTES, MIN_RECORDING_MS, SILENCE_PEAK } from './config';
 import { explainMicError } from './mic';
+import { nativeCancelRecording, nativeCanRecord, nativePauseRecording, nativeRecordingLevel, nativeResumeRecording, nativeStartRecording, nativeStopRecording } from './native';
 import { t } from './strings';
 
 export type RecorderState = 'idle' | 'requesting' | 'recording' | 'paused' | 'stopping' | 'ready' | 'error';
@@ -59,7 +60,7 @@ function checkPlayable(url: string, timeoutMs = 4000): Promise<boolean> {
  * Guarantees: one session at a time, microphone released on stop/cancel/unmount,
  * no success state unless real audio bytes were captured.
  */
-export function useRecorder(): RecorderApi {
+function useWebRecorder(): RecorderApi {
   const [state, setState] = useState<RecorderState>('idle');
   const [elapsedMs, setElapsed] = useState(0);
   const [level, setLevel] = useState<number | null>(null);
@@ -379,3 +380,175 @@ export function useRecorder(): RecorderApi {
 
   return { state, elapsedMs, level, take, error, notice, canPause, start, stop, pause, resume, cancel, reset };
 }
+
+/** Loudest native level (0..1) that still counts as silence (Android reports peak amplitude). */
+const NATIVE_SILENCE = 0.03;
+
+/**
+ * Android app: record with Android's own recorder (more reliable than the in-app
+ * browser's microphone on some tablets). Same states and checks as the web recorder.
+ */
+function useNativeRecorder(): RecorderApi {
+  const [state, setState] = useState<RecorderState>('idle');
+  const [elapsedMs, setElapsed] = useState(0);
+  const [level, setLevel] = useState<number | null>(null);
+  const [take, setTake] = useState<Take | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const stateRef = useRef<RecorderState>('idle');
+  const tickRef = useRef<number | null>(null);
+  const peakRef = useRef(0);
+  const accRef = useRef(0);
+  const segRef = useRef<number | null>(null);
+  const urlRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+  const reasonRef = useRef<StopReason>('user');
+
+  const setS = useCallback((x: RecorderState) => {
+    stateRef.current = x;
+    if (mountedRef.current) setState(x);
+  }, []);
+  const elapsedNow = () => accRef.current + (segRef.current !== null ? performance.now() - segRef.current : 0);
+  const stopTicker = () => {
+    if (tickRef.current !== null) clearInterval(tickRef.current);
+    tickRef.current = null;
+  };
+  const revoke = () => {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = null;
+  };
+  const fail = useCallback(
+    (msg: string) => {
+      stopTicker();
+      if (mountedRef.current) {
+        setError(msg);
+        setLevel(null);
+      }
+      setS('error');
+    },
+    [setS],
+  );
+
+  const stopWith = useCallback(
+    async (reason: StopReason) => {
+      if (stateRef.current !== 'recording' && stateRef.current !== 'paused') return;
+      reasonRef.current = reason;
+      const durationMs = elapsedNow();
+      segRef.current = null;
+      stopTicker();
+      setS('stopping');
+      const r = await nativeStopRecording();
+      if (!mountedRef.current) return;
+      setLevel(null);
+      if (!r.ok) return fail(r.error === 'empty' ? t.errTooShort : t.errRecorder);
+      const blob = r.blob;
+      if (durationMs < MIN_RECORDING_MS || blob.size < MIN_AUDIO_BYTES) return fail(t.errTooShort);
+      if (peakRef.current < NATIVE_SILENCE) return fail(t.errSilent);
+      revoke();
+      const url = URL.createObjectURL(blob);
+      urlRef.current = url;
+      setTake({ blob, url, mimeType: 'audio/mp4', durationMs, peakLevel: peakRef.current });
+      setElapsed(durationMs);
+      setNotice(reason === 'max' ? t.maxLengthReached : reason === 'background' ? t.stoppedInBackground : null);
+      setS('ready');
+    },
+    [fail, setS],
+  );
+
+  const start = useCallback(async () => {
+    if (!['idle', 'ready', 'error'].includes(stateRef.current)) return;
+    setError(null);
+    setNotice(null);
+    revoke();
+    setTake(null);
+    setElapsed(0);
+    setS('requesting');
+    const r = await nativeStartRecording(); // asks Android for the microphone if needed
+    if (!mountedRef.current) {
+      if (r.ok) nativeCancelRecording();
+      return;
+    }
+    if (stateRef.current !== 'requesting') {
+      if (r.ok) nativeCancelRecording(); // cancelled while the permission dialog was open
+      return;
+    }
+    if (!r.ok) return fail(r.error === 'not-allowed' ? t.errMicApp : r.error === 'busy' ? t.errInUse : t.errRecorder);
+    peakRef.current = 0;
+    accRef.current = 0;
+    segRef.current = performance.now();
+    nativeRecordingLevel(); // reset Android's "loudest since last call"
+    setS('recording');
+    tickRef.current = window.setInterval(() => {
+      const lv = nativeRecordingLevel();
+      if (stateRef.current === 'recording') peakRef.current = Math.max(peakRef.current, lv);
+      if (mountedRef.current) {
+        setLevel(lv / 2);
+        setElapsed(elapsedNow());
+      }
+      if (elapsedNow() >= MAX_RECORDING_MS) void stopWith('max');
+    }, 100);
+  }, [fail, setS, stopWith]);
+
+  const pause = useCallback(() => {
+    if (stateRef.current !== 'recording' || !nativePauseRecording()) return;
+    accRef.current = elapsedNow();
+    segRef.current = null;
+    setS('paused');
+  }, [setS]);
+
+  const resume = useCallback(() => {
+    if (stateRef.current !== 'paused' || !nativeResumeRecording()) return;
+    segRef.current = performance.now();
+    setS('recording');
+  }, [setS]);
+
+  const cancel = useCallback(() => {
+    stopTicker();
+    nativeCancelRecording();
+    segRef.current = null;
+    revoke();
+    setTake(null);
+    setElapsed(0);
+    setError(null);
+    setNotice(null);
+    setLevel(null);
+    setS('idle');
+  }, [setS]);
+
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') void stopWith('background');
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [stopWith]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      stopTicker();
+      if (stateRef.current === 'recording' || stateRef.current === 'paused' || stateRef.current === 'requesting') nativeCancelRecording();
+      revoke();
+    };
+  }, []);
+
+  return {
+    state,
+    elapsedMs,
+    level,
+    take,
+    error,
+    notice,
+    canPause: true,
+    start,
+    stop: () => void stopWith('user'),
+    pause,
+    resume,
+    cancel,
+    reset: cancel,
+  };
+}
+
+/** The Android app records natively; browsers use getUserMedia + MediaRecorder. */
+export const useRecorder: () => RecorderApi = nativeCanRecord() ? useNativeRecorder : useWebRecorder;

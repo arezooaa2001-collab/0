@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -29,6 +30,8 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -58,6 +61,8 @@ public class MainActivity extends Activity {
 
     private static final int REQ_PERM_WEB = 1;
     private static final int REQ_PERM_LISTEN = 2;
+    private static final int REQ_PERM_MIC = 3;
+    private static final int REQ_PERM_RECORD = 4;
     private static final int REQ_FILE = 10;
     private static final int REQ_SAVE = 11;
 
@@ -73,6 +78,10 @@ public class MainActivity extends Activity {
     private String pendingListenTag;
 
     private PermissionRequest pendingWebPermission;
+    private String micRequestId;
+    private MediaRecorder recorder;
+    private File recFile;
+    private String recordStartId;
     private ValueCallback<Uri[]> fileCallback;
     private String saveId;
     private byte[] saveData;
@@ -224,6 +233,15 @@ public class MainActivity extends Activity {
             }
             if (allowed.isEmpty()) req.deny();
             else req.grant(allowed.toArray(new String[0]));
+        } else if (requestCode == REQ_PERM_MIC && micRequestId != null) {
+            String id = micRequestId;
+            micRequestId = null;
+            done(id, micGranted() ? "{\"granted\":true}" : "{\"granted\":false,\"blocked\":" + !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) + "}");
+        } else if (requestCode == REQ_PERM_RECORD && recordStartId != null) {
+            String id = recordStartId;
+            recordStartId = null;
+            if (micGranted()) startRecorder(id);
+            else done(id, "{\"ok\":false,\"error\":\"not-allowed\"}");
         } else if (requestCode == REQ_PERM_LISTEN && listenId != null) {
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startListening(pendingListenTag);
             else finishListen("", "not-allowed");
@@ -259,6 +277,74 @@ public class MainActivity extends Activity {
             saveData = null;
             if (saveId != null) done(saveId, ok ? "{\"ok\":true}" : "{\"ok\":false}");
             saveId = null;
+        }
+    }
+
+    private boolean micGranted() {
+        return checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // ── Native recording (Android's own recorder: AAC in .m4a, voice quality) ──
+    private void startRecorder(String id) {
+        releaseRecorder();
+        try {
+            recFile = new File(getCacheDir(), "take.m4a");
+            if (recFile.exists()) recFile.delete();
+            MediaRecorder r = new MediaRecorder();
+            r.setAudioSource(MediaRecorder.AudioSource.MIC);
+            r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            r.setAudioChannels(1);
+            r.setAudioSamplingRate(44100);
+            r.setAudioEncodingBitRate(48000);
+            r.setOutputFile(recFile.getAbsolutePath());
+            r.prepare();
+            r.start();
+            recorder = r;
+            done(id, "{\"ok\":true}");
+        } catch (Exception e) {
+            releaseRecorder();
+            done(id, "{\"ok\":false,\"error\":\"busy\",\"detail\":" + JSONObject.quote(String.valueOf(e)) + "}");
+        }
+    }
+
+    private void releaseRecorder() {
+        if (recorder != null) {
+            try {
+                recorder.release();
+            } catch (Exception ignored) {
+            }
+            recorder = null;
+        }
+    }
+
+    private String stopRecorder() {
+        if (recorder == null) return "{\"ok\":false,\"error\":\"not-recording\"}";
+        try {
+            recorder.stop();
+        } catch (Exception e) {
+            releaseRecorder();
+            return "{\"ok\":false,\"error\":\"empty\"}"; // stop() fails when nothing was captured
+        }
+        releaseRecorder();
+        try {
+            byte[] bytes = new byte[(int) recFile.length()];
+            FileInputStream in = new FileInputStream(recFile);
+            int off = 0;
+            while (off < bytes.length) {
+                int n = in.read(bytes, off, bytes.length - off);
+                if (n < 0) break;
+                off += n;
+            }
+            in.close();
+            recFile.delete();
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("mime", "audio/mp4");
+            o.put("b64", Base64.encodeToString(bytes, 0, off, Base64.NO_WRAP));
+            return o.toString();
+        } catch (Exception e) {
+            return "{\"ok\":false,\"error\":\"other\"}";
         }
     }
 
@@ -338,7 +424,105 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public String appVersion() {
-            return "10";
+            return "11";
+        }
+
+        @JavascriptInterface
+        public boolean micGranted() {
+            return MainActivity.this.micGranted();
+        }
+
+        /** Show Android's own microphone permission dialog (if not granted yet). */
+        @JavascriptInterface
+        public void requestMic(final String id) {
+            main.post(new Runnable() {
+                public void run() {
+                    if (MainActivity.this.micGranted()) {
+                        done(id, "{\"granted\":true}");
+                        return;
+                    }
+                    micRequestId = id;
+                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_PERM_MIC);
+                }
+            });
+        }
+
+        /** Open Android's settings page for this app (to switch the microphone on by hand). */
+        @JavascriptInterface
+        public void openAppSettings() {
+            main.post(new Runnable() {
+                public void run() {
+                    try {
+                        startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+                    } catch (ActivityNotFoundException ignored) {
+                    }
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void startRecording(final String id) {
+            main.post(new Runnable() {
+                public void run() {
+                    if (!MainActivity.this.micGranted()) {
+                        recordStartId = id;
+                        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_PERM_RECORD);
+                        return;
+                    }
+                    startRecorder(id);
+                }
+            });
+        }
+
+        /** Loudest level since the last call, 0..1. */
+        @JavascriptInterface
+        public double recordingLevel() {
+            MediaRecorder r = recorder;
+            if (r == null) return 0;
+            try {
+                return r.getMaxAmplitude() / 32767.0;
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
+        @JavascriptInterface
+        public boolean pauseRecording() {
+            try {
+                if (recorder != null) MediaRecorder.class.getMethod("pause").invoke(recorder); // API 24 (our minimum)
+                return recorder != null;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public boolean resumeRecording() {
+            try {
+                if (recorder != null) MediaRecorder.class.getMethod("resume").invoke(recorder); // API 24 (our minimum)
+                return recorder != null;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void stopRecording(final String id) {
+            main.post(new Runnable() {
+                public void run() {
+                    done(id, stopRecorder());
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void cancelRecording() {
+            main.post(new Runnable() {
+                public void run() {
+                    releaseRecorder();
+                    if (recFile != null) recFile.delete();
+                }
+            });
         }
 
         @JavascriptInterface
@@ -461,6 +645,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        releaseRecorder();
         if (tts != null) tts.shutdown();
         if (recognizer != null) recognizer.destroy();
         if (web != null) {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AiError, type ChatTurn, type Provider, type TutorReply, askTutor, currentProvider, shrinkImage } from '../lib/ai';
+import { AiError, type ChatTurn, type Provider, type TutorReply, askTutor, askTutorByVoice, currentProvider, shrinkImage } from '../lib/ai';
+import { type VoiceNote, VoiceNoteError, startVoiceNote } from '../lib/voiceNote';
 import { LANGS } from '../lib/langs';
 import { ListenError, canListen, listenOnce, stopListening } from '../lib/listen';
 import { speakText, stopSpeaking } from '../lib/speech';
@@ -54,6 +55,9 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const [listenLang, setListenLang] = useState('fa-IR');
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [camera, setCamera] = useState(false);
+  /** Recording a spoken question (used when the phone cannot turn speech into text). */
+  const [note, setNote] = useState<VoiceNote | null>(null);
+  const [useRecording, setUseRecording] = useState(() => !canListen());
   const liveRef = useRef(false);
   const nextId = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
@@ -79,6 +83,11 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const send = async (text: string, image?: Blob | null): Promise<TutorReply | null> => {
     const q = text.trim() || (image ? t.photoQuestion : '');
     if (!q || busy) return null;
+    if (!provider) {
+      add({ role: 'user', text: q });
+      add({ role: 'assistant', text: t.aiNoProvider, error: true });
+      return null;
+    }
     setBusy(true);
     stopSpeaking();
     add({ role: 'user', text: q, imageUrl: image ? URL.createObjectURL(image) : undefined });
@@ -101,9 +110,51 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     }
   };
 
+  /** Ask a recorded voice question (the AI or the device turns it into text). */
+  const sendVoice = async (audio: Blob) => {
+    if (!provider) {
+      add({ role: 'assistant', text: t.aiNoProvider, error: true });
+      return;
+    }
+    setBusy(true);
+    stopSpeaking();
+    const userId = nextId.current;
+    add({ role: 'user', text: t.voiceQuestion });
+    try {
+      const reply = await askTutorByVoice(historyRef.current, audio);
+      const heard = reply.heard || t.voiceQuestion;
+      setMessages((prev) => prev.map((m) => (m.id === userId ? { ...m, text: `🎤 ${heard}` } : m)));
+      historyRef.current = [...historyRef.current, { role: 'user', text: heard }, { role: 'assistant', text: reply.reply }];
+      add({ role: 'assistant', text: reply.reply, reply });
+      setBusy(false);
+      if (autoSpeak) await speakText(reply.reply, accent, 'fa');
+    } catch (e) {
+      add({ role: 'assistant', text: aiErrorText(e), error: true });
+      setBusy(false);
+    }
+  };
+
+  const startNote = async () => {
+    try {
+      setNote(await startVoiceNote());
+    } catch (e) {
+      toast(e instanceof VoiceNoteError ? e.message : t.errRecorder, 'error');
+    }
+  };
+
   const talkOnce = async () => {
+    // Recording a question → second tap stops and sends it.
+    if (note) {
+      const n = note;
+      setNote(null);
+      const audio = await n.stop();
+      if (audio && audio.size > 1000) await sendVoice(audio);
+      else toast(t.errTooShort, 'error');
+      return;
+    }
     if (listening) return stopListening();
     stopSpeaking();
+    if (useRecording) return startNote();
     setListening(true);
     try {
       const heard = await listenOnce(listenLang);
@@ -111,7 +162,11 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       if (heard) await send(heard);
     } catch (e) {
       setListening(false);
-      toast(listenErrorText(e), 'error');
+      const code = e instanceof ListenError ? e.code : '';
+      if (code === 'not-allowed' || code === 'service-not-allowed') return toast(listenErrorText(e), 'error');
+      // The phone's speech recognition does not work here: record the question instead.
+      setUseRecording(true);
+      toast(t.switchToRecording, 'info');
     }
   };
 
@@ -122,6 +177,10 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       setLive(false);
       stopListening();
       stopSpeaking();
+      return;
+    }
+    if (useRecording) {
+      toast(t.liveNeedsRecognition, 'info');
       return;
     }
     liveRef.current = true;
@@ -175,7 +234,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
         </div>
       )}
 
-      {provider && (
+      {(
         <>
           {messages.length === 0 && (
             <div className="card tutor-hello">
@@ -248,8 +307,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
           </form>
 
           <div className="tutor-tools">
-            <button className={`btn ${listening && !live ? 'btn-stop' : 'btn-secondary'}`} onClick={talkOnce} disabled={busy || live}>
-              🎙️ {listening && !live ? t.tutorListening : t.tutorTalk}
+            <button className={`btn ${(listening && !live) || note ? 'btn-stop' : 'btn-secondary'}`} onClick={talkOnce} disabled={busy || live}>
+              {note ? `⏹️ ${t.tutorRecordingQ}` : `🎙️ ${listening && !live ? t.tutorListening : t.tutorTalk}`}
             </button>
             <button className={`btn ${live ? 'btn-stop' : 'btn-primary'}`} onClick={toggleLive} disabled={busy && !live}>
               {live ? `⏹️ ${t.tutorLiveStop}` : `🔴 ${t.tutorLive}`}
@@ -278,7 +337,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
               <input type="checkbox" checked={autoSpeak} onChange={(e) => setAutoSpeak(e.target.checked)} /> 🔊 {t.tutorAutoSpeak}
             </label>
           </div>
-          {!canListen() && <p className="meta center-text">{t.listenUnsupported}</p>}
+          {useRecording && <p className="meta center-text">{t.recordingModeInfo}</p>}
           {live && <p className="msg msg-info center-text">{listening ? t.tutorLiveListening : t.tutorLiveSpeaking}</p>}
         </>
       )}
