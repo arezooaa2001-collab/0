@@ -25,9 +25,9 @@ describe('analyzeResult', () => {
     expect(analyzeResult('(upbeat music) ♪', null).reason).toBe('empty');
     expect(stripNonSpeech('*laughs* hello').trim()).toBe('hello');
   });
-  it('rejects non-English script', () => {
-    expect(analyzeResult('سلام', null).reason).toBe('empty');
-    expect(analyzeResult('hello سلام', null)).toMatchObject({ status: 'unclear', reason: 'not_english' });
+  it('accepts every script', () => {
+    expect(analyzeResult('سلام', null).status).toBe('done');
+    expect(analyzeResult('hello سلام', null).status).toBe('done');
   });
   it('keeps accented Latin words', () => {
     expect(analyzeResult('Café', null).status).toBe('done');
@@ -38,7 +38,7 @@ describe('analyzeResult', () => {
 describe('other languages', () => {
   it('accepts results in the word\'s language and rejects other scripts', () => {
     expect(analyzeResult(' گربه.', null, 'fa')).toMatchObject({ status: 'done', transcript: 'گربه' });
-    expect(analyzeResult('cat', null, 'fa')).toMatchObject({ status: 'unclear', reason: 'empty' });
+    expect(analyzeResult('cat گربه', null)).toMatchObject({ status: 'done', transcript: 'cat گربه' }); // mixed is fine
     expect(analyzeResult('猫。', null, 'zh')).toMatchObject({ status: 'done', transcript: '猫' });
     expect(analyzeResult('Bonjour', 'bonjour', 'fr').status).toBe('done');
   });

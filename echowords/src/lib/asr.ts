@@ -27,7 +27,7 @@ export const MODEL_EN = 'Xenova/whisper-tiny.en';
 /** One multilingual model for Persian, French, Chinese, Japanese, Hindi (and English when mixed). */
 export const MODEL_MULTI = 'Xenova/whisper-tiny';
 
-export function modelFor(lang: LangCode, enabled: LangCode[]): string {
+export function modelFor(lang: LangCode | 'auto', enabled: LangCode[]): string {
   const forced = config().model;
   if (forced) return forced;
   return lang === 'en' && enabled.every((l) => l === 'en') ? MODEL_EN : MODEL_MULTI;
@@ -131,11 +131,12 @@ export async function decodeTo16kMono(original: Blob): Promise<Float32Array> {
 }
 
 /** Recognize speech in one language. Returns the raw text from the model. */
-export async function recognizeSpeech(original: Blob, lang: LangCode, enabled: LangCode[], onProgress?: ProgressFn): Promise<string> {
+export async function recognizeSpeech(original: Blob, lang: LangCode | 'auto', enabled: LangCode[], onProgress?: ProgressFn): Promise<string> {
   const model = modelFor(lang, enabled);
   const [pipe, samples] = await Promise.all([loadRecognizer(model, onProgress), decodeTo16kMono(original)]);
   // ".en" models are English-only and take no language option; the multilingual model is told the language.
-  const opts: Record<string, unknown> = model.endsWith('.en') ? {} : { language: LANGS[lang].whisper, task: 'transcribe' };
+  // 'auto': the multilingual model detects the language itself (any language, no setting needed).
+  const opts: Record<string, unknown> = model.endsWith('.en') ? {} : lang === 'auto' ? { task: 'transcribe' } : { language: LANGS[lang].whisper, task: 'transcribe' };
   await new Promise((r) => setTimeout(r, 30)); // let the UI paint "working…" before the CPU-heavy step
   let limit: ReturnType<typeof setTimeout> | undefined;
   const out = await Promise.race([

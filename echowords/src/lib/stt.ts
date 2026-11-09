@@ -1,7 +1,7 @@
 // Pure logic that decides whether a speech-recognition result can be trusted.
 // The app never saves a guess: anything doubtful is shown to the learner as a question.
 
-import { type LangCode, isInLang } from './langs';
+import type { LangCode } from './langs';
 
 export type Accent = 'auto' | 'us' | 'uk';
 export type UnclearReason = 'empty' | 'not_english' | 'mismatch';
@@ -55,18 +55,17 @@ export function sanitizeHint(hint: string | null | undefined): string | null {
   return h;
 }
 
-export function analyzeResult(rawText: string, hint: string | null, lang: LangCode = 'en'): Analysis {
+/**
+ * Decide whether a recognition result can be saved without asking.
+ * Any language (and mixed languages) is fine; nothing heard → ask; a different word
+ * than the one the learner wrote → ask.
+ */
+export function analyzeResult(rawText: string, hint: string | null, _lang?: LangCode): Analysis {
+  void _lang;
   const heard = tidyTranscript(stripNonSpeech(rawText ?? ''));
   if (!heard || !/\p{L}/u.test(heard)) return { status: 'unclear', transcript: null, heard: null, reason: 'empty' };
-  if (!isInLang(heard, lang)) {
-    // e.g. Latin letters when Persian was expected: not this language (or nothing usable)
-    return { status: 'unclear', transcript: null, heard: hasLetterOf(heard, lang) ? heard : null, reason: hasLetterOf(heard, lang) ? 'not_english' : 'empty' };
-  }
   const h = hint?.trim() ? hint.trim() : null;
   if (h && !sameWords(heard, h)) return { status: 'unclear', transcript: null, heard, reason: 'mismatch' };
   return { status: 'done', transcript: heard, heard, reason: null };
 }
 
-function hasLetterOf(text: string, lang: LangCode): boolean {
-  return [...text].some((ch) => /\p{L}/u.test(ch) && isInLang(ch, lang));
-}

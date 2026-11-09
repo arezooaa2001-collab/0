@@ -103,13 +103,13 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۸/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۹/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
-  await page.locator('.hint-field input').fill('گربه');
+  await page.locator('.hint-field input').fill('123');
   await page.locator('.save-typed').click();
-  check('typed word: Persian (switched off) is refused with a hint', await page.getByText('زبان فارسی را روشن کن').isVisible());
+  check('typed text without letters is refused', await page.getByText('باید حداقل یک حرف بنویسی').isVisible());
   await page.locator('.hint-field input').fill('cat');
   const [firstBackup] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), page.locator('.hint-field input').press('Enter')]);
   await page.locator('.saved-card', { hasText: 'cat' }).waitFor({ timeout: 5000 });
@@ -200,9 +200,9 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   // 5. Manual correction: Persian rejected, English saved
   await page.getByRole('button', { name: /ویرایش/ }).first().click();
   const input = page.locator('.editor input');
-  await input.fill('سیب');
+  await input.fill('!!');
   await page.getByRole('button', { name: /ثبت/ }).click();
-  check('Persian text is rejected in the English editor', await page.getByText('لطفاً با حروف انگلیسی بنویس').isVisible());
+  check('editor refuses text without letters', await page.getByText('باید حداقل یک حرف بنویسی').isVisible());
   await input.fill('Apple');
   await page.getByRole('button', { name: /ثبت/ }).click();
   await page.locator('.word-text', { hasText: 'Apple' }).waitFor({ timeout: 5000 });
@@ -234,32 +234,56 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.word-card').first().waitFor();
   check('restore brings everything back', (await page.locator('.word-card').count()) === 2);
 
-  // 6b. Languages and pronunciation in each language
-  await page.getByRole('button', { name: /تنظیمات/ }).click();
-  await page.locator('.lang-option.all input').check();
-  check('settings: all languages switched on with «همه با هم»', (await page.locator('.lang-option.on').count()) === 7);
-  await page.screenshot({ path: `${OUT}/11-settings-langs.png` });
+  // 6b. Every language, mixed in one entry, read part by part — no settings needed
   await page.locator('.tabbar button').first().click();
-  await page.locator('.lang-picker').waitFor({ timeout: 5000 });
-  await page.locator('.hint-field input').fill('گربه');
-  check('typing Persian picks «فارسی» by itself', await page.locator('.lang-picker .chip.on', { hasText: 'فارسی' }).isVisible());
+  await page.locator('.hint-field input').fill('cat گربه');
   await page.locator('.save-typed').click();
-  await page.locator('.saved-card', { hasText: 'گربه' }).waitFor({ timeout: 5000 });
-  await page.waitForTimeout(300);
-  check('Persian word is pronounced in Persian', await page.evaluate(() => window.__spoken.some((x) => x.text === 'گربه' && x.lang === 'fa-IR')));
-  await page.screenshot({ path: `${OUT}/12-persian-saved.png` });
+  await page.locator('.saved-card', { hasText: 'cat گربه' }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(500);
+  const spokenMixed = await page.evaluate(() => window.__spoken.slice(-2));
+  check('mixed «cat گربه» is saved and read in English then Persian', JSON.stringify(spokenMixed) === JSON.stringify([{ text: 'cat', lang: 'en-US' }, { text: 'گربه', lang: 'fa-IR' }]), JSON.stringify(spokenMixed));
+  await page.screenshot({ path: `${OUT}/12-mixed-saved.png` });
   await page.locator('.saved-card').getByRole('button', { name: /یک کلمه یا جمله تازه/ }).click();
   await page.locator('.hint-field input').fill('ねこ');
   await page.locator('.save-typed').click();
   await page.locator('.saved-card', { hasText: 'ねこ' }).waitFor({ timeout: 5000 });
   await page.locator('.saved-card .btn-tts').click();
   await page.getByText('این دستگاه صدای ژاپنی ندارد').waitFor({ timeout: 5000 });
-  check('missing device voice is explained, not silent', true);
+  check('Japanese saved without any setting; missing voice is explained', true);
   await page.locator('.saved-card').getByRole('button', { name: /برو به کلمه‌ها و جمله‌هایم/ }).click();
   await page.locator('.word-card', { hasText: 'ねこ' }).waitFor();
-  await page.screenshot({ path: `${OUT}/13-library-langs.png` });
   await page.locator('.toolbar .chip', { hasText: 'ژاپنی' }).click();
   check('library can be filtered by language', (await page.locator('.word-card').count()) === 1);
+  await page.locator('.toolbar .chip', { hasText: 'ژاپنی' }).click();
+
+  // 6c. Folders
+  await page.locator('.folder-add').click();
+  await page.locator('.folder-dialog input').fill('حیوانات');
+  await page.locator('.emoji-choice', { hasText: '🐶' }).click();
+  await page.locator('.folder-dialog').getByRole('button', { name: /تایید/ }).click();
+  await page.locator('.folder-tile.on', { hasText: 'حیوانات' }).waitFor({ timeout: 5000 });
+  check('a folder «🐶 حیوانات» can be made', await page.getByText('این پوشه هنوز خالی است').isVisible());
+  await page.locator('.tabbar button').first().click();
+  await page.locator('.folder-picker .chip', { hasText: 'حیوانات' }).click();
+  await page.locator('.hint-field input').fill('dog سگ');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'dog سگ' }).waitFor({ timeout: 5000 });
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).first().click();
+  await page.locator('.folder-tile', { hasText: 'حیوانات' }).click();
+  await page.locator('.word-card', { hasText: 'dog سگ' }).waitFor({ timeout: 5000 });
+  check('word saved into the chosen folder', (await page.locator('.word-card').count()) === 1);
+  await page.screenshot({ path: `${OUT}/13-folder.png` });
+  // move another word into the folder from its card
+  await page.locator('.folder-tile', { hasText: 'همه' }).click();
+  await page.locator('.word-card', { hasText: 'ねこ' }).locator('.folder-select').selectOption({ label: '🐶 حیوانات' });
+  await page.locator('.folder-tile', { hasText: 'حیوانات' }).click();
+  await page.waitForTimeout(300);
+  check('a word can be moved into a folder', (await page.locator('.word-card').count()) === 2);
+  await page.getByRole('button', { name: 'پاک کردن پوشه' }).click();
+  await page.getByRole('button', { name: 'آره، پاک کن' }).click();
+  await page.locator('.folder-tile', { hasText: 'بدون پوشه' }).click();
+  await page.locator('.word-card', { hasText: 'dog سگ' }).waitFor({ timeout: 5000 });
+  check('deleting a folder keeps its words (they go to «بدون پوشه»)', true);
   await ctx.close();
 
   // 7. No internet the first time → recording kept, text can be made later
@@ -413,6 +437,169 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForTimeout(300);
   check('restored word and its recording are back', (await p2.getAttribute('aria-pressed')) === 'true');
   await ctx5.close();
+
+  // 12. Microphone: a page opened as a file gets the real reason, not a vague "no permission"
+  const micDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-mic-'));
+  const ctxM = await chromium.launchPersistentContext(micDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxM.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      throw new DOMException('Permission denied', 'NotAllowedError');
+    };
+  });
+  page = ctxM.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.mic-btn').click();
+  await page.getByText('برنامه به شکل «فایل» باز شده است').waitFor({ timeout: 5000 });
+  check('mic refused on a file page: explains why and what to do', true);
+  await page.screenshot({ path: `${OUT}/14-mic-file.png` });
+  await ctxM.close();
+
+  // 12b. Normal case: the «اجازه میکروفون» button asks the browser and reports success
+  const micOkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-micok-'));
+  const ctxMo = await chromium.launchPersistentContext(micOkDir, {
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', permissions: ['microphone'],
+  });
+  page = ctxMo.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.getByRole('button', { name: /اجازه میکروفون/ }).click();
+  await page.getByText('میکروفون آماده است').waitFor({ timeout: 5000 });
+  check('Settings «اجازه میکروفون» asks the browser directly', true);
+  await ctxMo.close();
+
+  // 13. AI tutor with a Gemini key (the service is simulated here: no internet to Google in this test)
+  const aiDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-ai-'));
+  const ctxA = await chromium.launchPersistentContext(aiDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxA.addInitScript(() => {
+    window.__spoken = [];
+    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }];
+    speechSynthesis.speak = (u) => {
+      window.__spoken.push({ text: u.text, lang: u.lang });
+      setTimeout(() => u.onend && u.onend(new Event('end')), 30);
+    };
+    // A fake speech recogniser: hears one question, then silence.
+    let heardOnce = false;
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => {
+          if (!heardOnce) {
+            heardOnce = true;
+            this.onresult && this.onresult({ results: [[{ transcript: 'گربه به ژاپنی چی میشه' }]] });
+          }
+          this.onend && this.onend();
+        }, 100);
+      }
+      stop() {}
+      abort() {}
+    };
+  });
+  const aiRequests = [];
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+  await ctxA.route('https://generativelanguage.googleapis.com/**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    const body = JSON.parse(req.postData() || '{}');
+    aiRequests.push({ key: req.headers()['x-goog-api-key'], body });
+    const lastText = body.contents?.at(-1)?.parts?.[0]?.text ?? '';
+    const hasImage = !!body.contents?.at(-1)?.parts?.some((p) => p.inline_data);
+    const answer = hasImage
+      ? { reply: 'در عکس نوشته «STOP» که به فارسی یعنی «ایست».', items: [{ text: 'STOP', lang: 'en', meaning: 'ایست', say: 'اِستاپ' }] }
+      : /ژاپنی/.test(lastText)
+        ? { reply: 'گربه به ژاپنی می‌شود 猫 که «نِکو» خوانده می‌شود.', items: [{ text: '猫', lang: 'ja', meaning: 'گربه', say: 'نِکو' }] }
+        : { reply: 'سیب به انگلیسی می‌شود apple.', items: [{ text: 'apple', lang: 'en', meaning: 'سیب', say: 'اَپِل' }] };
+    await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(answer) }] } }] }) });
+  });
+  page = ctxA.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /معلم/ }).click();
+  check('tutor without a key explains how to turn it on', await page.getByText('معلم هوشمند هنوز روشن نیست').isVisible());
+  await page.getByRole('button', { name: /رفتن به تنظیمات/ }).click();
+  await page.locator('input[type=password]').fill('test-gemini-key');
+  await page.getByRole('button', { name: /ذخیره کلید/ }).click();
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.getByRole('button', { name: '«سیب» به انگلیسی چی میشه؟' }).click();
+  await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
+  check('tutor answers in Persian with the English word', aiRequests[0]?.key === 'test-gemini-key' && !!aiRequests[0]?.body?.system_instruction);
+  await page.waitForTimeout(400);
+  check('tutor reads its answer aloud (each part in its language)', await page.evaluate(() => window.__spoken.some((x) => x.text.startsWith('apple') && x.lang === 'en-US') && window.__spoken.some((x) => x.lang === 'fa-IR')));
+  await page.locator('.tutor-item', { hasText: 'apple' }).getByRole('button', { name: '💾' }).click();
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).first().click();
+  await page.locator('.word-card', { hasText: 'apple سیب' }).waitFor({ timeout: 5000 });
+  check('a word taught by the tutor can be saved with one tap', true);
+  await page.getByRole('button', { name: /معلم/ }).click();
+  // photo of a word
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.locator('.tutor-tools input[type=file]').setInputFiles({ name: 'word.png', mimeType: 'image/png', buffer: png });
+  await page.locator('.bubble.assistant', { hasText: 'STOP' }).waitFor({ timeout: 10000 });
+  check('photo of a word is read and translated', aiRequests.some((r) => r.body.contents?.at(-1)?.parts?.some((p) => p.inline_data)));
+  // live voice mode: listens, answers out loud, listens again, stops after silence
+  await page.getByRole('button', { name: /حالت لایو/ }).click();
+  await page.locator('.bubble.assistant', { hasText: '猫' }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /حالت لایو/ }).waitFor({ timeout: 10000 });
+  check('live mode: spoken question answered out loud, then stops by itself after silence', await page.evaluate(() => window.__spoken.some((x) => x.text.includes('猫') || x.lang === 'ja-JP' || x.text.includes('گربه'))));
+  await page.screenshot({ path: `${OUT}/15-tutor.png` });
+  await ctxA.close();
+
+  // 14. Inside Claude: the tutor uses Claude with no key at all (claude.use('sample') simulated)
+  const clDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-claude-'));
+  const ctxC = await chromium.launchPersistentContext(clDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxC.addInitScript(() => {
+    window.__prompts = [];
+    const sample = async (input) => {
+      window.__prompts.push(input);
+      return { text: JSON.stringify({ reply: 'Hello به ژاپنی می‌شود こんにちは.', items: [{ text: 'こんにちは', lang: 'ja', meaning: 'سلام', say: 'کُنیچیوا' }] }) };
+    };
+    window.claude = { use: async (n) => (n === 'sample' ? sample : null) };
+  });
+  page = ctxC.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.getByText('بدون کلید').first().waitFor({ timeout: 5000 });
+  await page.getByRole('button', { name: '«Hello» را به ژاپنی بگو' }).click();
+  await page.locator('.bubble.assistant', { hasText: 'こんにちは' }).waitFor({ timeout: 10000 });
+  check('inside Claude the tutor works with no API key', await page.evaluate(() => window.__prompts.length === 1 && /9-year-old/.test(window.__prompts[0])));
+  await ctxC.close();
+
+  // 15. Inside Claude: words are also kept in the learner's private Claude storage
+  const remoteStore = {}; // shared between the two "devices" below (stands in for Claude storage)
+  const stubClaude = async (ctx) => {
+    await ctx.exposeBinding('__remoteSet', (_s, k, v) => { remoteStore[k] = v; });
+    await ctx.exposeBinding('__remoteDel', (_s, k) => { delete remoteStore[k]; });
+    await ctx.exposeBinding('__remoteAll', () => remoteStore);
+    await ctx.addInitScript(() => {
+      const coll = {
+        doc: (id) => ({ set: (d) => window.__remoteSet(id, d), delete: () => window.__remoteDel(id) }),
+        get: async () => {
+          const all = await window.__remoteAll();
+          return { docs: Object.entries(all).map(([id, v]) => ({ id, exists: true, data: () => v })) };
+        },
+      };
+      const db = { collection: () => coll };
+      const user = { id: async () => 'learner-1' };
+      window.claude = { use: async (n) => (n === 'db' ? db : n === 'user' ? user : null) };
+    });
+  };
+  const devA = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-devA-'));
+  const ctxD1 = await chromium.launchPersistentContext(devA, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await stubClaude(ctxD1);
+  page = ctxD1.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.hint-field input').fill('rabbit خرگوش');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'rabbit' }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(500);
+  check('inside Claude: a saved word is also stored in Claude storage', Object.values(remoteStore).some((v) => v.transcript === 'rabbit خرگوش'));
+  await ctxD1.close();
+  const devB = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-devB-'));
+  const ctxD2 = await chromium.launchPersistentContext(devB, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await stubClaude(ctxD2);
+  page = ctxD2.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).first().click();
+  await page.locator('.word-card', { hasText: 'rabbit خرگوش' }).waitFor({ timeout: 10000 });
+  check('inside Claude: an empty browser gets the words back from Claude storage', true);
+  await ctxD2.close();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

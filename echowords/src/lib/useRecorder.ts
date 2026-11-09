@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pickMimeType, resolveMime, rmsLevel } from './audio';
 import { MAX_AUDIO_BYTES, MAX_RECORDING_MS, VOICE_BITRATE, MIN_AUDIO_BYTES, MIN_RECORDING_MS, SILENCE_PEAK } from './config';
+import { explainMicError } from './mic';
 import { t } from './strings';
 
 export type RecorderState = 'idle' | 'requesting' | 'recording' | 'paused' | 'stopping' | 'ready' | 'error';
@@ -30,27 +31,6 @@ export interface RecorderApi {
   resume: () => void;
   cancel: () => void;
   reset: () => void;
-}
-
-function micErrorMessage(err: unknown): string {
-  const name = (err as { name?: string })?.name ?? '';
-  switch (name) {
-    case 'NotAllowedError':
-    case 'PermissionDeniedError':
-      return t.errDenied;
-    case 'SecurityError':
-      return window.isSecureContext ? t.errDenied : t.errInsecure;
-    case 'NotFoundError':
-    case 'DevicesNotFoundError':
-    case 'OverconstrainedError':
-      return t.errNoMic;
-    case 'NotReadableError':
-    case 'TrackStartError':
-    case 'AbortError':
-      return t.errInUse;
-    default:
-      return t.errRecorder;
-  }
 }
 
 /** Resolve true if the browser can decode the blob as audio (or if it cannot tell within the time limit). */
@@ -222,8 +202,9 @@ export function useRecorder(): RecorderApi {
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
     } catch (e) {
+      const msg = await explainMicError(e);
       if (session !== sessionRef.current || !mountedRef.current) return;
-      return fail(micErrorMessage(e));
+      return fail(msg);
     }
     // The screen may have closed or the user cancelled while the permission prompt was open.
     if (session !== sessionRef.current || !mountedRef.current || stateRef.current !== 'requesting') {

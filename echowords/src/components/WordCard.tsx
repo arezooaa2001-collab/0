@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { type Word, hasAudio } from '../lib/db';
 import { formatDate, formatSeconds } from '../lib/format';
-import { LANGS, langOf } from '../lib/langs';
+import { LANGS, langOf, langsIn } from '../lib/langs';
 import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
@@ -36,7 +36,6 @@ export function WordCard({ word, lib, accent, result, onRecordAgain, onAddVoice 
   const [deleting, setDeleting] = useState(false);
 
   const lang = langOf(word);
-  const info = LANGS[lang];
   const text = word.transcript;
   const isTranscribing =
     lib.transcribing.has(word.id) || (word.sttStatus === 'processing' && Date.now() - new Date(word.updatedAt).getTime() < STUCK_MS);
@@ -89,7 +88,7 @@ export function WordCard({ word, lib, accent, result, onRecordAgain, onAddVoice 
     body = (
       <div className="word-text-wrap">
         {result && <p className="praise">{t.greatYouSaid}</p>}
-        <p className="word-text" dir={info.dir} lang={lang}>{text}</p>
+        <p className="word-text" dir="auto">{text}</p>
       </div>
     );
   } else if (isTranscribing) {
@@ -108,7 +107,7 @@ export function WordCard({ word, lib, accent, result, onRecordAgain, onAddVoice 
         <p>{reasonText(word.sttReason)}</p>
         {word.sttHeard && word.sttReason !== 'not_english' && (
           <p className="suggestion">
-            {t.maybeYouSaid} <b dir={info.dir} lang={lang}>{word.sttHeard}</b>
+            {t.maybeYouSaid} <b dir="auto">{word.sttHeard}</b>
           </p>
         )}
         <div className="row wrap">
@@ -167,10 +166,25 @@ export function WordCard({ word, lib, accent, result, onRecordAgain, onAddVoice 
       {!editing && (
         <div className="word-foot">
           <span className="meta">
-            {info.flag} {formatDate(word.createdAt)}
+            {(text ? langsIn(text) : [lang]).map((l) => LANGS[l].flag).join(' ')} {formatDate(word.createdAt)}
             {word.durationMs ? ` · ${formatSeconds(word.durationMs)}` : ''}
           </span>
           <span className="row">
+            {lib.folders.length > 0 && (
+              <select
+                className="folder-select"
+                aria-label={t.moveTo}
+                value={word.folderId ?? ''}
+                onChange={(e) => lib.moveToFolder(word, e.target.value || null).catch(() => toast(t.errGeneric, 'error'))}
+              >
+                <option value="">🗂️ {t.noFolder}</option>
+                {lib.folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.emoji} {f.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <button className="btn-link" onClick={() => setEditing(true)} aria-label={t.edit}>✏️</button>
             <button className="btn-link danger" onClick={() => setConfirmDelete(true)} disabled={deleting} aria-label={t.delete}>🗑️</button>
           </span>

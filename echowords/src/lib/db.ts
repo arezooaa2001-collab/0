@@ -23,6 +23,8 @@ export interface Word {
   accent: Accent;
   /** Language of the word (missing on words saved before languages existed = English). */
   lang?: LangCode;
+  /** Folder the word is in (null/missing = no folder). */
+  folderId?: string | null;
   hint: string | null;
   transcript: string | null;
   transcriptEdited: boolean;
@@ -30,6 +32,13 @@ export interface Word {
   sttHeard: string | null;
   sttReason: string | null;
   favorite: boolean;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  emoji: string;
+  createdAt: string;
 }
 
 export interface AudioMeta {
@@ -40,8 +49,8 @@ export interface AudioMeta {
 }
 
 /** Fields that may change after saving. Recording fields are only set by addAudio. */
-export type WordPatch = Partial<Pick<Word, 'transcript' | 'transcriptEdited' | 'sttStatus' | 'sttHeard' | 'sttReason' | 'favorite'>>;
-const PATCHABLE = ['transcript', 'transcriptEdited', 'sttStatus', 'sttHeard', 'sttReason', 'favorite'] as const;
+export type WordPatch = Partial<Pick<Word, 'transcript' | 'transcriptEdited' | 'sttStatus' | 'sttHeard' | 'sttReason' | 'favorite' | 'lang' | 'folderId'>>;
+const PATCHABLE = ['transcript', 'transcriptEdited', 'sttStatus', 'sttHeard', 'sttReason', 'favorite', 'lang', 'folderId'] as const;
 
 export const hasAudio = (w: Pick<Word, 'audioSha256'>): boolean => !!w.audioSha256;
 
@@ -54,22 +63,28 @@ interface Backend {
   putWithAudio(word: Word, audio: ArrayBuffer): Promise<void>;
   getAudio(id: string): Promise<ArrayBuffer | null>;
   remove(id: string): Promise<void>;
+  listFolders(): Promise<Folder[]>;
+  putFolder(f: Folder): Promise<void>;
+  removeFolder(id: string): Promise<void>;
 }
 
 // ── 1. IndexedDB ────────────────────────────────────────────────────────────
 const DB_NAME = 'echowords-library';
 const WORDS = 'words';
 const AUDIO = 'audio';
+const FOLDERS = 'folders';
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openIdb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
+      // v2 adds folders. Upgrades only ADD stores: existing words and recordings are untouched.
+      const req = indexedDB.open(DB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(WORDS)) db.createObjectStore(WORDS, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(AUDIO)) db.createObjectStore(AUDIO, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(FOLDERS)) db.createObjectStore(FOLDERS, { keyPath: 'id' });
       };
       req.onsuccess = () => {
         const db = req.result;
@@ -127,10 +142,15 @@ const idb: Backend = {
       tx.objectStore(WORDS).delete(id);
       tx.objectStore(AUDIO).delete(id);
     }),
+  listFolders: () => idbRun<Folder[]>([FOLDERS], 'readonly', (tx) => tx.objectStore(FOLDERS).getAll()),
+  putFolder: (f) => idbRun<void>([FOLDERS], 'readwrite', (tx) => void tx.objectStore(FOLDERS).put(f)),
+  removeFolder: (id) => idbRun<void>([FOLDERS], 'readwrite', (tx) => void tx.objectStore(FOLDERS).delete(id)),
 };
 
 // ── 2. localStorage ─────────────────────────────────────────────────────────
 const LS_WORDS = 'echowords-ls-words';
+const LS_FOLDERS = 'echowords-ls-folders';
+const lsFolders = (): Folder[] => JSON.parse(localStorage.getItem(LS_FOLDERS) ?? '[]') as Folder[];
 const lsAudioKey = (id: string) => `echowords-ls-audio-${id}`;
 
 function lsRead(): Word[] {
@@ -174,11 +194,15 @@ const ls: Backend = {
     localStorage.removeItem(lsAudioKey(id));
     lsWrite(lsRead().filter((w) => w.id !== id));
   },
+  listFolders: async () => lsFolders(),
+  putFolder: async (f) => localStorage.setItem(LS_FOLDERS, JSON.stringify([...lsFolders().filter((x) => x.id !== f.id), f])),
+  removeFolder: async (id) => localStorage.setItem(LS_FOLDERS, JSON.stringify(lsFolders().filter((x) => x.id !== id))),
 };
 
 // ── 3. memory ───────────────────────────────────────────────────────────────
 const memWords = new Map<string, Word>();
 const memAudio = new Map<string, ArrayBuffer>();
+const memFolders = new Map<string, Folder>();
 const memory: Backend = {
   list: async () => [...memWords.values()],
   get: async (id) => memWords.get(id),
@@ -198,6 +222,9 @@ const memory: Backend = {
     memWords.delete(id);
     memAudio.delete(id);
   },
+  listFolders: async () => [...memFolders.values()],
+  putFolder: async (f) => void memFolders.set(f.id, { ...f }),
+  removeFolder: async (id) => void memFolders.delete(id),
 };
 
 // ── Choosing the storage ────────────────────────────────────────────────────
@@ -272,6 +299,10 @@ async function adoptLocalStorageWords(): Promise<void> {
       if (!(await idb.get(w.id))) await idb.add(w, await ls.getAudio(w.id));
       await ls.remove(w.id);
     }
+    for (const f of lsFolders()) {
+      await idb.putFolder(f);
+      await ls.removeFolder(f.id);
+    }
   } catch (e) {
     console.warn('could not move older words', e);
   }
@@ -288,6 +319,7 @@ export function _resetStorageCheck(): void {
   backend = memory;
   memWords.clear();
   memAudio.clear();
+  memFolders.clear();
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -337,6 +369,23 @@ export async function updateWord(id: string, patch: WordPatch): Promise<Word> {
 
 export async function deleteWord(id: string): Promise<void> {
   return (await store()).remove(id);
+}
+
+// ── Folders ────────────────────────────────────────────────────────────────
+export async function listFolders(): Promise<Folder[]> {
+  const rows = await (await store()).listFolders();
+  return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export async function saveFolder(f: Folder): Promise<void> {
+  return (await store()).putFolder(f);
+}
+
+/** Delete a folder. Its words are NOT deleted: they move to "no folder". */
+export async function deleteFolder(id: string): Promise<void> {
+  const s = await store();
+  for (const w of await s.list()) if (w.folderId === id) await s.put({ ...w, folderId: null, updatedAt: new Date().toISOString() });
+  await s.removeFolder(id);
 }
 
 /** Ask the browser not to clear this app's data when the device is low on space. */

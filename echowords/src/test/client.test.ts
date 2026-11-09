@@ -4,8 +4,9 @@ import { baseMime, extensionFor, pickMimeType, resolveMime, rmsLevel, sha256Hex,
 import { buildBackup, restoreBackup } from '../lib/backup';
 import * as db from '../lib/db';
 import { formatDuration } from '../lib/format';
-import { validateEnglish, validateText } from '../lib/validation';
-import { guessLang, isInLang } from '../lib/langs';
+import { validateText } from '../lib/validation';
+import { langsIn, primaryLang, segmentByLang } from '../lib/langs';
+import { parseTutorReply } from '../lib/ai';
 import { pickVoice } from '../lib/speech';
 
 describe('audio helpers', () => {
@@ -36,37 +37,50 @@ describe('audio helpers', () => {
   });
 });
 
-describe('validation', () => {
-  it('accepts English', () => {
-    expect(validateEnglish('  I am   learning English. ')).toEqual({ ok: true, value: 'I am learning English.' });
-    expect(validateEnglish('Wi-Fi & café!').ok).toBe(true);
+describe('validation (every language, mixed too)', () => {
+  it('accepts any language and mixtures', () => {
+    expect(validateText('  I am   learning English. ')).toEqual({ ok: true, value: 'I am learning English.' });
+    expect(validateText('cat گربه').ok).toBe(true);
+    expect(validateText('猫 ねこ बिल्ली chat').ok).toBe(true);
+    expect(validateText('می‌خواهم').ok).toBe(true);
   });
-  it('rejects Persian or empty text', () => {
-    expect(validateEnglish('سیب').ok).toBe(false);
-    expect(validateEnglish('apple سیب').ok).toBe(false);
-    expect(validateEnglish('   ').ok).toBe(false);
+  it('rejects empty text or text without letters', () => {
+    expect(validateText('   ').ok).toBe(false);
+    expect(validateText('123 !!').ok).toBe(false);
   });
-  it('checks each language by its own letters', () => {
-    expect(validateText('گربه', 'fa')).toEqual({ ok: true, value: 'گربه' });
-    expect(validateText('می‌خواهم بخوانم.', 'fa').ok).toBe(true); // ZWNJ + punctuation
-    expect(validateText('cat', 'fa').ok).toBe(false);
-    expect(validateText('Bonjour, ça va ?', 'fr').ok).toBe(true);
-    expect(validateText('猫', 'zh').ok).toBe(true);
-    expect(validateText('ねこ', 'ja').ok).toBe(true);
-    expect(validateText('コーヒー', 'ja').ok).toBe(true);
-    expect(validateText('बिल्ली', 'hi').ok).toBe(true); // vowel signs are marks
-    expect(validateText('बिल्ली', 'en').ok).toBe(false);
+});
+
+describe('mixed-language text', () => {
+  it('splits text into one run per language', () => {
+    expect(segmentByLang('cat گربه')).toEqual([
+      { text: 'cat', lang: 'en' },
+      { text: 'گربه', lang: 'fa' },
+    ]);
+    expect(segmentByLang('Hello, سلام! 你好')).toEqual([
+      { text: 'Hello,', lang: 'en' },
+      { text: 'سلام!', lang: 'fa' },
+      { text: '你好', lang: 'zh' },
+    ]);
+    expect(segmentByLang('ねこ 猫')).toEqual([{ text: 'ねこ 猫', lang: 'ja' }]); // kana present → Han read as Japanese
+    expect(segmentByLang('chat', 'fr')).toEqual([{ text: 'chat', lang: 'fr' }]);
+    expect(segmentByLang('I have 2 cats')).toEqual([{ text: 'I have 2 cats', lang: 'en' }]);
   });
-  it('guesses the language from the letters', () => {
-    const all = ['fa', 'en', 'fr', 'zh', 'ja', 'hi'] as const;
-    expect(guessLang('گربه', [...all], 'en')).toBe('fa');
-    expect(guessLang('cat', [...all], 'fa')).toBe('en');
-    expect(guessLang('chat', [...all], 'fr')).toBe('fr'); // Latin fits the current one
-    expect(guessLang('ねこ', [...all], 'en')).toBe('ja');
-    expect(guessLang('猫', [...all], 'en')).toBe('zh');
-    expect(guessLang('बिल्ली', [...all], 'en')).toBe('hi');
-    expect(guessLang('گربه', ['en'], 'en')).toBe('en'); // Persian not switched on
-    expect(isInLang('123', 'en')).toBe(false);
+  it('finds the main language', () => {
+    expect(primaryLang('گربه cat')).toBe('fa');
+    expect(langsIn('cat گربه')).toEqual(['fa', 'en']);
+    expect(primaryLang('बिल्ली')).toBe('hi');
+  });
+});
+
+describe('tutor replies', () => {
+  it('reads the JSON answer, even with extra text around it', () => {
+    const r = parseTutorReply('```json\n{"reply":"سیب به انگلیسی apple است.","items":[{"text":"apple","lang":"en","meaning":"سیب","say":"اَپِل"}]}\n```');
+    expect(r.reply).toBe('سیب به انگلیسی apple است.');
+    expect(r.items).toEqual([{ text: 'apple', lang: 'en', meaning: 'سیب', say: 'اَپِل' }]);
+  });
+  it('falls back to plain text and ignores bad items', () => {
+    expect(parseTutorReply('سلام!')).toEqual({ reply: 'سلام!', items: [] });
+    expect(parseTutorReply('{"reply":"x","items":[{"text":""},{"text":"chat","lang":"xx"}]}').items).toEqual([{ text: 'chat', lang: null, meaning: '', say: '' }]);
   });
   it('picks a device voice for the language', () => {
     const v = (lang: string) => ({ lang }) as SpeechSynthesisVoice;
@@ -180,6 +194,28 @@ describe('storage tiers', () => {
     expect((await db.getWord('ls1'))?.id).toBe('ls1');
     expect(new Uint8Array((await db.getAudio('ls1'))!)).toEqual(new Uint8Array([9, 8, 7]));
     expect(localStorage.getItem('echowords-ls-words')).toBe('[]');
+  });
+});
+
+describe('folders', () => {
+  it('creates folders, moves words, and never deletes words with a folder', async () => {
+    const now = new Date().toISOString();
+    await db.saveFolder({ id: 'f-animals', name: 'حیوانات', emoji: '🐶', createdAt: now });
+    await db.saveFolder({ id: 'f-fruit', name: 'میوه‌ها', emoji: '🍎', createdAt: new Date(Date.now() + 1).toISOString() });
+    expect((await db.listFolders()).map((f) => f.name)).toEqual(['حیوانات', 'میوه‌ها']);
+    const base = { ...makeWord('fw1', new ArrayBuffer(0), ''), durationMs: null, audioMime: null, audioBytes: null, audioSha256: null, sttStatus: 'none' as const };
+    await db.addWord({ ...base, id: 'fw1', transcript: 'dog سگ', folderId: 'f-animals' }, null);
+    await db.addWord({ ...base, id: 'fw2', transcript: 'apple', folderId: null }, null);
+    await db.updateWord('fw2', { folderId: 'f-fruit' });
+    expect((await db.getWord('fw2'))?.folderId).toBe('f-fruit');
+
+    const backup = await buildBackup();
+    await db.deleteFolder('f-animals');
+    expect((await db.getWord('fw1'))?.folderId).toBeNull(); // word kept, now without a folder
+    expect((await db.listFolders()).map((f) => f.id)).toEqual(['f-fruit']);
+
+    await restoreBackup(backup);
+    expect((await db.listFolders()).map((f) => f.id).sort()).toEqual(['f-animals', 'f-fruit']);
   });
 });
 

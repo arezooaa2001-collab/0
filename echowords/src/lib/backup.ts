@@ -1,7 +1,7 @@
 // Backup file: one JSON file with every word and its original audio (base64).
 // Restoring checks every recording against its SHA-256 fingerprint.
 import { fromBase64, sha256Hex, toBase64 } from './audio';
-import { type Word, addWord, getAudio, getWord, listWords } from './db';
+import { type Folder, type Word, addWord, getAudio, getWord, listFolders, listWords, saveFolder } from './db';
 
 const FORMAT = 'echowords-backup';
 
@@ -12,7 +12,8 @@ export async function buildBackup(): Promise<Blob> {
     const audio = w.audioSha256 ? await getAudio(w.id) : null;
     items.push({ ...w, audio: audio ? toBase64(audio) : null });
   }
-  return new Blob([JSON.stringify({ format: FORMAT, version: 1, exportedAt: new Date().toISOString(), words: items })], {
+  const folders = await listFolders();
+  return new Blob([JSON.stringify({ format: FORMAT, version: 2, exportedAt: new Date().toISOString(), folders, words: items })], {
     type: 'application/json',
   });
 }
@@ -87,6 +88,16 @@ export async function downloadBackup(): Promise<string> {
   const words = await listWords();
   const blob = await buildBackup();
   const name = backupFileName(words.length);
+  // Inside Claude, a page may only save files through the «downloads» capability.
+  const use = (window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude?.use;
+  if (typeof use === 'function') {
+    const dl = (await use('downloads').catch(() => null)) as { save?: (r: { filename: string; data: Blob }) => Promise<unknown> } | null;
+    if (dl?.save) {
+      await dl.save({ filename: name, data: blob });
+      writeMeta({ lastAt: new Date().toISOString(), count: words.length, signature: librarySignature(words) });
+      return name;
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -106,6 +117,10 @@ export async function restoreBackup(file: Blob): Promise<{ added: number; skippe
   if (data?.format !== FORMAT || !Array.isArray(data.words)) throw new Error('not_a_backup');
   let added = 0;
   let skipped = 0;
+  const have = new Set((await listFolders()).map((f) => f.id));
+  for (const f of (Array.isArray(data.folders) ? data.folders : []) as Folder[]) {
+    if (typeof f?.id === 'string' && typeof f.name === 'string' && !have.has(f.id)) await saveFolder(f);
+  }
   for (const item of data.words as (Word & { audio: string | null })[]) {
     try {
       if (typeof item?.id !== 'string') throw new Error('bad');

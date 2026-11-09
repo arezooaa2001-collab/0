@@ -1,6 +1,6 @@
 // Pronunciation («تلفظ»): the device's own text-to-speech voice reads the word.
 // A separate feature from «صدای خودم», which always plays the learner's own recording.
-import { LANGS, type LangCode } from './langs';
+import { LANGS, type LangCode, segmentByLang } from './langs';
 import type { Accent } from './stt';
 
 export type SpeakResult = 'ok' | 'no-voice' | 'unsupported' | 'error';
@@ -35,17 +35,15 @@ export function pickVoice(voices: SpeechSynthesisVoice[], tag: string): SpeechSy
   );
 }
 
-/** Read the text aloud in its language. Resolves when speaking ends (or fails). */
-export async function speakStandard(text: string, accent: Accent, lang: LangCode = 'en'): Promise<SpeakResult> {
-  if (!standardPronunciationSupported()) return 'unsupported';
+export interface SpeakOutcome {
+  result: SpeakResult;
+  /** Languages in the text that this device has no voice for (those parts were skipped). */
+  missing: LangCode[];
+}
+
+/** Speak one piece in one language. */
+async function speakOne(text: string, tag: string, voice: SpeechSynthesisVoice | null): Promise<SpeakResult> {
   const synth = window.speechSynthesis;
-  const tag = ttsTag(lang, accent);
-  const voices = await loadVoices();
-  const voice = pickVoice(voices, tag);
-  // If the device lists voices but none for this language, say so instead of reading it wrongly.
-  if (voices.length && !voice) return 'no-voice';
-  synth.cancel();
-  await new Promise((r) => setTimeout(r, 60)); // Chrome on Android drops a speak() right after cancel()
   return new Promise<SpeakResult>((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = tag;
@@ -63,8 +61,54 @@ export async function speakStandard(text: string, accent: Accent, lang: LangCode
       }
     };
     u.onend = () => finish('ok');
-    u.onerror = (e) => finish((e as SpeechSynthesisErrorEvent).error === 'language-unavailable' || (e as SpeechSynthesisErrorEvent).error === 'voice-unavailable' ? 'no-voice' : 'error');
+    u.onerror = (e) => {
+      const err = (e as SpeechSynthesisErrorEvent).error;
+      finish(err === 'language-unavailable' || err === 'voice-unavailable' ? 'no-voice' : err === 'interrupted' || err === 'canceled' ? 'ok' : 'error');
+    };
     synth.speak(u);
-    setTimeout(() => finish('ok'), 15_000);
+    setTimeout(() => finish('ok'), Math.min(30_000, 4000 + text.length * 250));
   });
+}
+
+let speakRun = 0;
+
+/**
+ * Read text aloud. Mixed text ("cat گربه") is split by language and every part is read
+ * with its own language's voice, one after another.
+ */
+export async function speakText(text: string, accent: Accent, lang: LangCode = 'en'): Promise<SpeakOutcome> {
+  if (!standardPronunciationSupported()) return { result: 'unsupported', missing: [] };
+  const run = ++speakRun;
+  const synth = window.speechSynthesis;
+  const voices = await loadVoices();
+  synth.cancel();
+  await new Promise((r) => setTimeout(r, 60)); // Chrome on Android drops a speak() right after cancel()
+  const parts = segmentByLang(text, lang === 'fr' ? 'fr' : 'en');
+  const missing: LangCode[] = [];
+  let spoke = false;
+  for (const part of parts) {
+    if (run !== speakRun) break; // a newer request took over
+    const tag = ttsTag(part.lang, accent);
+    const voice = pickVoice(voices, tag);
+    // If the device lists voices but none for this language, skip it instead of reading it wrongly.
+    if (voices.length && !voice) {
+      if (!missing.includes(part.lang)) missing.push(part.lang);
+      continue;
+    }
+    const r = await speakOne(part.text, tag, voice);
+    if (r === 'no-voice') {
+      if (!missing.includes(part.lang)) missing.push(part.lang);
+    } else spoke = true;
+  }
+  return { result: spoke ? 'ok' : missing.length ? 'no-voice' : 'error', missing };
+}
+
+/** Older single-result form. */
+export async function speakStandard(text: string, accent: Accent, lang: LangCode = 'en'): Promise<SpeakResult> {
+  return (await speakText(text, accent, lang)).result;
+}
+
+export function stopSpeaking(): void {
+  speakRun++;
+  if (standardPronunciationSupported()) window.speechSynthesis.cancel();
 }

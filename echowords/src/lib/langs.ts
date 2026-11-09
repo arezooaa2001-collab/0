@@ -52,45 +52,67 @@ export function guessLang(text: string, enabled: LangCode[], current: LangCode):
   return enabled.find((l) => isInLang(text, l)) ?? current;
 }
 
-// ── Settings: which languages are switched on ──────────────────────────────
-const KEY = 'echowords-langs';
-const LAST = 'echowords-last-lang';
+// ── Mixed text: every language at once, no settings needed ─────────────────
 
-export function readEnabledLangs(): LangCode[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null');
-    if (Array.isArray(v)) {
-      const list = v.filter(isLangCode);
-      if (list.length) return ALL_LANGS.filter((l) => list.includes(l));
+/** Language of a single letter (Latin → English; Han → Japanese if the text has kana, else Chinese). */
+export function letterLang(ch: string, hasKana: boolean): LangCode | null {
+  if (!/\p{L}/u.test(ch)) return null;
+  if (/\p{Script=Latin}/u.test(ch)) return 'en';
+  if (/\p{Script=Arabic}/u.test(ch)) return 'fa';
+  if (/\p{Script=Devanagari}/u.test(ch)) return 'hi';
+  if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(ch)) return 'ja';
+  if (/\p{Script=Han}/u.test(ch)) return hasKana ? 'ja' : 'zh';
+  return null; // other scripts / symbols: keep with the surrounding text
+}
+
+export interface Segment {
+  text: string;
+  lang: LangCode;
+}
+
+/**
+ * Split text into runs of one language, e.g. "cat گربه" → [{cat,en},{گربه,fa}].
+ * Spaces, digits and punctuation stay with the run they are in.
+ * `latinAs` lets a word marked French read its Latin parts in French.
+ */
+export function segmentByLang(text: string, latinAs: LangCode = 'en'): Segment[] {
+  const hasKana = /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
+  const out: Segment[] = [];
+  let cur: Segment | null = null;
+  let pending = '';
+  for (const ch of text) {
+    let l = letterLang(ch, hasKana);
+    if (l === 'en' && latinAs === 'fr') l = 'fr';
+    if (!l) {
+      pending += ch;
+      continue;
     }
-  } catch {
-    /* storage blocked */
+    if (cur && cur.lang === l) {
+      cur.text += pending + ch;
+    } else {
+      if (cur) {
+        // punctuation right after a word ("cat,") stays with that word
+        const tail: string = /^\S*/.exec(pending)?.[0] ?? '';
+        cur.text += tail;
+        pending = pending.slice(tail.length);
+      }
+      cur = { text: pending.trimStart() + ch, lang: l };
+      out.push(cur);
+    }
+    pending = '';
   }
-  return ['en'];
+  if (cur) cur.text += pending;
+  return out.map((s) => ({ ...s, text: s.text.trim() })).filter((s) => s.text);
 }
 
-export function saveEnabledLangs(langs: LangCode[]): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(langs));
-  } catch {
-    /* ignore */
-  }
+/** Languages present in a text, most letters first. */
+export function langsIn(text: string): LangCode[] {
+  const count = new Map<LangCode, number>();
+  for (const seg of segmentByLang(text)) count.set(seg.lang, (count.get(seg.lang) ?? 0) + [...seg.text].filter((c) => /\p{L}/u.test(c)).length);
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([l]) => l);
 }
 
-export function readLastLang(enabled: LangCode[]): LangCode {
-  try {
-    const v = localStorage.getItem(LAST);
-    if (isLangCode(v) && enabled.includes(v)) return v;
-  } catch {
-    /* ignore */
-  }
-  return enabled.includes('en') ? 'en' : enabled[0];
-}
-
-export function saveLastLang(l: LangCode): void {
-  try {
-    localStorage.setItem(LAST, l);
-  } catch {
-    /* ignore */
-  }
+/** Main language of a text (the one with the most letters). */
+export function primaryLang(text: string): LangCode {
+  return langsIn(text)[0] ?? 'en';
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LANGS, type LangCode } from '../lib/langs';
-import { speakStandard } from '../lib/speech';
+import { speakText } from '../lib/speech';
 import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import { useToast } from './Toast';
@@ -18,10 +18,10 @@ export function PronounceButton({ text, lang, accent, big }: { text: string; lan
       onClick={async () => {
         if (speaking) return;
         setSpeaking(true);
-        const r = await speakStandard(text, accent, lang);
+        const r = await speakText(text, accent, lang);
         setSpeaking(false);
-        if (r === 'no-voice') toast(t.noVoiceForLang(LANGS[lang].name), 'error');
-        else if (r === 'unsupported') toast(t.noSpeechSupport, 'error');
+        if (r.result === 'unsupported') toast(t.noSpeechSupport, 'error');
+        else if (r.missing.length) toast(t.noVoiceForLang(r.missing.map((l) => LANGS[l].name).join(' و ')), 'error');
       }}
     >
       <span aria-hidden>{speaking ? '🔉' : '🔊'}</span> {t.listen}

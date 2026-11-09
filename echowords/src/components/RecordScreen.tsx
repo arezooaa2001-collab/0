@@ -6,10 +6,10 @@ import { type Accent, type Analysis, sameWords } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
 import { useRecorder } from '../lib/useRecorder';
-import { ALL_LANGS, LANGS, type LangCode, guessLang, isInLang, langOf, readLastLang, saveLastLang } from '../lib/langs';
-import { speakStandard } from '../lib/speech';
+import { LANGS, type LangCode, langOf, primaryLang } from '../lib/langs';
+import { speakText } from '../lib/speech';
 import { validateText } from '../lib/validation';
-import { LangPicker } from './LangPicker';
+import { FolderPicker, readLastFolder, saveLastFolder } from './FolderPicker';
 import { PronounceButton } from './PronounceButton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { LevelMeter } from './LevelMeter';
@@ -28,25 +28,26 @@ interface Props {
   lib: Library;
   accent: Accent;
   onOpenLibrary: () => void;
-  /** Languages switched on in Settings. */
-  enabledLangs: LangCode[];
   /** A saved word (opened from the library) whose recording the learner wants to add. */
   initialTarget?: Word | null;
 }
 
-export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initialTarget = null }: Props) {
+export function RecordScreen({ lib, accent, onOpenLibrary, initialTarget = null }: Props) {
   const rec = useRecorder();
   const toast = useToast();
 
   // Step 1: typed word, saved with «تایید و ذخیره».
   const [typed, setTyped] = useState('');
   const [typedError, setTypedError] = useState<string | null>(null);
-  /** Language for a new word (chips appear when several languages are on). */
-  const [lang, setLangState] = useState<LangCode>(() => readLastLang(enabledLangs));
-  const setLang = (l: LangCode) => {
-    setLangState(l);
-    saveLastLang(l);
+  /** Folder for new words (remembered between visits). */
+  const [folderId, setFolderIdState] = useState<string | null>(readLastFolder);
+  const setFolderId = (id: string | null) => {
+    setFolderIdState(id);
+    saveLastFolder(id);
   };
+  // A remembered folder that was deleted meanwhile → no folder.
+  const folderOk = folderId === null || lib.folders.some((f) => f.id === folderId) || lib.loading;
+  const effectiveFolder = folderOk ? folderId : null;
   /** The saved word we are now recording for (null = recording a brand-new word). */
   const [targetId, setTargetId] = useState<string | null>(initialTarget?.id ?? null);
   const target = targetId ? lib.words.find((w) => w.id === targetId) ?? null : null;
@@ -65,9 +66,10 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
   const resultWord = resultId ? lib.words.find((w) => w.id === resultId) ?? null : null;
   const isLive = rec.state === 'recording' || rec.state === 'paused';
   const attachMode = !!target && !hasAudio(target);
-  /** Language of what is being recorded right now. */
-  const activeLang: LangCode = target ? langOf(target) : lang;
-  const activeInfo = LANGS[activeLang];
+  /** Language of what is being recorded: the saved word's, or detected automatically. */
+  const activeLang: LangCode | 'auto' = target ? langOf(target) : 'auto';
+  const shownLang = (s: string | null | undefined): LangCode => (s ? primaryLang(s) : 'en');
+  const dirOf = (s: string | null | undefined) => LANGS[shownLang(s)].dir;
 
   const backupAfterSave = async () => {
     // Still inside the tap: browsers allow the backup download now.
@@ -77,19 +79,15 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
   /** «✅ تایید و ذخیره» next to the writing box: saves the word immediately. */
   const saveTyped = async () => {
     if (saving) return;
-    const v = validateText(typed, lang);
-    if (!v.ok) {
-      // Written in a language that is switched off? Say where to switch it on.
-      const other = ALL_LANGS.find((l) => !enabledLangs.includes(l) && isInLang(typed, l));
-      return setTypedError(other ? t.enableLangFirst(LANGS[other].name) : v.error);
-    }
+    const v = validateText(typed);
+    if (!v.ok) return setTypedError(v.error);
     setSaving(true);
     try {
-      const w = await lib.saveText(v.value, accent, lang);
+      const w = await lib.saveText(v.value, accent, effectiveFolder);
       setTargetId(w.id);
       setTyped('');
       setTypedError(null);
-      void speakStandard(v.value, accent, lang); // say the new word once
+      void speakText(v.value, accent, w.lang ?? 'en'); // say the new word once
       await backupAfterSave();
     } catch (e) {
       console.error('save failed', e);
@@ -128,7 +126,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
     const analysis = typeof recog === 'object' ? recog : null;
     let finalText: string | null = null;
     if (!attachMode && text.trim()) {
-      const v = validateText(text, activeLang);
+      const v = validateText(text);
       if (!v.ok) return setTextError(v.error);
       finalText = v.value;
     }
@@ -137,7 +135,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
     try {
       const w = attachMode
         ? await lib.attachTake(target!.id, rec.take, analysis)
-        : await lib.saveTake(rec.take, { hint: null, accent, lang: activeLang, text: finalText, analysis, pendingTranscription: recog === 'working' });
+        : await lib.saveTake(rec.take, { hint: null, accent, folderId: effectiveFolder, text: finalText, analysis, pendingTranscription: recog === 'working' });
       setResultId(w.id);
       setPhase('result');
       if (!attachMode && w.sttStatus === 'pending') void lib.transcribe(w.id);
@@ -186,7 +184,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
         <p className="msg msg-success">{t.saidItRight}</p>
       ) : recog.heard ? (
         <p className="msg msg-info">
-          {t.deviceHeard} <b dir={activeInfo.dir} lang={activeLang}>{recog.heard}</b>
+          {t.deviceHeard} <b dir={dirOf(recog.heard)}>{recog.heard}</b>
         </p>
       ) : null
     ) : null;
@@ -199,7 +197,6 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
       {idle && !target && (
         <div className="card step hint-field">
           <p className="step-title">{t.step1Title}</p>
-          <LangPicker enabled={enabledLangs} value={lang} onChange={setLang} />
           <form
             className="hint-form"
             onSubmit={(e) => {
@@ -209,8 +206,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
           >
             <input
               className="input input-word"
-              dir={LANGS[lang].dir}
-              lang={lang}
+              dir="auto"
               placeholder={t.hintPlaceholder}
               value={typed}
               maxLength={200}
@@ -221,8 +217,6 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
               onChange={(e) => {
                 setTyped(e.target.value);
                 setTypedError(null);
-                const g = guessLang(e.target.value, enabledLangs, lang);
-                if (g !== lang) setLang(g);
               }}
               aria-invalid={!!typedError}
             />
@@ -231,14 +225,15 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
             </button>
           </form>
           {typedError && <p className="msg msg-error" role="alert">{typedError}</p>}
+          <FolderPicker lib={lib} value={effectiveFolder} onChange={setFolderId} />
         </div>
       )}
 
       {idle && target && (
         <div className="card step saved-card" role="status">
           <p className="msg msg-success">✅ {t.savedWordIs}</p>
-          <b className="hint-word" dir={activeInfo.dir} lang={activeLang}>{target.transcript}</b>
-          <PronounceButton text={target.transcript ?? ''} lang={activeLang} accent={accent} big />
+          <b className="hint-word" dir={dirOf(target.transcript)}>{target.transcript}</b>
+          <PronounceButton text={target.transcript ?? ''} lang={langOf(target)} accent={accent} big />
           <div className="row wrap center">
             <button className="btn btn-secondary" onClick={onOpenLibrary}>📚 {t.goToLibrary}</button>
             <button className="btn btn-ghost" onClick={startOver}>➕ {t.newWord}</button>
@@ -263,7 +258,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
 
       {(isLive || rec.state === 'stopping') && (
         <div className="mic-zone live" aria-live="polite">
-          {target && <b className="hint-word" dir={activeInfo.dir} lang={activeLang}>{target.transcript}</b>}
+          {target && <b className="hint-word" dir={dirOf(target.transcript)}>{target.transcript}</b>}
           <p className={`live-label${rec.state === 'paused' ? ' paused' : ''}`}>
             <span className="dot" aria-hidden /> {rec.state === 'paused' ? t.paused : t.recording}
           </p>
@@ -283,7 +278,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
         <div className="card preview review">
           {rec.notice && <p className="msg msg-info">{rec.notice}</p>}
           <p className="state-title">{attachMode ? t.reviewVoiceTitle : t.reviewTitle}</p>
-          {attachMode && <b className="hint-word" dir={activeInfo.dir} lang={activeLang}>{target!.transcript}</b>}
+          {attachMode && <b className="hint-word" dir={dirOf(target!.transcript)}>{target!.transcript}</b>}
           <PlayButton playKey="preview" getUrl={async () => rec.take!.url} label={t.listenToMine} big />
           <p className="meta" dir="ltr">{formatDuration(rec.take.durationMs)}</p>
 
@@ -310,8 +305,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
                       <p className="meta">{t.tapToUse}</p>
                       <button
                         className="chip chip-en"
-                        dir={activeInfo.dir}
-                        lang={activeLang}
+                        dir={dirOf(recog.heard)}
                         onClick={() => {
                           typedRef.current = true;
                           setText(recog.heard!);
@@ -328,8 +322,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, enabledLangs, initial
                 <span>{t.reviewTextLabel}</span>
                 <input
                   className="input input-word review-input"
-                  dir={activeInfo.dir}
-                  lang={activeLang}
+                  dir="auto"
                   placeholder={t.reviewTypeHere}
                   value={text}
                   maxLength={200}

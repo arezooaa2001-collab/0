@@ -7,6 +7,10 @@ import App from './App';
 import { ToastProvider } from './components/Toast';
 import './styles.css';
 
+// Persian, right-to-left (also when the page is wrapped by a host that drops <html> attributes).
+document.documentElement.lang = 'fa';
+document.documentElement.dir = 'rtl';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ToastProvider>

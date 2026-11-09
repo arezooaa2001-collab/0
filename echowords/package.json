@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:single": "tsc -b && vite build --config vite.single.config.ts && node scripts/rename-single.mjs",
+    "build:single": "tsc -b && vite build --config vite.single.config.ts && node scripts/rename-single.mjs && node scripts/make-artifact.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",

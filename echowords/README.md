@@ -31,6 +31,22 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
   - the exact recorded bytes are stored, with a SHA-256 fingerprint;
   - the fingerprint is checked after saving, on playback, and when restoring a backup;
   - «تلفظ استاندارد» (Standard pronunciation) is a separate, clearly labelled machine voice.
+- **Every language, mixed, with no settings.** One entry can mix languages ("cat گربه"). «🔊 تلفظ» (Pronunciation) splits the text by language and reads each part with that language's voice. Speech recognition detects the language itself.
+- **Folders.** Make folders («🐶 حیوانات», «🍎 میوه‌ها»…), choose one when saving, move words between folders, rename or delete folders. Deleting a folder never deletes its words: they move to «بدون پوشه» (No folder).
+- **Microphone, explained.** The app tells you exactly why the browser refused:
+  - the page was opened as a file — Android never allows the microphone there;
+  - it is inside another app's viewer;
+  - access is blocked for this site;
+  - the permission prompt was dismissed.
+  Settings has «🎙️ اجازه میکروفون» (Allow microphone), which asks the browser directly.
+- **«🤖 معلم مهربان» (Kind Teacher), the AI tutor.** It answers a 9-year-old in simple Persian and teaches words in any language. Each word has «🔊» to hear it and «💾» to save it. Ways to ask:
+  - type a question;
+  - «با صدا بپرس» (Ask by voice);
+  - «حالت لایو» (Live mode): listen → answer out loud → listen again, stopping by itself after silence;
+  - «عکس از کلمه» (Photo of a word) and «دوربین زنده» (Live camera) to read and translate words in a photo.
+
+  Inside Claude it uses Claude with no key. Elsewhere it uses a parent's Gemini or ChatGPT key, stored only on the device.
+- **Inside Claude (claude.ai page).** `release/echowords-claude.html` is the same app as page content for claude.ai. There, words and folders are also stored in the learner's private Claude storage, so they come back after the browser is cleared or on another device. Microphone and live camera are not available inside claude.ai; typing, keyboard voice-typing, photos, pronunciation and the tutor all work.
 - **Pronunciation for every word.** Every saved word or sentence has a «🔊 تلفظ» (Pronunciation) button, played by the device's own voice in the word's language. The word is also spoken once right after saving. If the device has no voice for that language, the app says how to add one: Android settings → Google Text-to-speech.
 - **Languages.** In Settings: Persian, English, French, Chinese, Japanese and Hindi, or «همه با هم» (all together); English only by default. The menus stay Persian. Typing picks the language from the letters. Each language's text is checked against its own alphabet. Speech recognition uses the English-only Whisper model when only English is on, and one multilingual model otherwise.
 - **Small and tidy.** Recordings are made at voice quality (32 kbit/s, about 3 KB per second). Automatic backup files are made at most weekly (or after 25 new words). Library cards are compact: word, «🔊 تلفظ», «▶️ صدای خودم», and small edit/delete icons. The library can be filtered by language.

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LibraryScreen } from './components/LibraryScreen';
 import { RecordScreen } from './components/RecordScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { TutorScreen } from './components/TutorScreen';
 import { stopPlayback } from './lib/player';
 import { readAccent, saveAccent } from './lib/settings';
 import type { Accent } from './lib/stt';
@@ -9,15 +10,13 @@ import { fa, t } from './lib/strings';
 import { APP_VERSION } from './lib/config';
 import { useLibrary } from './lib/useLibrary';
 import type { Word } from './lib/db';
-import { type LangCode, readEnabledLangs, saveEnabledLangs } from './lib/langs';
 import { downloadBackup } from './lib/backup';
 import { useToast } from './components/Toast';
 
-type Tab = 'record' | 'library' | 'settings';
+type Tab = 'record' | 'library' | 'tutor' | 'settings';
 
 export default function App() {
-  const [enabledLangs, setEnabledLangs] = useState<LangCode[]>(readEnabledLangs);
-  const lib = useLibrary(enabledLangs);
+  const lib = useLibrary();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('record');
   const [accent, setAccent] = useState<Accent>(readAccent);
@@ -51,7 +50,7 @@ export default function App() {
           </div>
         )}
         {/* The record screen is unmounted when leaving it: this always releases the microphone. */}
-        {tab === 'record' && <RecordScreen key={recordKey} lib={lib} accent={accent} initialTarget={voiceFor} enabledLangs={enabledLangs} onOpenLibrary={() => go('library')} />}
+        {tab === 'record' && <RecordScreen key={recordKey} lib={lib} accent={accent} initialTarget={voiceFor} onOpenLibrary={() => go('library')} />}
         {tab === 'library' && (
           <LibraryScreen
             lib={lib}
@@ -63,14 +62,10 @@ export default function App() {
             }}
           />
         )}
+        {tab === 'tutor' && <TutorScreen lib={lib} accent={accent} onOpenSettings={() => go('settings')} />}
         {tab === 'settings' && (
           <SettingsScreen
             lib={lib}
-            enabledLangs={enabledLangs}
-            onLangs={(l) => {
-              setEnabledLangs(l);
-              saveEnabledLangs(l);
-            }}
             accent={accent}
             onAccent={(a) => {
               setAccent(a);
@@ -83,6 +78,7 @@ export default function App() {
         {([
           ['record', '🎤', t.tabRecord],
           ['library', '📚', t.tabLibrary],
+          ['tutor', '🤖', t.tabTutor],
           ['settings', '⚙️', t.tabSettings],
         ] as const).map(([key, icon, label]) => (
           <button key={key} className={tab === key ? 'on' : ''} aria-current={tab === key ? 'page' : undefined} onClick={() => {
