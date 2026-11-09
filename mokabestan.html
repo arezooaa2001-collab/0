@@ -127,6 +127,20 @@ body.flying #t-crouch{display:none}
 /* mods, effects, boss bar, console */
 .mods-panel{width:min(1000px,96vw);max-width:96vw;max-height:92vh;display:flex;flex-direction:column;gap:8px;overflow:hidden}
 textarea.inp,#chat-in{font-family:inherit}
+#modbar{position:absolute;right:max(10px,env(safe-area-inset-right));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:auto;max-height:70vh;overflow:auto}
+body.touchui #modbar{top:calc(max(10px,env(safe-area-inset-top)) + 70px);transform:none;right:auto;left:calc(max(10px,env(safe-area-inset-left)) + 150px);flex-direction:row;flex-wrap:wrap;max-width:46vw;align-items:flex-start}
+.modbtn{display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:rgba(20,26,40,.72);color:#fff;font:600 13px Vazirmatn,Tahoma,sans-serif;cursor:pointer;touch-action:none;text-shadow:0 1px 2px #000}
+.modbtn.on{background:rgba(95,211,141,.6);border-color:#bff5c9}
+.modbtn:active{transform:scale(.94)}
+.modbtn kbd{font-size:10px;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,.18);font-family:inherit}
+body.touchui .modbtn kbd{display:none}
+#modhud{position:absolute;left:max(10px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 150px);display:flex;flex-direction:column;gap:3px;align-items:flex-start;pointer-events:none}
+#modhud div{background:rgba(0,0,0,.45);border-radius:7px;padding:2px 8px;font-size:13px;text-shadow:0 1px 2px #000}
+.mod-err{font-size:12px;color:#ffc6b8;background:rgba(255,93,93,.14);border-radius:8px;padding:5px 8px;direction:auto}
+.mod-code summary{cursor:pointer;font-size:12px;color:var(--dim)}
+.mod-code pre{max-height:220px;overflow:auto;background:#060b16;border-radius:8px;padding:8px;font-size:11px;white-space:pre-wrap;text-align:left}
+.badge.code{background:rgba(255,179,71,.22);color:#ffe2b8}
+.ai-edit{margin-top:6px;flex-wrap:nowrap}.ai-edit .inp{flex:1}
 @media (max-height:520px){ .mods-panel{padding:10px 12px;gap:5px;max-height:96vh} .mods-panel h2{font-size:18px} .mods-panel .inp{padding:6px 10px} .chip{padding:4px 9px;font-size:12px} .mod-cats{margin:0 0 6px} .mod p{font-size:12px} }
 .mods-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .mods-top h2{margin:0}
@@ -363,6 +377,8 @@ textarea.inp,#chat-in{font-family:inherit}
   <div id="effects"></div>
   <div id="bossbar" class="hidden"><b id="boss-name"></b><div><i id="boss-fill"></i></div></div>
   <div id="mod-hint"></div>
+  <div id="modbar"></div>
+  <div id="modhud"></div>
   <div id="hotbar"></div>
 </div>
 
@@ -387,6 +403,7 @@ textarea.inp,#chat-in{font-family:inherit}
 </div>
 
 <div id="chat"><div id="chat-log"></div><div id="chat-row" class="hidden"><input id="chat-in" class="inp" autocomplete="off" spellcheck="false" placeholder="/help"><button class="btn small" id="chat-send">↵</button></div></div>
+<div id="modpanel" class="layer hidden" style="background:rgba(0,0,0,.5);z-index:47"><div class="panel" id="modpanel-box" style="width:min(440px,92vw)"></div></div>
 <div id="menu-mods" class="layer hidden" style="background:rgba(0,0,0,.66);z-index:48">
   <div class="panel mods-panel">
     <div class="mods-top"><h2>🧩 مودها <small id="mods-count" style="font-size:13px;color:var(--dim)"></small></h2><button class="btn small" id="mods-close">✕ بستن</button></div>
@@ -511,7 +528,7 @@ function showLayer(id, on) { const e = $(id); if (e) e.classList.toggle('hidden'
 
 // global error capture -> visible message instead of a silent black screen
 const ERRORS = [];
-window.addEventListener('error', (e) => { ERRORS.push(String(e.message || e)); console.error(e.error || e.message); });
+window.addEventListener('error', (e) => { if (window.__mokabCompiling) return; ERRORS.push(String(e.message || e)); console.error(e.error || e.message); });
 window.addEventListener('unhandledrejection', (e) => { ERRORS.push(String(e.reason)); console.error(e.reason); });
 /* ============================ BLOCK REGISTRY ============================ */
 const R_NONE = 0, R_CUBE = 1, R_CUT = 2, R_TRANS = 3, R_LIQUID = 4, R_SHAPE = 5;
@@ -3076,7 +3093,8 @@ function damagePlayer(amount, cause, src) {
   let dmg = amount; if (armorCauses.includes(cause)) { dmg *= 1 - Math.min(20, armorPoints()) / 25; for (let i = 0; i < 4; i++) { const s = player.armor[i]; if (s) { if (s.ench && s.ench.unb && Math.random() < s.ench.unb / (s.ench.unb + 1)) continue; s.dmg = (s.dmg || 0) + 1; if (s.dmg >= ITEMS[s.id].armor.dur) { player.armor[i] = null; toast('زره شکست!'); Audio.play('break', { vol: 0.6 }); } } } }
   if (cause !== 'void' && cause !== 'starve') { let prot = 0; for (const s of player.armor) if (s && s.ench && s.ench.prot) prot += s.ench.prot; dmg *= 1 - Math.min(0.6, prot * 0.04); }
   if (cause !== 'void') { dmg *= MODS.stat('damageTaken') * Math.max(0.2, 1 - 0.2 * Effects.lvl('resistance')); const ma = MODS.add('armor'); if (ma && armorCauses.includes(cause)) dmg *= Math.max(0.2, 1 - Math.min(20, ma) / 25); }
-  if (DIFF() === 0 && cause === 'mob') dmg *= 0.5; if (DIFF() === 1 && cause === 'mob') dmg *= 0.7; if (DIFF() === 3 && cause === 'mob') dmg *= 1.4;
+  if (DIFF() === 0 && cause === 'mob') dmg *= 0.5;
+  if (MODRT.inst.size) { const ev = MODRT.emit('hurt', { dmg, cause, cancel: false }); if (ev.cancel) return; dmg = Math.max(0, +ev.dmg || 0); } if (DIFF() === 1 && cause === 'mob') dmg *= 0.7; if (DIFF() === 3 && cause === 'mob') dmg *= 1.4;
   player.health = Math.max(0, player.health - dmg); player.hurt = 1; player.invuln = 0.5; player.exh += 0.1;
   if (cause !== 'void' && dmg > 0 && player.health > 0) MODS.onHurt(dmg, cause, src);
   if (player.health <= 0 && cause !== 'void') { const ti = player.inv.findIndex((s) => s && s.id === I.life_totem); if (ti >= 0) { player.inv[ti].count--; if (player.inv[ti].count <= 0) player.inv[ti] = null; player.health = 4; Effects.give('regen', 10, 2); Effects.give('fireResist', 20, 1); player.fire = 0; Audio.play('levelup', { vol: 0.8, pitch: 0.7 }); toast('✨ طلسم زندگی تو را نجات داد!', 2500); for (let i = 0; i < 30; i++) Particles.heart(player.pos.x + (Math.random() - 0.5) * 1.5, player.pos.y + Math.random() * 2, player.pos.z + (Math.random() - 0.5) * 1.5, [1, 0.85, 0.3]); UI.invChanged(); UI.dirtyStats = true; return; } }
@@ -3087,13 +3105,13 @@ function damagePlayer(amount, cause, src) {
 }
 const DEATH_MSG = { poison: 'زهر کارت را تمام کرد', fall: 'از ارتفاع سقوط کردی', drown: 'غرق شدی', lava: 'در گدازه سوختی', fire: 'سوختی', mob: 'شکار هیولاها شدی', arrow: 'با تیر کشته شدی', starve: 'از گرسنگی مُردی', cactus: 'کاکتوس زخمی‌ات کرد', void: 'در خلأ افتادی', suffocate: 'زیر بلوک‌ها خفه شدی' };
 function killPlayer(cause) {
-  player.dead = true; player.vehicle = null;
+  player.dead = true; player.vehicle = null; MODRT.emit('death', { cause });
   if (!GAME.keepInv && !MODS.has('keepInventory')) { const all = player.inv.concat(player.armor); for (let i = 0; i < all.length; i++) { const s = all[i]; if (s) Entities.dropItem(s.id, s.count, player.pos.x, player.pos.y + 1, player.pos.z, s.dmg, true, null, s.ench); } player.inv.fill(null); player.armor.fill(null); XP.drop(player.pos.x, player.pos.y + 1, player.pos.z, Math.min(100, player.level * 7)); player.level = 0; player.xp = 0; UI.dirtyXP = true; }
   $('death-msg').textContent = DEATH_MSG[cause] || 'مُردی'; showLayer('death', true); releasePointer(); UI.refreshHotbar();
 }
 function respawnPlayer() {
   player.dead = false; player.health = maxHP(); player.effects = {}; player.hunger = 20; player.sat = 5; player.air = 300; player.fire = 0; player.fall = 0; player.vel.set(0, 0, 0);
-  const s = player.spawn || GAME.worldSpawn; player.pos.set(s.x, s.y, s.z); player.prev.copy(player.pos); showLayer('death', false); UI.dirtyStats = true; ensureSafeSpawn();
+  const s = player.spawn || GAME.worldSpawn; player.pos.set(s.x, s.y, s.z); player.prev.copy(player.pos); showLayer('death', false); UI.dirtyStats = true; ensureSafeSpawn(); MODRT.emit('respawn', {});
 }
 function ensureSafeSpawn() {
   const p = player.pos; if (!world.loaded(Math.floor(p.x), Math.floor(p.z))) return;
@@ -3164,7 +3182,7 @@ function physicsStep(dt) {
     } else {
       p.vel.y -= grav * dt; if (p.vel.y < -78) p.vel.y = -78;
       if (p.onGround) { p.dj = false; p.airT = 0; } else p.airT = (p.airT || 0) + dt;
-      if ((input.jump || input.jumpQ) && p.onGround && !p.swimming) { input.jumpQ = false; const jm = Math.sqrt(MODS.stat('jump') * (1 + 0.3 * Effects.lvl('jump')) * MODS.jumpMul()) * Math.sqrt(MODS.stat('gravity')); p.vel.y = 9.0 * jm; p.onGround = false; Audio.play('jump', { vol: 0.25 }); p.exh += p.sprinting ? 0.2 : 0.05; if (p.sprinting) { p.vel.x += wx * 2.2; p.vel.z += wz * 2.2; } }
+      if ((input.jump || input.jumpQ) && p.onGround && !p.swimming) { input.jumpQ = false; const jm = Math.sqrt(MODS.stat('jump') * (1 + 0.3 * Effects.lvl('jump')) * MODS.jumpMul()) * Math.sqrt(MODS.stat('gravity')); const je = MODRT.emit('jump', { power: 1 }); p.vel.y = 9.0 * jm * Math.max(0, +je.power || 0); p.onGround = false; Audio.play('jump', { vol: 0.25 }); p.exh += p.sprinting ? 0.2 : 0.05; if (p.sprinting) { p.vel.x += wx * 2.2; p.vel.z += wz * 2.2; } }
     }
     if (inWeb) p.vel.y = Math.max(p.vel.y, -1.2);
     // mod abilities: double jump, gliding, wall climbing
@@ -3198,7 +3216,7 @@ function physicsStep(dt) {
   const dyMoved = p.pos.y - y0;
   if (!p.onGround && dyMoved < 0 && !p.inWater && !p.climbing && !p.flying) p.fall -= dyMoved;
   if (p.onGround || p.inWater || p.climbing || p.flying) {
-    if (p.onGround && p.fall > 3.2 && !p.inWater) { const landOn = world.get(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.1), Math.floor(p.pos.z)); const soft = (landOn === B.hay ? 0.2 : 1) * MODS.stat('fallDamage'); const safe = MODS.onLand(p.fall); const dmg = safe ? 0 : Math.floor((p.fall - 3) * soft); if (dmg > 0) damagePlayer(dmg, 'fall'); Audio.play('land', { vol: Math.min(1, p.fall / 10), mat: soundOf(landOn) }); Particles.burst(p.pos.x, p.pos.y, p.pos.z, landOn, 10); }
+    if (p.onGround && p.fall > 3.2 && !p.inWater) { const landOn = world.get(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.1), Math.floor(p.pos.z)); const soft = (landOn === B.hay ? 0.2 : 1) * MODS.stat('fallDamage'); const safe = MODS.onLand(p.fall) || MODRT.emit('land', { fall: p.fall, cancel: false }).cancel; const dmg = safe ? 0 : Math.floor((p.fall - 3) * soft); if (dmg > 0) damagePlayer(dmg, 'fall'); Audio.play('land', { vol: Math.min(1, p.fall / 10), mat: soundOf(landOn) }); Particles.burst(p.pos.x, p.pos.y, p.pos.z, landOn, 10); }
     else if (p.onGround && p.fall > 1.2) Audio.play('land', { vol: 0.25, mat: soundOf(world.get(Math.floor(p.pos.x), Math.floor(p.pos.y - 0.1), Math.floor(p.pos.z))) });
     p.fall = 0;
   }
@@ -3320,6 +3338,7 @@ function bindInput() {
     if (k === 'KeyE' && !GAME.paused) { if (UI.open) UI.close(); else if (!player.dead) UI.openInventory(); return; }
     if (UI.open || GAME.paused) return;
     if (KEYS.has(k)) return; KEYS.add(k);
+    if (MODRT.inst.size && !player.dead) MODRT.key(k);
     if (k === 'KeyW') { const t = now(); if (t - input.lastWT < 280) input.sprint = true; input.lastWT = t; }
     if (k === 'Space') { input.jumpQ = true; const t = now(); if (canFly() && t - input.lastJumpT < 300 && !player.vehicle) { player.flying = !player.flying; toast(player.flying ? 'پرواز فعال شد' : 'پرواز غیرفعال شد', 1200); } input.lastJumpT = t; }
     if (k.startsWith('Digit')) { const n = parseInt(k.slice(5)); if (n >= 1 && n <= 9) UI.selectSlot(n - 1); }
@@ -4022,7 +4041,7 @@ class Mob {
     if (this.type === 'fish') { const fc = [[0xe08030, 0xf0f0f0], [0x4080d0, 0xf0e040], [0xd04040, 0xffffff], [0x60c060, 0x305030]]; v.col = fc[this.variant % 4][0]; v.col2 = fc[this.variant % 4][1]; }
     if (this.model) for (const mt of this.model.mats) mt.dispose();
     this.model = buildModel(MODEL_SPECS[this.type](v), (this.baby ? 0.55 : 1) * (this.mscale || 1), this.type + JSON.stringify(v)); this.mesh = this.model.root;
-    if (this.giant) { const c = this.giant.color; const col = [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255]; for (const mt of this.model.mats) mt.uniforms.uTintE.value.set(0.4 + col[0] * 0.9, 0.4 + col[1] * 0.9, 0.4 + col[2] * 0.9); const tag = makeNameTag(this.giant.name); tag.position.y = this.def.h * this.mscale + 0.5; this.mesh.add(tag); this.tag = tag; }
+    if (this.giant) { const c = this.giant.color; if (c) { const col = [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255]; for (const mt of this.model.mats) mt.uniforms.uTintE.value.set(0.4 + col[0] * 0.9, 0.4 + col[1] * 0.9, 0.4 + col[2] * 0.9); } if (this.giant.name) { const tag = makeNameTag(this.giant.name); tag.position.y = this.def.h * this.mscale + 0.5; this.mesh.add(tag); this.tag = tag; } }
     if (this.added) R.scene.add(this.mesh);
   }
   get eyeY() { return this.pos.y + this.h * 0.85; }
@@ -4043,8 +4062,8 @@ class Mob {
     if (this.fire > 0 || this.burning) { /* cooked drops */ }
     if (this.def.snd) Audio.play(this.def.snd + '_death', { pos: this.pos, vol: 0.8 });
     if (byPlayer && this.def.hostile) { GAME.kills = (GAME.kills || 0) + 1; ACH.unlock('kill'); }
-    if (this.giant) { for (const [name, a, b] of this.giant.drops || []) { const n = a + Math.floor(r() * (b - a + 1)); if (n > 0 && I[name] !== undefined) Entities.dropItem(I[name], n, this.pos.x, this.pos.y + 0.5, this.pos.z); } if (byPlayer) { XP.drop(this.pos.x, this.pos.y + 1, this.pos.z, this.giant.xp); toast('🏆 ' + this.giant.name + ' را شکست دادی!'); } }
-    if (byPlayer) MODS.onKill(this);
+    if (this.giant) { for (const [name, a, b] of this.giant.drops || []) { const n = a + Math.floor(r() * (b - a + 1)); if (n > 0 && I[name] !== undefined) Entities.dropItem(I[name], n, this.pos.x, this.pos.y + 0.5, this.pos.z); } if (byPlayer && this.giant.name) { XP.drop(this.pos.x, this.pos.y + 1, this.pos.z, this.giant.xp); toast('🏆 ' + this.giant.name + ' را شکست دادی!'); } }
+    if (byPlayer) { MODS.onKill(this); MODRT.emit('kill', { mob: modMobHandle(this) }); }
     if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); }
     if (byPlayer && !this.baby) XP.drop(this.pos.x, this.pos.y + 0.5, this.pos.z, XP_MOB[this.type] || 1);
   }
@@ -4052,7 +4071,7 @@ class Mob {
   serialize() { return { t: this.type, x: +this.pos.x.toFixed(2), y: +this.pos.y.toFixed(2), z: +this.pos.z.toFixed(2), hp: this.hp, b: this.baby, tm: this.tamed, sh: this.sheared, pf: this.prof, hm: this.home, v: this.variant, st: this.sitting, wl: this.wool }; }
 }
 function mobFromData(d) { return new Mob(d.t, d.x, d.y, d.z, { hp: d.hp, baby: d.b, tamed: d.tm, sheared: d.sh, prof: d.pf, home: d.hm, variant: d.v, sitting: d.st, wool: d.wl }); }
-Entities.spawn = function (type, x, y, z, extra) { if (!MOBS[type]) return null; const m = new Mob(type, x, y, z, extra); m.added = true; this.add(m); return m; };
+Entities.spawn = function (type, x, y, z, extra) { if (!MOBS[type]) return null; const m = new Mob(type, x, y, z, extra); m.added = true; this.add(m); if (MODRT.inst.size) MODRT.emit('spawn', { mob: modMobHandle(m) }); return m; };
 
 /* ---- pathfinding (A*) ---- */
 function walkable(x, y, z, h, aquatic) {
@@ -4588,7 +4607,7 @@ const XP = {
   need(l) { return l < 16 ? 2 * l + 7 : l < 31 ? 5 * l - 38 : 9 * l - 158; },
   drop(x, y, z, amount) { amount = Math.round(amount); while (amount > 0 && this.orbs.length < this.cap) { const v = amount >= 17 ? 7 : amount >= 7 ? 3 : 1; amount -= v; this.orbs.push({ x, y, z, vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 2, vz: (Math.random() - 0.5) * 3, v, age: 0 }); } },
   add(v) {
-    if (player.dead) return; v *= MODS.stat('xp'); v = Math.floor(v) + (Math.random() < v % 1 ? 1 : 0); if (v <= 0) return; MODS.onXP(v); player.xp += v; let up = false;
+    if (player.dead) return; if (MODRT.inst.size) v = +MODRT.emit('xp', { amount: v }).amount || 0; v *= MODS.stat('xp'); v = Math.floor(v) + (Math.random() < v % 1 ? 1 : 0); if (v <= 0) return; MODS.onXP(v); player.xp += v; let up = false;
     while (player.xp >= this.need(player.level)) { player.xp -= this.need(player.level); player.level++; up = true; }
     if (up) { Audio.play('levelup', { vol: 0.6 }); toast('⭐ سطح ' + fa(player.level)); if (player.level >= 10) ACH.unlock('level10'); }
     else Audio.play('orb', { vol: 0.25, pitch: 0.9 + Math.random() * 0.5 });
@@ -4847,6 +4866,7 @@ const Items = {
     if (!isCreative()) { player.exh += 0.005; if (held && ITEMS[held.id].tool && d.h > 0) damageHeld(ITEMS[held.id].tool.type === 'sword' ? 2 : 1); }
     World2.noise(x, y, z, 8);
     if (!this._chain && !isCreative()) { MODS.onBreak(x, y, z, id); this.chainBreak(x, y, z, id); }
+    if (!this._chain && MODRT.inst.size) MODRT.emit('break', { x, y, z, block: d.name });
   },
   // vein mining / tree felling (mods): break the connected blocks of the same kind
   chainBreak(x, y, z, id) {
@@ -4859,6 +4879,7 @@ const Items = {
   attack(e) {
     const held = heldStack(); const tool = held && ITEMS[held.id].tool; let dmg = tool ? tool.dmg : 1; if (held && held.ench && held.ench.sharp) dmg += 0.5 * held.ench.sharp + 0.5;
     dmg = dmg * MODS.stat('attack') + 3 * Effects.lvl('strength');
+    if (MODRT.inst.size && !e.vehicle) { const ev = MODRT.emit('attack', { mob: modMobHandle(e), dmg, cancel: false }); if (ev.cancel) { this.attackCool = 0.4; HAND.swing = 1; return; } dmg = Math.max(0, +ev.dmg || 0); }
     if (!player.onGround && player.vel.y < -1 && !player.inWater) { dmg *= 1.5; for (let i = 0; i < 8; i++) Particles.crit(e.pos.x, e.pos.y + e.h * 0.7, e.pos.z); }
     if (e.vehicle) { e.hurt(isCreative() ? 99 : 2, player.pos, true); }
     else { e.hurt(dmg, player.pos, true); GAME.lastHit = e; const kb = MODS.stat('knockback'); if (kb !== 1 && e.vel) { const dx = e.pos.x - player.pos.x, dz = e.pos.z - player.pos.z, l = Math.hypot(dx, dz) || 1; e.vel.x += dx / l * 5 * (kb - 1); e.vel.z += dz / l * 5 * (kb - 1); } MODS.onAttack(e, dmg); }
@@ -4915,7 +4936,7 @@ const Items = {
     if (this.bowDraw > 0) { const p = this.bowDraw; this.bowDraw = 0; if (p > 0.15) { const d = CAMV.dir; const target = CAMV.eye.clone().addScaledVector(d, 40); const fake = { pos: { x: CAMV.eye.x, y: CAMV.eye.y - 1.5, z: CAMV.eye.z }, eyeY: CAMV.eye.y + 0.1 }; Entities.shootArrow(fake, target.x, target.y, target.z, 52, true, Math.min(1, p * 1.1)); const pr = Entities.projectiles[Entities.projectiles.length - 1]; const bs = heldStack(); if (pr) { pr.shooter = player; pr.dmgMul = 1 + (bs && bs.ench && bs.ench.power ? 0.25 * bs.ench.power : 0); } if (!isCreative() && !MODS.has('infiniteArrows')) invRemove(I.arrow, 1); damageHeld(1); } }
     this.eatT = 0; showLayer('eat-prog', false);
   },
-  placeBlock(t, bid, st) { GAME.playerEdit = true; try { return this._placeBlock(t, bid, st); } finally { GAME.playerEdit = false; } },
+  placeBlock(t, bid, st) { GAME.playerEdit = true; const pp = this.placePos(t); let ok = false; try { ok = this._placeBlock(t, bid, st); return ok; } finally { GAME.playerEdit = false; if (ok && pp && MODRT.inst.size) MODRT.emit('place', { x: pp[0], y: pp[1], z: pp[2], block: BLOCKS[bid] ? BLOCKS[bid].name : '' }); } },
   _placeBlock(t, bid, st) {
     const d = BLOCKS[bid]; if (!d) return false;
     let p = this.placePos(t);
@@ -5233,10 +5254,13 @@ function sanitizeEffect(e) {
   }
 }
 function sanitizeMod(o, keepId) {
-  if (!o || typeof o !== 'object' || !Array.isArray(o.effects)) return null;
-  const effects = o.effects.slice(0, 12).map(sanitizeEffect).filter(Boolean); if (!effects.length) return null;
+  if (!o || typeof o !== 'object') return null;
+  const effects = (Array.isArray(o.effects) ? o.effects : []).slice(0, 12).map(sanitizeEffect).filter(Boolean);
+  const code = typeof o.code === 'string' && o.code.trim() ? o.code.slice(0, 40000) : '';
+  if (!effects.length && !code) return null;
   const cats = MOD_CATS.map((c) => c[0]);
   const m = { id: keepId && typeof o.id === 'string' && /^c_[a-z0-9]{4,20}$/.test(o.id) ? o.id : 'c_' + Math.random().toString(36).slice(2, 10), icon: strS(o.icon, 4, '🧩'), name: strS(o.name, 40, 'مود تازه'), desc: strS(o.desc, 400, ''), cat: cats.includes(o.cat) && o.cat !== 'all' ? o.cat : 'ai', effects, custom: true, ai: !!o.ai, prompt: strS(o.prompt, 400, '') };
+  if (code) m.code = code;
   return m;
 }
 function describeEffect(e) {
@@ -5290,7 +5314,7 @@ const MODS = {
   install(id, quiet) {
     const m = this.defs.get(id); if (!m || this.installed.has(id)) return;
     this.installed.add(id); this.rebuild(); this.save();
-    if (GAME.running && player.pos) this.grantGifts();
+    if (GAME.running && player.pos) { this.grantGifts(); if (m.code) MODRT.start(m); }
     if (!quiet) { toast('🧩 مود «' + m.name + '» نصب شد'); Audio.play('achieve', { vol: 0.5 }); }
   },
   // one-time gifts of installed mods (items, AI-made tools), once per world
@@ -5301,9 +5325,9 @@ const MODS = {
       player.modGift[id] = 1; if (gave) any = true; }
     if (any) { UI.invChanged(); toast('🎁 هدیهٔ مودها به کوله‌ات اضافه شد'); }
   },
-  uninstall(id) { if (!this.installed.delete(id)) return; this.rebuild(); this.save(); const m = this.defs.get(id); if (m) toast('مود «' + m.name + '» حذف شد'); if (player.health > maxHP()) player.health = maxHP(); UI.dirtyStats = true; },
+  uninstall(id) { if (!this.installed.delete(id)) return; MODRT.stop(id); this.rebuild(); this.save(); const m = this.defs.get(id); if (m) toast('مود «' + m.name + '» حذف شد'); if (player.health > maxHP()) player.health = maxHP(); UI.dirtyStats = true; },
   toggle(id) { if (this.installed.has(id)) this.uninstall(id); else this.install(id); ModsUI.render(); },
-  addCustom(m) { this.custom = this.custom.filter((c) => c.id !== m.id); this.custom.push(m); this.register(m); this.bindTools(m); this.save(); },
+  addCustom(m) { const i = this.custom.findIndex((c) => c.id === m.id); if (i >= 0) this.custom[i] = m; else this.custom.push(m); this.register(m); this.bindTools(m); this.save(); if (this.installed.has(m.id)) { this.rebuild(); if (GAME.running) MODRT.restart(m); } },
   removeCustom(id) { this.uninstall(id); this.custom = this.custom.filter((c) => c.id !== id); this.defs.delete(id); this.order = this.order.filter((x) => x !== id); this.save(); },
   rebuild() {
     const A = { mul: {}, add: {}, ab: new Set(), hooks: { onHurt: [], onXP: [], onJump: [], onLand: [], onKill: [], onAttack: [], onBreak: [] }, night: [], mobAll: [], unlock: new Set(), effects: {} };
@@ -5322,9 +5346,9 @@ const MODS = {
     }
     this.agg = A; UI.dirtyStats = true; UI.dirtyFx = true; if (GAME.running && UI.applyHud) UI.applyHud();
   },
-  stat(n) { const v = this.agg ? this.agg.mul[n] : undefined; return v === undefined ? 1 : v; },
-  add(n) { return this.agg ? (this.agg.add[n] || 0) : 0; },
-  has(n) { return !!(this.agg && this.agg.ab.has(n)); },
+  stat(n) { const v = this.agg ? this.agg.mul[n] : undefined; return (v === undefined ? 1 : v) * MODRT.stat(n); },
+  add(n) { return (this.agg ? (this.agg.add[n] || 0) : 0) + MODRT.add(n); },
+  has(n) { return !!(this.agg && this.agg.ab.has(n)) || MODRT.ability(n); },
   hooks(n) { return this.agg ? this.agg.hooks[n] : []; },
   unlocked(set) { return !set || !!(this.agg && this.agg.unlock.has(set)); },
   // ---- event hooks (called from the game) ----
@@ -5399,7 +5423,7 @@ const MODS = {
   tickNight(dt) {
     this.nightT += dt; if (this.nightT < 1.5) return; this.nightT = 0;
     const specs = this.agg ? this.agg.night : []; const night = !isDay();
-    for (const e of Entities.list) if (e.giant && !e.dead && (!night || !specs.some((s) => s.key === e.giant.key))) { for (let i = 0; i < 16; i++) Particles.smoke(e.pos.x + (Math.random() - 0.5) * e.w, e.pos.y + Math.random() * e.h, e.pos.z + (Math.random() - 0.5) * e.w); Entities.remove(e); }
+    for (const e of Entities.list) if (e.giant && e.giant.key && !e.dead && (!night || !specs.some((s) => s.key === e.giant.key))) { for (let i = 0; i < 16; i++) Particles.smoke(e.pos.x + (Math.random() - 0.5) * e.w, e.pos.y + Math.random() * e.h, e.pos.z + (Math.random() - 0.5) * e.w); Entities.remove(e); }
     if (!night || !specs.length || isCreative() || player.dead || DIFF() === 0 || this.has('peaceful')) return;
     for (const s of specs) {
       let n = 0; for (const e of Entities.list) if (e.giant && e.giant.key === s.key && !e.dead) n++;
@@ -5436,15 +5460,7 @@ function configureModTool(slot, e, modId) {
 function recipeActive(r) { return !r.modSet || MODS.unlocked(r.modSet); }
 
 /* ---- AI mod builder (works only when the page runs inside Claude) ---- */
-function aiModPrompt(req) {
-  return `You design mods for "Mokabestan", a Persian voxel sandbox survival game (similar to Minecraft). A player asked:
-"""${req.slice(0, 600)}"""
-
-Build ONE mod that does what they asked, using ONLY the building blocks below. Reply with ONLY a JSON object:
-{"name": "<short Persian name>", "icon": "<one emoji>", "desc": "<1-3 Persian sentences: exactly what the mod does; say honestly if something had to be approximated>", "cat": "move|combat|survival|tools|world|mobs|fun", "effects": [ ... ]}
-
-Effects (1-8 items, combine freely):
-- {"t":"stat","stat":S,"mul":number}  S is one of: speed, jump, gravity, reach, mining, attack, damageTaken, fallDamage, hunger, regen, swim, flySpeed, xp, drops, knockback, hostileSpawn, mobHealth, mobDamage, mobSpeed, dayLength (1 = normal, 2 = double, 0.5 = half)
+const MOD_EFFECTS_DOC = `- {"t":"stat","stat":S,"mul":number}  S is one of: speed, jump, gravity, reach, mining, attack, damageTaken, fallDamage, hunger, regen, swim, flySpeed, xp, drops, knockback, hostileSpawn, mobHealth, mobDamage, mobSpeed, dayLength (1 = normal, 2 = double, 0.5 = half)
 - {"t":"stat","stat":"maxHealth"|"armor","add":number}  extra half-hearts (player has 20) or armor points
 - {"t":"ability","name":A}  A: doubleJump, glide, flight, wallClimb, waterWalk, instantMine, veinMine, treeFell, autoSmelt, noHunger, noFall, fireImmune, waterBreathing, nightVision, magnet, keepInventory, explosiveArrows, infiniteArrows, peaceful, alwaysDay, alwaysNight, alwaysRain, clearSky
 - {"t":"effect","name":E,"level":1-5}  permanent status effect E: speed, jump, haste, strength, regen, resistance, fireResist, waterBreathing, nightVision
@@ -5460,11 +5476,35 @@ Effects (1-8 items, combine freely):
 - {"t":"tool","kind":"sword"|"pickaxe"|"axe"|"shovel"|"hoe","name":"<Persian>","color":"#rrggbb","damage":n,"speed":n,"durability":n,"tier":0-6,"material":"<item>"}  a new tool given to the player and craftable from material + sticks (diamond sword: damage 7, mining speed 8, durability 1561, tier 3)
 - {"t":"unlock","set":"thunder"|"cosmic"}  built-in legendary tool tiers above diamond
 - {"t":"give","item":"<item>","count":n}  one-time gift on install
-M: ${MOD_MOBS.join(', ')}
-items: ${MOD_ITEMS.join(', ')}
-Keep numbers sensible unless the player asked for something extreme. Persian text only in name, desc and tool names. If the request cannot be done exactly, use the closest building blocks and say so in desc.`;
+`;
+function modExport(m) { const o = { name: m.name, icon: m.icon, desc: m.desc, cat: m.cat, effects: m.effects.map((e) => { const c = Object.assign({}, e); delete c.slot; return c; }) }; if (m.code) o.code = m.code; return o; }
+function aiModPrompt(req, base, err) {
+  const blocks = BLOCKS.filter((d) => d && d.id && d.name !== 'unloaded' && !d.name.endsWith('_lit')).map((d) => d.name).join(', ');
+  const items = ITEMS.filter((it) => it && it.id >= 256 && !/^mod_tool_/.test(it.name)).map((it) => it.name).join(', ');
+  let task;
+  if (base && err) task = `This mod fails with the error: "${String(err).slice(0, 300)}". Fix the problem and return the complete corrected mod (same idea).\nThe player's original request: """${(base.prompt || base.desc || '').slice(0, 600)}"""\nCurrent mod JSON:\n${JSON.stringify(modExport(base)).slice(0, 40000)}`;
+  else if (base) task = `Change this existing mod the way the player asks: """${req.slice(0, 600)}"""\nReturn the complete new version.\nCurrent mod JSON:\n${JSON.stringify(modExport(base)).slice(0, 40000)}`;
+  else task = `A player asked for this mod (any kind is allowed):\n"""${req.slice(0, 800)}"""`;
+  return `You build mods for "Mokabestan", a Persian voxel survival sandbox game (similar to Minecraft) that runs in the browser.
+${task}
+
+Reply with ONLY a JSON object:
+{"name": "<short Persian name>", "icon": "<one emoji>", "desc": "<1-3 Persian sentences: what the mod does and how to use it, e.g. which button or key>", "cat": "move|combat|survival|tools|world|mobs|fun", "effects": [ ... ], "code": "<JavaScript, or empty string>"}
+
+A mod has two parts; use either or both.
+1) "effects": ready-made building blocks, best for simple changes:
+${MOD_EFFECTS_DOC}
+2) "code": JavaScript for ANYTHING else (buttons, keys, new mechanics, timers, HUD text, windows, spawning, building, chat commands, 3D visuals...). It is the BODY of function (api) { ... }; it runs each time a world opens and must use only the api object and standard JavaScript (no import, fetch or network). All text shown to the player must be Persian. Keep it under 200 lines, check for null, keep 'tick' handlers cheap. Escape it correctly inside the JSON string.
+API:
+${MOD_API_DOC}
+Example: api.addButton({ icon: '💖', label: 'شفا', onClick() { api.player.heal(20); api.particles('heart', api.player.x, api.player.y + 1.5, api.player.z, 12); } });
+
+mobs: ${MOD_MOBS.join(', ')}, villager, fish, firefly
+block names: ${blocks}
+item names: ${items}
+If something cannot be done exactly, build the closest thing and say so in desc.`;
 }
-const AI_ERR = { not_granted: 'اجازهٔ استفاده از هوش مصنوعی داده نشد.', sampling_disabled: 'هوش مصنوعی برای این حساب در دسترس نیست.', rate_limited: 'درخواست‌ها زیاد شد؛ کمی بعد دوباره امتحان کن.', session_expired: 'باید دوباره وارد حساب Claude شوی.', refused: 'این درخواست ساخته نشد؛ آن را کمی متفاوت بنویس.', invalid_json: 'پاسخ قابل فهم نبود؛ دوباره «بساز» را بزن.', empty_completion: 'پاسخی نیامد؛ درخواست را ساده‌تر بنویس.', cancelled: 'ساخت متوقف شد.', upstream_error: 'ارتباط قطع شد؛ دوباره امتحان کن.' };
+const AI_ERR = { compile: 'کد مود خطا دارد.', not_granted: 'اجازهٔ استفاده از هوش مصنوعی داده نشد.', sampling_disabled: 'هوش مصنوعی برای این حساب در دسترس نیست.', rate_limited: 'درخواست‌ها زیاد شد؛ کمی بعد دوباره امتحان کن.', session_expired: 'باید دوباره وارد حساب Claude شوی.', refused: 'این درخواست ساخته نشد؛ آن را کمی متفاوت بنویس.', invalid_json: 'پاسخ قابل فهم نبود؛ دوباره «بساز» را بزن.', empty_completion: 'پاسخی نیامد؛ درخواست را ساده‌تر بنویس.', cancelled: 'ساخت متوقف شد.', upstream_error: 'ارتباط قطع شد؛ دوباره امتحان کن.' };
 
 const ModsUI = {
   tab: 'store', cat: 'all', q: '', preview: null, busy: null, bound: false,
@@ -5479,9 +5519,11 @@ const ModsUI = {
   },
   refreshAI() { if (this.tab === 'ai' && $('menu-mods') && !$('menu-mods').classList.contains('hidden')) this.render(); },
   card(m) {
-    const on = MODS.installed.has(m.id); const fx = m.effects.map(describeEffect).filter(Boolean).slice(0, 4).map((s) => `<li>${esc(s)}</li>`).join('');
-    return `<div class="mod ${on ? 'on' : ''}"><div class="mod-h"><span class="mod-ic">${esc(m.icon)}</span><div><b>${esc(m.name)}</b>${m.ai ? '<small class="badge">ساخت هوش مصنوعی</small>' : m.suggest ? '<small class="badge">پیشنهادی</small>' : m.custom ? '<small class="badge">واردشده</small>' : ''}</div></div>
-      <p>${esc(m.desc)}</p><ul>${fx}</ul><div class="row"><button class="btn small ${on ? '' : 'primary'}" data-mod="${esc(m.id)}">${on ? '✓ نصب‌شده — حذف' : '⬇ نصب با یک کلیک'}</button>${m.custom ? `<button class="btn small" data-share="${esc(m.id)}" title="کپی کد مود">📋 کد</button><button class="btn small danger" data-del="${esc(m.id)}">🗑</button>` : ''}</div></div>`;
+    const on = MODS.installed.has(m.id); const list = m.effects.map(describeEffect).filter(Boolean).slice(0, 4); if (m.code) list.push('رفتار تازه با برنامه (دکمه‌ها، رویدادها و…)'); const fx = list.map((s) => `<li>${esc(s)}</li>`).join('');
+    const err = MODRT.lastErr[m.id]; const errH = err ? `<div class="mod-err">⚠️ خطا: ${esc(err.slice(0, 200))}</div>` + (m.custom && MODS.aiState === 'ready' ? `<button class="btn small" data-fix="${esc(m.id)}">🔧 درست کردن خطا با هوش مصنوعی</button>` : '') : '';
+    const codeH = m.code ? `<details class="mod-code"><summary>دیدن کد مود</summary><pre dir="ltr">${esc(m.code)}</pre></details>` : '';
+    return `<div class="mod ${on ? 'on' : ''}"><div class="mod-h"><span class="mod-ic">${esc(m.icon)}</span><div><b>${esc(m.name)}</b>${m.ai ? '<small class="badge">ساخت هوش مصنوعی</small>' : m.suggest ? '<small class="badge">پیشنهادی</small>' : m.custom ? '<small class="badge">دست‌ساز</small>' : ''}${m.code ? '<small class="badge code">🧠 برنامه‌دار</small>' : ''}</div></div>
+      <p>${esc(m.desc)}</p><ul>${fx}</ul>${errH}${codeH}<div class="row"><button class="btn small ${on ? '' : 'primary'}" data-mod="${esc(m.id)}">${on ? '✓ نصب‌شده — حذف' : '⬇ نصب با یک کلیک'}</button>${m.custom ? `<button class="btn small" data-share="${esc(m.id)}" title="کپی کد مود">📋 کد</button><button class="btn small danger" data-del="${esc(m.id)}">🗑</button>` : ''}</div></div>`;
   },
   list() {
     const q = this.q; const words = q ? q.split(/\s+/).filter((w) => w.length > 1) : [];
@@ -5509,6 +5551,7 @@ const ModsUI = {
     for (const b of root.querySelectorAll('[data-mod]')) b.onclick = () => { MODS.toggle(b.dataset.mod); };
     for (const b of root.querySelectorAll('[data-del]')) b.onclick = () => { MODS.removeCustom(b.dataset.del); this.render(); };
     for (const b of root.querySelectorAll('[data-share]')) b.onclick = () => this.share(b.dataset.share);
+    for (const b of root.querySelectorAll('[data-fix]')) b.onclick = () => { const m = MODS.defs.get(b.dataset.fix); if (m) this.repair(m); };
   },
   aiHTML() {
     const st = MODS.aiState; const ready = st === 'ready';
@@ -5533,42 +5576,56 @@ const ModsUI = {
     setTimeout(() => { this.preview = s.mod; this.showPreview(s.mod); }, 700);
   },
   showPreview(m) {
-    const out = $('ai-out'); if (!out) return; const on = MODS.installed.has(m.id);
-    out.innerHTML = `<div class="ai-done">مود آماده شد:</div>` + this.card(m).replace('class="mod ', 'class="mod big ');
+    const out = $('ai-out'); if (!out) return;
+    out.innerHTML = `<div class="ai-done">مود آماده شد:</div>` + this.card(m).replace('class="mod ', 'class="mod big ') +
+      (m.custom && MODS.aiState === 'ready' ? `<div class="row ai-edit"><input id="ai-edit" class="inp" placeholder="چه تغییری بدهم؟ مثلاً: یک دکمهٔ دیگر هم اضافه کن"><button class="btn small primary" id="ai-edit-go">✏️ تغییر بده</button></div>` : '');
     this.wireCards(out); const btn = out.querySelector('[data-mod]'); if (btn) btn.onclick = () => { MODS.toggle(m.id); this.showPreview(m); };
-    void on;
+    const eg = $('ai-edit-go'); if (eg) eg.onclick = () => { const v = $('ai-edit').value.trim(); if (v) this.runAI(aiModPrompt(v, m), (m.prompt ? m.prompt + ' — ' : '') + v, m.id); };
   },
   async generate() {
     const ta = $('ai-req'); const req = ta ? ta.value.trim() : ''; const out = $('ai-out'); if (!req) { out.innerHTML = '<div class="ai-st warn">اول بنویس چه مودی می‌خواهی.</div>'; return; }
-    if (!MODS.ai) return; const ctl = new AbortController(); this.busy = ctl;
-    $('ai-go').disabled = true; $('ai-stop').classList.remove('hidden'); out.innerHTML = '<div class="ai-think">🤔 هوش مصنوعی دارد فکر می‌کند…</div>';
+    return this.runAI(aiModPrompt(req), req, null);
+  },
+  repair(m) { this.tab = 'ai'; this.render(); this.runAI(aiModPrompt('', m, MODRT.lastErr[m.id] || 'unknown error'), m.prompt || m.desc, m.id); },
+  async runAI(prompt, req, replaceId) {
+    const out = $('ai-out'); if (!MODS.ai || !out || this.busy) return; const ctl = new AbortController(); this.busy = ctl;
+    const go = $('ai-go'); if (go) go.disabled = true; const st = $('ai-stop'); if (st) st.classList.remove('hidden'); out.innerHTML = '<div class="ai-think">🤔 هوش مصنوعی دارد فکر می‌کند…</div>';
     try {
-      const obj = await MODS.ai.json(aiModPrompt(req), { signal: ctl.signal, modelTier: 'default', cache: false, onText: ({ text }) => { const el = out.querySelector('.ai-think'); if (el) el.textContent = '🛠️ در حال نوشتن مود… (' + fa(text.length) + ' نویسه)'; } });
+      const obj = await MODS.ai.json(prompt, { signal: ctl.signal, modelTier: 'default', cache: false, onText: ({ text }) => { const el = out.querySelector('.ai-think'); if (el) el.textContent = '🛠️ در حال نوشتن مود… (' + fa(text.length) + ' نویسه)'; } });
       const m = sanitizeMod(Object.assign({}, obj, { ai: true, prompt: req }), false);
       if (!m) { out.innerHTML = '<div class="ai-st warn">مود ساخته‌شده قابل استفاده نبود؛ درخواست را دقیق‌تر بنویس و دوباره بزن.</div>'; return; }
-      m.ai = true; MODS.addCustom(m); this.preview = m; this.showPreview(m);
+      m.ai = true; if (replaceId) m.id = replaceId; delete MODRT.lastErr[m.id];
+      if (m.code) { try { await MODRT.compile(m.id, m.code); } catch (e) { MODRT.lastErr[m.id] = String(e.message || e); } }
+      MODS.addCustom(m); this.preview = m; this.showPreview(m);
     } catch (e) {
       const code = e && e.code; out.innerHTML = `<div class="ai-st warn">${esc(AI_ERR[code] || AI_ERR.upstream_error)}</div>`;
       if (code === 'not_granted' || code === 'sampling_disabled') { MODS.aiState = 'none'; }
-    } finally { this.busy = null; const g = $('ai-go'); if (g) g.disabled = MODS.aiState !== 'ready'; const s = $('ai-stop'); if (s) s.classList.add('hidden'); }
+    } finally { this.busy = null; const g = $('ai-go'); if (g) g.disabled = MODS.aiState !== 'ready'; const s2 = $('ai-stop'); if (s2) s2.classList.add('hidden'); }
   },
   // share/import mods as text codes (in-page: the Claude viewer has no prompt dialogs)
   share(id) {
     const m = MODS.defs.get(id); if (!m) return;
-    this.shareCode = 'MOKAB-MOD:' + btoa(unescape(encodeURIComponent(JSON.stringify({ name: m.name, icon: m.icon, desc: m.desc, cat: m.cat, effects: m.effects.map((e) => { const c = Object.assign({}, e); delete c.slot; return c; }), ai: m.ai }))));
+    this.shareCode = 'MOKAB-MOD:' + btoa(unescape(encodeURIComponent(JSON.stringify(Object.assign(modExport(m), { ai: m.ai })))));
     this.shareName = m.name; this.tab = 'share'; this.render();
   },
   codeHTML() {
     let h = '';
     if (this.tab === 'share' && this.shareCode) h += `<div class="sec-t">کد مود «${esc(this.shareName)}» — آن را کپی کن و در هر نسخه از بازی (مرورگر یا Claude) وارد کن</div><textarea id="share-code" class="inp" rows="4" readonly dir="ltr">${esc(this.shareCode)}</textarea><div class="row"><button class="btn small primary" id="share-copy">📋 کپی کد</button><span id="share-st" style="font-size:13px;color:var(--dim)"></span></div>`;
     h += `<div class="sec-t">وارد کردن کد مود</div><div class="ai-st">کد مودی را که در Claude ساخته‌ای یا کسی برایت فرستاده اینجا بچسبان. کدها فقط از قطعه‌های مجاز مود ساخته می‌شوند و برنامهٔ اجرایی ندارند.</div><textarea id="imp-code" class="inp" rows="4" dir="ltr" placeholder="MOKAB-MOD:..."></textarea><div class="row"><button class="btn primary" id="imp-go">📥 افزودن مود</button></div><div id="imp-out"></div>`;
+    h += `<details class="mod-code"><summary>🛠️ نوشتن مود با کد (برای برنامه‌نویس‌ها)</summary><input id="own-name" class="inp" placeholder="نام مود" style="margin:6px 0"><textarea id="own-code" class="inp" rows="7" dir="ltr" placeholder="api.addButton({ icon: '💖', label: 'شفا', onClick() { api.player.heal(20); } });"></textarea><div class="row"><button class="btn primary" id="own-go">ساختن مود</button></div><div id="own-out"></div><pre dir="ltr">${esc(MOD_API_DOC)}</pre></details>`;
     return h;
   },
   wireCode() {
     const cp = $('share-copy'); if (cp) cp.onclick = () => { const ta = $('share-code'); const ok = () => { $('share-st').textContent = 'کپی شد ✓'; }; const sel = () => { ta.focus(); ta.select(); $('share-st').textContent = 'متن انتخاب شد؛ آن را کپی کن'; }; try { navigator.clipboard.writeText(this.shareCode).then(ok, sel); } catch (e) { sel(); } };
+    $('own-go').onclick = async () => {
+      const code = $('own-code').value; const out = $('own-out'); const m = sanitizeMod({ name: $('own-name').value || 'مود دست‌ساز', icon: '🛠️', desc: 'مودی که خودت با کد نوشتی.', cat: 'fun', effects: [], code }, false);
+      if (!m) { out.innerHTML = '<div class="ai-st warn">اول کد را بنویس.</div>'; return; }
+      try { await MODRT.compile(m.id, m.code); } catch (e) { MODRT.lastErr[m.id] = String(e.message || e); }
+      MODS.addCustom(m); out.innerHTML = this.card(m); this.wireCards(out); const b = out.querySelector('[data-mod]'); if (b) b.onclick = () => { MODS.toggle(m.id); this.tab = 'installed'; this.render(); };
+    };
     $('imp-go').onclick = () => {
       const code = $('imp-code').value.trim(); const out = $('imp-out'); if (!code) { out.innerHTML = '<div class="ai-st warn">اول کد را بچسبان.</div>'; return; }
-      try { const raw = code.replace(/^MOKAB-MOD:/, '').replace(/\s+/g, ''); const obj = JSON.parse(decodeURIComponent(escape(atob(raw)))); const m = sanitizeMod(obj, false); if (!m) throw new Error('bad'); m.ai = !!obj.ai; MODS.addCustom(m); this.preview = m; out.innerHTML = '<div class="ai-done">مود اضافه شد:</div>' + this.card(m); this.wireCards(out); const b = out.querySelector('[data-mod]'); if (b) b.onclick = () => { MODS.toggle(m.id); this.tab = 'installed'; this.render(); }; $('imp-code').value = ''; }
+      try { const raw = code.replace(/^MOKAB-MOD:/, '').replace(/\s+/g, ''); const obj = JSON.parse(decodeURIComponent(escape(atob(raw)))); const m = sanitizeMod(obj, false); if (!m) throw new Error('bad'); m.ai = !!obj.ai; MODS.addCustom(m); this.preview = m; out.innerHTML = '<div class="ai-done">مود اضافه شد:</div>' + (m.code ? '<div class="ai-st warn">این مود برنامه (کد) دارد که روی دستگاه تو اجرا می‌شود. فقط مود کسانی را نصب کن که به آن‌ها اعتماد داری.</div>' : '') + this.card(m); this.wireCards(out); const b = out.querySelector('[data-mod]'); if (b) b.onclick = () => { MODS.toggle(m.id); this.tab = 'installed'; this.render(); }; $('imp-code').value = ''; }
       catch (e) { out.innerHTML = '<div class="ai-st warn">این کد مود معتبر نیست؛ مطمئن شو کامل کپی شده و با MOKAB-MOD: شروع می‌شود.</div>'; }
     };
   },
@@ -5613,10 +5670,238 @@ const CMD = {
       case 'spawnpoint': player.spawn = { x: player.pos.x, y: player.pos.y, z: player.pos.z }; ok('نقطهٔ زنده شدن ثبت شد'); break;
       case 'mods': case 'مودها': ok([...MODS.installed].map((id) => MODS.defs.get(id).name).join('، ') || 'هیچ مودی نصب نیست'); break;
       case 'mod': { const id = a[2]; if (!MODS.defs.has(id)) { bad('شناسهٔ مود پیدا نشد'); break; } if (a[1] === 'نصب' || a[1] === 'install') MODS.install(id); else MODS.uninstall(id); ok('انجام شد'); break; }
-      default: bad('فرمان ناشناخته — /help را بزن');
+      default: if (MODRT.command(c, a.slice(1))) break; bad('فرمان ناشناخته — /help را بزن');
     }
   },
 };
+
+/* ============================ PROGRAMMABLE MODS ============================
+   A mod may carry `code`: the body of function (api) { ... }. It runs while a world is open and talks to the
+   game only through the api object below (buttons, keys, HUD text, events, world, player, mobs, timers…). */
+const MOD_KEYS_FREE = ['KeyH', 'KeyJ', 'KeyK', 'KeyL', 'KeyU', 'KeyI', 'KeyO', 'KeyB', 'KeyN', 'KeyZ', 'KeyX', 'KeyY'];
+const MOD_PARTICLES = ['poof', 'smoke', 'spark', 'flame', 'heart', 'splash', 'crit'];
+const MOD_API_DOC = `api.on(event, fn) - fn receives one object you may modify. Events:
+  'tick' (every 0.05 s, game running), 'frame' {dt}, 'start' (world opened), 'hurt' {dmg, cause, cancel}, 'death', 'respawn',
+  'jump' {power: multiplier}, 'land' {fall, cancel}, 'attack' {mob, dmg, cancel}, 'kill' {mob}, 'break' {x,y,z,block},
+  'place' {x,y,z,block}, 'xp' {amount}, 'spawn' {mob}, 'night', 'day', 'key' {code}
+api.every(seconds, fn), api.after(seconds, fn)  (game time, paused with the game)
+api.addButton({icon, label, key?, toggle?, onClick(state)}) -> {setLabel(text), setOn(bool), on, remove()}  on-screen button (touch + mouse); a keyboard key is shown on it (auto-assigned if omitted)
+api.key(code, fn)  KeyboardEvent.code, e.g. 'KeyH'. Free keys: H J K L U I O B N Z X Y
+api.command(name, fn(argsArray))  chat command typed as /name a b
+api.hud(text) -> {set(text), remove()}  small text line on screen
+api.panel({title, text, buttons: [{label, onClick}]})  modal window (closes after a button)
+api.toast(text), api.say(text)  short message / chat line
+api.player: x, y, z (feet), yaw, pitch, health (get/set), maxHealth, hunger (get/set), level, xp, flying (get/set), mode ('survival'|'creative', get/set), onGround, inWater, sneaking, sprinting, held (item name or null), teleport(x,y,z), push(vx,vy,vz), heal(n), damage(n), addXp(n), lookDir() -> {x,y,z}
+api.world: get(x,y,z) -> block name ('air' if empty), set(x,y,z,name) -> bool, top(x,z) -> y of highest block, solid(x,y,z), fill(x1,y1,z1,x2,y2,z2,name) (max 32768 blocks), target() -> {x,y,z,block} block the player looks at, or null
+api.give(item, n), api.count(item), api.take(item, n)
+api.spawn(mob, x,y,z, {name, scale, health, damage, speed, color '#rrggbb', boss}) -> mob
+api.mobs(radius) -> [mob]   mob: type, name, x,y,z, hp, maxHp, dead, hurt(n), kill(), remove(), push(vx,vy,vz), moveTo(x,y,z)
+api.effect(name, seconds, level)  names: speed, slow, jump, haste, strength, regen, resistance, fireResist, waterBreathing, nightVision, poison
+api.setStat(name, value)  multipliers (1 = normal): speed, jump, gravity, reach, mining, attack, damageTaken, fallDamage, hunger, regen, swim, flySpeed, xp, drops, knockback, hostileSpawn, mobHealth, mobDamage, mobSpeed, dayLength; additive: maxHealth (half-hearts), armor
+api.setAbility(name, on)  doubleJump, glide, flight, wallClimb, waterWalk, instantMine, veinMine, treeFell, autoSmelt, noHunger, noFall, fireImmune, waterBreathing, nightVision, magnet, keepInventory, explosiveArrows, infiniteArrows, peaceful, alwaysDay, alwaysNight, alwaysRain, clearSky
+api.explode(x,y,z,power, breakBlocks = true), api.lightning(x,z), api.sound(name), api.particles(kind, x,y,z, count)
+  sounds: click, levelup, explode, orb, achieve, hurt, jump, thunder, splash, pickup, break, place, eat, burp, fizz. particle kinds: ${MOD_PARTICLES.join(', ')}
+api.getTime() -> hour 0-24, api.setTime(hour), api.isNight(), api.weather('clear'|'rain'|'thunder'|'snow'|'fog')
+api.data  object saved per world (call api.save() after changing), api.onCleanup(fn) runs when the mod is removed
+Advanced: api.THREE (three.js r160), api.scene, api.camera, api.game (raw game objects; use only if nothing above fits)`;
+
+const faDigits = (t) => String(t).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+const MODRT = {
+  inst: new Map(), evalMode: null, lastErr: {}, fnCache: new Map(), wasNight: null,
+  // turn code text into a function, trying what this page allows: eval, an inline script, a blob script
+  async compile(id, code) {
+    const key = id + '\u0000' + code; if (this.fnCache.has(key)) return this.fnCache.get(key);
+    let fn = null;
+    if (this.evalMode === null || this.evalMode === 'function') {
+      try { fn = new Function('api', code); this.evalMode = 'function'; }
+      catch (e) { if (e instanceof SyntaxError) throw e; this.evalMode = 'inline'; }
+    }
+    if (!fn && this.evalMode === 'inline') { fn = this.viaScript(id, code, false); if (fn === 'blocked') { fn = null; this.evalMode = 'blob'; } }
+    if (!fn && this.evalMode === 'blob') { fn = await this.viaScript(id, code, true); if (fn === 'blocked') { fn = null; this.evalMode = 'interp'; } }
+    if (!fn && this.evalMode === 'interp') fn = await this.viaInterpreter(code);
+    if (!fn) throw new Error('این صفحه اجازهٔ اجرای کد مود را نمی‌دهد');
+    this.fnCache.set(key, fn); return fn;
+  },
+  // last resort when the page may not run new code natively: a JavaScript interpreter from an allowed CDN
+  async viaInterpreter(code) {
+    if (!window.Sval) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/sval@0.6.12/dist/sval.min.js'; s.onload = res; s.onerror = () => rej(new Error('بارگیری مفسر کد ممکن نشد')); document.head.appendChild(s); });
+    if (!window.Sval) { this.evalMode = 'none'; return null; }
+    const it = new window.Sval({ ecmaVer: 'latest', sandBox: false });
+    it.run('exports.main = function (api) {\n' + code + '\n};');
+    return it.exports.main;
+  },
+  viaScript(id, code, blob) {
+    const reg = window.__mokabMods || (window.__mokabMods = {}); delete reg[id];
+    const src = 'window.__mokabMods[' + JSON.stringify(id) + '] = function (api) {\n' + code + '\n};';
+    // only real script errors count; a blocked <script> element fires a plain Event that must not look like a syntax error
+    let err = null; const onErr = (ev) => { if (!(ev instanceof ErrorEvent)) return; err = ev.message || 'SyntaxError'; ev.preventDefault(); };
+    const finish = (s, url) => { window.removeEventListener('error', onErr, true); window.__mokabCompiling = false; s.remove(); if (url) URL.revokeObjectURL(url); if (reg[id]) return reg[id]; if (err) throw new SyntaxError(String(err).replace(/^Uncaught (SyntaxError: )?/, '').replace(/^Failed to execute '\w+' on '\w+': /, '')); return 'blocked'; };
+    window.__mokabCompiling = true; window.addEventListener('error', onErr, true);
+    const s = document.createElement('script');
+    if (!blob) { s.textContent = src; document.head.appendChild(s); return finish(s, null); }
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' })); s.src = url;
+    return new Promise((res, rej) => { const done = () => { try { res(finish(s, url)); } catch (e) { rej(e); } }; s.onload = done; s.onerror = done; document.head.appendChild(s); setTimeout(done, 4000); });
+  },
+  async start(m) {
+    if (!m || !m.code || this.inst.has(m.id) || !GAME.running) return;
+    const rt = { id: m.id, name: m.name, handlers: {}, buttons: [], huds: [], timers: [], keys: new Map(), cmds: new Map(), stats: {}, adds: {}, abil: new Set(), cleanups: [], errors: 0, objs: [] };
+    this.inst.set(m.id, rt); delete this.lastErr[m.id];
+    let fn; try { fn = await this.compile(m.id, m.code); } catch (e) { this.inst.delete(m.id); this.lastErr[m.id] = String(e.message || e); toast('⚠️ مود «' + m.name + '» اجرا نشد: ' + this.lastErr[m.id].slice(0, 90), 3500); return; }
+    if (this.inst.get(m.id) !== rt) return;
+    rt.data = this.loadData(m.id); const api = makeModApi(rt, m);
+    try { fn.call(null, api); } catch (e) { this.fail(rt, e); }
+    this.safeEmit(rt, 'start', {}); MODS.rebuild();
+  },
+  stop(id) {
+    const rt = this.inst.get(id); if (!rt) return; this.inst.delete(id);
+    for (const f of rt.cleanups) { try { f(); } catch (e) { /* ignore */ } }
+    for (const b of rt.buttons) b.remove(); for (const h of rt.huds) h.remove(); for (const o of rt.objs) { try { if (o.parent) o.parent.remove(o); } catch (e) { /* ignore */ } }
+    this.saveData(rt); if (UI.open === 'modpanel' && MODRT.panelOwner === id) UI.close(); MODS.rebuild();
+  },
+  startAll() { for (const id of MODS.installed) { const m = MODS.defs.get(id); if (m && m.code) this.start(m); } },
+  stopAll() { for (const id of [...this.inst.keys()]) this.stop(id); },
+  restart(m) { this.stop(m.id); if (MODS.installed.has(m.id)) this.start(m); },
+  fail(rt, e) {
+    rt.errors++; const msg = String((e && (e.message || e)) || 'خطا'); this.lastErr[rt.id] = msg; console.warn('mod error in', rt.name, e);
+    if (rt.errors === 1) toast('⚠️ خطا در مود «' + rt.name + '»: ' + msg.slice(0, 90), 3000);
+    if (rt.errors > 30) { toast('مود «' + rt.name + '» به‌خاطر خطاهای پی‌درپی خاموش شد', 3500); MODS.uninstall(rt.id); }
+  },
+  safe(rt, fn, a) { if (typeof fn !== 'function') return undefined; try { return fn(a); } catch (e) { this.fail(rt, e); return undefined; } },
+  safeEmit(rt, evt, data) { const hs = rt.handlers[evt]; if (hs) for (const fn of hs.slice()) this.safe(rt, fn, data); },
+  emit(evt, data) { if (!this.inst.size) return data; for (const rt of [...this.inst.values()]) this.safeEmit(rt, evt, data); return data; },
+  tick(dt) {
+    if (!this.inst.size) return;
+    const night = !isDay(); if (this.wasNight !== null && night !== this.wasNight) this.emit(night ? 'night' : 'day', {}); this.wasNight = night;
+    for (const rt of [...this.inst.values()]) {
+      for (let i = rt.timers.length - 1; i >= 0; i--) { const t = rt.timers[i]; t.t -= dt; if (t.t > 0) continue; if (t.every > 0) t.t += Math.max(t.every, 0.05); else rt.timers.splice(i, 1); this.safe(rt, t.fn); }
+      this.safeEmit(rt, 'tick', dt);
+    }
+  },
+  key(code) { let hit = false; for (const rt of [...this.inst.values()]) { const f = rt.keys.get(code); if (f) { hit = true; this.safe(rt, f); } } this.emit('key', { code }); return hit; },
+  command(name, args) { for (const rt of this.inst.values()) { const f = rt.cmds.get(name); if (f) { this.safe(rt, f, args); return true; } } return false; },
+  stat(n) { let v = 1; for (const rt of this.inst.values()) if (rt.stats[n] !== undefined) v *= rt.stats[n]; return v; },
+  add(n) { let v = 0; for (const rt of this.inst.values()) v += rt.adds[n] || 0; return v; },
+  ability(n) { for (const rt of this.inst.values()) if (rt.abil.has(n)) return true; return false; },
+  freeKey() { const used = new Set(); for (const rt of this.inst.values()) for (const k of rt.keys.keys()) used.add(k); return MOD_KEYS_FREE.find((k) => !used.has(k)) || null; },
+  dataKey(id) { return 'mokab_md_' + id + '|' + (GAME.worldId || ''); },
+  loadData(id) { try { return JSON.parse(localStorage.getItem(this.dataKey(id)) || '{}') || {}; } catch (e) { return {}; } },
+  saveData(rt) { try { localStorage.setItem(this.dataKey(rt.id), JSON.stringify(rt.data || {})); } catch (e) { /* ignore */ } },
+  panelOwner: null,
+};
+
+function modMobHandle(e) {
+  if (!e) return null;
+  return {
+    get type() { return e.type; }, get name() { return (e.giant && e.giant.name) || MOB_FA[e.type] || e.type; },
+    get x() { return e.pos.x; }, get y() { return e.pos.y; }, get z() { return e.pos.z; },
+    get hp() { return e.hp; }, set hp(v) { e.hp = Number(v) || 0; if (e.hp <= 0 && !e.dead) e.die(false); }, get maxHp() { return e.maxHp || e.def.hp; }, get dead() { return !!e.dead; },
+    hurt(n) { e.invuln = 0; e.hurt(Number(n) || 0, player.pos, true); }, kill() { if (!e.dead) { e.invuln = 0; e.hurt(1e9, null, true); } }, remove() { Entities.remove(e); },
+    push(x, y, z) { e.vel.x += +x || 0; e.vel.y += +y || 0; e.vel.z += +z || 0; }, moveTo(x, y, z) { e.pos.set(+x, +y, +z); e.prev.copy(e.pos); }, raw: e,
+  };
+}
+function makeModApi(rt, m) {
+  const itemId = (n) => { const id = I[n] !== undefined ? I[n] : B[n]; if (id === undefined) throw new Error('آیتم ناشناخته: ' + n); return id; };
+  const blockId = (n) => { if (n === 'air' || !n) return 0; const id = B[n]; if (id === undefined || !BLOCKS[id]) throw new Error('بلوک ناشناخته: ' + n); return id; };
+  const P = player;
+  const api = {
+    mod: { id: m.id, name: m.name },
+    on(evt, fn) { if (typeof fn !== 'function') return; (rt.handlers[evt] || (rt.handlers[evt] = [])).push(fn); },
+    every(sec, fn) { rt.timers.push({ t: Math.max(0.05, +sec || 1), every: Math.max(0.05, +sec || 1), fn }); },
+    after(sec, fn) { rt.timers.push({ t: Math.max(0, +sec || 0), every: 0, fn }); },
+    toast(t, ms) { toast(faDigits(t), ms || 2200); }, say(t) { CMD.say(faDigits(t), 'ok'); },
+    addButton(o) {
+      o = o || {}; const key = o.key || MODRT.freeKey(); let on = !!o.on;
+      const el = document.createElement('button'); el.className = 'modbtn' + (on ? ' on' : ''); el.type = 'button';
+      const lab = document.createElement('span'); const kb = document.createElement('kbd');
+      const setLabel = (t) => { lab.textContent = (o.icon ? o.icon + ' ' : '') + faDigits(t === undefined ? (o.label || 'دکمه') : t); };
+      setLabel(); el.appendChild(lab); if (key) { kb.textContent = key.replace(/^Key|^Digit/, ''); el.appendChild(kb); }
+      const fire = () => { if (!GAME.running || player.dead) return; if (o.toggle) { on = !on; el.classList.toggle('on', on); MODRT.safe(rt, o.onClick, on); } else MODRT.safe(rt, o.onClick, true); Audio.play('click', { vol: 0.25 }); };
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); Audio.unlock(); fire(); });
+      el.addEventListener('mousedown', (e) => e.stopPropagation());
+      $('modbar').appendChild(el); if (key) rt.keys.set(key, fire);
+      const h = { setLabel, setOn(v) { on = !!v; el.classList.toggle('on', on); }, get on() { return on; }, remove() { el.remove(); if (key) rt.keys.delete(key); } };
+      rt.buttons.push(h); return h;
+    },
+    key(code, fn) { if (typeof code === 'string' && typeof fn === 'function') rt.keys.set(code, fn); },
+    command(name, fn) { rt.cmds.set(String(name).replace(/^\//, '').toLowerCase(), fn); },
+    hud(text) { const el = document.createElement('div'); el.textContent = faDigits(text); $('modhud').appendChild(el); const h = { set(t) { el.textContent = faDigits(t); }, remove() { el.remove(); } }; rt.huds.push(h); return h; },
+    panel(o) {
+      o = o || {}; MODRT.panelOwner = rt.id; const box = $('modpanel-box'); box.innerHTML = '';
+      const h = document.createElement('h2'); h.textContent = String(o.title || rt.name); const p = document.createElement('p'); p.textContent = String(o.text || ''); p.style.whiteSpace = 'pre-line';
+      const row = document.createElement('div'); row.className = 'row';
+      for (const b of (o.buttons && o.buttons.length ? o.buttons : [{ label: 'بستن' }])) { const btn = document.createElement('button'); btn.className = 'btn small primary'; btn.textContent = String(b.label || 'باشه'); btn.onclick = () => { UI.close(); MODRT.safe(rt, b.onClick); }; row.appendChild(btn); }
+      box.append(h, p, row); UI.open = 'modpanel'; releasePointer(); showLayer('touch', false); showLayer('modpanel', true);
+    },
+    player: {
+      get x() { return P.pos.x; }, get y() { return P.pos.y; }, get z() { return P.pos.z; }, get yaw() { return P.yaw; }, get pitch() { return P.pitch; },
+      get health() { return P.health; }, set health(v) { P.health = clamp(+v || 0, 0, maxHP()); UI.dirtyStats = true; if (P.health <= 0 && !P.dead) killPlayer('mob'); },
+      get maxHealth() { return maxHP(); }, get hunger() { return P.hunger; }, set hunger(v) { P.hunger = clamp(Math.round(+v || 0), 0, 20); UI.dirtyStats = true; },
+      get level() { return P.level; }, get xp() { return P.xp; }, get flying() { return !!P.flying; }, set flying(v) { P.flying = !!v; UI.applyHud(); },
+      get mode() { return P.mode; }, set mode(v) { if (v === 'creative' || v === 'survival') { P.mode = v; if (v === 'survival') P.flying = false; UI.applyHud(); UI.dirtyStats = true; UI.dirtyXP = true; } },
+      get onGround() { return !!P.onGround; }, get inWater() { return !!P.inWater; }, get sneaking() { return !!P.crouching; }, get sprinting() { return !!P.sprinting; },
+      get held() { const s = heldStack(); return s ? ITEMS[s.id].name : null; },
+      teleport(x, y, z) { P.pos.set(+x, clamp(+y, 1, CH - 2), +z); P.prev.copy(P.pos); P.vel.set(0, 0, 0); P.fall = 0; },
+      push(x, y, z) { P.vel.x += +x || 0; P.vel.y += +y || 0; P.vel.z += +z || 0; if ((+y || 0) > 0) P.onGround = false; },
+      heal(n) { P.health = Math.min(maxHP(), P.health + (+n || 0)); UI.dirtyStats = true; }, damage(n) { P.invuln = 0; damagePlayer(+n || 0, 'mob', null); }, addXp(n) { XP.add(+n || 0); },
+      lookDir() { const d = CAMV.dir; return d ? { x: d.x, y: d.y, z: d.z } : { x: 0, y: 0, z: -1 }; },
+    },
+    world: {
+      get(x, y, z) { const id = world.get(Math.floor(x), Math.floor(y), Math.floor(z)); return id === UNLOADED ? 'unloaded' : (BLOCKS[id] ? BLOCKS[id].name : 'air'); },
+      set(x, y, z, name) { return setBlock(Math.floor(x), Math.floor(y), Math.floor(z), blockId(name), 0); },
+      top(x, z) { return world.topY(Math.floor(x), Math.floor(z)); }, solid(x, y, z) { return !!T_SOLID[world.get(Math.floor(x), Math.floor(y), Math.floor(z))]; },
+      fill(x1, y1, z1, x2, y2, z2, name) { const id = blockId(name); const a = [Math.floor(Math.min(x1, x2)), Math.floor(Math.min(y1, y2)), Math.floor(Math.min(z1, z2))], b = [Math.floor(Math.max(x1, x2)), Math.floor(Math.max(y1, y2)), Math.floor(Math.max(z1, z2))]; if ((b[0] - a[0] + 1) * (b[1] - a[1] + 1) * (b[2] - a[2] + 1) > 32768) throw new Error('ناحیه بزرگ‌تر از ۳۲۷۶۸ بلوک است'); for (let x = a[0]; x <= b[0]; x++) for (let y = a[1]; y <= b[1]; y++) for (let z = a[2]; z <= b[2]; z++) setBlock(x, y, z, id, 0); },
+      target() { const t = Items.target; return t ? { x: t.x, y: t.y, z: t.z, block: BLOCKS[t.id] ? BLOCKS[t.id].name : 'air' } : null; },
+    },
+    give(item, n) { invAdd(itemId(item), Math.max(1, Math.min(6400, Math.round(+n || 1)))); UI.invChanged(); },
+    count(item) { return invCount(itemId(item)); }, take(item, n) { invRemove(itemId(item), Math.max(1, Math.round(+n || 1))); UI.invChanged(); },
+    spawn(type, x, y, z, o) {
+      if (!MOBS[type]) throw new Error('موجود ناشناخته: ' + type); let extra;
+      if (o) { const d = MOBS[type]; extra = { giant: { name: o.name ? String(o.name).slice(0, 30) : '', scale: clamp(+o.scale || 1, 0.2, 8), health: Math.max(1, +o.health || d.hp), damage: o.damage !== undefined ? +o.damage : (d.attack || 2), speed: clamp(+o.speed || 1, 0.1, 4), color: o.color && /^#[0-9a-f]{6}$/i.test(o.color) ? o.color : null, xp: +o.xp || 0, drops: [], noBar: !o.boss } }; }
+      return modMobHandle(Entities.spawn(type, +x, +y, +z, extra));
+    },
+    mobs(r) { const out = []; const R2 = Math.min(96, +r || 16); Entities.near(P.pos.x, P.pos.z, R2, (e) => { if (e.def && !e.dead && e.pos.distanceTo(P.pos) <= R2) out.push(modMobHandle(e)); }); return out; },
+    effect(name, sec, lvl) { if (!EFFECTS[name]) throw new Error('اثر ناشناخته: ' + name); Effects.give(name, Math.max(1, +sec || 30), Math.max(1, Math.min(5, Math.round(+lvl || 1)))); },
+    setStat(name, v) { if (MOD_STATS_ADD.includes(name)) rt.adds[name] = +v || 0; else if (MOD_STATS_MUL.includes(name)) rt.stats[name] = clamp(+v, 0, 50); else throw new Error('آمار ناشناخته: ' + name); UI.dirtyStats = true; },
+    setAbility(name, on) { if (!ABILITY_FA[name]) throw new Error('توانایی ناشناخته: ' + name); if (on === false) rt.abil.delete(name); else rt.abil.add(name); UI.applyHud(); },
+    explode(x, y, z, power, breakBlocks) { if (breakBlocks === false) modBlast(+x, +y, +z, clamp(+power || 3, 1, 10), false, true, (+power || 3) * 2); else explode(+x, +y, +z, clamp(+power || 3, 1, 8)); },
+    lightning(x, z) { Weather.strikeAt(+x, +z); }, sound(name, o) { Audio.play(String(name), Object.assign({ vol: 0.7 }, o || {})); },
+    particles(kind, x, y, z, n) { if (!MOD_PARTICLES.includes(kind)) return; const f = Particles[kind]; if (!f) return; for (let i = 0, c = Math.min(80, Math.round(+n || 10)); i < c; i++) f.call(Particles, +x + (Math.random() - 0.5), +y + Math.random() * 0.8, +z + (Math.random() - 0.5), kind === 'poof' ? [0.95, 0.95, 1] : undefined); },
+    getTime() { return Sky.timeOfDay * 24; }, setTime(h) { const t = (((+h || 0) % 24) + 24) % 24 / 24; Sky.setTime(t); Sky.lastT = t; }, isNight() { return !isDay(); },
+    weather(s) { if (WEATHER_DEF[s]) Weather.set(s, 600); },
+    get data() { return rt.data; }, save() { MODRT.saveData(rt); },
+    onCleanup(fn) { if (typeof fn === 'function') rt.cleanups.push(fn); },
+    get THREE() { return THREE; }, get scene() { return R.scene; }, get camera() { return R.camera; }, get game() { return window.__game; },
+    addObject(o) { R.scene.add(o); rt.objs.push(o); return o; },
+  };
+  return api;
+}
+const codeOf = (fn) => { const s = fn.toString(); return s.slice(s.indexOf('{') + 1, s.lastIndexOf('}')).replace(/^\n/, ''); };
+// built-in programmable mods (also examples of what the AI can make)
+BUILTIN_MODS.push(
+  mm('home_button', '🏠', 'دکمهٔ خانه', 'fun', 'دو دکمه به صفحه اضافه می‌کند: «ثبت خانه» جای فعلی‌ات را خانه می‌کند و «برو خانه» هر وقت بخواهی تو را به آنجا می‌برد.', [], { code: codeOf((api) => {
+    api.addButton({ icon: '📍', label: 'ثبت خانه', onClick() { api.data.home = { x: api.player.x, y: api.player.y, z: api.player.z }; api.save(); api.toast('خانه ثبت شد'); } });
+    api.addButton({ icon: '🏠', label: 'برو خانه', onClick() { const h = api.data.home; if (!h) { api.toast('اول «ثبت خانه» را بزن'); return; } api.player.teleport(h.x, h.y + 0.1, h.z); api.sound('levelup'); api.particles('poof', h.x, h.y + 1, h.z, 24); } });
+  }) }),
+  mm('daynight_button', '🌗', 'دکمهٔ روز و شب', 'world', 'یک دکمه که هر بار بزنی، روز را شب و شب را روز می‌کند.', [], { code: codeOf((api) => {
+    api.addButton({ icon: '🌗', label: 'روز / شب', onClick() { api.setTime(api.isNight() ? 8 : 21); api.toast(api.isNight() ? 'شب شد 🌙' : 'روز شد ☀️'); } });
+  }) }),
+  mm('rocket_button', '🚀', 'دکمهٔ موشک', 'fun', 'با زدن دکمه به آسمان پرتاب می‌شوی و فرودت هم بی‌خطر است.', [], { code: codeOf((api) => {
+    let armed = false;
+    api.addButton({ icon: '🚀', label: 'موشک', onClick() { api.player.push(0, 30, 0); armed = true; api.sound('explode', { vol: 0.4 }); api.particles('flame', api.player.x, api.player.y, api.player.z, 30); } });
+    api.on('land', (e) => { if (armed) { e.cancel = true; armed = false; } });
+    api.on('tick', () => { if (armed && !api.player.onGround) api.particles('smoke', api.player.x, api.player.y - 0.3, api.player.z, 2); });
+  }) }),
+  mm('bridge_builder', '🌉', 'پل‌ساز', 'tools', 'دکمه‌ای روشن/خاموش: وقتی روشن است، زیر پایت خودکار قلوه‌سنگ گذاشته می‌شود تا روی هوا پل بسازی.', [], { code: codeOf((api) => {
+    let on = false;
+    api.addButton({ icon: '🌉', label: 'پل‌ساز', toggle: true, onClick(v) { on = v; api.toast(v ? 'پل‌ساز روشن شد' : 'پل‌ساز خاموش شد'); } });
+    api.on('tick', () => { if (!on || api.player.flying) return; const x = Math.floor(api.player.x), y = Math.floor(api.player.y) - 1, z = Math.floor(api.player.z); if (api.world.get(x, y, z) === 'air') api.world.set(x, y, z, 'cobblestone'); });
+  }) }),
+  mm('kill_counter', '🔢', 'شمارندهٔ شکار', 'combat', 'روی صفحه تعداد هیولاهایی را که شکست داده‌ای نشان می‌دهد؛ با فرمان ‎/reset-kills‎ صفر می‌شود.', [], { code: codeOf((api) => {
+    const h = api.hud(''); const show = () => h.set('⚔️ شکار: ' + (api.data.kills || 0));
+    api.on('kill', () => { api.data.kills = (api.data.kills || 0) + 1; api.save(); show(); });
+    api.command('reset-kills', () => { api.data.kills = 0; api.save(); show(); api.say('شمارنده صفر شد'); }); show();
+  }) }),
+);
 /* ============================ UI: HUD & WINDOWS ============================ */
 const BIOME_FA = ['اقیانوس', 'اقیانوس عمیق', 'ساحل', 'دشت', 'جنگل', 'جنگل انبوه', 'جنگل استوایی', 'بیابان', 'دشت برفی', 'کوهستان برفی', 'کوهستان', 'مرداب', 'جنگل قارچی', 'باغ شکوفه', 'بامبوزار', 'رودخانه', 'جزایر شناور', 'اقیانوس یخ‌زده', 'ساحل صخره‌ای'];
 const CAT_FA = { all: 'همه', build: 'ساختمانی', nature: 'طبیعت', deco: 'تزئینی', func: 'کاربردی', tools: 'ابزار و زره', food: 'غذا', items: 'مواد', eggs: 'تخم احضار' };
@@ -5648,8 +5933,8 @@ const UI = {
     if (this.dirtyFx || this.fxT % 30 === 0) { this.dirtyFx = false; const ef = player.effects || {}; const perm = MODS.agg ? MODS.agg.effects : {}; let h = ''; const names = new Set([...Object.keys(ef), ...Object.keys(perm)]);
       for (const n of names) { const E = EFFECTS[n]; if (!E) continue; const lv = Effects.lvl(n); const e = ef[n]; const t = perm[n] ? '∞' : e ? fa(Math.floor(e.t / 60)) + ':' + fa(String(Math.floor(e.t % 60)).padStart(2, '0')) : ''; h += `<div>${E.ic} ${E.fa}${lv > 1 ? ' ' + fa(lv) : ''} <small>${t}</small></div>`; }
       const el = $('effects'); if (el.innerHTML !== h) el.innerHTML = h; }
-    if (this.fxT % 6 === 0) { let best = null, bd = 48 * 48; for (const e of Entities.list) { if (!e.giant || e.dead) continue; const d = (e.pos.x - player.pos.x) ** 2 + (e.pos.z - player.pos.z) ** 2; if (d < bd) { bd = d; best = e; } }
-      showLayer('bossbar', !!best); if (best) { $('boss-name').textContent = '☠ ' + best.giant.name; $('boss-fill').style.width = Math.max(0, best.hp / best.maxHp * 100).toFixed(1) + '%'; } }
+    if (this.fxT % 6 === 0) { let best = null, bd = 48 * 48; for (const e of Entities.list) { if (!e.giant || e.dead || e.giant.noBar) continue; const d = (e.pos.x - player.pos.x) ** 2 + (e.pos.z - player.pos.z) ** 2; if (d < bd) { bd = d; best = e; } }
+      showLayer('bossbar', !!best); if (best) { $('boss-name').textContent = '☠ ' + (best.giant.name || MOB_FA[best.type] || ''); $('boss-fill').style.width = Math.max(0, best.hp / best.maxHp * 100).toFixed(1) + '%'; } }
     if (CMD.log.length && this.fxT % 60 === 0 && !CMD.open) CMD.renderLog();
   },
   applyHud() {
@@ -5697,6 +5982,7 @@ const UI = {
   show(kind) { this.open = kind; releasePointer(); input.mine = false; input.use = false; showLayer('win', true); showLayer('touch', false); this.render(); Audio.play('click', { vol: 0.3 }); },
   close() {
     if (!this.open) return;
+    if (this.open === 'modpanel') { showLayer('modpanel', false); this.open = null; MODRT.panelOwner = null; this.applyHud(); if (GAME.running && !GAME.paused) requestPointer(); return; }
     if (this.open === 'chat') { CMD.hide(); this.open = null; this.applyHud(); if (GAME.running && !GAME.paused) requestPointer(); return; }
     if (this.open === 'sign') { showLayer('sign-dlg', false); this.open = null; this.applyHud(); if (GAME.running && !GAME.paused) requestPointer(); return; }
     const back = (s) => { if (!s) return; const left = invAdd(s.id, s.count, s.dmg, s.ench); if (left) Entities.dropItem(s.id, left, player.pos.x, player.pos.y + 1.2, player.pos.z, s.dmg, false, null, s.ench); };
@@ -6414,7 +6700,7 @@ function gameTick() {
   const [pcx, pcz] = STREAM.playerChunk();
   Fluids.step(); processNeighborUpdates(); Power.process(); if ((Fluids.tick & 1) === 0) tickCampfires();
   randomTicks(pcx, pcz, Math.min(R.Q ? R.Q.view : 6, R.Q ? R.Q.rt : 4)); tickFurnaces(); if ((Fluids.tick & 3) === 0) tickSpawners();
-  survivalTick(); Effects.tick(0.05); MODS.tickNight(0.05); MODS.tickJump(0.05);
+  survivalTick(); Effects.tick(0.05); MODS.tickNight(0.05); MODS.tickJump(0.05); MODRT.tick(0.05);
 }
 const _sunV = { v: null };
 function renderFrame(dt) {
@@ -6481,7 +6767,7 @@ function frame(ts) {
       if (steps >= 6) acc = 0; GAME.alpha = acc / STEP;
       if (!PHOTO.active || PHOTO.timeLock === null) Sky.advance(dt); Weather.update(dt); Entities.think(dt); GAME.playTime += dt;
       if (gameActive() && !PHOTO.active) Items.update(dt); else { R.sel.visible = false; R.crack.visible = false; R.ghost.visible = false; }
-      Particles.update(dt); XP.update(dt); Signs.update(dt);
+      Particles.update(dt); XP.update(dt); Signs.update(dt); if (MODRT.inst.size) MODRT.emit('frame', { dt });
       saveT += dt; if (saveT > 60) { saveT = 0; saveAll(false); }
     }
     STREAM.update(GAME.paused ? 2 : (isMobile ? 5 : 8));
@@ -6588,7 +6874,7 @@ async function startWorld(id, metaIn) {
   });
   if (!meta.player) { let y = world.topY(Math.floor(p.pos.x), Math.floor(p.pos.z)); if (y > 0) { p.pos.y = y + 1; GAME.worldSpawn.y = y + 1; } }
   ensureSafeSpawn(); p.prev.copy(p.pos);
-  GAME.running = true; MODS.grantGifts(); showLayer('loading', false); UI.applyHud(); UI.refreshHotbar(); UI.dirtyStats = true; UI.dirtyXP = true; UI.lastStats = '';
+  GAME.running = true; MODS.grantGifts(); MODRT.wasNight = null; MODRT.startAll(); showLayer('loading', false); UI.applyHud(); UI.refreshHotbar(); UI.dirtyStats = true; UI.dirtyXP = true; UI.lastStats = '';
   bindInput(); layoutTouch(); onResize();
   toast(isTouchDevice && SETTINGS.touchUI ? 'خوش آمدی! سمت چپ: حرکت — سمت راست: نگاه' : 'خوش آمدی! برای کنترل دوربین روی صفحه کلیک کن', 4000);
   if (meta.fresh) { meta.fresh = false; saveAll(false); }
@@ -6600,7 +6886,7 @@ function clearWorld() {
 }
 async function quitToMenu() {
   if (!GAME.running) return; $('pm-quit').disabled = true; await saveAll(false); for (const c of world.chunks.values()) if (chunkNeedsSave(c)) SAVE.pending.set(GAME.worldId + '|' + c.cx + ',' + c.cz, chunkRecord(c)); await DB.putChunks([...SAVE.pending.values()]).catch(() => {}); SAVE.pending.clear();
-  GAME.running = false; GAME.paused = false; $('pm-quit').disabled = false; clearWorld(); showLayer('menu-pause', false); showLayer('hud', false); showLayer('touch', false); showLayer('death', false); PHOTO.active && PHOTO.exit(); releasePointer(); showLayer('menu-main', true);
+  MODRT.stopAll(); GAME.running = false; GAME.paused = false; $('pm-quit').disabled = false; clearWorld(); showLayer('menu-pause', false); showLayer('hud', false); showLayer('touch', false); showLayer('death', false); PHOTO.active && PHOTO.exit(); releasePointer(); showLayer('menu-main', true);
 }
 function bindMenus() {
   $('mm-play').onclick = () => { Audio.unlock(); showWorldList(); };
@@ -6644,7 +6930,7 @@ async function boot() {
     const dbok = await DB.open(); if (!dbok) console.warn('IndexedDB unavailable; using memory store');
     setLoad(100, 'آماده!'); requestAnimationFrame(frame);
     setTimeout(() => { showLayer('loading', false); showLayer('menu-main', true); }, 250);
-    window.__game = { MODS, ModsUI, Effects, CMD, maxHP, SUGGESTED, sanitizeMod, aiModPrompt, Sky, world, player, R, STREAM, Fluids, Entities, Items, UI, GAME, SETTINGS, setBlock, B, I, BLOCKS, ITEMS, Weather, Sky, Power, DB, saveAll, startWorld, quitToMenu, applyQuality, ERRORS, invAdd, PHOTO, Particles, Audio, renderFrame, MESHW, XP, ACH, explode, primeTNT, Signs, CAMV, input, interactBlock, getOrCreateBE, growSapling, bonemealAt, trySleep, damagePlayer, respawnPlayer, killPlayer, updateRailShapes, RECIPES, Light, buildChunkMeshes, MESHCFG, TILES, FACE_TEX, randomTicks, Power };
+    window.__game = { MODRT, MOD_API_DOC, MODS, ModsUI, Effects, CMD, maxHP, SUGGESTED, sanitizeMod, aiModPrompt, Sky, world, player, R, STREAM, Fluids, Entities, Items, UI, GAME, SETTINGS, setBlock, B, I, BLOCKS, ITEMS, Weather, Sky, Power, DB, saveAll, startWorld, quitToMenu, applyQuality, ERRORS, invAdd, PHOTO, Particles, Audio, renderFrame, MESHW, XP, ACH, explode, primeTNT, Signs, CAMV, input, interactBlock, getOrCreateBE, growSapling, bonemealAt, trySleep, damagePlayer, respawnPlayer, killPlayer, updateRailShapes, RECIPES, Light, buildChunkMeshes, MESHCFG, TILES, FACE_TEX, randomTicks, Power };
   } catch (e) {
     console.error(e); const msg = String(e && e.message || e) === 'WEBGL2' ? 'مرورگر یا دستگاه شما از WebGL2 پشتیبانی نمی‌کند. لطفاً از نسخهٔ جدید Chrome، Edge، Firefox یا Safari استفاده کنید.' : 'خطا در راه‌اندازی بازی: ' + (e && e.message);
     setLoad(0, msg);
