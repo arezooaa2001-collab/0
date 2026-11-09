@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#07090f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="شتاب: شبیه‌ساز مسابقه‌ی اتومبیلرانی سه‌بعدی با ۲۰ ماشین، گاراژ و ارتقا، ۲۶ سطح گرافیک و کنترل لمسی">
+  <title>شتاب | شبیه‌ساز مسابقه</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800;900&display=swap">
+  <link rel="stylesheet" href="css/game.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <div id="stage" aria-hidden="true"></div>
+  <div id="hud-host"></div>
+
+  <div id="ui">
+    <!-- loading -->
+    <section class="screen active" id="screen-loading">
+      <div class="loading-box">
+        <div class="logo"><span>شتاب</span><small>SHETAB RACING</small></div>
+        <div class="bar"><i id="load-bar"></i></div>
+        <p id="load-text">در حال بارگذاری...</p>
+      </div>
+    </section>
+
+    <!-- main menu -->
+    <section class="screen" id="screen-menu">
+      <header class="topbar">
+        <div class="wallet">
+          <div class="chip coin" title="سکه"><i>🪙</i><b data-bind="coins">۰</b></div>
+          <div class="chip points" title="امتیاز"><i>⭐</i><b data-bind="points">۰</b></div>
+          <div class="chip level" title="سطح"><i>🏅</i><b data-bind="level">۱</b></div>
+        </div>
+      </header>
+      <div class="menu-panel">
+        <div class="logo big"><span>شتاب</span><small>SHETAB RACING</small></div>
+        <p class="menu-car"><span data-bind="carName"></span> • <small data-bind="carTag"></small></p>
+        <nav class="menu-buttons">
+          <button class="btn primary xl" data-go="stages">🏁 شروع مسابقه</button>
+          <button class="btn" data-go="garage">🔧 گاراژ و ارتقا</button>
+          <button class="btn" data-go="settings">⚙️ تنظیمات</button>
+          <button class="btn ghost" data-go="help">❓ راهنما</button>
+        </nav>
+        <p class="menu-foot">مرحله‌ی باز: <b data-bind="unlocked"></b> از <b data-bind="stageCount"></b> • برد: <b data-bind="wins"></b></p>
+      </div>
+    </section>
+
+    <!-- stage select -->
+    <section class="screen" id="screen-stages">
+      <header class="topbar">
+        <button class="btn icon" data-go="menu" aria-label="بازگشت">➜</button>
+        <h2>انتخاب مرحله</h2>
+        <div class="wallet"><div class="chip coin"><i>🪙</i><b data-bind="coins">۰</b></div></div>
+      </header>
+      <div class="reward-strip" id="reward-strip"></div>
+      <div class="stage-list" id="stage-list"></div>
+    </section>
+
+    <!-- garage -->
+    <section class="screen" id="screen-garage">
+      <header class="topbar">
+        <button class="btn icon" data-go="menu" aria-label="بازگشت">➜</button>
+        <h2>گاراژ</h2>
+        <div class="wallet"><div class="chip coin"><i>🪙</i><b data-bind="coins">۰</b></div></div>
+      </header>
+      <div class="garage-layout">
+        <aside class="panel garage-cars">
+          <h3>ماشین‌ها</h3>
+          <div class="car-list" id="car-list"></div>
+        </aside>
+        <aside class="panel garage-side">
+          <div class="garage-tabs">
+            <button class="tab active" data-gtab="stats">مشخصات</button>
+            <button class="tab" data-gtab="upgrades">ارتقا</button>
+            <button class="tab" data-gtab="paint">رنگ</button>
+          </div>
+          <div class="gtab active" id="gtab-stats">
+            <h3 id="car-title"></h3>
+            <div id="car-stats" class="stats"></div>
+          </div>
+          <div class="gtab" id="gtab-upgrades"><div id="upgrade-list" class="upgrades"></div></div>
+          <div class="gtab" id="gtab-paint">
+            <div id="paint-list" class="paints"></div>
+            <label class="custom-color">رنگ دلخواه <input type="color" id="paint-custom" value="#ff0000"></label>
+          </div>
+          <button class="btn primary wide" id="car-action"></button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- settings -->
+    <section class="screen" id="screen-settings">
+      <header class="topbar">
+        <button class="btn icon" data-back aria-label="بازگشت">➜</button>
+        <h2>تنظیمات</h2>
+        <span></span>
+      </header>
+      <div class="settings-layout panel">
+        <div class="tabs">
+          <button class="tab active" data-stab="graphics">🎨 گرافیک</button>
+          <button class="tab" data-stab="controls">🎮 کنترل</button>
+          <button class="tab" data-stab="audio">🔊 صدا</button>
+          <button class="tab" data-stab="game">🏎️ بازی</button>
+        </div>
+        <div class="stab active" id="stab-graphics">
+          <p class="note">هر چه سطح گرافیک بالاتر برود، تصویر جزئیات بیشتری دارد و رفتار بازی واقعی‌تر می‌شود (فیزیک دقیق‌تر، مدل لاستیک پیشرفته، آسیب بدنه و ...). سطوح بالاتر از «اولترا مکس» به سخت‌افزار قوی نیاز دارند.</p>
+          <div class="gfx-current" id="gfx-current"></div>
+          <div class="gfx-list" id="gfx-list"></div>
+          <label class="row"><span>نمایش FPS</span><input type="checkbox" data-setting="showFps"></label>
+        </div>
+        <div class="stab" id="stab-controls">
+          <div class="field"><span>نوع کنترل لمسی</span>
+            <div class="seg" data-setting-seg="controlMode">
+              <button data-v="slide">کشیدن آنالوگ</button>
+              <button data-v="wheel">فرمان</button>
+              <button data-v="buttons">دکمه</button>
+              <button data-v="tilt">شیب گوشی</button>
+            </div>
+          </div>
+          <label class="row"><span>حساسیت فرمان</span><input type="range" min="0.4" max="2" step="0.05" data-setting="steerSensitivity"></label>
+          <label class="row"><span>حساسیت شیب گوشی</span><input type="range" min="0.4" max="2" step="0.05" data-setting="tiltSensitivity"></label>
+          <label class="row"><span>اندازه‌ی دکمه‌ها</span><input type="range" min="0.75" max="1.35" step="0.05" data-setting="buttonScale"></label>
+          <div class="field"><span>جای پدال‌ها</span>
+            <div class="seg" data-setting-seg="pedalSide"><button data-v="right">راست</button><button data-v="left">چپ</button></div>
+          </div>
+          <label class="row"><span>گاز خودکار</span><input type="checkbox" data-setting="autoAccel"></label>
+          <label class="row"><span>لرزش (هپتیک)</span><input type="checkbox" data-setting="haptics"></label>
+          <div class="field"><span>کمک راننده</span>
+            <div class="seg" data-setting-seg="assists"><button data-v="0">حرفه‌ای</button><button data-v="1">معمولی</button><button data-v="2">کامل</button></div>
+          </div>
+          <p class="note">کیبورد: جهت‌ها یا WASD • Space ترمز دستی • Shift نیترو • C دوربین • B نگاه به عقب • R بازگشت به مسیر • P توقف. دسته‌ی بازی هم پشتیبانی می‌شود.</p>
+        </div>
+        <div class="stab" id="stab-audio">
+          <label class="row"><span>صدای کلی</span><input type="range" min="0" max="1" step="0.05" data-setting="masterVolume"></label>
+          <label class="row"><span>صدای موتور</span><input type="range" min="0" max="1" step="0.05" data-setting="engineVolume"></label>
+          <label class="row"><span>جلوه‌ها</span><input type="range" min="0" max="1" step="0.05" data-setting="sfxVolume"></label>
+        </div>
+        <div class="stab" id="stab-game">
+          <div class="field"><span>واحد سرعت</span>
+            <div class="seg" data-setting-seg="units"><button data-v="kmh">کیلومتر</button><button data-v="mph">مایل</button></div>
+          </div>
+          <label class="row"><span>نقشه‌ی کوچک</span><input type="checkbox" data-setting="minimap"></label>
+          <button class="btn danger" id="reset-progress">🗑️ پاک کردن پیشرفت بازی</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- help -->
+    <section class="screen" id="screen-help">
+      <header class="topbar">
+        <button class="btn icon" data-go="menu" aria-label="بازگشت">➜</button>
+        <h2>راهنما</h2>
+        <span></span>
+      </header>
+      <div class="panel help">
+        <h3>🏁 مسابقه</h3>
+        <p>در هر مرحله ۲۰ ماشین مسابقه می‌دهند. پاداش سکه بر اساس رتبه‌ی شما:</p>
+        <div class="reward-strip" id="reward-strip-help"></div>
+        <p>با رسیدن به سکو (رتبه‌ی ۱ تا ۳) مرحله‌ی بعد باز می‌شود. هر مسابقه امتیاز (⭐) هم دارد و سطح شما با امتیاز بالا می‌رود.</p>
+        <h3>🔧 گاراژ</h3>
+        <p>با سکه‌ها ماشین‌های قوی‌تر بخرید و موتور، نیترو، لاستیک، ترمز و تعلیق را تا ۵ سطح ارتقا دهید. رنگ ماشین را هم عوض کنید.</p>
+        <h3>📱 کنترل لمسی</h3>
+        <p>سمت چپ صفحه را چپ و راست بکشید تا فرمان بدهید (یا فرمان مجازی، دکمه یا شیب گوشی را از تنظیمات انتخاب کنید). پدال گاز و ترمز سمت راست است؛ انگشت را می‌توانید بین آن‌ها بلغزانید. نیترو در رانش و پشت سر ماشین‌ها (مکش) سریع‌تر پر می‌شود.</p>
+        <h3>🎨 گرافیک</h3>
+        <p>۲۶ سطح گرافیک: کم، متوسط، خوب، خیلی خوب، فوق‌العاده، اولترا مکس و ۲۰ سطح بالاتر از آن.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- modals -->
+  <div class="modal" id="modal-pause" hidden>
+    <div class="modal-box">
+      <h2>توقف</h2>
+      <button class="btn primary wide" data-pause="resume">▶ ادامه</button>
+      <button class="btn wide" data-pause="restart">↻ شروع دوباره</button>
+      <button class="btn wide" data-pause="respawn">↺ بازگشت به مسیر</button>
+      <button class="btn wide" data-pause="settings">⚙️ تنظیمات</button>
+      <button class="btn ghost wide" data-pause="quit">🏠 خروج به منو</button>
+    </div>
+  </div>
+  <div class="modal" id="modal-results" hidden>
+    <div class="modal-box results">
+      <div class="results-head">
+        <div class="medal" id="res-medal"></div>
+        <div>
+          <h2 id="res-title"></h2>
+          <p id="res-sub"></p>
+        </div>
+      </div>
+      <div class="res-rewards" id="res-rewards"></div>
+      <div class="res-table" id="res-table"></div>
+      <div class="res-actions">
+        <button class="btn primary" data-res="next" id="res-next">مرحله‌ی بعد ◀</button>
+        <button class="btn" data-res="retry">↻ تکرار</button>
+        <button class="btn" data-res="garage">🔧 گاراژ</button>
+        <button class="btn ghost" data-res="menu">🏠 منو</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="modal-confirm" hidden>
+    <div class="modal-box small">
+      <p id="confirm-text"></p>
+      <div class="res-actions">
+        <button class="btn danger" id="confirm-yes">بله</button>
+        <button class="btn" id="confirm-no">خیر</button>
+      </div>
+    </div>
+  </div>
+  <div class="rotate-hint" id="rotate-hint" hidden>
+    <div>📱↻</div>
+    <p>برای تجربه‌ی بهتر، گوشی را افقی بگیرید</p>
+    <button class="btn" id="rotate-dismiss">ادامه به صورت عمودی</button>
+  </div>
+  <div class="toast" id="toast"></div>
+  <noscript><p class="noscript">برای اجرای بازی، جاوااسکریپت را فعال کنید.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

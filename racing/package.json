@@ -1,0 +1,14 @@
+{
+  "name": "shetab-racing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "شتاب – 3D racing simulator in the browser: 20-car races, garage & upgrades, 26 graphics presets, natural mobile touch controls.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 4180",
+    "test": "node tests/sim.test.mjs",
+    "test:e2e": "node tests/e2e.cjs http://localhost:4180/index.html",
+    "check": "for f in $(find js -name '*.js'); do node --check $f || exit 1; done"
+  },
+  "license": "MIT"
+}
