@@ -133,23 +133,154 @@ async function blobToBase64(b: Blob): Promise<string> {
 }
 
 export class AiError extends Error {
-  constructor(public code: 'no_provider' | 'not_granted' | 'bad_key' | 'network' | 'blocked' | 'other', message: string) {
+  constructor(public code: 'no_provider' | 'not_granted' | 'bad_key' | 'network' | 'blocked' | 'timeout' | 'other', message: string) {
     super(message);
   }
 }
 
+// ── Talking to the AI services: time limit, one retry, fast settings ──────
+export interface AskOptions {
+  signal?: AbortSignal;
+  /** Live voice conversation: very short answers, read aloud. */
+  live?: boolean;
+}
+
+/** Give up on one request after this long (a stalled connection must never hang the app). */
+const timeoutMs = (): number => (globalThis as { __ECHOWORDS_AI_TIMEOUT__?: number }).__ECHOWORDS_AI_TIMEOUT__ ?? 15_000;
+
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+const OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4.1-mini'];
+
+function instructions(live?: boolean): string {
+  return live
+    ? `${INSTRUCTIONS}\nThis is a LIVE spoken conversation: answer in at most 2 short, simple sentences, because they are read aloud.`
+    : INSTRUCTIONS;
+}
+
+/** fetch with a time limit; the caller's signal (e.g. «لغو») also cancels it. */
+async function post(url: string, init: RequestInit, signal?: AbortSignal): Promise<{ status: number; body: string }> {
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  signal?.addEventListener('abort', onAbort);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, timeoutMs());
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    const body = await res.text();
+    return { status: res.status, body };
+  } catch (e) {
+    if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
+    if (timedOut) throw new AiError('timeout', 'No answer in time');
+    throw new AiError('network', String((e as Error)?.message ?? e));
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
+  }
+}
+
+function classify(status: number, body: string): AiError | null {
+  const region = /location|region|country|unsupported_country/i.test(body);
+  if (status === 401 || status === 403) return new AiError(region ? 'blocked' : 'bad_key', body.slice(0, 300));
+  if (status === 400 && region) return new AiError('blocked', body.slice(0, 300));
+  if (status === 400 && /API key/i.test(body)) return new AiError('bad_key', body.slice(0, 300));
+  return null;
+}
+
+/**
+ * One answer from a provider. Retries once after a stall, a network error or a busy server;
+ * moves to the next model name if the chosen one does not exist (404).
+ */
+async function generate(
+  st: AiSettings,
+  build: (model: string, opts: { thinkingOff: boolean }) => { url: string; init: RequestInit },
+  read: (json: unknown) => string,
+  models: string[],
+  signal?: AbortSignal,
+): Promise<string> {
+  let last: unknown = new AiError('other', 'no answer');
+  for (const model of [...new Set([st.model, ...models])]) {
+    let thinkingOff = st.provider === 'gemini' && /flash/i.test(model);
+    let attempts = 0;
+    while (attempts < 2) {
+      attempts++;
+      try {
+        const { url, init } = build(model, { thinkingOff });
+        const { status, body } = await post(url, init, signal);
+        if (status === 404) {
+          last = new AiError('other', `model ${model} not found`);
+          break; // try the next model name
+        }
+        if (status === 400 && thinkingOff && /thinking/i.test(body)) {
+          thinkingOff = false; // this model does not accept the "no thinking" setting
+          attempts--;
+          continue;
+        }
+        const known = classify(status, body);
+        if (known) throw known;
+        if (status === 429 || status >= 500) {
+          last = new AiError('other', `HTTP ${status}`);
+          continue;
+        }
+        if (status < 200 || status >= 300) throw new AiError('other', `HTTP ${status}: ${body.slice(0, 300)}`);
+        return read(JSON.parse(body));
+      } catch (e) {
+        if (e instanceof AiError && (e.code === 'timeout' || e.code === 'network')) {
+          last = e;
+          continue; // one more try
+        }
+        throw e;
+      }
+    }
+    if (!(last instanceof AiError && last.message.startsWith('model '))) break;
+  }
+  throw last;
+}
+
+const geminiText = (j: unknown) =>
+  ((j as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+const openaiText = (j: unknown) => String((j as { choices?: { message?: { content?: string } }[] })?.choices?.[0]?.message?.content ?? '');
+
+function geminiRequest(st: AiSettings, contents: unknown[], live?: boolean) {
+  return (model: string, { thinkingOff }: { thinkingOff: boolean }) => ({
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    init: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': st.key },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: instructions(live) }] },
+        contents,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.4,
+          maxOutputTokens: live ? 300 : 600,
+          // No silent "thinking" first: answers start in about a second.
+          ...(thinkingOff ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
+      }),
+    },
+  });
+}
+
 // ── Ask the tutor ─────────────────────────────────────────────────────────
 /** `history` ends with the child's latest message; `image` is an optional photo to read. */
-export async function askTutor(history: ChatTurn[], image?: Blob | null, signal?: AbortSignal): Promise<TutorReply> {
+export async function askTutor(history: ChatTurn[], image?: Blob | null, signalOrOpts?: AbortSignal | AskOptions): Promise<TutorReply> {
+  const opts: AskOptions = signalOrOpts instanceof AbortSignal ? { signal: signalOrOpts } : (signalOrOpts ?? {});
   const claude = await getClaude();
   if (claude) {
-    const input = `${INSTRUCTIONS}\n\nConversation so far:\n${transcript(history)}\n\n${
+    const input = `${instructions(opts.live)}\n\nConversation so far:\n${transcript(history)}\n\n${
       image ? 'The child also sent the attached picture.\n' : ''
     }Now write the Teacher's next answer as the JSON object.`;
     try {
-      const out = await claude(input, { modelTier: 'quick', cache: false, ...(image ? { images: [image] } : {}), ...(signal ? { signal } : {}) });
+      const out = await Promise.race([
+        claude(input, { modelTier: 'quick', cache: false, ...(image ? { images: [image] } : {}), ...(opts.signal ? { signal: opts.signal } : {}) }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new AiError('timeout', 'No answer in time')), timeoutMs() * 2)),
+      ]);
       return parseTutorReply(out.text);
     } catch (e) {
+      if (e instanceof AiError) throw e;
       const code = (e as { code?: string })?.code;
       throw new AiError(code === 'not_granted' ? 'not_granted' : 'other', String((e as Error)?.message ?? e));
     }
@@ -157,63 +288,44 @@ export async function askTutor(history: ChatTurn[], image?: Blob | null, signal?
 
   const st = readAiSettings();
   if (!st) throw new AiError('no_provider', 'No AI configured');
-  let res: Response;
-  try {
-    const imageB64 = image ? await blobToBase64(image) : null;
-    if (st.provider === 'gemini') {
-      const contents = history.slice(-10).map((h, i, arr) => ({
-        role: h.role === 'user' ? 'user' : 'model',
-        parts: [
-          { text: h.text },
-          ...(image && imageB64 && i === arr.length - 1 ? [{ inline_data: { mime_type: image.type || 'image/jpeg', data: imageB64 } }] : []),
+  const imageB64 = image ? await blobToBase64(image) : null;
+  const recent = history.slice(-10);
+  if (st.provider === 'gemini') {
+    const contents = recent.map((h, i) => ({
+      role: h.role === 'user' ? 'user' : 'model',
+      parts: [
+        { text: h.text },
+        ...(image && imageB64 && i === recent.length - 1 ? [{ inline_data: { mime_type: image.type || 'image/jpeg', data: imageB64 } }] : []),
+      ],
+    }));
+    return parseTutorReply(await generate(st, geminiRequest(st, contents, opts.live), geminiText, GEMINI_MODELS, opts.signal));
+  }
+  const messages: unknown[] = [{ role: 'system', content: instructions(opts.live) }];
+  for (const [i, h] of recent.entries()) {
+    if (image && i === recent.length - 1 && h.role === 'user') {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: h.text },
+          { type: 'image_url', image_url: { url: `data:${image.type || 'image/jpeg'};base64,${imageB64}` } },
         ],
-      }));
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(st.model)}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': st.key },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: INSTRUCTIONS }] },
-          contents,
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.4 },
-        }),
-        signal,
       });
-    } else {
-      const messages: unknown[] = [{ role: 'system', content: INSTRUCTIONS }];
-      const recent = history.slice(-10);
-      for (const [i, h] of recent.entries()) {
-        const last = i === recent.length - 1;
-        if (image && last && h.role === 'user') {
-          messages.push({
-            role: 'user',
-            content: [
-              { type: 'text', text: h.text },
-              { type: 'image_url', image_url: { url: `data:${image.type || 'image/jpeg'};base64,${imageB64}` } },
-            ],
-          });
-        } else messages.push({ role: h.role, content: h.text });
-      }
-      res = await fetch('https://api.openai.com/v1/chat/completions', {
+    } else messages.push({ role: h.role, content: h.text });
+  }
+  const text = await generate(
+    st,
+    (model) => ({
+      url: 'https://api.openai.com/v1/chat/completions',
+      init: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${st.key}` },
-        body: JSON.stringify({ model: st.model, messages, response_format: { type: 'json_object' }, temperature: 0.4 }),
-        signal,
-      });
-    }
-  } catch (e) {
-    if ((e as Error)?.name === 'AbortError') throw e;
-    throw new AiError('network', String((e as Error)?.message ?? e));
-  }
-  const body = await res.text();
-  if (res.status === 401 || res.status === 403) throw new AiError(/location|region|country|unsupported_country/i.test(body) ? 'blocked' : 'bad_key', body.slice(0, 300));
-  if (res.status === 400 && /API key/i.test(body)) throw new AiError('bad_key', body.slice(0, 300));
-  if (res.status === 400 && /location|region|country/i.test(body)) throw new AiError('blocked', body.slice(0, 300));
-  if (!res.ok) throw new AiError('other', `HTTP ${res.status}: ${body.slice(0, 300)}`);
-  const j = JSON.parse(body);
-  const text: string =
-    st.provider === 'gemini'
-      ? (j?.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('')
-      : (j?.choices?.[0]?.message?.content ?? '');
+        body: JSON.stringify({ model, messages, response_format: { type: 'json_object' }, temperature: 0.4, max_tokens: opts.live ? 300 : 600 }),
+      },
+    }),
+    openaiText,
+    OPENAI_MODELS,
+    opts.signal,
+  );
   return parseTutorReply(text);
 }
 
@@ -261,13 +373,13 @@ export async function toWav(audio: Blob): Promise<Blob> {
  * Ask with a voice recording. Gemini listens to the audio itself; ChatGPT uses OpenAI's
  * speech-to-text first; Claude uses the on-device recogniser first.
  */
-export async function askTutorByVoice(history: ChatTurn[], audio: Blob): Promise<TutorReply> {
+export async function askTutorByVoice(history: ChatTurn[], audio: Blob, opts: AskOptions = {}): Promise<TutorReply> {
   const st = (await getClaude()) ? null : readAiSettings();
   if (!st) {
     // Claude (or nothing configured): understand the speech on this device, then ask with text.
     const heard = (await recognizeSpeech(audio, 'auto', ALL_LANGS)).trim();
     if (!heard) throw new AiError('other', 'nothing heard');
-    const r = await askTutor([...history, { role: 'user', text: heard }]);
+    const r = await askTutor([...history, { role: 'user', text: heard }], null, opts);
     return { ...r, heard };
   }
   const wav = await toWav(audio);
@@ -275,38 +387,19 @@ export async function askTutorByVoice(history: ChatTurn[], audio: Blob): Promise
     const form = new FormData();
     form.append('file', new File([wav], 'question.wav', { type: 'audio/wav' }));
     form.append('model', 'whisper-1');
-    let res: Response;
-    try {
-      res = await fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${st.key}` }, body: form });
-    } catch (e) {
-      throw new AiError('network', String((e as Error)?.message ?? e));
-    }
-    if (res.status === 401) throw new AiError('bad_key', await res.text());
-    if (!res.ok) throw new AiError('other', `HTTP ${res.status}`);
-    const heard = String((await res.json())?.text ?? '').trim();
+    const { status, body } = await post('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${st.key}` }, body: form }, opts.signal);
+    const known = classify(status, body);
+    if (known) throw known;
+    if (status < 200 || status >= 300) throw new AiError('other', `HTTP ${status}`);
+    const heard = String(JSON.parse(body)?.text ?? '').trim();
     if (!heard) throw new AiError('other', 'nothing heard');
-    const r = await askTutor([...history, { role: 'user', text: heard }]);
+    const r = await askTutor([...history, { role: 'user', text: heard }], null, opts);
     return { ...r, heard };
   }
-  // Gemini: send the audio with the question.
-  const b64 = await blobToBase64(wav);
+  // Gemini: send the audio with the question; it understands the speech itself.
   const contents = [
     ...history.slice(-9).map((h) => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
-    { role: 'user', parts: [{ text: 'The child asked this by voice (audio attached).' }, { inline_data: { mime_type: 'audio/wav', data: b64 } }] },
+    { role: 'user', parts: [{ text: 'The child asked this by voice (audio attached).' }, { inline_data: { mime_type: 'audio/wav', data: await blobToBase64(wav) } }] },
   ];
-  let res: Response;
-  try {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(st.model)}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': st.key },
-      body: JSON.stringify({ system_instruction: { parts: [{ text: INSTRUCTIONS }] }, contents, generationConfig: { responseMimeType: 'application/json', temperature: 0.4 } }),
-    });
-  } catch (e) {
-    throw new AiError('network', String((e as Error)?.message ?? e));
-  }
-  const body = await res.text();
-  if (res.status === 401 || res.status === 403 || (res.status === 400 && /API key/i.test(body))) throw new AiError(/location|region|country/i.test(body) ? 'blocked' : 'bad_key', body.slice(0, 300));
-  if (!res.ok) throw new AiError(/location|region|country/i.test(body) ? 'blocked' : 'other', body.slice(0, 300));
-  const j = JSON.parse(body);
-  return parseTutorReply((j?.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join(''));
+  return parseTutorReply(await generate(st, geminiRequest(st, contents, opts.live), geminiText, GEMINI_MODELS, opts.signal));
 }

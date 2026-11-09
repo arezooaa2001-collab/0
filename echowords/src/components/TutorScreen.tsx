@@ -32,6 +32,7 @@ function aiErrorText(e: unknown): string {
   if (code === 'bad_key') return t.aiBadKey;
   if (code === 'blocked') return t.aiBlocked;
   if (code === 'network') return t.aiNetwork;
+  if (code === 'timeout') return t.aiTimeout;
   if (code === 'no_provider') return t.aiNoProvider;
   return t.aiOther;
 }
@@ -63,6 +64,18 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const endRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<ChatTurn[]>([]);
+  /** Cancels the request in progress («لغو», or leaving live mode). */
+  const abortRef = useRef<AbortController | null>(null);
+  const [waitSecs, setWaitSecs] = useState(0);
+  useEffect(() => {
+    if (!busy) return;
+    setWaitSecs(0);
+    const started = Date.now();
+    const id = window.setInterval(() => setWaitSecs(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [busy]);
+  const cancelAsk = () => abortRef.current?.abort();
+  const isAbort = (e: unknown) => (e as Error)?.name === 'AbortError';
 
   useEffect(() => {
     void currentProvider().then(setProvider);
@@ -92,8 +105,10 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     stopSpeaking();
     add({ role: 'user', text: q, imageUrl: image ? URL.createObjectURL(image) : undefined });
     historyRef.current = [...historyRef.current, { role: 'user', text: q }];
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      const reply = await askTutor(historyRef.current, image ? await shrinkImage(image) : null);
+      const reply = await askTutor(historyRef.current, image ? await shrinkImage(image) : null, { signal: ctrl.signal, live: liveRef.current });
       historyRef.current = [...historyRef.current, { role: 'assistant', text: reply.reply }];
       add({ role: 'assistant', text: reply.reply, reply });
       setBusy(false);
@@ -104,9 +119,11 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       return reply;
     } catch (e) {
       historyRef.current = historyRef.current.slice(0, -1);
-      add({ role: 'assistant', text: aiErrorText(e), error: true });
+      add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e) });
       setBusy(false);
       return null;
+    } finally {
+      if (abortRef.current === ctrl) abortRef.current = null;
     }
   };
 
@@ -121,7 +138,9 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     const userId = nextId.current;
     add({ role: 'user', text: t.voiceQuestion });
     try {
-      const reply = await askTutorByVoice(historyRef.current, audio);
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const reply = await askTutorByVoice(historyRef.current, audio, { signal: ctrl.signal });
       const heard = reply.heard || t.voiceQuestion;
       setMessages((prev) => prev.map((m) => (m.id === userId ? { ...m, text: `🎤 ${heard}` } : m)));
       historyRef.current = [...historyRef.current, { role: 'user', text: heard }, { role: 'assistant', text: reply.reply }];
@@ -129,7 +148,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       setBusy(false);
       if (autoSpeak) await speakText(reply.reply, accent, 'fa');
     } catch (e) {
-      add({ role: 'assistant', text: aiErrorText(e), error: true });
+      add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e) });
       setBusy(false);
     }
   };
@@ -177,6 +196,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       setLive(false);
       stopListening();
       stopSpeaking();
+      cancelAsk();
       return;
     }
     if (useRecording) {
@@ -186,6 +206,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     liveRef.current = true;
     setLive(true);
     let quiet = 0;
+    let failures = 0;
     while (liveRef.current) {
       setListening(true);
       let heard = '';
@@ -204,7 +225,12 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       }
       quiet = 0;
       const r = await send(heard);
-      if (!r) break;
+      if (!liveRef.current) break;
+      if (!r) {
+        if (++failures >= 2) break; // two answers in a row failed: stop and show why
+        continue; // otherwise keep listening
+      }
+      failures = 0;
     }
     liveRef.current = false;
     setLive(false);
@@ -274,7 +300,11 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
             ))}
             {busy && (
               <div className="bubble assistant">
-                <p className="state-busy"><span className="spinner" aria-hidden /> {t.tutorThinking}</p>
+                <p className="state-busy">
+                  <span className="spinner" aria-hidden /> {t.tutorThinking}
+                  {waitSecs >= 3 && <span className="meta"> ({waitSecs.toLocaleString('fa-IR')} {t.seconds})</span>}
+                </p>
+                <button className="btn btn-ghost btn-small" onClick={cancelAsk}>✖️ {t.cancel}</button>
               </div>
             )}
             <div ref={endRef} />

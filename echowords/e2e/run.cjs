@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۲/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۳/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -547,6 +547,56 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('live mode: spoken question answered out loud, then stops by itself after silence', await page.evaluate(() => window.__spoken.some((x) => x.text.includes('猫') || x.lang === 'ja-JP' || x.text.includes('گربه'))));
   await page.screenshot({ path: `${OUT}/15-tutor.png` });
   await ctxA.close();
+
+  // 13b. Fast and never stuck: no "thinking" delay, time limit, cancel, model fallback
+  const fastDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-fast-'));
+  const ctxF = await chromium.launchPersistentContext(fastDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxF.addInitScript(() => {
+    window.__ECHOWORDS_AI_TIMEOUT__ = 2000;
+    localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'gemini', key: 'k', model: 'gemini-old-model' }));
+    window.__spoken = [];
+    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }];
+    speechSynthesis.speak = (u) => { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(new Event('end')), 30); };
+    let n = 0;
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() { setTimeout(() => { if (n++ === 0) this.onresult && this.onresult({ results: [[{ transcript: 'سگ به انگلیسی چی میشه' }]] }); this.onend && this.onend(); }, 100); }
+      stop() {} abort() {}
+    };
+  });
+  const fastCors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
+  let mode = 'hang';
+  const fastReqs = [];
+  await ctxF.route('https://generativelanguage.googleapis.com/**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: fastCors });
+    const model = /models\/([^:]+):/.exec(req.url())?.[1];
+    fastReqs.push({ model, body: JSON.parse(req.postData() || '{}') });
+    if (mode === 'hang') return; // never answers
+    if (model === 'gemini-old-model') return route.fulfill({ status: 404, headers: fastCors, body: '{"error":{"code":404}}' });
+    return route.fulfill({ status: 200, headers: fastCors, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply":"سگ به انگلیسی می‌شود dog.","items":[]}' }] } }] }) });
+  });
+  page = ctxF.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /معلم/ }).click();
+  const t0b = Date.now();
+  await page.getByRole('button', { name: '«سیب» به انگلیسی چی میشه؟' }).click();
+  await page.locator('.bubble.assistant.error', { hasText: 'جواب از هوش مصنوعی نیامد' }).waitFor({ timeout: 15000 });
+  check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
+  await page.locator('.tutor-input textarea').fill('سلام');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant').getByRole('button', { name: /لغو/ }).click();
+  await page.locator('.bubble.assistant', { hasText: 'لغو شد' }).waitFor({ timeout: 3000 });
+  check('«لغو» stops waiting at once', true);
+  mode = 'answer';
+  fastReqs.length = 0;
+  await page.getByRole('button', { name: /حالت لایو/ }).click();
+  await page.locator('.bubble.assistant', { hasText: 'dog' }).waitFor({ timeout: 15000 });
+  const okReq = fastReqs.find((r) => r.model !== 'gemini-old-model');
+  check('live mode: answers fast (no thinking delay, short answer)', okReq?.body?.generationConfig?.thinkingConfig?.thinkingBudget === 0 && okReq.body.generationConfig.maxOutputTokens <= 300 && /LIVE/.test(okReq.body.system_instruction.parts[0].text));
+  check('a model name that no longer exists falls back to another', fastReqs[0]?.model === 'gemini-old-model' && !!okReq, fastReqs.map((r) => r.model).join(' → '));
+  await page.waitForTimeout(500);
+  check('live mode: the answer is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('dog'))));
+  await ctxF.close();
 
   // 14. Inside Claude: the tutor uses Claude with no key at all (claude.use('sample') simulated)
   const clDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-claude-'));
