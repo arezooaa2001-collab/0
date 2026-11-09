@@ -50,10 +50,13 @@ function renderSettings(tab) {
       <div class="sec"><h3>رنگ دلخواه برای هر چیز</h3><div class="colors">${COLOR_KEYS.map(k => `<div class="crow"><span>${COLOR_NAMES[k]}</span><input type="color" value="${colOf(k)}" data-col="${k}" aria-label="${esc(COLOR_NAMES[k])}"><button data-colreset="${k}" title="پیش‌فرض" aria-label="پیش‌فرض">↺</button></div>`).join('')}</div>
       <p>رنگ‌ها روی هر چهار حالت بازی (دوبعدی، شبه‌سه‌بعدی و سه‌بعدی) اعمال می‌شن.</p><div class="btns" style="max-width:260px;margin:8px auto 0"><button class="btn" data-colall>↺ همه‌ی رنگ‌ها پیش‌فرض</button></div></div>`;
   } else {
-    h += `<div class="sec"><h3>صدا</h3>${rng('musicV', 'موسیقی', 0, 100, '٪')}${rng('sfxV', 'جلوه‌های صوتی', 0, 100, '٪')}</div>
+    h += `<div class="sec"><h3>صدا</h3>${rng('vol', 'بلندی کل صدا', 0, 150, '٪')}${rng('musicV', 'موسیقی', 0, 100, '٪')}${rng('sfxV', 'جلوه‌های صوتی', 0, 100, '٪')}
+      <div class="btns" style="max-width:260px;margin:6px auto 0"><button class="btn" data-sndtest>🔊 تست صدا</button></div><p id="sndState" class="small"></p>
+      <p class="small">صدا نمیاد؟ صدای رسانه‌ی گوشی رو بالا ببر. روی آیفون، بازی حالا حتی با کلید بی‌صدا هم صدا داره.</p></div>
       <div class="sec"><h3>کنترل لمسی</h3>${rng('tsize', 'اندازه‌ی دکمه‌ها', 70, 140, '٪')}${rng('topac', 'پررنگی دکمه‌ها', 25, 100, '٪')}${sw('vib', 'لرزش گوشی')}</div>`;
   }
   $('setBody').innerHTML = h;
+  soundHint();
 }
 let colTimer = 0;
 function colorsChanged() { clearTimeout(colTimer); colTimer = setTimeout(() => { saveCfg(); app.refreshVisuals(); }, 120); }
@@ -76,6 +79,7 @@ $('setBody').addEventListener('click', e => {
   else if (d.t) { CFG[d.t] = !CFG[d.t]; saveCfg(); applyMood(); hudLast = ''; }
   else if (d.pal) { CFG.pal = d.pal; for (const k of COLOR_KEYS) CFG.colors[k] = PALETTES[d.pal].c[k] || ''; colorsChanged(); }
   else if (d.colreset) { CFG.colors[d.colreset] = ''; CFG.pal = 'custom'; colorsChanged(); }
+  else if ('sndtest' in d) { Sound.init(); if (!Sound.on) { Sound.setOn(true); soundLabel(); writeSave(); } Sound.play('win'); setTimeout(soundHint, 400); return; }
   else if ('colall' in d) { CFG.pal = 'def'; for (const k of COLOR_KEYS) CFG.colors[k] = ''; colorsChanged(); }
   else return;
   renderSettings();
@@ -84,7 +88,7 @@ $('setBody').addEventListener('input', e => {
   const el = e.target, d = el.dataset;
   if (d.r) {
     setPath(d.r, +el.value); const o = el.nextElementSibling; if (o) o.textContent = faNum(el.value) + (o.textContent.match(/[٪°]$/) || [''])[0];
-    if (d.r === 'musicV' || d.r === 'sfxV') Sound.applyVol();
+    if (d.r === 'musicV' || d.r === 'sfxV' || d.r === 'vol') { Sound.init(); Sound.applyVol(); }
     else if (d.r === 'tsize' || d.r === 'topac') layoutTouch();
     else applyMood();
     saveCfg();

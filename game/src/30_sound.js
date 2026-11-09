@@ -1,26 +1,70 @@
 /* ============================ SOUND (Web Audio synth) ============================ */
 const Sound = {
-  ctx: null, on: true,
+  ctx: null, on: true, MASTER: 1,
+  // A short silent WAV played through an <audio> element: on iPhones this moves the page to the "playback" audio
+  // session, so the game is heard even with the ring/silent switch on silent (Web Audio alone is muted there).
+  silentWav() {
+    const n = 2205, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 22050, true); v.setUint32(28, 44100, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+    return 'data:audio/wav;base64,' + btoa(s);
+  },
+  iOS: /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+  unlockMedia() {
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (!this.iOS) return;
+    try {
+      if (!this.tag) { const a = this.tag = document.createElement('audio'); a.src = this.silentWav(); a.loop = true; a.preload = 'auto'; a.setAttribute('playsinline', ''); a.setAttribute('x-webkit-airplay', 'deny'); a.volume = 0.01; }
+      if (this.tag.paused) { const pr = this.tag.play(); if (pr && pr.catch) pr.catch(() => {}); }
+    } catch (e) {}
+  },
+  // called from every user gesture: creates the audio context once, then resumes it whenever the browser paused it
   init() {
-    if (this.ctx) { if (this.ctx.state !== 'running') try { this.ctx.resume(); } catch (e) {} return; }
+    this.unlockMedia();
+    if (this.ctx && this.ctx.state === 'closed') { this.ctx = null; this.amb = null; }
+    if (this.ctx) {
+      if (this.ctx.state !== 'running') { try { const pr = this.ctx.resume(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} this.kick(); }
+      return;
+    }
+    let c;
     try {
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-      const c = this.ctx = new AC();
-      this.master = c.createGain(); this.master.gain.value = this.on ? 0.7 : 0; this.master.connect(c.destination);
-      this.comp = c.createDynamicsCompressor(); this.comp.connect(this.master);
-      this.sfx = c.createGain(); this.sfx.gain.value = 0.9; this.sfx.connect(this.comp);
-      this.mus = c.createGain(); this.mus.gain.value = 0.32; this.mus.connect(this.comp);
+      c = new AC({ latencyHint: 'interactive' });
+    } catch (e) { try { c = new (window.AudioContext || window.webkitAudioContext)(); } catch (e2) { return; } }
+    this.ctx = c;
+    try {
+      // sfx + music -> gentle glue compressor -> make-up gain -> limiter -> on/off master -> speakers
+      this.master = c.createGain(); this.master.gain.value = this.on ? this.MASTER : 0; this.master.connect(c.destination);
+      this.lim = c.createDynamicsCompressor(); this.lim.threshold.value = -3; this.lim.knee.value = 0; this.lim.ratio.value = 20; this.lim.attack.value = 0.001; this.lim.release.value = 0.08; this.lim.connect(this.master);
+      this.post = c.createGain(); this.post.gain.value = 2.4; this.post.connect(this.lim);
+      this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -18; this.comp.knee.value = 8; this.comp.ratio.value = 3; this.comp.attack.value = 0.003; this.comp.release.value = 0.2; this.comp.connect(this.post);
+      this.sfx = c.createGain(); this.sfx.connect(this.comp);
+      this.mus = c.createGain(); this.mus.connect(this.comp);
       this.dly = c.createDelay(1); this.dly.delayTime.value = 0.36; this.fb = c.createGain(); this.fb.gain.value = 0.38;
       this.dlyF = c.createBiquadFilter(); this.dlyF.type = 'lowpass'; this.dlyF.frequency.value = 2200;
       this.dly.connect(this.dlyF); this.dlyF.connect(this.fb); this.fb.connect(this.dly); this.dlyF.connect(this.mus);
       const len = c.sampleRate; const b = c.createBuffer(1, len, c.sampleRate); const d = b.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-      this.nbuf = b; this.applyVol(); this.startMusic();
-    } catch (e) { this.ctx = null; }
+      this.nbuf = b; this.applyVol(); this.kick(); this.startMusic();
+      if (c.state !== 'running') { try { const pr = c.resume(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
+      c.onstatechange = () => { if (typeof soundHint === 'function') soundHint(); };
+    } catch (e) { try { c.close(); } catch (_) {} this.ctx = null; }
   },
-  applyVol() { if (!this.ctx) return; this.sfx.gain.value = 0.9 * CFG.sfxV / 100; this.mus.gain.value = 0.32 * CFG.musicV / 100; },
-  visible(v) { if (!this.ctx) return; try { v ? this.ctx.resume() : this.ctx.suspend(); } catch (e) {} },
-  setOn(v) { this.on = v; if (this.master) this.master.gain.setTargetAtTime(v ? 0.7 : 0, this.ctx.currentTime, 0.05); },
+  // a silent one-sample sound started inside the gesture (older iPhones only unlock audio this way)
+  kick() { try { const c = this.ctx, s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0); } catch (e) {} },
+  running() { return !!this.ctx && this.ctx.state === 'running'; },
+  applyVol() {
+    if (!this.ctx) return; const k = v => Math.max(0, +v || 0) / 100;
+    this.MASTER = k(CFG.vol ?? 100); this.sfx.gain.value = 1.0 * k(CFG.sfxV ?? 90); this.mus.gain.value = 0.62 * k(CFG.musicV ?? 70);
+    this.master.gain.setTargetAtTime(this.on ? this.MASTER : 0, this.ctx.currentTime, 0.03);
+  },
+  visible(v) {
+    if (!this.ctx) return;
+    try { const pr = v ? this.ctx.resume() : this.ctx.suspend(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+    try { if (this.tag) { if (v) { const pr = this.tag.play(); if (pr && pr.catch) pr.catch(() => {}); } else this.tag.pause(); } } catch (e) {}
+  },
+  setOn(v) { this.on = v; if (this.master) this.master.gain.setTargetAtTime(v ? this.MASTER : 0, this.ctx.currentTime, 0.05); },
   tone(f0, f1, dur, type = 'square', vol = 0.2, delay = 0, bus) {
     const c = this.ctx; if (!c) return; const t = c.currentTime + delay;
     const o = c.createOscillator(), g = c.createGain(); o.type = type;
@@ -67,7 +111,7 @@ const Sound = {
       this.amb = { rain: mk('bandpass', 2600, .45), wind: mk('lowpass', 380, .8) };
     }
     const t = c.currentTime;
-    this.amb.rain.g.gain.setTargetAtTime(rain * .2, t, .6); this.amb.wind.g.gain.setTargetAtTime(wind * .32, t, .9);
+    this.amb.rain.g.gain.setTargetAtTime(rain * .036, t, .6); this.amb.wind.g.gain.setTargetAtTime(wind * .06, t, .9);
     this.amb.wind.fl.frequency.setTargetAtTime(320 + Math.sin(t * .37) * 140, t, .6);
   },
   stomp(k) {

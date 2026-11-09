@@ -12,7 +12,8 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; ptrs.clear(); refreshTouch(); if (app.state === 'play') app.pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && app.state === 'play') app.pause(); Sound.visible(!document.hidden); });
-addEventListener('pointerdown', () => Sound.init(), { passive: true });
+// every kind of user gesture may unlock or resume the sound (browsers differ in which ones count)
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, () => Sound.init(), { passive: true, capture: true });
 function readInput() {
   return { left: !!(keys.ArrowLeft || keys.KeyA || touch.left), right: !!(keys.ArrowRight || keys.KeyD || touch.right), jump: !!(keys.Space || keys.ArrowUp || keys.KeyW || touch.jump) };
 }
@@ -437,7 +438,12 @@ const app = {
     REALM.forEach((L, i) => { const b = document.createElement('button'); b.className = 'lv'; b.textContent = '🌀' + faNum(i + 1); b.title = L.name; b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startRealm(i); }; rg.appendChild(b); });
   },
 };
-function soundLabel() { const t = Sound.on ? '🔊 صدا: روشن' : '🔇 صدا: خاموش'; $('bSound').textContent = t; $('bSound2').textContent = t; }
+function soundLabel() { const t = !Sound.on ? '🔇 صدا: خاموش' : Sound.ctx && !Sound.running() ? '🔈 صدا: بزن تا فعال شه' : '🔊 صدا: روشن'; $('bSound').textContent = t; $('bSound2').textContent = t; }
+// shows whether the browser lets the game play sound (settings > sound, and the sound buttons)
+function soundHint() {
+  soundLabel(); const el = document.getElementById('sndState'); if (!el) return;
+  el.textContent = !Sound.ctx ? 'صدا هنوز فعال نشده؛ یه بار روی صفحه بزن.' : Sound.running() ? (Sound.on ? '✅ صدا فعاله.' : '🔇 صدا از دکمه‌ی صدا خاموشه.') : '⚠️ مرورگر صدا رو متوقف کرده؛ یه بار روی صفحه بزن.';
+}
 function goFull() {
   const el = document.documentElement;
   try { const r = (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); if (r && r.then) r.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
