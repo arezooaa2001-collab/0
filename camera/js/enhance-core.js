@@ -456,7 +456,9 @@
     const residualNoise = opts.denoise !== false ? noise * 0.35 : noise;
     const core = clamp(residualNoise * 0.8, 0.3, 6);
     // Lighter final sharpening where deblurring already restored the edges, or none was needed.
-    const amount = P.sharp * (scale > 1.4 ? 1.15 : 1) * (0.6 - 0.15 * blurry);
+    // Lighter final sharpening where deblurring already restored the edges, or none was needed;
+    // much lighter when the AI model takes over afterwards.
+    const amount = P.sharp * (scale > 1.4 ? 1.15 : 1) * (0.6 - 0.15 * blurry) * (opts.aiNext ? 0.35 : 1);
     const sharp = sharpen(Yo, W, H, sigmaS, amount, core, P.overshoot, stage(0.72, 0.92, 'sharpen'));
     Yo = null;
     progress(0.92, 'compose');

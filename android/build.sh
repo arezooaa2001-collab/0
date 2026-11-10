@@ -12,6 +12,7 @@ rm -rf "$BUILD" && mkdir -p "$BUILD"/gen "$BUILD"/classes "$BUILD"/assets/www
 # The web app, bundled into one file.
 node ../camera/build-single.js > /dev/null
 cp ../camera/Camera.html "$BUILD"/assets/www/Camera.html
+cp -r ../camera/ai "$BUILD"/assets/www/ai
 
 aapt package -f -m -J "$BUILD"/gen -M AndroidManifest.xml -S res -I "$JAR"
 javac -nowarn -Xlint:-options -source 8 -target 8 -encoding UTF-8 -bootclasspath "$JAR" \

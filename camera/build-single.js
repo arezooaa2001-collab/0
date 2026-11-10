@@ -8,7 +8,7 @@ const dir = __dirname;
 const read = (p) => fs.readFileSync(path.join(dir, p), 'utf8');
 
 // Module order matters: each module may only import from modules listed before it.
-const MODULES = ['ui', 'renderer', 'storage', 'encoder', 'enhancer', 'app'];
+const MODULES = ['ui', 'renderer', 'storage', 'encoder', 'ai', 'enhancer', 'app'];
 
 function bundleModule(name) {
   let src = read(`js/${name}.js`);

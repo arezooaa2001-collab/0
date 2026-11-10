@@ -152,6 +152,26 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   background: linear-gradient(transparent, rgba(0, 0, 0, .7) 30%);
 }
 
+.beauty-panel {
+  width: min(560px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px;
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+  font-size: .8rem;
+}
+.beauty-panel label { display: grid; gap: 2px; color: rgba(255, 255, 255, .85); }
+.beauty-panel input[type=range] { width: 100%; accent-color: #ff6fae; direction: ltr; margin: 0; }
+.iris-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.swatches button, .custom-color {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35);
+  display: grid; place-items: center; font-size: .75rem; background: rgba(255, 255, 255, .08); cursor: pointer;
+}
+.swatches button.active, .custom-color.active { border-color: #fff; box-shadow: 0 0 0 2px #ff6fae; }
+.custom-color input { position: absolute; width: 0; height: 0; opacity: 0; }
+.custom-color { position: relative; }
+.beauty-status { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: .75rem; }
+#beautyBtn.on { color: #ff6fae; }
+#aiBtn.on { background: linear-gradient(135deg, #7c4dff, #ff6fae); border-color: transparent; color: #fff; }
+
 .zoom-panel { width: min(560px, 100%); display: grid; gap: 6px; justify-items: center; }
 .zoom-value {
   font-size: 1.05rem; font-weight: 800; direction: ltr;
@@ -227,6 +247,7 @@ svg { width: 24px; height: 24px; fill: currentColor; }
     align-content: start; overflow-y: auto; gap: 8px;
   }
   .zoom-info { display: none; }
+  .beauty-panel { grid-template-columns: 1fr; }
   .modes { flex-wrap: wrap; justify-content: center; }
   .modes button { padding: 4px 10px; font-size: .85rem; }
   .zoom-presets button { min-width: 36px; height: 28px; }
@@ -352,6 +373,10 @@ svg { width: 24px; height: 24px; fill: currentColor; }
       <button id="torchBtn" class="icon-btn" type="button" title="چراغ" aria-label="چراغ" hidden>
         <svg viewBox="0 0 24 24"><path d="M7 2h10v4l-3 4v12h-4V10L7 6z"/></svg>
       </button>
+      <button id="beautyBtn" class="icon-btn" type="button" title="آرایش" aria-label="آرایش" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v2a8 8 0 0 0 16 0v-2a8 8 0 0 0-8-8zm-3.5 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm7 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM12 18c-2 0-3.6-1.2-4.2-2.8h8.4C15.6 16.8 14 18 12 18z"/></svg>
+      </button>
+      <button id="aiBtn" class="chip" type="button" title="زوم هوش مصنوعی برای عکس" aria-pressed="false">AI</button>
       <button id="micBtn" class="icon-btn" type="button" title="میکروفون" aria-label="میکروفون" aria-pressed="false">
         <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 18h2v4h-2z"/></svg>
         <span class="slash"></span>
@@ -364,6 +389,25 @@ svg { width: 24px; height: 24px; fill: currentColor; }
     </header>
 
     <div class="bottom">
+      <div id="beautyPanel" class="beauty-panel" hidden>
+        <label>صاف کردن پوست <input id="bSmooth" type="range" min="0" max="100" value="60"></label>
+        <label>کرم‌پودر (روشن و یکدست) <input id="bFoundation" type="range" min="0" max="100" value="45"></label>
+        <label>بینی (کانتور و باریک) <input id="bNose" type="range" min="0" max="100" value="40"></label>
+        <label>چشم‌ها (درشت و روشن) <input id="bEyes" type="range" min="0" max="100" value="35"></label>
+        <div class="iris-row">
+          <span>رنگ چشم</span>
+          <div id="irisSwatches" class="swatches">
+            <button type="button" data-color="" class="active" title="رنگ طبیعی">✕</button>
+            <button type="button" data-color="#2f7de1" style="background:#2f7de1" title="آبی"></button>
+            <button type="button" data-color="#2f9e63" style="background:#2f9e63" title="سبز"></button>
+            <button type="button" data-color="#9a7341" style="background:#9a7341" title="عسلی"></button>
+            <button type="button" data-color="#8c9aa8" style="background:#8c9aa8" title="طوسی"></button>
+            <button type="button" data-color="#8b55d6" style="background:#8b55d6" title="بنفش"></button>
+            <label class="custom-color" title="رنگ دلخواه"><input id="irisCustom" type="color" value="#4fc3f7">🎨</label>
+          </div>
+        </div>
+        <p id="beautyStatus" class="beauty-status"></p>
+      </div>
       <div class="zoom-panel">
         <div id="zoomValue" class="zoom-value">1.0×</div>
         <div id="zoomPresets" class="zoom-presets"></div>
@@ -455,6 +499,7 @@ svg { width: 24px; height: 24px; fill: currentColor; }
       </div>
       <label class="check"><input id="autoColor" type="checkbox" checked> اصلاح خودکار نور و رنگ</label>
       <label class="check"><input id="denoiseOn" type="checkbox" checked> حذف نویز (دانه‌دانه بودن)</label>
+      <label class="check"><input id="aiOn" type="checkbox" checked> هوش مصنوعی (واضح‌کردن عکس‌های شطرنجی و دانه‌دانه)</label>
       <p id="enhanceSizes" class="muted"></p>
       <button id="enhanceRun" class="btn primary big" type="button">✨ بهبود کیفیت</button>
     </div>
@@ -483,12 +528,14 @@ svg { width: 24px; height: 24px; fill: currentColor; }
     <div class="dialog-card">
       <h3>راهنمای Camera</h3>
       <ul>
-        <li><b>زوم:</b> با دو انگشت روی تصویر، با نوار زوم یا دکمه‌های آماده. دوربین پشت تا <b>۲۵۰×</b> و دوربین جلو تا <b>۴۰×</b>.</li>
+        <li><b>زوم:</b> با دو انگشت روی تصویر، با نوار زوم یا دکمه‌های آماده. دوربین پشت تا <b>۲۵۰×</b> و دوربین جلو تا <b>۵۰×</b>.</li>
         <li>اول زوم سخت‌افزاری خود دوربین (لنز/سنسور) استفاده می‌شود و بقیه‌اش با زوم دیجیتال پرکیفیت روی پردازنده گرافیکی دستگاه انجام می‌شود. زیر نوار زوم نوشته شده هر کدام چقدر است.</li>
         <li>وقتی زوم دیجیتال فعال است با یک انگشت تصویر را جابه‌جا کن. با یک ضربه فوکوس می‌شود (اگر دستگاه پشتیبانی کند).</li>
         <li>در زوم‌های خیلی زیاد دست کمی هم بلرزد تصویر خیلی تکان می‌خورد؛ تبلت را به جایی تکیه بده.</li>
         <li><b>ویدیو:</b> دکمه قرمز. برای ضبط صدا اول دکمه میکروفون را روشن کن.</li>
         <li><b>ویدیو سریع:</b> هر چند ثانیه یک فریم می‌گیرد و ویدیوی تند (تایم‌لپس) می‌سازد. <b>ویدیو آهسته:</b> ویدیوی اسلوموشن ۲، ۴ یا ۸ برابر آهسته‌تر.</li>
+        <li><b>آرایش:</b> دکمه صورتک بالای صفحه. پوست صاف و روشن (مثل کرم‌پودر)، کانتور و باریک‌کردن بینی، چشم‌های درشت‌تر و رنگ چشم دلخواه — در عکس، ویدیو، سریع و آهسته.</li>
+        <li><b>AI:</b> وقتی روشن باشد، هر عکسی که با زوم بگیری با هوش مصنوعی روی خود گوشی واضح‌تر می‌شود (چند ثانیه بعد از گرفتن، در پس‌زمینه).</li>
         <li><b>خاموش کردن صفحه:</b> هنگام ضبط، دکمه «خاموش کردن صفحه» صفحه را کاملاً سیاه می‌کند ولی ضبط ادامه دارد. دکمه پاور را نزن؛ اگر دستگاه قفل شود مرورگر دوربین را قطع می‌کند و برنامه هرچه ضبط شده را ذخیره می‌کند.</li>
       </ul>
       <button class="btn primary" type="button" data-close>باشه</button>
@@ -2865,7 +2912,9 @@ if (typeof module === "object" && typeof module.exports === "object") Object.ass
     const residualNoise = opts.denoise !== false ? noise * 0.35 : noise;
     const core = clamp(residualNoise * 0.8, 0.3, 6);
     // Lighter final sharpening where deblurring already restored the edges, or none was needed.
-    const amount = P.sharp * (scale > 1.4 ? 1.15 : 1) * (0.6 - 0.15 * blurry);
+    // Lighter final sharpening where deblurring already restored the edges, or none was needed;
+    // much lighter when the AI model takes over afterwards.
+    const amount = P.sharp * (scale > 1.4 ? 1.15 : 1) * (0.6 - 0.15 * blurry) * (opts.aiNext ? 0.35 : 1);
     const sharp = sharpen(Yo, W, H, sigmaS, amount, core, P.overshoot, stage(0.72, 0.92, 'sharpen'));
     Yo = null;
     progress(0.92, 'compose');
@@ -3140,7 +3189,21 @@ uniform vec4 u_crop;
 uniform float u_mag;
 uniform float u_sharp;
 uniform float u_blend;
+// Beauty mode. Positions are in source-frame pixels.
+uniform float u_beauty;   // 1 when a face is tracked
+uniform vec4 u_face;      // centre xy, radii zw
+uniform float u_faceAng;
+uniform vec4 u_eyeL;      // centre xy, half width, half height
+uniform vec4 u_eyeR;
+uniform vec4 u_irisL;     // centre xy, radius, 0
+uniform vec4 u_irisR;
+uniform vec4 u_nose;      // bridge top xy, tip zw
+uniform float u_noseW;
+uniform vec4 u_amt;       // skin smoothing, foundation, nose, eyes (0..1)
+uniform vec4 u_irisCol;   // rgb, amount
 varying vec2 v_uv;
+
+const vec3 LUMA = vec3(0.299, 0.587, 0.114);
 
 // 9-tap Catmull-Rom using hardware bilinear filtering.
 vec3 catmullRom(sampler2D tex, vec2 uv) {
@@ -3173,8 +3236,130 @@ vec3 sampleSource(sampler2D tex, vec2 uv) {
   return texture2D(tex, uv).rgb;
 }
 
+vec2 eyeWarp(vec2 p, vec4 e) {
+  vec2 d = p - e.xy;
+  float r = e.z * 1.7;
+  float l = length(d);
+  if (l >= r) return p;
+  float t = l / r;
+  return e.xy + d * (1.0 - u_amt.w * 0.16 * (1.0 - t * t));
+}
+
+// Bigger eyes and a slimmer nose: move where the output pixel samples the camera frame.
+vec2 beautyWarp(vec2 uv) {
+  vec2 p = uv * u_texSize;
+  p = eyeWarp(p, u_eyeL);
+  p = eyeWarp(p, u_eyeR);
+  vec2 a = u_nose.xy;
+  vec2 ax = u_nose.zw - a;
+  float len = max(length(ax), 1.0);
+  vec2 dir = ax / len;
+  vec2 nrm = vec2(-dir.y, dir.x);
+  vec2 q = p - a;
+  float along = dot(q, dir) / len;
+  float across = dot(q, nrm);
+  float fall = smoothstep(-0.15, 0.3, along) * (1.0 - smoothstep(1.05, 1.35, along))
+             * (1.0 - smoothstep(u_noseW * 1.3, u_noseW * 2.4, abs(across)));
+  p = a + dir * dot(q, dir) + nrm * across * (1.0 + u_amt.z * 0.24 * fall);
+  return p / u_texSize;
+}
+
+float ellipseMask(vec2 p, vec2 c, vec2 r, float ang, float soft) {
+  vec2 d = p - c;
+  float cs = cos(ang);
+  float sn = sin(ang);
+  vec2 q = vec2(cs * d.x + sn * d.y, -sn * d.x + cs * d.y) / r;
+  return 1.0 - smoothstep(1.0 - soft, 1.0, length(q));
+}
+
+float skinMask(vec3 c) {
+  float y = dot(c, LUMA);
+  float cb = (c.b - y) * 0.564;
+  float cr = (c.r - y) * 0.713;
+  return smoothstep(-0.24, -0.17, cb) * (1.0 - smoothstep(0.01, 0.06, cb))
+       * smoothstep(-0.01, 0.03, cr) * (1.0 - smoothstep(0.2, 0.27, cr))
+       * smoothstep(0.08, 0.2, y);
+}
+
+// Edge-preserving blur (24 taps on two rings): smooths skin, keeps eyes, brows and lips sharp.
+vec3 smoothSkin(vec2 uv, vec3 c, float radius) {
+  vec2 st = vec2(radius) / u_texSize;
+  vec3 acc = c;
+  float wsum = 1.0;
+  for (int i = 0; i < 12; i++) {
+    float ang = float(i) * 0.5236;
+    vec2 o = vec2(cos(ang), sin(ang)) * st;
+    vec3 s1 = texture2D(u_cur, uv + o).rgb;
+    vec3 s2 = texture2D(u_cur, uv + o * 2.3).rgb;
+    vec3 d1 = s1 - c;
+    vec3 d2 = s2 - c;
+    float w1 = exp(-dot(d1, d1) * 70.0);
+    float w2 = exp(-dot(d2, d2) * 70.0) * 0.8;
+    acc += s1 * w1 + s2 * w2;
+    wsum += w1 + w2;
+  }
+  return acc / wsum;
+}
+
+vec3 applyIris(vec3 c, vec2 p, vec4 iris, vec4 eye) {
+  float d = length(p - iris.xy) / max(iris.z, 1.0);
+  float open = smoothstep(0.12, 0.22, eye.w / max(eye.z, 1.0));
+  float inEye = ellipseMask(p, eye.xy, vec2(eye.z * 0.95, eye.w * 1.05), u_faceAng, 0.35);
+  float ring = (1.0 - smoothstep(0.8, 1.0, d)) * smoothstep(0.3, 0.45, d);
+  float y = dot(c, LUMA);
+  float m = ring * inEye * open * (1.0 - smoothstep(0.55, 0.75, y)) * u_irisCol.a;
+  vec3 tinted = u_irisCol.rgb * clamp(y * 2.2 + 0.18, 0.0, 1.1);
+  return mix(c, tinted, m * 0.85);
+}
+
+vec3 beauty(vec2 uv, vec2 outUv, vec3 c) {
+  vec2 p = uv * u_texSize;
+  float face = ellipseMask(p, u_face.xy, u_face.zw, u_faceAng, 0.18);
+  if (face < 0.003) return c;
+  float eyes = max(ellipseMask(p, u_eyeL.xy, vec2(u_eyeL.z * 1.25, u_eyeL.w * 2.2), u_faceAng, 0.4),
+                   ellipseMask(p, u_eyeR.xy, vec2(u_eyeR.z * 1.25, u_eyeR.w * 2.2), u_faceAng, 0.4));
+  float skin = skinMask(c) * face * (1.0 - eyes);
+  if (skin > 0.01 && u_amt.x > 0.0) {
+    vec3 sm = smoothSkin(uv, c, u_face.z * 0.022);
+    c = mix(c, sm, skin * u_amt.x * 0.9);
+  }
+  if (u_amt.y > 0.0) {
+    // Foundation: even out redness, lift and lighten the skin tone.
+    float y = dot(c, LUMA);
+    vec3 even = mix(c, vec3(y) * vec3(1.07, 0.99, 0.93), 0.14);
+    vec3 lifted = 1.0 - (1.0 - even) * (1.0 - 0.28 * u_amt.y);
+    c = mix(c, lifted, skin * u_amt.y);
+  }
+  if (u_amt.z > 0.0) {
+    // Nose contour: a highlight down the bridge, soft shadows along both sides.
+    vec2 po = outUv * u_texSize;
+    vec2 ax = u_nose.zw - u_nose.xy;
+    float len = max(length(ax), 1.0);
+    vec2 dir = ax / len;
+    vec2 q = po - u_nose.xy;
+    float along = dot(q, dir) / len;
+    float u = dot(q, vec2(-dir.y, dir.x)) / max(u_noseW, 1.0);
+    float span = smoothstep(0.0, 0.25, along) * (1.0 - smoothstep(0.85, 1.05, along));
+    float hl = exp(-u * u * 9.0) * span;
+    float sh = exp(-(abs(u) - 1.0) * (abs(u) - 1.0) * 7.0) * span * (1.0 - smoothstep(0.75, 1.0, along));
+    c = c * (1.0 - 0.16 * u_amt.z * sh) + 0.07 * u_amt.z * hl;
+  }
+  if (u_amt.w > 0.0) {
+    // Brighter whites of the eyes.
+    float y = dot(c, LUMA);
+    float white = smoothstep(0.45, 0.7, y) * (1.0 - smoothstep(0.08, 0.2, length(c - vec3(y))));
+    c += white * eyes * u_amt.w * 0.08;
+  }
+  if (u_irisCol.a > 0.0) {
+    c = applyIris(c, p, u_irisL, u_eyeL);
+    c = applyIris(c, p, u_irisR, u_eyeR);
+  }
+  return c;
+}
+
 void main() {
-  vec2 uv = u_crop.xy + v_uv * u_crop.zw;
+  vec2 uv0 = u_crop.xy + v_uv * u_crop.zw;
+  vec2 uv = u_beauty > 0.5 ? beautyWarp(uv0) : uv0;
   vec3 c = sampleSource(u_cur, uv);
   if (u_sharp > 0.001) {
     vec2 px = 1.0 / u_texSize;
@@ -3189,6 +3374,7 @@ void main() {
     c = clamp(c + (c - blur) * u_sharp, lo - 0.01, hi + 0.01);
   }
   if (u_blend > 0.001) c = mix(c, sampleSource(u_prev, uv), u_blend);
+  if (u_beauty > 0.5) c = beauty(uv, uv0, c);
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
@@ -3247,7 +3433,8 @@ class Renderer {
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
       this.u = {};
-      for (const name of ['u_cur', 'u_prev', 'u_texSize', 'u_crop', 'u_mag', 'u_sharp', 'u_blend']) this.u[name] = gl.getUniformLocation(prog, name);
+      for (const name of ['u_cur', 'u_prev', 'u_texSize', 'u_crop', 'u_mag', 'u_sharp', 'u_blend', 'u_beauty', 'u_face', 'u_faceAng',
+        'u_eyeL', 'u_eyeR', 'u_irisL', 'u_irisR', 'u_nose', 'u_noseW', 'u_amt', 'u_irisCol']) this.u[name] = gl.getUniformLocation(prog, name);
       gl.uniform1i(this.u.u_cur, 0);
       gl.uniform1i(this.u.u_prev, 1);
       this.gl = gl;
@@ -3306,6 +3493,31 @@ class Renderer {
     return true;
   }
 
+  // Beauty settings for the next draws: null turns it off. `face` is in source-frame pixels.
+  setBeauty(face, amounts, irisColor) {
+    this.beautyFace = face && face.vw === this.sourceW && face.vh === this.sourceH ? face : null;
+    this.beautyAmt = amounts;
+    this.irisColor = irisColor;
+  }
+
+  applyBeautyUniforms(gl) {
+    const f = this.beautyFace;
+    gl.uniform1f(this.u.u_beauty, f ? 1 : 0);
+    if (!f) return;
+    const a = this.beautyAmt;
+    gl.uniform4f(this.u.u_face, f.cx, f.cy, f.rx, f.ry);
+    gl.uniform1f(this.u.u_faceAng, f.angle);
+    gl.uniform4f(this.u.u_eyeL, f.eyeL.x, f.eyeL.y, f.eyeL.halfW, f.eyeL.halfH);
+    gl.uniform4f(this.u.u_eyeR, f.eyeR.x, f.eyeR.y, f.eyeR.halfW, f.eyeR.halfH);
+    gl.uniform4f(this.u.u_irisL, f.irisL.x, f.irisL.y, f.irisL.r, 0);
+    gl.uniform4f(this.u.u_irisR, f.irisR.x, f.irisR.y, f.irisR.r, 0);
+    gl.uniform4f(this.u.u_nose, f.nose.x0, f.nose.y0, f.nose.x1, f.nose.y1);
+    gl.uniform1f(this.u.u_noseW, f.nose.w);
+    gl.uniform4f(this.u.u_amt, a.smooth, a.foundation, a.nose, a.eyes);
+    const ic = this.irisColor;
+    gl.uniform4f(this.u.u_irisCol, ic ? ic[0] : 0, ic ? ic[1] : 0, ic ? ic[2] : 0, ic ? 0.75 : 0);
+  }
+
   // crop: normalized {x, y, w, h} inside the source frame.
   draw({ crop, sharp = 0, blend = 0 }) {
     const W = this.canvas.width;
@@ -3327,6 +3539,7 @@ class Renderer {
       gl.uniform1f(this.u.u_mag, mag);
       gl.uniform1f(this.u.u_sharp, sharp);
       gl.uniform1f(this.u.u_blend, canBlend ? blend : 0);
+      this.applyBeautyUniforms(gl);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     } else if (this.kind === '2d' && this.source) {
       const ctx = this.ctx;
@@ -3609,8 +3822,263 @@ class Mp4Writer {
 return { webCodecsSupported, createMp4Writer };
 })();
 
+__m['ai'] = (() => {
+// On-device AI, no API key and no cloud: everything runs on the phone's GPU with TensorFlow.js
+// (bundled inside ai/face-api.js).
+//  - superResolve(): ESRGAN (RDN) super-resolution models from @upscalerjs (MIT), 2x / 4x.
+//  - FaceTracker: tiny face detector + 68-point landmarks from @vladmandic/face-api (MIT),
+//    used by the beauty mode (skin, nose, eyes, eye colour).
+
+let loading = null;
+const models = new Map();
+
+const aiUrl = (p) => new URL(`ai/${p}`, document.baseURI).href;
+
+function loadAI() {
+  if (loading) return loading;
+  loading = (async () => {
+    if (!window.faceapi) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = aiUrl('face-api.js');
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('ai-missing'));
+        document.head.appendChild(s);
+      });
+    }
+    const fa = window.faceapi;
+    const tf = fa.tf;
+    try {
+      await tf.setBackend('webgl');
+      await tf.ready();
+    } catch {
+      await tf.setBackend('cpu');
+      await tf.ready();
+    }
+    return fa;
+  })();
+  loading.catch(() => { loading = null; });
+  return loading;
+}
+
+async function getModel(name) {
+  if (!models.has(name)) {
+    const p = loadAI().then((fa) => fa.tf.loadLayersModel(aiUrl(`esrgan/${name}/model.json`)));
+    p.catch(() => models.delete(name));
+    models.set(name, p);
+  }
+  return models.get(name);
+}
+
+// Upscales `src` (canvas/image, sw x sh) by `scale` (2 or 4) with the AI model, tile by tile.
+async function superResolve(src, sw, sh, { scale = 4, size = 'slim', onProgress = () => {} } = {}) {
+  const fa = await loadAI();
+  const tf = fa.tf;
+  const model = await getModel(`${size}-x${scale}`);
+  const out = document.createElement('canvas');
+  out.width = sw * scale;
+  out.height = sh * scale;
+  const octx = out.getContext('2d');
+  const tile = document.createElement('canvas');
+  const tctx = tile.getContext('2d', { willReadFrequently: true });
+  const P = 96;
+  const PAD = 6;
+  const total = Math.ceil(sw / P) * Math.ceil(sh / P);
+  let done = 0;
+  for (let y = 0; y < sh; y += P) {
+    for (let x = 0; x < sw; x += P) {
+      const x0 = Math.max(0, x - PAD);
+      const y0 = Math.max(0, y - PAD);
+      const x1 = Math.min(sw, x + P + PAD);
+      const y1 = Math.min(sh, y + P + PAD);
+      const tw = x1 - x0;
+      const th = y1 - y0;
+      tile.width = tw;
+      tile.height = th;
+      tctx.drawImage(src, x0, y0, tw, th, 0, 0, tw, th);
+      const result = tf.tidy(() => {
+        const input = tf.browser.fromPixels(tile).toFloat().expandDims(0);
+        return model.predict(input).squeeze().clipByValue(0, 255).cast('int32');
+      });
+      const pixels = await tf.browser.toPixels(result);
+      result.dispose();
+      const img = new ImageData(pixels, tw * scale, th * scale);
+      const ix = (x - x0) * scale;
+      const iy = (y - y0) * scale;
+      const iw = (Math.min(sw, x + P) - x) * scale;
+      const ih = (Math.min(sh, y + P) - y) * scale;
+      octx.putImageData(img, x0 * scale, y0 * scale, ix, iy, iw, ih);
+      onProgress(++done / total);
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ face tracking
+const mean = (pts) => {
+  let x = 0;
+  let y = 0;
+  for (const p of pts) { x += p.x; y += p.y; }
+  return { x: x / pts.length, y: y / pts.length };
+};
+
+class FaceTracker {
+  constructor(video) {
+    this.video = video;
+    this.face = null; // smoothed geometry in source-frame pixels
+    this.running = false;
+    this.missed = 0;
+    this.gen = 0;
+    this.canvas = document.createElement('canvas');
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+    this.eyeCanvas = document.createElement('canvas');
+    this.eyeCtx = this.eyeCanvas.getContext('2d', { willReadFrequently: true });
+  }
+
+  async start() {
+    if (this.running) return;
+    this.running = true;
+    const fa = await loadAI();
+    if (!this.netsLoaded) {
+      await fa.nets.tinyFaceDetector.loadFromUri(aiUrl('models'));
+      await fa.nets.faceLandmark68Net.loadFromUri(aiUrl('models'));
+      this.netsLoaded = true;
+    }
+    this.options = new fa.TinyFaceDetectorOptions({ inputSize: 256, scoreThreshold: 0.35 });
+    if (this.running) this.loop(fa, ++this.gen);
+  }
+
+  stop() {
+    this.running = false;
+    this.gen++;
+    this.face = null;
+  }
+
+  async loop(fa, gen) {
+    while (this.running && gen === this.gen) {
+      const t0 = performance.now();
+      try {
+        await this.detect(fa);
+      } catch (err) {
+        console.warn('face detection', err);
+      }
+      const wait = Math.max(15, 70 - (performance.now() - t0));
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+
+  async detect(fa) {
+    const v = this.video;
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    if (!vw || !vh || v.readyState < 2) return;
+    const s = Math.min(1, 480 / Math.max(vw, vh));
+    const w = Math.round(vw * s);
+    const h = Math.round(vh * s);
+    if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
+    this.ctx.drawImage(v, 0, 0, w, h);
+    const res = await fa.detectSingleFace(this.canvas, this.options).withFaceLandmarks();
+    if (!this.running) return;
+    if (!res) {
+      if (++this.missed > 6) this.face = null;
+      return;
+    }
+    this.missed = 0;
+    const k = 1 / s;
+    const pts = res.landmarks.positions.map((p) => ({ x: p.x * k, y: p.y * k }));
+    this.update(pts, vw, vh);
+  }
+
+  // Darkest blob inside the eye opening = the iris (landmarks only give the eyelids).
+  irisCentre(eyePts, vw, vh) {
+    const c = mean(eyePts);
+    const xs = eyePts.map((p) => p.x);
+    const ys = eyePts.map((p) => p.y);
+    const x0 = Math.max(0, Math.min(...xs));
+    const x1 = Math.min(vw, Math.max(...xs));
+    const y0 = Math.max(0, Math.min(...ys) - 2);
+    const y1 = Math.min(vh, Math.max(...ys) + 2);
+    if (x1 - x0 < 6 || y1 - y0 < 3) return c;
+    const W = 48;
+    const H = Math.max(8, Math.round((W * (y1 - y0)) / (x1 - x0)));
+    this.eyeCanvas.width = W;
+    this.eyeCanvas.height = H;
+    this.eyeCtx.drawImage(this.video, x0, y0, x1 - x0, y1 - y0, 0, 0, W, H);
+    const d = this.eyeCtx.getImageData(0, 0, W, H).data;
+    const lum = new Float32Array(W * H);
+    const sorted = [];
+    for (let i = 0; i < W * H; i++) {
+      lum[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114;
+      sorted.push(lum[i]);
+    }
+    sorted.sort((a, b) => a - b);
+    const thr = sorted[Math.floor(sorted.length * 0.3)];
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (lum[y * W + x] <= thr) { sx += x; sy += y; n++; }
+      }
+    }
+    if (!n) return c;
+    return { x: x0 + ((sx / n + 0.5) / W) * (x1 - x0), y: y0 + ((sy / n + 0.5) / H) * (y1 - y0) };
+  }
+
+  update(p, vw, vh) {
+    const eyeL = p.slice(36, 42);
+    const eyeR = p.slice(42, 48);
+    const eye = (pts) => {
+      const c = mean(pts);
+      const halfW = Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y) / 2;
+      const halfH = (Math.hypot(pts[1].x - pts[5].x, pts[1].y - pts[5].y) + Math.hypot(pts[2].x - pts[4].x, pts[2].y - pts[4].y)) / 4;
+      return { x: c.x, y: c.y, halfW, halfH };
+    };
+    const L = eye(eyeL);
+    const R = eye(eyeR);
+    const irisL = this.irisCentre(eyeL, vw, vh);
+    const irisR = this.irisCentre(eyeR, vw, vh);
+    const jaw = p.slice(0, 17);
+    const brow = p.slice(17, 27);
+    const angle = Math.atan2(R.y - L.y, R.x - L.x);
+    const faceW = Math.hypot(jaw[16].x - jaw[0].x, jaw[16].y - jaw[0].y);
+    const top = mean(brow);
+    const chin = p[8];
+    const faceH = Math.hypot(chin.x - top.x, chin.y - top.y) * 1.25;
+    const centre = { x: (top.x + chin.x) / 2 + (top.x - chin.x) * 0.06, y: (top.y + chin.y) / 2 + (top.y - chin.y) * 0.06 };
+    const noseTop = p[27];
+    const noseTip = p[30];
+    const noseW = Math.hypot(p[35].x - p[31].x, p[35].y - p[31].y) / 2;
+    const next = {
+      cx: centre.x, cy: centre.y, rx: faceW * 0.55, ry: faceH * 0.55, angle,
+      eyeL: L, eyeR: R,
+      irisL: { x: irisL.x, y: irisL.y, r: L.halfW * 0.42 },
+      irisR: { x: irisR.x, y: irisR.y, r: R.halfW * 0.42 },
+      nose: { x0: noseTop.x, y0: noseTop.y, x1: noseTip.x, y1: noseTip.y, w: noseW },
+      vw, vh,
+    };
+    this.face = this.face && this.face.vw === vw ? blend(this.face, next, 0.55) : next;
+  }
+}
+
+// Exponential smoothing of the face geometry so the effects do not jitter.
+function blend(a, b, t) {
+  if (typeof a === 'number') return a + (b - a) * t;
+  if (a && typeof a === 'object') {
+    const o = {};
+    for (const k of Object.keys(b)) o[k] = k === 'vw' || k === 'vh' ? b[k] : blend(a[k], b[k], t);
+    return o;
+  }
+  return b;
+}
+
+return { loadAI, superResolve, FaceTracker };
+})();
+
 __m['enhancer'] = (() => {
 // "Photo quality" screen: pick any photo, enhance it on the device, compare before/after.
+const { superResolve } = __m['ai'];
 const { $, toast, canvasToBlob, downloadBlob, shareBlob, fileNameFor, thumbFromImageBlob, faNum, ltr } = __m['ui'];
 
 const MAX_OUT_PIXELS = 16_000_000; // iPad/iPhone canvases are limited to ~16.7 MP
@@ -3782,6 +4250,7 @@ async function run() {
   const strength = options.strength;
   const autoColor = $('autoColor').checked;
   const denoise = $('denoiseOn').checked;
+  let useAI = $('aiOn').checked;
   const caps = [MAX_OUT_PIXELS, 8_000_000, 4_000_000];
   try {
     for (let attempt = 0; attempt < caps.length; attempt++) {
@@ -3795,7 +4264,24 @@ async function run() {
       ctx.drawImage(current.bitmap, 0, 0, p.iw, p.ih);
       const img = ctx.getImageData(0, 0, p.iw, p.ih);
       c.width = c.height = 1;
-      const job = { id: ++jobId, data: img.data.buffer, width: p.iw, height: p.ih, outW: p.ow, outH: p.oh, opts: { strength, autoColor, denoise } };
+      // With AI: the classic pass (denoise, deblur, light) works at the AI's input size, then the
+      // AI model upscales 2x/4x. For "1x" the AI result is scaled back down (super-sampling).
+      const ratio = p.ow / p.iw;
+      const aiScale = ratio <= 2.2 ? 2 : 4;
+      const aiCap = 1.2e6;
+      let aw = ratio <= 1.5 ? p.ow : Math.round(p.ow / aiScale);
+      let ah = ratio <= 1.5 ? p.oh : Math.round(p.oh / aiScale);
+      // A large photo at about 1x already has its detail: the AI would have to shrink it first.
+      const runAI = useAI && !(ratio <= 1.5 && aw * ah > aiCap);
+      if (runAI && aw * ah > aiCap) {
+        const k = Math.sqrt(aiCap / (aw * ah));
+        aw = Math.round(aw * k);
+        ah = Math.round(ah * k);
+      }
+      const job = {
+        id: ++jobId, data: img.data.buffer, width: p.iw, height: p.ih,
+        outW: runAI ? aw : p.ow, outH: runAI ? ah : p.oh, opts: { strength, autoColor, denoise, aiNext: runAI },
+      };
       let res;
       try {
         res = await runJob(job);
@@ -3804,17 +4290,41 @@ async function run() {
         if (err.oom && attempt < caps.length - 1) { toast('حافظه کافی نبود؛ با اندازه کوچک‌تر دوباره تلاش می‌شود…'); continue; }
         throw err;
       }
-      setProgress(0.99, 'در حال ذخیره…');
-      const out = document.createElement('canvas');
+      let out = document.createElement('canvas');
       out.width = res.width;
       out.height = res.height;
       out.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(res.data), res.width, res.height), 0, 0);
+      if (runAI) {
+        try {
+          setProgress(0.4, 'هوش مصنوعی در حال واضح‌کردن عکس…');
+          const up = await superResolve(out, out.width, out.height, {
+            scale: aiScale,
+            size: out.width * out.height <= 0.4e6 ? 'medium' : 'slim',
+            onProgress: (f) => setProgress(0.4 + 0.58 * f, 'هوش مصنوعی در حال واضح‌کردن عکس…'),
+          });
+          const fin = document.createElement('canvas');
+          fin.width = p.ow;
+          fin.height = p.oh;
+          const fctx = fin.getContext('2d');
+          fctx.imageSmoothingQuality = 'high';
+          fctx.drawImage(up, 0, 0, p.ow, p.oh);
+          out.width = out.height = 1;
+          out = fin;
+        } catch (err) {
+          console.warn('AI unavailable', err);
+          toast('هوش مصنوعی روی این دستگاه بارگذاری نشد؛ بهبود معمولی انجام می‌شود.', 4000);
+          useAI = false;
+          attempt--;
+          continue;
+        }
+      }
+      setProgress(0.99, 'در حال ذخیره…');
       const type = res.hasAlpha ? 'image/png' : 'image/jpeg';
       const blob = await canvasToBlob(out, type, 0.95);
+      result = { blob, url: URL.createObjectURL(blob), w: out.width, h: out.height };
       out.width = out.height = 1;
-      result = { blob, url: URL.createObjectURL(blob), w: res.width, h: res.height };
       showCompare();
-      setProgress(null, `عکس بهبود یافت: ${ltr(`${res.width}×${res.height}`)} پیکسل`);
+      setProgress(null, `عکس بهبود یافت: ${ltr(`${result.w}×${result.h}`)} پیکسل`);
       return;
     }
   } catch (err) {
@@ -3885,16 +4395,17 @@ return { loadFile, initEnhancer };
 
 __m['app'] = (() => {
 // Camera — uses the real camera of this phone/tablet through the browser.
-// Live preview, zoom up to 250x (back) / 40x (front), photo, video with optional microphone,
+// Live preview, zoom up to 250x (back) / 50x (front), photo, video with optional microphone,
 // fast (time-lapse) and slow-motion video, in-app gallery and photo enhancement.
 const { Renderer } = __m['renderer'];
 const { store } = __m['storage'];
 const { createMp4Writer, webCodecsSupported } = __m['encoder'];
 const { initEnhancer, loadFile: loadIntoEnhancer } = __m['enhancer'];
+const { FaceTracker, superResolve } = __m['ai'];
 const { $, toast, showBusy, hideBusy, fmtTime, fmtBytes, fileNameFor, downloadBlob, shareBlob, canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr, inApp, saveToDevice, deviceSaveError } = __m['ui'];
 
-const MAX_ZOOM = { environment: 250, user: 40 };
-const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20, 40] };
+const MAX_ZOOM = { environment: 250, user: 50 };
+const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20, 50] };
 const QUALITIES = {
   '4k': { label: '4K', long: 3840, short: 2160 },
   1080: { label: '1080p', long: 1920, short: 1080 },
@@ -3921,6 +4432,8 @@ const state = {
   tlInterval: TL_INTERVALS.includes(saved.tlInterval) ? saved.tlInterval : 1,
   slowFactor: SLOW_FACTORS.includes(saved.slowFactor) ? saved.slowFactor : 4,
   micWanted: !!saved.mic,
+  beauty: { on: false, smooth: 60, foundation: 45, nose: 40, eyes: 35, iris: '', ...(saved.beauty || {}) },
+  aiZoom: saved.aiZoom !== false,
   stream: null,
   track: null,
   profile: null,
@@ -3955,6 +4468,7 @@ function saveSettings() {
     localStorage.setItem('camera.settings', JSON.stringify({
       quality: state.quality, facing: state.facing, mode: state.mode,
       tlInterval: state.tlInterval, slowFactor: state.slowFactor, mic: state.micOn,
+      beauty: state.beauty, aiZoom: state.aiZoom,
     }));
   } catch { /* storage may be blocked */ }
 }
@@ -4411,6 +4925,7 @@ function drawCurrent() {
   const crop = computeCrop(vw, vh, canvas.width, canvas.height, state.digital);
   state.crop = crop;
   const sharp = sharpFor(canvas.width / (crop.w * vw));
+  applyBeauty();
   return { crop, sharp };
 }
 
@@ -4437,7 +4952,21 @@ function processFrame(now, meta) {
     const W = canvas.width;
     const H = canvas.height;
     // Both read the canvas synchronously, before the next (preview-sized) frame.
-    req.resolve({ W, H, blob: canvasToBlob(canvas, 'image/jpeg', 0.95), thumb: thumbFromSource(canvas, W, H).catch(() => null) });
+    let raw = null;
+    if (req.raw) {
+      // The camera's own pixels of the zoomed area, for the AI to upscale afterwards.
+      const sx = crop.x * vw;
+      const sy = crop.y * vh;
+      const sw = crop.w * vw;
+      const sh = crop.h * vh;
+      if (sw >= 8 && sh >= 8) {
+        raw = document.createElement('canvas');
+        raw.width = Math.round(sw);
+        raw.height = Math.round(sh);
+        raw.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, raw.width, raw.height);
+      }
+    }
+    req.resolve({ W, H, raw, blob: canvasToBlob(canvas, 'image/jpeg', 0.95), thumb: thumbFromSource(canvas, W, H).catch(() => null) });
   }
   if (++loop.frames % 6 === 0) drawMinimap(vw, vh, crop);
   checkPreviewSpeed(now);
@@ -4460,6 +4989,7 @@ function drawMinimap(vw, vh, crop) {
 
 function resumeCamera() {
   acquireWakeLock();
+  if (state.beauty.on) startTracker();
   if (state.track && state.track.readyState === 'live') {
     if (!loop.running) startLoop();
   } else if (state.stream || state.screen === 'camScreen') {
@@ -4469,6 +4999,7 @@ function resumeCamera() {
 
 function pauseCamera() {
   stopLoop();
+  stopTracker();
   releaseWakeLock();
   if (state.torch) setTorch(false);
 }
@@ -4766,115 +5297,94 @@ function flash() {
   f.classList.add('go');
 }
 
-// Full-sensor photo: ImageCapture returns the camera's native still resolution (often 12-50 MP),
-// far more detail than a video frame. The zoomed area is cut from it, kept at native size
-// when it is larger than the output, otherwise upscaled on the GPU to the output size.
+// Photos are saved the instant the shutter is pressed: the current frame, rendered at the
+// full output resolution (4K). With AI on and digital zoom in use, the camera pixels of that
+// same instant are then upscaled by the on-device AI in the background and replace the photo.
 let photoRenderer = null;
-const MAX_PHOTO_PIXELS = 64e6;
+let aiQueue = Promise.resolve();
 
-function withTimeout(promise, ms) {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+function fitCanvas(src, W, H) {
+  if (src.width >= W) {
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, W, H);
+    return c;
+  }
+  if (!photoRenderer) photoRenderer = new Renderer(document.createElement('canvas'));
+  if (photoRenderer.kind === 'webgl') {
+    photoRenderer.setSize(W, H);
+    if (photoRenderer.upload(src, src.width, src.height)) {
+      photoRenderer.draw({ crop: { x: 0, y: 0, w: 1, h: 1 }, sharp: 0.35 });
+      return photoRenderer.canvas;
+    }
+  }
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, W, H);
+  return c;
 }
 
-async function takeSensorPhoto() {
-  const t = state.track;
-  if (typeof window.ImageCapture !== 'function' || !t || t.readyState !== 'live') return null;
-  // Only when no hardware zoom is active: the still must show exactly what the preview shows.
-  if (state.hw.supported && Math.abs(state.hw.applied - 1) > 0.05) return null;
-  const vw = renderer.sourceW;
-  const vh = renderer.sourceH;
-  const crop = { ...state.crop };
-  const out = { ...state.out };
-  if (!vw || !vh || !out.w) return null;
-  const ic = new ImageCapture(t);
-  let settings;
+async function aiUpgradePhoto(item, raw, W, H) {
   try {
-    const pc = await withTimeout(ic.getPhotoCapabilities(), 3000);
-    if (pc && pc.imageWidth && pc.imageWidth.max) settings = { imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max };
-  } catch { settings = undefined; }
-  const raw = await withTimeout(settings ? ic.takePhoto(settings).catch(() => ic.takePhoto()) : ic.takePhoto(), 10000);
-  let bmp;
-  try { bmp = await createImageBitmap(raw, { imageOrientation: 'from-image' }); } catch { bmp = await createImageBitmap(raw); }
-  try {
-    const pw = bmp.width;
-    const ph = bmp.height;
-    if ((pw >= ph) !== (vw >= vh) || pw * ph <= vw * vh) return null; // rotated or no gain: use the video frame
-    // The video picture is the centred part of the still with the video's aspect ratio.
-    const va = vw / vh;
-    const rw = pw / ph > va ? ph * va : pw;
-    const rh = rw / va;
-    const sx = (pw - rw) / 2 + crop.x * rw;
-    const sy = (ph - rh) / 2 + crop.y * rh;
-    const sw = crop.w * rw;
-    const sh = crop.h * rh;
-    let nw = Math.round(sw);
-    let nh = Math.round(sh);
-    const k = Math.min(1, Math.sqrt(MAX_PHOTO_PIXELS / (nw * nh)));
-    nw = even(nw * k);
-    nh = even(nh * k);
-    const cut = document.createElement('canvas');
-    cut.width = nw;
-    cut.height = nh;
-    const ctx = cut.getContext('2d');
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, nw, nh);
-    let final = cut;
-    if (nw < out.w) {
-      if (!photoRenderer) photoRenderer = new Renderer(document.createElement('canvas'));
-      if (photoRenderer.kind === 'webgl') {
-        photoRenderer.setSize(out.w, out.h);
-        if (photoRenderer.upload(cut, nw, nh)) {
-          photoRenderer.draw({ crop: { x: 0, y: 0, w: 1, h: 1 }, sharp: sharpFor(out.w / nw) });
-          final = photoRenderer.canvas;
-        }
-      }
-      if (final === cut) {
-        const up = document.createElement('canvas');
-        up.width = out.w;
-        up.height = out.h;
-        const uctx = up.getContext('2d');
-        uctx.imageSmoothingQuality = 'high';
-        uctx.drawImage(cut, 0, 0, out.w, out.h);
-        final = up;
-      }
+    const scale = raw.width * 2 >= W * 0.9 ? 2 : 4;
+    // Keep the AI's input small enough to finish in a few seconds on a phone.
+    const cap = scale === 4 ? 0.3e6 : 0.6e6;
+    let src = raw;
+    if (raw.width * raw.height > cap) {
+      const k = Math.sqrt(cap / (raw.width * raw.height));
+      src = document.createElement('canvas');
+      src.width = Math.round(raw.width * k);
+      src.height = Math.round(raw.height * k);
+      const ctx = src.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(raw, 0, 0, src.width, src.height);
     }
-    const W = final.width;
-    const H = final.height;
-    const thumb = thumbFromSource(final, W, H).catch(() => null);
+    const up = await superResolve(src, src.width, src.height, { scale, size: 'slim' });
+    const final = fitCanvas(up, W, H);
+    const thumb = await thumbFromSource(final, W, H).catch(() => item.thumb);
     const blob = await canvasToBlob(final, 'image/jpeg', 0.95);
-    return { W, H, blob, thumb: await thumb };
+    Object.assign(item, { blob, thumb, size: blob.size, ai: true });
+    await store.addMedia(item);
+    setGalleryThumb(thumb);
+    toast('✨ عکس زوم‌شده با هوش مصنوعی واضح‌تر شد.', 2200);
+  } catch (err) {
+    console.warn('AI zoom unavailable', err);
+    toast('هوش مصنوعی آماده نبود؛ همان عکس معمولی ذخیره ماند.', 3000);
   } finally {
-    bmp.close && bmp.close();
+    if (inApp()) saveToDevice(item.blob, fileNameFor(item)).catch((err) => toast(deviceSaveError(err), 5000));
   }
 }
 
 async function takePhoto() {
   if (!state.track || !loop.running) return;
   flash();
-  state.busy = true;
   try {
-    let sensor = null;
-    try { sensor = await takeSensorPhoto(); } catch (err) { console.warn('full-sensor photo unavailable', err); }
-    if (sensor) {
-      await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob: sensor.blob, thumb: sensor.thumb, width: sensor.W, height: sensor.H });
-      toast(`عکس ذخیره شد (${ltr(`${(sensor.W * sensor.H / 1e6).toFixed(1)} MP · ${sensor.W}×${sensor.H}`)})`, 2200);
-      return;
-    }
+    const wantAI = state.aiZoom && state.digital > 1.3 && !beautyActive();
     const shot = await new Promise((resolve, reject) => {
-      state.photoRequest = { resolve };
+      state.photoRequest = { resolve, raw: wantAI };
       setTimeout(() => {
         if (state.photoRequest) { state.photoRequest = null; reject(new Error('no-frame')); }
       }, 5000);
     });
     const { W, H } = shot;
     const [blob, thumb] = await Promise.all([shot.blob, shot.thumb]);
-    await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob, thumb, width: W, height: H });
-    toast(`عکس ذخیره شد (${ltr(`${qualityLabel(W, H)} · ${W}×${H}`)})`, 1800);
+    const item = await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob, thumb, width: W, height: H }, { device: !shot.raw });
+    if (shot.raw) {
+      toast('عکس ذخیره شد · هوش مصنوعی در حال واضح‌کردن آن…', 2000);
+      const raw = shot.raw;
+      aiQueue = aiQueue.then(() => aiUpgradePhoto(item, raw, W, H));
+    } else {
+      toast(`عکس ذخیره شد (${ltr(`${qualityLabel(W, H)} · ${W}×${H}`)})`, 1500);
+    }
   } catch (err) {
     console.error(err);
     toast('گرفتن عکس ناموفق بود.');
-  } finally {
-    state.busy = false;
   }
 }
 
@@ -5141,7 +5651,7 @@ const galleryUrls = [];
 let viewerItem = null;
 let viewerUrl = '';
 
-async function saveMedia(item) {
+async function saveMedia(item, { device = true } = {}) {
   item.id = item.id || `${item.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   item.created = item.created || Date.now();
   item.size = item.blob.size;
@@ -5153,7 +5663,7 @@ async function saveMedia(item) {
   }
   setGalleryThumb(item.thumb);
   // In the Android app every photo and video also goes into the tablet's own gallery.
-  if (inApp() && item.mode !== 'enhanced') {
+  if (device && inApp() && item.mode !== 'enhanced') {
     saveToDevice(item.blob, fileNameFor(item)).catch((err) => toast(deviceSaveError(err), 5000));
   }
   return item;
@@ -5258,6 +5768,88 @@ function closeViewer() {
   $('viewerBody').textContent = '';
   if (viewerUrl) URL.revokeObjectURL(viewerUrl);
   viewerUrl = '';
+}
+
+// ---------------------------------------------------------------- beauty mode
+let tracker = null;
+const hexToRgb = (hex) => (hex ? [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) : null);
+
+function beautyActive() { return !!(state.beauty.on && tracker && tracker.face); }
+
+function applyBeauty() {
+  if (!beautyActive() || renderer.kind !== 'webgl') { renderer.setBeauty && renderer.setBeauty(null); return; }
+  const b = state.beauty;
+  renderer.setBeauty(tracker.face, {
+    smooth: b.smooth / 100, foundation: b.foundation / 100, nose: b.nose / 100, eyes: b.eyes / 100,
+  }, hexToRgb(b.iris));
+}
+
+async function startTracker() {
+  if (!state.beauty.on || state.screen !== 'camScreen') return;
+  if (renderer.kind !== 'webgl') { $('beautyStatus').textContent = 'آرایش روی این دستگاه پشتیبانی نمی‌شود (WebGL ندارد).'; return; }
+  if (!tracker) tracker = new FaceTracker(video);
+  try {
+    await tracker.start();
+  } catch (err) {
+    console.warn(err);
+    tracker.stop();
+    $('beautyStatus').textContent = 'هوش مصنوعی تشخیص صورت روی این دستگاه بارگذاری نشد.';
+  }
+}
+
+function stopTracker() { if (tracker) tracker.stop(); }
+
+function updateBeautyUI() {
+  const b = state.beauty;
+  $('beautyBtn').classList.toggle('on', b.on);
+  $('beautyBtn').setAttribute('aria-pressed', String(b.on));
+  $('beautyPanel').hidden = !b.on;
+  for (const [id, key] of [['bSmooth', 'smooth'], ['bFoundation', 'foundation'], ['bNose', 'nose'], ['bEyes', 'eyes']]) $(id).value = b[key];
+  for (const sw of $('irisSwatches').querySelectorAll('button')) sw.classList.toggle('active', sw.dataset.color === b.iris);
+  const custom = $('irisCustom').parentElement;
+  const preset = [...$('irisSwatches').querySelectorAll('button')].some((x) => x.dataset.color === b.iris);
+  custom.classList.toggle('active', !preset && !!b.iris);
+  $('aiBtn').classList.toggle('on', state.aiZoom);
+  $('aiBtn').setAttribute('aria-pressed', String(state.aiZoom));
+}
+
+setInterval(() => {
+  if (!state.beauty.on || state.screen !== 'camScreen') return;
+  const el = $('beautyStatus');
+  if (tracker && tracker.netsLoaded) el.textContent = tracker.face ? 'صورت پیدا شد ✓ آرایش روی عکس و ویدیو اعمال می‌شود' : 'صورتت را جلوی دوربین بگیر…';
+  else if (!el.textContent) el.textContent = 'در حال آماده‌سازی هوش مصنوعی تشخیص صورت…';
+}, 500);
+
+function bindBeauty() {
+  $('beautyBtn').addEventListener('click', () => {
+    state.beauty.on = !state.beauty.on;
+    saveSettings();
+    updateBeautyUI();
+    if (state.beauty.on) { $('beautyStatus').textContent = ''; startTracker(); } else stopTracker();
+  });
+  for (const [id, key] of [['bSmooth', 'smooth'], ['bFoundation', 'foundation'], ['bNose', 'nose'], ['bEyes', 'eyes']]) {
+    $(id).addEventListener('input', (e) => { state.beauty[key] = Number(e.target.value); saveSettings(); });
+  }
+  $('irisSwatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-color]');
+    if (!b) return;
+    state.beauty.iris = b.dataset.color;
+    saveSettings();
+    updateBeautyUI();
+  });
+  $('irisCustom').addEventListener('input', (e) => {
+    state.beauty.iris = e.target.value;
+    saveSettings();
+    updateBeautyUI();
+  });
+  $('aiBtn').addEventListener('click', () => {
+    state.aiZoom = !state.aiZoom;
+    saveSettings();
+    updateBeautyUI();
+    toast(state.aiZoom
+      ? 'AI روشن شد: عکس‌هایی که با زوم می‌گیری با هوش مصنوعی روی خود گوشی واضح‌تر می‌شوند.'
+      : 'AI خاموش شد.', 3500);
+  });
 }
 
 // ---------------------------------------------------------------- permission screen
@@ -5382,6 +5974,8 @@ async function boot() {
   renderer = new Renderer(canvas);
   canvas = renderer.canvas;
   bindUI();
+  bindBeauty();
+  updateBeautyUI();
   updateModeUI();
   initEnhancer({ saveToGallery: saveMedia });
   registerServiceWorker();

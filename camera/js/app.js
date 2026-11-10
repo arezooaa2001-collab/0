@@ -1,17 +1,18 @@
 // Camera — uses the real camera of this phone/tablet through the browser.
-// Live preview, zoom up to 250x (back) / 40x (front), photo, video with optional microphone,
+// Live preview, zoom up to 250x (back) / 50x (front), photo, video with optional microphone,
 // fast (time-lapse) and slow-motion video, in-app gallery and photo enhancement.
 import { Renderer } from './renderer.js';
 import { store } from './storage.js';
 import { createMp4Writer, webCodecsSupported } from './encoder.js';
 import { initEnhancer, loadFile as loadIntoEnhancer } from './enhancer.js';
+import { FaceTracker, superResolve } from './ai.js';
 import {
   $, toast, showBusy, hideBusy, fmtTime, fmtBytes, fileNameFor, downloadBlob, shareBlob,
   canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr, inApp, saveToDevice, deviceSaveError,
 } from './ui.js';
 
-const MAX_ZOOM = { environment: 250, user: 40 };
-const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20, 40] };
+const MAX_ZOOM = { environment: 250, user: 50 };
+const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20, 50] };
 const QUALITIES = {
   '4k': { label: '4K', long: 3840, short: 2160 },
   1080: { label: '1080p', long: 1920, short: 1080 },
@@ -38,6 +39,8 @@ const state = {
   tlInterval: TL_INTERVALS.includes(saved.tlInterval) ? saved.tlInterval : 1,
   slowFactor: SLOW_FACTORS.includes(saved.slowFactor) ? saved.slowFactor : 4,
   micWanted: !!saved.mic,
+  beauty: { on: false, smooth: 60, foundation: 45, nose: 40, eyes: 35, iris: '', ...(saved.beauty || {}) },
+  aiZoom: saved.aiZoom !== false,
   stream: null,
   track: null,
   profile: null,
@@ -72,6 +75,7 @@ function saveSettings() {
     localStorage.setItem('camera.settings', JSON.stringify({
       quality: state.quality, facing: state.facing, mode: state.mode,
       tlInterval: state.tlInterval, slowFactor: state.slowFactor, mic: state.micOn,
+      beauty: state.beauty, aiZoom: state.aiZoom,
     }));
   } catch { /* storage may be blocked */ }
 }
@@ -528,6 +532,7 @@ function drawCurrent() {
   const crop = computeCrop(vw, vh, canvas.width, canvas.height, state.digital);
   state.crop = crop;
   const sharp = sharpFor(canvas.width / (crop.w * vw));
+  applyBeauty();
   return { crop, sharp };
 }
 
@@ -554,7 +559,21 @@ function processFrame(now, meta) {
     const W = canvas.width;
     const H = canvas.height;
     // Both read the canvas synchronously, before the next (preview-sized) frame.
-    req.resolve({ W, H, blob: canvasToBlob(canvas, 'image/jpeg', 0.95), thumb: thumbFromSource(canvas, W, H).catch(() => null) });
+    let raw = null;
+    if (req.raw) {
+      // The camera's own pixels of the zoomed area, for the AI to upscale afterwards.
+      const sx = crop.x * vw;
+      const sy = crop.y * vh;
+      const sw = crop.w * vw;
+      const sh = crop.h * vh;
+      if (sw >= 8 && sh >= 8) {
+        raw = document.createElement('canvas');
+        raw.width = Math.round(sw);
+        raw.height = Math.round(sh);
+        raw.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, raw.width, raw.height);
+      }
+    }
+    req.resolve({ W, H, raw, blob: canvasToBlob(canvas, 'image/jpeg', 0.95), thumb: thumbFromSource(canvas, W, H).catch(() => null) });
   }
   if (++loop.frames % 6 === 0) drawMinimap(vw, vh, crop);
   checkPreviewSpeed(now);
@@ -577,6 +596,7 @@ function drawMinimap(vw, vh, crop) {
 
 function resumeCamera() {
   acquireWakeLock();
+  if (state.beauty.on) startTracker();
   if (state.track && state.track.readyState === 'live') {
     if (!loop.running) startLoop();
   } else if (state.stream || state.screen === 'camScreen') {
@@ -586,6 +606,7 @@ function resumeCamera() {
 
 function pauseCamera() {
   stopLoop();
+  stopTracker();
   releaseWakeLock();
   if (state.torch) setTorch(false);
 }
@@ -883,115 +904,94 @@ function flash() {
   f.classList.add('go');
 }
 
-// Full-sensor photo: ImageCapture returns the camera's native still resolution (often 12-50 MP),
-// far more detail than a video frame. The zoomed area is cut from it, kept at native size
-// when it is larger than the output, otherwise upscaled on the GPU to the output size.
+// Photos are saved the instant the shutter is pressed: the current frame, rendered at the
+// full output resolution (4K). With AI on and digital zoom in use, the camera pixels of that
+// same instant are then upscaled by the on-device AI in the background and replace the photo.
 let photoRenderer = null;
-const MAX_PHOTO_PIXELS = 64e6;
+let aiQueue = Promise.resolve();
 
-function withTimeout(promise, ms) {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+function fitCanvas(src, W, H) {
+  if (src.width >= W) {
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, W, H);
+    return c;
+  }
+  if (!photoRenderer) photoRenderer = new Renderer(document.createElement('canvas'));
+  if (photoRenderer.kind === 'webgl') {
+    photoRenderer.setSize(W, H);
+    if (photoRenderer.upload(src, src.width, src.height)) {
+      photoRenderer.draw({ crop: { x: 0, y: 0, w: 1, h: 1 }, sharp: 0.35 });
+      return photoRenderer.canvas;
+    }
+  }
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, W, H);
+  return c;
 }
 
-async function takeSensorPhoto() {
-  const t = state.track;
-  if (typeof window.ImageCapture !== 'function' || !t || t.readyState !== 'live') return null;
-  // Only when no hardware zoom is active: the still must show exactly what the preview shows.
-  if (state.hw.supported && Math.abs(state.hw.applied - 1) > 0.05) return null;
-  const vw = renderer.sourceW;
-  const vh = renderer.sourceH;
-  const crop = { ...state.crop };
-  const out = { ...state.out };
-  if (!vw || !vh || !out.w) return null;
-  const ic = new ImageCapture(t);
-  let settings;
+async function aiUpgradePhoto(item, raw, W, H) {
   try {
-    const pc = await withTimeout(ic.getPhotoCapabilities(), 3000);
-    if (pc && pc.imageWidth && pc.imageWidth.max) settings = { imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max };
-  } catch { settings = undefined; }
-  const raw = await withTimeout(settings ? ic.takePhoto(settings).catch(() => ic.takePhoto()) : ic.takePhoto(), 10000);
-  let bmp;
-  try { bmp = await createImageBitmap(raw, { imageOrientation: 'from-image' }); } catch { bmp = await createImageBitmap(raw); }
-  try {
-    const pw = bmp.width;
-    const ph = bmp.height;
-    if ((pw >= ph) !== (vw >= vh) || pw * ph <= vw * vh) return null; // rotated or no gain: use the video frame
-    // The video picture is the centred part of the still with the video's aspect ratio.
-    const va = vw / vh;
-    const rw = pw / ph > va ? ph * va : pw;
-    const rh = rw / va;
-    const sx = (pw - rw) / 2 + crop.x * rw;
-    const sy = (ph - rh) / 2 + crop.y * rh;
-    const sw = crop.w * rw;
-    const sh = crop.h * rh;
-    let nw = Math.round(sw);
-    let nh = Math.round(sh);
-    const k = Math.min(1, Math.sqrt(MAX_PHOTO_PIXELS / (nw * nh)));
-    nw = even(nw * k);
-    nh = even(nh * k);
-    const cut = document.createElement('canvas');
-    cut.width = nw;
-    cut.height = nh;
-    const ctx = cut.getContext('2d');
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, nw, nh);
-    let final = cut;
-    if (nw < out.w) {
-      if (!photoRenderer) photoRenderer = new Renderer(document.createElement('canvas'));
-      if (photoRenderer.kind === 'webgl') {
-        photoRenderer.setSize(out.w, out.h);
-        if (photoRenderer.upload(cut, nw, nh)) {
-          photoRenderer.draw({ crop: { x: 0, y: 0, w: 1, h: 1 }, sharp: sharpFor(out.w / nw) });
-          final = photoRenderer.canvas;
-        }
-      }
-      if (final === cut) {
-        const up = document.createElement('canvas');
-        up.width = out.w;
-        up.height = out.h;
-        const uctx = up.getContext('2d');
-        uctx.imageSmoothingQuality = 'high';
-        uctx.drawImage(cut, 0, 0, out.w, out.h);
-        final = up;
-      }
+    const scale = raw.width * 2 >= W * 0.9 ? 2 : 4;
+    // Keep the AI's input small enough to finish in a few seconds on a phone.
+    const cap = scale === 4 ? 0.3e6 : 0.6e6;
+    let src = raw;
+    if (raw.width * raw.height > cap) {
+      const k = Math.sqrt(cap / (raw.width * raw.height));
+      src = document.createElement('canvas');
+      src.width = Math.round(raw.width * k);
+      src.height = Math.round(raw.height * k);
+      const ctx = src.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(raw, 0, 0, src.width, src.height);
     }
-    const W = final.width;
-    const H = final.height;
-    const thumb = thumbFromSource(final, W, H).catch(() => null);
+    const up = await superResolve(src, src.width, src.height, { scale, size: 'slim' });
+    const final = fitCanvas(up, W, H);
+    const thumb = await thumbFromSource(final, W, H).catch(() => item.thumb);
     const blob = await canvasToBlob(final, 'image/jpeg', 0.95);
-    return { W, H, blob, thumb: await thumb };
+    Object.assign(item, { blob, thumb, size: blob.size, ai: true });
+    await store.addMedia(item);
+    setGalleryThumb(thumb);
+    toast('✨ عکس زوم‌شده با هوش مصنوعی واضح‌تر شد.', 2200);
+  } catch (err) {
+    console.warn('AI zoom unavailable', err);
+    toast('هوش مصنوعی آماده نبود؛ همان عکس معمولی ذخیره ماند.', 3000);
   } finally {
-    bmp.close && bmp.close();
+    if (inApp()) saveToDevice(item.blob, fileNameFor(item)).catch((err) => toast(deviceSaveError(err), 5000));
   }
 }
 
 async function takePhoto() {
   if (!state.track || !loop.running) return;
   flash();
-  state.busy = true;
   try {
-    let sensor = null;
-    try { sensor = await takeSensorPhoto(); } catch (err) { console.warn('full-sensor photo unavailable', err); }
-    if (sensor) {
-      await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob: sensor.blob, thumb: sensor.thumb, width: sensor.W, height: sensor.H });
-      toast(`عکس ذخیره شد (${ltr(`${(sensor.W * sensor.H / 1e6).toFixed(1)} MP · ${sensor.W}×${sensor.H}`)})`, 2200);
-      return;
-    }
+    const wantAI = state.aiZoom && state.digital > 1.3 && !beautyActive();
     const shot = await new Promise((resolve, reject) => {
-      state.photoRequest = { resolve };
+      state.photoRequest = { resolve, raw: wantAI };
       setTimeout(() => {
         if (state.photoRequest) { state.photoRequest = null; reject(new Error('no-frame')); }
       }, 5000);
     });
     const { W, H } = shot;
     const [blob, thumb] = await Promise.all([shot.blob, shot.thumb]);
-    await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob, thumb, width: W, height: H });
-    toast(`عکس ذخیره شد (${ltr(`${qualityLabel(W, H)} · ${W}×${H}`)})`, 1800);
+    const item = await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob, thumb, width: W, height: H }, { device: !shot.raw });
+    if (shot.raw) {
+      toast('عکس ذخیره شد · هوش مصنوعی در حال واضح‌کردن آن…', 2000);
+      const raw = shot.raw;
+      aiQueue = aiQueue.then(() => aiUpgradePhoto(item, raw, W, H));
+    } else {
+      toast(`عکس ذخیره شد (${ltr(`${qualityLabel(W, H)} · ${W}×${H}`)})`, 1500);
+    }
   } catch (err) {
     console.error(err);
     toast('گرفتن عکس ناموفق بود.');
-  } finally {
-    state.busy = false;
   }
 }
 
@@ -1258,7 +1258,7 @@ const galleryUrls = [];
 let viewerItem = null;
 let viewerUrl = '';
 
-async function saveMedia(item) {
+async function saveMedia(item, { device = true } = {}) {
   item.id = item.id || `${item.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   item.created = item.created || Date.now();
   item.size = item.blob.size;
@@ -1270,7 +1270,7 @@ async function saveMedia(item) {
   }
   setGalleryThumb(item.thumb);
   // In the Android app every photo and video also goes into the tablet's own gallery.
-  if (inApp() && item.mode !== 'enhanced') {
+  if (device && inApp() && item.mode !== 'enhanced') {
     saveToDevice(item.blob, fileNameFor(item)).catch((err) => toast(deviceSaveError(err), 5000));
   }
   return item;
@@ -1375,6 +1375,88 @@ function closeViewer() {
   $('viewerBody').textContent = '';
   if (viewerUrl) URL.revokeObjectURL(viewerUrl);
   viewerUrl = '';
+}
+
+// ---------------------------------------------------------------- beauty mode
+let tracker = null;
+const hexToRgb = (hex) => (hex ? [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) : null);
+
+function beautyActive() { return !!(state.beauty.on && tracker && tracker.face); }
+
+function applyBeauty() {
+  if (!beautyActive() || renderer.kind !== 'webgl') { renderer.setBeauty && renderer.setBeauty(null); return; }
+  const b = state.beauty;
+  renderer.setBeauty(tracker.face, {
+    smooth: b.smooth / 100, foundation: b.foundation / 100, nose: b.nose / 100, eyes: b.eyes / 100,
+  }, hexToRgb(b.iris));
+}
+
+async function startTracker() {
+  if (!state.beauty.on || state.screen !== 'camScreen') return;
+  if (renderer.kind !== 'webgl') { $('beautyStatus').textContent = 'آرایش روی این دستگاه پشتیبانی نمی‌شود (WebGL ندارد).'; return; }
+  if (!tracker) tracker = new FaceTracker(video);
+  try {
+    await tracker.start();
+  } catch (err) {
+    console.warn(err);
+    tracker.stop();
+    $('beautyStatus').textContent = 'هوش مصنوعی تشخیص صورت روی این دستگاه بارگذاری نشد.';
+  }
+}
+
+function stopTracker() { if (tracker) tracker.stop(); }
+
+function updateBeautyUI() {
+  const b = state.beauty;
+  $('beautyBtn').classList.toggle('on', b.on);
+  $('beautyBtn').setAttribute('aria-pressed', String(b.on));
+  $('beautyPanel').hidden = !b.on;
+  for (const [id, key] of [['bSmooth', 'smooth'], ['bFoundation', 'foundation'], ['bNose', 'nose'], ['bEyes', 'eyes']]) $(id).value = b[key];
+  for (const sw of $('irisSwatches').querySelectorAll('button')) sw.classList.toggle('active', sw.dataset.color === b.iris);
+  const custom = $('irisCustom').parentElement;
+  const preset = [...$('irisSwatches').querySelectorAll('button')].some((x) => x.dataset.color === b.iris);
+  custom.classList.toggle('active', !preset && !!b.iris);
+  $('aiBtn').classList.toggle('on', state.aiZoom);
+  $('aiBtn').setAttribute('aria-pressed', String(state.aiZoom));
+}
+
+setInterval(() => {
+  if (!state.beauty.on || state.screen !== 'camScreen') return;
+  const el = $('beautyStatus');
+  if (tracker && tracker.netsLoaded) el.textContent = tracker.face ? 'صورت پیدا شد ✓ آرایش روی عکس و ویدیو اعمال می‌شود' : 'صورتت را جلوی دوربین بگیر…';
+  else if (!el.textContent) el.textContent = 'در حال آماده‌سازی هوش مصنوعی تشخیص صورت…';
+}, 500);
+
+function bindBeauty() {
+  $('beautyBtn').addEventListener('click', () => {
+    state.beauty.on = !state.beauty.on;
+    saveSettings();
+    updateBeautyUI();
+    if (state.beauty.on) { $('beautyStatus').textContent = ''; startTracker(); } else stopTracker();
+  });
+  for (const [id, key] of [['bSmooth', 'smooth'], ['bFoundation', 'foundation'], ['bNose', 'nose'], ['bEyes', 'eyes']]) {
+    $(id).addEventListener('input', (e) => { state.beauty[key] = Number(e.target.value); saveSettings(); });
+  }
+  $('irisSwatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-color]');
+    if (!b) return;
+    state.beauty.iris = b.dataset.color;
+    saveSettings();
+    updateBeautyUI();
+  });
+  $('irisCustom').addEventListener('input', (e) => {
+    state.beauty.iris = e.target.value;
+    saveSettings();
+    updateBeautyUI();
+  });
+  $('aiBtn').addEventListener('click', () => {
+    state.aiZoom = !state.aiZoom;
+    saveSettings();
+    updateBeautyUI();
+    toast(state.aiZoom
+      ? 'AI روشن شد: عکس‌هایی که با زوم می‌گیری با هوش مصنوعی روی خود گوشی واضح‌تر می‌شوند.'
+      : 'AI خاموش شد.', 3500);
+  });
 }
 
 // ---------------------------------------------------------------- permission screen
@@ -1499,6 +1581,8 @@ async function boot() {
   renderer = new Renderer(canvas);
   canvas = renderer.canvas;
   bindUI();
+  bindBeauty();
+  updateBeautyUI();
   updateModeUI();
   initEnhancer({ saveToGallery: saveMedia });
   registerServiceWorker();

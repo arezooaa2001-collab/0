@@ -46,6 +46,10 @@
       <button id="torchBtn" class="icon-btn" type="button" title="چراغ" aria-label="چراغ" hidden>
         <svg viewBox="0 0 24 24"><path d="M7 2h10v4l-3 4v12h-4V10L7 6z"/></svg>
       </button>
+      <button id="beautyBtn" class="icon-btn" type="button" title="آرایش" aria-label="آرایش" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v2a8 8 0 0 0 16 0v-2a8 8 0 0 0-8-8zm-3.5 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm7 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM12 18c-2 0-3.6-1.2-4.2-2.8h8.4C15.6 16.8 14 18 12 18z"/></svg>
+      </button>
+      <button id="aiBtn" class="chip" type="button" title="زوم هوش مصنوعی برای عکس" aria-pressed="false">AI</button>
       <button id="micBtn" class="icon-btn" type="button" title="میکروفون" aria-label="میکروفون" aria-pressed="false">
         <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 18h2v4h-2z"/></svg>
         <span class="slash"></span>
@@ -58,6 +62,25 @@
     </header>
 
     <div class="bottom">
+      <div id="beautyPanel" class="beauty-panel" hidden>
+        <label>صاف کردن پوست <input id="bSmooth" type="range" min="0" max="100" value="60"></label>
+        <label>کرم‌پودر (روشن و یکدست) <input id="bFoundation" type="range" min="0" max="100" value="45"></label>
+        <label>بینی (کانتور و باریک) <input id="bNose" type="range" min="0" max="100" value="40"></label>
+        <label>چشم‌ها (درشت و روشن) <input id="bEyes" type="range" min="0" max="100" value="35"></label>
+        <div class="iris-row">
+          <span>رنگ چشم</span>
+          <div id="irisSwatches" class="swatches">
+            <button type="button" data-color="" class="active" title="رنگ طبیعی">✕</button>
+            <button type="button" data-color="#2f7de1" style="background:#2f7de1" title="آبی"></button>
+            <button type="button" data-color="#2f9e63" style="background:#2f9e63" title="سبز"></button>
+            <button type="button" data-color="#9a7341" style="background:#9a7341" title="عسلی"></button>
+            <button type="button" data-color="#8c9aa8" style="background:#8c9aa8" title="طوسی"></button>
+            <button type="button" data-color="#8b55d6" style="background:#8b55d6" title="بنفش"></button>
+            <label class="custom-color" title="رنگ دلخواه"><input id="irisCustom" type="color" value="#4fc3f7">🎨</label>
+          </div>
+        </div>
+        <p id="beautyStatus" class="beauty-status"></p>
+      </div>
       <div class="zoom-panel">
         <div id="zoomValue" class="zoom-value">1.0×</div>
         <div id="zoomPresets" class="zoom-presets"></div>
@@ -149,6 +172,7 @@
       </div>
       <label class="check"><input id="autoColor" type="checkbox" checked> اصلاح خودکار نور و رنگ</label>
       <label class="check"><input id="denoiseOn" type="checkbox" checked> حذف نویز (دانه‌دانه بودن)</label>
+      <label class="check"><input id="aiOn" type="checkbox" checked> هوش مصنوعی (واضح‌کردن عکس‌های شطرنجی و دانه‌دانه)</label>
       <p id="enhanceSizes" class="muted"></p>
       <button id="enhanceRun" class="btn primary big" type="button">✨ بهبود کیفیت</button>
     </div>
@@ -177,12 +201,14 @@
     <div class="dialog-card">
       <h3>راهنمای Camera</h3>
       <ul>
-        <li><b>زوم:</b> با دو انگشت روی تصویر، با نوار زوم یا دکمه‌های آماده. دوربین پشت تا <b>۲۵۰×</b> و دوربین جلو تا <b>۴۰×</b>.</li>
+        <li><b>زوم:</b> با دو انگشت روی تصویر، با نوار زوم یا دکمه‌های آماده. دوربین پشت تا <b>۲۵۰×</b> و دوربین جلو تا <b>۵۰×</b>.</li>
         <li>اول زوم سخت‌افزاری خود دوربین (لنز/سنسور) استفاده می‌شود و بقیه‌اش با زوم دیجیتال پرکیفیت روی پردازنده گرافیکی دستگاه انجام می‌شود. زیر نوار زوم نوشته شده هر کدام چقدر است.</li>
         <li>وقتی زوم دیجیتال فعال است با یک انگشت تصویر را جابه‌جا کن. با یک ضربه فوکوس می‌شود (اگر دستگاه پشتیبانی کند).</li>
         <li>در زوم‌های خیلی زیاد دست کمی هم بلرزد تصویر خیلی تکان می‌خورد؛ تبلت را به جایی تکیه بده.</li>
         <li><b>ویدیو:</b> دکمه قرمز. برای ضبط صدا اول دکمه میکروفون را روشن کن.</li>
         <li><b>ویدیو سریع:</b> هر چند ثانیه یک فریم می‌گیرد و ویدیوی تند (تایم‌لپس) می‌سازد. <b>ویدیو آهسته:</b> ویدیوی اسلوموشن ۲، ۴ یا ۸ برابر آهسته‌تر.</li>
+        <li><b>آرایش:</b> دکمه صورتک بالای صفحه. پوست صاف و روشن (مثل کرم‌پودر)، کانتور و باریک‌کردن بینی، چشم‌های درشت‌تر و رنگ چشم دلخواه — در عکس، ویدیو، سریع و آهسته.</li>
+        <li><b>AI:</b> وقتی روشن باشد، هر عکسی که با زوم بگیری با هوش مصنوعی روی خود گوشی واضح‌تر می‌شود (چند ثانیه بعد از گرفتن، در پس‌زمینه).</li>
         <li><b>خاموش کردن صفحه:</b> هنگام ضبط، دکمه «خاموش کردن صفحه» صفحه را کاملاً سیاه می‌کند ولی ضبط ادامه دارد. دکمه پاور را نزن؛ اگر دستگاه قفل شود مرورگر دوربین را قطع می‌کند و برنامه هرچه ضبط شده را ذخیره می‌کند.</li>
       </ul>
       <button class="btn primary" type="button" data-close>باشه</button>

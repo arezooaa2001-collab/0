@@ -1,4 +1,5 @@
 // "Photo quality" screen: pick any photo, enhance it on the device, compare before/after.
+import { superResolve } from './ai.js';
 import { $, toast, canvasToBlob, downloadBlob, shareBlob, fileNameFor, thumbFromImageBlob, faNum, ltr } from './ui.js';
 
 const MAX_OUT_PIXELS = 16_000_000; // iPad/iPhone canvases are limited to ~16.7 MP
@@ -170,6 +171,7 @@ async function run() {
   const strength = options.strength;
   const autoColor = $('autoColor').checked;
   const denoise = $('denoiseOn').checked;
+  let useAI = $('aiOn').checked;
   const caps = [MAX_OUT_PIXELS, 8_000_000, 4_000_000];
   try {
     for (let attempt = 0; attempt < caps.length; attempt++) {
@@ -183,7 +185,24 @@ async function run() {
       ctx.drawImage(current.bitmap, 0, 0, p.iw, p.ih);
       const img = ctx.getImageData(0, 0, p.iw, p.ih);
       c.width = c.height = 1;
-      const job = { id: ++jobId, data: img.data.buffer, width: p.iw, height: p.ih, outW: p.ow, outH: p.oh, opts: { strength, autoColor, denoise } };
+      // With AI: the classic pass (denoise, deblur, light) works at the AI's input size, then the
+      // AI model upscales 2x/4x. For "1x" the AI result is scaled back down (super-sampling).
+      const ratio = p.ow / p.iw;
+      const aiScale = ratio <= 2.2 ? 2 : 4;
+      const aiCap = 1.2e6;
+      let aw = ratio <= 1.5 ? p.ow : Math.round(p.ow / aiScale);
+      let ah = ratio <= 1.5 ? p.oh : Math.round(p.oh / aiScale);
+      // A large photo at about 1x already has its detail: the AI would have to shrink it first.
+      const runAI = useAI && !(ratio <= 1.5 && aw * ah > aiCap);
+      if (runAI && aw * ah > aiCap) {
+        const k = Math.sqrt(aiCap / (aw * ah));
+        aw = Math.round(aw * k);
+        ah = Math.round(ah * k);
+      }
+      const job = {
+        id: ++jobId, data: img.data.buffer, width: p.iw, height: p.ih,
+        outW: runAI ? aw : p.ow, outH: runAI ? ah : p.oh, opts: { strength, autoColor, denoise, aiNext: runAI },
+      };
       let res;
       try {
         res = await runJob(job);
@@ -192,17 +211,41 @@ async function run() {
         if (err.oom && attempt < caps.length - 1) { toast('حافظه کافی نبود؛ با اندازه کوچک‌تر دوباره تلاش می‌شود…'); continue; }
         throw err;
       }
-      setProgress(0.99, 'در حال ذخیره…');
-      const out = document.createElement('canvas');
+      let out = document.createElement('canvas');
       out.width = res.width;
       out.height = res.height;
       out.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(res.data), res.width, res.height), 0, 0);
+      if (runAI) {
+        try {
+          setProgress(0.4, 'هوش مصنوعی در حال واضح‌کردن عکس…');
+          const up = await superResolve(out, out.width, out.height, {
+            scale: aiScale,
+            size: out.width * out.height <= 0.4e6 ? 'medium' : 'slim',
+            onProgress: (f) => setProgress(0.4 + 0.58 * f, 'هوش مصنوعی در حال واضح‌کردن عکس…'),
+          });
+          const fin = document.createElement('canvas');
+          fin.width = p.ow;
+          fin.height = p.oh;
+          const fctx = fin.getContext('2d');
+          fctx.imageSmoothingQuality = 'high';
+          fctx.drawImage(up, 0, 0, p.ow, p.oh);
+          out.width = out.height = 1;
+          out = fin;
+        } catch (err) {
+          console.warn('AI unavailable', err);
+          toast('هوش مصنوعی روی این دستگاه بارگذاری نشد؛ بهبود معمولی انجام می‌شود.', 4000);
+          useAI = false;
+          attempt--;
+          continue;
+        }
+      }
+      setProgress(0.99, 'در حال ذخیره…');
       const type = res.hasAlpha ? 'image/png' : 'image/jpeg';
       const blob = await canvasToBlob(out, type, 0.95);
+      result = { blob, url: URL.createObjectURL(blob), w: out.width, h: out.height };
       out.width = out.height = 1;
-      result = { blob, url: URL.createObjectURL(blob), w: res.width, h: res.height };
       showCompare();
-      setProgress(null, `عکس بهبود یافت: ${ltr(`${res.width}×${res.height}`)} پیکسل`);
+      setProgress(null, `عکس بهبود یافت: ${ltr(`${result.w}×${result.h}`)} پیکسل`);
       return;
     }
   } catch (err) {

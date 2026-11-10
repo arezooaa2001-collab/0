@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached, but the network is always tried first so
 // updates arrive immediately when online.
-const CACHE = 'camera-v1';
+const CACHE = 'camera-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './js/ui.js',
   './js/enhancer.js',
   './js/enhance-core.js',
+  './js/ai.js',
   './vendor/mp4-muxer.js',
   './manifest.webmanifest',
   './icons/icon.svg',

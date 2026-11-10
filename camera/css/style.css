@@ -138,6 +138,26 @@ svg { width: 24px; height: 24px; fill: currentColor; }
   background: linear-gradient(transparent, rgba(0, 0, 0, .7) 30%);
 }
 
+.beauty-panel {
+  width: min(560px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px;
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+  font-size: .8rem;
+}
+.beauty-panel label { display: grid; gap: 2px; color: rgba(255, 255, 255, .85); }
+.beauty-panel input[type=range] { width: 100%; accent-color: #ff6fae; direction: ltr; margin: 0; }
+.iris-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.swatches button, .custom-color {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35);
+  display: grid; place-items: center; font-size: .75rem; background: rgba(255, 255, 255, .08); cursor: pointer;
+}
+.swatches button.active, .custom-color.active { border-color: #fff; box-shadow: 0 0 0 2px #ff6fae; }
+.custom-color input { position: absolute; width: 0; height: 0; opacity: 0; }
+.custom-color { position: relative; }
+.beauty-status { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: .75rem; }
+#beautyBtn.on { color: #ff6fae; }
+#aiBtn.on { background: linear-gradient(135deg, #7c4dff, #ff6fae); border-color: transparent; color: #fff; }
+
 .zoom-panel { width: min(560px, 100%); display: grid; gap: 6px; justify-items: center; }
 .zoom-value {
   font-size: 1.05rem; font-weight: 800; direction: ltr;
@@ -213,6 +233,7 @@ svg { width: 24px; height: 24px; fill: currentColor; }
     align-content: start; overflow-y: auto; gap: 8px;
   }
   .zoom-info { display: none; }
+  .beauty-panel { grid-template-columns: 1fr; }
   .modes { flex-wrap: wrap; justify-content: center; }
   .modes button { padding: 4px 10px; font-size: .85rem; }
   .zoom-presets button { min-width: 36px; height: 28px; }
