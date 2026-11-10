@@ -968,7 +968,23 @@ const L3D = [
   { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 5400, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
   { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 6200, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
   { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 9000, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
+  // level 42: the summit. 45 rooms, the densest course and every hard obstacle type
+  { kind: '3d', name: 'قله‌ی آخر: ۴۵ اتاق', theme: 'abyss', len: 12600, giants: 30, speed: 20, gap: 19, gs: 0.986, types: ALL3D, hard: true, dens: 2.15, zig: 0.12, seed: 10, final: true },
 ];
+/* ---------- level 41: a rest stop after all that. One calm room, gentle obstacles, lots of gems ---------- */
+const REST = { name: 'استراحتگاه', rest: true, biome: 'aurora', spawn: [2, 14], build(L) {
+    L.block(null, 0, 15, 10, 3);
+    L.block(null, 12, 15, 9, 3);
+    L.spring(null, 17, 14);
+    L.block(null, 23, 15, 9, 3);
+    if (L.gem) {
+      for (let i = 0; i < 4; i++) L.gem(4 + i * 1.4, 13.2);
+      for (let i = 0; i < 5; i++) L.gem(10.2 + i * .4, 12.6 - Math.sin(i / 4 * Math.PI) * 1.6);
+      for (let i = 0; i < 6; i++) L.gem(15.6 + i * 1.1, 8.6 - Math.sin(i / 5 * Math.PI) * 3);
+      for (let i = 0; i < 3; i++) L.gem(21.1 + i * .5, 12.4);
+    }
+    L.door(29.5, 13);
+}};
 
 /* ---------- 7 more hand-made levels (replace the old mirrored copies) ---------- */
 const MORE2D = [
@@ -1103,13 +1119,20 @@ const REALM = [
   }},
 ];
 
-/* ---------- final order: 40 levels ---------- */
+/* ---------- final order: 42 levels ---------- */
 const LEVELS = [
   L2D[0], L3D[0], L2D[1], L2D[2], L3D[1], L2D[3], L2D[4], L2D[5], L2D[6], L3D[2],
   L2D[7], L2D[8], L2D[9], L2D[10], L3D[3], L2D[11], L2D[12], L2D[13], L2D[14], L3D[4],
   NEW2D[0], NEW2D[1], NEW2D[2], NEW2D[3], L3D[5], NEW2D[4], NEW2D[5], NEW2D[6], NEW2D[7], L3D[6],
   MORE2D[0], MORE2D[1], MORE2D[2], MORE2D[3], L3D[7], MORE2D[4], MORE2D[5], MORE2D[6], L2D[15], L3D[8],
+  REST, L3D[9],
 ];
+// rooms per level (a room = one stretch between checkpoints; the hand-made screen is the last room of a 2D level)
+const ROOMS = [5, 5, 5, 5, 5, 5, 10, 10, 10, 10, 10, 16, 16, 16, 16, 16, 16, 16, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+  26, 26, 26, 26, 26, 26, 26, 26, 35, 35, 35, 1, 45];
+LEVELS.forEach((d, i) => { d.rooms = ROOMS[i]; });
+// levels where other runners race you to the exit
+const RIVAL_LV = new Set([1, 4, 9, 14, 19, 24, 25, 26, 29]);
 const PORTAL_LEVEL = 36; // level 37 holds the secret portal
 /* ============================ LONG LEVELS: COURSE GENERATOR ============================ */
 // Every platformer level is one long scrolling course. It is made of chunks of about five obstacles, each
@@ -1119,7 +1142,7 @@ const PORTAL_LEVEL = 36; // level 37 holds the secret portal
 // colours (BIOMES), so two levels never play the same. Coordinates below are tiles relative to the chunk.
 const TOP_MIN = 10, TOP_MAX = 15, CHUNK = 5;
 // chunk seeds replaced after checking every chunk with the auto-solver (easy + insane)
-const CHUNK_FIX = {'L18:4': 2904, 'L12:2': 4302, 'L25:8': 3608, 'L16:6': 9706, 'L30:2': 4102, 'L30:6': 5106, 'L33:9': 7409, 'L32:2': 7302, 'L37:9': 4809, 'R0:7': 51007, 'L35:6': 4606, 'L35:7': 4607, 'L35:8': 8608, 'R2:2': 51202};
+const CHUNK_FIX = {};
 
 /* ============================ POWER-UPS (2D levels) ============================ */
 // t = timer field on the player, dur = seconds. The shield lasts until it saves you once.
@@ -1650,7 +1673,7 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
     const r = srand(seed * 9973 + 7), G = mkG(P, r, t0, opt.dj);
     G.F(0, 3); G.x = 3;
     keys.forEach((key, i) => {
-      const kd = KINDS[key], pos = (ci * CHUNK + i) / Math.max(1, opt.n - 1);
+      const kd = KINDS[key], pos = ((opt.starts ? opt.starts[ci] : ci * CHUNK) + i) / Math.max(1, opt.n - 1);
       G.k = clamp(opt.k0 * .85 + pos * .3, 0, 1);
       // bring the floor to the nearest height this obstacle can be built at (a drop going down, steps going up)
       if (kd.can && !kd.can(G.t)) {
@@ -1708,8 +1731,8 @@ function pickKinds(opt, r) {
   // designs used by the previous level are strongly avoided, so neighbouring levels feel different
   const wOf = kd => (opt.pri[0] === kd.fam ? 3.4 : opt.pri.includes(kd.fam) ? 2.4 : 1) * (.6 + r() * .8) * (opt.prev && opt.prev.has(kd.key) ? .22 : 1);
   const pool = avail.map(kd => ({ kd, w: wOf(kd), s: r() * 1.7 })), out = [];
-  // each level uses about 70% of the designs it may use, so neighbouring levels draw different sets
-  const n = Math.min(Math.round(pool.length * .72), opt.n);
+  // a level uses at most ~85% of the designs it may use, so neighbouring levels draw different sets
+  const n = Math.min(Math.round(pool.length * .85), opt.n);
   while (out.length < n) {
     let tot = 0; for (const q of pool) tot += q.w;
     let x = r() * tot, j = 0; while (j < pool.length - 1 && (x -= pool[j].w) > 0) j++;
@@ -1728,9 +1751,18 @@ function pickKinds(opt, r) {
 }
 function buildCourse(def, opt) {
   def.courseOpt = opt;
+  const hand = { hand: true, w: 32, t0: TOP_MAX, spawn: def.spawn, build: def.build };
+  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
+  // a level of one room is just its hand-made screen
+  const nCh = opt.rooms ? opt.rooms - 1 : 0;
+  if (opt.rooms === 1) { def.secs = [hand]; def.nObs = 0; def.course = opt; def.relayout(); return; }
   const r = srand(opt.seed * 7919 + 13), keys = pickKinds(opt, r);
   opt.n = keys.length;
-  const groups = []; for (let i = 0; i < keys.length; i += CHUNK) groups.push(keys.slice(i, i + CHUNK));
+  // the obstacles are split over exactly (rooms - 1) chunks; later chunks get the extra ones
+  const groups = [];
+  if (nCh) { const base = Math.floor(keys.length / nCh), extra = keys.length % nCh; let k = 0; for (let c = 0; c < nCh; c++) { const sz = base + (c >= nCh - extra ? 1 : 0); groups.push(keys.slice(k, k + sz)); k += sz; } }
+  else for (let i = 0; i < keys.length; i += CHUNK) groups.push(keys.slice(i, i + CHUNK));
+  opt.starts = []; { let k = 0; for (const g of groups) { opt.starts.push(k); k += g.length; } }
   // underground stretch: the middle chunk goes into a cave; designs that need a high ceiling are swapped for cave-friendly ones
   opt.caveCi = Math.floor((groups.length - 1) / 2);
   if (opt.cave) {
@@ -1743,23 +1775,23 @@ function buildCourse(def, opt) {
     const c = makeChunk(ks, seed, TOP_MAX, opt, ci, groups.length); secs.push(c);
   });
   // the hand-made screen closes the level
-  secs.push({ hand: true, w: 32, t0: TOP_MAX, spawn: def.spawn, build: def.build });
+  secs.push(hand);
   def.secs = secs; def.nObs = keys.length; def.course = opt;
-  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
   def.remakeChunk = (ci, seed) => { const c = def.secs[ci]; def.secs[ci] = makeChunk(c.keys, seed, c.t0, opt, ci, groups.length); def.relayout(); };
   def.relayout();
 }
 let prevKeys = null;
 LEVELS.forEach((def, idx) => {
   if (def.kind === '3d') return;
-  const k0 = idx / 39;
+  const k0 = Math.min(1, idx / 39);
   const nth = LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length;
-  if (nth % 6 === 4) AUTO_CAVE.add(idx);
+  if (nth % 6 === 4 && !def.rest) AUTO_CAVE.add(idx);
+  // about five obstacles per room (fewer on the very long levels, so no design repeats inside a level)
   buildCourse(def, { prev: prevKeys,
-    key: 'L' + idx, seed: idx + 1, k0, n: Math.round(20 + idx), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
+    key: 'L' + idx, seed: idx + 1, k0, rooms: def.rooms, n: Math.max(0, (def.rooms - 1) * 5), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
     grav: idx >= 10, ice: idx >= 30, conv: idx >= 31, revz: idx >= 13, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx], cave: caveFor(idx),
   });
-  prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
+  if (!def.rest) prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
   def.biome = def.biome || BIOME_ORDER[LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length % BIOME_ORDER.length];
 });
 REALM.forEach((def, ri) => {
@@ -3558,7 +3590,7 @@ function drawRun2D(run, t, dt) {
   for (const b of run.bridges) { if (b.s1 < sMin || b.s0 > sMax) continue; const y0 = Yg(b.cx - b.w / 2), y1 = Yg(b.cx + b.w / 2); ctx.fillStyle = c.road; ctx.fillRect(X(b.s0), y0, (b.s1 - b.s0) * k, y1 - y0); ctx.fillStyle = c.roadDark; ctx.fillRect(X(b.s0), y1, (b.s1 - b.s0) * k, .8 * kh); ctx.fillStyle = c.edge; ctx.fillRect(X(b.s0), y0 - 1, (b.s1 - b.s0) * k, 2); ctx.fillRect(X(b.s0), y1 - 1, (b.s1 - b.s0) * k, 2); }
   for (const gp of run.gaps) { if (gp.s1 < sMin || gp.s0 > sMax) continue; ctx.fillStyle = c.lava ? '#ff5a14' : '#05030a'; ctx.fillRect(X(gp.s0), Yg(-5) - 1, (gp.s1 - gp.s0) * k, 10 * kl + .8 * kh + 2); }
   // checkpoints + goal portal
-  for (const ck of run.checkpoints) if (ck > sMin && ck < sMax) { ctx.strokeStyle = c.edge; ctx.lineWidth = k * .25; ctx.beginPath(); ctx.moveTo(X(ck), Yg(-5)); ctx.lineTo(X(ck), Yg(-5) - 5.4 * kh); ctx.lineTo(X(ck) + .01, Yg(5) - 5.4 * kh); ctx.lineTo(X(ck), Yg(5)); ctx.stroke(); }
+  for (const ck of run.arches) if (ck > sMin && ck < sMax) { ctx.strokeStyle = c.edge; ctx.lineWidth = k * .25; ctx.beginPath(); ctx.moveTo(X(ck), Yg(-5)); ctx.lineTo(X(ck), Yg(-5) - 5.4 * kh); ctx.lineTo(X(ck) + .01, Yg(5) - 5.4 * kh); ctx.lineTo(X(ck), Yg(5)); ctx.stroke(); }
   // collect drawables sorted far-to-near by lateral position
   const items = [];
   for (const o of run.obs) {
@@ -3689,7 +3721,7 @@ function pseudoScene(run, c, cam, rx, ry, rw, rh, t, back) {
     for (const o of run.obs) { if (o.type === 'gap' || !inRange(o.s0)) continue; let x0 = o.x0, x1 = o.x1; if (o.type === 'mover') { const m = moverC(run, o); x0 = m - o.w / 2; x1 = m + o.w / 2; } items.push({ d: o.s0, f: () => pseudoBox(o, x0, x1, proj, c, cam) }); }
     for (const q of run.picks) if (!q.got && inRange(q.s)) items.push({ d: q.s, f: () => { const P = proj(q.x, q.y, q.s); if (P) drawPick2D(P[0], P[1], P[2], q.k, t); } });
     for (let s = Math.ceil(cam.s / 9) * 9; s < cam.s + far; s += 9) { const h = Math.sin(s * 12.9898) * .5 + .5; for (const side of [-1, 1]) { const xx = side * (9 + h * 14); items.push({ d: s, f: () => { const P = proj(xx, 0, s); if (!P) return; const k = P[2]; ctx.fillStyle = c.trunk; ctx.fillRect(P[0] - .3 * k, P[1] - 2 * k, .6 * k, 2 * k); ctx.fillStyle = c.tree; ctx.beginPath(); ctx.moveTo(P[0] - 2 * k, P[1] - 1.6 * k); ctx.lineTo(P[0], P[1] - (6 + h * 3) * k); ctx.lineTo(P[0] + 2 * k, P[1] - 1.6 * k); ctx.fill(); } }); } }
-    for (const ck of run.checkpoints) if (inRange(ck)) items.push({ d: ck, f: () => { const L = proj(-5.4, 0, ck), R = proj(5.4, 0, ck); if (!L) return; ctx.strokeStyle = c.edge; ctx.lineWidth = Math.max(2, L[2] * .3); ctx.beginPath(); ctx.moveTo(L[0], L[1]); ctx.lineTo(L[0], L[1] - 5.4 * L[2]); ctx.lineTo(R[0], R[1] - 5.4 * R[2]); ctx.lineTo(R[0], R[1]); ctx.stroke(); } });
+    for (const ck of run.arches) if (inRange(ck)) items.push({ d: ck, f: () => { const L = proj(-5.4, 0, ck), R = proj(5.4, 0, ck); if (!L) return; ctx.strokeStyle = c.edge; ctx.lineWidth = Math.max(2, L[2] * .3); ctx.beginPath(); ctx.moveTo(L[0], L[1]); ctx.lineTo(L[0], L[1] - 5.4 * L[2]); ctx.lineTo(R[0], R[1] - 5.4 * R[2]); ctx.lineTo(R[0], R[1]); ctx.stroke(); } });
     if (inRange(run.len)) items.push({ d: run.len, f: () => { const P = proj(0, 4.2, run.len); if (!P) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(TEX.gDoor, P[0] - 9 * P[2], P[1] - 9 * P[2], 18 * P[2], 18 * P[2]); ctx.restore(); ctx.strokeStyle = PAL.door; ctx.lineWidth = .5 * P[2]; ctx.beginPath(); ctx.arc(P[0], P[1], 4.2 * P[2], 0, 7); ctx.stroke(); } });
   }
   const gap = run.gapNow(), reach = clamp(1 - (gap - 3) / 9, 0, 1), n = Math.min(run.def.giants, GFX.giants);
@@ -3739,6 +3771,7 @@ const THEMES3 = {
   night:  { sky: [0x02030c, 0x0a1238, 0x2c4182], fog: 0x0e1636, fogN: 40, fogF: 210, hemi: [0x8f9fff, 0x101830, 0.95], sun: [0xc0d0ff, 0.6], ground: 0x18203e, road: 0x323c6a, side: 0x1c2448, edge: 0xb18cff, tree: 'crystal', treeC: 0x8a6fff, trunk: 0x1a1a26, rock: 0x26305a, mtn: 0x18214a, mist: 0x3a4a8a, giant: [0x3a4270, 0x2a3460], eye: 0x6ff3c4, moon: 0xdfe8ff, cloud: 0x3a4a7a },
   storm:  { sky: [0x141922, 0x343e52, 0x687388], fog: 0x485266, fogN: 40, fogF: 210, hemi: [0xb0bccc, 0x2a3038, 0.9], sun: [0xdde6ff, 0.5], ground: 0x2e3542, road: 0x535c70, side: 0x2c3240, edge: 0xffd36e, tree: 'dead', treeC: 0x2a2a2a, trunk: 0x2a2222, rock: 0x3a4250, mtn: 0x363e4e, mist: 0x8090a0, giant: [0x4a5060, 0x5a5a66], eye: 0xff3d71, cloud: 0x5a6478, storm: true },
   ash:    { sky: [0x1a1014, 0x5a3a3a, 0xc08060], fog: 0x6a4a44, fogN: 40, fogF: 220, hemi: [0xffc0a0, 0x2a1a1a, 0.95], sun: [0xffb080, 0.7], ground: 0x3a2c2c, road: 0x5a4a4c, side: 0x2a2024, edge: 0xffa040, tree: 'dead', treeC: 0x2a2020, trunk: 0x2a2020, rock: 0x4a3a3a, mtn: 0x3a2a2a, mist: 0xb08070, giant: [0x4a3a3a, 0x5a4a44], eye: 0xff7a2a, sunDisc: 0xffd0a0, cloud: 0x6a4a4a },
+  abyss:  { sky: [0x020208, 0x1a0a3a, 0x7a2aff], fog: 0x1a0e36, fogN: 40, fogF: 230, hemi: [0xb0a0ff, 0x100820, 1.0], sun: [0xc08aff, 0.85], ground: 0x140c26, road: 0x3a2a66, side: 0x1a1236, edge: 0x7af7ff, tree: 'crystal', treeC: 0x7af7ff, trunk: 0x100a1a, rock: 0x241a40, mtn: 0x1a1236, mist: 0x8a5aff, mistGlow: true, giant: [0x2a1a4a, 0x1a1030], eye: 0x7af7ff, moon: 0xd0b0ff, cloud: 0x2a1a4a, islands: true, storm: true },
   doom:   { sky: [0x0a0208, 0x4a0a2a, 0xff4a2a], fog: 0x3a0a1e, fogN: 40, fogF: 230, hemi: [0xff9a9a, 0x200818, 1.0], sun: [0xff5a3a, 0.9], ground: 0x24101c, road: 0x4a2c4e, side: 0x22122a, edge: 0xff3d71, tree: 'crystal', treeC: 0xff3d71, trunk: 0x1a0a12, rock: 0x2a1222, mtn: 0x2a0f22, mist: 0xff4a2a, mistGlow: true, giant: [0x3a1a2a, 0x2a1a1a], eye: 0xff2a2a, moon: 0xff8a6a, cloud: 0x4a1a2a, islands: true, storm: true },
 };
 const PG3 = 28, JV3 = 10, LATV = 8.5, ROADW = 10, BRW = 3.6;
@@ -3807,9 +3840,11 @@ class Run3D {
     this.gap0 = def.gap * this.DD.gapM;
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
-    this.checkpoints = [];
-    // insane: no checkpoints on short runs, a single one halfway on the very long ones (3800 m and up)
-    { const step = [700, 700, 750, 1500, 2500][this.d], n = this.d === 4 ? Math.round(this.len / step) : Math.max(2, Math.round(this.len / step)); for (let i = 1; i < n; i++) this.checkpoints.push(Math.round(this.len * i / n)); }
+    // rooms: arches split the run into equal stretches. You restart from an arch when caught: every arch on the
+    // easier difficulties, every second one on very hard and every third on insane
+    this.rooms = def.rooms || Math.max(2, Math.round(this.len / 700));
+    this.arches = []; for (let i = 1; i < this.rooms; i++) this.arches.push(Math.round(this.len * i / this.rooms));
+    { const every = [1, 1, 1, 2, 3][this.d]; this.checkpoints = this.arches.filter((a, i) => (i + 1) % every === 0); }
     this.ckS = 0; this.firstIntro = true;
     this.time = 0; this.shake = 0; this.flash = 0;
     if (!this.noScene) this.buildScene();
@@ -4025,7 +4060,8 @@ class Run3D {
       }
     }
     // checkpoints
-    for (const c of this.checkpoints) if (p.s >= c && this.ckS < c) { this.ckS = c; if (this.onSay) this.onSay('چک‌پوینت ✓'); this.sfx('spawn'); }
+    for (const c of this.checkpoints) if (p.s >= c && this.ckS < c) { this.ckS = c; this.sfx('spawn'); }
+    { const rm = this.roomAt(p.s); if (rm !== this.room) { this.room = rm; if (rm > 1 && this.onRoom) this.onRoom(rm, this.checkpoints.includes(this.arches[rm - 2])); } }
     // giants
     this.surgeT -= dt;
     if (this.surgeT <= 0) {
@@ -4050,6 +4086,7 @@ class Run3D {
   sfx(n) { if (!this.headless) Sound.play(n); }
   rebuildScene() { if (this.noScene) return; this.dispose(); this.buildScene(); }
   gapNow() { return this.p.s - this.gS; }
+  roomAt(s) { let n = 1; for (const a of this.arches) if (s >= a) n++; return n; }
 
   /* ---------------- scene ---------------- */
   buildScene() {
@@ -4160,9 +4197,9 @@ class Run3D {
     swirl.position.set(0, 4.2, -this.len - 0.05); sc.add(swirl); this.swirl = swirl;
     const pg = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffb347, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
     pg.scale.set(30, 30, 1); pg.position.set(0, 4.2, -this.len - 0.2); sc.add(pg);
-    if (this.checkpoints.length) {
-      const ck = inst(keep(new THREE.TorusGeometry(5.4, 0.22, 6, 24, Math.PI)), keep(new THREE.MeshBasicMaterial({ color: C.edge })), this.checkpoints.length);
-      this.checkpoints.forEach((c, i) => put(ck, i, 0, 0, -c, 1, 1, 1)); ck.instanceMatrix.needsUpdate = true;
+    if (this.arches.length) {
+      const ck = inst(keep(new THREE.TorusGeometry(5.4, 0.22, 6, 24, Math.PI)), keep(new THREE.MeshBasicMaterial({ color: C.edge })), this.arches.length);
+      this.arches.forEach((c, i) => put(ck, i, 0, 0, -c, 1, 1, 1)); ck.instanceMatrix.needsUpdate = true;
     }
     // giants + player + blob shadows + dust
     this.buildGiants(keep, rng);
@@ -5019,7 +5056,7 @@ const ACH = [
   ['first', '🥇', 'اولین برد', 'اولین مرحله رو تموم کن'],
   ['ten', '🔟', 'ده‌تایی', '۱۰ مرحله رو تموم کن'],
   ['twenty', '🧭', 'نیمه‌ی راه', '۲۰ مرحله رو تموم کن'],
-  ['all', '👑', 'فاتح تله‌زار', 'هر ۴۰ مرحله رو تموم کن'],
+  ['all', '👑', 'فاتح تله‌زار', 'همه‌ی ۴۲ مرحله رو تموم کن'],
   ['clean', '✨', 'بی‌خطا', 'یه مرحله رو بدون حتی یک مرگ تموم کن'],
   ['run3d', '🏃', 'فرار بزرگ', 'توی یه مرحله‌ی فرار از غول، به دروازه برس'],
   ['horde', '👹', 'ارتش غول‌ها', 'مرحله‌ی ۴۰ با ۴۵ غول رو ببر'],
@@ -5037,6 +5074,7 @@ const ACH = [
   ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
   ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
   ['endless', '♾️', 'ماراتن', 'توی حالت بی‌پایان ۵۰۰ متر برو'],
+  ['summit', '🏔️', 'فاتح قله', 'مرحله‌ی ۴۲ با ۴۵ اتاق رو ببر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -5147,8 +5185,9 @@ const app = {
   },
   updTag() {
     if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `${E.daily ? '🗓️ چالش امروز' : '♾️ بی‌پایان'} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
-    const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
-    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
+    const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚪 اتاق ${faNum(w.ck + 1)}/${faNum(n + 1)}` : '';
+    const rm = this.kind === 'run' && this.run ? ` · 🚪 اتاق ${faNum(this.run.room || 1)}/${faNum(this.run.rooms)}` : '';
+    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? rm : ck);
     $('pprog').classList.toggle('on', !!n);
   },
   label() { return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
@@ -5226,17 +5265,18 @@ const app = {
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
       run.onPick = k => this.onPick(k);
+      run.onRoom = (rm, ck) => { this.updTag(); this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
     $('banner').classList.toggle('low', this.kind === 'run');
-    const size = def.secs ? ` · ${faNum(def.nObs)} مانع · ${faNum(def.secs.length - 1)} چک‌پوینت` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
+    const size = def.rest ? ' · فقط برای استراحت 🌿' : def.secs ? ` · ${faNum(def.secs.length)} اتاق · ${faNum(def.nObs)} مانع` : this.kind === 'run' ? ` · ${faNum(this.run.rooms)} اتاق · ${faNum(def.len)} متر` : '';
     $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
     if (def.endless) $('bSmall').textContent = `${faNum(this.endless ? this.endless.lives : 3)} جون · رکورد: ${faNum(this.endless ? this.endless.best : 0)} متر`;
-    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از چک‌پوینت ${faNum(this.world.ck)} از ${faNum(this.world.secs.length - 1)}`, '#9ef9ff'), 2100);
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.ck + 1)} از ${faNum(this.world.secs.length)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
@@ -5285,7 +5325,7 @@ const app = {
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
     this.updTag();
-    this.taunt(i === n ? '🚩 آخرین چک‌پوینت! در نزدیکه' : `🚩 چک‌پوینت ${faNum(i)} از ${faNum(n)}`, '#9ef9dc');
+    this.taunt(i === n ? `🚪 اتاق آخر! (${faNum(n + 1)} از ${faNum(n + 1)}) در نزدیکه` : `🚪 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`, '#9ef9dc');
   },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
@@ -5313,7 +5353,7 @@ const app = {
       this.completed = Math.max(this.completed || 0, this.idx + 1);
       const wonCount = Object.keys(pr.stars).length;
       unlockAch('first'); if (wonCount >= 10) unlockAch('ten'); if (wonCount >= 20) unlockAch('twenty'); if (wonCount >= LEVELS.length) unlockAch('all');
-      if (this.idx === LEVELS.length - 1) unlockAch('horde');
+      if (this.idx === 39) unlockAch('horde'); if (this.def.final) unlockAch('summit');
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }

@@ -6,7 +6,7 @@
 // colours (BIOMES), so two levels never play the same. Coordinates below are tiles relative to the chunk.
 const TOP_MIN = 10, TOP_MAX = 15, CHUNK = 5;
 // chunk seeds replaced after checking every chunk with the auto-solver (easy + insane)
-const CHUNK_FIX = {'L18:4': 2904, 'L12:2': 4302, 'L25:8': 3608, 'L16:6': 9706, 'L30:2': 4102, 'L30:6': 5106, 'L33:9': 7409, 'L32:2': 7302, 'L37:9': 4809, 'R0:7': 51007, 'L35:6': 4606, 'L35:7': 4607, 'L35:8': 8608, 'R2:2': 51202};
+const CHUNK_FIX = {};
 
 /* ============================ POWER-UPS (2D levels) ============================ */
 // t = timer field on the player, dur = seconds. The shield lasts until it saves you once.
@@ -537,7 +537,7 @@ function chunkLayout(keys, seed, t0, opt, ci, nChunks) {
     const r = srand(seed * 9973 + 7), G = mkG(P, r, t0, opt.dj);
     G.F(0, 3); G.x = 3;
     keys.forEach((key, i) => {
-      const kd = KINDS[key], pos = (ci * CHUNK + i) / Math.max(1, opt.n - 1);
+      const kd = KINDS[key], pos = ((opt.starts ? opt.starts[ci] : ci * CHUNK) + i) / Math.max(1, opt.n - 1);
       G.k = clamp(opt.k0 * .85 + pos * .3, 0, 1);
       // bring the floor to the nearest height this obstacle can be built at (a drop going down, steps going up)
       if (kd.can && !kd.can(G.t)) {
@@ -595,8 +595,8 @@ function pickKinds(opt, r) {
   // designs used by the previous level are strongly avoided, so neighbouring levels feel different
   const wOf = kd => (opt.pri[0] === kd.fam ? 3.4 : opt.pri.includes(kd.fam) ? 2.4 : 1) * (.6 + r() * .8) * (opt.prev && opt.prev.has(kd.key) ? .22 : 1);
   const pool = avail.map(kd => ({ kd, w: wOf(kd), s: r() * 1.7 })), out = [];
-  // each level uses about 70% of the designs it may use, so neighbouring levels draw different sets
-  const n = Math.min(Math.round(pool.length * .72), opt.n);
+  // a level uses at most ~85% of the designs it may use, so neighbouring levels draw different sets
+  const n = Math.min(Math.round(pool.length * .85), opt.n);
   while (out.length < n) {
     let tot = 0; for (const q of pool) tot += q.w;
     let x = r() * tot, j = 0; while (j < pool.length - 1 && (x -= pool[j].w) > 0) j++;
@@ -615,9 +615,18 @@ function pickKinds(opt, r) {
 }
 function buildCourse(def, opt) {
   def.courseOpt = opt;
+  const hand = { hand: true, w: 32, t0: TOP_MAX, spawn: def.spawn, build: def.build };
+  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
+  // a level of one room is just its hand-made screen
+  const nCh = opt.rooms ? opt.rooms - 1 : 0;
+  if (opt.rooms === 1) { def.secs = [hand]; def.nObs = 0; def.course = opt; def.relayout(); return; }
   const r = srand(opt.seed * 7919 + 13), keys = pickKinds(opt, r);
   opt.n = keys.length;
-  const groups = []; for (let i = 0; i < keys.length; i += CHUNK) groups.push(keys.slice(i, i + CHUNK));
+  // the obstacles are split over exactly (rooms - 1) chunks; later chunks get the extra ones
+  const groups = [];
+  if (nCh) { const base = Math.floor(keys.length / nCh), extra = keys.length % nCh; let k = 0; for (let c = 0; c < nCh; c++) { const sz = base + (c >= nCh - extra ? 1 : 0); groups.push(keys.slice(k, k + sz)); k += sz; } }
+  else for (let i = 0; i < keys.length; i += CHUNK) groups.push(keys.slice(i, i + CHUNK));
+  opt.starts = []; { let k = 0; for (const g of groups) { opt.starts.push(k); k += g.length; } }
   // underground stretch: the middle chunk goes into a cave; designs that need a high ceiling are swapped for cave-friendly ones
   opt.caveCi = Math.floor((groups.length - 1) / 2);
   if (opt.cave) {
@@ -630,23 +639,23 @@ function buildCourse(def, opt) {
     const c = makeChunk(ks, seed, TOP_MAX, opt, ci, groups.length); secs.push(c);
   });
   // the hand-made screen closes the level
-  secs.push({ hand: true, w: 32, t0: TOP_MAX, spawn: def.spawn, build: def.build });
+  secs.push(hand);
   def.secs = secs; def.nObs = keys.length; def.course = opt;
-  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
   def.remakeChunk = (ci, seed) => { const c = def.secs[ci]; def.secs[ci] = makeChunk(c.keys, seed, c.t0, opt, ci, groups.length); def.relayout(); };
   def.relayout();
 }
 let prevKeys = null;
 LEVELS.forEach((def, idx) => {
   if (def.kind === '3d') return;
-  const k0 = idx / 39;
+  const k0 = Math.min(1, idx / 39);
   const nth = LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length;
-  if (nth % 6 === 4) AUTO_CAVE.add(idx);
+  if (nth % 6 === 4 && !def.rest) AUTO_CAVE.add(idx);
+  // about five obstacles per room (fewer on the very long levels, so no design repeats inside a level)
   buildCourse(def, { prev: prevKeys,
-    key: 'L' + idx, seed: idx + 1, k0, n: Math.round(20 + idx), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
+    key: 'L' + idx, seed: idx + 1, k0, rooms: def.rooms, n: Math.max(0, (def.rooms - 1) * 5), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
     grav: idx >= 10, ice: idx >= 30, conv: idx >= 31, revz: idx >= 13, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx], cave: caveFor(idx),
   });
-  prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
+  if (!def.rest) prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
   def.biome = def.biome || BIOME_ORDER[LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length % BIOME_ORDER.length];
 });
 REALM.forEach((def, ri) => {

@@ -19,6 +19,7 @@ const THEMES3 = {
   night:  { sky: [0x02030c, 0x0a1238, 0x2c4182], fog: 0x0e1636, fogN: 40, fogF: 210, hemi: [0x8f9fff, 0x101830, 0.95], sun: [0xc0d0ff, 0.6], ground: 0x18203e, road: 0x323c6a, side: 0x1c2448, edge: 0xb18cff, tree: 'crystal', treeC: 0x8a6fff, trunk: 0x1a1a26, rock: 0x26305a, mtn: 0x18214a, mist: 0x3a4a8a, giant: [0x3a4270, 0x2a3460], eye: 0x6ff3c4, moon: 0xdfe8ff, cloud: 0x3a4a7a },
   storm:  { sky: [0x141922, 0x343e52, 0x687388], fog: 0x485266, fogN: 40, fogF: 210, hemi: [0xb0bccc, 0x2a3038, 0.9], sun: [0xdde6ff, 0.5], ground: 0x2e3542, road: 0x535c70, side: 0x2c3240, edge: 0xffd36e, tree: 'dead', treeC: 0x2a2a2a, trunk: 0x2a2222, rock: 0x3a4250, mtn: 0x363e4e, mist: 0x8090a0, giant: [0x4a5060, 0x5a5a66], eye: 0xff3d71, cloud: 0x5a6478, storm: true },
   ash:    { sky: [0x1a1014, 0x5a3a3a, 0xc08060], fog: 0x6a4a44, fogN: 40, fogF: 220, hemi: [0xffc0a0, 0x2a1a1a, 0.95], sun: [0xffb080, 0.7], ground: 0x3a2c2c, road: 0x5a4a4c, side: 0x2a2024, edge: 0xffa040, tree: 'dead', treeC: 0x2a2020, trunk: 0x2a2020, rock: 0x4a3a3a, mtn: 0x3a2a2a, mist: 0xb08070, giant: [0x4a3a3a, 0x5a4a44], eye: 0xff7a2a, sunDisc: 0xffd0a0, cloud: 0x6a4a4a },
+  abyss:  { sky: [0x020208, 0x1a0a3a, 0x7a2aff], fog: 0x1a0e36, fogN: 40, fogF: 230, hemi: [0xb0a0ff, 0x100820, 1.0], sun: [0xc08aff, 0.85], ground: 0x140c26, road: 0x3a2a66, side: 0x1a1236, edge: 0x7af7ff, tree: 'crystal', treeC: 0x7af7ff, trunk: 0x100a1a, rock: 0x241a40, mtn: 0x1a1236, mist: 0x8a5aff, mistGlow: true, giant: [0x2a1a4a, 0x1a1030], eye: 0x7af7ff, moon: 0xd0b0ff, cloud: 0x2a1a4a, islands: true, storm: true },
   doom:   { sky: [0x0a0208, 0x4a0a2a, 0xff4a2a], fog: 0x3a0a1e, fogN: 40, fogF: 230, hemi: [0xff9a9a, 0x200818, 1.0], sun: [0xff5a3a, 0.9], ground: 0x24101c, road: 0x4a2c4e, side: 0x22122a, edge: 0xff3d71, tree: 'crystal', treeC: 0xff3d71, trunk: 0x1a0a12, rock: 0x2a1222, mtn: 0x2a0f22, mist: 0xff4a2a, mistGlow: true, giant: [0x3a1a2a, 0x2a1a1a], eye: 0xff2a2a, moon: 0xff8a6a, cloud: 0x4a1a2a, islands: true, storm: true },
 };
 const PG3 = 28, JV3 = 10, LATV = 8.5, ROADW = 10, BRW = 3.6;
@@ -87,9 +88,11 @@ class Run3D {
     this.gap0 = def.gap * this.DD.gapM;
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
-    this.checkpoints = [];
-    // insane: no checkpoints on short runs, a single one halfway on the very long ones (3800 m and up)
-    { const step = [700, 700, 750, 1500, 2500][this.d], n = this.d === 4 ? Math.round(this.len / step) : Math.max(2, Math.round(this.len / step)); for (let i = 1; i < n; i++) this.checkpoints.push(Math.round(this.len * i / n)); }
+    // rooms: arches split the run into equal stretches. You restart from an arch when caught: every arch on the
+    // easier difficulties, every second one on very hard and every third on insane
+    this.rooms = def.rooms || Math.max(2, Math.round(this.len / 700));
+    this.arches = []; for (let i = 1; i < this.rooms; i++) this.arches.push(Math.round(this.len * i / this.rooms));
+    { const every = [1, 1, 1, 2, 3][this.d]; this.checkpoints = this.arches.filter((a, i) => (i + 1) % every === 0); }
     this.ckS = 0; this.firstIntro = true;
     this.time = 0; this.shake = 0; this.flash = 0;
     if (!this.noScene) this.buildScene();
@@ -305,7 +308,8 @@ class Run3D {
       }
     }
     // checkpoints
-    for (const c of this.checkpoints) if (p.s >= c && this.ckS < c) { this.ckS = c; if (this.onSay) this.onSay('چک‌پوینت ✓'); this.sfx('spawn'); }
+    for (const c of this.checkpoints) if (p.s >= c && this.ckS < c) { this.ckS = c; this.sfx('spawn'); }
+    { const rm = this.roomAt(p.s); if (rm !== this.room) { this.room = rm; if (rm > 1 && this.onRoom) this.onRoom(rm, this.checkpoints.includes(this.arches[rm - 2])); } }
     // giants
     this.surgeT -= dt;
     if (this.surgeT <= 0) {
@@ -330,6 +334,7 @@ class Run3D {
   sfx(n) { if (!this.headless) Sound.play(n); }
   rebuildScene() { if (this.noScene) return; this.dispose(); this.buildScene(); }
   gapNow() { return this.p.s - this.gS; }
+  roomAt(s) { let n = 1; for (const a of this.arches) if (s >= a) n++; return n; }
 
   /* ---------------- scene ---------------- */
   buildScene() {
@@ -440,9 +445,9 @@ class Run3D {
     swirl.position.set(0, 4.2, -this.len - 0.05); sc.add(swirl); this.swirl = swirl;
     const pg = new THREE.Mesh(keep(new THREE.PlaneGeometry(1, 1)), keep(new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffb347, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
     pg.scale.set(30, 30, 1); pg.position.set(0, 4.2, -this.len - 0.2); sc.add(pg);
-    if (this.checkpoints.length) {
-      const ck = inst(keep(new THREE.TorusGeometry(5.4, 0.22, 6, 24, Math.PI)), keep(new THREE.MeshBasicMaterial({ color: C.edge })), this.checkpoints.length);
-      this.checkpoints.forEach((c, i) => put(ck, i, 0, 0, -c, 1, 1, 1)); ck.instanceMatrix.needsUpdate = true;
+    if (this.arches.length) {
+      const ck = inst(keep(new THREE.TorusGeometry(5.4, 0.22, 6, 24, Math.PI)), keep(new THREE.MeshBasicMaterial({ color: C.edge })), this.arches.length);
+      this.arches.forEach((c, i) => put(ck, i, 0, 0, -c, 1, 1, 1)); ck.instanceMatrix.needsUpdate = true;
     }
     // giants + player + blob shadows + dust
     this.buildGiants(keep, rng);

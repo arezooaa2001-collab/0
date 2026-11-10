@@ -74,7 +74,7 @@ const ACH = [
   ['first', '🥇', 'اولین برد', 'اولین مرحله رو تموم کن'],
   ['ten', '🔟', 'ده‌تایی', '۱۰ مرحله رو تموم کن'],
   ['twenty', '🧭', 'نیمه‌ی راه', '۲۰ مرحله رو تموم کن'],
-  ['all', '👑', 'فاتح تله‌زار', 'هر ۴۰ مرحله رو تموم کن'],
+  ['all', '👑', 'فاتح تله‌زار', 'همه‌ی ۴۲ مرحله رو تموم کن'],
   ['clean', '✨', 'بی‌خطا', 'یه مرحله رو بدون حتی یک مرگ تموم کن'],
   ['run3d', '🏃', 'فرار بزرگ', 'توی یه مرحله‌ی فرار از غول، به دروازه برس'],
   ['horde', '👹', 'ارتش غول‌ها', 'مرحله‌ی ۴۰ با ۴۵ غول رو ببر'],
@@ -92,6 +92,7 @@ const ACH = [
   ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
   ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
   ['endless', '♾️', 'ماراتن', 'توی حالت بی‌پایان ۵۰۰ متر برو'],
+  ['summit', '🏔️', 'فاتح قله', 'مرحله‌ی ۴۲ با ۴۵ اتاق رو ببر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -202,8 +203,9 @@ const app = {
   },
   updTag() {
     if (this.endless) { const E = this.endless; $('lvlTag').innerHTML = `${E.daily ? '🗓️ چالش امروز' : '♾️ بی‌پایان'} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i> · ${'❤️'.repeat(Math.max(0, E.lives))} · ${faNum(E.dist)} متر`; $('pprog').classList.remove('on'); return; }
-    const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚩 ${faNum(w.ck)}/${faNum(n)}` : '';
-    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? ' · فرار از غول' : ck);
+    const w = this.kind === 'plat' && this.world, n = w && w.secs ? w.secs.length - 1 : 0, ck = n ? ` · 🚪 اتاق ${faNum(w.ck + 1)}/${faNum(n + 1)}` : '';
+    const rm = this.kind === 'run' && this.run ? ` · 🚪 اتاق ${faNum(this.run.room || 1)}/${faNum(this.run.rooms)}` : '';
+    $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? rm : ck);
     $('pprog').classList.toggle('on', !!n);
   },
   label() { return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
@@ -281,17 +283,18 @@ const app = {
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
       run.onPick = k => this.onPick(k);
+      run.onRoom = (rm, ck) => { this.updTag(); this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
     $('banner').classList.toggle('low', this.kind === 'run');
-    const size = def.secs ? ` · ${faNum(def.nObs)} مانع · ${faNum(def.secs.length - 1)} چک‌پوینت` : this.kind === 'run' ? ` · ${faNum(def.len)} متر` : '';
+    const size = def.rest ? ' · فقط برای استراحت 🌿' : def.secs ? ` · ${faNum(def.secs.length)} اتاق · ${faNum(def.nObs)} مانع` : this.kind === 'run' ? ` · ${faNum(this.run.rooms)} اتاق · ${faNum(def.len)} متر` : '';
     $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
     if (def.endless) $('bSmall').textContent = `${faNum(this.endless ? this.endless.lives : 3)} جون · رکورد: ${faNum(this.endless ? this.endless.best : 0)} متر`;
-    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از چک‌پوینت ${faNum(this.world.ck)} از ${faNum(this.world.secs.length - 1)}`, '#9ef9ff'), 2100);
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.ck + 1)} از ${faNum(this.world.secs.length)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
@@ -340,7 +343,7 @@ const app = {
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
     this.updTag();
-    this.taunt(i === n ? '🚩 آخرین چک‌پوینت! در نزدیکه' : `🚩 چک‌پوینت ${faNum(i)} از ${faNum(n)}`, '#9ef9dc');
+    this.taunt(i === n ? `🚪 اتاق آخر! (${faNum(n + 1)} از ${faNum(n + 1)}) در نزدیکه` : `🚪 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`, '#9ef9dc');
   },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
@@ -368,7 +371,7 @@ const app = {
       this.completed = Math.max(this.completed || 0, this.idx + 1);
       const wonCount = Object.keys(pr.stars).length;
       unlockAch('first'); if (wonCount >= 10) unlockAch('ten'); if (wonCount >= 20) unlockAch('twenty'); if (wonCount >= LEVELS.length) unlockAch('all');
-      if (this.idx === LEVELS.length - 1) unlockAch('horde');
+      if (this.idx === 39) unlockAch('horde'); if (this.def.final) unlockAch('summit');
       if (totalStars(this.diff) >= 60) unlockAch('stars');
       next = () => { if (this.idx + 1 < LEVELS.length) this.startLevel(this.idx + 1); else this.finish(); };
     }

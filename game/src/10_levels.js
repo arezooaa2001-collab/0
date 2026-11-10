@@ -289,7 +289,23 @@ const L3D = [
   { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 5400, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
   { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 6200, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
   { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 9000, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
+  // level 42: the summit. 45 rooms, the densest course and every hard obstacle type
+  { kind: '3d', name: 'قله‌ی آخر: ۴۵ اتاق', theme: 'abyss', len: 12600, giants: 30, speed: 20, gap: 19, gs: 0.986, types: ALL3D, hard: true, dens: 2.15, zig: 0.12, seed: 10, final: true },
 ];
+/* ---------- level 41: a rest stop after all that. One calm room, gentle obstacles, lots of gems ---------- */
+const REST = { name: 'استراحتگاه', rest: true, biome: 'aurora', spawn: [2, 14], build(L) {
+    L.block(null, 0, 15, 10, 3);
+    L.block(null, 12, 15, 9, 3);
+    L.spring(null, 17, 14);
+    L.block(null, 23, 15, 9, 3);
+    if (L.gem) {
+      for (let i = 0; i < 4; i++) L.gem(4 + i * 1.4, 13.2);
+      for (let i = 0; i < 5; i++) L.gem(10.2 + i * .4, 12.6 - Math.sin(i / 4 * Math.PI) * 1.6);
+      for (let i = 0; i < 6; i++) L.gem(15.6 + i * 1.1, 8.6 - Math.sin(i / 5 * Math.PI) * 3);
+      for (let i = 0; i < 3; i++) L.gem(21.1 + i * .5, 12.4);
+    }
+    L.door(29.5, 13);
+}};
 
 /* ---------- 7 more hand-made levels (replace the old mirrored copies) ---------- */
 const MORE2D = [
@@ -424,11 +440,18 @@ const REALM = [
   }},
 ];
 
-/* ---------- final order: 40 levels ---------- */
+/* ---------- final order: 42 levels ---------- */
 const LEVELS = [
   L2D[0], L3D[0], L2D[1], L2D[2], L3D[1], L2D[3], L2D[4], L2D[5], L2D[6], L3D[2],
   L2D[7], L2D[8], L2D[9], L2D[10], L3D[3], L2D[11], L2D[12], L2D[13], L2D[14], L3D[4],
   NEW2D[0], NEW2D[1], NEW2D[2], NEW2D[3], L3D[5], NEW2D[4], NEW2D[5], NEW2D[6], NEW2D[7], L3D[6],
   MORE2D[0], MORE2D[1], MORE2D[2], MORE2D[3], L3D[7], MORE2D[4], MORE2D[5], MORE2D[6], L2D[15], L3D[8],
+  REST, L3D[9],
 ];
+// rooms per level (a room = one stretch between checkpoints; the hand-made screen is the last room of a 2D level)
+const ROOMS = [5, 5, 5, 5, 5, 5, 10, 10, 10, 10, 10, 16, 16, 16, 16, 16, 16, 16, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+  26, 26, 26, 26, 26, 26, 26, 26, 35, 35, 35, 1, 45];
+LEVELS.forEach((d, i) => { d.rooms = ROOMS[i]; });
+// levels where other runners race you to the exit
+const RIVAL_LV = new Set([1, 4, 9, 14, 19, 24, 25, 26, 29]);
 const PORTAL_LEVEL = 36; // level 37 holds the secret portal
