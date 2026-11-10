@@ -632,7 +632,7 @@ kind('maceRain', 'maces', .45, 3, { wait: true, tall: true }, G => {
   G.x += 12;
 });
 kind('ceilSqueeze', 'ceiling', .4, 3, { ceil: true }, G => {
-  const x = G.x; G.F(x, 13); G.L.block(null, x, 0, 13, G.t - 3, { ceil: true }); G.L.spikes(null, x, G.t - 3, 13, 'down');
+  const x = G.x; G.F(x, 13); G.L.block(null, x, 0, 13, G.t - 3.6, { ceil: true }); G.L.spikes(null, x, G.t - 3.6, 13, 'down');
   G.L.spikes(null, x + 4, G.t - 1, 1, 'up'); G.L.spikes(null, x + 8.5, G.t - 1, 1, 'up'); G.x += 13;
 });
 kind('springSaw', 'springs', .35, 2, { tall: true, launch: true, wait: true }, G => {

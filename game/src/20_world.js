@@ -329,7 +329,7 @@ class World {
     if (p.kickT > 0) { p.kickT -= dt; if (p.onGround) p.kickT = 0; }
     for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
     // last safe standing spot (for the shield's rescue from a fall)
-    const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) p.safe = [p.x, p.y, p.g];
+    const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) { const sf = p.safe || (p.safe = [0, 0, 1]); sf[0] = p.x; sf[1] = p.y; sf[2] = p.g; }
     if (this.minX && p.x < this.minX) { p.x = this.minX; if (p.vx < 0) p.vx = 0; }   // endless: the course behind is gone
     const dir = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * (this.rev ? -1 : 1);
     const onIce = p.onGround && p.ground && p.ground.ice;
