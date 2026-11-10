@@ -1,5 +1,5 @@
 // Camera — uses the real camera of this phone/tablet through the browser.
-// Live preview, zoom up to 250x (back) / 20x (front), photo, video with optional microphone,
+// Live preview, zoom up to 250x (back) / 40x (front), photo, video with optional microphone,
 // fast (time-lapse) and slow-motion video, in-app gallery and photo enhancement.
 import { Renderer } from './renderer.js';
 import { store } from './storage.js';
@@ -10,8 +10,8 @@ import {
   canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr, inApp, saveToDevice, deviceSaveError,
 } from './ui.js';
 
-const MAX_ZOOM = { environment: 250, user: 20 };
-const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20] };
+const MAX_ZOOM = { environment: 250, user: 40 };
+const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20, 40] };
 const QUALITIES = {
   '4k': { label: '4K', long: 3840, short: 2160 },
   1080: { label: '1080p', long: 1920, short: 1080 },

@@ -12,9 +12,9 @@
   'use strict';
 
   const PRESETS = {
-    low: { denoiseK: 1.6, sharp: 0.6, clarity: 0.1, sat: 1.06, overshoot: 2 },
-    medium: { denoiseK: 2.2, sharp: 0.95, clarity: 0.18, sat: 1.1, overshoot: 4 },
-    high: { denoiseK: 3.0, sharp: 1.4, clarity: 0.26, sat: 1.15, overshoot: 7 },
+    low: { denoiseK: 1.6, sharp: 0.6, clarity: 0.1, sat: 1.04, overshoot: 2, deblur: 0.8, iters: 8 },
+    medium: { denoiseK: 2.2, sharp: 0.95, clarity: 0.16, sat: 1.06, overshoot: 4, deblur: 1.0, iters: 12 },
+    high: { denoiseK: 3.0, sharp: 1.3, clarity: 0.22, sat: 1.08, overshoot: 6, deblur: 1.25, iters: 18 },
   };
 
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -120,21 +120,21 @@
     const lo = pct(0.004);
     const hi = pct(0.996);
     const range = Math.max(1, hi - lo);
-    const gain = range > 30 ? Math.min(1.6, 255 / range) : 1;
+    const gain = range > 30 ? Math.min(1.35, 255 / range) : 1;
     const off = gain > 1 ? lo : 0;
 
     let mean = 0;
     for (let b = 0; b < 256; b++) mean += hist[b] * clamp((b - off) * gain, 0, 255);
     mean = clamp(mean / N, 8, 247);
     let g = Math.log(118 / 255) / Math.log(mean / 255);
-    g = 1 + (clamp(g, 0.75, 1.3) - 1) * 0.5;
+    g = 1 + (clamp(g, 0.8, 1.25) - 1) * 0.35;
 
     const lut = new Float32Array(1025);
     for (let k = 0; k <= 1024; k++) {
       const v = (k / 4);
       const s = clamp((v - off) * gain, 0, 255);
       const t = 255 * Math.pow(s / 255, g);
-      lut[k] = v + (t - v) * 0.75;
+      lut[k] = v + (t - v) * 0.5;
     }
 
     // Gentle white balance from near-neutral midtones.
@@ -173,6 +173,86 @@
       const m = clamp(Y[i] / 255, 0, 1);
       const d = clamp(Y[i] - blur[i], -40, 40);
       Y[i] += amount * d * 4 * m * (1 - m);
+    }
+  }
+
+  // Blur level of the luma, 0 (sharp) .. 1 (very blurry): Crete-Roffet "re-blur" metric.
+  // A sharp picture changes a lot when blurred again, a blurry one hardly changes.
+  function blurLevel(Y, w, h) {
+    const r = 4;
+    let sF = 0;
+    let sV = 0;
+    const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 2e6)));
+    for (let pass = 0; pass < 2; pass++) {
+      let f = 0;
+      let v = 0;
+      for (let y = r + 1; y < h - r - 1; y += step) {
+        for (let x = r + 1; x < w - r - 1; x += step) {
+          const i = y * w + x;
+          const d = pass === 0 ? 1 : w;
+          let b0 = 0;
+          let b1 = 0;
+          for (let k = -r; k <= r; k++) { b0 += Y[i + k * d]; b1 += Y[i - d + k * d]; }
+          const dF = Math.abs(Y[i] - Y[i - d]);
+          const dB = Math.abs(b0 - b1) / (2 * r + 1);
+          f += dF;
+          v += Math.max(0, dF - dB);
+        }
+      }
+      if (f > 0) { sF = Math.max(sF, (f - v) / f); }
+      sV = Math.max(sV, f);
+    }
+    return sV > 0 ? sF : 0;
+  }
+
+  // Richardson-Lucy deconvolution of the luma with a Gaussian blur model: recovers real edge
+  // and texture detail that blur (focus, shake, small sensors, compression) has smeared out.
+  // Every step is limited to the local range of the photo, which prevents halos and ringing.
+  function deconvolve(Y, w, h, sigma, iters, margin, report) {
+    const N = Y.length;
+    const obs = Float32Array.from(Y);
+    const r = Math.max(1, Math.ceil(sigma) + 1);
+    const lo = new Float32Array(N);
+    const hi = new Float32Array(N);
+    const tmp = new Float32Array(N);
+    // local min/max of the original (separable)
+    for (let y = 0; y < h; y++) {
+      const o = y * w;
+      for (let x = 0; x < w; x++) {
+        let a = 255;
+        let b = 0;
+        const x0 = Math.max(0, x - r);
+        const x1 = Math.min(w - 1, x + r);
+        for (let k = x0; k <= x1; k++) { const q = obs[o + k]; if (q < a) a = q; if (q > b) b = q; }
+        lo[o + x] = a;
+        tmp[o + x] = b;
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y++) {
+        let a = 255;
+        let b = 0;
+        const y0 = Math.max(0, y - r);
+        const y1 = Math.min(h - 1, y + r);
+        for (let k = y0; k <= y1; k++) { const i = k * w + x; if (lo[i] < a) a = lo[i]; if (tmp[i] > b) b = tmp[i]; }
+        hi[y * w + x] = b;
+        Y[y * w + x] = a; // temporarily holds the vertical minimum
+      }
+    }
+    lo.set(Y);
+    Y.set(obs);
+    const conv = new Float32Array(N);
+    for (let it = 0; it < iters; it++) {
+      gaussian(Y, w, h, sigma, tmp, conv);
+      for (let i = 0; i < N; i++) conv[i] = (obs[i] + 1) / (conv[i] + 1);
+      gaussian(conv, w, h, sigma, tmp, conv);
+      for (let i = 0; i < N; i++) {
+        const v = Y[i] * conv[i];
+        const a = lo[i] - margin;
+        const b = hi[i] + margin;
+        Y[i] = v < a ? a : v > b ? b : v;
+      }
+      report((it + 1) / iters);
     }
   }
 
@@ -358,19 +438,26 @@
     progress(0.3, 'color');
 
     if (opts.autoColor !== false) autoColor(Y, Cb, Cr, P);
+    // Deblur at the photo's own resolution (fast), sized by how blurry the photo really is.
+    const blur = blurLevel(Y, w, h);
+    // 0 for an already sharp photo, 1 for a clearly blurry one.
+    const blurry = clamp((blur - 0.28) / 0.17, 0, 1);
+    const psf = clamp((0.5 + blurry * 0.9) * P.deblur, 0.45, 2.2);
+    if (blurry > 0) deconvolve(Y, w, h, psf, Math.max(3, Math.round(P.iters * blurry * Math.min(1, Math.sqrt(3e6 / (w * h))))), P.overshoot, stage(0.3, 0.55, 'deblur'));
     if (P.clarity > 0) clarity(Y, w, h, P.clarity);
-    progress(0.4, 'upscale');
+    progress(0.58, 'upscale');
 
     const scale = Math.sqrt((W * H) / N);
-    let Yo = (W === w && H === h) ? Y : resample(Y, w, h, W, H, stage(0.4, 0.68, 'upscale'));
+    let Yo = (W === w && H === h) ? Y : resample(Y, w, h, W, H, stage(0.58, 0.72, 'upscale'));
     if (Yo !== Y) Y = null;
-    progress(0.68, 'sharpen');
+    progress(0.72, 'sharpen');
 
     const sigmaS = 0.55 + 0.45 * Math.max(1, scale);
     const residualNoise = opts.denoise !== false ? noise * 0.35 : noise;
     const core = clamp(residualNoise * 0.8, 0.3, 6);
-    const amount = P.sharp * (scale > 1.4 ? 1.15 : 1);
-    const sharp = sharpen(Yo, W, H, sigmaS, amount, core, P.overshoot, stage(0.68, 0.92, 'sharpen'));
+    // Lighter final sharpening where deblurring already restored the edges, or none was needed.
+    const amount = P.sharp * (scale > 1.4 ? 1.15 : 1) * (0.6 - 0.15 * blurry);
+    const sharp = sharpen(Yo, W, H, sigmaS, amount, core, P.overshoot, stage(0.72, 0.92, 'sharpen'));
     Yo = null;
     progress(0.92, 'compose');
 
@@ -401,7 +488,7 @@
       }
     }
     progress(1, 'done');
-    return { data: out.buffer, width: W, height: H, hasAlpha, noise };
+    return { data: out.buffer, width: W, height: H, hasAlpha, noise, blur, psf: blurry > 0 ? psf : 0 };
   }
 
   const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
