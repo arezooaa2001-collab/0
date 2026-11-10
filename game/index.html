@@ -1986,6 +1986,10 @@ REALM.forEach((def, ri) => {
 function refreshCaves() {
   LEVELS.forEach((def, idx) => { if (!def.courseOpt) return; const want = caveFor(idx); if (!!def.courseOpt.cave !== want) buildCourse(def, Object.assign({}, def.courseOpt, { cave: want })); });
 }
+/* ============================ RECORDED RIVAL RUNS (generated) ============================ */
+// For the race levels played in 2D: per level, a signature of every room and, per rival, the solver input string
+// for every room (one character per 1/15 s: 0 idle, 1 left, 2 right, 3 left+jump, 4 right+jump, 5 jump).
+const RIVAL_DATA = {};
 /* ============================ ENDLESS MODE ============================ */
 // An endless course made of chunks taken from the normal levels (every one of them was checked by the
 // auto-solver). Chunks start and end on the ground, so any order works. It grows ahead of the player:
@@ -3614,6 +3618,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   drawGhost(world, t);
+  if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
   drawPlayer(world, t);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
@@ -5068,14 +5073,15 @@ function botFor(run, p, v, skip) {
     target = (nb && nb !== cb && cb.s1 - p.s < v * 0.2) ? clamp(nb.cx, cb.cx - cb.w / 2 + 0.35, cb.cx + cb.w / 2 - 0.35) : cb.cx;
   } else if (ahead) target = ahead.cx;
   else {
-    let best = p.x, bestScore = 1e9;
+    let best = p.x, bestScore = 1e9; const xr = new Map();
+    for (let i = W0; i < W1; i++) { const o = OB[i]; if (X3[o.type] && !o.hit && o.s1 >= p.s - 0.4 && o.s0 <= p.s + look && !(skip && skip(i))) xr.set(i, x3Ranges(o, true)); }
     for (let x = -4.4; x <= 4.4; x += 0.2) {
       let score = Math.abs(x - p.x) * 0.15;
       for (let i = W0; i < W1; i++) { const o = OB[i];
         if (o.type === 'gap' || o.hit || o.s1 < p.s - 0.4 || o.s0 > p.s + look || (skip && skip(i))) continue;
         if (X3[o.type]) {
           const near = 1000 / (1 + (o.s0 - p.s) * 0.05);
-          for (const [a, b] of x3Ranges(o, true)) if (x > a - .75 && x < b + .75) score += near;
+          for (const [a, b] of xr.get(i) || []) if (x > a - .75 && x < b + .75) score += near;
           continue;
         }
         let x0 = o.x0, x1 = o.x1;
@@ -5360,6 +5366,8 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // race rivals (2D race levels played in the side 3D view)
+    this.rivalM = (app.rivals2 && app.rivals2.def === w.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
     // ghost of the best run: the same hero, see-through
     { const gh = buildHeroMesh(keep); gh.g.traverse(o => { if (o.material) { o.material = keep(o.material.clone()); o.material.transparent = true; o.material.opacity = .3; o.material.depthWrite = false; } });
       gh.g.scale.setScalar(.6); gh.g.visible = false; sc.add(gh.g); this.ghost = gh; }
@@ -5590,6 +5598,9 @@ class P3D {
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
+    this.rivalM.forEach((h, i) => { const r = app.rivals2 && app.rivals2.list[i], q = r && r.w.p; h.g.visible = !!q && !r.done && !(r.poof > 0 && Math.floor(t * 20) % 2);
+      if (!h.g.visible) return; const fl = q.g < 0; h.g.position.set(this.X(q.x + PW / 2), fl ? this.Y(q.y) : this.Y(q.y + PHT), -.6); h.g.rotation.set(0, q.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, fl ? Math.PI : 0);
+      const lg = Math.abs(q.vx) > 40 && q.onGround ? Math.sin(q.runPhase) * .22 : 0; h.legs[0].position.z = lg; h.legs[1].position.z = -lg; });
     { const gp = app.world === w ? Ghost.at(app.levelT) : null, gg = this.ghost.g; gg.visible = !!gp;
       if (gp) { gg.position.set(this.X(gp.x + PW / 2), gp.flip ? this.Y(gp.y) : this.Y(gp.y + PHT), -.3); gg.rotation.set(0, gp.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, gp.flip ? Math.PI : 0);
         const lg = Math.abs(gp.vx) > 40 ? Math.sin(t * 12) * .22 : 0; this.ghost.legs[0].position.z = lg; this.ghost.legs[1].position.z = -lg; } }
@@ -5641,6 +5652,64 @@ class P3D {
     for (const m of this.meshes.values()) { if (m.hint) this.scene.remove(m.hint); if (m.extra) this.scene.remove(m.extra); }
     for (const o of this.disp) { try { o.dispose(); } catch (e) {} }
     this.disp = []; this.meshes.clear();
+  }
+}
+/* ============================ 2D RIVALS (race levels played as platformers) ============================ */
+// Each rival replays, room by room, an input sequence the auto-solver found for that room (RIVAL_DATA, recorded
+// on easy). It runs in its own invisible copy of the room, so its traps are its own; only the runner is drawn in
+// your level. Rivals sometimes trip and restart a room, and a rival far ahead waits for you, so the race stays close.
+const ACTS2 = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 1, 1], [0, 0, 1]].map(a => ({ left: !!a[0], right: !!a[1], jump: !!a[2] }));
+const secSig = s => s.hand ? 'hand' : s.keys.join(',') + '|' + s.seed + (s.cave ? 'c' : '');
+class Rivals2D {
+  constructor(def, data, seed, si0 = 0) {
+    this.def = def; this.data = data; this.fin = 0; const r0 = srand(seed);
+    const names = RIVAL_NAMES.slice().sort(() => r0() - .5);
+    this.list = data.runs.map((runs, i) => ({ i, name: names[i], col: RIVAL_COLS[(i * 2 + 1) % RIVAL_COLS.length], runs, trip: [.22, .14, .08][i % 3], wait: .5 + i * .6, done: false, place: 0, poof: 0 }));
+    for (const r of this.list) this.start(r, si0);
+  }
+  start(r, si) {
+    const n = this.def.secs.length, last = si === n - 1;
+    r.si = si; r.ai = 0; r.sub = 0;
+    r.w = new World(this.def, { silent: true, diff: 0, ck: si, only: last ? [si] : [si, si + 1] });
+    r.acts = this.data.sig[si] === secSig(this.def.secs[si]) ? r.runs[si] : null;
+    r.skipT = r.acts ? 0 : 8 + r.i;
+    // now and then a rival slips and has to run the room again
+    const h = Math.sin((si + 1) * 91.7 + r.i * 13.1 + (r.tries || 0) * 7.7) * 43758.5; r.fail = r.acts && h - Math.floor(h) < r.trip ? Math.floor(r.acts.length * (.3 + (h * 10 % 1) * .5)) : -1;
+  }
+  next(r) {
+    if (r.si >= this.def.secs.length - 1) { r.done = true; r.place = ++this.fin; if (this.onDone) this.onDone(r); return; }
+    r.tries = 0; this.start(r, r.si + 1);
+  }
+  // one fixed 1/120 s step (called with every step of your own world)
+  tick(playerRoom) {
+    for (const r of this.list) {
+      if (r.done) continue;
+      if (r.poof > 0) r.poof = Math.max(0, r.poof - 1 / 120);
+      if (r.wait > 0) { r.wait -= 1 / 120; continue; }
+      // a rival more than one room ahead waits at the start of its room
+      if (r.si > playerRoom + 1 && r.ai === 0 && r.sub === 0) continue;
+      if (!r.acts) { r.skipT -= 1 / 120; if (r.skipT <= 0) this.next(r); continue; }
+      const w = r.w, a = r.acts.charCodeAt(r.ai) - 48;
+      w.step(w.D.speed / 120, ACTS2[a] || ACTS2[0]);
+      if (++r.sub >= 8) { r.sub = 0; r.ai++; }
+      if (r.fail >= 0 && r.ai >= r.fail) { r.poof = .5; r.tries = (r.tries || 0) + 1; if (this.onTrip) this.onTrip(r); this.start(r, r.si); r.fail = -1; r.wait = .7; continue; }
+      if (r.si < this.def.secs.length - 1 ? w.ck > r.si : w.state === 'win') { this.next(r); continue; }
+      if (w.state === 'dead' || r.ai >= r.acts.length) { this.start(r, r.si); r.fail = -1; }
+    }
+  }
+  rank(px) { let n = 1; for (const r of this.list) if (r.done || (!r.done && r.w.p.x > px)) n++; return n; }
+  draw(t) {
+    for (const r of this.list) {
+      if (r.done || r.wait > 0 && r.si === 0 && r.ai === 0) continue;
+      const p = r.w.p, cx = p.x + PW / 2;
+      if (cx < CAMX - 120 || cx > CAMX + W + 120) continue;
+      ctx.save(); ctx.globalAlpha = r.poof > 0 ? r.poof * 2 * (Math.floor(t * 20) % 2) : .92;
+      ctx.translate(cx, p.g > 0 ? p.y + PHT : p.y); if (p.g < 0) ctx.scale(1, -1);
+      HERO_OVR = r.col; drawHero(t, p.face, p.onGround, p.vx, p.vy * p.g, p.runPhase, 2, false); HERO_OVR = null;
+      ctx.restore();
+      ctx.save(); ctx.font = 'bold 13px Vazirmatn, Tahoma, sans-serif'; ctx.textAlign = 'center';
+      const w = ctx.measureText(r.name).width + 10; ctx.fillStyle = 'rgba(10,6,24,.55)'; ctx.fillRect(cx - w / 2, p.y - 30, w, 17); ctx.fillStyle = r.col; ctx.fillText(r.name, cx, p.y - 17.5); ctx.restore();
+    }
   }
 }
 /* ============================ INPUT ============================ */
@@ -5799,6 +5868,7 @@ function hudTick() {
   }
   if (app.endless && app.world && app.state === 'play') { const m = Math.max(0, Math.floor(app.world.p.x / T)); if (m > app.endless.dist) { app.endless.dist = m; app.updTag(); if (m === app.endless.best + 1 && app.endless.best > 0) app.taunt('🏆 رکورد شکسته شد!', '#ffd36e'); } }
   if (app.kind === 'plat' && app.world && app.state !== 'title') { const p = app.world.p; if (p.shield) pw += '🛡️'; for (const k of ['star', 'slow', 'magnet', 'jump']) { const v = p[POWS[k].t]; if (v > 0) pw += ' ' + POWS[k].i + faNum(Math.ceil(v)); } }
+  if (app.kind === 'plat' && app.rivals2 && app.world && app.state !== 'title') pw += ` 🏁 نفر ${faNum(app.rivals2.rank(app.world.p.x))} از ${faNum(app.rivals2.list.length + 1)}`;
   if (app.kind === 'run' && app.run && app.run.rivals) pw += ` 🏁 نفر ${faNum(app.run.rank())} از ${faNum(app.run.rivals.length + 1)}`;
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
   const fp = CFG.fps ? faNum(Perf.fpsShow) + ' FPS · ' + faNum(Math.round(Perf.dyn * 100)) + '٪' : '';
@@ -5920,8 +5990,14 @@ const app = {
     this.updTag();
     this.updDeaths();
     if (!opt.keep) { if (this.kind === 'plat' && !def.endless && this.realmIdx < 0) Ghost.start(this.diff, this.idx, !opt.resumed && !(opt.ck > 0)); else Ghost.stop(); }
+    this.rivals2 = null;
     if (this.kind === 'plat') {
       const w = this.world = new World(def, { diff: this.diff, ck: opt.ck || 0 });
+      // race levels in 2D: rivals replay recorded runs of every room
+      const rd = this.realmIdx < 0 && !def.endless && RIVAL_LV.has(this.idx) && RIVAL_DATA['L' + this.idx];
+      if (rd) { const R = this.rivals2 = new Rivals2D(def, rd, this.idx * 7 + 1, w.ck);
+        R.onDone = r => this.taunt(`${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col);
+        R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
@@ -6034,7 +6110,8 @@ const app = {
     if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
-    if (this.kind === 'run' && this.run && this.run.rivals) { const pl = this.run.finishCount + 1; if (pl === 1) unlockAch('champ'); setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(this.run.rivals.length + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
+    const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
+    if (race) { const pl = race.fin + 1; if (pl === 1) unlockAch('champ'); setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
     if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {
@@ -6066,7 +6143,7 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu() {
-    this.teardown(); this.endless = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
+    this.teardown(); this.endless = null; this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(LEVELS[0].biome);
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); this.show('sTitle'); this.world = new World(0, { silent: true });
   },
@@ -6350,7 +6427,7 @@ function frame(now) {
   if (app.state === 'play') {
     acc += dt; const inp = readInput(); let n = 0;
     if (app.kind === 'run' && app.run) { while (acc >= STEP && n < 14) { app.run.update(STEP, inp); acc -= STEP; n++; } }
-    else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); acc -= STEP; n++; } }
+    else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); if (app.rivals2) app.rivals2.tick(app.world.ck); acc -= STEP; n++; } }
     if (n >= 14) acc = 0;
     app.levelT += dt; ST.time += dt;
     if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);

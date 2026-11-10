@@ -28,7 +28,7 @@ function frame(now) {
   if (app.state === 'play') {
     acc += dt; const inp = readInput(); let n = 0;
     if (app.kind === 'run' && app.run) { while (acc >= STEP && n < 14) { app.run.update(STEP, inp); acc -= STEP; n++; } }
-    else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); acc -= STEP; n++; } }
+    else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); if (app.rivals2) app.rivals2.tick(app.world.ck); acc -= STEP; n++; } }
     if (n >= 14) acc = 0;
     app.levelT += dt; ST.time += dt;
     if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);

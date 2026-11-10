@@ -69,6 +69,8 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // race rivals (2D race levels played in the side 3D view)
+    this.rivalM = (app.rivals2 && app.rivals2.def === w.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
     // ghost of the best run: the same hero, see-through
     { const gh = buildHeroMesh(keep); gh.g.traverse(o => { if (o.material) { o.material = keep(o.material.clone()); o.material.transparent = true; o.material.opacity = .3; o.material.depthWrite = false; } });
       gh.g.scale.setScalar(.6); gh.g.visible = false; sc.add(gh.g); this.ghost = gh; }
@@ -299,6 +301,9 @@ class P3D {
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
+    this.rivalM.forEach((h, i) => { const r = app.rivals2 && app.rivals2.list[i], q = r && r.w.p; h.g.visible = !!q && !r.done && !(r.poof > 0 && Math.floor(t * 20) % 2);
+      if (!h.g.visible) return; const fl = q.g < 0; h.g.position.set(this.X(q.x + PW / 2), fl ? this.Y(q.y) : this.Y(q.y + PHT), -.6); h.g.rotation.set(0, q.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, fl ? Math.PI : 0);
+      const lg = Math.abs(q.vx) > 40 && q.onGround ? Math.sin(q.runPhase) * .22 : 0; h.legs[0].position.z = lg; h.legs[1].position.z = -lg; });
     { const gp = app.world === w ? Ghost.at(app.levelT) : null, gg = this.ghost.g; gg.visible = !!gp;
       if (gp) { gg.position.set(this.X(gp.x + PW / 2), gp.flip ? this.Y(gp.y) : this.Y(gp.y + PHT), -.3); gg.rotation.set(0, gp.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, gp.flip ? Math.PI : 0);
         const lg = Math.abs(gp.vx) > 40 ? Math.sin(t * 12) * .22 : 0; this.ghost.legs[0].position.z = lg; this.ghost.legs[1].position.z = -lg; } }

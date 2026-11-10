@@ -81,14 +81,15 @@ function botFor(run, p, v, skip) {
     target = (nb && nb !== cb && cb.s1 - p.s < v * 0.2) ? clamp(nb.cx, cb.cx - cb.w / 2 + 0.35, cb.cx + cb.w / 2 - 0.35) : cb.cx;
   } else if (ahead) target = ahead.cx;
   else {
-    let best = p.x, bestScore = 1e9;
+    let best = p.x, bestScore = 1e9; const xr = new Map();
+    for (let i = W0; i < W1; i++) { const o = OB[i]; if (X3[o.type] && !o.hit && o.s1 >= p.s - 0.4 && o.s0 <= p.s + look && !(skip && skip(i))) xr.set(i, x3Ranges(o, true)); }
     for (let x = -4.4; x <= 4.4; x += 0.2) {
       let score = Math.abs(x - p.x) * 0.15;
       for (let i = W0; i < W1; i++) { const o = OB[i];
         if (o.type === 'gap' || o.hit || o.s1 < p.s - 0.4 || o.s0 > p.s + look || (skip && skip(i))) continue;
         if (X3[o.type]) {
           const near = 1000 / (1 + (o.s0 - p.s) * 0.05);
-          for (const [a, b] of x3Ranges(o, true)) if (x > a - .75 && x < b + .75) score += near;
+          for (const [a, b] of xr.get(i) || []) if (x > a - .75 && x < b + .75) score += near;
           continue;
         }
         let x0 = o.x0, x1 = o.x1;
