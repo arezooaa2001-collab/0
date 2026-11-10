@@ -92,6 +92,8 @@ const ACH = [
   ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
   ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
   ['endless', '♾️', 'ماراتن', 'توی حالت بی‌پایان ۵۰۰ متر برو'],
+  ['boss', '🗿', 'غول‌کُش', 'یکی از غول‌های آخر مرحله رو شکست بده'],
+  ['bossAll', '👑', 'پادشاه غول‌ها', 'هر چهار غول (مرحله‌های ۱۳، ۲۳، ۳۳ و ۳۹) رو شکست بده'],
   ['champ', '🥇', 'قهرمان مسابقه', 'توی یه مرحله‌ی مسابقه، از همه‌ی رقیب‌ها زودتر برس'],
   ['summit', '🏔️', 'فاتح قله', 'مرحله‌ی ۴۲ با ۴۵ اتاق رو ببر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
@@ -286,6 +288,7 @@ const app = {
         R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); };
+      w.onBoss = b => { const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();

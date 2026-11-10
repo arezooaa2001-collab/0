@@ -238,6 +238,7 @@ class World {
   }
 
   updEnt(e, dt) {
+    if (e.type === 'boss') return this.updBoss(e, dt);
     if (e.tog != null) { const want = e.tog === this.tog; if (!want) e.off = true; else if (e.off && !(this.state === 'play' && hit(this.p, e))) e.off = false; }
     if (e.type === 'spike' && !e.hidden && e.pop < 1) e.pop = Math.min(1, e.pop + dt / 0.07);
     if (e.type === 'block' && !e.hidden && e.appear < 1) e.appear = Math.min(1, e.appear + dt / 0.25);
@@ -446,6 +447,7 @@ class World {
       }
       else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
+      else if (e.type === 'boss') { if (e.hp > 0 && hit(p, { x: e.x + 14, y: e.y + 18, w: e.w - 28, h: e.h - 18 })) return this.die('boss'); }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser'); }
       else if (e.type === 'block' && e.lava) { if (hit(p, { x: e.x, y: e.y + 8, w: e.w, h: e.h })) return this.die('lava'); }
@@ -475,7 +477,7 @@ class World {
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   save() {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
     const lv = this.lv, ents = lv.ents;
     return { ck: this.ck, camX: this.camX, look: this.look,
       ents: ents.map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
@@ -486,7 +488,7 @@ class World {
     };
   }
   load(sn) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
     const lv = this.lv, ents = lv.ents;
     this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
     ents.forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });

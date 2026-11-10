@@ -819,13 +819,17 @@ function buildCourse(def, opt) {
     const fk = opt.key + ':' + ci + (opt.cave && ci === opt.caveCi ? 'c' : ''), seed = CHUNK_FIX[fk] ?? (opt.seed * 100 + ci);
     const c = makeChunk(ks, seed, TOP_MAX, opt, ci, groups.length); secs.push(c);
   });
+  // a boss arena takes the place of the last generated room on boss levels (same number of rooms)
+  if (opt.boss && secs.length > 1) { const c = secs.pop(); opt.nBossDrop = c.keys.length; secs.push(bossArena(opt.boss)); }
   // the hand-made screen closes the level
   secs.push(hand);
-  def.secs = secs; def.nObs = keys.length; def.course = opt;
+  def.secs = secs; def.nObs = keys.length - (opt.nBossDrop || 0); def.course = opt; def.boss = opt.boss || null;
   def.remakeChunk = (ci, seed) => { const c = def.secs[ci]; def.secs[ci] = makeChunk(c.keys, seed, c.t0, opt, ci, groups.length); def.relayout(); };
   def.relayout();
 }
 let prevKeys = null;
+// levels whose last generated room is a boss arena (see 22_boss.js)
+const BOSS_LV = { 12: 'golem', 22: 'spider', 32: 'dragon', 38: 'king' };
 LEVELS.forEach((def, idx) => {
   if (def.kind === '3d') return;
   const k0 = Math.min(1, idx / 39);
@@ -833,7 +837,7 @@ LEVELS.forEach((def, idx) => {
   if (nth % 6 === 4 && !def.rest) AUTO_CAVE.add(idx);
   // about five obstacles per room (fewer on the very long levels, so no design repeats inside a level)
   buildCourse(def, { prev: prevKeys,
-    key: 'L' + idx, seed: idx + 1, k0, rooms: def.rooms, n: Math.max(0, (def.rooms - 1) * 5), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
+    key: 'L' + idx, seed: idx + 1, k0, rooms: def.rooms, boss: BOSS_LV[idx], n: Math.max(0, (def.rooms - 1) * 5), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
     grav: idx >= 8, ice: idx >= 14, conv: idx >= 16, revz: idx >= 12, laser: idx >= 18, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx], cave: caveFor(idx),
   });
   if (!def.rest) prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
