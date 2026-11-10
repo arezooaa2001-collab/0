@@ -403,3 +403,5 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .offline-note { margin: 0 0 6px; }
 .report { margin-top: 6px; }
 .report-text { white-space: pre-wrap; font-size: 11px; direction: ltr; text-align: left; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px; max-height: 220px; overflow: auto; user-select: text; }
+.tr-head { margin: 0 0 6px; }
+.tr-box .tr-text { font-size: 1.35em; font-weight: 700; margin: 0 0 6px; }

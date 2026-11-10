@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { AiError, type ChatTurn, type Provider, type TutorReply, aiLog, aiLogLines, aiLogReset, askTutor, currentProvider, onAiLog } from '../lib/ai';
 import { APP_VERSION } from '../lib/config';
 import { dictionaryAnswer } from '../lib/miniDict';
+import { TARGET_NAMES, type TargetLang, parseTranslateRequest, translateFree } from '../lib/translate';
 import { isNativeApp } from '../lib/native';
 import { aiErrorDetail, aiErrorText } from '../lib/aiErrors';
 import { LANGS } from '../lib/langs';
-import { speakText, stopSpeaking } from '../lib/speech';
+import { speakTag, speakText, stopSpeaking } from '../lib/speech';
 import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
@@ -25,6 +26,18 @@ interface Message {
   offline?: boolean;
   /** Full step-by-step report for «📋 کپی گزارش». */
   report?: string;
+  /** A translation («…» را به «…» ترجمه کن). */
+  tr?: Translated;
+}
+
+interface Translated {
+  original: string;
+  text: string;
+  /** Latin-letter reading for scripts a Persian child cannot read yet. */
+  reading: string;
+  target: TargetLang;
+  /** Came from the app's own dictionary (no internet). */
+  offline?: boolean;
 }
 
 /** Hard limit for one question: whatever happens, «thinking» ends. */
@@ -39,7 +52,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const [provider, setProvider] = useState<Provider | null | undefined>(undefined);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | 'chat' | 'translate'>(false);
   const [waitSecs, setWaitSecs] = useState(0);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [stage, setStage] = useState('');
@@ -76,22 +89,57 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
 
   const add = (m: Omit<Message, 'id'>) => setMessages((prev) => [...prev, { ...m, id: nextId.current++ }]);
 
+  /** One request with the hard deadline: whatever happens, «thinking» ends. */
+  const withDeadline = <T,>(p: Promise<T>, ctrl: AbortController): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => {
+          ctrl.abort();
+          reject(new AiError('timeout', `no answer within ${DEADLINE_MS / 1000} s`));
+        }, DEADLINE_MS),
+      ),
+    ]);
+
+  /** «متن» را به «زبان» ترجمه کن: free translation (no key); then the AI, then the app's own dictionary. */
+  const translate = async (text: string, target: TargetLang, signal: AbortSignal): Promise<Translated> => {
+    try {
+      aiLog(`translate → ${target.code}`);
+      const r = await translateFree(text, target, signal);
+      aiLog(`← translated (${r.from || '?'} → ${target.code})`);
+      return { original: text, text: r.text, reading: r.reading, target };
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') throw e;
+      aiLog(`✗ translate: ${(e as Error)?.message ?? e}`);
+      if (provider) {
+        const r = await askTutor([{ role: 'user', text: `«${text}» را به «${target.name}» ترجمه کن. در "reply" فقط خود ترجمه را بنویس، بدون هیچ توضیحی.` }], null, { signal });
+        return { original: text, text: r.reply, reading: '', target };
+      }
+      if (target.code === 'en' || target.code === 'fa') {
+        const d = dictionaryAnswer(`«${text}» به ${target.name} ترجمه`);
+        const it = d?.items[0];
+        if (it && d!.items.length === 1) return { original: text, text: target.code === 'en' ? it.text : it.meaning, reading: '', target, offline: true };
+      }
+      throw new AiError('network', `translation: ${(e as Error)?.message ?? e}`);
+    }
+  };
+
   const send = async (raw: string) => {
     const q = raw.trim();
     if (!q || busy) return;
-    if (!provider) {
+    const tr = parseTranslateRequest(q);
+    if (!tr && !provider) {
       add({ role: 'user', text: q });
-      const local = dictionaryAnswer(q);
-      if (local) add({ role: 'assistant', text: local.reply, reply: local, offline: true });
-      add({ role: 'assistant', text: t.aiNoProvider, error: true });
+      add({ role: 'assistant', text: t.aiNoProviderChat, error: true });
       return;
     }
     // From here on, everything is inside one protected block: «thinking» ALWAYS ends.
-    setBusy(true);
+    setBusy(tr ? 'translate' : 'chat');
     setStage('');
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     let reply: TutorReply | null = null;
+    let translated: Translated | null = null;
     try {
       try {
         stopSpeaking();
@@ -100,45 +148,45 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       }
       add({ role: 'user', text: q });
       aiLogReset();
-      aiLog(`AMIR ABC v${APP_VERSION} ${isNativeApp() ? 'APK' : 'web'} · ${provider}`);
-      const history = [...historyRef.current, { role: 'user' as const, text: q }];
-      reply = await Promise.race([
-        askTutor(history, null, { signal: ctrl.signal }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => {
-            ctrl.abort();
-            reject(new AiError('timeout', `no answer within ${DEADLINE_MS / 1000} s`));
-          }, DEADLINE_MS),
-        ),
-      ]);
-      historyRef.current = [...history, { role: 'assistant', text: reply.reply }];
-      aiLog('answer shown');
-      add({ role: 'assistant', text: reply.reply, reply });
+      aiLog(`AMIR ABC v${APP_VERSION} ${isNativeApp() ? 'APK' : 'web'} · ${provider ?? 'no key'}`);
+      if (tr && !tr.ok) {
+        add({ role: 'assistant', text: t.trUnknownLang(tr.name, TARGET_NAMES), error: true });
+      } else if (tr) {
+        translated = await withDeadline(translate(tr.text, tr.target, ctrl.signal), ctrl);
+        aiLog('answer shown');
+        add({ role: 'assistant', text: translated.text, tr: translated });
+      } else {
+        const history = [...historyRef.current, { role: 'user' as const, text: q }];
+        reply = await withDeadline(askTutor(history, null, { signal: ctrl.signal }), ctrl);
+        historyRef.current = [...history, { role: 'assistant', text: reply.reply }];
+        aiLog('answer shown');
+        add({ role: 'assistant', text: reply.reply, reply });
+      }
     } catch (e) {
       const cancelled = (e as Error)?.name === 'AbortError' && !(e instanceof AiError);
       if (cancelled) add({ role: 'assistant', text: t.aiCancelled });
       else {
         aiLog(`failed: ${aiErrorDetail(e)}`);
         const report = [...aiLogLines(), navigator.userAgent].join('\n');
-        // The AI could not answer: the app's own dictionary still answers simple word questions.
-        const local = dictionaryAnswer(q);
-        if (local) {
-          reply = local;
-          add({ role: 'assistant', text: local.reply, reply: local, offline: true, detail: aiErrorDetail(e), report });
-        } else add({ role: 'assistant', text: aiErrorText(e), error: true, detail: aiErrorDetail(e), report });
+        add({ role: 'assistant', text: tr ? t.trFailed : aiErrorText(e), error: true, detail: aiErrorDetail(e), report });
       }
     } finally {
       setBusy(false);
       if (abortRef.current === ctrl) abortRef.current = null;
     }
     // Reading the answer aloud is separate: it can never block or undo the answer.
-    if (reply && autoSpeak) {
-      try {
+    if (!autoSpeak) return;
+    try {
+      if (translated) {
+        const tg = translated.target;
+        if (tg.app) await speakText(translated.text, accent, tg.app);
+        else await speakTag(translated.text, tg.tag);
+      } else if (reply) {
         const r = await speakText(reply.reply, accent, 'fa');
         if (r.missing.includes('fa') && !sessionFlag('fa-voice-warned')) toast(t.noVoiceForLang(LANGS.fa.name), 'error');
-      } catch {
-        /* the answer is already on screen */
       }
+    } catch {
+      /* the answer is already on screen */
     }
   };
 
@@ -159,13 +207,13 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     <section className="screen tutor-screen">
       <h1 className="title">{t.tutorTitle}</h1>
       <p className="meta center-text">
-        {provider === 'claude' ? t.tutorWithClaude : provider ? t.tutorWithKey(providerName) : ''} <span className="badge">{t.versionLabel(APP_VERSION)}</span>
+        {provider === 'claude' ? t.tutorWithClaude : provider ? t.tutorWithKey(providerName) : t.tutorNoKeyLine} <span className="badge">{t.versionLabel(APP_VERSION)}</span>
       </p>
 
       {!provider && (
         <div className="card">
           <p className="state-title">{t.aiNoProviderTitle}</p>
-          <p className="meta">{t.aiNoProvider}</p>
+          <p className="meta">{t.aiNoProviderChat}</p>
           <button className="btn btn-primary" onClick={onOpenSettings}>⚙️ {t.aiOpenSettings}</button>
         </div>
       )}
@@ -175,7 +223,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
           <p>{t.tutorHelloText}</p>
           <div className="row wrap center">
             {t.tutorStarters.map((s) => (
-              <button key={s} className="chip" onClick={() => void send(s)} disabled={busy}>{s}</button>
+              <button key={s} className="chip" dir="auto" onClick={() => void send(s)} disabled={!!busy}>{s}</button>
             ))}
           </div>
         </div>
@@ -194,6 +242,26 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
                   <p dir="auto">{m.text}</p>
                   {m.detail && <p className="meta diag" dir="ltr">{m.detail}</p>}
                   {m.report && <ReportButton report={m.report} />}
+                </>
+              ) : m.tr ? (
+                <>
+                  <p className="meta tr-head" dir="auto">{t.trHeader(m.tr.original, m.tr.target.name)}</p>
+                  <div className="answer-box tr-box">
+                    <p className="tr-text" dir="auto" lang={m.tr.target.code}>{m.tr.text}</p>
+                    {m.tr.reading && <p className="meta" dir="ltr">({m.tr.reading})</p>}
+                    <div className="row">
+                      <PronounceButton
+                        text={m.tr.text}
+                        lang={m.tr.target.app ?? 'en'}
+                        accent={accent}
+                        voice={m.tr.target.app ? undefined : { tag: m.tr.target.tag, name: m.tr.target.name }}
+                      />
+                      <button className="btn btn-secondary btn-small" onClick={() => saveItem(m.tr!.text, m.tr!.original)} title={t.saveToLibrary} aria-label={t.saveToLibrary}>
+                        💾
+                      </button>
+                    </div>
+                  </div>
+                  {m.tr.offline && <p className="meta offline-note">{t.tutorOfflineNote}</p>}
                 </>
               ) : (
                 <>
@@ -227,7 +295,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
         {busy && (
           <div className="bubble assistant">
             <p className="state-busy">
-              <span className="spinner" aria-hidden /> {t.tutorThinkingWith(providerName)}
+              <span className="spinner" aria-hidden /> {busy === 'translate' ? t.trWorking : t.tutorThinkingWith(providerName)}
               {waitSecs >= 3 && <span className="meta"> ({waitSecs.toLocaleString('fa-IR')} {t.seconds})</span>}
             </p>
             {stage && <p className="meta diag" dir="ltr">{stage}</p>}
@@ -260,7 +328,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
             }
           }}
         />
-        <button className="btn btn-confirm" type="submit" disabled={busy || !input.trim()}>📨 {t.tutorSend}</button>
+        <button className="btn btn-confirm" type="submit" disabled={!!busy || !input.trim()}>📨 {t.tutorSend}</button>
       </form>
       <div className="row wrap center">
         <label className="chip">

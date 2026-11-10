@@ -145,3 +145,22 @@ export function stopSpeaking(): void {
     /* never let "stop speaking" break the caller */
   }
 }
+
+/** Read text in any language by its voice tag (e.g. "de-DE", "ko-KR"): for translations. */
+export async function speakTag(text: string, tag: string): Promise<SpeakResult> {
+  if (!standardPronunciationSupported()) return 'unsupported';
+  speakRun++;
+  if (isNativeApp()) {
+    nativeStopSpeaking();
+    if (!nativeHasVoice(tag)) return 'no-voice';
+    const r = await nativeSpeak(text, tag);
+    return r;
+  }
+  if (!webSpeechAvailable()) return 'unsupported';
+  const voices = await loadVoices();
+  window.speechSynthesis.cancel();
+  await new Promise((r) => setTimeout(r, 60));
+  const voice = pickVoice(voices, tag);
+  if (voices.length && !voice) return 'no-voice';
+  return speakOne(text, tag, voice);
+}

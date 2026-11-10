@@ -35,6 +35,22 @@ chromium.launchPersistentContext = async (dir, opts = {}) => {
 
 // A stand-in for the family's Google Drive file (survives "reinstalling" = a brand-new profile).
 const driveFile = { name: null, b64: null, writes: 0 };
+// Google Translate's free endpoint, answered with real recorded replies (no internet in tests).
+const trRequests = [];
+async function withTranslateStub(ctx) {
+  await ctx.route('https://translate.googleapis.com/**', (route) => {
+    const u = new URL(route.request().url());
+    const tl = u.searchParams.get('tl');
+    const q = u.searchParams.get('q');
+    trRequests.push({ tl, q });
+    const fixture = { en: 'gtx-en.json', ja: 'gtx-ja.json' }[tl];
+    const body = fixture
+      ? fs.readFileSync(path.join(__dirname, '..', 'src', 'test', 'fixtures', fixture), 'utf8')
+      : JSON.stringify([[[tl === 'de' ? 'Hallo' : `[${tl}] ${q}`, q, null, null, 3]], null, 'fa']);
+    return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json', body });
+  });
+}
+
 async function withDriveStub(ctx) {
   await ctx.exposeBinding('__driveSave', (_s, name, b64) => { driveFile.name = name; driveFile.b64 = b64; driveFile.writes++; });
   await ctx.exposeBinding('__driveRead', () => driveFile.b64);
@@ -120,7 +136,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۹/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۲۰/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -385,7 +401,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.hint-field input').fill('dog');
   await page.locator('.save-typed').click();
   await page.locator('.saved-card', { hasText: 'dog' }).waitFor({ timeout: 5000 });
-  await page.waitForTimeout(1500); // Chromium writes localStorage to disk a moment later; the test closes the browser abruptly
+  await page.waitForTimeout(6000); // Chromium writes localStorage to disk up to ~5 s later; the test closes the browser abruptly
   await ctxL.close();
   ctxL = await chromium.launchPersistentContext(lsDir, lsOpts);
   await ctxL.addInitScript(blockIdb);
@@ -498,7 +514,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const ctxA = await chromium.launchPersistentContext(aiDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
   await ctxA.addInitScript(() => {
     window.__spoken = [];
-    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }, { lang: 'ja-JP' }];
+    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }, { lang: 'ja-JP' }, { lang: 'de-DE' }];
     speechSynthesis.speak = (u) => {
       window.__spoken.push({ text: u.text, lang: u.lang });
       setTimeout(() => u.onend && u.onend(new Event('end')), 30);
@@ -520,22 +536,53 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
         : { reply: 'سیب به انگلیسی می‌شود apple.', items: [{ text: 'apple', lang: 'en', meaning: 'سیب', say: 'اَپِل' }] };
     await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(answer) }] } }] }) });
   });
+  await withTranslateStub(ctxA);
   page = ctxA.pages()[0];
   await page.goto(FILE);
   await page.getByRole('button', { name: /معلم/ }).click();
-  check('tutor without a key explains how to turn it on', await page.getByText('معلم هوشمند هنوز روشن نیست').isVisible());
+  check('tutor without a key: translation is ready, free conversation explained', await page.getByText('ترجمه بدون کلید آماده است').isVisible());
   await page.locator('.tutor-input textarea').fill('سلام');
   await page.getByRole('button', { name: /بفرست/ }).click();
-  await page.locator('.bubble.assistant.error', { hasText: 'کلید Gemini یا ChatGPT' }).waitFor({ timeout: 5000 });
-  check('tutor always has a text box (explains in the chat when no AI is set up)', true);
+  await page.locator('.bubble.assistant.error', { hasText: 'کلید رایگان Gemini' }).waitFor({ timeout: 5000 });
+  check('no key: a normal message is NOT translated; it explains how to turn on free conversation', trRequests.length === 0);
+  await page.locator('.tutor-input textarea').fill('«سلام دوست من» را به «انگلیسی» ترجمه کن');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.tr-box', { hasText: 'hello my friend' }).waitFor({ timeout: 10000 });
+  await page.waitForTimeout(300);
+  check('no key: «متن» را به «زبان» ترجمه کن is translated (free, no API key)', aiRequests.length === 0 && trRequests.at(-1)?.tl === 'en' && trRequests.at(-1)?.q === 'سلام دوست من', JSON.stringify(trRequests.at(-1)));
+  check('the translation is read aloud in its own language', await page.evaluate(() => window.__spoken.some((x) => /hello my friend/i.test(x.text) && x.lang === 'en-US')));
+  await page.locator('.tutor-input textarea').fill('«گربه» را به «ژاپنی» ترجمه کن');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.tr-box', { hasText: '猫' }).waitFor({ timeout: 10000 });
+  check('Japanese translation shows how to read it (Latin letters)', await page.locator('.tr-box', { hasText: '猫' }).getByText('(Neko)').isVisible());
+  await page.locator('.tutor-input textarea').fill('«سلام» رو به زبان «آلمانی» ترجمه کن');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.tr-box', { hasText: 'Hallo' }).waitFor({ timeout: 10000 });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { window.__spoken.length = 0; });
+  await page.locator('.tr-box', { hasText: 'Hallo' }).locator('.btn-tts').click();
+  await page.waitForTimeout(300);
+  check('languages outside the app list too (German), with «🔊 تلفظ» in German', await page.evaluate(() => window.__spoken.some((x) => x.text === 'Hallo' && x.lang === 'de-DE')));
+  await page.locator('.tutor-input textarea').fill('«سلام» را به «مریخی» ترجمه کن');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant.error', { hasText: 'زبان «مریخی» را نمی‌شناسم' }).waitFor({ timeout: 5000 });
+  check('an unknown language name is explained, with the list of languages', true);
+  await page.locator('.tr-box', { hasText: 'hello my friend' }).getByRole('button', { name: /ذخیره در کلمه‌ها/ }).click();
+  await page.locator('.tabbar button').nth(1).click();
+  await page.locator('.word-card', { hasText: 'hello my friend' }).waitFor({ timeout: 5000 });
+  check('a translation can be saved with 💾', (await page.locator('.word-card', { hasText: 'سلام دوست من' }).count()) === 1);
+  await page.getByRole('button', { name: /معلم/ }).click();
+  await page.screenshot({ path: `${OUT}/14-translate-no-key.png` });
   await page.getByRole('button', { name: /رفتن به تنظیمات/ }).click();
   await page.locator('.ai-settings .chip', { hasText: 'Gemini' }).click();
   await page.locator('input[type=password]').fill('test-gemini-key');
   await page.getByRole('button', { name: /ذخیره کلید/ }).click();
   await page.getByRole('button', { name: /معلم/ }).click();
-  await page.getByRole('button', { name: '«سیب» به انگلیسی چی میشه؟' }).click();
+  await page.locator('.tutor-input textarea').fill('«سیب» به انگلیسی چی میشه؟');
+  await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
-  check('tutor answers in Persian with the English word', aiRequests[0]?.key === 'test-gemini-key' && !!aiRequests[0]?.body?.system_instruction);
+  check('with a key, any message gets a natural answer from the AI', aiRequests[0]?.key === 'test-gemini-key' && !!aiRequests[0]?.body?.system_instruction);
+  check('the AI is told to talk naturally and NOT translate unless asked', /Talk naturally/.test(JSON.stringify(aiRequests[0]?.body?.system_instruction)) && /Do NOT translate/.test(JSON.stringify(aiRequests[0]?.body?.system_instruction)));
   await page.waitForTimeout(400);
   check('tutor reads its answer aloud (each part in its language)', await page.evaluate(() => window.__spoken.some((x) => x.text.startsWith('apple') && x.lang === 'en-US') && window.__spoken.some((x) => x.lang === 'fa-IR')));
   await page.locator('.tutor-item', { hasText: 'apple' }).getByRole('button', { name: /ذخیره در کلمه‌ها/ }).click();
@@ -582,23 +629,26 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
     if (model === 'gemini-old-model') return route.fulfill({ status: 404, headers: fastCors, body: '{"error":{"code":404}}' });
     return route.fulfill({ status: 200, headers: fastCors, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply":"سگ به انگلیسی می‌شود dog.","items":[]}' }] } }] }) });
   });
+  await withTranslateStub(ctxF);
   page = ctxF.pages()[0];
   await page.goto(FILE);
   await page.getByRole('button', { name: /معلم/ }).click();
   const t0b = Date.now();
-  await page.getByRole('button', { name: 'یک کلمه تازه انگلیسی یادم بده' }).click();
+  await page.locator('.tutor-input textarea').fill('یک کلمه تازه انگلیسی یادم بده');
+  await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant .diag', { hasText: 'generativelanguage.googleapis.com' }).waitFor({ timeout: 5000 });
   check('while waiting, the step it is on is shown (which server, how long)', true);
   await page.locator('.bubble.assistant.error', { hasText: 'سرور هوش مصنوعی جواب نداد' }).waitFor({ timeout: 15000 });
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
   await page.locator('.bubble.assistant.error').last().getByRole('button', { name: /کپی گزارش/ }).click();
   const reportText = await page.locator('.report-text').last().innerText();
-  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v19/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
+  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v20/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
   fastReqs.length = 0;
-  await page.locator('.tutor-input textarea').fill('«سیب» به انگلیسی چی میشه؟');
+  fastReqs.length = 0;
+  await page.locator('.tutor-input textarea').fill('«سیب» را به «انگلیسی» ترجمه کن');
   await page.getByRole('button', { name: /بفرست/ }).click();
-  await page.locator('.tutor-item', { hasText: 'apple' }).waitFor({ timeout: 15000 });
-  check('AI unreachable: a word question is still answered from the app\'s own dictionary', (await page.locator('.offline-note').count()) === 1 && (await page.locator('.tutor-item', { hasText: 'apple' }).getByRole('button', { name: /تلفظ/ }).count()) === 1);
+  await page.locator('.tr-box').waitFor({ timeout: 15000 });
+  check('AI unreachable: translation still works (it does not need the AI)', fastReqs.length === 0 && (await page.locator('.tr-box').getByRole('button', { name: /تلفظ/ }).count()) === 1);
   await page.locator('.tutor-input textarea').fill('سلام');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant').getByRole('button', { name: /لغو/ }).click();
@@ -708,9 +758,9 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.goto(FILE);
   await page.getByRole('button', { name: /معلم/ }).click();
   await page.getByText('بدون کلید').first().waitFor({ timeout: 5000 });
-  await page.getByRole('button', { name: '«Hello» را به ژاپنی بگو' }).click();
+  await page.getByRole('button', { name: 'چرا آسمان آبی است؟' }).click();
   await page.locator('.bubble.assistant', { hasText: 'こんにちは' }).waitFor({ timeout: 10000 });
-  check('inside Claude the tutor works with no API key', await page.evaluate(() => window.__prompts.length === 1 && /9-year-old/.test(window.__prompts[0])));
+  check('inside Claude the tutor talks freely with no API key', await page.evaluate(() => window.__prompts.length === 1 && /9-year-old/.test(window.__prompts[0]) && /Talk naturally/.test(window.__prompts[0])));
   await ctxC.close();
 
   // 15. Inside Claude: words are also kept in the learner's private Claude storage
@@ -809,6 +859,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
     navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('denied', 'NotAllowedError'); };
   });
   await withDriveStub(ctxN2);
+  await withTranslateStub(ctxN2);
   await ctxN2.addInitScript((b64) => { window.__SPEECH_B64 = b64; }, fs.readFileSync(process.env.SPEECH_WAV).toString('base64'));
   page = ctxN2.pages()[0];
   await page.goto(FILE);
@@ -842,8 +893,17 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByText('فایل پشتیبان ساخته شد').waitFor({ timeout: 5000 });
   const nsaved = await page.evaluate(() => window.__native.saved);
   check('app: backup is saved through Android «save as»', nsaved.length === 1 && nsaved[0].mime === 'application/json' && nsaved[0].size > 100, nsaved[0]?.name);
+  // Android app with NO key: translation works through Android's own networking
+  await page.getByRole('button', { name: /معلم/ }).click();
+  const httpBefore = await page.evaluate(() => window.__native.http || 0);
+  await page.locator('.tutor-input textarea').fill('«سلام دوست من» را به «انگلیسی» ترجمه کن');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.tr-box', { hasText: 'hello my friend' }).waitFor({ timeout: 10000 });
+  await page.waitForTimeout(300);
+  check('app, no API key: translation works (through Android\'s own networking)', (await page.evaluate(() => window.__native.http || 0)) > httpBefore);
+  check('app: the translation is read with Android\'s voice in English', await page.evaluate(() => window.__native.spoken.some((x) => /hello my friend/i.test(x.text) && x.tag === 'en-US')));
   await page.evaluate(() => localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'gemini', key: 'k', model: 'm' })));
-  await page.waitForTimeout(300); // let Chromium hand the new setting to the next page load
+  await page.waitForTimeout(1500); // let Chromium hand the new setting to the next page load (test reloads at once)
   await ctxN2.route('https://generativelanguage.googleapis.com/**', (r) =>
     r.request().method() === 'OPTIONS'
       ? r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } })
@@ -878,7 +938,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
   check('app: if Android\'s networking fails, the WebView\'s own network is tried and the answer comes', (await page.locator('.bubble.assistant .answer-box').count()) === 5);
   await page.evaluate(() => { window.__nativeHttpFails = false; });
-  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۱۹').first().isVisible());
+  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۰').first().isVisible());
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
   await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
 
