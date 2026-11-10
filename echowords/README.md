@@ -64,13 +64,11 @@ No developer account or API key is needed. Android's document picker and the Dri
   - access is blocked for this site;
   - the permission prompt was dismissed.
   Settings has «🎙️ اجازه میکروفون» (Allow microphone), which asks the browser directly.
-- **«🤖 معلم مهربان» (Kind Teacher), the AI tutor.** It answers a 9-year-old in simple Persian and teaches words in any language. Each word has «🔊» to hear it and «💾» to save it. Ways to ask:
-  - type a question;
-  - «با صدا بپرس» (Ask by voice);
-  - «حالت لایو» (Live mode): listen → answer out loud → listen again, stopping by itself after silence;
-  - «عکس از کلمه» (Photo of a word) and «دوربین زنده» (Live camera) to read and translate words in a photo.
-
-  Inside Claude it uses Claude with no key. Elsewhere it uses a parent's Gemini or ChatGPT key, stored only on the device.
+- **«🤖 معلم مهربان» (Kind Teacher), the AI tutor.** It answers a 9-year-old in simple Persian and teaches words in any language. Text only: type a question (or use the keyboard's own voice typing). The answer appears in a box with «🔊 تلفظ»; each word taught gets its own box with «🔊» and «💾» (save).
+  - Inside Claude it uses Claude with no key. Elsewhere it uses a parent's Gemini or ChatGPT key, stored only on the device.
+  - **Never stuck:** one question ends within 32 seconds, whatever happens. While waiting it shows the step it is on (which server, through Android or the browser). In the APK, if Android's own networking cannot connect, the WebView's network is tried too.
+  - **Built-in dictionary:** when no AI can be reached (no internet, filtering, no key yet), simple word questions («سیب به انگلیسی چی میشه؟», «cat یعنی چی») are still answered from about 304 English–Persian words inside the app.
+  - **«📋 کپی گزارش» (Copy report):** after a failure, copies the step-by-step log (version, server, HTTP status, timings; never the key) to send for help.
 - **Inside Claude (claude.ai page).** `release/echowords-claude.html` is the same app as page content for claude.ai. There, words and folders are also stored in the learner's private Claude storage, so they come back after the browser is cleared or on another device. Microphone and live camera are not available inside claude.ai; typing, keyboard voice-typing, photos, pronunciation and the tutor all work.
 - **Pronunciation for every word.** Every saved word or sentence has a «🔊 تلفظ» (Pronunciation) button, played by the device's own voice in the word's language. The word is also spoken once right after saving. If the device has no voice for that language, the app says how to add one: Android settings → Google Text-to-speech.
 - **Languages.** In Settings: Persian, English, French, Chinese, Japanese and Hindi, or «همه با هم» (all together); English only by default. The menus stay Persian. Typing picks the language from the letters. Each language's text is checked against its own alphabet. Speech recognition uses the English-only Whisper model when only English is on, and one multilingual model otherwise.

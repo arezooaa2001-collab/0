@@ -400,3 +400,6 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .drive-steps { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 4px; }
 .drive-card b { overflow-wrap: anywhere; }
+.offline-note { margin: 0 0 6px; }
+.report { margin-top: 6px; }
+.report-text { white-space: pre-wrap; font-size: 11px; direction: ltr; text-align: left; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px; max-height: 220px; overflow: auto; user-select: text; }

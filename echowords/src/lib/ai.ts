@@ -102,7 +102,13 @@ let claudeSample: Promise<SampleFn | null> | null = null;
 export function getClaude(): Promise<SampleFn | null> {
   if (!claudeSample) {
     const c = (window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude;
-    claudeSample = typeof c?.use === 'function' ? (c.use('sample') as Promise<SampleFn | null>).catch(() => null) : Promise.resolve(null);
+    claudeSample =
+      typeof c?.use === 'function'
+        ? Promise.race([
+            (c.use('sample') as Promise<SampleFn | null>).catch(() => null),
+            new Promise<null>((r) => setTimeout(() => r(null), 5000)), // never wait forever for this
+          ])
+        : Promise.resolve(null);
   }
   return claudeSample;
 }
@@ -173,6 +179,33 @@ export class AiError extends Error {
 }
 
 // ── Talking to the AI services ─────────────────────────────────────────────
+// ── Step log (shown while waiting, and copied in «📋 کپی گزارش»). Never contains the key. ──
+let logStart = 0;
+const log: string[] = [];
+const listeners = new Set<(line: string) => void>();
+export function aiLogReset(): void {
+  log.length = 0;
+  logStart = performance.now();
+}
+export function aiLog(line: string): void {
+  const s = `+${((performance.now() - logStart) / 1000).toFixed(1)}s ${line}`;
+  log.push(s);
+  if (log.length > 60) log.shift();
+  for (const f of listeners) f(s);
+}
+export const aiLogLines = (): string[] => [...log];
+export function onAiLog(f: (line: string) => void): () => void {
+  listeners.add(f);
+  return () => listeners.delete(f);
+}
+const host = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return '?';
+  }
+};
+
 export interface AskOptions {
   signal?: AbortSignal;
   /** Live voice conversation: very short answers, read aloud. */
@@ -180,7 +213,7 @@ export interface AskOptions {
 }
 
 /** Give up on one request after this long (a stalled connection must never hang the app). */
-const timeoutMs = (): number => (globalThis as { __ECHOWORDS_AI_TIMEOUT__?: number }).__ECHOWORDS_AI_TIMEOUT__ ?? 15_000;
+const timeoutMs = (): number => (globalThis as { __ECHOWORDS_AI_TIMEOUT__?: number }).__ECHOWORDS_AI_TIMEOUT__ ?? 14_000;
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 const OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-5-mini', 'gpt-4o'];
@@ -213,12 +246,30 @@ async function post(req: Req, signal?: AbortSignal): Promise<{ status: number; b
       headers['Content-Type'] = packed.headers.get('content-type') ?? 'multipart/form-data';
       bytes = new Uint8Array(await packed.arrayBuffer());
     }
+    aiLog(`→ ${host(req.url)} (Android)`);
     const r = await nativeHttp('POST', req.url, headers, bytes, timeoutMs(), signal);
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
-    if (r.ok) return { status: r.status, body: r.body };
+    if (r.ok) {
+      aiLog(`← HTTP ${r.status} (${r.body.length} chars)`);
+      return { status: r.status, body: r.body };
+    }
+    aiLog(`✗ Android: ${r.error} ${r.detail ?? ''}`.trim());
     if (r.error === 'timeout') throw new AiError('timeout', r.detail ?? 'timeout');
+    // Android could not connect: try once more through the WebView's own network stack.
+    if (typeof req.body === 'string') {
+      try {
+        return await browserPost(req, signal);
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') throw e;
+      }
+    }
     throw new AiError(r.error === 'dns' || r.error === 'ssl' ? 'unreachable' : 'network', r.detail ?? r.error);
   }
+  return browserPost(req, signal);
+}
+
+async function browserPost(req: Req, signal?: AbortSignal): Promise<{ status: number; body: string }> {
+  aiLog(`→ ${host(req.url)} (browser)`);
   const ctrl = new AbortController();
   const onAbort = () => ctrl.abort();
   signal?.addEventListener('abort', onAbort);
@@ -229,9 +280,12 @@ async function post(req: Req, signal?: AbortSignal): Promise<{ status: number; b
   }, timeoutMs());
   try {
     const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body, signal: ctrl.signal });
-    return { status: res.status, body: await res.text() };
+    const body = await res.text();
+    aiLog(`← HTTP ${res.status} (${body.length} chars)`);
+    return { status: res.status, body };
   } catch (e) {
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
+    aiLog(`✗ browser: ${timedOut ? 'timeout' : String((e as Error)?.message ?? e)}`);
     if (timedOut) throw new AiError('timeout', 'No answer in time');
     throw new AiError('network', String((e as Error)?.message ?? e));
   } finally {
@@ -291,8 +345,10 @@ async function generate(st: AiSettings, build: (a: Attempt) => Req, read: (json:
     while (tries < 2) {
       tries++;
       try {
+        aiLog(`${st.provider} ${model}${tries > 1 ? ' (again)' : ''}`);
         const { status, body } = await post(build(a), signal);
         if (status >= 200 && status < 300) return read(JSON.parse(body));
+        aiLog(`  ${serverMessage(body).slice(0, 160)}`);
         if (status === 404 || (status === 400 && /model.*(not found|does not exist|not supported)|unknown model|invalid model/i.test(body))) {
           last = new AiError('other', `HTTP ${status}: model "${model}" not found — ${serverMessage(body)}`);
           missing = true;

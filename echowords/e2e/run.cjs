@@ -120,7 +120,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۷/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۸/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -581,9 +581,19 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.goto(FILE);
   await page.getByRole('button', { name: /معلم/ }).click();
   const t0b = Date.now();
-  await page.getByRole('button', { name: '«سیب» به انگلیسی چی میشه؟' }).click();
+  await page.getByRole('button', { name: 'یک کلمه تازه انگلیسی یادم بده' }).click();
+  await page.locator('.bubble.assistant .diag', { hasText: 'generativelanguage.googleapis.com' }).waitFor({ timeout: 5000 });
+  check('while waiting, the step it is on is shown (which server, how long)', true);
   await page.locator('.bubble.assistant.error', { hasText: 'سرور هوش مصنوعی جواب نداد' }).waitFor({ timeout: 15000 });
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
+  await page.locator('.bubble.assistant.error').last().getByRole('button', { name: /کپی گزارش/ }).click();
+  const reportText = await page.locator('.report-text').last().innerText();
+  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v18/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
+  fastReqs.length = 0;
+  await page.locator('.tutor-input textarea').fill('«سیب» به انگلیسی چی میشه؟');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.tutor-item', { hasText: 'apple' }).waitFor({ timeout: 15000 });
+  check('AI unreachable: a word question is still answered from the app\'s own dictionary', (await page.locator('.offline-note').count()) === 1 && (await page.locator('.tutor-item', { hasText: 'apple' }).getByRole('button', { name: /تلفظ/ }).count()) === 1);
   await page.locator('.tutor-input textarea').fill('سلام');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant').getByRole('button', { name: /لغو/ }).click();
@@ -765,6 +775,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
       // Android's own networking: here it forwards to the page's fetch so the simulated server still answers.
       httpRequest: (id, method, url, headersJson, b64) => {
         window.__native.http = (window.__native.http || 0) + 1;
+        if (window.__nativeHttpFails) return setTimeout(() => window.__ewNative.done(id, JSON.stringify({ ok: false, error: 'dns', detail: 'java.net.UnknownHostException: stub' })), 50);
         const body = b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : undefined;
         fetch(url, { method, headers: JSON.parse(headersJson), body })
           .then(async (r) => window.__ewNative.done(id, JSON.stringify({ ok: true, status: r.status, body: await r.text() })))
@@ -855,6 +866,13 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('app: several questions in a row are all answered', (await page.locator('.bubble.assistant .answer-box').count()) === 4);
   check('app: no hidden errors while using the tutor', (await page.evaluate(() => window.__pageErrors.length)) === 0, JSON.stringify(await page.evaluate(() => window.__pageErrors.slice(0, 2))));
   check('app: AI requests go through Android\'s own networking', (await page.evaluate(() => window.__native.http)) >= 4);
+  await page.evaluate(() => { window.__nativeHttpFails = true; });
+  await page.locator('.tutor-input textarea').fill('یک داستان کوتاه بگو');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
+  check('app: if Android\'s networking fails, the WebView\'s own network is tried and the answer comes', (await page.locator('.bubble.assistant .answer-box').count()) === 5);
+  await page.evaluate(() => { window.__nativeHttpFails = false; });
+  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۱۸').first().isVisible());
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
   await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
 

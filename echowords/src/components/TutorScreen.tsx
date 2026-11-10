@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { AiError, type ChatTurn, type Provider, type TutorReply, askTutor, currentProvider } from '../lib/ai';
+import { AiError, type ChatTurn, type Provider, type TutorReply, aiLog, aiLogLines, aiLogReset, askTutor, currentProvider, onAiLog } from '../lib/ai';
+import { APP_VERSION } from '../lib/config';
+import { dictionaryAnswer } from '../lib/miniDict';
+import { isNativeApp } from '../lib/native';
 import { aiErrorDetail, aiErrorText } from '../lib/aiErrors';
 import { LANGS } from '../lib/langs';
 import { speakText, stopSpeaking } from '../lib/speech';
@@ -18,10 +21,14 @@ interface Message {
   error?: boolean;
   /** Technical reason (small, for a screenshot when something fails). */
   detail?: string;
+  /** Answered from the app's own dictionary because the AI could not be reached. */
+  offline?: boolean;
+  /** Full step-by-step report for «📋 کپی گزارش». */
+  report?: string;
 }
 
 /** Hard limit for one question: whatever happens, «thinking» ends. */
-const DEADLINE_MS = 40_000;
+const DEADLINE_MS = 32_000;
 
 /**
  * «معلم مهربان» — text only: type a question (or use the keyboard's own voice typing),
@@ -35,6 +42,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const [busy, setBusy] = useState(false);
   const [waitSecs, setWaitSecs] = useState(0);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [stage, setStage] = useState('');
   const nextId = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<ChatTurn[]>([]);
@@ -51,6 +59,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       }
     };
   }, []);
+
+  useEffect(() => onAiLog((line) => setStage(line.replace(/^\+[\d.]+s /, ''))), []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -71,11 +81,14 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     if (!q || busy) return;
     if (!provider) {
       add({ role: 'user', text: q });
+      const local = dictionaryAnswer(q);
+      if (local) add({ role: 'assistant', text: local.reply, reply: local, offline: true });
       add({ role: 'assistant', text: t.aiNoProvider, error: true });
       return;
     }
     // From here on, everything is inside one protected block: «thinking» ALWAYS ends.
     setBusy(true);
+    setStage('');
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     let reply: TutorReply | null = null;
@@ -86,6 +99,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
         /* not important */
       }
       add({ role: 'user', text: q });
+      aiLogReset();
+      aiLog(`AMIR ABC v${APP_VERSION} ${isNativeApp() ? 'APK' : 'web'} · ${provider}`);
       const history = [...historyRef.current, { role: 'user' as const, text: q }];
       reply = await Promise.race([
         askTutor(history, null, { signal: ctrl.signal }),
@@ -97,10 +112,21 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
         ),
       ]);
       historyRef.current = [...history, { role: 'assistant', text: reply.reply }];
+      aiLog('answer shown');
       add({ role: 'assistant', text: reply.reply, reply });
     } catch (e) {
       const cancelled = (e as Error)?.name === 'AbortError' && !(e instanceof AiError);
-      add({ role: 'assistant', text: cancelled ? t.aiCancelled : aiErrorText(e), error: !cancelled, detail: cancelled ? undefined : aiErrorDetail(e) });
+      if (cancelled) add({ role: 'assistant', text: t.aiCancelled });
+      else {
+        aiLog(`failed: ${aiErrorDetail(e)}`);
+        const report = [...aiLogLines(), navigator.userAgent].join('\n');
+        // The AI could not answer: the app's own dictionary still answers simple word questions.
+        const local = dictionaryAnswer(q);
+        if (local) {
+          reply = local;
+          add({ role: 'assistant', text: local.reply, reply: local, offline: true, detail: aiErrorDetail(e), report });
+        } else add({ role: 'assistant', text: aiErrorText(e), error: true, detail: aiErrorDetail(e), report });
+      }
     } finally {
       setBusy(false);
       if (abortRef.current === ctrl) abortRef.current = null;
@@ -132,7 +158,9 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   return (
     <section className="screen tutor-screen">
       <h1 className="title">{t.tutorTitle}</h1>
-      <p className="meta center-text">{provider === 'claude' ? t.tutorWithClaude : provider ? t.tutorWithKey(providerName) : ''}</p>
+      <p className="meta center-text">
+        {provider === 'claude' ? t.tutorWithClaude : provider ? t.tutorWithKey(providerName) : ''} <span className="badge">{t.versionLabel(APP_VERSION)}</span>
+      </p>
 
       {!provider && (
         <div className="card">
@@ -165,9 +193,11 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
                 <>
                   <p dir="auto">{m.text}</p>
                   {m.detail && <p className="meta diag" dir="ltr">{m.detail}</p>}
+                  {m.report && <ReportButton report={m.report} />}
                 </>
               ) : (
                 <>
+                  {m.offline && <p className="meta offline-note">{m.detail ? t.tutorOfflineNote : t.tutorOfflineNoKey}</p>}
                   <div className="answer-box">
                     <p dir="auto">{m.text}</p>
                     <PronounceButton text={m.text} lang="fa" accent={accent} />
@@ -187,6 +217,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
                       </div>
                     </div>
                   ))}
+                  {m.offline && m.detail && <p className="meta diag" dir="ltr">{m.detail}</p>}
+                  {m.offline && m.report && <ReportButton report={m.report} />}
                 </>
               )}
             </div>
@@ -198,6 +230,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
               <span className="spinner" aria-hidden /> {t.tutorThinkingWith(providerName)}
               {waitSecs >= 3 && <span className="meta"> ({waitSecs.toLocaleString('fa-IR')} {t.seconds})</span>}
             </p>
+            {stage && <p className="meta diag" dir="ltr">{stage}</p>}
             <button className="btn btn-ghost btn-small" onClick={() => abortRef.current?.abort()}>✖️ {t.cancel}</button>
           </div>
         )}
@@ -236,6 +269,38 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       </div>
       <p className="meta center-text">{t.tutorKeyboardVoice}</p>
     </section>
+  );
+}
+
+/** Copies the step-by-step report, so a parent can paste it in a message. */
+function ReportButton({ report }: { report: string }) {
+  const [copied, setCopied] = useState(false);
+  const [show, setShow] = useState(false);
+  const copy = async () => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(report);
+      ok = true;
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = report;
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        ta.remove();
+      } catch {
+        /* show it instead */
+      }
+    }
+    setCopied(ok);
+    setShow(true);
+  };
+  return (
+    <div className="report">
+      <button className="btn btn-ghost btn-small" onClick={() => void copy()}>📋 {copied ? t.reportCopied : t.reportCopy}</button>
+      {show && <pre className="report-text" dir="ltr">{report}</pre>}
+    </div>
   );
 }
 
