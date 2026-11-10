@@ -27,11 +27,12 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | file | contents |
 |---|---|
 | `src/05_settings.js` | settings persistence, graphics presets (Go … Max Ultra and 20 higher tiers, Hyper … Reality Max), adaptive resolution (`Perf`), light/mood presets, colour palettes, per-level colour schemes |
-| `src/07_skins.js` | shop items: body colours, hats and trails (2D drawing, 3D hat meshes, trail particles) |
+| `src/07_skins.js` | shop items: body colours, hats, trails, pets that fetch gems, death effects (2D drawing, 3D meshes, particles) |
 | `src/10_levels.js` | all level definitions: 2D platformer levels, 3D chase levels, the rest stop, hidden realm, final order, rooms per level, race levels |
 | `src/15_course.js` | long scrolling levels: catalogue of 171 obstacle designs (switch blocks, kicker springs, pressure plates, spinners and more), per-level selection without repeats (FLAVOR families + one newer mechanic family per level), independent chunks with checkpoint flags, chase/reverse chunks, underground cave chunks (auto / all / picked / off), gems, power-ups (shield, star, slow time, magnet, spring shoes), 24 level looks (BIOMES: colours, background scenery, block material, floor edge, sky object, matching 3D theme); the level's hand-made screen is its finale; `CHUNK_FIX` holds solver-verified seeds |
 | `src/16_rivaldata.js` | recorded solver runs used by the rivals of the 2D race levels (generated) |
 | `src/17_endless.js` | endless mode and daily challenge: a course of solver-checked chunks that grows ahead of the player, with zones |
+| `src/22_boss.js` | boss arenas (golem, spider, dragon, trap king) that close levels 13, 23, 33 and 39: attacks, red buttons that drop weights, drawing |
 | `src/20_world.js` | 2D platformer simulation (traps, physics, save/load snapshots): trampolines, wind/updraft zones, low gravity, teleporters, blinking blocks, orbit/pendulum platforms, one-way planks, dash pads, lava/acid, fake spikes, gems, power-up effects, death slow-motion; long levels built section by section (`secBuilder`), camera, checkpoints, update window around the player |
 | `src/40_render2d.js` | 2D canvas renderer: classic view and the 2.5D extruded view, scrolling camera, static blocks cached in 640 px tiles, per-biome block textures and parallax scenery (mountains, cities, forests, dunes, crystals, islands, ruins, …), caves, high-tier sky effects (mist, moon rays, meteors) |
 | `src/42_weather.js` | weather (rain, snow, flood, storm, automatic) for the 2D views and both three.js views, rain/wind sounds |
@@ -40,6 +41,7 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/52_run3dx.js` | six newer 3D obstacle types described by moving parts (lasers, saws, hammers, sliding walls, turning bars, pillars), the shared autopilot / rival AI, rival runners, and the conversion of any platformer level into a 3D run (true 3D mode) |
 | `src/55_p3d.js` | three.js view for platformer levels (side-3D mode): side camera or third-person camera, mesh reuse on respawn |
 | `src/58_rivals2d.js` | rivals of the race levels played in 2D: each replays recorded solver runs room by room in its own invisible copy of the level |
+| `src/64_missions.js` | daily missions, the daily chest with a 7-day streak, player level (XP) |
 | `src/60_app.js`, `src/65_ui.js` | app flow, records, achievements, gem shop, endless/daily runs with lives, ghost of the best run, settings, mode, and records screens |
 
 ## Game modes
