@@ -246,3 +246,5 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .mbar{grid-column:1;height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.mbar i{display:block;height:100%;background:linear-gradient(90deg,#6ff3c4,#9be05a);transform-origin:right}
 .mp{font-size:12px;color:var(--muted)}.mis .btn,.mis .mok{grid-column:2;grid-row:1/span 2}.mok{color:#9be05a;font-size:13px}
 #sMissions .panel.tall{overflow:auto}#sMissions .panel.tall>*{flex-shrink:0}
+#xpBox{display:flex;align-items:center;gap:8px;justify-content:center;margin:-4px auto 10px;font-size:13px}#xpBox b{color:#ffd36e}#xpBox small{color:var(--muted);font-size:11px}
+.xpbar{width:140px;height:8px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#ffd36e,#ff9a3a);transform-origin:right}

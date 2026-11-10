@@ -261,6 +261,8 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .mbar{grid-column:1;height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.mbar i{display:block;height:100%;background:linear-gradient(90deg,#6ff3c4,#9be05a);transform-origin:right}
 .mp{font-size:12px;color:var(--muted)}.mis .btn,.mis .mok{grid-column:2;grid-row:1/span 2}.mok{color:#9be05a;font-size:13px}
 #sMissions .panel.tall{overflow:auto}#sMissions .panel.tall>*{flex-shrink:0}
+#xpBox{display:flex;align-items:center;gap:8px;justify-content:center;margin:-4px auto 10px;font-size:13px}#xpBox b{color:#ffd36e}#xpBox small{color:var(--muted);font-size:11px}
+.xpbar{width:140px;height:8px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#ffd36e,#ff9a3a);transform-origin:right}
 </style>
 </head>
 <body>
@@ -303,6 +305,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   <div class="panel">
     <h1 class="logo">تله‌زار</h1>
     <p class="sub">به هیچ چیز اعتماد نکن… حتی به زمین زیر پات.</p>
+    <div id="xpBox"></div>
     <div class="diffbox"><div class="lbl">سطح سختی</div><div class="diffs" data-diffs></div><div class="ddesc" id="dDesc"></div></div>
     <div class="menu">
       <button class="btn primary wide" id="bPlay">▶ شروع بازی</button>
@@ -6064,10 +6067,13 @@ const ACH = [
   ['bossAll', '👑', 'پادشاه غول‌ها', 'هر چهار غول (مرحله‌های ۱۳، ۲۳، ۳۳ و ۳۹) رو شکست بده'],
   ['champ', '🥇', 'قهرمان مسابقه', 'توی یه مرحله‌ی مسابقه، از همه‌ی رقیب‌ها زودتر برس'],
   ['summit', '🏔️', 'فاتح قله', 'مرحله‌ی ۴۲ با ۴۵ اتاق رو ببر'],
+  ['lvl5', '⭐', 'باتجربه', 'به سطح ۵ برس'],
+  ['lvl10', '🌟', 'استاد تله‌زار', 'به سطح ۱۰ برس'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
-function unlockAch(id) {
+function unlockAch(id, cond = true) {
+  if (!cond) return;
   if (ST.ach[id]) return; ST.ach[id] = Date.now(); writeSave();
   const a = ACH.find(x => x[0] === id); if (!a) return;
   toastQ.push(a); if (!toastBusy) nextToast();
@@ -6220,7 +6226,7 @@ const app = {
     ST.endBest = ST.endBest || {}; const best = E.daily ? dailyBest() : ST.endBest[this.diff] || 0, rec = E.dist > best;
     if (rec) { if (E.daily) ST.daily = { day: dayKey(), best: E.dist }; else ST.endBest[this.diff] = E.dist; }
     if (E.dist > (ST.endBest[this.diff] || 0)) ST.endBest[this.diff] = E.dist;
-    if (E.dist >= 500) unlockAch('endless'); Missions.ev('dist', E.dist);
+    if (E.dist >= 500) unlockAch('endless'); Missions.ev('dist', E.dist); XP.add(E.dist / 10);
     writeSave();
     $('oDist').textContent = faNum(E.dist); $('oBest').textContent = faNum(Math.max(best, E.dist)); $('oGems').textContent = faNum(this.world ? this.world.got.size : 0); $('oCk').textContent = faNum(this.world ? this.world.ck : 0);
     $('oSub').textContent = (E.daily ? '🗓️ چالش امروز · ' : '') + (rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…');
@@ -6257,7 +6263,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => Missions.ev('jump');
-      w.onBoss = b => { const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
+      w.onBoss = b => { XP.add(120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
@@ -6271,7 +6277,7 @@ const app = {
       run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); XP.add(4); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -6329,7 +6335,7 @@ const app = {
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
   onCheckpoint(i) {
-    Missions.ev('room');
+    Missions.ev('room'); XP.add(4);
     if (this.endless) { this.endlessCheck(i); this.updTag(); this.taunt(`🚩 چک‌پوینت ${faNum(i)}`, '#9ef9dc'); return; }
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
@@ -6381,7 +6387,7 @@ const app = {
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
-    Missions.ev('win'); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
+    Missions.ev('win'); XP.add(40 + (d === 0 ? 20 : 0) + this.diff * 10); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
     if (race) { const pl = race.fin + 1; if (pl === 1) { unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
@@ -6526,7 +6532,7 @@ const Missions = {
   },
   claim(i) {
     const m = this.today()[i]; if (!m || !m.done || m.got) return 0;
-    const r = this.def(m.id).r; m.got = true; ST.gems += r; writeSave(); this.badge(); return r;
+    const r = this.def(m.id).r; m.got = true; ST.gems += r; XP.add(30); writeSave(); this.badge(); return r;
   },
   // the daily chest: streak of consecutive days
   chestState() {
@@ -6553,6 +6559,21 @@ function renderMissions() {
       <div class="mbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></div><div class="mp">${faNum(Math.floor(m.p))} / ${faNum(m.n)}</div>
       ${m.got ? '<span class="mok">✔ گرفتی</span>' : m.done ? `<button class="btn primary" data-mis="${i}">بگیر</button>` : ''}</div>`; }).join('');
 }
+
+/* ---------- player level (XP): everything you do earns experience; every new level pays gems ---------- */
+const XP = {
+  lvl: xp => Math.floor(Math.sqrt((xp || 0) / 40)) + 1,             // level 2 at 40 XP, 5 at 640, 10 at 3240...
+  need: l => (l - 1) * (l - 1) * 40,
+  add(n, why) {
+    if (!(n > 0)) return; const before = this.lvl(ST.xp); ST.xp = (ST.xp || 0) + Math.round(n); const after = this.lvl(ST.xp);
+    if (after > before) { const g = after * 10; ST.gems += g; Sound.play('win'); setTimeout(() => app.taunt(`⭐ سطح ${faNum(after)}! جایزه: ${faNum(g)} جواهر`, '#ffd36e'), 900); if (after >= 5) unlockAch('lvl5'); if (after >= 10) unlockAch('lvl10'); writeSave(); }
+    this.ui();
+  },
+  ui() {
+    const el = document.getElementById('xpBox'); if (!el) return; const l = this.lvl(ST.xp), a = this.need(l), b = this.need(l + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
+    el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small>`;
+  },
+};
 /* ============================ SETTINGS / MODE / RECORDS SCREENS ============================ */
 let setTab = 'gfx';
 const GFX_LABEL = { auto: 'خودکار', go: 'Go', plus: 'Plus', pro: 'Pro', max: 'Max', ultra: 'Ultra', maxultra: 'Max Ultra' };
@@ -6748,7 +6769,7 @@ $('sMissions').addEventListener('click', e => {
   if (c) { const g = Missions.openChest(); if (g) { Sound.play('win'); app.taunt(`🎁 ${faNum(g)} جواهر گرفتی!`, '#7af7ff'); } renderMissions(); }
   else if (m) { const g = Missions.claim(+m.dataset.mis); if (g) { Sound.play('win'); app.taunt(`💎 ${faNum(g)} جواهر جایزه!`, '#9be05a'); } renderMissions(); }
 });
-Missions.badge();
+Missions.badge(); XP.ui();
 /* ============================ MAIN LOOP ============================ */
 const sv = loadSave();
 app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);

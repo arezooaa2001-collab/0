@@ -193,4 +193,4 @@ $('sMissions').addEventListener('click', e => {
   if (c) { const g = Missions.openChest(); if (g) { Sound.play('win'); app.taunt(`🎁 ${faNum(g)} جواهر گرفتی!`, '#7af7ff'); } renderMissions(); }
   else if (m) { const g = Missions.claim(+m.dataset.mis); if (g) { Sound.play('win'); app.taunt(`💎 ${faNum(g)} جواهر جایزه!`, '#9be05a'); } renderMissions(); }
 });
-Missions.badge();
+Missions.badge(); XP.ui();

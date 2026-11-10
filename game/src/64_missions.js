@@ -40,7 +40,7 @@ const Missions = {
   },
   claim(i) {
     const m = this.today()[i]; if (!m || !m.done || m.got) return 0;
-    const r = this.def(m.id).r; m.got = true; ST.gems += r; writeSave(); this.badge(); return r;
+    const r = this.def(m.id).r; m.got = true; ST.gems += r; XP.add(30); writeSave(); this.badge(); return r;
   },
   // the daily chest: streak of consecutive days
   chestState() {
@@ -67,3 +67,18 @@ function renderMissions() {
       <div class="mbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></div><div class="mp">${faNum(Math.floor(m.p))} / ${faNum(m.n)}</div>
       ${m.got ? '<span class="mok">✔ گرفتی</span>' : m.done ? `<button class="btn primary" data-mis="${i}">بگیر</button>` : ''}</div>`; }).join('');
 }
+
+/* ---------- player level (XP): everything you do earns experience; every new level pays gems ---------- */
+const XP = {
+  lvl: xp => Math.floor(Math.sqrt((xp || 0) / 40)) + 1,             // level 2 at 40 XP, 5 at 640, 10 at 3240...
+  need: l => (l - 1) * (l - 1) * 40,
+  add(n, why) {
+    if (!(n > 0)) return; const before = this.lvl(ST.xp); ST.xp = (ST.xp || 0) + Math.round(n); const after = this.lvl(ST.xp);
+    if (after > before) { const g = after * 10; ST.gems += g; Sound.play('win'); setTimeout(() => app.taunt(`⭐ سطح ${faNum(after)}! جایزه: ${faNum(g)} جواهر`, '#ffd36e'), 900); if (after >= 5) unlockAch('lvl5'); if (after >= 10) unlockAch('lvl10'); writeSave(); }
+    this.ui();
+  },
+  ui() {
+    const el = document.getElementById('xpBox'); if (!el) return; const l = this.lvl(ST.xp), a = this.need(l), b = this.need(l + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
+    el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small>`;
+  },
+};

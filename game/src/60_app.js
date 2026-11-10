@@ -96,10 +96,13 @@ const ACH = [
   ['bossAll', '👑', 'پادشاه غول‌ها', 'هر چهار غول (مرحله‌های ۱۳، ۲۳، ۳۳ و ۳۹) رو شکست بده'],
   ['champ', '🥇', 'قهرمان مسابقه', 'توی یه مرحله‌ی مسابقه، از همه‌ی رقیب‌ها زودتر برس'],
   ['summit', '🏔️', 'فاتح قله', 'مرحله‌ی ۴۲ با ۴۵ اتاق رو ببر'],
+  ['lvl5', '⭐', 'باتجربه', 'به سطح ۵ برس'],
+  ['lvl10', '🌟', 'استاد تله‌زار', 'به سطح ۱۰ برس'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
-function unlockAch(id) {
+function unlockAch(id, cond = true) {
+  if (!cond) return;
   if (ST.ach[id]) return; ST.ach[id] = Date.now(); writeSave();
   const a = ACH.find(x => x[0] === id); if (!a) return;
   toastQ.push(a); if (!toastBusy) nextToast();
@@ -252,7 +255,7 @@ const app = {
     ST.endBest = ST.endBest || {}; const best = E.daily ? dailyBest() : ST.endBest[this.diff] || 0, rec = E.dist > best;
     if (rec) { if (E.daily) ST.daily = { day: dayKey(), best: E.dist }; else ST.endBest[this.diff] = E.dist; }
     if (E.dist > (ST.endBest[this.diff] || 0)) ST.endBest[this.diff] = E.dist;
-    if (E.dist >= 500) unlockAch('endless'); Missions.ev('dist', E.dist);
+    if (E.dist >= 500) unlockAch('endless'); Missions.ev('dist', E.dist); XP.add(E.dist / 10);
     writeSave();
     $('oDist').textContent = faNum(E.dist); $('oBest').textContent = faNum(Math.max(best, E.dist)); $('oGems').textContent = faNum(this.world ? this.world.got.size : 0); $('oCk').textContent = faNum(this.world ? this.world.ck : 0);
     $('oSub').textContent = (E.daily ? '🗓️ چالش امروز · ' : '') + (rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…');
@@ -289,7 +292,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => Missions.ev('jump');
-      w.onBoss = b => { const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
+      w.onBoss = b => { XP.add(120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
@@ -303,7 +306,7 @@ const app = {
       run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); XP.add(4); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -361,7 +364,7 @@ const app = {
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
   onCheckpoint(i) {
-    Missions.ev('room');
+    Missions.ev('room'); XP.add(4);
     if (this.endless) { this.endlessCheck(i); this.updTag(); this.taunt(`🚩 چک‌پوینت ${faNum(i)}`, '#9ef9dc'); return; }
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
@@ -413,7 +416,7 @@ const app = {
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
-    Missions.ev('win'); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
+    Missions.ev('win'); XP.add(40 + (d === 0 ? 20 : 0) + this.diff * 10); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
     if (race) { const pl = race.fin + 1; if (pl === 1) { unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
