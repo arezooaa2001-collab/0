@@ -367,9 +367,9 @@ export function useLibrary(enabledLangs: LangCode[] = ALL_LANGS): Library {
   const autoBackupIfDue = useCallback(async () => {
     try {
       const h = await db.checkStorage();
-      const all = await db.listWords();
       // Android app with working storage: no surprise «save file» screens; backups are made from Settings.
       if (isNativeApp() && h.mode === 'device') return false;
+      const all = await db.listWords();
       // Only IndexedDB counts as lasting storage; anything weaker gets a backup file after every change.
       if (!autoBackupDue(all, h.mode === 'device')) return false;
       await downloadBackup();

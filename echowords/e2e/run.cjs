@@ -120,7 +120,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۸/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۹/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -176,6 +176,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => document.querySelector('.review-input')?.value, null, { timeout: 120000 });
   const heard = await reviewInput(page).inputValue();
   check('speech transcribed on the device, shown for checking', /learning english/i.test(heard), JSON.stringify(heard));
+  check('speech recognition runs in a background thread (saving never waits for it)', (await page.evaluate(() => window.__ECHOWORDS_ASR_THREAD__)) === 'worker', await page.evaluate(() => String(window.__ECHOWORDS_ASR_THREAD__)));
   check('nothing is saved before the confirm button', (await countSaved(page)) === 1);
   await page.screenshot({ path: `${OUT}/02-review.png` });
   await confirmBtn(page).click();
@@ -359,9 +360,12 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.tabbar button').first().click();
   await ctx3.unroute(/\/models\//);
   await record(page, 3000);
+  await page.waitForTimeout(400); // recognition is busy now
+  const tSave = Date.now();
   await confirmBtn(page).click();
   await page.locator('.word-card-result').waitFor({ timeout: 10000 });
-  check('early confirm saves immediately', (await countSaved(page)) === 2);
+  const saveMs = Date.now() - tSave;
+  check('early confirm saves immediately (voice + text), even while recognition is busy', (await countSaved(page)) === 2 && saveMs < 1500, `${saveMs} ms`);
   await page.locator('.word-card-result .word-text').waitFor({ timeout: 120000 });
   check('text is filled in afterwards', /learning english/i.test(await page.locator('.word-card-result .word-text').textContent()));
   await ctx3.close();
@@ -381,6 +385,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.hint-field input').fill('dog');
   await page.locator('.save-typed').click();
   await page.locator('.saved-card', { hasText: 'dog' }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(1500); // Chromium writes localStorage to disk a moment later; the test closes the browser abruptly
   await ctxL.close();
   ctxL = await chromium.launchPersistentContext(lsDir, lsOpts);
   await ctxL.addInitScript(blockIdb);
@@ -588,7 +593,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
   await page.locator('.bubble.assistant.error').last().getByRole('button', { name: /کپی گزارش/ }).click();
   const reportText = await page.locator('.report-text').last().innerText();
-  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v18/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
+  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v19/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
   fastReqs.length = 0;
   await page.locator('.tutor-input textarea').fill('«سیب» به انگلیسی چی میشه؟');
   await page.getByRole('button', { name: /بفرست/ }).click();
@@ -838,6 +843,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const nsaved = await page.evaluate(() => window.__native.saved);
   check('app: backup is saved through Android «save as»', nsaved.length === 1 && nsaved[0].mime === 'application/json' && nsaved[0].size > 100, nsaved[0]?.name);
   await page.evaluate(() => localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'gemini', key: 'k', model: 'm' })));
+  await page.waitForTimeout(300); // let Chromium hand the new setting to the next page load
   await ctxN2.route('https://generativelanguage.googleapis.com/**', (r) =>
     r.request().method() === 'OPTIONS'
       ? r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } })
@@ -872,7 +878,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
   check('app: if Android\'s networking fails, the WebView\'s own network is tried and the answer comes', (await page.locator('.bubble.assistant .answer-box').count()) === 5);
   await page.evaluate(() => { window.__nativeHttpFails = false; });
-  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۱۸').first().isVisible());
+  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۱۹').first().isVisible());
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
   await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
 
@@ -890,8 +896,22 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.hint-field input').fill('rainbow رنگین‌کمان');
   await page.locator('.save-typed').click();
   await page.locator('.saved-card', { hasText: 'rainbow' }).waitFor({ timeout: 5000 });
-  await page.waitForTimeout(4500);
-  check('Drive: a new word is saved to Drive by itself a few seconds later', driveFile.writes > writes0 && driveWords().some((w) => w.transcript === 'rainbow رنگین‌کمان'));
+  await page.waitForTimeout(2000);
+  check('Drive: the heavy Drive copy is not written while the child is still saving words', driveFile.writes === writes0);
+  const tDrive = Date.now();
+  while (driveFile.writes === writes0 && Date.now() - tDrive < 20000) await page.waitForTimeout(250);
+  check('Drive: a new word is saved to Drive by itself once things are quiet', driveFile.writes > writes0 && driveWords().some((w) => w.transcript === 'rainbow رنگین‌کمان'), `${Math.round((Date.now() - tDrive) / 1000) + 2}s`);
+  const writes1 = driveFile.writes;
+  await page.locator('.saved-card').getByRole('button', { name: /یک کلمه یا جمله تازه/ }).click();
+  await page.locator('.hint-field input').fill('star ستاره');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'star' }).waitFor({ timeout: 5000 });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(1500);
+  check('Drive: leaving the app writes the waiting Drive copy at once', driveFile.writes > writes1 && driveWords().some((w) => w.transcript === 'star ستاره'));
   await ctxN2.close();
 
   // 18. "Uninstall and reinstall": a brand-new app with nothing in it → «بازیابی از گوگل درایو» → all back

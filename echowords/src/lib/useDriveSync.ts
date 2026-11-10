@@ -13,6 +13,9 @@ export interface DriveSync {
   syncNow: () => Promise<boolean>;
 }
 
+/** Quiet time after the last change before the Drive copy is rewritten. */
+const DRIVE_QUIET_MS = (globalThis as { __ECHOWORDS_DRIVE_QUIET__?: number }).__ECHOWORDS_DRIVE_QUIET__ ?? 15_000;
+
 /** Keeps the Google Drive copy up to date: rewrites it a few seconds after every change. */
 export function useDriveSync(lib: Library): DriveSync {
   const available = driveAvailable();
@@ -54,7 +57,9 @@ export function useDriveSync(lib: Library): DriveSync {
     return ok;
   }, [refresh]);
 
-  // Any change to words or folders → sync 3 seconds later (several quick changes = one sync).
+  // Any change to words or folders → sync once things are quiet (several quick saves = one sync).
+  // Writing the whole library (with recordings) is heavy, so it never runs in the middle of saving words;
+  // when the app goes to the background, a waiting sync runs at once.
   const signature = `${lib.words.length}|${lib.words.reduce((m, w) => (w.updatedAt > m ? w.updatedAt : m), '')}|${lib.folders.map((f) => f.id + f.name + f.emoji).join(',')}`;
   const first = useRef(true);
   useEffect(() => {
@@ -64,8 +69,23 @@ export function useDriveSync(lib: Library): DriveSync {
       return; // nothing changed yet
     }
     if (!available || !info.linked) return;
-    const id = setTimeout(() => void syncNow(), 3000);
-    return () => clearTimeout(id);
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(id);
+      document.removeEventListener('visibilitychange', onHide);
+      void syncNow();
+    };
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') run();
+    };
+    const id = setTimeout(run, DRIVE_QUIET_MS);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('visibilitychange', onHide);
+    };
   }, [signature, lib.loading, available, info.linked, syncNow]);
 
   return { available, info, lastSync, syncing, error, refresh, syncNow };

@@ -90,12 +90,12 @@ export function RecordScreen({ lib, drive, accent, onOpenLibrary, initialTarget 
       setTargetId(w.id);
       setTyped('');
       setTypedError(null);
+      setSaving(false); // saved: the box is ready for the next word at once
       void speakText(v.value, accent, w.lang ?? 'en'); // say the new word once
-      await backupAfterSave();
+      void backupAfterSave(); // never makes the child wait
     } catch (e) {
       console.error('save failed', e);
       setTypedError(t.saveFailed);
-    } finally {
       setSaving(false);
     }
   };
@@ -141,13 +141,13 @@ export function RecordScreen({ lib, drive, accent, onOpenLibrary, initialTarget 
         : await lib.saveTake(rec.take, { hint: null, accent, folderId: effectiveFolder, text: finalText, analysis, pendingTranscription: recog === 'working' });
       setResultId(w.id);
       setPhase('result');
+      setSaving(false);
       if (!attachMode && w.sttStatus === 'pending') void lib.transcribe(w.id);
-      await backupAfterSave();
+      void backupAfterSave(); // never makes the child wait
     } catch (e) {
       console.error('save failed', e);
       toast(t.saveFailed, 'error');
       setPhase('record');
-    } finally {
       setSaving(false);
     }
   };
