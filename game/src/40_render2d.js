@@ -201,7 +201,7 @@ function drawBack(world, sx, sy, scroll = 0) {
 const STT = { tiles: new Map(), tw: 640, renders: 0 };
 let levelUid = 0;
 function isStaticEnt(e) {
-  if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol || e.conv || e.orbit || e.pend || e.blink || e.sinking) return false;
+  if (e.gone || e.hidden || e.par || e.falling || e.moves.length || e.patrol || e.conv || e.orbit || e.pend || e.blink || e.sinking || e.tog != null) return false;
   if (e.type === 'block') return e.appear >= 1 && !e.shake;
   if (e.type === 'spike') return e.pop >= 1;
   return false;
@@ -296,6 +296,7 @@ function drawLava(e, t) {
 function drawBlock(e, t) {
   if (e.lava) return drawLava(e, t);
   const [x, y, w, h] = blockRect(e);
+  if (e.tog != null) return drawTogBlock(e, x, y, w, h, t);
   if (e.blink && e.off) { ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = rgbaHex(PAL.moss, .45); ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, w - 4, h - 4); ctx.restore(); return; }
   if (e.oneway) {
     // wooden plank you can jump through from below
@@ -347,8 +348,26 @@ function drawArrow(e) {
   ctx.fillStyle = '#ff5d8a'; ctx.beginPath(); ctx.moveTo(T * .3, 0); ctx.lineTo(T * .55, -7); ctx.lineTo(T * .5, 0); ctx.lineTo(T * .55, 7); ctx.closePath(); ctx.fill();
   ctx.restore(); if (vert) return;
 }
+// switch blocks: pink ones are solid until you jump, cyan ones after it; every jump swaps them
+const TOG_COL = ['#ff5d8a', '#4fd8ff'];
+function drawTogBlock(e, x, y, w, h, t) {
+  const c = TOG_COL[e.tog];
+  ctx.save();
+  if (e.off) { ctx.setLineDash([6, 5]); ctx.strokeStyle = rgbaHex(c, .55); ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, w - 4, h - 4); ctx.fillStyle = rgbaHex(c, .06); ctx.fillRect(x, y, w, h); ctx.restore(); return; }
+  ctx.fillStyle = TEX.stone; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = rgbaHex(c, .55); ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, y, w, 3);
+  ctx.strokeStyle = mixHex(c, '#ffffff', .4); ctx.lineWidth = 2.5; ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < w - 10; i += 20) { ctx.beginPath(); ctx.arc(x + 10 + i, y + h / 2, 2.2, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
 function drawSpike(e) {
   if (e.arrow) return drawArrow(e);
+  if (e.blink) { ctx.save(); if (e.off) ctx.globalAlpha = .15; else if (e.warn && Math.floor(performance.now() / 70) % 2) ctx.globalAlpha = .55; drawSpikeRaw(e); ctx.restore(); return; }
+  if (e.tog != null) { ctx.save(); if (e.off) ctx.globalAlpha = .18; drawSpikeRaw(e); ctx.fillStyle = TOG_COL[e.tog]; ctx.globalAlpha = e.off ? .25 : .9; const vert = e.dir === 'up' || e.dir === 'down'; ctx.fillRect(e.x, e.dir === 'up' ? e.y + T - 4 : e.y, vert ? e.n * T : 4, vert ? 4 : e.n * T); ctx.restore(); return; }
+  drawSpikeRaw(e);
+}
+function drawSpikeRaw(e) {
   const spr = TEX.spike[e.dir]; const k = e.pop < 1 ? e.pop : 1;
   if (k <= 0) return;
   if (e.fake && hints) { ctx.save(); ctx.globalAlpha = .4; }
@@ -428,6 +447,11 @@ function drawTrack(e) {
   ctx.restore();
 }
 function drawSpring(e) {
+  if (e.kick) { ctx.save(); ctx.translate(e.x + T / 2, e.y + e.h); ctx.rotate(Math.sign(e.kick) * .5); ctx.translate(-(e.x + T / 2), -(e.y + e.h)); }
+  drawSpringRaw(e);
+  if (e.kick) { ctx.fillStyle = '#ffd36e'; const d = Math.sign(e.kick), cx = e.x + T / 2, cy = e.y - 6; ctx.beginPath(); ctx.moveTo(cx + d * 10, cy); ctx.lineTo(cx - d * 2, cy - 7); ctx.lineTo(cx - d * 2, cy + 7); ctx.fill(); ctx.restore(); }
+}
+function drawSpringRaw(e) {
   const k = e.anim > 0 ? Math.sin((1 - e.anim) * Math.PI * 3) * e.anim : 0;
   const x = e.x + (e.shake ? rand(-2, 2) : 0), by = e.y + e.h, hgt = 12 - k * 8 + (e.anim > .5 ? 10 * (e.anim - .5) : 0);
   ctx.fillStyle = '#2a2547'; ctx.fillRect(x + 4, by - 4, T - 8, 4);
@@ -572,6 +596,11 @@ function viewEnts(world) {
 }
 function drawZone(e, t) {
   if (e.kind === 'shade') return;
+  if (e.kind === 'plate') {   // pressure plate: a red button that stays pressed (green) once stepped on
+    const d = e.down ? 5 : 0; ctx.fillStyle = '#2a2547'; ctx.fillRect(e.x - 4, e.y + e.h - 5, e.w + 8, 5);
+    ctx.fillStyle = e.down ? '#6ff3c4' : '#ff3d4a'; ctx.fillRect(e.x + 3, e.y - 3 + d, e.w - 6, e.h + 3 - d);
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillRect(e.x + 5, e.y - 2 + d, e.w - 10, 2); return;
+  }
   const on = e.act;
   ctx.save(); ctx.beginPath(); ctx.rect(e.x, e.y, e.w, e.h); ctx.clip();
   if (e.kind === 'wind') {
@@ -757,7 +786,7 @@ function render25(world, t, dt) {
   vp.blocks = near.filter(e => e.type === 'block' && !e.hidden && !e.lava && e.appear >= 1);
   for (const e of near) {
     if (e.hidden) continue;
-    if (e.type === 'block' && !e.lava && !(e.ghost && hints) && !(e.blink && e.off)) drawExtrude(e, vp);
+    if (e.type === 'block' && !e.lava && !(e.ghost && hints) && !(e.off && (e.blink || e.tog != null))) drawExtrude(e, vp);
     else if (e.type === 'spike' && e.pop > 0) drawSpikeBack(e, vp);
   }
   drawStatics(world, sx, sy);

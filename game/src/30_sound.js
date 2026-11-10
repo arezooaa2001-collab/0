@@ -96,6 +96,7 @@ const Sound = {
       case 'saw': this.noise(1.2, 0.18, 1600, 'bandpass'); this.tone(220, 260, 1.0, 'sawtooth', 0.04); break;
       case 'thunder': this.noise(1.1, 0.22, 500, 'lowpass', 0, 80); break;
       case 'spawn': this.tone(600, 1200, 0.16, 'sine', 0.08); break;
+      case 'tog': this.tone(660, 990, 0.07, 'square', 0.05); this.tone(990, 660, 0.06, 'triangle', 0.04, 0.04); break;
       case 'click': this.tone(800, 600, 0.05, 'square', 0.05); break;
       case 'gem': this.tone(1320, 1980, 0.09, 'sine', 0.08); this.tone(1980, 2640, 0.08, 'triangle', 0.04, 0.05); break;
       case 'roar': this.noise(1.1, 0.4, 500, 'bandpass', 0, 140); this.tone(130, 55, 1.1, 'sawtooth', 0.1); this.tone(98, 49, 1.0, 'square', 0.05, 0.05); break;

@@ -146,7 +146,7 @@ class World {
   }
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
-    this.rev = false;
+    this.rev = false; this.tog = 0;
     this.dark = !!this.def.dark;
     // endless course: only the sections around the checkpoint are built
     if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
@@ -184,6 +184,8 @@ class World {
     return { added, dropped };
   }
   sfx(n) { if (!this.silent) Sound.play(n); }
+  // switch blocks: every jump swaps which colour is solid
+  flipTog() { this.tog ^= 1; if (!this.silent && this.act.some(e => e.tog != null && !e.gone)) Sound.play('tog'); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
   isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost && !e.off; }
@@ -236,6 +238,7 @@ class World {
   }
 
   updEnt(e, dt) {
+    if (e.tog != null) { const want = e.tog === this.tog; if (!want) e.off = true; else if (e.off && !(this.state === 'play' && hit(this.p, e))) e.off = false; }
     if (e.type === 'spike' && !e.hidden && e.pop < 1) e.pop = Math.min(1, e.pop + dt / 0.07);
     if (e.type === 'block' && !e.hidden && e.appear < 1) e.appear = Math.min(1, e.appear + dt / 0.25);
     if (e.type === 'saw') e.rot += dt * 14;
@@ -323,6 +326,7 @@ class World {
       else if (e.kind === 'cave') this.cave = true;
     }
     if (p.dashT > 0) p.dashT -= dt;
+    if (p.kickT > 0) { p.kickT -= dt; if (p.onGround) p.kickT = 0; }
     for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
     // last safe standing spot (for the shield's rescue from a fall)
     const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) p.safe = [p.x, p.y, p.g];
@@ -334,10 +338,11 @@ class World {
       p.face = dir;
       let acc = p.onGround ? (onIce ? 900 : PH.accG) : PH.accA;
       if (Math.sign(p.vx) !== dir && p.vx !== 0) acc *= onIce ? 0.9 : 1.7;
-      const mx = PH.run * (p.dashT > 0 ? 1.9 : 1) * (p.starT > 0 ? 1.22 : 1);
+      if (p.kickT > 0) acc *= .2;
+      const mx = Math.max(PH.run * (p.dashT > 0 ? 1.9 : 1) * (p.starT > 0 ? 1.22 : 1), p.kickT > 0 ? Math.abs(p.vx) : 0);
       p.vx = clamp(p.vx + dir * acc * dt, -mx, mx);
     } else {
-      const f = (p.onGround ? (onIce ? 210 : PH.fric) : PH.fric * 0.45) * dt;
+      const f = (p.onGround ? (onIce ? 210 : PH.fric) : PH.fric * (p.kickT > 0 ? 0 : 0.45)) * dt;
       p.vx = Math.abs(p.vx) <= f ? 0 : p.vx - Math.sign(p.vx) * f;
     }
     if (inp.jump && !p.jumpHeld) p.buf = this.D.buf;
@@ -345,12 +350,12 @@ class World {
     p.buf -= dt;
     p.coy = p.onGround ? this.D.coyote : p.coy - dt;
     if (p.buf > 0 && p.coy > 0) {
-      p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true;
+      p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true; this.flipTog();
       p.sx = 0.72; p.sy = 1.3; this.sfx('jump');
       for (let k = 0; k < 7; k++) this.parts.push(this.mkPart(p.x + PW / 2, g > 0 ? p.y + PHT : p.y, { col: '#b8acdf', sp: 90, life: .35, size: rand(2, 4), g: 200 * g, up: g > 0 }));
     }
     else if ((this.dj || p.jumpT > 0) && p.buf > 0 && !p.air2 && !p.onGround && p.coy <= 0) {
-      p.vy = -PH.jump * 0.92 * g; p.buf = 0; p.air2 = true; p.jumping = true; p.sx = 0.75; p.sy = 1.25; this.sfx('spring');
+      p.vy = -PH.jump * 0.92 * g; p.buf = 0; p.air2 = true; p.jumping = true; this.flipTog(); p.sx = 0.75; p.sy = 1.25; this.sfx('spring');
       this.parts.push({ x: p.x + PW / 2, y: g > 0 ? p.y + PHT : p.y, vx: 0, vy: 0, life: .35, max: .35, size: 0, col: '#9ef9dc', g: 0, drag: 0, ring: true });
       for (let k = 0; k < 8; k++) this.parts.push(this.mkPart(p.x + PW / 2, g > 0 ? p.y + PHT : p.y, { col: '#9ef9dc', sp: 110, life: .4, size: rand(2, 3.5), g: 120 * g, add: true }));
     }
@@ -427,7 +432,7 @@ class World {
     const p = this.p;
     for (const e of this.act) {
       if (e.gone || e.hidden) continue;
-      if (e.type === 'spike') { if (!e.fake && e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die(e.arrow ? 'arrow' : 'spike'); }
+      if (e.type === 'spike') { if (!e.fake && !e.off && e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die(e.arrow ? 'arrow' : 'spike'); }
       else if (e.type === 'tele') {
         if (e.cd <= 0 && hit(p, e)) { const d = this.lv.e(e.to); if (d) {
           this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#7af7ff', sp: 200, life: .45, add: true, size: 3 });
@@ -439,6 +444,7 @@ class World {
         if (p.magT > 0) { const dx = p.x + PW / 2 - e.x, dy = p.y + PHT / 2 - e.y, d = Math.hypot(dx, dy); if (d < 190 && d > 1) { const s = Math.min(d, (260 + (190 - d) * 4) * dt); e.x += dx / d * s; e.y += dy / d * s; } }
         if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) { e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(); }
       }
+      else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw'); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser'); }
@@ -451,7 +457,8 @@ class World {
       }
       else if (e.type === 'spring') {
         if (p.g > 0 && p.vy >= 0 && hit(p, { x: e.x + 5, y: e.y - 2, w: e.w - 10, h: e.h + 2 })) {
-          p.vy = -PH.spring; p.onGround = false; p.ground = null; p.jumping = false; p.coy = 0; p.buf = 0;
+          p.vy = -PH.spring * (e.kp || 1); p.onGround = false; p.ground = null; p.jumping = false; p.coy = 0; p.buf = 0;
+          if (e.kick) { p.vx = e.kick * T; p.kickT = .5; p.face = Math.sign(e.kick); }
           p.sx = 0.65; p.sy = 1.45; e.anim = 1; this.sfx('spring');
           for (let k = 0; k < 12; k++) this.parts.push(this.mkPart(e.x + T / 2, e.y, { col: '#ffd36e', sp: 200, life: .45, size: rand(2, 4), g: 400, up: true, add: true }));
         }
@@ -468,25 +475,25 @@ class World {
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   save() {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down'];
     const lv = this.lv, ents = lv.ents;
     return { ck: this.ck, camX: this.camX, look: this.look,
       ents: ents.map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
       p: Object.assign({}, this.p, { ground: ents.indexOf(this.p.ground) }),
       trigs: lv.trigs.slice(), fired: lv.trigs.map(t => t.fired),
       timers: lv.timers.map(t => ({ t: t.t, fn: t.fn })), lt: lv.t,
-      state: this.state, deadT: this.deadT, winT: this.winT, winFired: this.winFired, winDoor: ents.indexOf(this.winDoor), winKind: this.winKind, rev: this.rev, time: this.time,
+      state: this.state, tog: this.tog, deadT: this.deadT, winT: this.winT, winFired: this.winFired, winDoor: ents.indexOf(this.winDoor), winKind: this.winKind, rev: this.rev, time: this.time,
     };
   }
   load(sn) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down'];
     const lv = this.lv, ents = lv.ents;
     this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
     ents.forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });
     this.p = Object.assign({}, sn.p, { ground: sn.p.ground >= 0 ? ents[sn.p.ground] : null });
     lv.trigs = sn.trigs.slice(); lv.trigs.forEach((t, i) => t.fired = sn.fired[i]);
     lv.timers = sn.timers.map(t => ({ t: t.t, fn: t.fn })); lv.t = sn.lt;
-    this.state = sn.state; this.deadT = sn.deadT; this.winT = sn.winT; this.winFired = sn.winFired; this.winDoor = sn.winDoor >= 0 ? ents[sn.winDoor] : null; this.winKind = sn.winKind; this.rev = sn.rev; this.time = sn.time;
+    this.state = sn.state; this.tog = sn.tog || 0; this.deadT = sn.deadT; this.winT = sn.winT; this.winFired = sn.winFired; this.winDoor = sn.winDoor >= 0 ? ents[sn.winDoor] : null; this.winKind = sn.winKind; this.rev = sn.rev; this.time = sn.time;
     this.parts.length = 0;
   }
 

@@ -484,6 +484,168 @@ kind('laserGrid', 'lasers', 0, 3, { need: 'laser', wait: true }, G => {
 });
 
 /* ---------- per-level flavour (which families a level leans on), by position in LEVELS ---------- */
+/* ---------- third wave of designs: switch blocks, kicker springs, pressure plates, spinners and new mixes ---------- */
+const TOGB = (G, x, y, w, h, g, o) => G.L.block(null, x, y, w, h, Object.assign({ tog: g }, o));
+const PLATE = (G, x, fn) => { G.L.zone(G.id(), 'plate', x, G.t - .25, 1, .25); G.L.trig(x, G.t - 1, 1, 1, fn, { ground: true }); };
+const SPIN = (G, cx, cy, radii, w, ph) => { G.L.block(null, cx - .3, cy - .3, .6, .6); for (const r of radii) G.L.saw(G.id(), cx, cy, .42, { orbit: { rad: r, w, ph } }); };
+// switch blocks: pink ones are solid at the start, every jump swaps pink and cyan
+kind('togDoor', 'toggle', 0, 1, {}, G => { const x = G.x; G.F(x, 8); TOGB(G, x + 4, 0, 1, G.t, 0); G.x += 8; });
+kind('togBridge', 'toggle', .05, 1, {}, G => { const x = G.x; G.pit(x, 9); TOGB(G, x + 1.5, G.t, 2, .6, 1); TOGB(G, x + 5, G.t, 2, .6, 0); G.x += 9; });
+kind('togStairs', 'toggle', .15, 2, { tall: true, can: t => t - 3 >= TOP_MIN }, G => {
+  const x = G.x; G.pit(x, 8); TOGB(G, x + 1, G.t - 1, 1.6, .6, 1); TOGB(G, x + 3.4, G.t - 2, 1.6, .6, 0); TOGB(G, x + 5.8, G.t - 3, 1.6, .6, 1); G.x += 8; G.t -= 3;
+});
+kind('togWalls', 'toggle', .2, 2, {}, G => { const x = G.x; G.F(x, 11); TOGB(G, x + 3, 0, 1, G.t, 0); TOGB(G, x + 7, 0, 1, G.t, 1); G.L.spikes(null, x + 5, G.t - 1, 1, 'up'); G.x += 11; });
+kind('togSpikes', 'toggle', .25, 2, {}, G => { const x = G.x; G.F(x, 12); G.L.spikes(null, x + 2, G.t - 1, 3, 'up', { tog: 0 }); G.L.spikes(null, x + 6, G.t - 1, 3, 'up', { tog: 1 }); G.x += 12; });
+kind('togClimb', 'toggle', .35, 2, { tall: true, can: t => t - 4 >= TOP_MIN }, G => {
+  const x = G.x; G.F(x, 2); G.pit(x + 2, 6); TOGB(G, x + 2.5, G.t - 1.5, 1.5, .6, 1); TOGB(G, x + 4.5, G.t - 3, 1.5, .6, 0);
+  G.L.block(null, x + 6.5, G.t - 4, 1.5, 22 - G.t); G.x += 8; G.t -= 4;
+});
+kind('togRun', 'toggle', .4, 3, {}, G => {
+  const n = 4 + (G.k > .6 ? 1 : 0), x = G.x, w = n * 2.6 + 2.4; G.pit(x, w);
+  for (let i = 0; i < n; i++) TOGB(G, x + 1.6 + i * 2.6, G.t - (i % 2 ? .5 : 0), 1.4, .6, i % 2 ? 0 : 1);
+  G.x += w;
+});
+kind('togSaw', 'toggle', .5, 3, { wait: true }, G => {
+  const x = G.x; G.pit(x, 10); TOGB(G, x + 1.5, G.t, 3, .6, 1); TOGB(G, x + 5.5, G.t, 3, .6, 0);
+  G.L.saw(G.id(), x + 5, G.t - 1.6, .5, { patrol: [[x + 1.5, G.t - 1.6], [x + 8.5, G.t - 1.6]], speed: 2.2 + G.k }); G.x += 10;
+});
+kind('togLava', 'toggle', .45, 3, {}, G => {
+  const x = G.x; LAVA(G, x, 12); TOGB(G, x + 1.4, G.t, 1.6, 2.6, 1); TOGB(G, x + 4.4, G.t - 1, 1.6, 3.6, 0); TOGB(G, x + 7.4, G.t, 1.6, 2.6, 1); G.x += 12;
+});
+// kicker springs: tilted springs that throw you forward (or back)
+kind('kickGap', 'kick', .05, 1, { tall: true, launch: true }, G => { const x = G.x, w = 8; G.F(x, 2); G.L.spring(null, x + .5, G.t - 1, { kick: 12, kp: .72 }); G.pit(x + 2, w); G.x += 2 + w; });
+kind('kickWall', 'kick', .2, 2, { tall: true, launch: true }, G => { const x = G.x; G.F(x, 12); G.L.spring(null, x + 1, G.t - 1, { kick: 7, kp: .95 }); G.L.block(null, x + 5, G.t - 6, 1.5, 6); G.x += 12; });
+kind('kickBack', 'kick', .25, 1, {}, G => { const x = G.x; G.F(x, 9); G.L.spring(null, x + 4, G.t - 1, { kick: -7, kp: .6 }); G.L.block(null, x + 3, G.t - 2.6, 3, .5); G.x += 9; });
+kind('kickChain', 'kick', .4, 3, { tall: true, launch: true }, G => {
+  const x = G.x; G.F(x, 2); G.L.spring(null, x + .5, G.t - 1, { kick: 9, kp: .75 }); G.pit(x + 2, 15);
+  G.L.block(null, x + 9, G.t - 1, 2, 19 - G.t); G.L.spring(null, x + 9.5, G.t - 2, { kick: 9, kp: .75 }); G.x += 17;
+});
+kind('kickTunnel', 'kick', .45, 3, { launch: true, ceil: true }, G => {
+  const x = G.x; G.F(x, 2); G.L.spring(null, x + .5, G.t - 1, { kick: 15, kp: .5 }); G.pit(x + 2, 7);
+  G.L.block(null, x + 2, 0, 7, G.t - 5, { ceil: true }); G.L.spikes(null, x + 2, G.t - 5, 7, 'down'); G.x += 9;
+});
+kind('kickSaw', 'kick', .5, 3, { tall: true, launch: true, wait: true }, G => {
+  const x = G.x; G.F(x, 2); G.L.spring(null, x + .5, G.t - 1, { kick: 10, kp: .8 }); G.pit(x + 2, 8);
+  G.L.saw(G.id(), x + 6, G.t - 4, .55, { patrol: [[x + 6, G.t - 7.5], [x + 6, G.t - 1]], speed: 2.6 + G.k * .6 }); G.x += 10;
+});
+// pressure plates: step on the red button
+kind('plateDoor', 'gates', .1, 1, {}, G => {
+  const x = G.x, id = G.id(); G.F(x, 11); G.L.block(id, x + 7, 0, 1, G.t);
+  PLATE(G, x + 2, () => { G.L.move(id, 0, -(G.t + 1), 9); G.L.sfx('rumble'); }); G.x += 11;
+});
+kind('plateBridge', 'gates', .2, 1, {}, G => {
+  const x = G.x, id = G.id(); G.F(x, 3); G.pit(x + 3, 6); G.L.block(id, x + 3, G.t + 4, 6, .7);
+  PLATE(G, x + 1, () => { G.L.move(id, 0, -4, 5); G.L.sfx('rumble'); }); G.x += 9;
+});
+kind('plateRace', 'gates', .3, 2, {}, G => {
+  const x = G.x, n = 7, ids = []; G.F(x, 3); G.pit(x + 3, n);
+  for (let i = 0; i < n; i++) { const id = G.id(); ids.push(id); G.L.block(id, x + 3 + i, G.t, 1, .7, { hidden: true, fallV: 60 }); }
+  PLATE(G, x + 1, () => { ids.forEach((id, i) => { G.L.pop(id, i * .05); G.L.after(1.7 + (1 - G.k) * .8 + i * .12, () => G.L.fall(id)); }); G.L.say('بدو!'); });
+  G.x += 3 + n;
+});
+kind('plateCrush', 'gates', .4, 3, { ceil: true }, G => {
+  const x = G.x, n = 4, ids = []; G.F(x, 14); G.L.block(null, x + 2, 0, 12, 1, { ceil: true });
+  for (let i = 0; i < n; i++) { const id = G.id(); ids.push(id); G.L.block(id, x + 3 + i * 2.5, 1, 2, G.t - 3.2, { ceil: true }); G.L.spikes(null, x + 3 + i * 2.5, G.t - 2.2, 2, 'down', { parent: id }); }
+  PLATE(G, x + 1, () => { ids.forEach((id, i) => G.L.move(id, 0, 2.2, 7, .5 + i * .45)); G.L.sfx('rumble'); }); G.x += 14;
+});
+kind('plateSaws', 'gates', .45, 3, {}, G => {
+  const x = G.x, id = G.id(); G.F(x, 13); G.L.saw(id, x - 1, G.t - .5, .55, { hidden: true });
+  PLATE(G, x + 2, () => { G.L.pop(id); G.L.move(id, 13.5, 0, 6.2 + G.k, .35); G.L.after(3.4, () => { const e = G.L.e(id); if (e) e.gone = true; }); G.L.say('اره پشت سرته!'); });
+  G.L.spikes(null, x + 6, G.t - 1, 1, 'up'); G.x += 13;
+});
+// spinners: saw bars turning around a hub
+kind('spinBar', 'spinner', .2, 2, { wait: true }, G => { const x = G.x; G.F(x, 9); SPIN(G, x + 4.5, G.t - 2.4, [1, 1.9, 2.8], 1.3 + G.k * .5, G.r() * 6.28); G.x += 9; });
+kind('spinPit', 'spinner', .3, 2, { wait: true }, G => {
+  const x = G.x; G.pit(x, 9); G.L.block(null, x + 3.5, G.t, 2, 18 - G.t); SPIN(G, x + 4.5, G.t - 3.2, [1.1, 2, 2.9], 1.2 + G.k * .4, G.r() * 6.28); G.x += 9;
+});
+kind('spinTwin', 'spinner', .4, 3, { wait: true }, G => {
+  const x = G.x, w = 1.2 + G.k * .4, ph = G.r() * 6.28; G.F(x, 13);
+  SPIN(G, x + 4, G.t - 2.6, [1, 1.8, 2.6], w, ph); SPIN(G, x + 9, G.t - 2.6, [1, 1.8, 2.6], -w, ph + Math.PI); G.x += 13;
+});
+kind('spinCross', 'spinner', .55, 3, { wait: true }, G => {
+  const x = G.x, w = 1 + G.k * .3, ph = G.r() * 6.28; G.F(x, 10); SPIN(G, x + 5, G.t - 2.8, [1.1, 2, 2.9], w, ph);
+  for (const r of [1.1, 2, 2.9]) G.L.saw(G.id(), x + 5, G.t - 2.8, .42, { orbit: { rad: r, w, ph: ph + Math.PI / 2 } }); G.x += 10;
+});
+// new mixes of the older mechanics
+kind('sawWave', 'saws', .25, 2, { wait: true }, G => {
+  const x = G.x, n = 4, sp = 2.6 + G.k; G.F(x, 12);
+  for (let i = 0; i < n; i++) { const cx = x + 2.5 + i * 2.4, lo = G.t - .3, hi = G.t - 3.3; G.L.saw(G.id(), cx, lo - (hi - lo) * -((i * .3) % 1), .5, { patrol: [[cx, lo], [cx, hi]], speed: sp }); }
+  G.x += 12;
+});
+kind('convSaw', 'conveyor', .4, 3, { need: 'conv', wait: true }, G => {
+  const x = G.x; G.L.block(null, x, G.t, 11, 18 - G.t, { conv: -3 - G.k }); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.spikes(null, x + 7, G.t - 1, 1, 'up');
+  G.L.saw(G.id(), x + 5.5, G.t - 3.6, .5, { patrol: [[x + 1, G.t - 3.6], [x + 10, G.t - 3.6]], speed: 2.4 }); G.x += 11;
+});
+kind('bounceCeil', 'bounce', .35, 2, { tall: true, ceil: true }, G => {
+  const x = G.x; G.pit(x, 10); G.L.block(null, x + 3, G.t, 1.5, 18 - G.t, { bounce: 17 }); G.L.block(null, x + 6, G.t, 1.5, 18 - G.t, { bounce: 17 });
+  G.L.block(null, x - .5, 0, 11, G.t - 4.6, { ceil: true }); G.L.spikes(null, x - .5, G.t - 4.6, 11, 'down'); G.x += 10;
+});
+kind('onewayClimb', 'oneway', .35, 2, { tall: true, can: t => t - 4 >= TOP_MIN }, G => {
+  const x = G.x; G.F(x, 8); G.L.spikes(null, x + 1, G.t - 1, 4, 'up');
+  G.L.block(null, x + .6, G.t - 1.5, 2.2, .3, { oneway: true }); G.L.block(null, x + 2.6, G.t - 2.9, 2.2, .3, { oneway: true });
+  G.L.block(null, x + 5, G.t - 4, 3, 4); G.x += 8; G.t -= 4;
+});
+kind('blinkClimb', 'blink', .45, 3, { tall: true, wait: true, can: t => t - 4 >= TOP_MIN }, G => {
+  const x = G.x, ph = G.r() * 2; G.pit(x, 8);
+  [[1, 1], [3.4, 2.4], [5.8, 3.6]].forEach(([d, h], i) => G.L.block(null, x + d, G.t - h, 1.8, .6, { blink: { on: 1.5, off: 1.1, ph: ph + i * .7 } }));
+  G.x += 8; G.t -= 4;
+});
+kind('arrowSteps', 'arrows', .4, 3, { wait: true, tall: true, can: t => t - 3 >= TOP_MIN }, G => {
+  const x = G.x; G.F(x, 3); G.F(x + 3, 3, G.t - 1); G.F(x + 6, 3, G.t - 2); G.F(x + 9, 2, G.t - 3);
+  G.L.block(null, x + 10.6, G.t - 4.6, 1, 1.6); ARROW(G, x + 10, x - 1, G.t - 3.95, 7 + G.k * 2, G.r()); G.x += 11; G.t -= 3;
+});
+kind('lavaCrumble', 'lava', .35, 2, {}, G => { const x = G.x; LAVA(G, x, 11); for (let i = 0; i < 3; i++) G.L.block(null, x + 1.5 + i * 3, G.t, 2, .6, { crumble: .45 - G.k * .1 }); G.x += 11; });
+kind('sinkLava', 'lava', .4, 2, {}, G => { const x = G.x; LAVA(G, x, 12); for (let i = 0; i < 3; i++) G.L.block(null, x + 1.5 + i * 3.4, G.t, 2, .6, { sink: 1.3 + G.k }); G.x += 12; });
+kind('windSaw', 'wind', .4, 3, { wait: true }, G => {
+  const x = G.x; G.F(x, 12); G.L.zone(G.id(), 'wind', x, 0, 12, G.t, { fx: -2.2 }); G.L.saw(G.id(), x + 6, G.t - .4, .55, { patrol: [[x + 2, G.t - .4], [x + 10, G.t - .4]], speed: 2.4 + G.k }); G.x += 12;
+});
+kind('floatOrbit', 'float', .45, 3, { tall: true, wait: true }, G => {
+  const x = G.x, ph = G.r() * 6.28; G.pit(x, 11); G.L.zone(G.id(), 'float', x - 1, 0, 13, 18, { g: .35 });
+  G.L.saw(G.id(), x + 5.5, G.t - 3, .5, { orbit: { rad: 2.2, w: 1.5, ph } }); G.L.saw(G.id(), x + 5.5, G.t - 3, .5, { orbit: { rad: 2.2, w: 1.5, ph: ph + Math.PI } }); G.x += 11;
+});
+kind('dashLow', 'dash', .45, 3, { ceil: true }, G => {
+  const x = G.x; G.F(x, 13); G.L.dash(G.id(), x + 1.5, G.t - 1); G.L.spikes(null, x + 4, G.t - 1, 6, 'up');
+  G.L.block(null, x + 4, 0, 6, G.t - 4.2, { ceil: true }); G.L.spikes(null, x + 4, G.t - 4.2, 6, 'down'); G.x += 13;
+});
+kind('gravSwap', 'gravity', .45, 3, { tall: true, need: 'grav', ceil: true }, G => {
+  const x = G.x; G.F(x, 14); G.L.block(null, x - .5, 0, 15, 3.5, { ceil: true });
+  G.L.spikes(null, x + 3, G.t - 1, 3, 'up'); G.L.spikes(null, x + 8.5, 3.5, 3, 'down');
+  G.L.orb(G.id(), x + 1.5, G.t - .6); G.L.orb(G.id(), x + 7, 3.9); G.x += 14;
+});
+kind('iceJump', 'ice', .35, 2, { need: 'ice' }, G => {
+  const x = G.x; G.L.block(null, x, G.t, 6, 18 - G.t, { ice: true }); G.pit(x + 6, 3); G.L.block(null, x + 9, G.t, 4, 18 - G.t, { ice: true });
+  G.L.spikes(null, x + 12, G.t - 1, 1, 'up'); G.F(x + 13, 2); G.x += 15;
+});
+kind('convIslands', 'conveyor', .45, 3, { need: 'conv' }, G => { const x = G.x; G.pit(x, 12); G.L.block(null, x + 2, G.t, 3, .6, { conv: -3 }); G.L.block(null, x + 7, G.t, 3, .6, { conv: 3.5 }); G.x += 12; });
+kind('stalactites', 'falling', .3, 2, { ceil: true }, G => {
+  const x = G.x, n = 5; G.F(x, 13); G.L.block(null, x + 1, 0, 11, 2, { ceil: true });
+  for (let i = 0; i < n; i++) { const id = G.id(); G.L.spikes(id, x + 2 + i * 2, 2, 1, 'down'); G.L.trig(x + .6 + i * 2, 0, .5, 18, () => { G.L.fall(id, .12); G.L.sfx('crack'); }); }
+  G.x += 13;
+});
+kind('pendBridge', 'swing', .4, 3, { wait: true }, G => {
+  const x = G.x, ph = G.r() * 6.28; G.pit(x, 11); G.L.block(null, x + 1.5, G.t, 8, .6);
+  G.L.saw(G.id(), x + 3.5, G.t - .9, .55, { mace: true, pend: { len: 4.5, amp: 1.0, w: 2.3, ph } }); G.L.saw(G.id(), x + 7.5, G.t - .9, .55, { mace: true, pend: { len: 4.5, amp: 1.0, w: 2.3, ph: ph + 1.6 } }); G.x += 11;
+});
+kind('maceRain', 'maces', .45, 3, { wait: true, tall: true }, G => {
+  const x = G.x; G.F(x, 12);
+  for (let i = 0; i < 3; i++) { const cx = x + 2.5 + i * 3.4; G.L.saw(G.id(), cx, G.t - 6 + (i % 2) * 2.5, .6, { mace: true, patrol: [[cx, G.t - 6], [cx, G.t - .7]], speed: 4.5 + G.k * 2 }); }
+  G.x += 12;
+});
+kind('ceilSqueeze', 'ceiling', .4, 3, { ceil: true }, G => {
+  const x = G.x; G.F(x, 13); G.L.block(null, x, 0, 13, G.t - 3, { ceil: true }); G.L.spikes(null, x, G.t - 3, 13, 'down');
+  G.L.spikes(null, x + 4, G.t - 1, 1, 'up'); G.L.spikes(null, x + 8.5, G.t - 1, 1, 'up'); G.x += 13;
+});
+kind('springSaw', 'springs', .35, 2, { tall: true, launch: true, wait: true }, G => {
+  const x = G.x; G.F(x, 2); G.L.spring(null, x + .5, G.t - 1); G.pit(x + 2, 7); G.L.saw(G.id(), x + 4.5, G.t - 6, .6, { patrol: [[x + 1, G.t - 6], [x + 8, G.t - 6]], speed: 3 + G.k }); G.x += 9;
+});
+kind('springIsles', 'springs', .3, 2, { tall: true, launch: true }, G => {
+  const x = G.x; G.F(x, 1); G.L.spring(null, x, G.t - 1); G.pit(x + 1, 13); G.L.block(null, x + 6, G.t, 2, 18 - G.t); G.L.spring(null, x + 6.5, G.t - 1); G.x += 14;
+});
+kind('laserPulse', 'lasers', .45, 3, { need: 'laser', wait: true }, G => { const x = G.x; G.F(x, 12); for (let i = 0; i < 3; i++) G.L.laser(G.id(), x + 2 + i * 3.5, 0, G.t, 'v', { on: .9, off: 1.3, ph: i * .55 }); G.x += 12; });
+kind('spikeWave', 'spikes', .3, 2, { wait: true }, G => {
+  const x = G.x, n = 4; G.F(x, n * 2 + 3); for (let i = 0; i < n; i++) G.L.spikes(null, x + 1.5 + i * 2, G.t - 1, 2, 'up', { blink: { on: 1.1, off: 1.2, ph: i * .45 } }); G.x += n * 2 + 3;
+});
+
 const FLAVOR = {
   0: ['falling', 'pits'], 2: ['hidden', 'spikes'], 3: ['steps', 'hidden'], 5: ['ceiling', 'pits'], 6: ['falling', 'saws'], 7: ['springs', 'steps'],
   8: ['pits', 'spikes'], 10: ['gravity', 'pits'], 11: ['saws', 'steps'], 12: ['hidden', 'falling'], 13: ['pits', 'spikes'], 15: ['ceiling', 'falling'],
@@ -494,7 +656,7 @@ const FLAVOR = {
 };
 const CHASE_LV = { 8: 3.7, 28: 3.5 }, REV_LV = { 13: 1, 28: 1 };
 // every level also leans on one of the newer mechanic families, in turn
-const NEWFAM = ['bounce', 'oneway', 'wind', 'lava', 'warp', 'maces', 'dash', 'blink', 'float', 'swing', 'arrows', 'trolls'];
+const NEWFAM = ['toggle', 'bounce', 'kick', 'oneway', 'wind', 'gates', 'lava', 'warp', 'spinner', 'maces', 'dash', 'blink', 'toggle', 'float', 'swing', 'kick', 'arrows', 'trolls', 'gates', 'spinner'];
 
 /* ---------- colour schemes: every level looks different ---------- */
 const BIOMES = {
@@ -653,7 +815,7 @@ LEVELS.forEach((def, idx) => {
   // about five obstacles per room (fewer on the very long levels, so no design repeats inside a level)
   buildCourse(def, { prev: prevKeys,
     key: 'L' + idx, seed: idx + 1, k0, rooms: def.rooms, n: Math.max(0, (def.rooms - 1) * 5), pri: (FLAVOR[idx] || ['pits', 'spikes']).concat(NEWFAM[nth % NEWFAM.length]),
-    grav: idx >= 10, ice: idx >= 30, conv: idx >= 31, revz: idx >= 13, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx], cave: caveFor(idx),
+    grav: idx >= 8, ice: idx >= 14, conv: idx >= 16, revz: idx >= 12, laser: idx >= 18, chase: CHASE_LV[idx] || 0, rev: !!REV_LV[idx], cave: caveFor(idx),
   });
   if (!def.rest) prevKeys = new Set(def.secs.filter(s => s.gen).flatMap(s => s.keys));
   def.biome = def.biome || BIOME_ORDER[LEVELS.slice(0, idx).filter(d => d.kind !== '3d').length % BIOME_ORDER.length];

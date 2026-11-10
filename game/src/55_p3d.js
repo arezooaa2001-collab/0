@@ -107,6 +107,7 @@ class P3D {
     e.hidden0 = !!e.hidden;
     if (e.type === 'zone') {
       const g = new THREE.Group(); if (e.kind === 'shade') return { o: g, kind: 'zone' };
+      if (e.kind === 'plate') { const m = new THREE.Mesh(this.unit, C('plateM', () => new THREE.MeshLambertMaterial({ color: 0xff3d4a }))); m.scale.set(e.w / T * .8, .18, .8); g.add(m); return { o: g, kind: 'plate', m }; }
       if (e.kind === 'cave') {
         const m = new THREE.Mesh(this.unit, C('caveM', () => new THREE.MeshLambertMaterial({ color: 0x2a1820 }))); m.scale.set(e.w / T, 26, .4); g.add(m);
         return { o: g, kind: 'cave', cx: e.w / T / 2 };
@@ -158,7 +159,7 @@ class P3D {
       if (e.x <= .5) x0 -= 8; if (e.x + e.w >= this.world.lw - .5) x1 += 8; if (e.y + e.h >= H - .5) y0 -= 8; if (e.y <= .5) y1 += 6;
       const w = x1 - x0, h = y1 - y0;
       const geo = C('box' + w.toFixed(2) + ',' + h.toFixed(2), () => { const b = RP.geoBuilder(); b.box(-w / 2, w / 2, -h / 2, h / 2, -D / 2, D / 2, true); return b.build(); });
-      const body = new THREE.Mesh(geo, e.rock ? C('rockM', () => new THREE.MeshLambertMaterial({ map: mat.stone.map, color: 0x6a5060 })) : e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
+      const body = new THREE.Mesh(geo, e.tog != null ? C('togM' + e.tog, () => new THREE.MeshLambertMaterial({ color: hexNum(TOG_COL[e.tog]), emissive: hexNum(TOG_COL[e.tog]), emissiveIntensity: .25 })) : e.rock ? C('rockM', () => new THREE.MeshLambertMaterial({ map: mat.stone.map, color: 0x6a5060 })) : e.ghost && this.world.D.hints ? mat.ghost : mat.stone); body.castShadow = body.receiveShadow = this.SH; g.add(body);
       if (!(e.ceil || e.y <= 0.5)) { const top = new THREE.Mesh(this.unit, e.bounce ? C('bounceM', () => new THREE.MeshLambertMaterial({ color: 0xff5dbb, emissive: 0x501040 })) : e.oneway ? C('plankM', () => new THREE.MeshLambertMaterial({ color: 0xb07a4e })) : e.conv ? mat.conv : e.ice ? mat.ice : mat.moss); top.scale.set(w + .02, .14, D + .02); top.position.set(0, h / 2 + .06, 0); g.add(top); }
       let hint = null;
       if (e.hidden) { hint = new THREE.LineSegments(edges, mat.hint); hint.scale.set(w, h, D); this.scene.add(hint); }
@@ -247,13 +248,14 @@ class P3D {
       if (ex1 < c0 || ex0 > c1) { o.visible = false; if (m.hint) m.hint.visible = false; if (m.extra) m.extra.visible = false; continue; }
       if (m.extra) m.extra.visible = !e.gone && !e.hidden;
       if (m.kind === 'cave') { o.visible = true; o.position.set(this.X(e.x) + m.cx, 5, -1.6); continue; }
+      if (m.kind === 'plate') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h) + (e.down ? .03 : .09), 0); m.m.material = e.down ? this.cache('plateOn', () => new THREE.MeshLambertMaterial({ color: 0x6ff3c4 })) : m.m.material; continue; }
       if (m.kind === 'zone') { o.visible = !!m.m && e.act; if (m.m) { o.position.set(this.X(e.x) + m.cx, this.Y(e.y) + m.cy, 0); m.m.material.opacity = .1 + Math.sin(t * 4) * .04; } continue; }
       if (m.kind === 'pow') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .12, .4); continue; }
       if (m.kind === 'gem') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .1, .3); m.m.rotation.y = t * 2 + e.ph; continue; }
       if (m.kind === 'tele') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), .2); m.ring.rotation.z = t * (e.to ? 3 : -3); continue; }
       if (m.kind === 'dash') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h) + .06, 0); m.m.material.color.setHSL(.09, 1, .55 + Math.sin(t * 8) * .12); continue; }
       if (m.kind === 'flag') { o.visible = true; o.position.set(this.X(e.x + 2), this.Y(e.y + e.h), 0); m.cloth.material = e.on ? this.mat.flagOn : this.mat.flagOff; m.cloth.rotation.y = Math.sin(t * 5 + e.x) * .35 * (1 + (e.wave || 0) * 2); continue; }
-      const hidden = e.gone || (e.hidden && m.kind !== 'portal') || (e.off && m.kind === 'block') || (e.blink && e.warn && Math.floor(t * 14) % 2 === 1);
+      const hidden = e.gone || (e.hidden && m.kind !== 'portal') || (e.off && (m.kind === 'block' || m.kind === 'spike')) || (e.blink && e.warn && Math.floor(t * 14) % 2 === 1);
       o.visible = !hidden;
       if (m.hint) { m.hint.visible = hints && e.hidden && !e.gone; if (m.hint.visible) m.hint.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), 0); }
       if (hidden) continue;
@@ -271,7 +273,7 @@ class P3D {
         if (m.kind === 'portal') { const k = e.open > 0 ? 1 - Math.pow(1 - e.open, 3) : 0; o.visible = k > 0; o.scale.setScalar(Math.max(.001, k)); o.rotation.y = Math.sin(t) * .1; }
       } else if (m.kind === 'spring') {
         const k = e.anim > 0 ? Math.sin((1 - e.anim) * Math.PI * 3) * e.anim : 0, hgt = .3 - k * .2 + (e.anim > .5 ? .25 * (e.anim - .5) : 0);
-        o.position.set(this.X(e.x + T / 2), this.Y(e.y + e.h), 0); m.coil.scale.y = hgt; m.coil.position.y = .1 + hgt / 2; m.pad.position.y = .1 + hgt + .08;
+        o.position.set(this.X(e.x + T / 2), this.Y(e.y + e.h), 0); o.rotation.z = e.kick ? -Math.sign(e.kick) * .5 : 0; m.coil.scale.y = hgt; m.coil.position.y = .1 + hgt / 2; m.pad.position.y = .1 + hgt + .08;
       } else if (m.kind === 'orb') { o.position.set(this.X(e.x), this.Y(e.y), 0); m.ring.rotation.set(t, t * 1.3, 0); o.scale.setScalar(e.cd > 0 ? .7 : 1 + Math.sin(t * 5) * .06); }
       else if (m.kind === 'laser') {
         o.position.set(this.X(e.x), this.Y(e.y), 0);
