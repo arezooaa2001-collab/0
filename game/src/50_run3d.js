@@ -59,9 +59,9 @@ function resetRenderer3() {
 }
 const hexNum = h => parseInt(String(h).replace('#', ''), 16) || 0;
 /* the player character as a three.js group (used by the 3D chase and the 3D platformer view) */
-function buildHeroMesh(keep) {
+function buildHeroMesh(keep, opt = {}) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(keep(new THREE.SphereGeometry(0.5, 18, 14)), keep(new THREE.MeshLambertMaterial({ color: skinBody3() })));
+  const body = new THREE.Mesh(keep(new THREE.SphereGeometry(0.5, 18, 14)), keep(new THREE.MeshLambertMaterial({ color: opt.col ? hexNum(opt.col) : skinBody3() })));
   body.scale.set(1, 1.18, 0.95); body.position.y = 0.78; g.add(body);
   const scarfM = keep(new THREE.MeshLambertMaterial({ color: hexNum(colOf('scarf')) }));
   const scarf = new THREE.Mesh(keep(new THREE.TorusGeometry(0.47, 0.11, 6, 18)), scarfM);
@@ -78,7 +78,7 @@ function buildHeroMesh(keep) {
   sprout.position.set(0, 1.48, 0); g.add(sprout);
   const leaf = new THREE.Mesh(keep(new THREE.SphereGeometry(0.12, 8, 6)), keep(new THREE.MeshLambertMaterial({ color: hexNum(mixHex(colOf('moss'), '#ffffff', .25)) })));
   leaf.scale.set(1.4, 0.5, 0.8); leaf.position.set(0.1, 1.64, 0); g.add(leaf);
-  if (buildHat3(g, keep)) sprout.visible = leaf.visible = false;
+  if (!opt.col && buildHat3(g, keep)) sprout.visible = leaf.visible = false;
   const legG = keep(new THREE.SphereGeometry(0.16, 8, 6)), legM = keep(new THREE.MeshLambertMaterial({ color: 0x3b2a52 }));
   const legs = [-1, 1].map(sx => { const l = new THREE.Mesh(legG, legM); l.scale.set(1, 0.8, 1.3); l.position.set(sx * 0.2, 0.14, 0); g.add(l); return l; });
   const glowMat = keep(new THREE.MeshBasicMaterial({ map: keep(Run3D.prototype.radialTex('rgba(255,226,176,0.5)', 'rgba(255,226,176,0)')), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -96,6 +96,7 @@ class Run3D {
     this.gap0 = def.gap * this.DD.gapM;
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
+    if (def.rivals) this.initRivals(def.rivals);
     // rooms: arches split the run into equal stretches. You restart from an arch when caught: every arch on the
     // easier difficulties, every second one on very hard and every third on insane
     this.rooms = def.rooms || Math.max(2, Math.round(this.len / 700));
@@ -177,6 +178,9 @@ class Run3D {
         const step = v * 0.78 + 2.2, n = 2 + (rng() < 0.35 ? 1 : 0);
         for (let k = 0; k < n; k++) { const ss = s + k * step; obs.push({ type: 'bar', x0: -5, x1: 5, y1: 1.0, s0: ss, s1: ss + 0.45 }); }
         cur = s + (n - 1) * step;
+      } else if (X3[t]) {
+        for (const o of X3[t].gen(s, rng, v)) obs.push(o);
+        if (t === 'spin') cur = s + 9.2;
       } else if (t === 'roller') {
         const w = 7 + rng() * 3, c = (rng() * 2 - 1) * (5 - w / 2);
         obs.push({ type: 'roller', x0: c - w / 2, x1: c + w / 2, y1: 1.1, s0: s + 12, s1: s + 13.1, base: s + 12, rs: 5 });
@@ -229,6 +233,7 @@ class Run3D {
     this.oi = this.oe = this.ki = 0; this.syncWin();
     this.p.shield = false; this.p.boostT = 0; this.freezeT = 0;
     this.deadT = 0; this.winT = 0; this.cause = null; this.runT = 0; this.p.coy = 0;
+    if (this.rivals) this.resetRivals(!!first);
   }
 
   /* ---------------- simulation ---------------- */
@@ -290,8 +295,9 @@ class Run3D {
       if (o.type === 'roller') { if (!o.act) o.act = true; o.s0 -= o.rs * dt; o.s1 -= o.rs * dt; o.rot = (o.rot || 0) + o.rs * dt / 0.55; }
       if (o.type === 'mover') { const c = Math.sin(this.time * o.om + o.ph) * o.amp; o.x0 = c - o.w / 2; o.x1 = c + o.w / 2; }
       if (o.hit || p.inv > 0) continue;
-      if (px1 > o.x0 && px0 < o.x1 && ps1 > o.s0 && ps0 < o.s1 && p.y < o.y1 - 0.02) {
-        o.hit = true; const heavy = o.type === 'wall' || o.type === 'mover';
+      const xq = X3[o.type] ? x3Hit(o, this.time, p) : null;
+      if (X3[o.type] ? xq : (px1 > o.x0 && px0 < o.x1 && ps1 > o.s0 && ps0 < o.s1 && p.y < o.y1 - 0.02)) {
+        o.hit = true; const heavy = xq ? !!xq.heavy : o.type === 'wall' || o.type === 'mover';
         if (p.shield) { p.shield = false; p.inv = 0.6; this.shake = 5; this.sfx('orb'); if (this.onPick) this.onPick('shieldUsed'); continue; }
         p.stum = Math.max(0.05, 1 - (heavy ? 0.85 : 0.62) * this.DD.pen); p.inv = 0.8; p.run = Math.max(p.run, 0.5);
         this.shake = heavy ? 9 : 6; this.flash = 0.6; this.sfx(heavy ? 'thud' : 'crack');
@@ -328,6 +334,7 @@ class Run3D {
     const surge = this.def.noObst ? 0 : this.surgeMode * 0.1;
     const gv = this.speed * this.gs * (1 + surge) * Math.min(1, this.runT / 0.7 + 0.3) * (this.freezeT > 0 ? 0.25 : 1);
     this.gS += gv * dt; this.gV = gv;
+    this.updateRivals(dt);
     this.animGiants(dt, gv / this.speed);
     const gap = p.s - this.gS;
     if (gap < 2.5) return this.die('caught');
@@ -442,6 +449,7 @@ class Run3D {
     this.rollers = this.obs.filter(o => o.type === 'roller');
     const logGeo = keep(new THREE.CylinderGeometry(0.55, 0.55, 1, 10)); logGeo.rotateZ(Math.PI / 2);
     this.rollerMesh = inst(logGeo, keep(new THREE.MeshLambertMaterial({ map: keep(this.logTex()) })), this.rollers.length);
+    this.x3meshes = this.buildX3(keep, inst, unitBox);
     [wm, wcap, bm, bpost, sm, splate].forEach(m => m.instanceMatrix.needsUpdate = true);
 
     // scenery
@@ -482,7 +490,7 @@ class Run3D {
     this.wx = new Wx3(sc, keep, [30, 14, 45], f => -.78 + f * .5);
     if (gtier(4) && R3renderer) { const mx = R3renderer.capabilities.getMaxAnisotropy(); sc.traverse(o => { const m = o.material; if (m && m.map) { m.map.anisotropy = mx; m.map.needsUpdate = true; } }); }
     // long courses: split static instanced meshes into chunks along the track so far chunks are skipped
-    const dyn = new Set([...Object.values(this.gm), this.gShadow, this.gemMesh, this.powMesh, this.powRing, this.moverMesh, this.moverCap, this.rollerMesh]);
+    const dyn = new Set([...Object.values(this.gm), this.gShadow, this.gemMesh, this.powMesh, this.powRing, this.moverMesh, this.moverCap, this.rollerMesh, ...(this.x3meshes || [])]);
     this.chunkStatic(dyn);
   }
   chunkStatic(dyn) {
@@ -689,6 +697,7 @@ class Run3D {
     if (this.movers.length) { this.moverMesh.instanceMatrix.needsUpdate = true; this.moverCap.instanceMatrix.needsUpdate = true; }
     this.rollers.forEach((o, i) => put(this.rollerMesh, i, (o.x0 + o.x1) / 2, 0.55, -(o.s0 + o.s1) / 2, o.x1 - o.x0, 1, 1, o.rot || 0, 0, 0));
     if (this.rollers.length) this.rollerMesh.instanceMatrix.needsUpdate = true;
+    this.poseX3(t);
     this.swirl.rotation.z = -t * 2;
     // dust
     { const D = this.dust, pos = this.dustPts.geometry.attributes.position.array;
@@ -836,55 +845,9 @@ class Run3D {
     g.strokeStyle = 'rgba(255,245,210,.6)'; g.lineWidth = 6; for (let i = 0; i < 4; i++) { g.beginPath(); for (let a = 0; a < 10; a += .2) { const r = a * 11, an = a + i * 1.57; g.lineTo(128 + Math.cos(an) * r, 128 + Math.sin(an) * r); } g.stroke(); } }); }
 }
 
-/* Autopilot used to prove each 3D course is beatable (headless). */
+/* Autopilot used to prove each 3D course is beatable (headless). The planner lives in 52_run3dx.js. */
 function bot3(run) {
-  const p = run.p, v = run.curV || run.speed * p.run * p.stum, inp = { left: false, right: false, jump: false };
-  if (run.state !== 'run') return inp;
-  run.syncWin(); const W0 = run.oi, W1 = run.oe, OB = run.obs;
-  // lateral target: free x for walls/movers/spikes in the next ~1.6 s, or the bridge centre
-  const look = Math.max(18, v * 1.7);
-  let target = p.x;
-  const cb = run.bridgeAt(p.s);
-  let ahead = null; for (let k = 0.5; k <= v * 0.9; k += 0.5) { const b = run.bridgeAt(p.s + k); if (b) { ahead = b; break; } }
-  if (cb) {
-    const nb = run.bridgeAt(cb.s1 + 0.05);
-    target = (nb && nb !== cb && cb.s1 - p.s < v * 0.2) ? clamp(nb.cx, cb.cx - cb.w / 2 + 0.35, cb.cx + cb.w / 2 - 0.35) : cb.cx;
-  } else if (ahead) target = ahead.cx;
-  else {
-    let best = null, bestScore = 1e9;
-    for (let x = -4.4; x <= 4.4; x += 0.2) {
-      let score = Math.abs(x - p.x) * 0.15;
-      for (let i = W0; i < W1; i++) { const o = OB[i];
-        if (o.type === 'gap' || o.hit || o.s1 < p.s - 0.4 || o.s0 > p.s + look) continue;
-        let x0 = o.x0, x1 = o.x1;
-        if (o.type === 'mover') {
-          const tA = run.time + Math.max(0, (o.s0 - p.s) / Math.max(v, 1));
-          x0 = 1e9; x1 = -1e9;
-          for (let dt = -0.3; dt <= 0.3; dt += 0.1) { const c = Math.sin((tA + dt) * o.om + o.ph) * o.amp; x0 = Math.min(x0, c - o.w / 2); x1 = Math.max(x1, c + o.w / 2); }
-        }
-        const pad = o.type === 'wall' || o.type === 'mover' ? 0.75 : 0.55;
-        if (x > x0 - pad && x < x1 + pad) score += (o.type === 'wall' || o.type === 'mover') ? 1000 / (1 + (o.s0 - p.s) * 0.05) : (o.type === 'spikes' ? 40 : 25);
-      }
-      if (score < bestScore) { bestScore = score; best = x; }
-    }
-    target = best;
-  }
-  if (target > p.x + 0.12) inp.right = true; else if (target < p.x - 0.12) inp.left = true;
-  // jump decisions
-  if (p.ground || p.coy > 0) {
-    for (let i = W0; i < W1; i++) { const o = OB[i];
-      const d = o.s0 - p.s;
-      if (d < -0.5 || d > 12) continue;
-      if (o.type === 'gap') { if (d < 1.2 && d > -0.3) inp.jump = true; continue; }
-      if (o.type === 'wall' || o.type === 'mover' || o.hit) continue;
-      const lo = Math.min(p.x, target) - 0.45, hi = Math.max(p.x, target) + 0.45;
-      if (hi < o.x0 || lo > o.x1) continue;
-      const vv = o.type === 'roller' ? v + o.rs : v;
-      const want = vv * 0.36 - (o.s1 - o.s0) / 2;
-      if (d <= want + 0.3 && d >= want - 2.4) inp.jump = true;
-    }
-  }
-  if (inp.jump && p.jumpHeld) { inp.jump = false; }
-  return inp;
+  if (run.state !== 'run') return { left: false, right: false, jump: false };
+  return botFor(run, run.p, run.curV || run.speed * run.p.run * run.p.stum);
 }
 

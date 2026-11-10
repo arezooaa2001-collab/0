@@ -92,6 +92,7 @@ const ACH = [
   ['cave', '⛏️', 'معدنچی', 'یه مرحله با راه زیرزمینی رو تموم کن'],
   ['storm', '⛈️', 'طوفان‌سوار', 'وسط طوفان یه مرحله رو ببر'],
   ['endless', '♾️', 'ماراتن', 'توی حالت بی‌پایان ۵۰۰ متر برو'],
+  ['champ', '🥇', 'قهرمان مسابقه', 'توی یه مرحله‌ی مسابقه، از همه‌ی رقیب‌ها زودتر برس'],
   ['summit', '🏔️', 'فاتح قله', 'مرحله‌ی ۴۲ با ۴۵ اتاق رو ببر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
@@ -152,6 +153,7 @@ function hudTick() {
   }
   if (app.endless && app.world && app.state === 'play') { const m = Math.max(0, Math.floor(app.world.p.x / T)); if (m > app.endless.dist) { app.endless.dist = m; app.updTag(); if (m === app.endless.best + 1 && app.endless.best > 0) app.taunt('🏆 رکورد شکسته شد!', '#ffd36e'); } }
   if (app.kind === 'plat' && app.world && app.state !== 'title') { const p = app.world.p; if (p.shield) pw += '🛡️'; for (const k of ['star', 'slow', 'magnet', 'jump']) { const v = p[POWS[k].t]; if (v > 0) pw += ' ' + POWS[k].i + faNum(Math.ceil(v)); } }
+  if (app.kind === 'run' && app.run && app.run.rivals) pw += ` 🏁 نفر ${faNum(app.run.rank())} از ${faNum(app.run.rivals.length + 1)}`;
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
   const fp = CFG.fps ? faNum(Perf.fpsShow) + ' FPS · ' + faNum(Math.round(Perf.dyn * 100)) + '٪' : '';
   s = tm + '|' + gm + '|' + pw + '|' + fp;
@@ -283,6 +285,8 @@ const app = {
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
       run.onPick = k => this.onPick(k);
+      run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
+        this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
       run.onRoom = (rm, ck) => { this.updTag(); this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
@@ -380,6 +384,7 @@ const app = {
     if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
+    if (this.kind === 'run' && this.run && this.run.rivals) { const pl = this.run.finishCount + 1; if (pl === 1) unlockAch('champ'); setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(this.run.rivals.length + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
     if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {

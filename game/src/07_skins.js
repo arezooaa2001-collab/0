@@ -19,6 +19,7 @@ const SKINS = {
 const skinOf = (slot) => { const w = (typeof ST !== 'undefined' && ST.wear) || {}; return SKINS[slot].find(s => s.id === w[slot]) || SKINS[slot][0]; };
 // body colours of the hero (top, bottom) for the 2D views
 function heroCols(t) {
+  if (HERO_OVR) return [mixHex(HERO_OVR, '#ffffff', .45), mixHex(HERO_OVR, '#000000', .12)];
   const c = skinOf('color');
   if (!c.c) return [PAL.bodyTop, PAL.bodyBot];
   const base = c.anim ? hslHex((t * 60) % 360, .75, .72) : c.c;
@@ -26,7 +27,7 @@ function heroCols(t) {
 }
 // hat drawn on top of the 2D hero (origin at the feet, f = facing, body top at y = -34)
 function drawHat(t, f) {
-  const h = skinOf('hat').id; if (h === 'none') return false;
+  const h = skinOf('hat').id; if (h === 'none' || HERO_OVR) return false;
   const g = ctx; g.save(); g.lineJoin = 'round';
   if (h === 'cap') { g.fillStyle = '#ff5d5d'; g.beginPath(); g.arc(0, -32, 13, Math.PI, 0); g.fill(); g.fillRect(f > 0 ? 4 : -22, -33, 18, 4); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -44, 2.5, 0, 7); g.fill(); }
   else if (h === 'party') { g.fillStyle = '#6ff3c4'; g.beginPath(); g.moveTo(-10, -32); g.lineTo(10, -32); g.lineTo(2, -58); g.closePath(); g.fill(); g.strokeStyle = '#ff5dbb'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(-7, -40); g.lineTo(7, -42); g.moveTo(-4, -49); g.lineTo(5, -50); g.stroke(); g.fillStyle = '#ffd36e'; g.beginPath(); g.arc(2, -59, 4, 0, 7); g.fill(); }

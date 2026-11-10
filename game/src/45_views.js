@@ -77,6 +77,7 @@ function drawRun2D(run, t, dt) {
   for (const q of run.picks) if (!q.got && q.s > sMin && q.s < sMax) items.push({ z: q.x + .1, f: () => drawPick2D(X(q.s), Yg(q.x) - q.y * kh, k, q.k, t) });
   const gap = run.gapNow(), reach = clamp(1 - (gap - 3) / 9, 0, 1), n = Math.min(run.def.giants, GFX.giants);
   for (let i = n - 1; i >= 0; i--) { const f = run.form2[i], s = run.gS - f.z, gx = i === 0 ? p.x * .6 : f.x; if (s < sMin - 12 || s > sMax) continue; items.push({ z: gx - 30, f: () => drawGiant2D(X(s), Yg(gx), kh * .55 * f.k, run.gPhase + f.ph, c.giant, c.eye, i === 0 ? reach : 0, 1) }); }
+  for (const r of run.rivals || []) if ((r.state === 'run' || r.state === 'fall') && r.s > sMin && r.s < sMax) items.push({ z: r.x + .2, f: () => drawRival2D(r, X(r.s), Yg(r.x) - Math.max(-3, r.y) * kh, k * 1.45 / 38, t) });
   items.push({ z: p.x + .2, f: () => {
     if (run.state === 'dead' && run.cause === 'caught') return;
     const sx = px0, gy = Yg(p.x), hy = gy - Math.max(-3, p.y) * kh;
@@ -105,6 +106,7 @@ const geo2D = () => { const k = clamp(Math.min(cw / 56, ch / 24), 8, 60); return
 function drawBox2D(o, x0, x1) {
   const run = app.run, c = run.c2, p = run.p, { k, kl, kh, px0, yc } = geo2D();
   const X = s => px0 + (s - p.s) * k, Yg = x => yc + x * kl;
+  if (X3[o.type]) return drawX3Side(o, X, Yg, k, kh, c, run.time);
   const a = X(o.s0), b = Math.max(X(o.s1), a + k * .5), h = o.y1 * kh;
   const top = fill => { ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(a, Yg(x0) - h); ctx.lineTo(b, Yg(x0) - h); ctx.lineTo(b, Yg(x1) - h); ctx.lineTo(a, Yg(x1) - h); ctx.fill(); };
   if (o.type === 'wall' || o.type === 'mover') {
@@ -202,6 +204,7 @@ function pseudoScene(run, c, cam, rx, ry, rw, rh, t, back) {
   }
   const gap = run.gapNow(), reach = clamp(1 - (gap - 3) / 9, 0, 1), n = Math.min(run.def.giants, GFX.giants);
   for (let i = 0; i < n; i++) { const f = run.form2[i], s = run.gS - f.z, gx = i === 0 ? p.x * .6 : f.x; if (!inRange(s)) continue; items.push({ d: s, f: () => { const P = proj(gx, 0, s); if (P) drawGiant2D(P[0], P[1], P[2] * f.k, run.gPhase + f.ph, c.giant, c.eye, i === 0 ? reach : 0, -dir); } }); }
+  if (!back) for (const r of run.rivals || []) if ((r.state === 'run' || r.state === 'fall') && inRange(r.s)) items.push({ d: r.s, f: () => { const P = proj(r.x, Math.max(-3, r.y), r.s); if (P) drawRival2D(r, P[0], P[1], P[2] * 1.5 / 38, t); } });
   if (!back && !(run.state === 'dead' && run.cause === 'caught')) items.push({ d: p.s, f: () => {
     const G = proj(p.x, 0, p.s), P = proj(p.x, Math.max(-3, p.y), p.s); if (!P) return;
     if (run.supportAt(p.s, p.x) && !p.falling) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(G[0], G[1], .6 * G[2], .22 * G[2], 0, 0, 7); ctx.fill(); }
@@ -213,6 +216,7 @@ function pseudoScene(run, c, cam, rx, ry, rw, rh, t, back) {
 }
 function quad4(a, b, c2, d) { if (!a || !b || !c2 || !d) return; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c2[0], c2[1]); ctx.lineTo(d[0], d[1]); ctx.closePath(); ctx.fill(); }
 function pseudoBox(o, x0, x1, proj, c, cam) {
+  if (X3[o.type]) return drawX3Pseudo(o, proj, c, cam, app.run.time);
   const y1 = o.y1, s0 = o.s0, s1 = Math.max(o.s1, o.s0 + .3);
   const f00 = proj(x0, 0, s0), f10 = proj(x1, 0, s0), f11 = proj(x1, y1, s0), f01 = proj(x0, y1, s0);
   if (!f00 || !f10) return;

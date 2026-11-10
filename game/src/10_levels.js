@@ -454,4 +454,8 @@ const ROOMS = [5, 5, 5, 5, 5, 5, 10, 10, 10, 10, 10, 16, 16, 16, 16, 16, 16, 16,
 LEVELS.forEach((d, i) => { d.rooms = ROOMS[i]; });
 // levels where other runners race you to the exit
 const RIVAL_LV = new Set([1, 4, 9, 14, 19, 24, 25, 26, 29]);
+LEVELS.forEach((d, i) => { if (d.kind === '3d' && RIVAL_LV.has(i)) d.rivals = 3; });
+// newer 3D obstacles join the later chases (level 42 gets all of them)
+[[9, ['slide']], [14, ['beam']], [19, ['saw']], [24, ['beam', 'slide', 'spin']], [29, ['saw', 'hammer']], [34, ['spin', 'pillar', 'beam']],
+  [39, ['beam', 'saw', 'hammer', 'slide', 'spin', 'pillar']], [41, ['beam', 'saw', 'hammer', 'slide', 'spin', 'pillar', 'saw', 'hammer', 'pillar']]].forEach(([i, t]) => { LEVELS[i].types = LEVELS[i].types.concat(t); });
 const PORTAL_LEVEL = 36; // level 37 holds the secret portal
