@@ -1876,30 +1876,30 @@ const NEWFAM = ['toggle', 'bounce', 'kick', 'oneway', 'wind', 'gates', 'lava', '
 /* ---------- colour schemes: every level looks different ---------- */
 // scen: background scenery, bs: block material, top: floor edge, cel: sky object, th3: 3D theme when played in true 3D
 const BIOMES = {
-  dusk:     { n: 'غروب بنفش', sky: '#3a1c5e', block: '#2f2858', moss: '#4fd8a8', scen: 'mountains', bs: 'brick', top: 'grass', cel: 'moon', th3: 'dusk' },
-  forest:   { n: 'جنگل شب', sky: '#1d4a3c', block: '#2a4426', moss: '#9be05a', scen: 'forest', bs: 'cobble', top: 'grass', cel: 'moon', th3: 'forest' },
-  desert:   { n: 'بیابان', sky: '#7a3a22', block: '#5a3a24', moss: '#ffc46a', scen: 'dunes', bs: 'sandstone', top: 'sand', cel: 'sun', th3: 'desert' },
-  ice:      { n: 'یخچال', sky: '#1d4677', block: '#2c4a70', moss: '#c8f4ff', scen: 'crystals', bs: 'iceblock', top: 'snow', cel: 'aurora', th3: 'snow' },
-  volcano:  { n: 'آتشفشان', sky: '#5c1616', block: '#3e1c1c', moss: '#ff8a3d', scen: 'volcano', bs: 'basalt', top: 'embers', cel: 'none', th3: 'lava' },
-  toxic:    { n: 'مرداب سمی', sky: '#284a16', block: '#26321e', moss: '#c6ff3a', scen: 'mushrooms', bs: 'mossy', top: 'slime', cel: 'moon', th3: 'toxic' },
-  ocean:    { n: 'اعماق', sky: '#0b3c6c', block: '#16385a', moss: '#3cf0e0', scen: 'waves', bs: 'coral', top: 'grass', cel: 'none', th3: 'ocean' },
-  candy:    { n: 'آب‌نبات', sky: '#7a3a9a', block: '#5c3480', moss: '#ff9ae0', scen: 'candy', bs: 'candy', top: 'frosting', cel: 'planet', th3: 'candy' },
-  gold:     { n: 'تالار طلایی', sky: '#5a4012', block: '#3c3020', moss: '#ffd36e', scen: 'ruins', bs: 'tiles', top: 'gold', cel: 'sun', th3: 'desert' },
-  storm:    { n: 'طوفان', sky: '#2c3346', block: '#2a2f3e', moss: '#a8c4e6', scen: 'spires', bs: 'brick', top: 'grass', cel: 'none', th3: 'storm' },
-  crimson:  { n: 'شب سرخ', sky: '#4e1030', block: '#3a1832', moss: '#ff6f9a', scen: 'spires', bs: 'tiles', top: 'thorns', cel: 'moon', th3: 'ash' },
-  aurora:   { n: 'شفق', sky: '#0f3040', block: '#1c2c44', moss: '#7af7c8', scen: 'hills', bs: 'cobble', top: 'grass', cel: 'aurora', th3: 'night' },
-  city:     { n: 'شهر نئون', sky: '#14143a', block: '#24244a', moss: '#ff4fd8', scen: 'city', bs: 'metal', top: 'neon', cel: 'none', th3: 'cyber' },
-  sakura:   { n: 'باغ شکوفه', sky: '#5a2a5a', block: '#3a2a40', moss: '#ffb0d8', scen: 'sakura', bs: 'wood', top: 'petals', cel: 'sun', th3: 'sakura' },
-  jungle:   { n: 'جنگل استوایی', sky: '#16402a', block: '#2a3a1e', moss: '#5fe07a', scen: 'jungle', bs: 'mossy', top: 'vines', cel: 'none', th3: 'jungle' },
-  factory:  { n: 'کارخونه', sky: '#2a2620', block: '#3a3430', moss: '#ffb347', scen: 'factory', bs: 'metal', top: 'hazard', cel: 'none', th3: 'ash' },
-  skyland:  { n: 'جزیره‌های آسمان', sky: '#3a70b0', block: '#3a4a6a', moss: '#e8f8ff', scen: 'islands', bs: 'cobble', top: 'cloud', cel: 'sun', th3: 'forest' },
-  pyramid:  { n: 'معبد شنی', sky: '#6a4a20', block: '#6a4a2a', moss: '#ffe0a0', scen: 'pyramids', bs: 'sandstone', top: 'sand', cel: 'sun', th3: 'desert' },
-  crystal:  { n: 'غار بلور', sky: '#2a1050', block: '#24164a', moss: '#c89aff', scen: 'crystals', bs: 'crystal', top: 'crystal', cel: 'none', th3: 'crystal' },
-  swamp:    { n: 'باتلاق مه', sky: '#2a3a2a', block: '#2a3020', moss: '#9ac46a', scen: 'swamp', bs: 'wood', top: 'grass', cel: 'moon', th3: 'toxic' },
-  space:    { n: 'ایستگاه فضایی', sky: '#05051a', block: '#1a1a30', moss: '#7af7ff', scen: 'domes', bs: 'circuit', top: 'neon', cel: 'planet', th3: 'cyber' },
-  autumn:   { n: 'پاییز', sky: '#6a3418', block: '#3a2618', moss: '#ff9a3a', scen: 'forest', bs: 'wood', top: 'leaves', cel: 'sun', th3: 'autumn' },
-  snowpine: { n: 'کاج برفی', sky: '#3a5a7a', block: '#3a4a5a', moss: '#ffffff', scen: 'forest', bs: 'iceblock', top: 'snow', cel: 'moon', th3: 'snow' },
-  ruins:    { n: 'خرابه‌های کهن', sky: '#3a3048', block: '#3a3440', moss: '#b0e08a', scen: 'ruins', bs: 'cobble', top: 'grass', cel: 'twin', th3: 'storm' },
+  dusk:     { n: 'غروب بنفش', sky: '#3a1c5e', block: '#2f2858', moss: '#4fd8a8', scen: 'mountains', bs: 'brick', top: 'grass', cel: 'moon', th3: 'dusk', mus: 'dusk' },
+  forest:   { n: 'جنگل شب', sky: '#1d4a3c', block: '#2a4426', moss: '#9be05a', scen: 'forest', bs: 'cobble', top: 'grass', cel: 'moon', th3: 'forest', mus: 'wild' },
+  desert:   { n: 'بیابان', sky: '#7a3a22', block: '#5a3a24', moss: '#ffc46a', scen: 'dunes', bs: 'sandstone', top: 'sand', cel: 'sun', th3: 'desert', mus: 'desert' },
+  ice:      { n: 'یخچال', sky: '#1d4677', block: '#2c4a70', moss: '#c8f4ff', scen: 'crystals', bs: 'iceblock', top: 'snow', cel: 'aurora', th3: 'snow', mus: 'frost' },
+  volcano:  { n: 'آتشفشان', sky: '#5c1616', block: '#3e1c1c', moss: '#ff8a3d', scen: 'volcano', bs: 'basalt', top: 'embers', cel: 'none', th3: 'lava', mus: 'fire' },
+  toxic:    { n: 'مرداب سمی', sky: '#284a16', block: '#26321e', moss: '#c6ff3a', scen: 'mushrooms', bs: 'mossy', top: 'slime', cel: 'moon', th3: 'toxic', mus: 'wild' },
+  ocean:    { n: 'اعماق', sky: '#0b3c6c', block: '#16385a', moss: '#3cf0e0', scen: 'waves', bs: 'coral', top: 'grass', cel: 'none', th3: 'ocean', mus: 'wild' },
+  candy:    { n: 'آب‌نبات', sky: '#7a3a9a', block: '#5c3480', moss: '#ff9ae0', scen: 'candy', bs: 'candy', top: 'frosting', cel: 'planet', th3: 'candy', mus: 'bright' },
+  gold:     { n: 'تالار طلایی', sky: '#5a4012', block: '#3c3020', moss: '#ffd36e', scen: 'ruins', bs: 'tiles', top: 'gold', cel: 'sun', th3: 'desert', mus: 'desert' },
+  storm:    { n: 'طوفان', sky: '#2c3346', block: '#2a2f3e', moss: '#a8c4e6', scen: 'spires', bs: 'brick', top: 'grass', cel: 'none', th3: 'storm', mus: 'fire' },
+  crimson:  { n: 'شب سرخ', sky: '#4e1030', block: '#3a1832', moss: '#ff6f9a', scen: 'spires', bs: 'tiles', top: 'thorns', cel: 'moon', th3: 'ash', mus: 'fire' },
+  aurora:   { n: 'شفق', sky: '#0f3040', block: '#1c2c44', moss: '#7af7c8', scen: 'hills', bs: 'cobble', top: 'grass', cel: 'aurora', th3: 'night', mus: 'frost' },
+  city:     { n: 'شهر نئون', sky: '#14143a', block: '#24244a', moss: '#ff4fd8', scen: 'city', bs: 'metal', top: 'neon', cel: 'none', th3: 'cyber', mus: 'neon' },
+  sakura:   { n: 'باغ شکوفه', sky: '#5a2a5a', block: '#3a2a40', moss: '#ffb0d8', scen: 'sakura', bs: 'wood', top: 'petals', cel: 'sun', th3: 'sakura', mus: 'bright' },
+  jungle:   { n: 'جنگل استوایی', sky: '#16402a', block: '#2a3a1e', moss: '#5fe07a', scen: 'jungle', bs: 'mossy', top: 'vines', cel: 'none', th3: 'jungle', mus: 'wild' },
+  factory:  { n: 'کارخونه', sky: '#2a2620', block: '#3a3430', moss: '#ffb347', scen: 'factory', bs: 'metal', top: 'hazard', cel: 'none', th3: 'ash', mus: 'fire' },
+  skyland:  { n: 'جزیره‌های آسمان', sky: '#3a70b0', block: '#3a4a6a', moss: '#e8f8ff', scen: 'islands', bs: 'cobble', top: 'cloud', cel: 'sun', th3: 'forest', mus: 'bright' },
+  pyramid:  { n: 'معبد شنی', sky: '#6a4a20', block: '#6a4a2a', moss: '#ffe0a0', scen: 'pyramids', bs: 'sandstone', top: 'sand', cel: 'sun', th3: 'desert', mus: 'desert' },
+  crystal:  { n: 'غار بلور', sky: '#2a1050', block: '#24164a', moss: '#c89aff', scen: 'crystals', bs: 'crystal', top: 'crystal', cel: 'none', th3: 'crystal', mus: 'frost' },
+  swamp:    { n: 'باتلاق مه', sky: '#2a3a2a', block: '#2a3020', moss: '#9ac46a', scen: 'swamp', bs: 'wood', top: 'grass', cel: 'moon', th3: 'toxic', mus: 'wild' },
+  space:    { n: 'ایستگاه فضایی', sky: '#05051a', block: '#1a1a30', moss: '#7af7ff', scen: 'domes', bs: 'circuit', top: 'neon', cel: 'planet', th3: 'cyber', mus: 'neon' },
+  autumn:   { n: 'پاییز', sky: '#6a3418', block: '#3a2618', moss: '#ff9a3a', scen: 'forest', bs: 'wood', top: 'leaves', cel: 'sun', th3: 'autumn', mus: 'bright' },
+  snowpine: { n: 'کاج برفی', sky: '#3a5a7a', block: '#3a4a5a', moss: '#ffffff', scen: 'forest', bs: 'iceblock', top: 'snow', cel: 'moon', th3: 'snow', mus: 'frost' },
+  ruins:    { n: 'خرابه‌های کهن', sky: '#3a3048', block: '#3a3440', moss: '#b0e08a', scen: 'ruins', bs: 'cobble', top: 'grass', cel: 'twin', th3: 'storm', mus: 'dusk' },
 };
 const BIOME_ORDER = ['dusk', 'forest', 'desert', 'ice', 'crimson', 'toxic', 'city', 'ocean', 'gold', 'sakura', 'volcano', 'jungle', 'aurora', 'factory',
   'candy', 'skyland', 'pyramid', 'crystal', 'storm', 'swamp', 'space', 'autumn', 'snowpine', 'ruins'];
@@ -2258,6 +2258,7 @@ class World {
     // endless course: only the sections around the checkpoint are built
     if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
+    if (!this.silent && Sound.msName === 'boss') Sound.setMusic(BIOME && BIOME.mus || 'dusk');   // a boss you died to waits asleep again
     // gems stay collected across deaths
     this.got = this.got || new Set(); let ng = 0;
     for (const e of this.lv.ents) if (e.type === 'gem') { ng++; if (this.got.has(e.id)) e.gone = true; }
@@ -2713,10 +2714,10 @@ World.prototype.updBoss = function (e, dt) {
   if (e.hp <= 0) {
     if (!(e.dead > 0)) { e.dead = .001; this.sfx('crack'); this.shake(16); for (const w of e.waves.concat(e.saws)) { w.hidden = true; w.moves = []; } }
     e.dead += dt; if (Math.random() < .5 && !this.silent) this.burst(e.x + Math.random() * e.w, e.y + Math.random() * e.h, 3, { col: BOSSES[e.kind].col, sp: 200, life: .6, size: 4, g: 600, sq: true });
-    if (e.dead > 1.2 && !e.gone) { e.gone = true; if (this.onBoss) this.onBoss(e); this.lv.move(e.gate, 0, -16, 6); this.sfx('win'); this.burst(e.x + e.w / 2, e.y + e.h / 2, 40, { col: '#ffd36e', sp: 320, life: .9, add: true, size: 3 }); }
+    if (e.dead > 1.2 && !e.gone) { e.gone = true; if (!this.silent) Sound.setMusic(BIOME && BIOME.mus || 'dusk'); if (this.onBoss) this.onBoss(e); this.lv.move(e.gate, 0, -16, 6); this.sfx('win'); this.burst(e.x + e.w / 2, e.y + e.h / 2, 40, { col: '#ffd36e', sp: 320, life: .9, add: true, size: 3 }); }
     return;
   }
-  if (!e.awake) { if (this.p.x > e.x - 21 * T && this.state === 'play') { e.awake = 1; this.sfx('roar'); this.shake(6); this.say(e.name + ' بیدار شد!'); } else return; }
+  if (!e.awake) { if (this.p.x > e.x - 21 * T && this.state === 'play') { e.awake = 1; if (!this.silent) Sound.setMusic('boss'); this.sfx('roar'); this.shake(6); this.say(e.name + ' بیدار شد!'); } else return; }
   if (e.stun > 0) { e.stun -= dt; return; }
   e.bt -= dt; if (e.bt > 0) return;
   const atk = e.atks[e.bp % e.atks.length]; e.bp++; e.anim = 1;
@@ -2769,6 +2770,19 @@ function drawBoss(e, t, world) {
   if (e.hp > 0 && e.awake) { ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ff5d8a'; for (let k = 0; k < 3; k++) { ctx.globalAlpha = k < e.hp ? 1 : .2; ctx.beginPath(); const hx = x + w / 2 + (k - 1) * 26, hy = y - 26; ctx.arc(hx - 5, hy, 6, 0, 7); ctx.arc(hx + 5, hy, 6, 0, 7); ctx.moveTo(hx - 11, hy + 2); ctx.lineTo(hx, hy + 14); ctx.lineTo(hx + 11, hy + 2); ctx.fill(); } ctx.globalAlpha = 1; }
 }
 /* ============================ SOUND (Web Audio synth) ============================ */
+// music styles: tempo, chord roots (MIDI), melody scale, lead sound and drums (0 none, 1 hats, 2 beat, 3 boss)
+const MUSIC = {
+  dusk:   { bpm: 104, roots: [57, 53, 48, 55], scale: [0, 3, 5, 7, 10, 12, 15], lead: 'triangle', drums: 0, minor: true },
+  bright: { bpm: 118, roots: [60, 65, 67, 60], scale: [0, 2, 4, 7, 9, 12, 14], lead: 'triangle', drums: 1, oct: 0 },
+  desert: { bpm: 98, roots: [57, 58, 57, 55], scale: [0, 1, 4, 5, 7, 8, 10, 12], lead: 'sawtooth', drums: 1, minor: true },
+  frost:  { bpm: 84, roots: [62, 57, 59, 55], scale: [0, 2, 4, 6, 7, 11, 12, 16], lead: 'sine', drums: 0, padF: 1100 },
+  fire:   { bpm: 126, roots: [52, 52, 55, 50], scale: [0, 3, 5, 7, 8, 10, 12], lead: 'sawtooth', drums: 2, minor: true },
+  neon:   { bpm: 112, roots: [57, 53, 55, 52], scale: [0, 3, 5, 7, 10, 12, 15, 17], lead: 'square', drums: 2, minor: true, pat: [0, 2, 4, 6, 4, 2, 5, 3] },
+  wild:   { bpm: 96, roots: [55, 58, 53, 55], scale: [0, 2, 3, 5, 7, 9, 10, 12], lead: 'triangle', drums: 1, minor: true },
+  chase:  { bpm: 132, roots: [57, 55, 53, 52], scale: [0, 3, 5, 7, 10, 12], lead: 'sawtooth', drums: 2, minor: true },
+  boss:   { bpm: 146, roots: [52, 53, 52, 50], scale: [0, 2, 3, 5, 7, 8, 11, 12], lead: 'sawtooth', drums: 3, minor: true, pat: [0, 1, 2, 4, 3, 1, 5, 2] },
+  rest:   { bpm: 76, roots: [60, 57, 53, 55], scale: [0, 2, 4, 7, 9, 12], lead: 'sine', drums: 0, padF: 900 },
+};
 const Sound = {
   ctx: null, on: true, MASTER: 1,
   // A short silent WAV played through an <audio> element: on iPhones this moves the page to the "playback" audio
@@ -2889,40 +2903,53 @@ const Sound = {
     if (!this.ctx || !this.on) return; const now = this.ctx.currentTime; if (now - (this.lastStomp || 0) < 0.12) return; this.lastStomp = now;
     this.tone(75, 32, 0.4, 'sine', 0.55 * k); this.noise(0.25, 0.32 * k, 220);
   },
+  // music style per area (see MUSIC); switched when a level starts, during boss fights and in the 3D chases
+  setMusic(name) { const m = MUSIC[name] || MUSIC.dusk; if (this.ms === m) return; this.ms = m; this.msName = name; },
   startMusic() {
-    const c = this.ctx; const bpm = 104, beat = 60 / bpm; let next = c.currentTime + 0.2, step = 0;
-    const roots = [57, 53, 48, 55]; // A F C G
-    const scale = [0, 3, 5, 7, 10, 12, 15];
+    const c = this.ctx; let next = c.currentTime + 0.2, step = 0;
+    if (!this.ms) this.ms = MUSIC.dusk;
     const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-    const pad = (root, t, dur) => {
-      [0, 7, 12, 16].forEach((iv, k) => {
+    const pad = (root, t, dur, M) => {
+      [0, 7, 12, M.minor ? 15 : 16].forEach((iv, k) => {
         const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
-        o.type = k % 2 ? 'sawtooth' : 'triangle'; o.frequency.value = mtof(root - 12 + iv + (k === 3 && root !== 48 ? -1 : 0)); o.detune.value = (k - 1.5) * 6;
-        f.type = 'lowpass'; f.frequency.value = 700;
-        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + 1.2); g.gain.setValueAtTime(0.035, t + dur - 1); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
+        o.type = k % 2 ? 'sawtooth' : 'triangle'; o.frequency.value = mtof(root - 12 + iv); o.detune.value = (k - 1.5) * 6;
+        f.type = 'lowpass'; f.frequency.value = M.padF || 700;
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + Math.min(1.2, dur * .3)); g.gain.setValueAtTime(0.035, t + dur * .75); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
         o.connect(f); f.connect(g); g.connect(this.mus); o.start(t); o.stop(t + dur + 0.7);
       });
     };
-    const pluck = (m, t, v) => {
+    const pluck = (m, t, v, M) => {
       const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
-      o.type = 'triangle'; o.frequency.value = mtof(m); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(400, t + 0.3);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      o.type = M.lead || 'triangle'; o.frequency.value = mtof(m); f.type = 'lowpass'; f.frequency.setValueAtTime(M.lead === 'sawtooth' || M.lead === 'square' ? 2200 : 3000, t); f.frequency.exponentialRampToValueAtTime(400, t + 0.3);
+      const vv = M.lead === 'sawtooth' || M.lead === 'square' ? v * .55 : v;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vv, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
       o.connect(f); f.connect(g); g.connect(this.mus); g.connect(this.dly); o.start(t); o.stop(t + 0.5);
     };
-    const bass = (m, t) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = mtof(m - 24);
+    const bass = (m, t, beat) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = mtof(m - 24);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + beat * 1.8);
       o.connect(g); g.connect(this.mus); o.start(t); o.stop(t + beat * 2); };
+    // simple drums for the livelier styles
+    const kick = t => { const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+      g.gain.setValueAtTime(.32, t); g.gain.exponentialRampToValueAtTime(.0001, t + .2); o.connect(g); g.connect(this.mus); o.start(t); o.stop(t + .22); };
+    const hat = (t, v) => { const s = c.createBufferSource(); s.buffer = this.nbuf; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000;
+      const g = c.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); s.connect(f); f.connect(g); g.connect(this.mus); s.start(t, Math.random() * .5); s.stop(t + .07); };
+    const snare = t => { const s = c.createBufferSource(); s.buffer = this.nbuf; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800;
+      const g = c.createGain(); g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.0001, t + .14); s.connect(f); f.connect(g); g.connect(this.mus); s.start(t, Math.random() * .5); s.stop(t + .16); };
     const tick = () => {
       // after the tab was hidden/suspended, don't try to "catch up" by scheduling hundreds of notes at once
       if (next < c.currentTime - 0.2) next = c.currentTime + 0.05;
       if (c.state !== 'running' || !this.on || CFG.musicV <= 0) return;
       while (next < c.currentTime + 0.3) {
-        const bar = Math.floor(step / 8), root = roots[bar % 4], s8 = step % 8;
-        if (s8 === 0) { pad(root, next, beat * 4); bass(root, next); }
-        if (s8 === 4) bass(root + 7, next);
-        const pat = [0, -1, 2, 1, 3, -1, 4, 2];
-        let idx = pat[(s8 + bar * 3) % 8];
-        if (idx >= 0 && (Math.random() < 0.82)) { if (Math.random() < 0.2) idx = Math.floor(Math.random() * scale.length); pluck(57 + 12 + scale[idx] + (root - 57 > 0 ? 0 : 0), next, s8 % 2 ? 0.05 : 0.08); }
+        const M = this.ms, beat = 60 / M.bpm, roots = M.roots, scale = M.scale;
+        const bar = Math.floor(step / 8), root = roots[bar % roots.length], s8 = step % 8;
+        if (s8 === 0) { pad(root, next, beat * 4, M); bass(root, next, beat); }
+        if (s8 === 4) bass(root + 7, next, beat);
+        if (M.drums >= 1 && s8 % 2 === 1) hat(next, .05);
+        if (M.drums >= 2) { if (s8 % 4 === 0) kick(next); if (s8 === 4) snare(next); }
+        if (M.drums >= 3) { if (s8 % 2 === 0) kick(next); hat(next, .04); }
+        const pat = M.pat || [0, -1, 2, 1, 3, -1, 4, 2];
+        let idx = pat[(s8 + bar * 3) % pat.length];
+        if (idx >= 0 && (Math.random() < 0.82)) { if (Math.random() < 0.2) idx = Math.floor(Math.random() * scale.length); pluck(roots[0] + 12 + scale[idx % scale.length] + (M.oct || 0), next, s8 % 2 ? 0.05 : 0.08, M); }
         next += beat / 2; step++;
       }
     };
@@ -6006,7 +6033,7 @@ const progOf = d => app.prog[d] || (app.prog[d] = {});
 // checkpoint reached in an unfinished long level (0 = start); ignored if the level's checkpoint count changed
 const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] ? LEVELS[i].rooms || (LEVELS[i].secs ? LEVELS[i].secs.length : 1) : 1; return r > 0 && r < n ? r : 0; };
 // level colours (biomes); rebuilding textures and background only when the scheme changes
-function setBiome(key) { const b = key && BIOMES[key] || null; if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
+function setBiome(key) { const b = key && BIOMES[key] || null; Sound.setMusic(b && b.mus || 'dusk'); if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
 const parTime = def => Math.round((def.nObs || 10) * 2.6 + 25);
 const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${faNum(m)}:${faNum(r.toFixed(0).padStart(2, '0'))}` : faNum(r.toFixed(1)); };
 
@@ -6210,7 +6237,7 @@ const app = {
     let v = viewOf(rdef);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); }
+    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
@@ -6235,7 +6262,7 @@ const app = {
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
     } else {
-      const run = this.run = new Run3D(rdef, this.diff, { noScene: v !== 'x3' });
+      const run = this.run = new Run3D(rdef, this.diff, { noScene: v !== 'x3' }); Sound.setMusic(rdef.noObst ? 'rest' : 'chase');
       // ck is a room number for every kind of level: start at that room's arch
       if (opt.ck > 0 && run.arches.length) { run.ckS = run.arches[Math.min(opt.ck, run.arches.length) - 1]; run.respawn(false); }
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };

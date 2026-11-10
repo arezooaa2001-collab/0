@@ -41,10 +41,10 @@ World.prototype.updBoss = function (e, dt) {
   if (e.hp <= 0) {
     if (!(e.dead > 0)) { e.dead = .001; this.sfx('crack'); this.shake(16); for (const w of e.waves.concat(e.saws)) { w.hidden = true; w.moves = []; } }
     e.dead += dt; if (Math.random() < .5 && !this.silent) this.burst(e.x + Math.random() * e.w, e.y + Math.random() * e.h, 3, { col: BOSSES[e.kind].col, sp: 200, life: .6, size: 4, g: 600, sq: true });
-    if (e.dead > 1.2 && !e.gone) { e.gone = true; if (this.onBoss) this.onBoss(e); this.lv.move(e.gate, 0, -16, 6); this.sfx('win'); this.burst(e.x + e.w / 2, e.y + e.h / 2, 40, { col: '#ffd36e', sp: 320, life: .9, add: true, size: 3 }); }
+    if (e.dead > 1.2 && !e.gone) { e.gone = true; if (!this.silent) Sound.setMusic(BIOME && BIOME.mus || 'dusk'); if (this.onBoss) this.onBoss(e); this.lv.move(e.gate, 0, -16, 6); this.sfx('win'); this.burst(e.x + e.w / 2, e.y + e.h / 2, 40, { col: '#ffd36e', sp: 320, life: .9, add: true, size: 3 }); }
     return;
   }
-  if (!e.awake) { if (this.p.x > e.x - 21 * T && this.state === 'play') { e.awake = 1; this.sfx('roar'); this.shake(6); this.say(e.name + ' بیدار شد!'); } else return; }
+  if (!e.awake) { if (this.p.x > e.x - 21 * T && this.state === 'play') { e.awake = 1; if (!this.silent) Sound.setMusic('boss'); this.sfx('roar'); this.shake(6); this.say(e.name + ' بیدار شد!'); } else return; }
   if (e.stun > 0) { e.stun -= dt; return; }
   e.bt -= dt; if (e.bt > 0) return;
   const atk = e.atks[e.bp % e.atks.length]; e.bp++; e.anim = 1;

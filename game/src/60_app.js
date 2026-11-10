@@ -65,7 +65,7 @@ const progOf = d => app.prog[d] || (app.prog[d] = {});
 // checkpoint reached in an unfinished long level (0 = start); ignored if the level's checkpoint count changed
 const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] ? LEVELS[i].rooms || (LEVELS[i].secs ? LEVELS[i].secs.length : 1) : 1; return r > 0 && r < n ? r : 0; };
 // level colours (biomes); rebuilding textures and background only when the scheme changes
-function setBiome(key) { const b = key && BIOMES[key] || null; if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
+function setBiome(key) { const b = key && BIOMES[key] || null; Sound.setMusic(b && b.mus || 'dusk'); if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
 const parTime = def => Math.round((def.nObs || 10) * 2.6 + 25);
 const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${faNum(m)}:${faNum(r.toFixed(0).padStart(2, '0'))}` : faNum(r.toFixed(1)); };
 
@@ -269,7 +269,7 @@ const app = {
     let v = viewOf(rdef);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); }
+    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; }
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
@@ -294,7 +294,7 @@ const app = {
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
     } else {
-      const run = this.run = new Run3D(rdef, this.diff, { noScene: v !== 'x3' });
+      const run = this.run = new Run3D(rdef, this.diff, { noScene: v !== 'x3' }); Sound.setMusic(rdef.noObst ? 'rest' : 'chase');
       // ck is a room number for every kind of level: start at that room's arch
       if (opt.ck > 0 && run.arches.length) { run.ckS = run.arches[Math.min(opt.ck, run.arches.length) - 1]; run.respawn(false); }
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };

@@ -151,6 +151,7 @@ class World {
     // endless course: only the sections around the checkpoint are built
     if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
     this.lv = new Level(this.def, this, this.only); this.lw = this.lv.width;
+    if (!this.silent && Sound.msName === 'boss') Sound.setMusic(BIOME && BIOME.mus || 'dusk');   // a boss you died to waits asleep again
     // gems stay collected across deaths
     this.got = this.got || new Set(); let ng = 0;
     for (const e of this.lv.ents) if (e.type === 'gem') { ng++; if (this.got.has(e.id)) e.gone = true; }

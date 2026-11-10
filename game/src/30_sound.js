@@ -1,4 +1,17 @@
 /* ============================ SOUND (Web Audio synth) ============================ */
+// music styles: tempo, chord roots (MIDI), melody scale, lead sound and drums (0 none, 1 hats, 2 beat, 3 boss)
+const MUSIC = {
+  dusk:   { bpm: 104, roots: [57, 53, 48, 55], scale: [0, 3, 5, 7, 10, 12, 15], lead: 'triangle', drums: 0, minor: true },
+  bright: { bpm: 118, roots: [60, 65, 67, 60], scale: [0, 2, 4, 7, 9, 12, 14], lead: 'triangle', drums: 1, oct: 0 },
+  desert: { bpm: 98, roots: [57, 58, 57, 55], scale: [0, 1, 4, 5, 7, 8, 10, 12], lead: 'sawtooth', drums: 1, minor: true },
+  frost:  { bpm: 84, roots: [62, 57, 59, 55], scale: [0, 2, 4, 6, 7, 11, 12, 16], lead: 'sine', drums: 0, padF: 1100 },
+  fire:   { bpm: 126, roots: [52, 52, 55, 50], scale: [0, 3, 5, 7, 8, 10, 12], lead: 'sawtooth', drums: 2, minor: true },
+  neon:   { bpm: 112, roots: [57, 53, 55, 52], scale: [0, 3, 5, 7, 10, 12, 15, 17], lead: 'square', drums: 2, minor: true, pat: [0, 2, 4, 6, 4, 2, 5, 3] },
+  wild:   { bpm: 96, roots: [55, 58, 53, 55], scale: [0, 2, 3, 5, 7, 9, 10, 12], lead: 'triangle', drums: 1, minor: true },
+  chase:  { bpm: 132, roots: [57, 55, 53, 52], scale: [0, 3, 5, 7, 10, 12], lead: 'sawtooth', drums: 2, minor: true },
+  boss:   { bpm: 146, roots: [52, 53, 52, 50], scale: [0, 2, 3, 5, 7, 8, 11, 12], lead: 'sawtooth', drums: 3, minor: true, pat: [0, 1, 2, 4, 3, 1, 5, 2] },
+  rest:   { bpm: 76, roots: [60, 57, 53, 55], scale: [0, 2, 4, 7, 9, 12], lead: 'sine', drums: 0, padF: 900 },
+};
 const Sound = {
   ctx: null, on: true, MASTER: 1,
   // A short silent WAV played through an <audio> element: on iPhones this moves the page to the "playback" audio
@@ -119,40 +132,53 @@ const Sound = {
     if (!this.ctx || !this.on) return; const now = this.ctx.currentTime; if (now - (this.lastStomp || 0) < 0.12) return; this.lastStomp = now;
     this.tone(75, 32, 0.4, 'sine', 0.55 * k); this.noise(0.25, 0.32 * k, 220);
   },
+  // music style per area (see MUSIC); switched when a level starts, during boss fights and in the 3D chases
+  setMusic(name) { const m = MUSIC[name] || MUSIC.dusk; if (this.ms === m) return; this.ms = m; this.msName = name; },
   startMusic() {
-    const c = this.ctx; const bpm = 104, beat = 60 / bpm; let next = c.currentTime + 0.2, step = 0;
-    const roots = [57, 53, 48, 55]; // A F C G
-    const scale = [0, 3, 5, 7, 10, 12, 15];
+    const c = this.ctx; let next = c.currentTime + 0.2, step = 0;
+    if (!this.ms) this.ms = MUSIC.dusk;
     const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-    const pad = (root, t, dur) => {
-      [0, 7, 12, 16].forEach((iv, k) => {
+    const pad = (root, t, dur, M) => {
+      [0, 7, 12, M.minor ? 15 : 16].forEach((iv, k) => {
         const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
-        o.type = k % 2 ? 'sawtooth' : 'triangle'; o.frequency.value = mtof(root - 12 + iv + (k === 3 && root !== 48 ? -1 : 0)); o.detune.value = (k - 1.5) * 6;
-        f.type = 'lowpass'; f.frequency.value = 700;
-        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + 1.2); g.gain.setValueAtTime(0.035, t + dur - 1); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
+        o.type = k % 2 ? 'sawtooth' : 'triangle'; o.frequency.value = mtof(root - 12 + iv); o.detune.value = (k - 1.5) * 6;
+        f.type = 'lowpass'; f.frequency.value = M.padF || 700;
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + Math.min(1.2, dur * .3)); g.gain.setValueAtTime(0.035, t + dur * .75); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
         o.connect(f); f.connect(g); g.connect(this.mus); o.start(t); o.stop(t + dur + 0.7);
       });
     };
-    const pluck = (m, t, v) => {
+    const pluck = (m, t, v, M) => {
       const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
-      o.type = 'triangle'; o.frequency.value = mtof(m); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(400, t + 0.3);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      o.type = M.lead || 'triangle'; o.frequency.value = mtof(m); f.type = 'lowpass'; f.frequency.setValueAtTime(M.lead === 'sawtooth' || M.lead === 'square' ? 2200 : 3000, t); f.frequency.exponentialRampToValueAtTime(400, t + 0.3);
+      const vv = M.lead === 'sawtooth' || M.lead === 'square' ? v * .55 : v;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vv, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
       o.connect(f); f.connect(g); g.connect(this.mus); g.connect(this.dly); o.start(t); o.stop(t + 0.5);
     };
-    const bass = (m, t) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = mtof(m - 24);
+    const bass = (m, t, beat) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = mtof(m - 24);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + beat * 1.8);
       o.connect(g); g.connect(this.mus); o.start(t); o.stop(t + beat * 2); };
+    // simple drums for the livelier styles
+    const kick = t => { const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+      g.gain.setValueAtTime(.32, t); g.gain.exponentialRampToValueAtTime(.0001, t + .2); o.connect(g); g.connect(this.mus); o.start(t); o.stop(t + .22); };
+    const hat = (t, v) => { const s = c.createBufferSource(); s.buffer = this.nbuf; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000;
+      const g = c.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); s.connect(f); f.connect(g); g.connect(this.mus); s.start(t, Math.random() * .5); s.stop(t + .07); };
+    const snare = t => { const s = c.createBufferSource(); s.buffer = this.nbuf; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800;
+      const g = c.createGain(); g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.0001, t + .14); s.connect(f); f.connect(g); g.connect(this.mus); s.start(t, Math.random() * .5); s.stop(t + .16); };
     const tick = () => {
       // after the tab was hidden/suspended, don't try to "catch up" by scheduling hundreds of notes at once
       if (next < c.currentTime - 0.2) next = c.currentTime + 0.05;
       if (c.state !== 'running' || !this.on || CFG.musicV <= 0) return;
       while (next < c.currentTime + 0.3) {
-        const bar = Math.floor(step / 8), root = roots[bar % 4], s8 = step % 8;
-        if (s8 === 0) { pad(root, next, beat * 4); bass(root, next); }
-        if (s8 === 4) bass(root + 7, next);
-        const pat = [0, -1, 2, 1, 3, -1, 4, 2];
-        let idx = pat[(s8 + bar * 3) % 8];
-        if (idx >= 0 && (Math.random() < 0.82)) { if (Math.random() < 0.2) idx = Math.floor(Math.random() * scale.length); pluck(57 + 12 + scale[idx] + (root - 57 > 0 ? 0 : 0), next, s8 % 2 ? 0.05 : 0.08); }
+        const M = this.ms, beat = 60 / M.bpm, roots = M.roots, scale = M.scale;
+        const bar = Math.floor(step / 8), root = roots[bar % roots.length], s8 = step % 8;
+        if (s8 === 0) { pad(root, next, beat * 4, M); bass(root, next, beat); }
+        if (s8 === 4) bass(root + 7, next, beat);
+        if (M.drums >= 1 && s8 % 2 === 1) hat(next, .05);
+        if (M.drums >= 2) { if (s8 % 4 === 0) kick(next); if (s8 === 4) snare(next); }
+        if (M.drums >= 3) { if (s8 % 2 === 0) kick(next); hat(next, .04); }
+        const pat = M.pat || [0, -1, 2, 1, 3, -1, 4, 2];
+        let idx = pat[(s8 + bar * 3) % pat.length];
+        if (idx >= 0 && (Math.random() < 0.82)) { if (Math.random() < 0.2) idx = Math.floor(Math.random() * scale.length); pluck(roots[0] + 12 + scale[idx % scale.length] + (M.oct || 0), next, s8 % 2 ? 0.05 : 0.08, M); }
         next += beat / 2; step++;
       }
     };
