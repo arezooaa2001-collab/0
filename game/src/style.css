@@ -234,3 +234,4 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #sShop .panel.tall{overflow:auto}#sShop .panel.tall > *{flex-shrink:0}#sShop .shopGrid{overflow:visible}
 #sEndless .mcard{cursor:pointer;color:#fff;font:inherit}#sEndless .mcard b{font-size:17px}#sEndless .mcard small{font-size:13px}
 .lv .rv{position:absolute;left:4px;bottom:2px;font-size:10px;line-height:1}
+#errBox{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);max-width:80vw;padding:6px 14px;border-radius:12px;background:rgba(120,20,40,.85);color:#fff;font-size:12px;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;direction:ltr;text-align:left}#errBox.on{opacity:1}

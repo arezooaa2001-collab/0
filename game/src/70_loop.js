@@ -20,11 +20,33 @@ function drawView(dt) {
   else if (v === 'x3') { if (app.run) app.run.render(dt); }
   else render(app.world, clock, dt);
 }
+/* ---------- errors never stop the game: each part of a frame is guarded, problems are shown and repaired ---------- */
+const ERR = { n: 0, seen: {}, draw: 0, fixed: 0 };
+function reportErr(where, e) {
+  ERR.n++; const msg = ((e && e.message) || String(e)).slice(0, 140);
+  if (ERR.seen[where + msg]) return; ERR.seen[where + msg] = 1;
+  try { console.error('[' + where + ']', e); } catch (_) {}
+  const el = $('errBox'); if (el) { el.textContent = '⚠️ ' + where + ': ' + msg; el.classList.add('on'); clearTimeout(reportErr.t); reportErr.t = setTimeout(() => el.classList.remove('on'), 8000); }
+}
+// drawing failed: rebuild the drawing resources; if it keeps failing, use the simplest looks and a lower resolution
+function repairDraw() {
+  ERR.fixed++;
+  if (ERR.fixed >= 2) { LOOKS_SAFE = true; Perf.si = Perf.steps.length - 1; Perf.fxDrop = 2; }
+  try { STT.tiles.clear(); resize(); buildTextures(ctx); buildBackground(); resize3(); } catch (e) { reportErr('repair', e); }
+}
 function frame(now) {
+  requestAnimationFrame(frame);   // schedule first: an error below can never stop the loop
   const raw = (now - last) / 1000, dt = Math.min(0.1, raw); last = now; clock += dt;
-  Perf.tick(raw, app.state === 'play' && !document.hidden);
-  wxTick(dt, app.state === 'play' && !document.hidden);
-  if (trans) { trans.t += dt; if (trans.t >= trans.dur) { const cb = trans.cb; trans = null; if (cb) cb(); } }
+  try { Perf.tick(raw, app.state === 'play' && !document.hidden); } catch (e) { reportErr('perf', e); }
+  try { wxTick(dt, app.state === 'play' && !document.hidden); } catch (e) { reportErr('weather', e); }
+  try { if (trans) { trans.t += dt; if (trans.t >= trans.dur) { const cb = trans.cb; trans = null; if (cb) cb(); } } } catch (e) { trans = null; reportErr('transition', e); }
+  try { simFrame(dt); } catch (e) { reportErr('game', e); acc = 0; }
+  try { if (app.state !== 'pause' || trans || app.dirty) { drawView(dt); app.dirty = false; } ERR.draw = 0; }
+  catch (e) { reportErr('draw', e); if (++ERR.draw === 2 || ERR.draw === 30) repairDraw(); }
+  try { if (app.kind === 'run' && app.run && app.state === 'play') hud3(app.run); hudTick(); } catch (e) { reportErr('hud', e); }
+  try { if ((saveT += dt) > 15) { saveT = 0; if (app.state === 'play') writeSave(); } } catch (e) { reportErr('save', e); }
+}
+function simFrame(dt) {
   if (app.state === 'play') {
     acc += dt; const inp = readInput(); let n = 0;
     if (app.kind === 'run' && app.run) { while (acc >= STEP && n < 14) { app.run.update(STEP, inp); acc -= STEP; n++; } }
@@ -35,10 +57,5 @@ function frame(now) {
   } else if (app.state === 'title' && app.world) {
     app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;
-  if (app.state !== 'pause' || trans || app.dirty) { drawView(dt); app.dirty = false; }
-  if (app.kind === 'run' && app.run && app.state === 'play') hud3(app.run);
-  hudTick();
-  if ((saveT += dt) > 15) { saveT = 0; if (app.state === 'play') writeSave(); }
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

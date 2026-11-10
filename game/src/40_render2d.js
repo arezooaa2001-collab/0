@@ -4,6 +4,8 @@ function mkC(w, h) { const c = document.createElement('canvas'); c.width = Math.
 function srand(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 function patScale(p) { try { p.setTransform(new DOMMatrix().scaleSelf(0.5, 0.5)); } catch (e) {} return p; }
 /* ---------- level looks: block material, top edge, background scenery and sky object come from the level's biome ---------- */
+let LOOKS_SAFE = false;   // set after repeated drawing errors: plain looks only
+const lookOf = k => !LOOKS_SAFE && BIOME && BIOME[k];
 // draws one 160x160 seamless block texture in the given style
 function blockTex(g, st, h0, s0, l0, R) {
   const C = (dh, ds, dl) => hslHex(h0 + dh, clamp(s0 * ds, 0, 1), clamp(l0 * dl, 0, 1));
@@ -168,7 +170,7 @@ function buildTextures(ctx) {
   // stone bricks: 160px texture = 80x80 world
   { const c = mkC(160, 160), g = c.getContext('2d');
     g.fillStyle = hslHex(bh0, bs0 * .6, bl0 * .45); g.fillRect(0, 0, 160, 160);
-    const bh = 40, bst = BIOME && BIOME.bs;
+    const bh = 40, bst = lookOf('bs');
     if (!bst || !blockTex(g, bst, bh0, bs0, bl0, R)) for (let row = 0; row < 4; row++) {
       const off = row % 2 ? 40 : 0;
       for (let col = -1; col < 3; col++) {
@@ -197,7 +199,7 @@ function buildTextures(ctx) {
     if (st === 'vines') { g.strokeStyle = mixHex(base, '#000000', .3); g.lineWidth = 1.6; for (let x = 8; x < 160; x += 22) { g.beginPath(); g.moveTo(x, 18); g.quadraticCurveTo(x + 4, 28, x - 1, 38); g.stroke(); } }
     return patScale(ctx.createPattern(c, 'repeat-x'));
   };
-  TEX.moss = topTex(PAL.moss, true, BIOME && BIOME.top);
+  TEX.moss = topTex(PAL.moss, true, lookOf('top'));
   TEX.ice = topTex('#bdf2ff', false);
   // conveyor chevrons
   { const c = mkC(80, 24), g = c.getContext('2d'); g.fillStyle = '#2a2236'; g.fillRect(0, 0, 80, 24); g.fillStyle = '#ffb347';
@@ -272,17 +274,20 @@ function layoutTouch() {
 }
 function buildBackground() {
   const R = srand(11), sk = PAL.skyCol;
+  for (const t of STT.tiles.values()) t.c.width = t.c.height = 0;
   STT.tiles.clear();
   // sky
   const sky = mkC(cw, ch), g = sky.getContext('2d');
   let gr = g.createLinearGradient(0, 0, 0, ch);
   [['#07061c', 0], ['#191247', .38], ['#46205f', .7], ['#7c2e5f', .9], ['#a0405b', 1]].forEach(([c, o]) => gr.addColorStop(o, sk(c)));
   g.fillStyle = gr; g.fillRect(0, 0, cw, ch);
-  const cel = (BIOME && BIOME.cel) || 'moon', scen = (BIOME && BIOME.scen) || 'mountains';
+  const cel = lookOf('cel') || 'moon', scen = lookOf('scen') || 'mountains';
+  // free the previous pictures first: phones run out of canvas memory if old and new ones live together
+  for (const k of ['far', 'mid', 'near', 'realm', 'mist', 'rays']) if (BG[k]) { BG[k].width = BG[k].height = 0; BG[k] = null; }
   const stars = (GFXK === 'go' ? 110 : 260) * (cel === 'sun' ? .25 : 1);
   for (let i = 0; i < stars; i++) { const x = R() * cw, y = R() * ch * .65, r = (R() * 1.2 + .3) * dpr; g.globalAlpha = R() * .8 + .2; g.fillStyle = R() < .15 ? '#ffd9a8' : '#fff'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
   g.globalAlpha = 1;
-  drawCelestial(g, cel, R);
+  try { drawCelestial(g, cel, R); } catch (e) { reportErr('sky', e); }
   // mountain ranges: seamless strips that wrap around, so they can scroll forever with the camera (parallax)
   const P = Math.ceil(cw + 240 * dpr);
   const layer = (col, base, amp, rough, seed, fog) => {
@@ -296,7 +301,10 @@ function buildBackground() {
     if (fog) { const fg = q.createLinearGradient(0, OY + (base - amp) * S, 0, ch); fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, fog); q.globalCompositeOperation = 'source-atop'; q.fillStyle = fg; q.fillRect(0, 0, c.width, ch); }
     return c;
   };
-  const lay = (col, base, amp, rough, seed, fog, depth) => scen === 'mountains' ? layer(col, base, amp, rough, seed, fog) : sceneryStrip(scen, P, ch, sk(col), base, amp, rough, seed, fog, depth);
+  const lay = (col, base, amp, rough, seed, fog, depth) => {
+    if (scen !== 'mountains') try { return sceneryStrip(scen, P, ch, sk(col), base, amp, rough, seed, fog, depth); } catch (e) { reportErr('scenery', e); }
+    return layer(col, base, amp, rough, seed, fog);
+  };
   const far = lay('#33205a', 420, 170, 60, 3, rgbaHex(sk('#a04678'), .55), 0);
   const mid = lay('#211541', 520, 120, 46, 5, rgbaHex(sk('#6e285a'), .5), 1);
   const near = lay('#140d2c', 610, 70, 34, 9, rgbaHex(sk('#280f32'), .6), 2);
@@ -304,6 +312,7 @@ function buildBackground() {
   const back = mkC(cw, ch), bg2 = back.getContext('2d', { alpha: false }); bg2.drawImage(sky, 0, 0); bg2.drawImage(far, -120 * dpr, 0);
   const strip = (src, top) => { const y0 = Math.max(0, Math.floor(OY + top * S)), c = mkC(src.width, ch - y0); c.getContext('2d').drawImage(src, 0, -y0); c.y0 = y0; return c; };
   BG.far = back; BG.mid = strip(mid, 520 - 125); BG.near = strip(near, 610 - 75);
+  for (const c of [sky, far, mid, near]) c.width = c.height = 0;   // temporary pictures: release their memory now
   // hidden realm: neon void with a perspective grid
   { const rc = BG.realm = mkC(cw, ch), q = rc.getContext('2d', { alpha: false }), r2 = srand(23);
     const gg = q.createLinearGradient(0, 0, 0, ch); gg.addColorStop(0, '#03010c'); gg.addColorStop(.55, '#170636'); gg.addColorStop(1, '#3a0a52'); q.fillStyle = gg; q.fillRect(0, 0, cw, ch);
