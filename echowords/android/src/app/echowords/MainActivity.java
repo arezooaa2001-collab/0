@@ -437,7 +437,7 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public String appVersion() {
-            return "15";
+            return "16";
         }
 
         @JavascriptInterface

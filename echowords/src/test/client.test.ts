@@ -294,3 +294,20 @@ describe('AI service errors: the real reason', () => {
     localStorage.removeItem('echowords-ai');
   });
 });
+
+describe('inside the Android app (no browser speech engine)', () => {
+  it('stopSpeaking never throws', async () => {
+    const { stopSpeaking, standardPronunciationSupported } = await import('../lib/speech');
+    const w = window as unknown as { EchoWordsAndroid?: unknown; speechSynthesis?: unknown };
+    let stopped = 0;
+    w.EchoWordsAndroid = { stopSpeaking: () => stopped++ };
+    try {
+      expect(w.speechSynthesis).toBeUndefined(); // like Android's WebView
+      expect(standardPronunciationSupported()).toBe(true); // Android's own voice counts
+      expect(() => stopSpeaking()).not.toThrow();
+      expect(stopped).toBe(1);
+    } finally {
+      delete w.EchoWordsAndroid;
+    }
+  });
+});

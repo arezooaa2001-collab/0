@@ -6,9 +6,14 @@ import type { Accent } from './stt';
 
 export type SpeakResult = 'ok' | 'no-voice' | 'unsupported' | 'error';
 
+/** The browser's own speech engine. It does NOT exist inside the Android app's WebView. */
+function webSpeechAvailable(): boolean {
+  return typeof window !== 'undefined' && !!window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined';
+}
+
 export function standardPronunciationSupported(): boolean {
   if (isNativeApp()) return true; // Android app: the phone's own text-to-speech
-  return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+  return webSpeechAvailable();
 }
 
 /** Voices load asynchronously on Android/Chrome: wait for them (briefly). */
@@ -100,6 +105,7 @@ export async function speakText(text: string, accent: Accent, lang: LangCode = '
     }
     return { result: spoke ? 'ok' : missing.length ? 'no-voice' : 'error', missing };
   }
+  if (!webSpeechAvailable()) return { result: 'unsupported', missing: [] };
   const synth = window.speechSynthesis;
   const voices = await loadVoices();
   synth.cancel();
@@ -132,5 +138,10 @@ export async function speakStandard(text: string, accent: Accent, lang: LangCode
 export function stopSpeaking(): void {
   speakRun++;
   nativeStopSpeaking();
-  if (standardPronunciationSupported()) window.speechSynthesis.cancel();
+  // Only touch the browser engine where it exists (inside the Android app it does not).
+  try {
+    if (webSpeechAvailable()) window.speechSynthesis.cancel();
+  } catch {
+    /* never let "stop speaking" break the caller */
+  }
 }

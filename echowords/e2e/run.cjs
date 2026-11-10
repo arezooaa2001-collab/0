@@ -103,7 +103,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۵/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۶/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -770,6 +770,15 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const andDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-android-'));
   const ctxN2 = await chromium.launchPersistentContext(andDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
   await ctxN2.addInitScript(() => {
+    // Like the real Android WebView: the browser's own speech engines do not exist there.
+    try { delete window.speechSynthesis; } catch {}
+    Object.defineProperty(window, 'speechSynthesis', { value: undefined, configurable: true });
+    window.SpeechSynthesisUtterance = undefined;
+    window.SpeechRecognition = undefined;
+    window.webkitSpeechRecognition = undefined;
+    window.__pageErrors = [];
+    window.addEventListener('unhandledrejection', (e) => window.__pageErrors.push(String(e.reason)));
+    window.addEventListener('error', (e) => window.__pageErrors.push(String(e.message)));
     window.__native = { spoken: [], listened: [], saved: [] };
     const reply = (id, obj) => setTimeout(() => window.__ewNative.done(id, JSON.stringify(obj)), 30);
     window.__native.allowMic = false;
@@ -850,6 +859,19 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /با صدا بپرس/ }).click();
   await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
   check('app: talking to the tutor uses Android speech recognition', (await page.evaluate(() => window.__native.listened)).includes('fa-IR'));
+  // typed question inside the app (this used to hang on «thinking» forever)
+  await page.locator('.tutor-input textarea').fill('کتاب به انگلیسی چی میشه');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.user', { hasText: 'کتاب به انگلیسی چی میشه' }).waitFor({ timeout: 5000 });
+  await page.waitForFunction(() => document.querySelectorAll('.bubble.assistant:not(.error)').length >= 2 && !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
+  check('app: a typed question gets its answer and «thinking» ends', true);
+  // live mode inside the app: hears once (stub), answers out loud through Android, then stops after silence
+  await page.evaluate(() => { let n = 0; window.EchoWordsAndroid.listen = (id) => setTimeout(() => window.__ewNative.done(id, JSON.stringify(n++ === 0 ? { text: 'سلام', error: null } : { text: '', error: 'no-speech' })), 50); window.__native.spoken.length = 0; });
+  await page.getByRole('button', { name: /حالت لایو/ }).click();
+  await page.locator('.bubble.user', { hasText: 'سلام' }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /حالت لایو/ }).waitFor({ timeout: 20000 });
+  check('app: live mode answers out loud and never gets stuck', (await page.evaluate(() => window.__native.spoken.length)) >= 1 && !(await page.locator('.bubble .spinner').count()));
+  check('app: no hidden errors while using the tutor', (await page.evaluate(() => window.__pageErrors.length)) === 0, JSON.stringify(await page.evaluate(() => window.__pageErrors.slice(0, 2))));
   check('app: AI requests go through Android\'s own networking', (await page.evaluate(() => window.__native.http)) >= 1);
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar img.brand-logo').count()) === 1);
   // No speech recognition on this phone: the question is recorded and sent to Gemini as audio

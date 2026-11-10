@@ -89,8 +89,12 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     void currentProvider().then(setProvider);
     return () => {
       liveRef.current = false;
-      stopListening();
-      stopSpeaking();
+      try {
+        stopListening();
+        stopSpeaking();
+      } catch {
+        /* leaving the screen must never fail */
+      }
     };
   }, []);
 
@@ -109,14 +113,18 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       add({ role: 'assistant', text: t.aiNoProvider, error: true });
       return null;
     }
+    // Everything after «thinking» is switched on is inside ONE protected block:
+    // whatever goes wrong, the bubble is switched off again and the reason is shown.
     setBusy(true);
-    stopSpeaking();
-    if (!image && cameraOnRef.current) image = await cameraRef.current?.snapshot(); // what the camera sees right now
-    add({ role: 'user', text: q, imageUrl: image ? URL.createObjectURL(image) : undefined });
-    historyRef.current = [...historyRef.current, { role: 'user', text: q }];
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    let asked = false;
     try {
+      stopSpeaking();
+      if (!image && cameraOnRef.current) image = await cameraRef.current?.snapshot(); // what the camera sees right now
+      add({ role: 'user', text: q, imageUrl: image ? URL.createObjectURL(image) : undefined });
+      historyRef.current = [...historyRef.current, { role: 'user', text: q }];
+      asked = true;
       const reply = await withDeadline(askTutor(historyRef.current, image ? await shrinkImage(image) : null, { signal: ctrl.signal, live: liveRef.current }), ctrl);
       historyRef.current = [...historyRef.current, { role: 'assistant', text: reply.reply }];
       add({ role: 'assistant', text: reply.reply, reply });
@@ -127,11 +135,11 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       }
       return reply;
     } catch (e) {
-      historyRef.current = historyRef.current.slice(0, -1);
+      if (asked) historyRef.current = historyRef.current.slice(0, -1);
       add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e), detail: isAbort(e) ? undefined : aiErrorDetail(e) });
-      setBusy(false);
       return null;
     } finally {
+      setBusy(false);
       if (abortRef.current === ctrl) abortRef.current = null;
     }
   };
@@ -143,12 +151,12 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       return;
     }
     setBusy(true);
-    stopSpeaking();
-    const userId = nextId.current;
-    add({ role: 'user', text: t.voiceQuestion });
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
+      stopSpeaking();
+      const userId = nextId.current;
+      add({ role: 'user', text: t.voiceQuestion });
       const shot = cameraOnRef.current ? await cameraRef.current?.snapshot() : null;
       const reply = await withDeadline(askTutorByVoice(historyRef.current, audio, { signal: ctrl.signal }, shot ?? null), ctrl);
       const heard = reply.heard || t.voiceQuestion;
@@ -159,7 +167,9 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
       if (autoSpeak) await speakText(reply.reply, accent, 'fa');
     } catch (e) {
       add({ role: 'assistant', text: isAbort(e) ? t.aiCancelled : aiErrorText(e), error: !isAbort(e), detail: isAbort(e) ? undefined : aiErrorDetail(e) });
+    } finally {
       setBusy(false);
+      if (abortRef.current === ctrl) abortRef.current = null;
     }
   };
 
@@ -217,33 +227,40 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
     setLive(true);
     let quiet = 0;
     let failures = 0;
-    while (liveRef.current) {
-      setListening(true);
-      let heard = '';
-      try {
-        heard = await listenOnce(listenLang);
-      } catch (e) {
-        toast(listenErrorText(e), 'error');
-        break;
-      } finally {
-        setListening(false);
+    try {
+      while (liveRef.current) {
+        setListening(true);
+        let heard = '';
+        try {
+          heard = await listenOnce(listenLang);
+        } catch (e) {
+          toast(listenErrorText(e), 'error');
+          break;
+        } finally {
+          setListening(false);
+        }
+        if (!liveRef.current) break;
+        if (!heard) {
+          if (++quiet >= 3) break; // three silent turns: stop by itself
+          continue;
+        }
+        quiet = 0;
+        const r = await send(heard);
+        if (!liveRef.current) break;
+        if (!r) {
+          if (++failures >= 2) break; // two answers in a row failed: stop and show why
+          continue; // otherwise keep listening
+        }
+        failures = 0;
       }
-      if (!liveRef.current) break;
-      if (!heard) {
-        if (++quiet >= 3) break; // three silent turns: stop by itself
-        continue;
-      }
-      quiet = 0;
-      const r = await send(heard);
-      if (!liveRef.current) break;
-      if (!r) {
-        if (++failures >= 2) break; // two answers in a row failed: stop and show why
-        continue; // otherwise keep listening
-      }
-      failures = 0;
+    } catch (e) {
+      console.error('live mode stopped', e);
+      toast(t.errGeneric, 'error');
+    } finally {
+      liveRef.current = false;
+      setLive(false);
+      setListening(false);
     }
-    liveRef.current = false;
-    setLive(false);
   };
 
   const saveItem = async (text: string, meaning: string) => {
