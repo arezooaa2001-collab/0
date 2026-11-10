@@ -2291,7 +2291,14 @@ class World {
     return { added, dropped };
   }
   sfx(n) { if (!this.silent) Sound.play(n); }
-  grabGem(e) { if (e.gone) return; e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(e); }
+  grabGem(e) {
+    if (e.gone) return; e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 });
+    // combo: gems picked up quickly one after another are worth more (x2 from 5 in a row, x3 from 12)
+    const C = this.combo || (this.combo = { n: 0, t: -9 }); C.n = this.time - C.t < 1.6 ? C.n + 1 : 1; C.t = this.time;
+    const bonus = C.n >= 12 ? 2 : C.n >= 5 ? 1 : 0;
+    if (bonus && !this.silent) this.parts.push({ x: e.x, y: e.y - 14, vx: 0, vy: -50, life: .9, max: .9, size: 0, col: bonus > 1 ? '#ffd36e' : '#9ef9ff', g: 0, drag: 0, txt: `×${faNum(bonus + 1)}` + (C.n === 5 || C.n === 12 ? ' کمبو!' : '') });
+    if (this.onGem) this.onGem(e, bonus);
+  }
   // switch blocks: every jump swaps which colour is solid
   flipTog() { this.tog ^= 1; if (!this.silent && this.act.some(e => e.tog != null && !e.gone)) Sound.play('tog'); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
@@ -3648,6 +3655,7 @@ function drawParticles(world) {
   const lim = Math.max(20, Math.round(400 * GFX.fx * Perf.fxK)), arr = world.parts, start = Math.max(0, arr.length - lim);
   for (let i = start; i < arr.length; i++) {
     const q = arr[i], a = q.life / q.max;
+    if (q.txt) { ctx.save(); ctx.globalAlpha = Math.min(1, a * 1.6); ctx.font = 'bold 16px Vazirmatn, Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,6,24,.75)'; ctx.strokeText(q.txt, q.x, q.y); ctx.fillStyle = q.col; ctx.fillText(q.txt, q.x, q.y); ctx.restore(); continue; }
     if (q.heart) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = q.col; const s = q.size * .5; ctx.beginPath(); ctx.arc(q.x - s, q.y, s, 0, 7); ctx.arc(q.x + s, q.y, s, 0, 7); ctx.moveTo(q.x - s * 2, q.y + s * .4); ctx.lineTo(q.x, q.y + s * 2.4); ctx.lineTo(q.x + s * 2, q.y + s * .4); ctx.fill(); ctx.restore(); continue; }
     if (q.soul) { ctx.save(); ctx.globalAlpha = a * .9; ctx.fillStyle = q.col; const s = q.size, wob = Math.sin(q.life * 14) * 3; ctx.beginPath(); ctx.arc(q.x, q.y - s * .2, s * .7, Math.PI, 0); ctx.lineTo(q.x + s * .7 + wob, q.y + s); ctx.lineTo(q.x - s * .7 + wob, q.y + s); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(q.x - 3, q.y - s * .2, 1.6, 0, 7); ctx.arc(q.x + 3, q.y - s * .2, 1.6, 0, 7); ctx.fill(); ctx.strokeStyle = '#ffd36e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(q.x, q.y - s * 1.1, s * .5, s * .15, 0, 0, 7); ctx.stroke(); ctx.restore(); continue; }
@@ -6220,7 +6228,7 @@ const app = {
         R.onDone = r => this.taunt(`${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col);
         R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
-      w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); };
+      w.onGem = (e, bonus = 0) => { ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => Missions.ev('jump');
       w.onBoss = b => { const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
@@ -6236,7 +6244,7 @@ const app = {
       run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -6299,7 +6307,16 @@ const app = {
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
     this.updTag();
-    this.taunt(i === n ? `🚪 اتاق آخر! (${faNum(n + 1)} از ${faNum(n + 1)}) در نزدیکه` : `🚪 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`, '#9ef9dc');
+    const sp = this.split(i);
+    this.taunt((i === n ? `🚪 اتاق آخر! (${faNum(n + 1)} از ${faNum(n + 1)}) در نزدیکه` : `🚪 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc');
+  },
+  // time to reach room i compared with your best (only for runs started from the first room)
+  split(i) {
+    if (this.resumed || this.endless || this.realmIdx >= 0 || this.idx < 0) return null;
+    const pr = progOf(this.diff), S = pr.split || (pr.split = {}), key = this.idx + (this.kind === 'run' ? 'r' : ''), arr = S[key] || (S[key] = []), t = this.levelT, best = arr[i];
+    if (!best || t < best) arr[i] = +t.toFixed(2);
+    if (!best) return null;
+    const d = t - best; return { txt: `   ⏱ ${d < 0 ? '−' : '+'}${faNum(Math.abs(d).toFixed(1))}`, col: d < 0 ? '#6ff3c4' : '#ff9a8a' };
   },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();

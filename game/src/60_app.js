@@ -287,7 +287,7 @@ const app = {
         R.onDone = r => this.taunt(`${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col);
         R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
-      w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); };
+      w.onGem = (e, bonus = 0) => { ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => Missions.ev('jump');
       w.onBoss = b => { const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
@@ -303,7 +303,7 @@ const app = {
       run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -366,7 +366,16 @@ const app = {
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
     this.updTag();
-    this.taunt(i === n ? `🚪 اتاق آخر! (${faNum(n + 1)} از ${faNum(n + 1)}) در نزدیکه` : `🚪 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`, '#9ef9dc');
+    const sp = this.split(i);
+    this.taunt((i === n ? `🚪 اتاق آخر! (${faNum(n + 1)} از ${faNum(n + 1)}) در نزدیکه` : `🚪 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc');
+  },
+  // time to reach room i compared with your best (only for runs started from the first room)
+  split(i) {
+    if (this.resumed || this.endless || this.realmIdx >= 0 || this.idx < 0) return null;
+    const pr = progOf(this.diff), S = pr.split || (pr.split = {}), key = this.idx + (this.kind === 'run' ? 'r' : ''), arr = S[key] || (S[key] = []), t = this.levelT, best = arr[i];
+    if (!best || t < best) arr[i] = +t.toFixed(2);
+    if (!best) return null;
+    const d = t - best; return { txt: `   ⏱ ${d < 0 ? '−' : '+'}${faNum(Math.abs(d).toFixed(1))}`, col: d < 0 ? '#6ff3c4' : '#ff9a8a' };
   },
   onWin() {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();

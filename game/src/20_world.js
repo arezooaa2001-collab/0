@@ -184,7 +184,14 @@ class World {
     return { added, dropped };
   }
   sfx(n) { if (!this.silent) Sound.play(n); }
-  grabGem(e) { if (e.gone) return; e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(e); }
+  grabGem(e) {
+    if (e.gone) return; e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 });
+    // combo: gems picked up quickly one after another are worth more (x2 from 5 in a row, x3 from 12)
+    const C = this.combo || (this.combo = { n: 0, t: -9 }); C.n = this.time - C.t < 1.6 ? C.n + 1 : 1; C.t = this.time;
+    const bonus = C.n >= 12 ? 2 : C.n >= 5 ? 1 : 0;
+    if (bonus && !this.silent) this.parts.push({ x: e.x, y: e.y - 14, vx: 0, vy: -50, life: .9, max: .9, size: 0, col: bonus > 1 ? '#ffd36e' : '#9ef9ff', g: 0, drag: 0, txt: `×${faNum(bonus + 1)}` + (C.n === 5 || C.n === 12 ? ' کمبو!' : '') });
+    if (this.onGem) this.onGem(e, bonus);
+  }
   // switch blocks: every jump swaps which colour is solid
   flipTog() { this.tog ^= 1; if (!this.silent && this.act.some(e => e.tog != null && !e.gone)) Sound.play('tog'); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }

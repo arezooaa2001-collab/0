@@ -723,6 +723,7 @@ function drawParticles(world) {
   const lim = Math.max(20, Math.round(400 * GFX.fx * Perf.fxK)), arr = world.parts, start = Math.max(0, arr.length - lim);
   for (let i = start; i < arr.length; i++) {
     const q = arr[i], a = q.life / q.max;
+    if (q.txt) { ctx.save(); ctx.globalAlpha = Math.min(1, a * 1.6); ctx.font = 'bold 16px Vazirmatn, Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,6,24,.75)'; ctx.strokeText(q.txt, q.x, q.y); ctx.fillStyle = q.col; ctx.fillText(q.txt, q.x, q.y); ctx.restore(); continue; }
     if (q.heart) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = q.col; const s = q.size * .5; ctx.beginPath(); ctx.arc(q.x - s, q.y, s, 0, 7); ctx.arc(q.x + s, q.y, s, 0, 7); ctx.moveTo(q.x - s * 2, q.y + s * .4); ctx.lineTo(q.x, q.y + s * 2.4); ctx.lineTo(q.x + s * 2, q.y + s * .4); ctx.fill(); ctx.restore(); continue; }
     if (q.soul) { ctx.save(); ctx.globalAlpha = a * .9; ctx.fillStyle = q.col; const s = q.size, wob = Math.sin(q.life * 14) * 3; ctx.beginPath(); ctx.arc(q.x, q.y - s * .2, s * .7, Math.PI, 0); ctx.lineTo(q.x + s * .7 + wob, q.y + s); ctx.lineTo(q.x - s * .7 + wob, q.y + s); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(q.x - 3, q.y - s * .2, 1.6, 0, 7); ctx.arc(q.x + 3, q.y - s * .2, 1.6, 0, 7); ctx.fill(); ctx.strokeStyle = '#ffd36e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(q.x, q.y - s * 1.1, s * .5, s * .15, 0, 0, 7); ctx.stroke(); ctx.restore(); continue; }
