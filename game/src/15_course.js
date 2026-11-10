@@ -6,7 +6,7 @@
 // colours (BIOMES), so two levels never play the same. Coordinates below are tiles relative to the chunk.
 const TOP_MIN = 10, TOP_MAX = 15, CHUNK = 5;
 // chunk seeds replaced after checking every chunk with the auto-solver (easy + insane)
-const CHUNK_FIX = {};
+const CHUNK_FIX = {'L12:13': 2313, 'L11:10': 5210, 'L11:13': 3213, 'L17:10': 2810, 'L17:13': 3813, 'L13:9': 2409, 'L13:11': 6411, 'L13:12': 5412, 'L16:8': 4708, 'L16:12': 6712, 'L16:13': 4713, 'L18:13': 8913, 'L18:19': 2919, 'L20:12': 3112, 'L20:15': 3115, 'L20:17': 6117, 'L20:18': 3118, 'L21:6': 4206, 'L21:12': 7212, 'L21:18': 3218, 'L23:18': 3418, 'L22:6': 4306, 'L22:12': 5312, 'L22:13': 4313, 'L22:17': 4317, 'L22:19': 3319, 'L26:18': 3718, 'L27:4': 5804, 'L25:15': 3615, 'L31:13': 10213, 'L31:24': 4224, 'L30:11': 5111, 'L30:21': 14121, 'L30:22': 11122, 'L32:13': 4313, 'L32:16': 4316, 'L32:19': 12319, 'L32:20': 5320, 'L32:23': 4323, 'L33:10': 4410, 'L33:20': 12420, 'L33:23': 6423, 'L35:12': 4612, 'L35:21': 5621, 'L35:23': 4623, 'L35:24': 9624, 'L36:17': 8717, 'L36:22': 6722, 'L36:24': 4724, 'L38:19': 4919, 'R1:7': 51107, 'R1:9': 53109};
 
 /* ============================ POWER-UPS (2D levels) ============================ */
 // t = timer field on the player, dur = seconds. The shield lasts until it saves you once.
@@ -236,10 +236,10 @@ kind('conveyorTakeoff', 'conveyor', .5, 2, { need: 'conv' }, G => {
 kind('laserGate', 'lasers', 0, 2, { need: 'laser', wait: true }, G => {
   const x = G.x; G.F(x, 4); G.L.laser(G.id(), x + 2, G.t - 6.5, 6.5, 'v', { on: .9 + G.k * .3, off: 1.5 - G.k * .3, ph: G.r() * 2 }); G.x += 4;
 });
-kind('laserHurdle', 'lasers', 0, 2, { need: 'laser', wait: true }, G => {
+kind('laserHurdle', 'lasers', 0, 2, { djOnly: true, need: 'laser', wait: true }, G => {
   const x = G.x; G.F(x, 7); G.L.spikes(null, x + 3, G.t - 1, 1, 'up'); G.L.laser(G.id(), x + .5, G.t - 1.6, 6, 'h', { on: 1, off: 1.4, ph: G.r() * 2 }); G.x += 7;
 });
-kind('laserTwin', 'lasers', 0, 3, { need: 'laser', wait: true }, G => {
+kind('laserTwin', 'lasers', 0, 3, { djOnly: true, need: 'laser', wait: true }, G => {
   const x = G.x, ph = G.r() * 2; G.pit(x, 6);
   // the second beam goes off a moment after the first: cross on the 'green wave'
   G.L.laser(G.id(), x + 2, G.t - 6, 6, 'v', { on: .7, off: 1.3, ph }); G.L.laser(G.id(), x + 4, G.t - 6, 6, 'v', { on: .7, off: 1.3, ph: ph - .35 }); G.x += 6;
@@ -796,7 +796,12 @@ function buildCourse(def, opt) {
   // a level of one room is just its hand-made screen
   const nCh = opt.rooms ? opt.rooms - 1 : 0;
   if (opt.rooms === 1) { def.secs = [hand]; def.nObs = 0; def.course = opt; def.relayout(); return; }
-  const r = srand(opt.seed * 7919 + 13), keys = pickKinds(opt, r);
+  const r = srand(opt.seed * 7919 + 13); let keys = pickKinds(opt, r);
+  // designs that need the double jump are swapped for unused ones on levels without it (keeps the other picks as they are)
+  if (!opt.dj && keys.some(k => KINDS[k].djOnly)) {
+    const used = new Set(keys), alt = Object.values(KINDS).filter(kd => !used.has(kd.key) && !kd.djOnly && kd.lvl <= opt.k0 + .12 && (!kd.need || opt[kd.need]) && !(opt.chase && kd.wait)).map(kd => kd.key);
+    keys = keys.map(k => KINDS[k].djOnly ? alt.shift() || k : k);
+  }
   opt.n = keys.length;
   // the obstacles are split over exactly (rooms - 1) chunks; later chunks get the extra ones
   const groups = [];
