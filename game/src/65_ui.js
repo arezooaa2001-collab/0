@@ -168,7 +168,7 @@ $('shopGrid').addEventListener('click', e => {
   const it = SKINS[shopTab].find(s => s.id === b.dataset.item), key = shopTab + ':' + it.id, own = it.p === 0 || ST.owned[key];
   if (!own) {
     if (gemBalance() < it.p) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
-    ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win');
+    ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win'); Missions.ev('shop');
   } else Sound.play('click');
   ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
 });
@@ -182,3 +182,12 @@ $('bEndless').onclick = () => { Sound.init(); Sound.play('click'); renderEndless
 $('bOverAgain').onclick = () => { Sound.play('click'); app.startEndless(); };
 $('bOverMenu').onclick = () => { Sound.play('click'); app.menu(); };
 $('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };
+
+/* daily missions + chest */
+$('bMissions').onclick = () => { Sound.init(); Sound.play('click'); renderMissions(); app.open('sMissions'); };
+$('sMissions').addEventListener('click', e => {
+  const c = e.target.closest('[data-chest]'), m = e.target.closest('[data-mis]');
+  if (c) { const g = Missions.openChest(); if (g) { Sound.play('win'); app.taunt(`🎁 ${faNum(g)} جواهر گرفتی!`, '#7af7ff'); } renderMissions(); }
+  else if (m) { const g = Missions.claim(+m.dataset.mis); if (g) { Sound.play('win'); app.taunt(`💎 ${faNum(g)} جواهر جایزه!`, '#9be05a'); } renderMissions(); }
+});
+Missions.badge();

@@ -351,7 +351,7 @@ class World {
     p.buf -= dt;
     p.coy = p.onGround ? this.D.coyote : p.coy - dt;
     if (p.buf > 0 && p.coy > 0) {
-      p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true; this.flipTog();
+      p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true; this.flipTog(); if (this.onJump) this.onJump();
       p.sx = 0.72; p.sy = 1.3; this.sfx('jump');
       for (let k = 0; k < 7; k++) this.parts.push(this.mkPart(p.x + PW / 2, g > 0 ? p.y + PHT : p.y, { col: '#b8acdf', sp: 90, life: .35, size: rand(2, 4), g: 200 * g, up: g > 0 }));
     }

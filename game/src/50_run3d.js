@@ -271,7 +271,7 @@ class Run3D {
     if (inp.jump && !p.jumpHeld) p.buf = 0.14;
     p.jumpHeld = inp.jump; p.buf -= dt;
     p.coy = p.ground ? 0.1 : p.coy - dt;
-    if (p.buf > 0 && (p.ground || p.coy > 0) && !p.falling && p.y > -0.3) { p.vy = JV3; p.ground = false; p.coy = 0; p.buf = 0; p.sq = 0.7; this.sfx('jump'); }
+    if (p.buf > 0 && (p.ground || p.coy > 0) && !p.falling && p.y > -0.3) { p.vy = JV3; p.ground = false; p.coy = 0; p.buf = 0; p.sq = 0.7; this.sfx('jump'); if (this.onJump) this.onJump(); }
     // vertical
     const sup = this.supportAt(p.s, p.x);
     if (!p.ground || !sup) {

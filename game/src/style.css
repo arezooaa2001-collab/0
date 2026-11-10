@@ -235,3 +235,14 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #sEndless .mcard{cursor:pointer;color:#fff;font:inherit}#sEndless .mcard b{font-size:17px}#sEndless .mcard small{font-size:13px}
 .lv .rv{position:absolute;left:4px;bottom:2px;font-size:10px;line-height:1}
 #errBox{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);max-width:80vw;padding:6px 14px;border-radius:12px;background:rgba(120,20,40,.85);color:#fff;font-size:12px;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;direction:ltr;text-align:left}#errBox.on{opacity:1}
+#bMissions{position:relative}#bMissions.dot::after{content:'';position:absolute;top:6px;left:8px;width:12px;height:12px;border-radius:50%;background:#ff3d71;box-shadow:0 0 10px #ff3d71}
+.chest{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:rgba(255,255,255,.06);border:2px solid var(--line);text-align:right}
+.chest.ready{border-color:#ffd36e;background:linear-gradient(180deg,rgba(255,211,110,.18),rgba(255,93,138,.08))}
+.chest .ci{font-size:42px}.chest b{display:block;font-size:16px}.chest small{color:var(--muted);font-size:12px}.chest .btn{margin-right:auto}
+.streak{display:flex;gap:4px;justify-content:center;margin:8px 0 12px}.streak span{flex:1;max-width:64px;padding:4px 0;border-radius:10px;background:rgba(255,255,255,.06);font-size:13px;text-align:center}
+.streak span i{display:block;font-style:normal;font-size:10px;color:var(--muted)}.streak span.on{background:rgba(111,243,196,.25);color:#6ff3c4}
+.mis{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:10px 12px;margin:6px 0;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--line);text-align:right}
+.mis.done{border-color:#9be05a}.mis b{font-size:14px}.mis small{display:block;color:#ffd36e;font-size:12px}
+.mbar{grid-column:1;height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.mbar i{display:block;height:100%;background:linear-gradient(90deg,#6ff3c4,#9be05a);transform-origin:right}
+.mp{font-size:12px;color:var(--muted)}.mis .btn,.mis .mok{grid-column:2;grid-row:1/span 2}.mok{color:#9be05a;font-size:13px}
+#sMissions .panel.tall{overflow:auto}#sMissions .panel.tall>*{flex-shrink:0}

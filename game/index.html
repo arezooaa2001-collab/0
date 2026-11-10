@@ -250,6 +250,17 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 #sEndless .mcard{cursor:pointer;color:#fff;font:inherit}#sEndless .mcard b{font-size:17px}#sEndless .mcard small{font-size:13px}
 .lv .rv{position:absolute;left:4px;bottom:2px;font-size:10px;line-height:1}
 #errBox{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);max-width:80vw;padding:6px 14px;border-radius:12px;background:rgba(120,20,40,.85);color:#fff;font-size:12px;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;direction:ltr;text-align:left}#errBox.on{opacity:1}
+#bMissions{position:relative}#bMissions.dot::after{content:'';position:absolute;top:6px;left:8px;width:12px;height:12px;border-radius:50%;background:#ff3d71;box-shadow:0 0 10px #ff3d71}
+.chest{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;background:rgba(255,255,255,.06);border:2px solid var(--line);text-align:right}
+.chest.ready{border-color:#ffd36e;background:linear-gradient(180deg,rgba(255,211,110,.18),rgba(255,93,138,.08))}
+.chest .ci{font-size:42px}.chest b{display:block;font-size:16px}.chest small{color:var(--muted);font-size:12px}.chest .btn{margin-right:auto}
+.streak{display:flex;gap:4px;justify-content:center;margin:8px 0 12px}.streak span{flex:1;max-width:64px;padding:4px 0;border-radius:10px;background:rgba(255,255,255,.06);font-size:13px;text-align:center}
+.streak span i{display:block;font-style:normal;font-size:10px;color:var(--muted)}.streak span.on{background:rgba(111,243,196,.25);color:#6ff3c4}
+.mis{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:10px 12px;margin:6px 0;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid var(--line);text-align:right}
+.mis.done{border-color:#9be05a}.mis b{font-size:14px}.mis small{display:block;color:#ffd36e;font-size:12px}
+.mbar{grid-column:1;height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.mbar i{display:block;height:100%;background:linear-gradient(90deg,#6ff3c4,#9be05a);transform-origin:right}
+.mp{font-size:12px;color:var(--muted)}.mis .btn,.mis .mok{grid-column:2;grid-row:1/span 2}.mok{color:#9be05a;font-size:13px}
+#sMissions .panel.tall{overflow:auto}#sMissions .panel.tall>*{flex-shrink:0}
 </style>
 </head>
 <body>
@@ -298,6 +309,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
       <button class="btn" id="bLevels">🗺️ انتخاب مرحله</button>
       <button class="btn hot" id="bEndless">♾️ حالت بی‌پایان</button>
       <button class="btn hot" id="bShop">🛒 فروشگاه</button>
+      <button class="btn hot" id="bMissions">🎯 مأموریت‌ها و جایزه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
       <button class="btn" id="bSet">⚙️ تنظیمات</button>
       <button class="btn" id="bStats">🏆 رکوردها</button>
@@ -370,6 +382,15 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
   </div>
 </div>
 
+<div class="screen fa" id="sMissions">
+  <div class="panel tall">
+    <h2>🎯 مأموریت‌های امروز</h2>
+    <div id="chestBox"></div>
+    <div id="misList"></div>
+    <p class="sub small">هر روز سه مأموریت تازه می‌گیری. جواهرهای جایزه رو توی فروشگاه خرج کن.</p>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">
     <h2>♾️ بی‌پایان</h2>
@@ -2387,7 +2408,7 @@ class World {
     p.buf -= dt;
     p.coy = p.onGround ? this.D.coyote : p.coy - dt;
     if (p.buf > 0 && p.coy > 0) {
-      p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true; this.flipTog();
+      p.vy = -PH.jump * g; p.buf = 0; p.coy = 0; p.onGround = false; p.ground = null; p.jumping = true; this.flipTog(); if (this.onJump) this.onJump();
       p.sx = 0.72; p.sy = 1.3; this.sfx('jump');
       for (let k = 0; k < 7; k++) this.parts.push(this.mkPart(p.x + PW / 2, g > 0 ? p.y + PHT : p.y, { col: '#b8acdf', sp: 90, life: .35, size: rand(2, 4), g: 200 * g, up: g > 0 }));
     }
@@ -4532,7 +4553,7 @@ class Run3D {
     if (inp.jump && !p.jumpHeld) p.buf = 0.14;
     p.jumpHeld = inp.jump; p.buf -= dt;
     p.coy = p.ground ? 0.1 : p.coy - dt;
-    if (p.buf > 0 && (p.ground || p.coy > 0) && !p.falling && p.y > -0.3) { p.vy = JV3; p.ground = false; p.coy = 0; p.buf = 0; p.sq = 0.7; this.sfx('jump'); }
+    if (p.buf > 0 && (p.ground || p.coy > 0) && !p.falling && p.y > -0.3) { p.vy = JV3; p.ground = false; p.coy = 0; p.buf = 0; p.sq = 0.7; this.sfx('jump'); if (this.onJump) this.onJump(); }
     // vertical
     const sup = this.supportAt(p.s, p.x);
     if (!p.ground || !sup) {
@@ -6045,7 +6066,7 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless']) $(s).classList.toggle('on', s === id); this.screen = id; },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions']) $(s).classList.toggle('on', s === id); this.screen = id; },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click'); if (this.state === 'over') return this.menu();
@@ -6097,7 +6118,7 @@ const app = {
     ST.endBest = ST.endBest || {}; const best = E.daily ? dailyBest() : ST.endBest[this.diff] || 0, rec = E.dist > best;
     if (rec) { if (E.daily) ST.daily = { day: dayKey(), best: E.dist }; else ST.endBest[this.diff] = E.dist; }
     if (E.dist > (ST.endBest[this.diff] || 0)) ST.endBest[this.diff] = E.dist;
-    if (E.dist >= 500) unlockAch('endless');
+    if (E.dist >= 500) unlockAch('endless'); Missions.ev('dist', E.dist);
     writeSave();
     $('oDist').textContent = faNum(E.dist); $('oBest').textContent = faNum(Math.max(best, E.dist)); $('oGems').textContent = faNum(this.world ? this.world.got.size : 0); $('oCk').textContent = faNum(this.world ? this.world.ck : 0);
     $('oSub').textContent = (E.daily ? '🗓️ چالش امروز · ' : '') + (rec ? '🏆 رکورد جدید! ' + (best ? `(قبلی: ${faNum(best)} متر)` : '') : best ? `رکوردت ${faNum(best)} متره؛ یه بار دیگه!` : 'جون‌هات تموم شد…');
@@ -6132,7 +6153,8 @@ const app = {
         R.onDone = r => this.taunt(`${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col);
         R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
-      w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); };
+      w.onGem = () => { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); };
+      w.onJump = () => Missions.ev('jump');
       w.onBoss = b => { const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = c => this.onDeath(c); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
@@ -6144,10 +6166,10 @@ const app = {
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
-      run.onPick = k => this.onPick(k);
+      run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -6178,6 +6200,7 @@ const app = {
     resize3(); this.dirty = true;
   },
   onDeath(c) {
+    Missions.ev('death');
     if (this.endless && this.kind === 'plat') {
       const E = this.endless; if (E.lives <= 0) return; E.lives--; this.updTag();
       if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') this.endlessOver(); else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
@@ -6190,7 +6213,8 @@ const app = {
     if (ST.deaths % 5 === 0) writeSave();
   },
   onPick(k) {
-    if (k === 'gem') { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); return; }
+    if (k === 'gem') { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); return; }
+    if (k === 'shield' || k === 'boost' || k === 'freeze' || k.startsWith('pow:')) Missions.ev('pow');
     if (k === 'shieldUsed') { unlockAch('shield'); this.taunt('سپر نجاتت داد! 🛡️', '#8fd3ff'); return; }
     if (k.startsWith('pow:')) { const P = POWS[k.slice(4)]; ST.pows = (ST.pows || 0) + 1; if (ST.pows >= 25) unlockAch('pow25'); this.taunt(`${P.i} ${P.n}! ${P.d}`, P.col); if (CFG.vib && navigator.vibrate) navigator.vibrate(25); return; }
     this.taunt({ shield: 'سپر گرفتی! 🛡️', boost: 'سرعت توربو! ⚡', freeze: 'غول‌ها یخ زدن! ❄️' }[k] || '', '#9ef9ff');
@@ -6203,6 +6227,7 @@ const app = {
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
   onCheckpoint(i) {
+    Missions.ev('room');
     if (this.endless) { this.endlessCheck(i); this.updTag(); this.taunt(`🚩 چک‌پوینت ${faNum(i)}`, '#9ef9dc'); return; }
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
@@ -6245,7 +6270,8 @@ const app = {
     writeSave();
     this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
-    if (race) { const pl = race.fin + 1; if (pl === 1) unlockAch('champ'); setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
+    Missions.ev('win'); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
+    if (race) { const pl = race.fin + 1; if (pl === 1) { unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
     if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {
@@ -6347,6 +6373,75 @@ function renderDiffs() {
 $('bRotOk').onclick = () => { rotDismissed = true; checkRotate(); };
 let rotDismissed = false;
 function checkRotate() { $('rotate').classList.toggle('on', isTouch && !rotDismissed && innerHeight > innerWidth); }
+/* ============================ DAILY MISSIONS + DAILY CHEST ============================ */
+// Three missions a day (picked from the pool by the date), each paying gems. A chest can be opened once a day;
+// coming back on consecutive days grows the reward (7-day streak).
+const MISSION_POOL = [
+  { id: 'gem', t: n => `${faNum(n)} جواهر جمع کن`, n: [30, 50, 80], r: 25 },
+  { id: 'room', t: n => `از ${faNum(n)} اتاق رد شو`, n: [10, 16, 24], r: 25 },
+  { id: 'win', t: n => `${faNum(n)} مرحله رو ببر`, n: [1, 2, 3], r: 30 },
+  { id: 'clean', t: () => 'یه مرحله رو بدون حتی یک مرگ ببر', n: [1], r: 40 },
+  { id: 'pow', t: n => `${faNum(n)} تا پاورآپ بگیر`, n: [3, 5, 8], r: 20 },
+  { id: 'dist', t: n => `توی حالت بی‌پایان ${faNum(n)} متر برو`, n: [200, 350, 500], r: 35, max: true },
+  { id: 'race1', t: () => 'توی یه مسابقه نفر اول شو', n: [1], r: 40 },
+  { id: 'boss', t: () => 'یه غول آخر مرحله رو شکست بده', n: [1], r: 45 },
+  { id: 'win3d', t: () => 'یه مرحله رو سه‌بعدی ببر', n: [1], r: 30 },
+  { id: 'jump', t: n => `${faNum(n)} بار بپر`, n: [150, 250, 400], r: 15 },
+  { id: 'death', t: n => `${faNum(n)} بار بمیر 😈 (آره، درست خوندی!)`, n: [10, 20], r: 15 },
+  { id: 'shop', t: () => 'یه چیز از فروشگاه بخر', n: [1], r: 20 },
+];
+const CHEST_GEMS = [10, 15, 20, 30, 40, 55, 80];
+const Missions = {
+  // today's missions (created on first use each day)
+  today() {
+    const d = dayKey(), M = ST.mis || (ST.mis = {});
+    if (M.day !== d) {
+      const r = srand(d), pool = MISSION_POOL.slice(), list = [];
+      while (list.length < 3 && pool.length) { const m = pool.splice(Math.floor(r() * pool.length), 1)[0]; list.push({ id: m.id, n: m.n[Math.floor(r() * m.n.length)], p: 0, done: false, got: false }); }
+      M.day = d; M.list = list;
+    }
+    return M.list;
+  },
+  def: id => MISSION_POOL.find(m => m.id === id),
+  // something happened in the game (v: amount, or the value for "max" missions)
+  ev(id, v = 1) {
+    let any = false;
+    for (const m of this.today()) {
+      if (m.id !== id || m.done) continue;
+      m.p = this.def(id).max ? Math.max(m.p, v) : m.p + v;
+      if (m.p >= m.n) { m.p = m.n; m.done = true; any = true; }
+    }
+    if (any) { setTimeout(() => app.taunt('🎯 مأموریت روزانه انجام شد! جایزه‌ات رو بگیر', '#9be05a'), 600); Sound.play('win'); this.badge(); writeSave(); }
+  },
+  claim(i) {
+    const m = this.today()[i]; if (!m || !m.done || m.got) return 0;
+    const r = this.def(m.id).r; m.got = true; ST.gems += r; writeSave(); this.badge(); return r;
+  },
+  // the daily chest: streak of consecutive days
+  chestState() {
+    const C = ST.chest || (ST.chest = { last: 0, streak: 0 }), d = dayKey();
+    const yest = (() => { const x = new Date(); x.setDate(x.getDate() - 1); return x.getFullYear() * 10000 + (x.getMonth() + 1) * 100 + x.getDate(); })();
+    const ready = C.last !== d, next = ready ? (C.last === yest ? C.streak % 7 + 1 : 1) : C.streak;
+    return { ready, day: next, gems: CHEST_GEMS[(next - 1) % 7] };
+  },
+  openChest() {
+    const s = this.chestState(); if (!s.ready) return 0;
+    ST.chest = { last: dayKey(), streak: s.day }; ST.gems += s.gems; writeSave(); this.badge(); return s.gems;
+  },
+  claimable() { return this.chestState().ready || this.today().some(m => m.done && !m.got); },
+  badge() { const b = document.getElementById('bMissions'); if (b) b.classList.toggle('dot', this.claimable()); },
+};
+function renderMissions() {
+  const s = Missions.chestState(), list = Missions.today();
+  $('chestBox').innerHTML = `<div class="chest ${s.ready ? 'ready' : ''}"><div class="ci">${s.ready ? '🎁' : '📦'}</div><div><b>${s.ready ? 'صندوق امروز آماده‌ست!' : 'صندوق امروز رو باز کردی'}</b>
+      <small>${s.ready ? `روز ${faNum(s.day)} از ۷ · ${faNum(s.gems)} جواهر` : 'فردا دوباره بیا؛ هر روز پشت سر هم جایزه بیشتر می‌شه'}</small></div>
+      ${s.ready ? '<button class="btn primary" data-chest>باز کن</button>' : ''}</div>
+    <div class="streak">${CHEST_GEMS.map((g, i) => `<span class="${i < (s.ready ? s.day - 1 : s.day) ? 'on' : ''}">${faNum(i + 1)}<i>💎${faNum(g)}</i></span>`).join('')}</div>`;
+  $('misList').innerHTML = list.map((m, i) => { const d = Missions.def(m.id), k = Math.min(1, m.p / m.n);
+    return `<div class="mis ${m.done ? 'done' : ''}"><div class="mt"><b>${d.t(m.n)}</b><small>جایزه: 💎 ${faNum(d.r)}</small></div>
+      <div class="mbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></div><div class="mp">${faNum(Math.floor(m.p))} / ${faNum(m.n)}</div>
+      ${m.got ? '<span class="mok">✔ گرفتی</span>' : m.done ? `<button class="btn primary" data-mis="${i}">بگیر</button>` : ''}</div>`; }).join('');
+}
 /* ============================ SETTINGS / MODE / RECORDS SCREENS ============================ */
 let setTab = 'gfx';
 const GFX_LABEL = { auto: 'خودکار', go: 'Go', plus: 'Plus', pro: 'Pro', max: 'Max', ultra: 'Ultra', maxultra: 'Max Ultra' };
@@ -6517,7 +6612,7 @@ $('shopGrid').addEventListener('click', e => {
   const it = SKINS[shopTab].find(s => s.id === b.dataset.item), key = shopTab + ':' + it.id, own = it.p === 0 || ST.owned[key];
   if (!own) {
     if (gemBalance() < it.p) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
-    ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win');
+    ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win'); Missions.ev('shop');
   } else Sound.play('click');
   ST.wear = Object.assign({}, ST.wear, { [shopTab]: it.id }); writeSave(); renderShop();
 });
@@ -6531,6 +6626,15 @@ $('bEndless').onclick = () => { Sound.init(); Sound.play('click'); renderEndless
 $('bOverAgain').onclick = () => { Sound.play('click'); app.startEndless(); };
 $('bOverMenu').onclick = () => { Sound.play('click'); app.menu(); };
 $('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };
+
+/* daily missions + chest */
+$('bMissions').onclick = () => { Sound.init(); Sound.play('click'); renderMissions(); app.open('sMissions'); };
+$('sMissions').addEventListener('click', e => {
+  const c = e.target.closest('[data-chest]'), m = e.target.closest('[data-mis]');
+  if (c) { const g = Missions.openChest(); if (g) { Sound.play('win'); app.taunt(`🎁 ${faNum(g)} جواهر گرفتی!`, '#7af7ff'); } renderMissions(); }
+  else if (m) { const g = Missions.claim(+m.dataset.mis); if (g) { Sound.play('win'); app.taunt(`💎 ${faNum(g)} جواهر جایزه!`, '#9be05a'); } renderMissions(); }
+});
+Missions.badge();
 /* ============================ MAIN LOOP ============================ */
 const sv = loadSave();
 app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);
