@@ -449,7 +449,7 @@ const app = {
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
       const sc = savedCk(this.diff, i);
-      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚩${faNum(sc)}</span>` : '');
+      b.innerHTML = faNum(i + 1) + (RIVAL_LV.has(i) ? '<span class="rv" title="مسابقه">🏁</span>' : L.rest ? '<span class="rv">🌿</span>' : '') + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚩${faNum(sc)}</span>` : '');
       b.title = L.name + (sc > 0 ? ` — ادامه از چک‌پوینت ${faNum(sc)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);

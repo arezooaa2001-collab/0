@@ -70,7 +70,7 @@ class P3D {
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
     // race rivals (2D race levels played in the side 3D view)
-    this.rivalM = (app.rivals2 && app.rivals2.def === w.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
+    this.rivalM = (app.rivals2 && app.rivals2.def === world.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
     // ghost of the best run: the same hero, see-through
     { const gh = buildHeroMesh(keep); gh.g.traverse(o => { if (o.material) { o.material = keep(o.material.clone()); o.material.transparent = true; o.material.opacity = .3; o.material.depthWrite = false; } });
       gh.g.scale.setScalar(.6); gh.g.visible = false; sc.add(gh.g); this.ghost = gh; }

@@ -248,6 +248,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 @keyframes nope{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 #sShop .panel.tall{overflow:auto}#sShop .panel.tall > *{flex-shrink:0}#sShop .shopGrid{overflow:visible}
 #sEndless .mcard{cursor:pointer;color:#fff;font:inherit}#sEndless .mcard b{font-size:17px}#sEndless .mcard small{font-size:13px}
+.lv .rv{position:absolute;left:4px;bottom:2px;font-size:10px;line-height:1}
 </style>
 </head>
 <body>
@@ -5372,7 +5373,7 @@ class P3D {
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
     // race rivals (2D race levels played in the side 3D view)
-    this.rivalM = (app.rivals2 && app.rivals2.def === w.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
+    this.rivalM = (app.rivals2 && app.rivals2.def === world.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
     // ghost of the best run: the same hero, see-through
     { const gh = buildHeroMesh(keep); gh.g.traverse(o => { if (o.material) { o.material = keep(o.material.clone()); o.material.transparent = true; o.material.opacity = .3; o.material.depthWrite = false; } });
       gh.g.scale.setScalar(.6); gh.g.visible = false; sc.add(gh.g); this.ghost = gh; }
@@ -6168,7 +6169,7 @@ const app = {
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
       const sc = savedCk(this.diff, i);
-      b.innerHTML = faNum(i + 1) + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚩${faNum(sc)}</span>` : '');
+      b.innerHTML = faNum(i + 1) + (RIVAL_LV.has(i) ? '<span class="rv" title="مسابقه">🏁</span>' : L.rest ? '<span class="rv">🌿</span>' : '') + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚩${faNum(sc)}</span>` : '');
       b.title = L.name + (sc > 0 ? ` — ادامه از چک‌پوینت ${faNum(sc)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);
