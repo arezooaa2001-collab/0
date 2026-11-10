@@ -117,10 +117,10 @@ export class FaceTracker {
     const fa = await loadAI();
     if (!this.netsLoaded) {
       await fa.nets.tinyFaceDetector.loadFromUri(aiUrl('models'));
-      await fa.nets.faceLandmark68Net.loadFromUri(aiUrl('models'));
+      await fa.nets.faceLandmark68TinyNet.loadFromUri(aiUrl('models'));
       this.netsLoaded = true;
     }
-    this.options = new fa.TinyFaceDetectorOptions({ inputSize: 256, scoreThreshold: 0.35 });
+    this.options = new fa.TinyFaceDetectorOptions({ inputSize: 192, scoreThreshold: 0.35 });
     if (this.running) this.loop(fa, ++this.gen);
   }
 
@@ -138,7 +138,8 @@ export class FaceTracker {
       } catch (err) {
         console.warn('face detection', err);
       }
-      const wait = Math.max(15, 70 - (performance.now() - t0));
+      // About 10 detections a second: smooth enough, and leaves the GPU to the camera.
+      const wait = Math.max(30, 100 - (performance.now() - t0));
       await new Promise((r) => setTimeout(r, wait));
     }
   }
@@ -148,12 +149,12 @@ export class FaceTracker {
     const vw = v.videoWidth;
     const vh = v.videoHeight;
     if (!vw || !vh || v.readyState < 2) return;
-    const s = Math.min(1, 480 / Math.max(vw, vh));
+    const s = Math.min(1, 360 / Math.max(vw, vh));
     const w = Math.round(vw * s);
     const h = Math.round(vh * s);
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
     this.ctx.drawImage(v, 0, 0, w, h);
-    const res = await fa.detectSingleFace(this.canvas, this.options).withFaceLandmarks();
+    const res = await fa.detectSingleFace(this.canvas, this.options).withFaceLandmarks(true);
     if (!this.running) return;
     if (!res) {
       if (++this.missed > 6) this.face = null;

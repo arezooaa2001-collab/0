@@ -173,8 +173,9 @@ function openCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('insecure');
     const profile = profileFor(state.mode);
     const q = QUALITIES[state.quality];
-    const long = profile === 'slow' ? Math.min(1920, q.long) : q.long;
-    const short = profile === 'slow' ? Math.min(1080, q.short) : q.short;
+    const low = profile === 'slow' || perf.lowStream;
+    const long = low ? Math.min(1920, q.long) : q.long;
+    const short = low ? Math.min(1080, q.short) : q.short;
     const base = {
       facingMode: { ideal: state.facing },
       width: { ideal: long },
@@ -493,30 +494,37 @@ function tick(now, meta) {
 let stageSize = { w: 0, h: 0 };
 function measureStage() {
   const r = stage.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 4);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   // A hidden stage measures 0x0: never keep that, measure again on the next frame.
   stageSize = r.width > 0 && r.height > 0 ? { w: r.width * dpr, h: r.height * dpr } : { w: 0, h: 0 };
 }
 window.addEventListener('resize', measureStage);
 window.addEventListener('orientationchange', () => setTimeout(measureStage, 300));
 
-// The preview is drawn at the full output resolution (4K). Only if a phone cannot keep up
-// is it drawn at the screen's own pixel resolution, which looks the same on that screen.
-const previewPerf = { full: true, frames: 0, since: 0 };
-function checkPreviewSpeed(now) {
-  if (!previewPerf.full || state.rec) { previewPerf.since = 0; return; }
-  if (!previewPerf.since) { previewPerf.since = now; previewPerf.frames = 0; return; }
-  previewPerf.frames++;
-  const elapsed = now - previewPerf.since;
-  if (elapsed < 3000) return;
-  const fps = (previewPerf.frames * 1000) / elapsed;
-  if (fps < Math.min(18, (state.trackFps || 30) * 0.6)) previewPerf.full = false;
-  previewPerf.since = now;
-  previewPerf.frames = 0;
+// The preview is drawn at the screen's own pixel resolution: a phone screen cannot show more,
+// so it looks the same as 4K while costing a fraction of the work. Photos and recordings still
+// switch the canvas to the full output resolution (4K).
+// If a phone still cannot keep up with a 4K camera stream, the stream drops to 1080p.
+const perf = { frames: 0, since: 0, slowRuns: 0, lowStream: false };
+function checkSpeed(now) {
+  if (state.rec || document.hidden || perf.lowStream || state.quality !== '4k' || state.mode === 'slow') { perf.since = 0; return; }
+  if (!perf.since) { perf.since = now; perf.frames = 0; return; }
+  perf.frames++;
+  const elapsed = now - perf.since;
+  if (elapsed < 2500) return;
+  const fps = (perf.frames * 1000) / elapsed;
+  const streamLong = Math.max(video.videoWidth, video.videoHeight);
+  perf.slowRuns = fps < Math.min(24, (state.trackFps || 30) * 0.8) && streamLong > 1920 ? perf.slowRuns + 1 : 0;
+  perf.since = now;
+  perf.frames = 0;
+  if (perf.slowRuns >= 2) {
+    perf.lowStream = true;
+    toast('برای روان‌تر شدن، تصویر دوربین روی 1080p رفت (عکس و فیلم با بزرگ‌نمایی 4K ذخیره می‌شوند).', 4500);
+    if (!state.busy) reopenCamera();
+  }
 }
 
 function previewSize(out) {
-  if (previewPerf.full) return out;
   if (!stageSize.w) measureStage();
   if (!stageSize.w) return out;
   const s = Math.min(1, stageSize.w / out.w, stageSize.h / out.h);
@@ -575,8 +583,8 @@ function processFrame(now, meta) {
     }
     req.resolve({ W, H, raw, blob: canvasToBlob(canvas, 'image/jpeg', 0.95), thumb: thumbFromSource(canvas, W, H).catch(() => null) });
   }
-  if (++loop.frames % 6 === 0) drawMinimap(vw, vh, crop);
-  checkPreviewSpeed(now);
+  if (++loop.frames % 10 === 0) drawMinimap(vw, vh, crop);
+  checkSpeed(now);
 }
 
 function drawMinimap(vw, vh, crop) {
@@ -999,7 +1007,6 @@ async function startRecording() {
   if (!state.track || state.track.readyState !== 'live' || state.out.w < 4 || !renderer.sourceW) { toast('دوربین آماده نیست.'); return; }
   state.busy = true;
   const id = `rec-${Date.now()}`;
-  const thumb = await thumbFromSource(canvas, canvas.width, canvas.height).catch(() => null);
   // Switch the canvas to the full output resolution before any recorder looks at it.
   const W = state.out.w;
   const H = state.out.h;
@@ -1007,6 +1014,7 @@ async function startRecording() {
   renderer.setSize(W, H);
   const first = drawCurrent();
   if (first) renderer.draw(first);
+  const thumb = await thumbFromSource(canvas, W, H).catch(() => null);
   try {
     if (state.mode === 'video') await startVideoRecording(id, thumb, W, H);
     else await startFrameRecording(state.mode, id, thumb, W, H);
@@ -1423,8 +1431,10 @@ function updateBeautyUI() {
 setInterval(() => {
   if (!state.beauty.on || state.screen !== 'camScreen') return;
   const el = $('beautyStatus');
-  if (tracker && tracker.netsLoaded) el.textContent = tracker.face ? 'صورت پیدا شد ✓ آرایش روی عکس و ویدیو اعمال می‌شود' : 'صورتت را جلوی دوربین بگیر…';
-  else if (!el.textContent) el.textContent = 'در حال آماده‌سازی هوش مصنوعی تشخیص صورت…';
+  let text = el.textContent;
+  if (tracker && tracker.netsLoaded) text = tracker.face ? 'صورت پیدا شد ✓ آرایش روی عکس و ویدیو اعمال می‌شود' : 'صورتت را جلوی دوربین بگیر…';
+  else if (!text) text = 'در حال آماده‌سازی هوش مصنوعی تشخیص صورت…';
+  if (text !== el.textContent) el.textContent = text;
 }, 500);
 
 function bindBeauty() {

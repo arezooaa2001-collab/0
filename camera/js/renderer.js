@@ -230,7 +230,7 @@ export class Renderer {
   }
 
   initGL() {
-    const opts = { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, premultipliedAlpha: false, powerPreference: 'high-performance' };
+    const opts = { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, premultipliedAlpha: false, powerPreference: 'high-performance' };
     let gl = null;
     try { gl = this.canvas.getContext('webgl', opts) || this.canvas.getContext('experimental-webgl', opts); } catch { gl = null; }
     if (!gl) return false;
