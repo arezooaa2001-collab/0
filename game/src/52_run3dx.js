@@ -284,3 +284,21 @@ function drawRival2D(r, x, y, sc, t) {
   ctx.save(); ctx.font = `bold ${Math.max(10, Math.round(sc * 13))}px Vazirmatn, Tahoma, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(10,6,24,.55)';
   const w = ctx.measureText(r.name).width + 10 * sc; ctx.fillRect(x - w / 2, y - 62 * sc, w, 16 * sc); ctx.fillStyle = r.col; ctx.fillText(r.name, x, y - 50 * sc); ctx.restore();
 }
+
+/* ---------- true 3D: any platformer level can be played as a 3D run (mode "3d") ---------- */
+// The run keeps the level's rooms, colours (biome -> 3D theme) and difficulty progress; harder levels get more
+// obstacle types, more giants and a faster pace. Built once per level and cached.
+const RUN3_CACHE = new Map();
+function runDefOf(def) {
+  if (def.kind === '3d') return def;
+  let r = RUN3_CACHE.get(def); if (r) return r;
+  const idx = LEVELS.indexOf(def), ri = REALM.indexOf(def), k = clamp(idx >= 0 ? idx / 41 : .85 + ri * .05, 0, 1);
+  const rooms = def.rooms || (def.secs ? def.secs.length : 8), b = BIOMES[def.biome] || BIOMES.dusk;
+  const types = ['bar', 'wall', 'gap'];
+  [[.06, 'mover'], [.14, 'spikes'], [.22, 'slide'], [.3, 'roller'], [.36, 'beam'], [.45, 'saw'], [.55, 'spin'], [.65, 'hammer'], [.75, 'pillar']].forEach(([a, t]) => { if (k >= a) types.push(t); });
+  r = { kind: '3d', name: def.name, from: idx, realm: !!def.realm, theme: def.realm ? 'abyss' : b.th3 || 'dusk', rooms,
+    len: def.rest ? 1600 : Math.max(1500, rooms * 230), giants: def.rest ? 1 : 1 + Math.round(k * 14), speed: 14 + k * 5.5, gap: 24 - k * 4,
+    gs: .962 + k * .016, types: def.rest ? [] : types, noObst: !!def.rest, dens: .6 + k * 1.25, zig: k > .12 ? .1 : 0, seed: 100 + (idx >= 0 ? idx : 60 + ri),
+    rivals: idx >= 0 && RIVAL_LV.has(idx) ? 3 : 0 };
+  RUN3_CACHE.set(def, r); return r;
+}

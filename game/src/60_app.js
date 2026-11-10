@@ -63,7 +63,7 @@ function writeSave() {
 }
 const progOf = d => app.prog[d] || (app.prog[d] = {});
 // checkpoint reached in an unfinished long level (0 = start); ignored if the level's checkpoint count changed
-const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] && LEVELS[i].secs ? LEVELS[i].secs.length : 1; return r > 0 && r < n ? r : 0; };
+const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] ? LEVELS[i].rooms || (LEVELS[i].secs ? LEVELS[i].secs.length : 1) : 1; return r > 0 && r < n ? r : 0; };
 // level colours (biomes); rebuilding textures and background only when the scheme changes
 function setBiome(key) { const b = key && BIOMES[key] || null; if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
 const parTime = def => Math.round((def.nObs || 10) * 2.6 + 25);
@@ -115,11 +115,12 @@ const MODES = {
   classic: { n: 'ترکیبی (پیشنهادی)', d: 'سکوبازی‌ها دوبعدی، مرحله‌های فرار از غول سه‌بعدی واقعی' },
   '2d': { n: 'دوبعدی', d: 'همه‌چیز صاف و کلاسیک؛ فرار از غول از نمای کناری' },
   '25': { n: 'دوبعدی با جلوه‌ی سه‌بعدی', d: 'سکوها عمق و پرسپکتیو دارن و پس‌زمینه لایه‌لایه حرکت می‌کنه؛ فرار از غول روی جاده‌ی شبه‌سه‌بعدی' },
-  '3d': { n: 'سه‌بعدی کامل', d: 'همه‌ی مرحله‌ها، حتی سکوبازی‌ها، با موتور سه‌بعدی واقعی و نور و سایه' },
+  '3d': { n: 'سه‌بعدی واقعی', d: 'همه‌ی مرحله‌ها مثل مرحله‌های فرار از غول: توی دنیای سه‌بعدی می‌دوی، می‌پری و از موانع جاخالی می‌دی' },
+  p3d: { n: 'سکوبازی سه‌بعدی (از کنار)', d: 'سکوبازی‌ها با همون نقشه‌ی دوبعدی ولی با گرافیک سه‌بعدی؛ دوربین کناری یا پشت سر' },
 };
 function viewOf(def) {
   const run = def.kind === '3d';
-  switch (CFG.mode) { case '2d': return run ? 'r2' : 'p2'; case '25': return run ? 'r25' : 'p25'; case '3d': return run ? 'x3' : 'p3'; default: return run ? 'x3' : 'p2'; }
+  switch (CFG.mode) { case '2d': return run ? 'r2' : 'p2'; case '25': return run ? 'r25' : 'p25'; case '3d': case 'p3d': return run ? 'x3' : 'p3'; default: return run ? 'x3' : 'p2'; }
 }
 const isGL = v => v === 'p3' || v === 'x3';
 
@@ -258,8 +259,11 @@ const app = {
   teardown() { if (this.run) { this.run.dispose(); this.run = null; } if (this.p3) { this.p3.dispose(); this.p3 = null; } },
   startDef(def, opt = {}) {
     this.teardown(); this.resumed = !!opt.resumed;
-    this.def = def; this.kind = def.kind === '3d' ? 'run' : 'plat';
-    let v = viewOf(def);
+    this.def = def;
+    // true 3D mode: a platformer level is played as a 3D run built from it
+    const rdef = def.kind !== '3d' && CFG.mode === '3d' && !def.endless ? runDefOf(def) : def;
+    this.kind = rdef.kind === '3d' ? 'run' : 'plat';
+    let v = viewOf(rdef);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
     if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); }
@@ -279,33 +283,34 @@ const app = {
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
     } else {
-      const run = this.run = new Run3D(def, this.diff, { noScene: v !== 'x3' });
-      if (opt.ck > 0) { run.ckS = opt.ck; run.respawn(false); }
+      const run = this.run = new Run3D(rdef, this.diff, { noScene: v !== 'x3' });
+      // ck is a room number for every kind of level: start at that room's arch
+      if (opt.ck > 0 && run.arches.length) { run.ckS = run.arches[Math.min(opt.ck, run.arches.length) - 1]; run.respawn(false); }
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
       run.onPick = k => this.onPick(k);
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
     $('banner').classList.toggle('low', this.kind === 'run');
-    const size = def.rest ? ' · فقط برای استراحت 🌿' : def.secs ? ` · ${faNum(def.secs.length)} اتاق · ${faNum(def.nObs)} مانع` : this.kind === 'run' ? ` · ${faNum(this.run.rooms)} اتاق · ${faNum(def.len)} متر` : '';
-    $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
+    const size = def.rest ? ' · فقط برای استراحت 🌿' : this.kind === 'run' ? ` · ${faNum(this.run.rooms)} اتاق · ${faNum(rdef.len)} متر${rdef !== def ? ' · سه‌بعدی واقعی' : ''}` : def.secs ? ` · ${faNum(def.secs.length)} اتاق · ${faNum(def.nObs)} مانع` : '';
+    $('bSmall').textContent = this.label() + size + (def.realm && this.kind === 'plat' ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
     if (def.endless) $('bSmall').textContent = `${faNum(this.endless ? this.endless.lives : 3)} جون · رکورد: ${faNum(this.endless ? this.endless.best : 0)} متر`;
-    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.ck + 1)} از ${faNum(this.world.secs.length)}`, '#9ef9ff'), 2100);
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(this.kind === 'run' ? `ادامه از اتاق ${faNum(this.run.roomAt(this.run.ckS))} از ${faNum(this.run.rooms)}` : `ادامه از اتاق ${faNum(this.world.ck + 1)} از ${faNum(this.world.secs.length)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
     if (!this.def || (this.state !== 'play' && this.state !== 'pause')) return;
     const st = this.state, sc = this.screen;
     // keep the room / checkpoint, time and deaths: only the view is rebuilt
-    const o = { keep: true, resumed: this.resumed, ck: this.kind === 'plat' && this.world ? this.world.ck : this.run ? this.run.ckS : 0 };
+    const o = { keep: true, resumed: this.resumed, ck: this.kind === 'plat' && this.world ? this.world.ck : this.run ? this.run.roomAt(this.run.ckS) - 1 : 0 };
     if (this.realmIdx >= 0) this.startRealm(this.realmIdx, o); else { this.realmIdx = -1; this.startDef(this.def, o); }
     if (st === 'pause') { this.state = 'pause'; this.show(sc || 'sPause'); $('banner').classList.remove('show'); }
   },

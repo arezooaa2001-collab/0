@@ -102,12 +102,13 @@ const MODE_PV = {
   classic: '<svg viewBox="0 0 120 50"><rect x="6" y="34" width="44" height="12" fill="#3a2f66"/><rect x="6" y="32" width="44" height="3" fill="#4fd8a8"/><rect x="18" y="22" width="9" height="10" rx="3" fill="#ffe2b8"/><path d="M70 46 L88 14 L96 14 L114 46Z" fill="#4f4580"/><path d="M88 14 L92 14 L92 46 L70 46Z" fill="#5c51a0"/><circle cx="92" cy="30" r="3.5" fill="#ffe2b8"/></svg>',
   '2d': '<svg viewBox="0 0 120 50"><rect x="0" y="36" width="120" height="14" fill="#3a2f66"/><rect x="0" y="34" width="120" height="3" fill="#4fd8a8"/><path d="M50 36 l6 -10 l6 10z" fill="#d8dcf2"/><rect x="20" y="24" width="10" height="11" rx="4" fill="#ffe2b8"/><rect x="96" y="18" width="12" height="17" rx="6" fill="#ffd36e"/></svg>',
   '25': '<svg viewBox="0 0 120 50"><path d="M10 34 L28 22 L118 22 L100 34Z" fill="#4fd8a8" opacity=".7"/><rect x="10" y="34" width="90" height="14" fill="#3a2f66"/><path d="M100 34 L118 22 L118 36 L100 48Z" fill="#251d45"/><rect x="34" y="20" width="10" height="13" rx="4" fill="#ffe2b8"/><path d="M60 34 l6 -10 l6 10z" fill="#d8dcf2"/></svg>',
+  p3d: '<svg viewBox="0 0 120 50"><rect x="8" y="30" width="104" height="14" fill="#2c2550"/><path d="M8 30 L22 20 L120 20 L112 30Z" fill="#4f4580"/><circle cx="40" cy="22" r="6" fill="#ffe2b0"/><path d="M70 30 l6 -9 l6 9z" fill="#d8dcf2"/></svg>',
   '3d': '<svg viewBox="0 0 120 50"><path d="M60 4 L92 18 L60 32 L28 18Z" fill="#8f86d8"/><path d="M28 18 L60 32 L60 48 L28 34Z" fill="#4f4580"/><path d="M92 18 L60 32 L60 48 L92 34Z" fill="#2c2550"/><circle cx="60" cy="16" r="5" fill="#ffe2b8"/></svg>',
 };
 function renderModes() {
   $('modeList').innerHTML = Object.keys(MODES).map(k => `<button class="mcard${CFG.mode === k ? ' on' : ''}" data-mode="${k}"><div class="pv">${MODE_PV[k]}</div><b>${MODES[k].n}</b><small>${MODES[k].d}</small></button>`).join('');
-  $('camBox').innerHTML = `<h3>دوربین سکوبازی‌ها در حالت سه‌بعدی کامل</h3><div class="chips">${chip(CFG.cam3d !== 'third', '🎬 از کنار (پیش‌فرض)', 'data-cam="side"')}${chip(CFG.cam3d === 'third', '🏃 سوم شخص (پشت سر بازیکن)', 'data-cam="third"')}</div>
-    <p>${CFG.mode === '3d' ? 'وسط بازی هم با دکمه‌ی دوربین بالای صفحه یا کلید C عوض می‌شه.' : 'این گزینه وقتی حالت «سه‌بعدی کامل» انتخاب شده اثر داره. مرحله‌های فرار از غول همیشه از پشت سر بازیکن دیده می‌شن.'}</p>`;
+  $('camBox').innerHTML = `<h3>دوربین در حالت «سکوبازی سه‌بعدی (از کنار)»</h3><div class="chips">${chip(CFG.cam3d !== 'third', '🎬 از کنار (پیش‌فرض)', 'data-cam="side"')}${chip(CFG.cam3d === 'third', '🏃 سوم شخص (پشت سر بازیکن)', 'data-cam="third"')}</div>
+    <p>${CFG.mode === 'p3d' ? 'وسط بازی هم با دکمه‌ی دوربین بالای صفحه یا کلید C عوض می‌شه.' : 'این گزینه فقط برای حالت «سکوبازی سه‌بعدی (از کنار)» است. در حالت «سه‌بعدی واقعی» همه‌ی مرحله‌ها از پشت سر بازیکن دیده می‌شن.'}</p>`;
 }
 function setCam3d(v) { CFG.cam3d = v; saveCfg(); if (app.p3) app.p3.cs = null; updCamBtn(); }
 function updCamBtn() { const b = $('bCam'); b.classList.toggle('on', app.view === 'p3' && app.state !== 'title'); b.style.opacity = CFG.cam3d === 'third' ? 1 : .7; }

@@ -5271,6 +5271,24 @@ function drawRival2D(r, x, y, sc, t) {
   ctx.save(); ctx.font = `bold ${Math.max(10, Math.round(sc * 13))}px Vazirmatn, Tahoma, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(10,6,24,.55)';
   const w = ctx.measureText(r.name).width + 10 * sc; ctx.fillRect(x - w / 2, y - 62 * sc, w, 16 * sc); ctx.fillStyle = r.col; ctx.fillText(r.name, x, y - 50 * sc); ctx.restore();
 }
+
+/* ---------- true 3D: any platformer level can be played as a 3D run (mode "3d") ---------- */
+// The run keeps the level's rooms, colours (biome -> 3D theme) and difficulty progress; harder levels get more
+// obstacle types, more giants and a faster pace. Built once per level and cached.
+const RUN3_CACHE = new Map();
+function runDefOf(def) {
+  if (def.kind === '3d') return def;
+  let r = RUN3_CACHE.get(def); if (r) return r;
+  const idx = LEVELS.indexOf(def), ri = REALM.indexOf(def), k = clamp(idx >= 0 ? idx / 41 : .85 + ri * .05, 0, 1);
+  const rooms = def.rooms || (def.secs ? def.secs.length : 8), b = BIOMES[def.biome] || BIOMES.dusk;
+  const types = ['bar', 'wall', 'gap'];
+  [[.06, 'mover'], [.14, 'spikes'], [.22, 'slide'], [.3, 'roller'], [.36, 'beam'], [.45, 'saw'], [.55, 'spin'], [.65, 'hammer'], [.75, 'pillar']].forEach(([a, t]) => { if (k >= a) types.push(t); });
+  r = { kind: '3d', name: def.name, from: idx, realm: !!def.realm, theme: def.realm ? 'abyss' : b.th3 || 'dusk', rooms,
+    len: def.rest ? 1600 : Math.max(1500, rooms * 230), giants: def.rest ? 1 : 1 + Math.round(k * 14), speed: 14 + k * 5.5, gap: 24 - k * 4,
+    gs: .962 + k * .016, types: def.rest ? [] : types, noObst: !!def.rest, dens: .6 + k * 1.25, zig: k > .12 ? .1 : 0, seed: 100 + (idx >= 0 ? idx : 60 + ri),
+    rivals: idx >= 0 && RIVAL_LV.has(idx) ? 3 : 0 };
+  RUN3_CACHE.set(def, r); return r;
+}
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
@@ -5690,7 +5708,7 @@ function writeSave() {
 }
 const progOf = d => app.prog[d] || (app.prog[d] = {});
 // checkpoint reached in an unfinished long level (0 = start); ignored if the level's checkpoint count changed
-const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] && LEVELS[i].secs ? LEVELS[i].secs.length : 1; return r > 0 && r < n ? r : 0; };
+const savedCk = (d, i) => { const r = (progOf(d).ck || {})[i] | 0, n = LEVELS[i] ? LEVELS[i].rooms || (LEVELS[i].secs ? LEVELS[i].secs.length : 1) : 1; return r > 0 && r < n ? r : 0; };
 // level colours (biomes); rebuilding textures and background only when the scheme changes
 function setBiome(key) { const b = key && BIOMES[key] || null; if (b === BIOME) return; BIOME = b; buildPal(); buildTextures(ctx); buildBackground(); }
 const parTime = def => Math.round((def.nObs || 10) * 2.6 + 25);
@@ -5742,11 +5760,12 @@ const MODES = {
   classic: { n: 'ترکیبی (پیشنهادی)', d: 'سکوبازی‌ها دوبعدی، مرحله‌های فرار از غول سه‌بعدی واقعی' },
   '2d': { n: 'دوبعدی', d: 'همه‌چیز صاف و کلاسیک؛ فرار از غول از نمای کناری' },
   '25': { n: 'دوبعدی با جلوه‌ی سه‌بعدی', d: 'سکوها عمق و پرسپکتیو دارن و پس‌زمینه لایه‌لایه حرکت می‌کنه؛ فرار از غول روی جاده‌ی شبه‌سه‌بعدی' },
-  '3d': { n: 'سه‌بعدی کامل', d: 'همه‌ی مرحله‌ها، حتی سکوبازی‌ها، با موتور سه‌بعدی واقعی و نور و سایه' },
+  '3d': { n: 'سه‌بعدی واقعی', d: 'همه‌ی مرحله‌ها مثل مرحله‌های فرار از غول: توی دنیای سه‌بعدی می‌دوی، می‌پری و از موانع جاخالی می‌دی' },
+  p3d: { n: 'سکوبازی سه‌بعدی (از کنار)', d: 'سکوبازی‌ها با همون نقشه‌ی دوبعدی ولی با گرافیک سه‌بعدی؛ دوربین کناری یا پشت سر' },
 };
 function viewOf(def) {
   const run = def.kind === '3d';
-  switch (CFG.mode) { case '2d': return run ? 'r2' : 'p2'; case '25': return run ? 'r25' : 'p25'; case '3d': return run ? 'x3' : 'p3'; default: return run ? 'x3' : 'p2'; }
+  switch (CFG.mode) { case '2d': return run ? 'r2' : 'p2'; case '25': return run ? 'r25' : 'p25'; case '3d': case 'p3d': return run ? 'x3' : 'p3'; default: return run ? 'x3' : 'p2'; }
 }
 const isGL = v => v === 'p3' || v === 'x3';
 
@@ -5885,8 +5904,11 @@ const app = {
   teardown() { if (this.run) { this.run.dispose(); this.run = null; } if (this.p3) { this.p3.dispose(); this.p3 = null; } },
   startDef(def, opt = {}) {
     this.teardown(); this.resumed = !!opt.resumed;
-    this.def = def; this.kind = def.kind === '3d' ? 'run' : 'plat';
-    let v = viewOf(def);
+    this.def = def;
+    // true 3D mode: a platformer level is played as a 3D run built from it
+    const rdef = def.kind !== '3d' && CFG.mode === '3d' && !def.endless ? runDefOf(def) : def;
+    this.kind = rdef.kind === '3d' ? 'run' : 'plat';
+    let v = viewOf(rdef);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
     if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); }
@@ -5906,33 +5928,34 @@ const app = {
       if (v === 'p3') this.p3 = new P3D(w);
       $('r3hud').classList.remove('on'); this.updTag();
     } else {
-      const run = this.run = new Run3D(def, this.diff, { noScene: v !== 'x3' });
-      if (opt.ck > 0) { run.ckS = opt.ck; run.respawn(false); }
+      const run = this.run = new Run3D(rdef, this.diff, { noScene: v !== 'x3' });
+      // ck is a room number for every kind of level: start at that room's arch
+      if (opt.ck > 0 && run.arches.length) { run.ckS = run.arches[Math.min(opt.ck, run.arches.length) - 1]; run.respawn(false); }
       run.onDeath = c => { this.onDeath(c); this.taunt(c === 'caught' ? 'غول گرفتت! 👹' : 'افتادی! 🕳️', c === 'caught' ? '#ff3d71' : '#ff5d8a'); };
       run.onWin = () => this.onWin(); run.onSay = t => { if (t) this.taunt(t, '#ffd36e'); };
       run.onRage = () => { if (Math.random() < 0.5) this.taunt('غول عصبانی شد!', '#ff8a4c'); };
       run.onPick = k => this.onPick(k);
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt(rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`, '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir); hud3.last = -1;
     }
     resize3(); updCamBtn();
     $('banner').classList.toggle('low', this.kind === 'run');
-    const size = def.rest ? ' · فقط برای استراحت 🌿' : def.secs ? ` · ${faNum(def.secs.length)} اتاق · ${faNum(def.nObs)} مانع` : this.kind === 'run' ? ` · ${faNum(this.run.rooms)} اتاق · ${faNum(def.len)} متر` : '';
-    $('bSmall').textContent = this.label() + size + (def.realm ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
+    const size = def.rest ? ' · فقط برای استراحت 🌿' : this.kind === 'run' ? ` · ${faNum(this.run.rooms)} اتاق · ${faNum(rdef.len)} متر${rdef !== def ? ' · سه‌بعدی واقعی' : ''}` : def.secs ? ` · ${faNum(def.secs.length)} اتاق · ${faNum(def.nObs)} مانع` : '';
+    $('bSmall').textContent = this.label() + size + (def.realm && this.kind === 'plat' ? ' · پرش دوبل فعاله!' : ''); $('bBig').textContent = def.name;
     $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2000);
     if (this.kind === 'plat' && !isGL(v)) { const p = this.world.p; startTrans('open', .55, null, p.x + PW / 2, p.y + PHT / 2); }
     $('fade').classList.remove('on');
     if (def.endless) $('bSmall').textContent = `${faNum(this.endless ? this.endless.lives : 3)} جون · رکورد: ${faNum(this.endless ? this.endless.best : 0)} متر`;
-    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(`ادامه از اتاق ${faNum(this.world.ck + 1)} از ${faNum(this.world.secs.length)}`, '#9ef9ff'), 2100);
+    if (opt.resumed && !opt.keep) setTimeout(() => this.taunt(this.kind === 'run' ? `ادامه از اتاق ${faNum(this.run.roomAt(this.run.ckS))} از ${faNum(this.run.rooms)}` : `ادامه از اتاق ${faNum(this.world.ck + 1)} از ${faNum(this.world.secs.length)}`, '#9ef9ff'), 2100);
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
     if (!this.def || (this.state !== 'play' && this.state !== 'pause')) return;
     const st = this.state, sc = this.screen;
     // keep the room / checkpoint, time and deaths: only the view is rebuilt
-    const o = { keep: true, resumed: this.resumed, ck: this.kind === 'plat' && this.world ? this.world.ck : this.run ? this.run.ckS : 0 };
+    const o = { keep: true, resumed: this.resumed, ck: this.kind === 'plat' && this.world ? this.world.ck : this.run ? this.run.roomAt(this.run.ckS) - 1 : 0 };
     if (this.realmIdx >= 0) this.startRealm(this.realmIdx, o); else { this.realmIdx = -1; this.startDef(this.def, o); }
     if (st === 'pause') { this.state = 'pause'; this.show(sc || 'sPause'); $('banner').classList.remove('show'); }
   },
@@ -6217,12 +6240,13 @@ const MODE_PV = {
   classic: '<svg viewBox="0 0 120 50"><rect x="6" y="34" width="44" height="12" fill="#3a2f66"/><rect x="6" y="32" width="44" height="3" fill="#4fd8a8"/><rect x="18" y="22" width="9" height="10" rx="3" fill="#ffe2b8"/><path d="M70 46 L88 14 L96 14 L114 46Z" fill="#4f4580"/><path d="M88 14 L92 14 L92 46 L70 46Z" fill="#5c51a0"/><circle cx="92" cy="30" r="3.5" fill="#ffe2b8"/></svg>',
   '2d': '<svg viewBox="0 0 120 50"><rect x="0" y="36" width="120" height="14" fill="#3a2f66"/><rect x="0" y="34" width="120" height="3" fill="#4fd8a8"/><path d="M50 36 l6 -10 l6 10z" fill="#d8dcf2"/><rect x="20" y="24" width="10" height="11" rx="4" fill="#ffe2b8"/><rect x="96" y="18" width="12" height="17" rx="6" fill="#ffd36e"/></svg>',
   '25': '<svg viewBox="0 0 120 50"><path d="M10 34 L28 22 L118 22 L100 34Z" fill="#4fd8a8" opacity=".7"/><rect x="10" y="34" width="90" height="14" fill="#3a2f66"/><path d="M100 34 L118 22 L118 36 L100 48Z" fill="#251d45"/><rect x="34" y="20" width="10" height="13" rx="4" fill="#ffe2b8"/><path d="M60 34 l6 -10 l6 10z" fill="#d8dcf2"/></svg>',
+  p3d: '<svg viewBox="0 0 120 50"><rect x="8" y="30" width="104" height="14" fill="#2c2550"/><path d="M8 30 L22 20 L120 20 L112 30Z" fill="#4f4580"/><circle cx="40" cy="22" r="6" fill="#ffe2b0"/><path d="M70 30 l6 -9 l6 9z" fill="#d8dcf2"/></svg>',
   '3d': '<svg viewBox="0 0 120 50"><path d="M60 4 L92 18 L60 32 L28 18Z" fill="#8f86d8"/><path d="M28 18 L60 32 L60 48 L28 34Z" fill="#4f4580"/><path d="M92 18 L60 32 L60 48 L92 34Z" fill="#2c2550"/><circle cx="60" cy="16" r="5" fill="#ffe2b8"/></svg>',
 };
 function renderModes() {
   $('modeList').innerHTML = Object.keys(MODES).map(k => `<button class="mcard${CFG.mode === k ? ' on' : ''}" data-mode="${k}"><div class="pv">${MODE_PV[k]}</div><b>${MODES[k].n}</b><small>${MODES[k].d}</small></button>`).join('');
-  $('camBox').innerHTML = `<h3>دوربین سکوبازی‌ها در حالت سه‌بعدی کامل</h3><div class="chips">${chip(CFG.cam3d !== 'third', '🎬 از کنار (پیش‌فرض)', 'data-cam="side"')}${chip(CFG.cam3d === 'third', '🏃 سوم شخص (پشت سر بازیکن)', 'data-cam="third"')}</div>
-    <p>${CFG.mode === '3d' ? 'وسط بازی هم با دکمه‌ی دوربین بالای صفحه یا کلید C عوض می‌شه.' : 'این گزینه وقتی حالت «سه‌بعدی کامل» انتخاب شده اثر داره. مرحله‌های فرار از غول همیشه از پشت سر بازیکن دیده می‌شن.'}</p>`;
+  $('camBox').innerHTML = `<h3>دوربین در حالت «سکوبازی سه‌بعدی (از کنار)»</h3><div class="chips">${chip(CFG.cam3d !== 'third', '🎬 از کنار (پیش‌فرض)', 'data-cam="side"')}${chip(CFG.cam3d === 'third', '🏃 سوم شخص (پشت سر بازیکن)', 'data-cam="third"')}</div>
+    <p>${CFG.mode === 'p3d' ? 'وسط بازی هم با دکمه‌ی دوربین بالای صفحه یا کلید C عوض می‌شه.' : 'این گزینه فقط برای حالت «سکوبازی سه‌بعدی (از کنار)» است. در حالت «سه‌بعدی واقعی» همه‌ی مرحله‌ها از پشت سر بازیکن دیده می‌شن.'}</p>`;
 }
 function setCam3d(v) { CFG.cam3d = v; saveCfg(); if (app.p3) app.p3.cs = null; updCamBtn(); }
 function updCamBtn() { const b = $('bCam'); b.classList.toggle('on', app.view === 'p3' && app.state !== 'title'); b.style.opacity = CFG.cam3d === 'third' ? 1 : .7; }
