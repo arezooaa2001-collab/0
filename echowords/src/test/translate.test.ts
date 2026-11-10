@@ -14,6 +14,16 @@ describe('parseTranslateRequest', () => {
     expect(p('«گربه» را به «زبان کره‌ای» ترجمه کن')).toBe('گربه → ko');
     expect(p('«dog» «آلمانی»')).toBe('dog → de');
   });
+  it('the simple «متن / زبان» form', () => {
+    expect(p('سلام دوست من / انگلیسی')).toBe('سلام دوست من → en');
+    expect(p('I love my cat/فارسی')).toBe('I love my cat → fa');
+    expect(p('گربه / ژاپنی')).toBe('گربه → ja');
+    expect(p('good morning / زبان آلمانی')).toBe('good morning → de');
+    expect(p('سلام / مریخی')).toBe('unknown:مریخی');
+    expect(p('۱/۲ یعنی چند؟')).toBeNull();
+    expect(p('/ABC')).toBeNull();
+    expect(p('یک بازی ماشین بساز /Prompt Code')).toBeNull();
+  });
   it('language named without «»', () => {
     expect(p('«سیب» را به چینی ترجمه کن')).toBe('سیب → zh-CN');
     expect(p('«سیب» را به زبان ترکی ترجمه کن')).toBe('سیب → tr');

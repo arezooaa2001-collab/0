@@ -64,12 +64,27 @@ export type TranslateRequest = { ok: true; text: string; target: TargetLang } | 
 
 /**
  * Is this message a translation request?
+ *   سلام دوست من / انگلیسی                  (the main, simplest form)
  *   «سلام دوست من» را به «انگلیسی» ترجمه کن
  *   «I love cats» رو به زبان «فارسی» ترجمه کن
  *   «گربه» را به ژاپنی ترجمه کن            (language without «» also understood)
  * Anything else is NOT translated: it goes to the tutor as a normal message.
  */
 export function parseTranslateRequest(message: string): TranslateRequest | null {
+  // Main form: «متن / زبان», e.g. «سلام دوست من / انگلیسی» (the last «/» separates them).
+  const msg = message.trim();
+  const cut = msg.lastIndexOf('/');
+  if (cut > 0) {
+    const text = msg.slice(0, cut).replace(/[«»]/g, '').trim();
+    const name = msg.slice(cut + 1).replace(/[«»]/g, '').trim();
+    if (text && name) {
+      const target = findTargetLang(name);
+      if (target) return { ok: true, text, target };
+      // Looks like a language name (one or two words, no digits or question): say we do not know it.
+      if (/^[^\d?؟.!,،]{2,30}$/u.test(name) && name.split(/\s+/).length <= 2 && !/^(prompt|abc)\b/i.test(name))
+        return { ok: false, reason: 'unknown_lang', name };
+    }
+  }
   const groups = [...message.matchAll(/«([^»]+)»/g)].map((m) => m[1].trim()).filter(Boolean);
   if (!groups.length) return null;
   const outside = norm(message.replace(/«[^»]*»/g, ' '));

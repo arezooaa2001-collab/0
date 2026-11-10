@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AiError, type ChatTurn, type Provider, type TutorReply, aiLog, aiLogLines, aiLogReset, askTutor, currentProvider, onAiLog } from '../lib/ai';
 import { APP_VERSION } from '../lib/config';
 import { dictionaryAnswer } from '../lib/miniDict';
+import { isAbcCommand, wantsPromptCode } from '../lib/gameStudio';
+import { GameStudio } from './GameStudio';
 import { TARGET_NAMES, type TargetLang, parseTranslateRequest, translateFree } from '../lib/translate';
 import { isNativeApp } from '../lib/native';
 import { aiErrorDetail, aiErrorText } from '../lib/aiErrors';
@@ -28,6 +30,8 @@ interface Message {
   report?: string;
   /** A translation («…» را به «…» ترجمه کن). */
   tr?: Translated;
+  /** The «/ABC» menu. */
+  menu?: boolean;
 }
 
 interface Translated {
@@ -56,6 +60,8 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const [waitSecs, setWaitSecs] = useState(0);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [stage, setStage] = useState('');
+  const [view, setView] = useState<'chat' | 'studio' | 'games'>('chat');
+  const [studioIdea, setStudioIdea] = useState('');
   const nextId = useRef(1);
   const endRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<ChatTurn[]>([]);
@@ -127,6 +133,17 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   const send = async (raw: string) => {
     const q = raw.trim();
     if (!q || busy) return;
+    if (isAbcCommand(q)) {
+      add({ role: 'user', text: q });
+      add({ role: 'assistant', text: t.abcMenuText, menu: true });
+      return;
+    }
+    // «… /Prompt Code» in the chat: that is a game request, so open the studio and start building.
+    if (wantsPromptCode(q)) {
+      setStudioIdea(q);
+      setView('studio');
+      return;
+    }
     const tr = parseTranslateRequest(q);
     if (!tr && !provider) {
       add({ role: 'user', text: q });
@@ -201,6 +218,9 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
 
   if (provider === undefined) return <p className="state state-busy"><span className="spinner" aria-hidden /> {t.authWait}</p>;
 
+  if (view !== 'chat')
+    return <GameStudio provider={provider} start={view} initialIdea={studioIdea} onBack={() => { setStudioIdea(''); setView('chat'); }} onOpenSettings={onOpenSettings} />;
+
   const providerName = provider === 'claude' ? 'Claude' : provider === 'openai' ? 'ChatGPT' : provider === 'custom' ? t.aiCustomShort : 'Gemini';
 
   return (
@@ -242,6 +262,14 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
                   <p dir="auto">{m.text}</p>
                   {m.detail && <p className="meta diag" dir="ltr">{m.detail}</p>}
                   {m.report && <ReportButton report={m.report} />}
+                </>
+              ) : m.menu ? (
+                <>
+                  <p dir="auto">{m.text}</p>
+                  <div className="abc-menu">
+                    <button className="btn btn-primary btn-big abc-option" onClick={() => setView('studio')}>🧑‍💻 {t.abcCoding}</button>
+                    <button className="btn btn-secondary btn-big abc-option" onClick={() => setView('games')}>🎮 {t.abcMyGames}</button>
+                  </div>
                 </>
               ) : m.tr ? (
                 <>

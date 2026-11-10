@@ -405,3 +405,15 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .report-text { white-space: pre-wrap; font-size: 11px; direction: ltr; text-align: left; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px; max-height: 220px; overflow: auto; user-select: text; }
 .tr-head { margin: 0 0 6px; }
 .tr-box .tr-text { font-size: 1.35em; font-weight: 700; margin: 0 0 6px; }
+.abc-menu { display: grid; gap: 10px; margin-top: 8px; }
+.abc-option { width: 100%; }
+.studio-head { justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.studio-input { display: grid; gap: 8px; margin: 10px 0; }
+.studio-busy { text-align: center; }
+.brief-text, .report-text { white-space: pre-wrap; font-size: 12px; direction: ltr; text-align: left; max-height: 260px; overflow: auto; user-select: text; }
+.game-wrap { display: grid; gap: 8px; margin-top: 10px; }
+.game-frame { width: 100%; height: 70vh; min-height: 360px; border: 0; border-radius: 16px; background: #000; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.game-wrap.full { position: fixed; inset: 0; z-index: 1000; background: #000; padding: 6px; gap: 6px; grid-template-rows: 1fr auto; }
+.game-wrap.full .game-frame { height: 100%; min-height: 0; border-radius: 8px; }
+.games-list { display: grid; gap: 10px; }
+.game-card { display: flex; justify-content: space-between; align-items: center; gap: 10px; }

@@ -136,7 +136,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۲۰/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۲۱/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -521,11 +521,24 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
     };
   });
   const aiRequests = [];
+  const gameRequests = [];
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
   await ctxA.route('https://generativelanguage.googleapis.com/**', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     const body = JSON.parse(req.postData() || '{}');
+    const sys = JSON.stringify(body.system_instruction ?? '');
+    if (/HTML5 game developer/.test(sys)) {
+      gameRequests.push(body);
+      const asked = body.contents.map((c) => c.parts[0].text).join(' | ');
+      const html = `<!DOCTYPE html><html><head><title>بازی ستاره</title></head><body style="margin:0;background:#123"><div id="s" style="color:#fff;font:30px sans-serif">امتیاز: 0</div><button id="b" style="font-size:30px">⭐</button><script>let n=0;document.getElementById('b').onclick=()=>{n++;document.getElementById('s').textContent='امتیاز: '+n;};window.__asked=${JSON.stringify(asked.slice(0, 400))};</script></body></html>`;
+      const text = 'Here is your game:\n```html\n' + html + '\n```';
+      return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }) });
+    }
+    if (/expert, detailed brief/.test(sys)) {
+      gameRequests.push(body);
+      return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: 'BRIEF: A cat collects stars and dodges rain clouds. Touch + keyboard controls.' }] } }] }) });
+    }
     aiRequests.push({ key: req.headers()['x-goog-api-key'], body });
     const lastText = body.contents?.at(-1)?.parts?.[0]?.text ?? '';
     const hasImage = !!body.contents?.at(-1)?.parts?.some((p) => p.inline_data);
@@ -545,13 +558,13 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant.error', { hasText: 'کلید رایگان Gemini' }).waitFor({ timeout: 5000 });
   check('no key: a normal message is NOT translated; it explains how to turn on free conversation', trRequests.length === 0);
-  await page.locator('.tutor-input textarea').fill('«سلام دوست من» را به «انگلیسی» ترجمه کن');
+  await page.locator('.tutor-input textarea').fill('سلام دوست من / انگلیسی');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.tr-box', { hasText: 'hello my friend' }).waitFor({ timeout: 10000 });
   await page.waitForTimeout(300);
-  check('no key: «متن» را به «زبان» ترجمه کن is translated (free, no API key)', aiRequests.length === 0 && trRequests.at(-1)?.tl === 'en' && trRequests.at(-1)?.q === 'سلام دوست من', JSON.stringify(trRequests.at(-1)));
+  check('no key: «متن / زبان» is translated (free, no API key)', aiRequests.length === 0 && trRequests.at(-1)?.tl === 'en' && trRequests.at(-1)?.q === 'سلام دوست من', JSON.stringify(trRequests.at(-1)));
   check('the translation is read aloud in its own language', await page.evaluate(() => window.__spoken.some((x) => /hello my friend/i.test(x.text) && x.lang === 'en-US')));
-  await page.locator('.tutor-input textarea').fill('«گربه» را به «ژاپنی» ترجمه کن');
+  await page.locator('.tutor-input textarea').fill('گربه/ژاپنی');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.tr-box', { hasText: '猫' }).waitFor({ timeout: 10000 });
   check('Japanese translation shows how to read it (Latin letters)', await page.locator('.tr-box', { hasText: '猫' }).getByText('(Neko)').isVisible());
@@ -563,7 +576,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.tr-box', { hasText: 'Hallo' }).locator('.btn-tts').click();
   await page.waitForTimeout(300);
   check('languages outside the app list too (German), with «🔊 تلفظ» in German', await page.evaluate(() => window.__spoken.some((x) => x.text === 'Hallo' && x.lang === 'de-DE')));
-  await page.locator('.tutor-input textarea').fill('«سلام» را به «مریخی» ترجمه کن');
+  await page.locator('.tutor-input textarea').fill('سلام / مریخی');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant.error', { hasText: 'زبان «مریخی» را نمی‌شناسم' }).waitFor({ timeout: 5000 });
   check('an unknown language name is explained, with the list of languages', true);
@@ -605,6 +618,41 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('the answer box has «🔊 تلفظ» that reads the whole answer', (await page.evaluate(() => window.__spoken.length)) >= 1);
   check('tutor is text only (no live mode, no camera, no voice button)', (await page.getByRole('button', { name: /حالت لایو|دوربین|با صدا بپرس|عکس از کلمه/ }).count()) === 0);
   await page.screenshot({ path: `${OUT}/15-tutor.png` });
+  // «/ABC» → two options; «کدنویسی با هوش مصنوعی» builds a real game from the child's words
+  await page.locator('.tutor-input textarea').fill('/ABC');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  check('«/ABC» shows two options on the screen', (await page.locator('.abc-menu .abc-option').count()) === 2 && (await page.getByRole('button', { name: /کدنویسی با هوش مصنوعی/ }).isVisible()));
+  await page.getByRole('button', { name: /کدنویسی با هوش مصنوعی/ }).click();
+  await page.locator('.studio-input textarea').first().fill('یک بازی که با زدن ستاره امتیاز بگیرم');
+  await page.getByRole('button', { name: /بساز/ }).click();
+  const gameFrame = page.frameLocator('iframe.game-frame');
+  await gameFrame.locator('#b').waitFor({ timeout: 15000 });
+  await gameFrame.locator('#b').click();
+  await gameFrame.locator('#b').click();
+  check('the studio builds the game and it really runs (playable inside the app)', (await gameFrame.locator('#s').textContent()) === 'امتیاز: 2' && /HTML5 game developer/.test(JSON.stringify(gameRequests.at(-1).system_instruction)) && !gameRequests.at(-1).generationConfig.responseMimeType);
+  check('the game runs sealed off from the app (sandboxed, no access to words or storage)', (await page.locator('iframe.game-frame').getAttribute('sandbox')) === 'allow-scripts allow-pointer-lock');
+  await page.getByRole('button', { name: /ذخیره در بازی‌های من/ }).click();
+  await page.locator('.studio-input textarea').nth(1).fill('رنگ‌ها صورتی شوند');
+  await page.getByRole('button', { name: /تغییر بده/ }).click();
+  await page.waitForFunction(() => !document.querySelector('.studio-busy'), null, { timeout: 15000 });
+  check('«✏️ تغییر بده» sends the current code and the change request', gameRequests.at(-1).contents.length === 3 && /صورتی/.test(gameRequests.at(-1).contents[2].parts[0].text) && /<!DOCTYPE html>/.test(gameRequests.at(-1).contents[1].parts[0].text));
+  // «/Prompt Code»: the prompt is improved first, then the game is built from the improved brief
+  const gamesBefore = gameRequests.length;
+  await page.locator('.studio-input textarea').first().fill('یک گربه که ستاره جمع کند /Prompt Code');
+  await page.getByRole('button', { name: /بساز/ }).click();
+  await page.locator('.brief', { hasText: 'BRIEF: A cat collects stars' }).waitFor({ timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector('.studio-busy'), null, { timeout: 15000 });
+  const improveReq = gameRequests[gamesBefore];
+  const buildReq = gameRequests[gamesBefore + 1];
+  check('«/Prompt Code» makes the prompt more expert first, and the game is built from it', /expert, detailed brief/.test(JSON.stringify(improveReq?.system_instruction)) && improveReq.contents[0].parts[0].text === 'یک گربه که ستاره جمع کند' && /BRIEF: A cat collects stars/.test(buildReq?.contents?.[0]?.parts?.[0]?.text ?? ''));
+  await page.screenshot({ path: `${OUT}/18-game-studio.png` });
+  await page.getByRole('button', { name: /بازی‌های من/ }).first().click();
+  check('the saved game is in «بازی‌های من»', (await page.locator('.game-card', { hasText: 'بازی ستاره' }).count()) === 1);
+  await page.locator('.game-card').getByRole('button', { name: /بازی کن/ }).click();
+  await page.frameLocator('iframe.game-frame').locator('#b').waitFor({ timeout: 5000 });
+  check('a saved game plays again from «بازی‌های من»', true);
+  await page.getByRole('button', { name: /برگشت به معلم/ }).click();
+  check('back to the tutor chat, the conversation is still there', (await page.locator('.abc-menu').count()) === 1);
   await ctxA.close();
 
   // 13b. Fast and never stuck: no "thinking" delay, time limit, cancel, model fallback
@@ -642,7 +690,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
   await page.locator('.bubble.assistant.error').last().getByRole('button', { name: /کپی گزارش/ }).click();
   const reportText = await page.locator('.report-text').last().innerText();
-  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v20/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
+  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v21/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
   fastReqs.length = 0;
   fastReqs.length = 0;
   await page.locator('.tutor-input textarea').fill('«سیب» را به «انگلیسی» ترجمه کن');
@@ -896,14 +944,14 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   // Android app with NO key: translation works through Android's own networking
   await page.getByRole('button', { name: /معلم/ }).click();
   const httpBefore = await page.evaluate(() => window.__native.http || 0);
-  await page.locator('.tutor-input textarea').fill('«سلام دوست من» را به «انگلیسی» ترجمه کن');
+  await page.locator('.tutor-input textarea').fill('سلام دوست من / انگلیسی');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.tr-box', { hasText: 'hello my friend' }).waitFor({ timeout: 10000 });
   await page.waitForTimeout(300);
   check('app, no API key: translation works (through Android\'s own networking)', (await page.evaluate(() => window.__native.http || 0)) > httpBefore);
   check('app: the translation is read with Android\'s voice in English', await page.evaluate(() => window.__native.spoken.some((x) => /hello my friend/i.test(x.text) && x.tag === 'en-US')));
-  await page.evaluate(() => localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'gemini', key: 'k', model: 'm' })));
-  await page.waitForTimeout(1500); // let Chromium hand the new setting to the next page load (test reloads at once)
+  // (set before every page load: the test browser can lose localStorage of file:// pages on reload)
+  await ctxN2.addInitScript(() => localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'gemini', key: 'k', model: 'm' })));
   await ctxN2.route('https://generativelanguage.googleapis.com/**', (r) =>
     r.request().method() === 'OPTIONS'
       ? r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } })
@@ -938,7 +986,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
   check('app: if Android\'s networking fails, the WebView\'s own network is tried and the answer comes', (await page.locator('.bubble.assistant .answer-box').count()) === 5);
   await page.evaluate(() => { window.__nativeHttpFails = false; });
-  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۰').first().isVisible());
+  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۱').first().isVisible());
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
   await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
 

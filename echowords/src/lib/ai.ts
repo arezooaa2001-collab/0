@@ -236,7 +236,7 @@ interface Req {
  * One HTTPS POST with a time limit. In the Android app it is sent by Android itself
  * (no browser cross-site rules, explicit failure reasons); elsewhere by fetch.
  */
-async function post(req: Req, signal?: AbortSignal): Promise<{ status: number; body: string }> {
+async function post(req: Req, signal?: AbortSignal, ms: number = timeoutMs()): Promise<{ status: number; body: string }> {
   if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
   if (nativeHasHttp()) {
     let bytes: Uint8Array;
@@ -248,7 +248,7 @@ async function post(req: Req, signal?: AbortSignal): Promise<{ status: number; b
       bytes = new Uint8Array(await packed.arrayBuffer());
     }
     aiLog(`→ ${host(req.url)} (Android)`);
-    const r = await nativeHttp('POST', req.url, headers, bytes, timeoutMs(), signal);
+    const r = await nativeHttp('POST', req.url, headers, bytes, ms, signal);
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
     if (r.ok) {
       aiLog(`← HTTP ${r.status} (${r.body.length} chars)`);
@@ -259,17 +259,17 @@ async function post(req: Req, signal?: AbortSignal): Promise<{ status: number; b
     // Android could not connect: try once more through the WebView's own network stack.
     if (typeof req.body === 'string') {
       try {
-        return await browserPost(req, signal);
+        return await browserPost(req, signal, ms);
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') throw e;
       }
     }
     throw new AiError(r.error === 'dns' || r.error === 'ssl' ? 'unreachable' : 'network', r.detail ?? r.error);
   }
-  return browserPost(req, signal);
+  return browserPost(req, signal, ms);
 }
 
-async function browserPost(req: Req, signal?: AbortSignal): Promise<{ status: number; body: string }> {
+async function browserPost(req: Req, signal?: AbortSignal, ms: number = timeoutMs()): Promise<{ status: number; body: string }> {
   aiLog(`→ ${host(req.url)} (browser)`);
   const ctrl = new AbortController();
   const onAbort = () => ctrl.abort();
@@ -278,7 +278,7 @@ async function browserPost(req: Req, signal?: AbortSignal): Promise<{ status: nu
   const timer = setTimeout(() => {
     timedOut = true;
     ctrl.abort();
-  }, timeoutMs());
+  }, ms);
   try {
     const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body, signal: ctrl.signal });
     const body = await res.text();
@@ -333,7 +333,14 @@ interface Attempt {
  * - a model name that does not exist (404) moves on to the next one;
  * - a setting the model refuses (400) is switched off and the request repeated.
  */
-async function generate(st: AiSettings, build: (a: Attempt) => Req, read: (json: unknown) => string, models: string[], signal?: AbortSignal): Promise<string> {
+async function generate(
+  st: AiSettings,
+  build: (a: Attempt) => Req,
+  read: (json: unknown) => string,
+  models: string[],
+  signal?: AbortSignal,
+  ms?: number,
+): Promise<string> {
   let last: unknown = new AiError('other', 'no answer');
   for (const model of [...new Set([st.model, ...models])]) {
     const a: Attempt = {
@@ -347,7 +354,7 @@ async function generate(st: AiSettings, build: (a: Attempt) => Req, read: (json:
       tries++;
       try {
         aiLog(`${st.provider} ${model}${tries > 1 ? ' (again)' : ''}`);
-        const { status, body } = await post(build(a), signal);
+        const { status, body } = await post(build(a), signal, ms);
         if (status >= 200 && status < 300) return read(JSON.parse(body));
         aiLog(`  ${serverMessage(body).slice(0, 160)}`);
         if (status === 404 || (status === 400 && /model.*(not found|does not exist|not supported)|unknown model|invalid model/i.test(body))) {
@@ -376,7 +383,7 @@ async function generate(st: AiSettings, build: (a: Attempt) => Req, read: (json:
         if (status === 429 || status >= 500) continue; // busy: one more try
         throw last;
       } catch (e) {
-        if (e instanceof AiError && (e.code === 'timeout' || e.code === 'network')) {
+        if (e instanceof AiError && (e.code === 'network' || (e.code === 'timeout' && !ms))) {
           last = e;
           continue; // one more try
         }
@@ -569,4 +576,86 @@ export async function testConnection(): Promise<{ ok: true; ms: number; provider
   } catch (e) {
     return { ok: false, error: e as Error };
   }
+}
+
+// ── Long free-form answers (the game studio) ───────────────────────────────
+export interface RawOptions {
+  signal?: AbortSignal;
+  /** 'complex' = take time to think (code); 'quick' = answer at once. */
+  tier: 'quick' | 'complex';
+  maxTokens: number;
+  /** Limit for one request. */
+  timeoutMs: number;
+  /** Characters received so far (Claude streams; other services report once at the end). */
+  onProgress?: (chars: number) => void;
+}
+
+/** One free-form answer (not JSON): `system` instructions plus a conversation ending with the user. */
+export async function askRaw(system: string, turns: ChatTurn[], opts: RawOptions): Promise<{ text: string; truncated: boolean }> {
+  const claude = await getClaude();
+  if (claude) {
+    aiLog(`claude ${opts.tier}`);
+    const input = [
+      { role: 'user' as const, content: `${system}\n\n---\n\n${turns[0]?.text ?? ''}` },
+      ...turns.slice(1).map((t) => ({ role: t.role, content: t.text })),
+    ];
+    try {
+      const out = (await claude(input, {
+        modelTier: opts.tier === 'complex' ? 'complex' : 'quick',
+        cache: false,
+        onText: ({ text }: { text: string }) => opts.onProgress?.(text.length),
+        ...(opts.signal ? { signal: opts.signal } : {}),
+      })) as { text: string; truncated?: boolean };
+      return { text: out.text, truncated: !!out.truncated };
+    } catch (e) {
+      if (e instanceof AiError) throw e;
+      if ((e as Error)?.name === 'AbortError') throw e;
+      const code = (e as { code?: string })?.code;
+      throw new AiError(code === 'not_granted' ? 'not_granted' : 'other', String((e as Error)?.message ?? e));
+    }
+  }
+  const st = readAiSettings();
+  if (!st) throw new AiError('no_provider', 'No AI configured');
+  let truncated = false;
+  if (st.provider === 'gemini') {
+    const build = ({ model, flags }: Attempt): Req => ({
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': st.key },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: system }] },
+        contents: turns.map((t) => ({ role: t.role === 'user' ? 'user' : 'model', parts: [{ text: t.text }] })),
+        generationConfig: {
+          ...(flags.temperature ? { temperature: 0.7 } : {}),
+          maxOutputTokens: opts.maxTokens,
+          ...(opts.tier === 'quick' && flags.thinkingOff ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
+      }),
+    });
+    const read = (j: unknown) => {
+      const c = (j as { candidates?: { finishReason?: string }[] })?.candidates?.[0];
+      truncated = c?.finishReason === 'MAX_TOKENS';
+      return geminiText(j);
+    };
+    const text = await generate({ ...st }, build, read, GEMINI_MODELS, opts.signal, opts.timeoutMs);
+    opts.onProgress?.(text.length);
+    return { text, truncated };
+  }
+  const base = st.provider === 'custom' && st.baseUrl ? st.baseUrl : 'https://api.openai.com/v1';
+  const build = ({ model, flags }: Attempt): Req => ({
+    url: `${base}/chat/completions`,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${st.key}` },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'system', content: system }, ...turns.map((t) => ({ role: t.role, content: t.text }))],
+      ...(flags.temperature ? { temperature: 0.7 } : {}),
+      ...(flags.legacyMaxTokens ? { max_tokens: opts.maxTokens } : { max_completion_tokens: opts.maxTokens }),
+    }),
+  });
+  const read = (j: unknown) => {
+    truncated = (j as { choices?: { finish_reason?: string }[] })?.choices?.[0]?.finish_reason === 'length';
+    return openaiText(j);
+  };
+  const text = await generate({ ...st }, build, read, st.provider === 'custom' ? [] : OPENAI_MODELS, opts.signal, opts.timeoutMs);
+  opts.onProgress?.(text.length);
+  return { text, truncated };
 }
