@@ -86,7 +86,7 @@ function show(name) {
   state.screen = name;
   if (prev === 'viewerScreen' && name !== 'viewerScreen') closeViewer();
   if (prev === 'galleryScreen' && name !== 'galleryScreen' && name !== 'viewerScreen') releaseGalleryUrls();
-  if (name === 'camScreen') resumeCamera(); else pauseCamera();
+  if (name === 'camScreen') { measureStage(); resumeCamera(); } else pauseCamera();
   if (name === 'galleryScreen') renderGallery();
   if (name === 'viewerScreen') renderViewer();
 }
@@ -192,6 +192,7 @@ function openCamera() {
     video.srcObject = stream;
     try { await video.play(); } catch { /* autoplay of a muted inline video is allowed; ignore */ }
     await waitForVideo();
+    await maximizeResolution(profile, long, short);
     readCapabilities();
     countCameras();
     updateMirror();
@@ -201,6 +202,36 @@ function openCamera() {
     startLoop();
   })();
   return state.opening.finally(() => { state.opening = null; });
+}
+
+// Some phones (and Android WebView) start at a low resolution even when asked for 4K:
+// read what the camera really supports and ask for the largest size up to 4K.
+async function maximizeResolution(profile, long, short) {
+  const t = state.track;
+  if (!t || !t.getCapabilities || !t.applyConstraints) return;
+  try {
+    const caps = t.getCapabilities();
+    const s = t.getSettings();
+    if (!caps.width || !caps.height || !caps.width.max || !caps.height.max) return;
+    const portrait = (s.height || 0) > (s.width || 0);
+    const capLong = Math.max(caps.width.max, caps.height.max);
+    const capShort = Math.min(caps.width.max, caps.height.max);
+    const wantLong = Math.min(long, capLong);
+    const wantShort = Math.min(short, capShort);
+    const curLong = Math.max(s.width || 0, s.height || 0);
+    if (curLong >= wantLong - 8) return;
+    const w = portrait ? wantShort : wantLong;
+    const h = portrait ? wantLong : wantShort;
+    const fps = profile === 'slow' ? { ideal: 240 } : { ideal: 30 };
+    for (const c of [{ width: { exact: w }, height: { exact: h }, frameRate: fps }, { width: { ideal: w }, height: { ideal: h }, frameRate: fps }]) {
+      try {
+        await t.applyConstraints(c);
+        const now = t.getSettings();
+        if (Math.max(now.width || 0, now.height || 0) > curLong) break;
+      } catch { /* try the next form */ }
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  } catch { /* keep what we have */ }
 }
 
 function readCapabilities() {
@@ -366,11 +397,13 @@ function updateZoomInfo() {
 const even = (n) => Math.max(2, Math.floor(n / 2) * 2);
 
 function outputSize(vw, vh) {
-  const q = QUALITIES[state.quality];
+  // Slow motion writes several frames per camera frame, which phone encoders can only do up to 1080p.
+  const q = state.mode === 'slow' && state.quality === '4k' ? QUALITIES[1080] : QUALITIES[state.quality];
   const landscape = vw >= vh;
   const maxW = landscape ? q.long : q.short;
   const maxH = landscape ? q.short : q.long;
-  const s = Math.min(1, maxW / vw, maxH / vh);
+  // Always the chosen quality (4K by default): a smaller camera stream is upscaled on the GPU.
+  const s = Math.min(maxW / vw, maxH / vh);
   return { w: even(vw * s), h: even(vh * s) };
 }
 
@@ -456,14 +489,32 @@ function tick(now, meta) {
 let stageSize = { w: 0, h: 0 };
 function measureStage() {
   const r = stage.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  stageSize = { w: Math.max(320, r.width * dpr), h: Math.max(240, r.height * dpr) };
+  const dpr = Math.min(window.devicePixelRatio || 1, 4);
+  // A hidden stage measures 0x0: never keep that, measure again on the next frame.
+  stageSize = r.width > 0 && r.height > 0 ? { w: r.width * dpr, h: r.height * dpr } : { w: 0, h: 0 };
 }
 window.addEventListener('resize', measureStage);
 window.addEventListener('orientationchange', () => setTimeout(measureStage, 300));
 
+// The preview is drawn at the full output resolution (4K). Only if a phone cannot keep up
+// is it drawn at the screen's own pixel resolution, which looks the same on that screen.
+const previewPerf = { full: true, frames: 0, since: 0 };
+function checkPreviewSpeed(now) {
+  if (!previewPerf.full || state.rec) { previewPerf.since = 0; return; }
+  if (!previewPerf.since) { previewPerf.since = now; previewPerf.frames = 0; return; }
+  previewPerf.frames++;
+  const elapsed = now - previewPerf.since;
+  if (elapsed < 3000) return;
+  const fps = (previewPerf.frames * 1000) / elapsed;
+  if (fps < Math.min(18, (state.trackFps || 30) * 0.6)) previewPerf.full = false;
+  previewPerf.since = now;
+  previewPerf.frames = 0;
+}
+
 function previewSize(out) {
+  if (previewPerf.full) return out;
   if (!stageSize.w) measureStage();
+  if (!stageSize.w) return out;
   const s = Math.min(1, stageSize.w / out.w, stageSize.h / out.h);
   return { w: even(out.w * s), h: even(out.h * s) };
 }
@@ -506,6 +557,7 @@ function processFrame(now, meta) {
     req.resolve({ W, H, blob: canvasToBlob(canvas, 'image/jpeg', 0.95), thumb: thumbFromSource(canvas, W, H).catch(() => null) });
   }
   if (++loop.frames % 6 === 0) drawMinimap(vw, vh, crop);
+  checkPreviewSpeed(now);
 }
 
 function drawMinimap(vw, vh, crop) {
@@ -831,10 +883,100 @@ function flash() {
   f.classList.add('go');
 }
 
+// Full-sensor photo: ImageCapture returns the camera's native still resolution (often 12-50 MP),
+// far more detail than a video frame. The zoomed area is cut from it, kept at native size
+// when it is larger than the output, otherwise upscaled on the GPU to the output size.
+let photoRenderer = null;
+const MAX_PHOTO_PIXELS = 64e6;
+
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+}
+
+async function takeSensorPhoto() {
+  const t = state.track;
+  if (typeof window.ImageCapture !== 'function' || !t || t.readyState !== 'live') return null;
+  // Only when no hardware zoom is active: the still must show exactly what the preview shows.
+  if (state.hw.supported && Math.abs(state.hw.applied - 1) > 0.05) return null;
+  const vw = renderer.sourceW;
+  const vh = renderer.sourceH;
+  const crop = { ...state.crop };
+  const out = { ...state.out };
+  if (!vw || !vh || !out.w) return null;
+  const ic = new ImageCapture(t);
+  let settings;
+  try {
+    const pc = await withTimeout(ic.getPhotoCapabilities(), 3000);
+    if (pc && pc.imageWidth && pc.imageWidth.max) settings = { imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max };
+  } catch { settings = undefined; }
+  const raw = await withTimeout(settings ? ic.takePhoto(settings).catch(() => ic.takePhoto()) : ic.takePhoto(), 10000);
+  let bmp;
+  try { bmp = await createImageBitmap(raw, { imageOrientation: 'from-image' }); } catch { bmp = await createImageBitmap(raw); }
+  try {
+    const pw = bmp.width;
+    const ph = bmp.height;
+    if ((pw >= ph) !== (vw >= vh) || pw * ph <= vw * vh) return null; // rotated or no gain: use the video frame
+    // The video picture is the centred part of the still with the video's aspect ratio.
+    const va = vw / vh;
+    const rw = pw / ph > va ? ph * va : pw;
+    const rh = rw / va;
+    const sx = (pw - rw) / 2 + crop.x * rw;
+    const sy = (ph - rh) / 2 + crop.y * rh;
+    const sw = crop.w * rw;
+    const sh = crop.h * rh;
+    let nw = Math.round(sw);
+    let nh = Math.round(sh);
+    const k = Math.min(1, Math.sqrt(MAX_PHOTO_PIXELS / (nw * nh)));
+    nw = even(nw * k);
+    nh = even(nh * k);
+    const cut = document.createElement('canvas');
+    cut.width = nw;
+    cut.height = nh;
+    const ctx = cut.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, nw, nh);
+    let final = cut;
+    if (nw < out.w) {
+      if (!photoRenderer) photoRenderer = new Renderer(document.createElement('canvas'));
+      if (photoRenderer.kind === 'webgl') {
+        photoRenderer.setSize(out.w, out.h);
+        if (photoRenderer.upload(cut, nw, nh)) {
+          photoRenderer.draw({ crop: { x: 0, y: 0, w: 1, h: 1 }, sharp: sharpFor(out.w / nw) });
+          final = photoRenderer.canvas;
+        }
+      }
+      if (final === cut) {
+        const up = document.createElement('canvas');
+        up.width = out.w;
+        up.height = out.h;
+        const uctx = up.getContext('2d');
+        uctx.imageSmoothingQuality = 'high';
+        uctx.drawImage(cut, 0, 0, out.w, out.h);
+        final = up;
+      }
+    }
+    const W = final.width;
+    const H = final.height;
+    const thumb = thumbFromSource(final, W, H).catch(() => null);
+    const blob = await canvasToBlob(final, 'image/jpeg', 0.95);
+    return { W, H, blob, thumb: await thumb };
+  } finally {
+    bmp.close && bmp.close();
+  }
+}
+
 async function takePhoto() {
   if (!state.track || !loop.running) return;
   flash();
+  state.busy = true;
   try {
+    let sensor = null;
+    try { sensor = await takeSensorPhoto(); } catch (err) { console.warn('full-sensor photo unavailable', err); }
+    if (sensor) {
+      await saveMedia({ kind: 'photo', mode: 'photo', mime: 'image/jpeg', blob: sensor.blob, thumb: sensor.thumb, width: sensor.W, height: sensor.H });
+      toast(`عکس ذخیره شد (${ltr(`${(sensor.W * sensor.H / 1e6).toFixed(1)} MP · ${sensor.W}×${sensor.H}`)})`, 2200);
+      return;
+    }
     const shot = await new Promise((resolve, reject) => {
       state.photoRequest = { resolve };
       setTimeout(() => {
@@ -848,6 +990,8 @@ async function takePhoto() {
   } catch (err) {
     console.error(err);
     toast('گرفتن عکس ناموفق بود.');
+  } finally {
+    state.busy = false;
   }
 }
 
