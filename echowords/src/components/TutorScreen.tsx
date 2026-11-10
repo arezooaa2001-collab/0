@@ -221,7 +221,7 @@ export function TutorScreen({ lib, accent, onOpenSettings }: { lib: Library; acc
   if (view !== 'chat')
     return <GameStudio provider={provider} start={view} initialIdea={studioIdea} onBack={() => { setStudioIdea(''); setView('chat'); }} onOpenSettings={onOpenSettings} />;
 
-  const providerName = provider === 'claude' ? 'Claude' : provider === 'openai' ? 'ChatGPT' : provider === 'custom' ? t.aiCustomShort : 'Gemini';
+  const providerName = provider === 'claude' || provider === 'anthropic' ? 'Claude' : provider === 'openai' ? 'ChatGPT' : provider === 'custom' ? t.aiCustomShort : 'Gemini';
 
   return (
     <section className="screen tutor-screen">

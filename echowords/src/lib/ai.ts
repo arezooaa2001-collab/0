@@ -5,9 +5,10 @@
 //   2. Google Gemini or OpenAI ChatGPT with the family's own API key, saved only on this device.
 import { decodeTo16kMono, recognizeSpeech } from './asr';
 import { ALL_LANGS, isLangCode, type LangCode } from './langs';
+import Anthropic from '@anthropic-ai/sdk';
 import { nativeHasHttp, nativeHttp } from './native';
 
-export type Provider = 'claude' | 'gemini' | 'openai' | 'custom';
+export type Provider = 'claude' | 'anthropic' | 'gemini' | 'openai' | 'custom';
 
 export interface TutorItem {
   text: string;
@@ -42,7 +43,8 @@ Reply ONLY with JSON, no other text, exactly in this shape:
 If the child's question is an audio recording, also add "heard": exactly what the child said, in the language they spoke.`;
 
 // ── Settings (kept inside the app only) ───────────────────────────────────
-export type KeyProvider = 'gemini' | 'openai' | 'custom';
+/** 'anthropic' = Claude through the Claude API with the family's own key (no claude.ai page needed). */
+export type KeyProvider = 'anthropic' | 'gemini' | 'openai' | 'custom';
 
 export interface AiSettings {
   provider: KeyProvider;
@@ -53,7 +55,7 @@ export interface AiSettings {
 }
 
 const KEY = 'echowords-ai';
-export const DEFAULT_MODELS: Record<KeyProvider, string> = { gemini: 'gemini-2.5-flash', openai: 'gpt-4o-mini', custom: 'gpt-4o-mini' };
+export const DEFAULT_MODELS: Record<KeyProvider, string> = { anthropic: 'claude-opus-5-5', gemini: 'gemini-2.5-flash', openai: 'gpt-4o-mini', custom: 'gpt-4o-mini' };
 
 /** "https://host/v1/" or "https://host/v1/chat/completions" → "https://host/v1" */
 export function normalizeBaseUrl(raw: string): string | null {
@@ -69,7 +71,7 @@ export function normalizeBaseUrl(raw: string): string | null {
 export function readAiSettings(): AiSettings | null {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? 'null');
-    if (v && ['gemini', 'openai', 'custom'].includes(v.provider) && typeof v.key === 'string' && v.key.trim()) {
+    if (v && ['anthropic', 'gemini', 'openai', 'custom'].includes(v.provider) && typeof v.key === 'string' && v.key.trim()) {
       const provider = v.provider as KeyProvider;
       const baseUrl = provider === 'custom' ? normalizeBaseUrl(String(v.baseUrl ?? '')) : null;
       if (provider === 'custom' && !baseUrl) return null;
@@ -171,6 +173,7 @@ export type AiErrorCode =
   | 'unreachable' // this internet cannot reach the service at all (filtering, no connection)
   | 'timeout'
   | 'network'
+  | 'refused' // Claude declined this request (safety)
   | 'other';
 
 export class AiError extends Error {
@@ -459,6 +462,35 @@ export async function askTutor(history: ChatTurn[], image?: Blob | null, signalO
   if (!st) throw new AiError('no_provider', 'No AI configured');
   const imageB64 = image ? await blobToBase64(image) : null;
   const recent = history.slice(-10);
+  if (st.provider === 'anthropic') {
+    while (recent[0]?.role === 'assistant') recent.shift(); // a conversation starts with the child
+    const messages: Anthropic.Beta.BetaMessageParam[] = recent.map((h, i) =>
+      image && imageB64 && i === recent.length - 1 && h.role === 'user'
+        ? {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: (image.type || 'image/jpeg') as 'image/jpeg', data: imageB64 } },
+              { type: 'text', text: h.text },
+            ],
+          }
+        : { role: h.role, content: h.text },
+    );
+    const msg = await claudeApi(st, timeoutMs() * 2, opts.signal, (useEffort, useFallback, client) =>
+      client.beta.messages.create(
+        {
+          model: st.model,
+          max_tokens: opts.live ? 2000 : 4000,
+          system: instructions(opts.live),
+          messages,
+          // A chat answer for a child: quick thinking is enough, and it answers sooner.
+          ...(useEffort ? { output_config: { effort: 'low' as const } } : {}),
+          ...(useFallback ? { betas: [CLAUDE_FALLBACK_BETA], fallbacks: 'default' as const } : {}),
+        },
+        { signal: opts.signal },
+      ),
+    );
+    return parseTutorReply(claudeText(msg));
+  }
   if (st.provider === 'gemini') {
     const contents = recent.map((h, i) => ({
       role: h.role === 'user' ? 'user' : 'model',
@@ -532,7 +564,7 @@ export async function toWav(audio: Blob): Promise<Blob> {
  */
 export async function askTutorByVoice(history: ChatTurn[], audio: Blob, opts: AskOptions = {}, image: Blob | null = null): Promise<TutorReply> {
   const st = (await getClaude()) ? null : readAiSettings();
-  if (!st || st.provider === 'custom') {
+  if (!st || st.provider === 'custom' || st.provider === 'anthropic') {
     // Claude, a custom service, or nothing configured: understand the speech on this device, then ask with text.
     const heard = (await recognizeSpeech(audio, 'auto', ALL_LANGS)).trim();
     if (!heard) throw new AiError('other', 'nothing heard');
@@ -617,6 +649,27 @@ export async function askRaw(system: string, turns: ChatTurn[], opts: RawOptions
   const st = readAiSettings();
   if (!st) throw new AiError('no_provider', 'No AI configured');
   let truncated = false;
+  if (st.provider === 'anthropic') {
+    const messages: Anthropic.Beta.BetaMessageParam[] = turns.map((t) => ({ role: t.role, content: t.text }));
+    const complex = opts.tier === 'complex';
+    const msg = await claudeApi(st, opts.timeoutMs, opts.signal, (useEffort, useFallback, client) => {
+      // Streamed: long answers (a whole game) never hit a request time limit, and progress shows as it is written.
+      const stream = client.beta.messages.stream(
+        {
+          model: st.model,
+          max_tokens: complex ? 64_000 : Math.max(opts.maxTokens, 4000),
+          system,
+          messages,
+          ...(useEffort ? { output_config: { effort: complex ? ('high' as const) : ('low' as const) } } : {}),
+          ...(useFallback ? { betas: [CLAUDE_FALLBACK_BETA], fallbacks: 'default' as const } : {}),
+        },
+        { signal: opts.signal },
+      );
+      stream.on('text', (_delta, snapshot) => opts.onProgress?.(snapshot.length));
+      return stream.finalMessage();
+    });
+    return { text: claudeText(msg), truncated: msg.stop_reason === 'max_tokens' };
+  }
   if (st.provider === 'gemini') {
     const build = ({ model, flags }: Attempt): Req => ({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -658,4 +711,95 @@ export async function askRaw(system: string, turns: ChatTurn[], opts: RawOptions
   const text = await generate({ ...st }, build, read, st.provider === 'custom' ? [] : OPENAI_MODELS, opts.signal, opts.timeoutMs);
   opts.onProgress?.(text.length);
   return { text, truncated };
+}
+
+// ── Claude through the Claude API (the family's own key; works in the Android app) ──
+/** On a safety decline, the API re-runs the request on a fallback model by itself. */
+const CLAUDE_FALLBACK_BETA = 'server-side-fallback-2026-07-01' as const;
+
+/**
+ * fetch for the SDK: the WebView's own fetch (it streams). In the Android app, if that cannot
+ * connect at all, the request is sent once more through Android's own HTTPS (whole answer at once).
+ */
+function appFetch(nativeTimeoutMs: number) {
+  return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    aiLog(`→ ${host(url)} (browser)`);
+    try {
+      const res = await fetch(input, init);
+      aiLog(`← HTTP ${res.status}`);
+      return res;
+    } catch (e) {
+      if (init?.signal?.aborted || !nativeHasHttp()) throw e;
+      aiLog(`✗ browser: ${String((e as Error)?.message ?? e)} → Android`);
+      const headers: Record<string, string> = {};
+      new Headers(init?.headers).forEach((v, k) => {
+        headers[k] = v;
+      });
+      const text = typeof init?.body === 'string' ? init.body : null;
+      const r = await nativeHttp(init?.method ?? 'GET', url, headers, text === null ? null : new TextEncoder().encode(text), nativeTimeoutMs, init?.signal ?? undefined);
+      if (!r.ok) throw new TypeError(`${r.error} ${r.detail ?? ''}`.trim());
+      aiLog(`← HTTP ${r.status} (Android)`);
+      const streamed = !!text && /"stream"\s*:\s*true/.test(text) && r.status < 300;
+      return new Response(r.body, { status: r.status, headers: { 'content-type': streamed ? 'text/event-stream' : 'application/json' } });
+    }
+  };
+}
+
+/**
+ * One Claude API call with the family's key. Some models refuse optional settings (effort,
+ * server-side fallbacks): those are switched off and the request repeated. Errors become AiError.
+ */
+async function claudeApi<T>(
+  st: AiSettings,
+  ms: number,
+  signal: AbortSignal | undefined,
+  call: (useEffort: boolean, useFallback: boolean, client: Anthropic) => Promise<T>,
+): Promise<T> {
+  const client = new Anthropic({ apiKey: st.key, dangerouslyAllowBrowser: true, timeout: ms, maxRetries: 1, fetch: appFetch(ms) });
+  let useEffort = true;
+  let useFallback = true;
+  for (let attempt = 0; ; attempt++) {
+    aiLog(`claude-api ${st.model}${attempt ? ' (again)' : ''}`);
+    try {
+      return await call(useEffort, useFallback, client);
+    } catch (e) {
+      if (e instanceof Anthropic.BadRequestError && attempt < 2) {
+        const m = String(e.message);
+        if (useFallback && /fallback/i.test(m)) {
+          useFallback = false;
+          continue;
+        }
+        if (useEffort && /effort|output_config/i.test(m)) {
+          useEffort = false;
+          continue;
+        }
+      }
+      if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
+      throw claudeFailure(e, st.model);
+    }
+  }
+}
+
+/** The SDK's typed errors → the app's own reasons (most specific first). */
+function claudeFailure(e: unknown, model: string): Error {
+  const msg = String((e as Error)?.message ?? e).replace(/\s+/g, ' ').slice(0, 220);
+  const body = JSON.stringify((e as { error?: unknown })?.error ?? msg);
+  if (e instanceof Anthropic.APIUserAbortError) return new DOMException('cancelled', 'AbortError');
+  if (e instanceof Anthropic.APIConnectionTimeoutError) return new AiError('timeout', msg);
+  if (e instanceof Anthropic.APIConnectionError) return new AiError('network', msg);
+  if (e instanceof Anthropic.AuthenticationError) return new AiError('bad_key', `HTTP 401: ${msg}`);
+  if (e instanceof Anthropic.PermissionDeniedError) return classify(403, body) ?? new AiError('denied', `HTTP 403: ${msg}`);
+  if (e instanceof Anthropic.NotFoundError) return new AiError('other', `HTTP 404: model "${model}" not found — ${msg}`);
+  if (e instanceof Anthropic.RateLimitError) return new AiError('quota', `HTTP 429: ${msg}`);
+  if (e instanceof Anthropic.BadRequestError) return classify(400, body) ?? new AiError('other', `HTTP 400: ${msg}`);
+  if (e instanceof Anthropic.APIError) return classify(e.status ?? 0, body) ?? new AiError('other', `HTTP ${e.status}: ${msg}`);
+  return e instanceof Error ? e : new AiError('other', msg);
+}
+
+/** The answer's text. A safety decline (after any fallback) is reported, never shown as an empty answer. */
+function claudeText(msg: Anthropic.Beta.BetaMessage): string {
+  if (msg.stop_reason === 'refusal') throw new AiError('refused', `refusal${msg.stop_details?.category ? `: ${msg.stop_details.category}` : ''}`);
+  aiLog(`← ${msg.model}, ${msg.stop_reason}`);
+  return msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
 }

@@ -5,6 +5,7 @@ import { t } from '../lib/strings';
 import { useToast } from './Toast';
 
 const PROVIDERS: { id: KeyProvider; label: string }[] = [
+  { id: 'anthropic', label: 'Claude (Anthropic)' },
   { id: 'openai', label: 'ChatGPT (OpenAI)' },
   { id: 'gemini', label: 'Google Gemini' },
   { id: 'custom', label: t.aiCustom },
@@ -15,9 +16,9 @@ export function AiSettingsCard() {
   const toast = useToast();
   const saved = readAiSettings();
   const [inClaude, setInClaude] = useState(false);
-  const [provider, setProvider] = useState<KeyProvider>(saved?.provider ?? 'openai');
+  const [provider, setProvider] = useState<KeyProvider>(saved?.provider ?? 'anthropic');
   const [key, setKey] = useState(saved?.key ?? '');
-  const [model, setModel] = useState(saved?.model ?? DEFAULT_MODELS[saved?.provider ?? 'openai']);
+  const [model, setModel] = useState(saved?.model ?? DEFAULT_MODELS[saved?.provider ?? 'anthropic']);
   const [baseUrl, setBaseUrl] = useState(saved?.baseUrl ?? '');
   const [hasSaved, setHasSaved] = useState(!!saved);
   const [testing, setTesting] = useState(false);
@@ -33,7 +34,7 @@ export function AiSettingsCard() {
     const r = await testConnection();
     setTesting(false);
     if (r.ok) {
-      const name = r.provider === 'claude' ? 'Claude' : r.provider === 'openai' ? 'ChatGPT' : r.provider === 'gemini' ? 'Gemini' : t.aiCustomShort;
+      const name = r.provider === 'claude' || r.provider === 'anthropic' ? 'Claude' : r.provider === 'openai' ? 'ChatGPT' : r.provider === 'gemini' ? 'Gemini' : t.aiCustomShort;
       setTest({ ok: true, text: t.aiTestOk(name, new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(r.ms / 1000)) });
     } else setTest({ ok: false, text: `${t.aiTestFail} ${aiErrorText(r.error)}`, detail: aiErrorDetail(r.error) });
   };
@@ -69,6 +70,7 @@ export function AiSettingsCard() {
           </button>
         ))}
       </div>
+      {provider === 'anthropic' && <p className="meta ai-help">{t.aiAnthropicHelp}</p>}
       {provider === 'custom' && (
         <label className="field">
           <span>{t.aiBaseUrl}</span>

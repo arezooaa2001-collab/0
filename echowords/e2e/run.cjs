@@ -136,7 +136,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۲۱/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۲۲/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -394,22 +394,29 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
       throw new DOMException('denied', 'SecurityError');
     };
   };
+  // Served over http: the test browser does not reliably keep localStorage of file:// pages when it is closed.
+  const httpSrv = require('http').createServer((_q, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(fs.readFileSync(new URL(FILE))); });
+  await new Promise((r) => httpSrv.listen(0, '127.0.0.1', r));
+  const httpFile = `http://127.0.0.1:${httpSrv.address().port}/echowords.html`;
   let ctxL = await chromium.launchPersistentContext(lsDir, lsOpts);
   await ctxL.addInitScript(blockIdb);
   page = ctxL.pages()[0];
-  await page.goto(FILE);
+  await page.goto(httpFile);
   await page.locator('.hint-field input').fill('dog');
   await page.locator('.save-typed').click();
   await page.locator('.saved-card', { hasText: 'dog' }).waitFor({ timeout: 5000 });
   await page.waitForTimeout(6000); // Chromium writes localStorage to disk up to ~5 s later; the test closes the browser abruptly
+  await page.close({ runBeforeUnload: true }); // closing the tab lets Chromium write localStorage out
+  await new Promise((r) => setTimeout(r, 1000));
   await ctxL.close();
   ctxL = await chromium.launchPersistentContext(lsDir, lsOpts);
   await ctxL.addInitScript(blockIdb);
   page = ctxL.pages()[0];
-  await page.goto(FILE);
+  await page.goto(httpFile);
   await page.locator('.tabbar button').nth(1).click();
   await page.locator('.word-card .word-text', { hasText: 'dog' }).waitFor({ timeout: 20000 });
   check('IndexedDB blocked: second storage keeps «dog» after closing', true);
+  httpSrv.close();
   await ctxL.close();
 
   // 9c. A page without Web Crypto (crypto.subtle / randomUUID are missing outside https)
@@ -556,7 +563,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('tutor without a key: translation is ready, free conversation explained', await page.getByText('ترجمه بدون کلید آماده است').isVisible());
   await page.locator('.tutor-input textarea').fill('سلام');
   await page.getByRole('button', { name: /بفرست/ }).click();
-  await page.locator('.bubble.assistant.error', { hasText: 'کلید رایگان Gemini' }).waitFor({ timeout: 5000 });
+  await page.locator('.bubble.assistant.error', { hasText: 'کلید Claude' }).waitFor({ timeout: 5000 });
   check('no key: a normal message is NOT translated; it explains how to turn on free conversation', trRequests.length === 0);
   await page.locator('.tutor-input textarea').fill('سلام دوست من / انگلیسی');
   await page.getByRole('button', { name: /بفرست/ }).click();
@@ -690,7 +697,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
   await page.locator('.bubble.assistant.error').last().getByRole('button', { name: /کپی گزارش/ }).click();
   const reportText = await page.locator('.report-text').last().innerText();
-  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v21/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
+  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v22/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
   fastReqs.length = 0;
   fastReqs.length = 0;
   await page.locator('.tutor-input textarea').fill('«سیب» را به «انگلیسی» ترجمه کن');
@@ -790,6 +797,69 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.locator('.bubble.assistant', { hasText: 'سلام از سرویس دلخواه' }).waitFor({ timeout: 10000 });
   check('a custom OpenAI-compatible service works', true);
   await ctxW.close();
+
+  // 13c. Claude as the tutor inside the app itself (Claude API with the family's key; no claude.ai page)
+  const claudeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-claudeapi-'));
+  const ctxK = await chromium.launchPersistentContext(claudeDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxK.addInitScript(() => { try { localStorage.setItem('echowords-welcomed', '1'); } catch {} });
+  const claudeReqs = [];
+  const kCors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+  const kMsg = (text, extra = {}) => ({ id: 'msg_e2e', type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [{ type: 'text', text }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 5 }, ...extra });
+  await ctxK.route('https://api.anthropic.com/**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: kCors });
+    const body = JSON.parse(req.postData() || '{}');
+    claudeReqs.push({ headers: req.headers(), body });
+    if (body.stream) {
+      const game = '<!DOCTYPE html><html><head><title>بازی Claude</title></head><body><button id="b" style="font-size:40px">🐱</button><div id="s">0</div><script>let n=0;b.onclick=()=>{s.textContent=++n};</script></body></html>';
+      const parts = [game.slice(0, 60), game.slice(60, 140), game.slice(140)];
+      const ev = [
+        { type: 'message_start', message: kMsg('', { content: [], stop_reason: null }) },
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+        ...parts.map((t) => ({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: t } })),
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 300 } },
+        { type: 'message_stop' },
+      ];
+      return route.fulfill({ status: 200, headers: { ...kCors, 'content-type': 'text/event-stream' }, body: ev.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('') });
+    }
+    const last = body.messages.at(-1).content;
+    const reply = /REFUSE/.test(last)
+      ? kMsg('', { content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: null, explanation: '' } })
+      : kMsg(JSON.stringify({ reply: /سلام/.test(last) ? 'سلام دوست من! من Claude هستم 😊' : 'آسمان آبی است چون نور آبی بیشتر پخش می‌شود.', items: [] }));
+    return route.fulfill({ status: 200, headers: { ...kCors, 'content-type': 'application/json' }, body: JSON.stringify(reply) });
+  });
+  page = ctxK.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  check('Settings offers «Claude (Anthropic)» first, chosen by default', (await page.locator('.ai-settings .chip').first().textContent()).includes('Claude') && (await page.locator('.ai-settings .chip.on').textContent()).includes('Claude'));
+  check('the default model is Claude Opus 5.5', (await page.locator('.ai-settings .ai-model').inputValue()) === 'claude-opus-5-5');
+  await page.locator('.ai-settings input[type=password]').fill('sk-ant-e2e-key');
+  await page.getByRole('button', { name: /ذخیره کلید/ }).click();
+  await page.getByText('Claude جواب داد').waitFor({ timeout: 15000 });
+  check('«امتحان اتصال» reaches Claude with the key', claudeReqs.length >= 1 && claudeReqs[0].headers.authorization === 'Bearer sk-ant-e2e-key' && claudeReqs[0].body.model === 'claude-opus-5-5');
+  await page.getByRole('button', { name: /معلم/ }).click();
+  check('the tutor says it works with Claude', await page.getByText('با Claude کار می‌کند').first().isVisible());
+  await page.locator('.tutor-input textarea').fill('چرا آسمان آبی است؟');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant .answer-box', { hasText: 'نور آبی' }).waitFor({ timeout: 15000 });
+  const kq = claudeReqs.at(-1).body;
+  check('the tutor is Claude, inside the app (Claude API: Opus 5.5, low effort, server-side fallback)', kq.model === 'claude-opus-5-5' && kq.output_config?.effort === 'low' && kq.fallbacks === 'default' && /server-side-fallback-2026-07-01/.test(claudeReqs.at(-1).headers['anthropic-beta']) && /Talk naturally/.test(kq.system));
+  await page.locator('.tutor-input textarea').fill('REFUSE this');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.bubble.assistant.error', { hasText: 'یک سؤال دیگر بپرس' }).waitFor({ timeout: 15000 });
+  check('if Claude declines, the child gets a kind message (not an empty answer)', true);
+  await page.locator('.tutor-input textarea').fill('/ABC');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.getByRole('button', { name: /کدنویسی با هوش مصنوعی/ }).click();
+  await page.locator('.studio-input textarea').first().fill('یک بازی با گربه');
+  await page.getByRole('button', { name: /بساز/ }).click();
+  await page.frameLocator('iframe.game-frame').locator('#b').waitFor({ timeout: 15000 });
+  await page.frameLocator('iframe.game-frame').locator('#b').click();
+  const gq = claudeReqs.at(-1).body;
+  check('Claude builds games too: streamed, high effort, room for a whole game', gq.stream === true && gq.output_config?.effort === 'high' && gq.max_tokens === 64000 && /HTML5 game developer/.test(gq.system) && (await page.frameLocator('iframe.game-frame').locator('#s').textContent()) === '1');
+  await page.screenshot({ path: `${OUT}/19-claude-tutor-game.png` });
+  await ctxK.close();
 
   // 14. Inside Claude: the tutor uses Claude with no key at all (claude.use('sample') simulated)
   const clDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-claude-'));
@@ -986,7 +1056,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
   check('app: if Android\'s networking fails, the WebView\'s own network is tried and the answer comes', (await page.locator('.bubble.assistant .answer-box').count()) === 5);
   await page.evaluate(() => { window.__nativeHttpFails = false; });
-  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۱').first().isVisible());
+  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۲').first().isVisible());
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
   await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
 

@@ -23,6 +23,8 @@ export function aiErrorText(e: unknown): string {
       return t.aiTimeout;
     case 'no_provider':
       return t.aiNoProvider;
+    case 'refused':
+      return t.aiRefused;
     default:
       return t.aiOther;
   }

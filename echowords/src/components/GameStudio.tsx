@@ -19,7 +19,7 @@ import { t } from '../lib/strings';
 import { useToast } from './Toast';
 
 /** Whatever happens, one build ends within this time. */
-const BUILD_DEADLINE_MS = (globalThis as { __ECHOWORDS_GAME_DEADLINE__?: number }).__ECHOWORDS_GAME_DEADLINE__ ?? 300_000;
+const BUILD_DEADLINE_MS = (globalThis as { __ECHOWORDS_GAME_DEADLINE__?: number }).__ECHOWORDS_GAME_DEADLINE__ ?? 480_000;
 
 type Stage = 'improve' | 'build' | 'change';
 
