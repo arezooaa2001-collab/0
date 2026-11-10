@@ -127,6 +127,15 @@ body.flying #t-crouch{display:none}
 /* mods, effects, boss bar, console */
 .mods-panel{width:min(1000px,96vw);max-width:96vw;max-height:92vh;display:flex;flex-direction:column;gap:8px;overflow:hidden}
 textarea.inp,#chat-in{font-family:inherit}
+.ed-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:16px}
+.ed-sec{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.03)}
+.ed-main{border-color:rgba(63,169,245,.55);background:rgba(63,169,245,.07)}
+.ed-h{font-weight:800;margin-bottom:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.ed-h span{font-weight:600;font-size:12px;color:var(--dim)}
+.ed-locked{background:#060b16;border:1px dashed rgba(255,255,255,.25);border-radius:9px;padding:8px 10px;font-size:13px;line-height:1.9;color:#d8e2f5;user-select:text;white-space:pre-wrap}
+.ed-list{margin:0 0 8px;padding-inline-start:26px;font-size:13px;line-height:1.9;list-style-type:persian}
+.ed-list li.undone{opacity:.55;text-decoration:line-through}
+.ed-none{font-size:13px;color:var(--dim);margin-bottom:8px}
 #modbar{position:absolute;right:max(10px,env(safe-area-inset-right));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:auto;max-height:70vh;overflow:auto}
 body.touchui #modbar{top:calc(max(10px,env(safe-area-inset-top)) + 70px);transform:none;right:auto;left:calc(max(10px,env(safe-area-inset-left)) + 150px);flex-direction:row;flex-wrap:wrap;max-width:46vw;align-items:flex-start}
 .modbtn{display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:rgba(20,26,40,.72);color:#fff;font:600 13px Vazirmatn,Tahoma,sans-serif;cursor:pointer;touch-action:none;text-shadow:0 1px 2px #000}
@@ -2904,7 +2913,7 @@ function setChunkMesh(c, kind, geo) {
 }
 /* ============================ PHYSICS / PLAYER / INPUT ============================ */
 const SETTINGS = {
-  v: 2, preset: null, viewDist: 0, renderScale: 1, fov: 72, sens: 1, touchSens: 1, invertY: false, autoJump: isTouchDevice, viewBob: true,
+  v: 2, preset: null, viewDist: 0, renderScale: 1, fov: 70, sens: 1, touchSens: 1, invertY: false, autoJump: isTouchDevice, viewBob: true,
   ghost: true, showFps: true, showCoords: true, minimap: true, ctlSize: 1, ctlOpacity: 0.55, volume: 0.8, music: 0.35, sfx: 1, autoPerf: true, touchUI: isTouchDevice, dayLength: 20,
 };
 function loadSettings() { try { const s = JSON.parse(localStorage.getItem('mokab_settings') || '{}'); if (s.v !== 2) { delete s.preset; s.v = 2; } Object.assign(SETTINGS, s); } catch (e) { /* storage unavailable */ } }
@@ -3297,7 +3306,11 @@ function updateCamera(alpha, dt) {
   if (roll) cam.rotateZ(roll);
   if (p.hurt > 0) cam.rotateZ(Math.sin(p.hurt * 9) * 0.04 * p.hurt);
   if (GAME.shake > 0) { GAME.shake = Math.max(0, GAME.shake - dt * 1.5); const k = GAME.shake * 0.05; cam.rotateX((Math.random() - 0.5) * k); cam.rotateY((Math.random() - 0.5) * k); }
-  const targetFov = SETTINGS.fov * (p.sprinting ? 1.1 : 1) * (p.flying && p.sprinting ? 1.08 : 1) * (Items.bowDraw > 0 ? 1 - Items.bowDraw * 0.15 : 1);
+  // keep the horizontal view like a 16:9 screen: very wide phones otherwise see ~120° and everything looks tiny
+  let baseFov = SETTINGS.fov; const asp = cam.aspect || 16 / 9; const D2R = Math.PI / 180;
+  if (asp > 16 / 9) baseFov = 2 * Math.atan(Math.tan(baseFov * D2R / 2) * (16 / 9) / asp) / D2R;
+  else if (asp < 1) baseFov = Math.min(100, 2 * Math.atan(Math.tan(baseFov * D2R / 2) / asp) / D2R);
+  const targetFov = baseFov * (p.sprinting ? 1.1 : 1) * (p.flying && p.sprinting ? 1.08 : 1) * (Items.bowDraw > 0 ? 1 - Items.bowDraw * 0.15 : 1);
   cam.fov = lerp(cam.fov, targetFov, 1 - Math.exp(-10 * dt)); cam.updateProjectionMatrix();
   cam.updateMatrixWorld();
 }
@@ -3924,6 +3937,7 @@ function buildModel(spec, scale = 1, key = null) {
   body.scale.setScalar(scale);
   return { root, body, parts, mat, mats };
 }
+const MODEL_SCALE = { spider: 1.4, crab: 1.15 };
 const MODEL_SPECS = {
   cow: (v) => [
     { n: 'body', p: [0, 12, 0], b: [[-6, 0, -9, 12, 10, 18, 0x5b3b24], [6, 2, -3, 0.3, 5, 6, 0xeeeeee], [-6.3, 4, 1, 0.3, 4, 5, 0xeeeeee], [-3, 9.9, -2, 5, 0.3, 6, 0xeeeeee], [-1.5, -1, 3, 3, 1, 3, 0xe6a3a3]] },
@@ -4040,7 +4054,7 @@ class Mob {
     if (this.type === 'horse') { const cols = [[0x8b5a2b, 0x6b4422], [0x3a2a1e, 0x2a1a10], [0xd8c8a8, 0xb8a888], [0x6a6a6a, 0x4a4a4a]]; v.col = cols[this.variant % 4][0]; v.col2 = cols[this.variant % 4][1]; }
     if (this.type === 'fish') { const fc = [[0xe08030, 0xf0f0f0], [0x4080d0, 0xf0e040], [0xd04040, 0xffffff], [0x60c060, 0x305030]]; v.col = fc[this.variant % 4][0]; v.col2 = fc[this.variant % 4][1]; }
     if (this.model) for (const mt of this.model.mats) mt.dispose();
-    this.model = buildModel(MODEL_SPECS[this.type](v), (this.baby ? 0.55 : 1) * (this.mscale || 1), this.type + JSON.stringify(v)); this.mesh = this.model.root;
+    this.model = buildModel(MODEL_SPECS[this.type](v), (this.baby ? 0.55 : 1) * (this.mscale || 1) * (MODEL_SCALE[this.type] || 1), this.type + JSON.stringify(v)); this.mesh = this.model.root;
     if (this.giant) { const c = this.giant.color; if (c) { const col = [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255]; for (const mt of this.model.mats) mt.uniforms.uTintE.value.set(0.4 + col[0] * 0.9, 0.4 + col[1] * 0.9, 0.4 + col[2] * 0.9); } if (this.giant.name) { const tag = makeNameTag(this.giant.name); tag.position.y = this.def.h * this.mscale + 0.5; this.mesh.add(tag); this.tag = tag; } }
     if (this.added) R.scene.add(this.mesh);
   }
@@ -4565,7 +4579,13 @@ function updateHand(dt) {
   if (!HAND.root) return; const cam = R.camera; R.handCam.position.copy(cam.position); R.handCam.quaternion.copy(cam.quaternion); R.handCam.fov = Math.min(cam.fov, 80); R.handCam.updateProjectionMatrix(); { const e = R.handCam.projectionMatrix.elements; for (const c of [0, 4, 8, 12]) e[c + 2] = 0.002 * e[c + 2] - 0.998 * e[c + 3]; } R.handCam.updateMatrixWorld();
   HAND.root.position.copy(cam.position); HAND.root.quaternion.copy(cam.quaternion);
   const st = heldStack(); const id = st ? st.id : 0;
-  if (id !== HAND.itemId) { if (HAND.item) { HAND.root.remove(HAND.item); HAND.item.material.dispose(); HAND.item = null; } HAND.itemId = id; if (id) { HAND.item = makeItemMesh(id, 0.2); if (HAND.item.userData.kind !== 'block') HAND.item.scale.multiplyScalar(1.15); HAND.root.add(HAND.item); } }
+  if (id !== HAND.itemId) { if (HAND.item) { HAND.root.remove(HAND.item); HAND.item.material.dispose(); HAND.item = null; } HAND.itemId = id; if (id) { HAND.item = makeItemMesh(id, 0.2); if (HAND.item.userData.kind !== 'block') HAND.item.scale.multiplyScalar(1.32); else HAND.item.scale.multiplyScalar(1.15); HAND.root.add(HAND.item); }
+    // third person: the same item in the right hand of the body model
+    if (HAND.item3) { HAND.model3.parts.armR.remove(HAND.item3); HAND.item3.material.dispose(); HAND.item3 = null; }
+    if (id) { const it3 = makeItemMesh(id, 1); const blk3 = it3.userData.kind === 'block'; const S = blk3 ? 0.36 : 1.0; it3.scale.setScalar(S);
+      if (blk3) { it3.position.set(0, -0.72, -0.18); it3.rotation.set(0.2, 0.6, 0); }
+      else { const e3 = new THREE.Euler(0.38, Math.PI / 2, 0); it3.rotation.copy(e3); const grip = new THREE.Vector3(-0.31, -0.31, 0).multiplyScalar(S).applyEuler(e3); it3.position.set(-grip.x, -0.66 - grip.y, -0.02 - grip.z); }
+      it3.userData.kind3 = blk3 ? 'block' : 'sprite'; HAND.model3.parts.armR.add(it3); HAND.item3 = it3; } }
   HAND.swing = Math.max(0, HAND.swing - dt * 3.5); const sw = Math.sin(HAND.swing * Math.PI);
   const bob = player.bobAmt * (SETTINGS.viewBob ? 1 : 0); const bx = Math.cos(player.bob) * 0.025 * bob, by = -Math.abs(Math.sin(player.bob)) * 0.03 * bob;
   const eat = Items.eatT > 0 ? Math.sin(now() / 60) * 0.03 : 0; const draw = Items.bowDraw || 0;
@@ -4575,7 +4595,7 @@ function updateHand(dt) {
   HAND.arm.position.set(ax + 0.04, ay - 0.12, az + 0.18); HAND.arm.rotation.set(-0.15 - sw * 1.0, 0.25, 0.1); HAND.arm.visible = !id || true;
   if (HAND.item) {
     const blk = HAND.item.userData.kind === 'block';
-    if (Items.eatT > 0) HAND.item.position.set(0.12 + bx, -0.24 + eat, -0.5); else HAND.item.position.set(ax - 0.06, ay + (blk ? 0.1 : 0.14), az - 0.12 + draw * 0.1);
+    if (Items.eatT > 0) HAND.item.position.set(0.12 + bx, -0.24 + eat, -0.5); else HAND.item.position.set(ax - (blk ? 0.06 : 0.1), ay + (blk ? 0.1 : 0.2), az - 0.12 + draw * 0.1);
     HAND.item.rotation.set(blk ? -0.3 - sw * 1.1 : -0.2 - sw * 1.2, blk ? 0.7 : -1.2 + draw * 0.8, blk ? 0 : 0.3);
     const u = HAND.item.material.uniforms; if (u.uLO) u.uLO.value.set(1, sk, bl); else { u.uSkyL.value = sk; u.uBlkL.value = bl; }
   }
@@ -4584,7 +4604,8 @@ function updateHand(dt) {
   const M = HAND.model3; M.root.visible = !!player.cam3 && !PHOTO.hidePlayer; if (M.root.visible) {
     M.root.position.copy(player.vehicle ? player.pos : new THREE.Vector3().lerpVectors(player.prev, player.pos, GAME.alpha)); if (player.vehicle && player.vehicle.type === 'horse') M.root.position.y -= 0.35;
     M.root.rotation.y = player.yaw; const P = M.parts; const s = Math.sin(player.bob * 1.0) * 0.8 * player.bobAmt;
-    P.leg0.rotation.x = player.vehicle ? -1.4 : s; P.leg1.rotation.x = player.vehicle ? -1.4 : -s; P.armL.rotation.x = -s; P.armR.rotation.x = s - sw * 1.4; P.head.rotation.x = player.pitch * 0.8;
+    P.leg0.rotation.x = player.vehicle ? -1.4 : s; P.leg1.rotation.x = player.vehicle ? -1.4 : -s; P.armL.rotation.x = -s; P.armR.rotation.x = s * (id ? 0.4 : 1) - (id ? 0.32 : 0) - sw * 1.4; P.head.rotation.x = player.pitch * 0.8;
+    if (HAND.item3) { const u3 = HAND.item3.material.uniforms; if (u3.uLO) u3.uLO.value.set(1, sk, bl); else { u3.uSkyL.value = sk; u3.uBlkL.value = bl; } }
     M.body.position.y = player.crouching ? -0.15 : 0; P.body.rotation.x = player.crouching ? 0.4 : 0;
     for (const mt of M.mats) { mt.uniforms.uSkyL.value = sk; mt.uniforms.uBlkL.value = bl; mt.uniforms.uHurt.value = player.hurt > 0.5 ? 1 : 0; }
   }
@@ -5259,8 +5280,11 @@ function sanitizeMod(o, keepId) {
   const code = typeof o.code === 'string' && o.code.trim() ? o.code.slice(0, 40000) : '';
   if (!effects.length && !code) return null;
   const cats = MOD_CATS.map((c) => c[0]);
-  const m = { id: keepId && typeof o.id === 'string' && /^c_[a-z0-9]{4,20}$/.test(o.id) ? o.id : 'c_' + Math.random().toString(36).slice(2, 10), icon: strS(o.icon, 4, '🧩'), name: strS(o.name, 40, 'مود تازه'), desc: strS(o.desc, 400, ''), cat: cats.includes(o.cat) && o.cat !== 'all' ? o.cat : 'ai', effects, custom: true, ai: !!o.ai, prompt: strS(o.prompt, 400, '') };
+  const m = { id: keepId && typeof o.id === 'string' && /^c_[a-z0-9]{4,20}$/.test(o.id) ? o.id : 'c_' + Math.random().toString(36).slice(2, 10), icon: strS(o.icon, 4, '🧩'), name: strS(o.name, 40, 'مود تازه'), desc: strS(o.desc, 400, ''), cat: cats.includes(o.cat) && o.cat !== 'all' ? o.cat : 'ai', effects, custom: true, ai: !!o.ai, prompt: strS(o.prompt, 1200, '') };
   if (code) m.code = code;
+  if (Array.isArray(o.edits)) m.edits = o.edits.slice(-40).map((e) => (e && typeof e.t === 'string' ? { t: e.t.replace(/[<>]/g, '').slice(0, 600), at: +e.at || 0, kind: ['edit', 'fix', 'manual', 'undo'].includes(e.kind) ? e.kind : 'edit', undone: !!e.undone } : null)).filter(Boolean);
+  if (keepId && Array.isArray(o.versions)) m.versions = o.versions.slice(-6).map((v) => { const c = v && typeof v === 'object' ? sanitizeMod(Object.assign({}, v, { versions: undefined, edits: undefined }), false) : null; if (c) { delete c.id; delete c.custom; } return c; }).filter(Boolean);
+  if (typeof o.copyOf === 'string') m.copyOf = o.copyOf.slice(0, 40);
   return m;
 }
 function describeEffect(e) {
@@ -5478,12 +5502,16 @@ const MOD_EFFECTS_DOC = `- {"t":"stat","stat":S,"mul":number}  S is one of: spee
 - {"t":"give","item":"<item>","count":n}  one-time gift on install
 `;
 function modExport(m) { const o = { name: m.name, icon: m.icon, desc: m.desc, cat: m.cat, effects: m.effects.map((e) => { const c = Object.assign({}, e); delete c.slot; return c; }) }; if (m.code) o.code = m.code; return o; }
+function modSnapshot(m) { return Object.assign(modExport(m), { ai: m.ai }); }
+function activeEdits(m) { return (m.edits || []).filter((e) => !e.undone && e.kind !== 'undo'); }
 function aiModPrompt(req, base, err) {
   const blocks = BLOCKS.filter((d) => d && d.id && d.name !== 'unloaded' && !d.name.endsWith('_lit')).map((d) => d.name).join(', ');
   const items = ITEMS.filter((it) => it && it.id >= 256 && !/^mod_tool_/.test(it.name)).map((it) => it.name).join(', ');
   let task;
-  if (base && err) task = `This mod fails with the error: "${String(err).slice(0, 300)}". Fix the problem and return the complete corrected mod (same idea).\nThe player's original request: """${(base.prompt || base.desc || '').slice(0, 600)}"""\nCurrent mod JSON:\n${JSON.stringify(modExport(base)).slice(0, 40000)}`;
-  else if (base) task = `Change this existing mod the way the player asks: """${req.slice(0, 600)}"""\nReturn the complete new version.\nCurrent mod JSON:\n${JSON.stringify(modExport(base)).slice(0, 40000)}`;
+  const hist = base ? activeEdits(base).filter((e) => e.kind === 'edit').map((e, i) => (i + 1) + ') ' + e.t).join('\n') : '';
+  const ctx = base ? `Original request (fixed, never changes): """${(base.prompt || base.desc || '').slice(0, 1200)}"""\nChanges the player already asked for, in order:\n${hist || '(none)'}\nCurrent mod JSON:\n${JSON.stringify(modExport(base)).slice(0, 40000)}` : '';
+  if (base && err) task = `This mod fails with the error: "${String(err).slice(0, 300)}". Fix the problem and return the complete corrected mod, keeping its behaviour.\n${ctx}`;
+  else if (base) task = `The player is EDITING an existing mod. Apply ONLY this new change and keep everything else exactly as it is (same name unless asked, same buttons, same behaviour):\n"""${req.slice(0, 800)}"""\n${ctx}\nReturn the complete new version of the mod.`;
   else task = `A player asked for this mod (any kind is allowed):\n"""${req.slice(0, 800)}"""`;
   return `You build mods for "Mokabestan", a Persian voxel survival sandbox game (similar to Minecraft) that runs in the browser.
 ${task}
@@ -5522,8 +5550,8 @@ const ModsUI = {
     const on = MODS.installed.has(m.id); const list = m.effects.map(describeEffect).filter(Boolean).slice(0, 4); if (m.code) list.push('رفتار تازه با برنامه (دکمه‌ها، رویدادها و…)'); const fx = list.map((s) => `<li>${esc(s)}</li>`).join('');
     const err = MODRT.lastErr[m.id]; const errH = err ? `<div class="mod-err">⚠️ خطا: ${esc(err.slice(0, 200))}</div>` + (m.custom && MODS.aiState === 'ready' ? `<button class="btn small" data-fix="${esc(m.id)}">🔧 درست کردن خطا با هوش مصنوعی</button>` : '') : '';
     const codeH = m.code ? `<details class="mod-code"><summary>دیدن کد مود</summary><pre dir="ltr">${esc(m.code)}</pre></details>` : '';
-    return `<div class="mod ${on ? 'on' : ''}"><div class="mod-h"><span class="mod-ic">${esc(m.icon)}</span><div><b>${esc(m.name)}</b>${m.ai ? '<small class="badge">ساخت هوش مصنوعی</small>' : m.suggest ? '<small class="badge">پیشنهادی</small>' : m.custom ? '<small class="badge">دست‌ساز</small>' : ''}${m.code ? '<small class="badge code">🧠 برنامه‌دار</small>' : ''}</div></div>
-      <p>${esc(m.desc)}</p><ul>${fx}</ul>${errH}${codeH}<div class="row"><button class="btn small ${on ? '' : 'primary'}" data-mod="${esc(m.id)}">${on ? '✓ نصب‌شده — حذف' : '⬇ نصب با یک کلیک'}</button>${m.custom ? `<button class="btn small" data-share="${esc(m.id)}" title="کپی کد مود">📋 کد</button><button class="btn small danger" data-del="${esc(m.id)}">🗑</button>` : ''}</div></div>`;
+    return `<div class="mod ${on ? 'on' : ''}"><div class="mod-h"><span class="mod-ic">${esc(m.icon)}</span><div><b>${esc(m.name)}</b>${m.ai ? '<small class="badge">ساخت هوش مصنوعی</small>' : m.suggest ? '<small class="badge">پیشنهادی</small>' : m.custom ? '<small class="badge">دست‌ساز</small>' : ''}${m.code ? '<small class="badge code">🧠 برنامه‌دار</small>' : ''}${m.edits && m.edits.length ? '<small class="badge">✏️ ' + fa(activeEdits(m).length) + ' ویرایش</small>' : ''}</div></div>
+      <p>${esc(m.desc)}</p><ul>${fx}</ul>${errH}${codeH}<div class="row"><button class="btn small ${on ? '' : 'primary'}" data-mod="${esc(m.id)}">${on ? '✓ نصب‌شده — حذف' : '⬇ نصب با یک کلیک'}</button><button class="btn small" data-edit="${esc(m.id)}">✏️ ویرایش</button>${m.custom ? `<button class="btn small" data-share="${esc(m.id)}" title="کپی کد مود">📋 کد</button><button class="btn small danger" data-del="${esc(m.id)}">🗑</button>` : ''}</div></div>`;
   },
   list() {
     const q = this.q; const words = q ? q.split(/\s+/).filter((w) => w.length > 1) : [];
@@ -5539,6 +5567,7 @@ const ModsUI = {
     $('mods-import').classList.toggle('on', this.tab === 'import' || this.tab === 'share');
     if (this.tab === 'ai') { body.innerHTML = this.aiHTML(); this.wireAI(); return; }
     if (this.tab === 'import' || this.tab === 'share') { body.innerHTML = this.codeHTML(); this.wireCode(); return; }
+    if (this.tab === 'edit') { const m = MODS.defs.get(this.editId); if (m) { body.innerHTML = this.editHTML(m); this.wireEdit(m); return; } this.tab = 'store'; }
     const arr = this.list();
     let h = '<div class="mod-cats">' + MOD_CATS.map(([k, f]) => `<button class="chip ${this.cat === k ? 'on' : ''}" data-cat="${k}">${f}</button>`).join('') + '</div>';
     if (!arr.length) h += `<div class="mod-empty">${this.q ? 'مودی با «' + esc(this.q) + '» پیدا نشد.' : 'هنوز مودی اینجا نیست.'}<br><button class="btn primary" id="mods-mk">✨ ساختن همین مود با هوش مصنوعی</button></div>`;
@@ -5552,6 +5581,7 @@ const ModsUI = {
     for (const b of root.querySelectorAll('[data-del]')) b.onclick = () => { MODS.removeCustom(b.dataset.del); this.render(); };
     for (const b of root.querySelectorAll('[data-share]')) b.onclick = () => this.share(b.dataset.share);
     for (const b of root.querySelectorAll('[data-fix]')) b.onclick = () => { const m = MODS.defs.get(b.dataset.fix); if (m) this.repair(m); };
+    for (const b of root.querySelectorAll('[data-edit]')) b.onclick = () => this.openEdit(b.dataset.edit);
   },
   aiHTML() {
     const st = MODS.aiState; const ready = st === 'ready';
@@ -5578,40 +5608,98 @@ const ModsUI = {
   showPreview(m) {
     const out = $('ai-out'); if (!out) return;
     out.innerHTML = `<div class="ai-done">مود آماده شد:</div>` + this.card(m).replace('class="mod ', 'class="mod big ') +
-      (m.custom && MODS.aiState === 'ready' ? `<div class="row ai-edit"><input id="ai-edit" class="inp" placeholder="چه تغییری بدهم؟ مثلاً: یک دکمهٔ دیگر هم اضافه کن"><button class="btn small primary" id="ai-edit-go">✏️ تغییر بده</button></div>` : '');
+      '<div class="ai-st">اگر مود دقیقاً همانی نیست که می‌خواستی، «✏️ ویرایش» را بزن و فقط تغییرش را بنویس؛ لازم نیست کل مود را دوباره توضیح بدهی.</div>';
     this.wireCards(out); const btn = out.querySelector('[data-mod]'); if (btn) btn.onclick = () => { MODS.toggle(m.id); this.showPreview(m); };
-    const eg = $('ai-edit-go'); if (eg) eg.onclick = () => { const v = $('ai-edit').value.trim(); if (v) this.runAI(aiModPrompt(v, m), (m.prompt ? m.prompt + ' — ' : '') + v, m.id); };
   },
   async generate() {
     const ta = $('ai-req'); const req = ta ? ta.value.trim() : ''; const out = $('ai-out'); if (!req) { out.innerHTML = '<div class="ai-st warn">اول بنویس چه مودی می‌خواهی.</div>'; return; }
-    return this.runAI(aiModPrompt(req), req, null);
+    return this.runAI(aiModPrompt(req), { req });
   },
-  repair(m) { this.tab = 'ai'; this.render(); this.runAI(aiModPrompt('', m, MODRT.lastErr[m.id] || 'unknown error'), m.prompt || m.desc, m.id); },
-  async runAI(prompt, req, replaceId) {
+  repair(m) {
+    if (this.tab !== 'edit' || this.editId !== m.id) this.openEdit(m.id);
+    this.runAI(aiModPrompt('', m, MODRT.lastErr[m.id] || 'unknown error'), { base: m, kind: 'fix', text: '🔧 درست کردن خطا: ' + String(MODRT.lastErr[m.id] || '').slice(0, 160) });
+  },
+  // opts: { req } for a new mod, or { base, kind: 'edit' | 'fix', text } to change an existing one (same id, history kept)
+  async runAI(prompt, opts) {
     const out = $('ai-out'); if (!MODS.ai || !out || this.busy) return; const ctl = new AbortController(); this.busy = ctl;
-    const go = $('ai-go'); if (go) go.disabled = true; const st = $('ai-stop'); if (st) st.classList.remove('hidden'); out.innerHTML = '<div class="ai-think">🤔 هوش مصنوعی دارد فکر می‌کند…</div>';
+    for (const id of ['ai-go', 'ed-go']) { const b = $(id); if (b) b.disabled = true; } const st = $('ai-stop'); if (st) st.classList.remove('hidden'); out.innerHTML = '<div class="ai-think">🤔 هوش مصنوعی دارد فکر می‌کند…</div>';
+    const base = opts.base || null;
     try {
       const obj = await MODS.ai.json(prompt, { signal: ctl.signal, modelTier: 'default', cache: false, onText: ({ text }) => { const el = out.querySelector('.ai-think'); if (el) el.textContent = '🛠️ در حال نوشتن مود… (' + fa(text.length) + ' نویسه)'; } });
-      const m = sanitizeMod(Object.assign({}, obj, { ai: true, prompt: req }), false);
+      const m = sanitizeMod(Object.assign({}, obj, { ai: true, prompt: base ? base.prompt : opts.req, edits: undefined, versions: undefined }), false);
       if (!m) { out.innerHTML = '<div class="ai-st warn">مود ساخته‌شده قابل استفاده نبود؛ درخواست را دقیق‌تر بنویس و دوباره بزن.</div>'; return; }
-      m.ai = true; if (replaceId) m.id = replaceId; delete MODRT.lastErr[m.id];
+      m.ai = true;
+      if (base) { m.id = base.id; m.prompt = base.prompt; m.copyOf = base.copyOf; m.edits = (base.edits || []).concat([{ t: opts.text, at: Date.now(), kind: opts.kind || 'edit' }]); m.versions = (base.versions || []).concat([modSnapshot(base)]).slice(-6); }
+      delete MODRT.lastErr[m.id];
       if (m.code) { try { await MODRT.compile(m.id, m.code); } catch (e) { MODRT.lastErr[m.id] = String(e.message || e); } }
-      MODS.addCustom(m); this.preview = m; this.showPreview(m);
+      MODS.addCustom(m); this.preview = m;
+      if (this.tab === 'edit' && base) { this.render(); const o2 = $('ai-out'); if (o2) o2.innerHTML = '<div class="ai-done">✅ ویرایش انجام شد' + (MODRT.lastErr[m.id] ? ' ولی کد خطا دارد؛ «درست کردن خطا» را بزن.' : '.') + '</div>'; }
+      else this.showPreview(m);
     } catch (e) {
-      const code = e && e.code; out.innerHTML = `<div class="ai-st warn">${esc(AI_ERR[code] || AI_ERR.upstream_error)}</div>`;
+      const code = e && e.code; const o3 = $('ai-out'); if (o3) o3.innerHTML = `<div class="ai-st warn">${esc(AI_ERR[code] || AI_ERR.upstream_error)}</div>`;
       if (code === 'not_granted' || code === 'sampling_disabled') { MODS.aiState = 'none'; }
-    } finally { this.busy = null; const g = $('ai-go'); if (g) g.disabled = MODS.aiState !== 'ready'; const s2 = $('ai-stop'); if (s2) s2.classList.add('hidden'); }
+    } finally { this.busy = null; for (const id of ['ai-go', 'ed-go']) { const b = $(id); if (b) b.disabled = MODS.aiState !== 'ready'; } const s2 = $('ai-stop'); if (s2) s2.classList.add('hidden'); }
+  },
+  // ---- the edit section: locked original description + edit history + new change ----
+  openEdit(id) { this.editId = id; this.tab = 'edit'; this.render(); const b = $('mods-body'); if (b) b.scrollTop = 0; },
+  editHTML(m) {
+    const ready = MODS.aiState === 'ready'; const orig = m.prompt || (m.custom ? m.desc : 'مود آمادهٔ «' + m.name + '»: ' + m.desc);
+    const edits = m.edits || [];
+    const kindIc = { edit: '✏️', fix: '🔧', manual: '⌨️', undo: '↩️' };
+    const list = edits.length ? '<ol class="ed-list">' + edits.map((e) => `<li class="${e.undone ? 'undone' : ''}">${kindIc[e.kind] || '✏️'} ${esc(e.t)}${e.undone ? ' <small>(برگردانده شد)</small>' : ''}</li>`).join('') + '</ol>' : '<div class="ed-none">هنوز ویرایشی نشده است.</div>';
+    let h = `<div class="ed-top"><button class="btn small" id="ed-back">→ بازگشت</button><b>✏️ ویرایش مود «${esc(m.name)}»</b></div>`;
+    if (!m.custom) h += '<div class="ai-st">این یک مود آماده است. ویرایش، یک نسخهٔ تازه از آن می‌سازد و مود اصلی دست‌نخورده می‌ماند.</div>';
+    h += `<div class="ed-sec"><div class="ed-h">۱. توضیح اولیه <span>🔒 قفل است؛ پاک یا عوض نمی‌شود</span></div><div class="ed-locked" dir="auto">${esc(orig)}</div></div>`;
+    h += `<div class="ed-sec ed-main"><div class="ed-h">۲. بخش ویرایش <span>هر چند بار بخواهی</span></div>${list}
+      <textarea id="ed-new" class="inp" rows="3" ${ready ? '' : 'disabled'} placeholder="فقط تغییری را که می‌خواهی بنویس؛ مثلاً: دکمه را قرمز کن و یک دکمهٔ دیگر هم برای شب اضافه کن"></textarea>
+      <div class="row"><button class="btn primary" id="ed-go" ${ready ? '' : 'disabled'}>✏️ اعمال ویرایش</button><button class="btn hidden" id="ai-stop">⏹ توقف</button>${m.custom && m.versions && m.versions.length ? `<button class="btn small" id="ed-undo">↩️ برگشت به نسخهٔ قبل (${fa(m.versions.length)})</button>` : ''}</div>
+      ${ready ? '' : '<div class="ai-st warn">ویرایش با هوش مصنوعی فقط وقتی بازی داخل Claude باز است کار می‌کند. اینجا می‌توانی به نسخهٔ قبل برگردی یا کد را دستی ویرایش کنی.</div>'}
+      <div id="ai-out"></div></div>`;
+    h += '<div class="sec-t">نسخهٔ فعلی مود</div>' + this.card(m);
+    h += `<details class="mod-code"><summary>⌨️ ویرایش دستی (برای برنامه‌نویس‌ها)</summary><input id="ed-name" class="inp" style="margin:6px 0" value="${esc(m.name)}"><textarea id="ed-code" class="inp" rows="8" dir="ltr" placeholder="api.addButton(...)">${esc(m.code || '')}</textarea><div class="row"><button class="btn small primary" id="ed-save">ذخیرهٔ دستی</button></div><div id="ed-man"></div></details>`;
+    return h;
+  },
+  wireEdit(m) {
+    const body = $('mods-body'); this.wireCards(body);
+    for (const b of body.querySelectorAll('[data-edit]')) b.remove();
+    $('ed-back').onclick = () => { this.tab = 'store'; this.render(); };
+    const stop = $('ai-stop'); if (stop) stop.onclick = () => { if (this.busy) this.busy.abort(); };
+    const go = $('ed-go'); if (go) go.onclick = () => { const t = $('ed-new').value.trim(); if (!t) { $('ai-out').innerHTML = '<div class="ai-st warn">اول بنویس چه تغییری می‌خواهی.</div>'; return; } this.applyEdit(m, t); };
+    const un = $('ed-undo'); if (un) un.onclick = () => this.undo(m);
+    $('ed-save').onclick = async () => {
+      const base = this.ensureCustom(m); const code = $('ed-code').value; const name = $('ed-name').value.trim() || base.name;
+      const nm = sanitizeMod(Object.assign(modExport(base), { name, code, prompt: base.prompt, ai: base.ai }), false); if (!nm) { $('ed-man').innerHTML = '<div class="ai-st warn">مود خالی شد؛ کد یا قطعه‌ای لازم است.</div>'; return; }
+      nm.id = base.id; nm.ai = base.ai; nm.copyOf = base.copyOf; nm.edits = (base.edits || []).concat([{ t: 'ویرایش دستی کد', at: Date.now(), kind: 'manual' }]); nm.versions = (base.versions || []).concat([modSnapshot(base)]).slice(-6);
+      delete MODRT.lastErr[nm.id]; if (nm.code) { try { await MODRT.compile(nm.id, nm.code); } catch (e) { MODRT.lastErr[nm.id] = String(e.message || e); } }
+      MODS.addCustom(nm); this.openEdit(nm.id);
+    };
+  },
+  // built-in mods are edited as a copy so the original stays as it was
+  ensureCustom(m) {
+    if (m.custom) return m;
+    const c = sanitizeMod(Object.assign(modExport(m), { prompt: 'مود آمادهٔ «' + m.name + '»: ' + m.desc, ai: false }), false); c.copyOf = m.id; c.edits = []; c.versions = [];
+    if (player.modGift && player.modGift[m.id]) player.modGift[c.id] = 1; const wasOn = MODS.installed.has(m.id); MODS.addCustom(c); if (wasOn) { MODS.uninstall(m.id); MODS.install(c.id, true); }
+    this.editId = c.id; return c;
+  },
+  applyEdit(m, text) { const base = this.ensureCustom(m); if (base !== m) this.openEdit(base.id); this.runAI(aiModPrompt(text, base), { base, kind: 'edit', text }); },
+  undo(m) {
+    if (!m.versions || !m.versions.length) return; const prev = m.versions[m.versions.length - 1];
+    const nm = sanitizeMod(Object.assign({}, prev, { prompt: m.prompt, ai: m.ai }), false); if (!nm) return;
+    nm.id = m.id; nm.ai = m.ai; nm.copyOf = m.copyOf; nm.versions = m.versions.slice(0, -1);
+    const edits = (m.edits || []).map((e) => Object.assign({}, e)); for (let i = edits.length - 1; i >= 0; i--) if (!edits[i].undone && edits[i].kind !== 'undo') { edits[i].undone = true; break; }
+    nm.edits = edits.concat([{ t: 'برگشت به نسخهٔ قبل', at: Date.now(), kind: 'undo' }]);
+    delete MODRT.lastErr[nm.id]; MODS.addCustom(nm); this.openEdit(nm.id);
   },
   // share/import mods as text codes (in-page: the Claude viewer has no prompt dialogs)
   share(id) {
     const m = MODS.defs.get(id); if (!m) return;
-    this.shareCode = 'MOKAB-MOD:' + btoa(unescape(encodeURIComponent(JSON.stringify(Object.assign(modExport(m), { ai: m.ai })))));
+    this.shareCode = 'MOKAB-MOD:' + btoa(unescape(encodeURIComponent(JSON.stringify(Object.assign(modExport(m), { ai: m.ai, prompt: m.prompt || '', edits: m.edits || [] })))));
     this.shareName = m.name; this.tab = 'share'; this.render();
   },
   codeHTML() {
     let h = '';
     if (this.tab === 'share' && this.shareCode) h += `<div class="sec-t">کد مود «${esc(this.shareName)}» — آن را کپی کن و در هر نسخه از بازی (مرورگر یا Claude) وارد کن</div><textarea id="share-code" class="inp" rows="4" readonly dir="ltr">${esc(this.shareCode)}</textarea><div class="row"><button class="btn small primary" id="share-copy">📋 کپی کد</button><span id="share-st" style="font-size:13px;color:var(--dim)"></span></div>`;
-    h += `<div class="sec-t">وارد کردن کد مود</div><div class="ai-st">کد مودی را که در Claude ساخته‌ای یا کسی برایت فرستاده اینجا بچسبان. کدها فقط از قطعه‌های مجاز مود ساخته می‌شوند و برنامهٔ اجرایی ندارند.</div><textarea id="imp-code" class="inp" rows="4" dir="ltr" placeholder="MOKAB-MOD:..."></textarea><div class="row"><button class="btn primary" id="imp-go">📥 افزودن مود</button></div><div id="imp-out"></div>`;
+    h += `<div class="sec-t">وارد کردن کد مود</div><div class="ai-st">کد مودی را که در Claude ساخته‌ای یا کسی برایت فرستاده اینجا بچسبان. اگر مود برنامه (کد) داشته باشد، قبل از نصب هشدار داده می‌شود.</div><textarea id="imp-code" class="inp" rows="4" dir="ltr" placeholder="MOKAB-MOD:..."></textarea><div class="row"><button class="btn primary" id="imp-go">📥 افزودن مود</button></div><div id="imp-out"></div>`;
     h += `<details class="mod-code"><summary>🛠️ نوشتن مود با کد (برای برنامه‌نویس‌ها)</summary><input id="own-name" class="inp" placeholder="نام مود" style="margin:6px 0"><textarea id="own-code" class="inp" rows="7" dir="ltr" placeholder="api.addButton({ icon: '💖', label: 'شفا', onClick() { api.player.heal(20); } });"></textarea><div class="row"><button class="btn primary" id="own-go">ساختن مود</button></div><div id="own-out"></div><pre dir="ltr">${esc(MOD_API_DOC)}</pre></details>`;
     return h;
   },
