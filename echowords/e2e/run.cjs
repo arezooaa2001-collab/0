@@ -24,6 +24,23 @@ function check(name, ok, detail = '') {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 }
 
+// Every test browser starts as a returning user (the first-launch welcome has its own test).
+const launchPersistent = chromium.launchPersistentContext.bind(chromium);
+chromium.launchPersistentContext = async (dir, opts = {}) => {
+  const { firstLaunch, ...rest } = opts;
+  const ctx = await launchPersistent(dir, rest);
+  if (!firstLaunch) await ctx.addInitScript(() => { try { localStorage.setItem('echowords-welcomed', '1'); } catch {} });
+  return ctx;
+};
+
+// A stand-in for the family's Google Drive file (survives "reinstalling" = a brand-new profile).
+const driveFile = { name: null, b64: null, writes: 0 };
+async function withDriveStub(ctx) {
+  await ctx.exposeBinding('__driveSave', (_s, name, b64) => { driveFile.name = name; driveFile.b64 = b64; driveFile.writes++; });
+  await ctx.exposeBinding('__driveRead', () => driveFile.b64);
+}
+const driveWords = () => (driveFile.b64 ? JSON.parse(Buffer.from(driveFile.b64, 'base64').toString('utf8')).words : []);
+
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-profile-'));
 
 async function open(wav) {
@@ -103,7 +120,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۱۶/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۱۷/.test(await page.textContent('.topbar')));
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -369,8 +386,8 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await ctxL.addInitScript(blockIdb);
   page = ctxL.pages()[0];
   await page.goto(FILE);
-  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).click();
-  await page.locator('.word-card .word-text', { hasText: 'dog' }).waitFor({ timeout: 10000 });
+  await page.locator('.tabbar button').nth(1).click();
+  await page.locator('.word-card .word-text', { hasText: 'dog' }).waitFor({ timeout: 20000 });
   check('IndexedDB blocked: second storage keeps «dog» after closing', true);
   await ctxL.close();
 
@@ -476,25 +493,10 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   const ctxA = await chromium.launchPersistentContext(aiDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
   await ctxA.addInitScript(() => {
     window.__spoken = [];
-    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }];
+    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }, { lang: 'ja-JP' }];
     speechSynthesis.speak = (u) => {
       window.__spoken.push({ text: u.text, lang: u.lang });
       setTimeout(() => u.onend && u.onend(new Event('end')), 30);
-    };
-    // A fake speech recogniser: hears one question, then silence.
-    let heardOnce = false;
-    window.SpeechRecognition = window.webkitSpeechRecognition = class {
-      start() {
-        setTimeout(() => {
-          if (!heardOnce) {
-            heardOnce = true;
-            this.onresult && this.onresult({ results: [[{ transcript: 'گربه به ژاپنی چی میشه' }]] });
-          }
-          this.onend && this.onend();
-        }, 100);
-      }
-      stop() {}
-      abort() {}
     };
   });
   const aiRequests = [];
@@ -531,21 +533,25 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('tutor answers in Persian with the English word', aiRequests[0]?.key === 'test-gemini-key' && !!aiRequests[0]?.body?.system_instruction);
   await page.waitForTimeout(400);
   check('tutor reads its answer aloud (each part in its language)', await page.evaluate(() => window.__spoken.some((x) => x.text.startsWith('apple') && x.lang === 'en-US') && window.__spoken.some((x) => x.lang === 'fa-IR')));
-  await page.locator('.tutor-item', { hasText: 'apple' }).getByRole('button', { name: '💾' }).click();
-  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).first().click();
+  await page.locator('.tutor-item', { hasText: 'apple' }).getByRole('button', { name: /ذخیره در کلمه‌ها/ }).click();
+  await page.locator('.tabbar button').nth(1).click();
   await page.locator('.word-card', { hasText: 'apple سیب' }).waitFor({ timeout: 5000 });
   check('a word taught by the tutor can be saved with one tap', true);
   await page.getByRole('button', { name: /معلم/ }).click();
-  // photo of a word
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-  await page.locator('.tutor-tools input[type=file]').setInputFiles({ name: 'word.png', mimeType: 'image/png', buffer: png });
-  await page.locator('.bubble.assistant', { hasText: 'STOP' }).waitFor({ timeout: 10000 });
-  check('photo of a word is read and translated', aiRequests.some((r) => r.body.contents?.at(-1)?.parts?.some((p) => p.inline_data)));
-  // live voice mode: listens, answers out loud, listens again, stops after silence
-  await page.getByRole('button', { name: /حالت لایو/ }).click();
-  await page.locator('.bubble.assistant', { hasText: '猫' }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /حالت لایو/ }).waitFor({ timeout: 10000 });
-  check('live mode: spoken question answered out loud, then stops by itself after silence', await page.evaluate(() => window.__spoken.some((x) => x.text.includes('猫') || x.lang === 'ja-JP' || x.text.includes('گربه'))));
+  // translation into another language, in a box with its own «🔊 تلفظ»
+  await page.locator('.tutor-input textarea').fill('گربه به ژاپنی چی میشه');
+  await page.getByRole('button', { name: /بفرست/ }).click();
+  await page.locator('.tutor-item', { hasText: '猫' }).waitFor({ timeout: 10000 });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { window.__spoken.length = 0; });
+  await page.locator('.tutor-item', { hasText: '猫' }).locator('.btn-tts').click();
+  await page.waitForTimeout(300);
+  check('a translated word has its own box with «🔊 تلفظ»', (await page.evaluate(() => window.__spoken.map((x) => x.text).join(' '))).includes('猫'));
+  await page.evaluate(() => { window.__spoken.length = 0; });
+  await page.locator('.bubble.assistant .answer-box').last().locator('.btn-tts').click();
+  await page.waitForTimeout(300);
+  check('the answer box has «🔊 تلفظ» that reads the whole answer', (await page.evaluate(() => window.__spoken.length)) >= 1);
+  check('tutor is text only (no live mode, no camera, no voice button)', (await page.getByRole('button', { name: /حالت لایو|دوربین|با صدا بپرس|عکس از کلمه/ }).count()) === 0);
   await page.screenshot({ path: `${OUT}/15-tutor.png` });
   await ctxA.close();
 
@@ -558,11 +564,6 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
     window.__spoken = [];
     speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }];
     speechSynthesis.speak = (u) => { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(new Event('end')), 30); };
-    let n = 0;
-    window.SpeechRecognition = window.webkitSpeechRecognition = class {
-      start() { setTimeout(() => { if (n++ === 0) this.onresult && this.onresult({ results: [[{ transcript: 'سگ به انگلیسی چی میشه' }]] }); this.onend && this.onend(); }, 100); }
-      stop() {} abort() {}
-    };
   });
   const fastCors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
   let mode = 'hang';
@@ -590,61 +591,32 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('«لغو» stops waiting at once', true);
   mode = 'answer';
   fastReqs.length = 0;
-  await page.getByRole('button', { name: /حالت لایو/ }).click();
+  await page.locator('.tutor-input textarea').fill('سگ به انگلیسی چی میشه');
+  await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.assistant', { hasText: 'dog' }).waitFor({ timeout: 15000 });
   const okReq = fastReqs.find((r) => r.model !== 'gemini-old-model');
-  check('live mode: answers fast (no thinking delay, short answer)', okReq?.body?.generationConfig?.thinkingConfig?.thinkingBudget === 0 && okReq.body.generationConfig.maxOutputTokens <= 300 && /LIVE/.test(okReq.body.system_instruction.parts[0].text));
+  check('answers fast: Gemini «thinking» turned off', okReq?.body?.generationConfig?.thinkingConfig?.thinkingBudget === 0 && okReq.body.generationConfig.maxOutputTokens <= 600);
   check('a model name that no longer exists falls back to another', fastReqs[0]?.model === 'gemini-old-model' && !!okReq, fastReqs.map((r) => r.model).join(' → '));
   await page.waitForTimeout(500);
-  check('live mode: the answer is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('dog'))));
+  check('the answer is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('dog'))));
   await ctxF.close();
 
-  // 13c. Live camera in the tutor: front/back, the picture goes with the question, answer read aloud
-  const camDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-cam-'));
-  const ctxV = await chromium.launchPersistentContext(camDir, {
-    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
-    viewport: { width: 412, height: 860 }, reducedMotion: 'reduce', permissions: ['camera', 'microphone'],
-  });
-  await ctxV.addInitScript(() => {
-    localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'openai', key: 'sk-test', model: 'gpt-4o-mini' }));
-    window.__spoken = [];
-    speechSynthesis.getVoices = () => [{ lang: 'en-US' }, { lang: 'fa-IR' }];
-    speechSynthesis.speak = (u) => { window.__spoken.push(u.text); setTimeout(() => u.onend && u.onend(new Event('end')), 30); };
-    window.__facings = [];
-    const orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia = (c) => { if (c.video) window.__facings.push(c.video.facingMode?.ideal); return orig(c); };
-  });
+  // 13c. Settings «امتحان اتصال» with ChatGPT
+  const camDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-conn-'));
+  const ctxV = await chromium.launchPersistentContext(camDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await ctxV.addInitScript(() => localStorage.setItem('echowords-ai', JSON.stringify({ provider: 'openai', key: 'sk-test', model: 'gpt-4o-mini' })));
   const oaCors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
-  let sawImage = false;
-  await ctxV.route('https://api.openai.com/**', (r) => {
-    if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: oaCors });
-    const body = JSON.parse(r.request().postData() || '{}');
-    const last = body.messages?.at(-1);
-    sawImage = sawImage || (Array.isArray(last?.content) && last.content.some((c) => c.type === 'image_url' && c.image_url.url.startsWith('data:image/jpeg')));
-    return r.fulfill({ status: 200, headers: oaCors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{"reply":"این کلمه apple است، یعنی «سیب».","items":[{"text":"apple","lang":"en","meaning":"سیب","say":"اَپِل"}]}' } }] }) });
-  });
+  await ctxV.route('https://api.openai.com/**', (r) =>
+    r.request().method() === 'OPTIONS'
+      ? r.fulfill({ status: 204, headers: oaCors })
+      : r.fulfill({ status: 200, headers: oaCors, contentType: 'application/json', body: JSON.stringify({ choices: [{ message: { content: '{"reply":"سلام!","items":[]}' } }] }) }),
+  );
   page = ctxV.pages()[0];
   await page.goto(FILE);
   await page.getByRole('button', { name: /تنظیمات/ }).click();
   await page.getByRole('button', { name: /امتحان اتصال/ }).click();
   await page.getByText('ChatGPT جواب داد').waitFor({ timeout: 10000 });
   check('Settings «امتحان اتصال» shows that ChatGPT answers (and how fast)', true);
-  await page.getByRole('button', { name: /معلم/ }).click();
-  await page.getByRole('button', { name: /دوربین زنده/ }).click();
-  await page.waitForFunction(() => document.querySelector('.camera-live')?.videoWidth > 0, null, { timeout: 10000 });
-  await page.getByRole('button', { name: /دوربین جلو/ }).click();
-  await page.waitForFunction(() => window.__facings.length >= 2, null, { timeout: 10000 });
-  await page.waitForFunction(() => { const v = document.querySelector('.camera-live'); return v && v.readyState >= 2 && v.videoWidth > 0; }, null, { timeout: 10000 });
-  await page.waitForTimeout(500);
-  check('camera can switch between back and front', JSON.stringify(await page.evaluate(() => window.__facings.slice(0, 2))) === '["environment","user"]');
-  await page.screenshot({ path: `${OUT}/17-camera-live.png` });
-  await page.locator('.tutor-input textarea').fill('این را به فارسی ترجمه کن');
-  await page.getByRole('button', { name: /بفرست/ }).click();
-  await page.locator('.bubble.assistant', { hasText: 'سیب' }).waitFor({ timeout: 10000 });
-  await page.waitForTimeout(400);
-  check('with the camera on, the question carries the camera picture', sawImage && (await page.locator('.bubble.user .bubble-photo').count()) === 1);
-  check('the translation is read aloud', await page.evaluate(() => window.__spoken.some((x) => x.includes('سیب') || x.includes('apple'))));
-  await page.getByRole('button', { name: /بستن دوربین/ }).first().click();
   await ctxV.close();
 
   // 13d. The real reason for failures; models that refuse settings; a custom service
@@ -799,6 +771,11 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
           .catch((e) => window.__ewNative.done(id, JSON.stringify({ ok: false, error: 'network', detail: String(e) })));
       },
       httpCancel: () => {},
+      cloudStatus: () => JSON.stringify(localStorage.getItem('stubDrive') === '1' ? { linked: true, name: 'AMIR-ABC-ganjineh-sedaye-man.json', authority: 'com.google.android.apps.docs.storage' } : { linked: false }),
+      cloudLink: (id, name, b64) => window.__driveSave(name, b64).then(() => { localStorage.setItem('stubDrive', '1'); reply(id, { ok: true, linked: true, name, authority: 'com.google.android.apps.docs.storage' }); }),
+      cloudWrite: (id, b64) => window.__driveSave('same', b64).then(() => reply(id, { ok: true })),
+      cloudOpen: (id) => window.__driveRead().then((b64) => { localStorage.setItem('stubDrive', '1'); reply(id, { ok: true, linked: true, name: 'AMIR-ABC-ganjineh-sedaye-man.json', authority: 'com.google.android.apps.docs.storage', b64 }); }),
+      cloudUnlink: () => localStorage.removeItem('stubDrive'),
       startRecording: (id) => { window.__native.recordStarts++; reply(id, window.__native.allowMic ? { ok: true } : { ok: false, error: 'not-allowed' }); },
       recordingLevel: () => 0.3,
       pauseRecording: () => true,
@@ -815,6 +792,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
     };
     navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('denied', 'NotAllowedError'); };
   });
+  await withDriveStub(ctxN2);
   await ctxN2.addInitScript((b64) => { window.__SPEECH_B64 = b64; }, fs.readFileSync(process.env.SPEECH_WAV).toString('base64'));
   page = ctxN2.pages()[0];
   await page.goto(FILE);
@@ -856,46 +834,104 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   );
   await page.reload();
   await page.getByRole('button', { name: /معلم/ }).click();
-  await page.getByRole('button', { name: /با صدا بپرس/ }).click();
-  await page.locator('.bubble.assistant', { hasText: 'apple' }).waitFor({ timeout: 10000 });
-  check('app: talking to the tutor uses Android speech recognition', (await page.evaluate(() => window.__native.listened)).includes('fa-IR'));
   // typed question inside the app (this used to hang on «thinking» forever)
   await page.locator('.tutor-input textarea').fill('کتاب به انگلیسی چی میشه');
   await page.getByRole('button', { name: /بفرست/ }).click();
   await page.locator('.bubble.user', { hasText: 'کتاب به انگلیسی چی میشه' }).waitFor({ timeout: 5000 });
-  await page.waitForFunction(() => document.querySelectorAll('.bubble.assistant:not(.error)').length >= 2 && !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
-  check('app: a typed question gets its answer and «thinking» ends', true);
-  // live mode inside the app: hears once (stub), answers out loud through Android, then stops after silence
-  await page.evaluate(() => { let n = 0; window.EchoWordsAndroid.listen = (id) => setTimeout(() => window.__ewNative.done(id, JSON.stringify(n++ === 0 ? { text: 'سلام', error: null } : { text: '', error: 'no-speech' })), 50); window.__native.spoken.length = 0; });
-  await page.getByRole('button', { name: /حالت لایو/ }).click();
-  await page.locator('.bubble.user', { hasText: 'سلام' }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /حالت لایو/ }).waitFor({ timeout: 20000 });
-  check('app: live mode answers out loud and never gets stuck', (await page.evaluate(() => window.__native.spoken.length)) >= 1 && !(await page.locator('.bubble .spinner').count()));
-  check('app: no hidden errors while using the tutor', (await page.evaluate(() => window.__pageErrors.length)) === 0, JSON.stringify(await page.evaluate(() => window.__pageErrors.slice(0, 2))));
-  check('app: AI requests go through Android\'s own networking', (await page.evaluate(() => window.__native.http)) >= 1);
-  check('app: the new logo is shown in the top bar', (await page.locator('.topbar img.brand-logo').count()) === 1);
-  // No speech recognition on this phone: the question is recorded and sent to Gemini as audio
-  let sawAudio = false;
-  await ctxN2.unroute('https://generativelanguage.googleapis.com/**');
-  await ctxN2.route('https://generativelanguage.googleapis.com/**', (r) => {
-    if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } });
-    const body = JSON.parse(r.request().postData() || '{}');
-    sawAudio = sawAudio || !!body.contents?.at(-1)?.parts?.some((p) => p.inline_data?.mime_type === 'audio/wav');
-    return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply":"«ماه» به انگلیسی می‌شود moon.","items":[],"heard":"ماه به انگلیسی چی میشه"}' }] } }] }) });
+  await page.locator('.bubble.assistant .answer-box', { hasText: 'apple' }).waitFor({ timeout: 15000 }).catch(async (e) => {
+    await page.screenshot({ path: `${OUT}/debug-app-tutor.png` });
+    console.log('chat:', (await page.locator('.chat').innerText()).replace(/\s+/g, ' ').slice(0, 400));
+    throw e;
   });
-  await page.reload();
-  await page.evaluate(() => { window.__native.canListen = false; window.__native.allowMic = true; });
-  await page.getByRole('button', { name: /معلم/ }).click();
-  await page.getByRole('button', { name: /با صدا بپرس/ }).click();
-  await page.getByRole('button', { name: /دارم ضبط می‌کنم/ }).click();
-  await page.locator('.bubble.assistant', { hasText: 'moon' }).waitFor({ timeout: 15000 });
-  await page.getByRole('button', { name: /دوربین زنده/ }).click();
-  await page.getByText('اجازه دوربین با «دیگر نپرس» رد شده').waitFor({ timeout: 5000 });
-  check('app: camera permission comes from Android; a refusal shows how to allow it', await page.getByRole('button', { name: /تنظیمات برنامه/ }).isVisible());
-  await page.getByRole('button', { name: /بستن دوربین/ }).first().click();
-  check('app without speech recognition: spoken question is recorded and understood', sawAudio && (await page.locator('.bubble.user', { hasText: 'ماه به انگلیسی چی میشه' }).isVisible()));
-  await page.screenshot({ path: `${OUT}/16-voice-question.png` });
+  check('app: a typed question gets its answer and «thinking» ends', (await page.locator('.bubble .spinner').count()) === 0);
+  await page.waitForTimeout(300);
+  check('app: the answer is read aloud with Android\'s voice', (await page.evaluate(() => window.__native.spoken.length)) >= 1);
+  // ask again right away, several times: never stuck
+  for (const q of ['سگ', 'ماه', 'خورشید']) {
+    await page.locator('.tutor-input textarea').fill(`${q} به انگلیسی چی میشه`);
+    await page.getByRole('button', { name: /بفرست/ }).click();
+    await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
+  }
+  check('app: several questions in a row are all answered', (await page.locator('.bubble.assistant .answer-box').count()) === 4);
+  check('app: no hidden errors while using the tutor', (await page.evaluate(() => window.__pageErrors.length)) === 0, JSON.stringify(await page.evaluate(() => window.__pageErrors.slice(0, 2))));
+  check('app: AI requests go through Android\'s own networking', (await page.evaluate(() => window.__native.http)) >= 4);
+  check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
+  await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
+
+  // 17. Google Drive copy: link → everything saved (also words made before linking) → auto-save on change
+  const wordsBeforeLink = await countSaved(page);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  await page.getByRole('button', { name: /اتصال به گوگل درایو/ }).click();
+  await page.getByText('وصل است به گوگل درایو').waitFor({ timeout: 10000 });
+  const firstCopy = driveWords();
+  check('Drive: linking saves ALL existing words at once (made before linking too)', firstCopy.length === wordsBeforeLink && wordsBeforeLink >= 2, `${firstCopy.length} words`);
+  check('Drive: the recordings are in the copy too', firstCopy.some((w) => w.audio && w.audio.length > 100));
+  await page.screenshot({ path: `${OUT}/17-drive-linked.png` });
+  const writes0 = driveFile.writes;
+  await page.locator('.tabbar button').first().click();
+  await page.locator('.hint-field input').fill('rainbow رنگین‌کمان');
+  await page.locator('.save-typed').click();
+  await page.locator('.saved-card', { hasText: 'rainbow' }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(4500);
+  check('Drive: a new word is saved to Drive by itself a few seconds later', driveFile.writes > writes0 && driveWords().some((w) => w.transcript === 'rainbow رنگین‌کمان'));
   await ctxN2.close();
+
+  // 18. "Uninstall and reinstall": a brand-new app with nothing in it → «بازیابی از گوگل درایو» → all back
+  const reDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-reinstall-'));
+  const ctxR = await chromium.launchPersistentContext(reDir, { viewport: { width: 412, height: 860 }, reducedMotion: 'reduce' });
+  await withDriveStub(ctxR);
+  await ctxR.addInitScript(() => {
+    const reply = (id, obj) => setTimeout(() => window.__ewNative.done(id, JSON.stringify(obj)), 30);
+    window.EchoWordsAndroid = {
+      appVersion: () => '17', hasVoice: () => true, speak: (id) => reply(id, { status: 'ok' }), stopSpeaking: () => {},
+      canListen: () => false, listen: () => {}, stopListening: () => {}, saveFile: () => {},
+      cloudStatus: () => JSON.stringify(localStorage.getItem('stubDrive') === '1' ? { linked: true, name: 'AMIR-ABC-ganjineh-sedaye-man.json', authority: 'com.google.android.apps.docs.storage' } : { linked: false }),
+      cloudLink: () => {},
+      cloudWrite: (id, b64) => window.__driveSave('same', b64).then(() => reply(id, { ok: true })),
+      cloudOpen: (id) => window.__driveRead().then((b64) => { localStorage.setItem('stubDrive', '1'); reply(id, { ok: true, linked: true, name: 'AMIR-ABC-ganjineh-sedaye-man.json', authority: 'com.google.android.apps.docs.storage', b64 }); }),
+      cloudUnlink: () => localStorage.removeItem('stubDrive'),
+    };
+  });
+  page = ctxR.pages()[0];
+  await page.goto(FILE);
+  await page.getByRole('button', { name: /کلمه‌ها و جمله‌هایم/ }).first().click();
+  await page.getByRole('button', { name: /بازیابی از گوگل درایو/ }).click();
+  await page.locator('.word-card', { hasText: 'rainbow' }).waitFor({ timeout: 10000 });
+  check('Drive: after reinstalling, every word comes back', (await page.locator('.word-card').count()) === driveWords().length);
+  check('Drive: recordings come back and play', (await page.locator('.word-card .btn-play').count()) >= 1);
+  await page.getByRole('button', { name: /تنظیمات/ }).click();
+  check('Drive: after restoring, syncing continues to the same file', await page.getByText('وصل است به گوگل درایو').isVisible());
+  await ctxR.close();
+
+  // 19. First launch only: «تبریک! …خوش آمدید», skip after 1 s, gone by itself after 3 s
+  const wDir = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-welcome-'));
+  let ctxW2 = await chromium.launchPersistentContext(wDir, { viewport: { width: 412, height: 860 }, firstLaunch: true });
+  page = ctxW2.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.welcome').waitFor({ timeout: 5000 });
+  const welcomeText = (await page.locator('.welcome').innerText()).replace(/\s+/g, ' ');
+  check('first launch: welcome screen with the congratulations message', /تبریک!/.test(welcomeText) && /AMIRABC/.test(welcomeText.replace(/\s+/g, '')) && /گنجینه صدای من/.test(welcomeText) && /خوش آمدید/.test(welcomeText), welcomeText);
+  await page.screenshot({ path: `${OUT}/19-welcome.png` });
+  check('first launch: no skip button during the first second', (await page.locator('.welcome-skip').count()) === 0);
+  await page.locator('.welcome-skip').waitFor({ timeout: 2000 });
+  check('first launch: «رد کردن» appears after 1 second', true);
+  await page.locator('.welcome').waitFor({ state: 'detached', timeout: 4000 });
+  check('first launch: the welcome fades away by itself', true);
+  await ctxW2.close();
+  ctxW2 = await chromium.launchPersistentContext(wDir, { viewport: { width: 412, height: 860 }, firstLaunch: true });
+  page = ctxW2.pages()[0];
+  await page.goto(FILE);
+  await page.waitForTimeout(800);
+  check('second launch: no welcome screen', (await page.locator('.welcome').count()) === 0);
+  await ctxW2.close();
+  const w3 = fs.mkdtempSync(path.join(os.tmpdir(), 'echowords-welcome2-'));
+  ctxW2 = await chromium.launchPersistentContext(w3, { viewport: { width: 412, height: 860 }, firstLaunch: true });
+  page = ctxW2.pages()[0];
+  await page.goto(FILE);
+  await page.locator('.welcome-skip').click({ timeout: 3000 });
+  await page.locator('.welcome').waitFor({ state: 'detached', timeout: 1500 });
+  check('first launch: «رد کردن» closes it at once', true);
+  await ctxW2.close();
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

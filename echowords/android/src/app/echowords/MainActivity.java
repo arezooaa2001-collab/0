@@ -4,6 +4,9 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.net.Uri;
@@ -71,6 +74,10 @@ public class MainActivity extends Activity {
     private static final int REQ_PERM_CAMERA = 5;
     private static final int REQ_FILE = 10;
     private static final int REQ_SAVE = 11;
+    private static final int REQ_CLOUD_LINK = 12;
+    private static final int REQ_CLOUD_OPEN = 13;
+    private static final String PREFS = "echowords";
+    private static final String CLOUD_URI = "cloud_uri";
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private WebView web;
@@ -91,6 +98,8 @@ public class MainActivity extends Activity {
     private File recFile;
     private String recordStartId;
     private ValueCallback<Uri[]> fileCallback;
+    private String cloudId;
+    private byte[] cloudInitial;
     private String saveId;
     private byte[] saveData;
 
@@ -98,9 +107,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window w = getWindow();
-        w.setStatusBarColor(0xff6c4cf5);
+        w.setStatusBarColor(0xff2a0d63);
 
         web = new WebView(this);
+        web.setBackgroundColor(0xff2a0d63); // same night colour as the app's top: no white flash while loading
         setContentView(web);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -269,6 +279,37 @@ public class MainActivity extends Activity {
                 fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
                 fileCallback = null;
             }
+        } else if (requestCode == REQ_CLOUD_LINK || requestCode == REQ_CLOUD_OPEN) {
+            final String id = cloudId;
+            cloudId = null;
+            final byte[] initial = cloudInitial;
+            cloudInitial = null;
+            if (id == null) return;
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+                done(id, "{\"ok\":false,\"error\":\"cancelled\"}");
+                return;
+            }
+            final Uri uri = data.getData();
+            final boolean linking = requestCode == REQ_CLOUD_LINK;
+            new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        boolean canWrite = keepAccess(uri);
+                        JSONObject o = describe(uri);
+                        if (linking) {
+                            writeTo(uri, initial); // the library as it is right now (words made before linking too)
+                        } else {
+                            o.put("b64", Base64.encodeToString(readFrom(uri), Base64.NO_WRAP));
+                        }
+                        if (canWrite) prefs().edit().putString(CLOUD_URI, uri.toString()).apply();
+                        o.put("ok", true);
+                        o.put("linked", canWrite);
+                        done(id, o.toString());
+                    } catch (Exception e) {
+                        done(id, "{\"ok\":false,\"error\":\"io\",\"detail\":" + JSONObject.quote(String.valueOf(e)) + "}");
+                    }
+                }
+            }).start();
         } else if (requestCode == REQ_SAVE) {
             boolean ok = false;
             if (resultCode == RESULT_OK && data != null && data.getData() != null && saveData != null) {
@@ -361,6 +402,71 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ── Library copy in the family's Google Drive (or any place they choose) ──
+    private SharedPreferences prefs() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE);
+    }
+
+    /** Keep read+write access to the chosen file across restarts. Returns false if writing is not allowed. */
+    private boolean keepAccess(Uri uri) {
+        try {
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            return true;
+        } catch (Exception e) {
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Exception ignored) {
+            }
+            return false;
+        }
+    }
+
+    private JSONObject describe(Uri uri) throws Exception {
+        JSONObject o = new JSONObject();
+        String name = "";
+        Cursor c = null;
+        try {
+            c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+            if (c != null && c.moveToFirst()) name = c.getString(0);
+        } catch (Exception ignored) {
+        } finally {
+            if (c != null) c.close();
+        }
+        o.put("name", name == null ? "" : name);
+        o.put("authority", uri.getAuthority() == null ? "" : uri.getAuthority());
+        return o;
+    }
+
+    private void writeTo(Uri uri, byte[] bytes) throws Exception {
+        OutputStream out;
+        try {
+            out = getContentResolver().openOutputStream(uri, "wt");
+        } catch (Exception e) {
+            out = getContentResolver().openOutputStream(uri, "w");
+        }
+        if (out == null) throw new IOException("cannot open for writing");
+        try {
+            out.write(bytes);
+            out.flush();
+        } finally {
+            out.close();
+        }
+    }
+
+    private byte[] readFrom(Uri uri) throws Exception {
+        InputStream in = getContentResolver().openInputStream(uri);
+        if (in == null) throw new IOException("cannot open for reading");
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        try {
+            byte[] chunk = new byte[16384];
+            int n;
+            while ((n = in.read(chunk)) > 0) buf.write(chunk, 0, n);
+        } finally {
+            in.close();
+        }
+        return buf.toByteArray();
+    }
+
     // ── Speech recognition ────────────────────────────────────────────────
     private void startListening(String tag) {
         if (recognizer == null) {
@@ -437,7 +543,7 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public String appVersion() {
-            return "16";
+            return "17";
         }
 
         @JavascriptInterface
@@ -530,6 +636,105 @@ public class MainActivity extends Activity {
         public void httpCancel(String id) {
             HttpURLConnection c = httpCalls.remove(id);
             if (c != null) c.disconnect();
+        }
+
+        /** {linked, name, authority} of the library copy, or {linked:false}. */
+        @JavascriptInterface
+        public String cloudStatus() {
+            String u = prefs().getString(CLOUD_URI, null);
+            if (u == null) return "{\"linked\":false}";
+            try {
+                JSONObject o = describe(Uri.parse(u));
+                o.put("linked", true);
+                return o.toString();
+            } catch (Exception e) {
+                return "{\"linked\":true,\"name\":\"\",\"authority\":\"\"}";
+            }
+        }
+
+        /** Choose where to keep the copy (e.g. Google Drive) and write the library there now. */
+        @JavascriptInterface
+        public void cloudLink(final String id, final String name, final String base64) {
+            final byte[] bytes;
+            try {
+                bytes = Base64.decode(base64, Base64.DEFAULT);
+            } catch (IllegalArgumentException e) {
+                done(id, "{\"ok\":false,\"error\":\"io\"}");
+                return;
+            }
+            main.post(new Runnable() {
+                public void run() {
+                    if (cloudId != null) done(cloudId, "{\"ok\":false,\"error\":\"cancelled\"}");
+                    cloudId = id;
+                    cloudInitial = bytes;
+                    Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType("application/json");
+                    i.putExtra(Intent.EXTRA_TITLE, name);
+                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    try {
+                        startActivityForResult(i, REQ_CLOUD_LINK);
+                    } catch (ActivityNotFoundException e) {
+                        cloudId = null;
+                        done(id, "{\"ok\":false,\"error\":\"no-picker\"}");
+                    }
+                }
+            });
+        }
+
+        /** Pick an existing copy (e.g. after reinstalling), read it, and keep syncing to it. */
+        @JavascriptInterface
+        public void cloudOpen(final String id) {
+            main.post(new Runnable() {
+                public void run() {
+                    if (cloudId != null) done(cloudId, "{\"ok\":false,\"error\":\"cancelled\"}");
+                    cloudId = id;
+                    Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType("*/*");
+                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    try {
+                        startActivityForResult(i, REQ_CLOUD_OPEN);
+                    } catch (ActivityNotFoundException e) {
+                        cloudId = null;
+                        done(id, "{\"ok\":false,\"error\":\"no-picker\"}");
+                    }
+                }
+            });
+        }
+
+        /** Overwrite the linked copy with the current library (runs in the background). */
+        @JavascriptInterface
+        public void cloudWrite(final String id, final String base64) {
+            new Thread(new Runnable() {
+                public void run() {
+                    String u = prefs().getString(CLOUD_URI, null);
+                    if (u == null) {
+                        done(id, "{\"ok\":false,\"error\":\"not-linked\"}");
+                        return;
+                    }
+                    try {
+                        writeTo(Uri.parse(u), Base64.decode(base64, Base64.DEFAULT));
+                        done(id, "{\"ok\":true}");
+                    } catch (SecurityException e) {
+                        done(id, "{\"ok\":false,\"error\":\"lost\",\"detail\":" + JSONObject.quote(String.valueOf(e)) + "}");
+                    } catch (Exception e) {
+                        done(id, "{\"ok\":false,\"error\":\"io\",\"detail\":" + JSONObject.quote(String.valueOf(e)) + "}");
+                    }
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
+        public void cloudUnlink() {
+            String u = prefs().getString(CLOUD_URI, null);
+            if (u != null) {
+                try {
+                    getContentResolver().releasePersistableUriPermission(Uri.parse(u), Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                } catch (Exception ignored) {
+                }
+            }
+            prefs().edit().remove(CLOUD_URI).apply();
         }
 
         @JavascriptInterface

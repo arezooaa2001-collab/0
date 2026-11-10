@@ -19,6 +19,21 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
   - If the app ever opens empty (browser data cleared, new device, a new copy of the file), a «برگرداندن از فایل پشتیبان» (Restore from backup) card brings everything back.
   - Settings shows when the last backup was made. Keeping a copy of the backup file somewhere else (Telegram Saved Messages, Google Drive) protects against a lost or broken tablet.
 
+## Logo and first launch
+
+- **Logo:** the family's hand-drawn sketch (panels C, B, A) redrawn with straight lines, a rainbow outline and equal-size letters, on a night-sky background. `scripts/make-logo.cjs` draws it and renders the launcher icons, `public/logo.png`, `docs/logo.png` and `src/brand/mark.svg`.
+- **First launch:** «تبریک! به برنامه AMIR ABC گنجینه صدای من، خوش آمدید» (Congratulations! Welcome to AMIR ABC, My Sound Treasure). It fades away after 3 seconds; «رد کردن» (Skip) appears after 1 second. It is shown only once.
+
+## Google account (Google Drive copy)
+
+In the Android app, Settings → «حساب گوگل» (Google account) → «اتصال به گوگل درایو» (Connect to Google Drive) opens Android's «save to» screen. Choose **Drive**, which is the family's own Google account.
+
+- **What is saved:** a complete copy of the library (words, folders and recordings) is written there at once, including everything saved before connecting.
+- **After every change:** the app rewrites the same file by itself about 3 seconds later. Android keeps access to the file through a persistable permission.
+- **After uninstalling and reinstalling:** «بازیابی از گوگل درایو» (Restore from Google Drive) reads the file back, and syncing continues to the same file.
+
+No developer account or API key is needed. Android's document picker and the Drive app handle the Google account.
+
 ## Android app (APK)
 
 `release/echowords.apk` is the same app as a real Android app (Android 7 and newer).

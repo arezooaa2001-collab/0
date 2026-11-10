@@ -13,6 +13,11 @@ interface AndroidBridge {
   saveFile(callId: string, name: string, mime: string, base64: string): void;
   appVersion(): string;
   micGranted?(): boolean;
+  cloudStatus?(): string;
+  cloudLink?(callId: string, name: string, base64: string): void;
+  cloudOpen?(callId: string): void;
+  cloudWrite?(callId: string, base64: string): void;
+  cloudUnlink?(): void;
   httpRequest?(callId: string, method: string, url: string, headersJson: string, bodyBase64: string, timeoutMs: number): void;
   httpCancel?(callId: string): void;
   cameraGranted?(): boolean;
@@ -257,4 +262,59 @@ export function nativeHttp(
     }
   });
   return p;
+}
+
+// ── Library copy in Google Drive (APK v17+) ─────────────────────────────────
+export interface CloudInfo {
+  linked: boolean;
+  name?: string;
+  /** Who stores the file, e.g. com.google.android.apps.docs.storage = Google Drive. */
+  authority?: string;
+}
+
+export const nativeHasCloud = (): boolean => typeof bridge()?.cloudLink === 'function';
+
+export function nativeCloudStatus(): CloudInfo {
+  try {
+    return JSON.parse(bridge()?.cloudStatus?.() ?? '{"linked":false}') as CloudInfo;
+  } catch {
+    return { linked: false };
+  }
+}
+
+async function toB64(data: Blob): Promise<string> {
+  const buf = new Uint8Array(await data.arrayBuffer());
+  let s = '';
+  for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+type CloudResult = { ok: true; linked: boolean; name: string; authority: string; b64?: string } | { ok: false; error: string; detail?: string };
+
+export async function nativeCloudLink(name: string, data: Blob): Promise<CloudResult> {
+  const b = bridge();
+  if (!b?.cloudLink) return { ok: false, error: 'unsupported' };
+  const b64 = await toB64(data);
+  return (await call<CloudResult | null>((id) => b.cloudLink!(id, name, b64), 10 * 60_000, null)) ?? { ok: false, error: 'timeout' };
+}
+
+export async function nativeCloudOpen(): Promise<CloudResult> {
+  const b = bridge();
+  if (!b?.cloudOpen) return { ok: false, error: 'unsupported' };
+  return (await call<CloudResult | null>((id) => b.cloudOpen!(id), 10 * 60_000, null)) ?? { ok: false, error: 'timeout' };
+}
+
+export async function nativeCloudWrite(data: Blob): Promise<{ ok: boolean; error?: string; detail?: string }> {
+  const b = bridge();
+  if (!b?.cloudWrite) return { ok: false, error: 'unsupported' };
+  const b64 = await toB64(data);
+  return (await call<{ ok: boolean; error?: string } | null>((id) => b.cloudWrite!(id, b64), 120_000, null)) ?? { ok: false, error: 'timeout' };
+}
+
+export function nativeCloudUnlink(): void {
+  try {
+    bridge()?.cloudUnlink?.();
+  } catch {
+    /* ignore */
+  }
 }

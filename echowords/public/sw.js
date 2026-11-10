@@ -4,7 +4,7 @@
 const CACHE = 'echowords-shell-v1';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html', '/manifest.webmanifest', '/logo.jpg'])));
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html', '/manifest.webmanifest', '/logo.png'])));
   self.skipWaiting();
 });
 

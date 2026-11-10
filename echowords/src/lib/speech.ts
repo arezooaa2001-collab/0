@@ -88,7 +88,7 @@ export async function speakText(text: string, accent: Accent, lang: LangCode = '
   const run = ++speakRun;
   if (isNativeApp()) {
     nativeStopSpeaking();
-    const parts = segmentByLang(text, lang === 'fr' ? 'fr' : 'en');
+    const parts = segmentByLang(text, lang);
     const missing: LangCode[] = [];
     let spoke = false;
     for (const part of parts) {
@@ -110,7 +110,7 @@ export async function speakText(text: string, accent: Accent, lang: LangCode = '
   const voices = await loadVoices();
   synth.cancel();
   await new Promise((r) => setTimeout(r, 60)); // Chrome on Android drops a speak() right after cancel()
-  const parts = segmentByLang(text, lang === 'fr' ? 'fr' : 'en');
+  const parts = segmentByLang(text, lang);
   const missing: LangCode[] = [];
   let spoke = false;
   for (const part of parts) {

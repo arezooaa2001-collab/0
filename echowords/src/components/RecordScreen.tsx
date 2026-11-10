@@ -15,6 +15,8 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { LevelMeter } from './LevelMeter';
 import { PlayButton } from './PlayButton';
 import { RestoreButton } from './RestoreButton';
+import { DriveCard } from './DriveCard';
+import type { DriveSync } from '../lib/useDriveSync';
 import { useToast } from './Toast';
 import { WordCard } from './WordCard';
 
@@ -26,13 +28,14 @@ function reasonText(reason: string | null): string {
 
 interface Props {
   lib: Library;
+  drive: DriveSync;
   accent: Accent;
   onOpenLibrary: () => void;
   /** A saved word (opened from the library) whose recording the learner wants to add. */
   initialTarget?: Word | null;
 }
 
-export function RecordScreen({ lib, accent, onOpenLibrary, initialTarget = null }: Props) {
+export function RecordScreen({ lib, drive, accent, onOpenLibrary, initialTarget = null }: Props) {
   const rec = useRecorder();
   const toast = useToast();
 
@@ -369,6 +372,7 @@ export function RecordScreen({ lib, accent, onOpenLibrary, initialTarget = null 
         <div className="card restore-card">
           <p className="state-title">{t.emptyRestoreTitle}</p>
           <p className="meta">{t.emptyRestoreHelp}</p>
+          <DriveCard lib={lib} drive={drive} compact />
           <RestoreButton lib={lib} />
         </div>
       )}

@@ -76,7 +76,8 @@ export interface Segment {
  * `latinAs` lets a word marked French read its Latin parts in French.
  */
 export function segmentByLang(text: string, latinAs: LangCode = 'en'): Segment[] {
-  const hasKana = /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
+  // Chinese characters are also used in Japanese: a text known to be Japanese reads them as Japanese.
+  const hasKana = latinAs === 'ja' || /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
   const out: Segment[] = [];
   let cur: Segment | null = null;
   let pending = '';

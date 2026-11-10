@@ -6,12 +6,15 @@ import type { Accent } from '../lib/stt';
 import { t } from '../lib/strings';
 import type { Library } from '../lib/useLibrary';
 import { AiSettingsCard } from './AiSettingsCard';
+import { DriveCard } from './DriveCard';
+import type { DriveSync } from '../lib/useDriveSync';
 import { MicCheck } from './MicCheck';
 import { RestoreButton } from './RestoreButton';
 import { useToast } from './Toast';
 
 interface Props {
   lib: Library;
+  drive: DriveSync;
   accent: Accent;
   onAccent: (a: Accent) => void;
 }
@@ -22,7 +25,7 @@ const ACCENTS: { value: Accent; label: string }[] = [
   { value: 'uk', label: t.accentUK },
 ];
 
-export function SettingsScreen({ lib, accent, onAccent }: Props) {
+export function SettingsScreen({ lib, drive, accent, onAccent }: Props) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(lastBackupAt);
@@ -47,6 +50,8 @@ export function SettingsScreen({ lib, accent, onAccent }: Props) {
   return (
     <section className="screen settings-screen">
       <h1 className="title">{t.settingsTitle}</h1>
+
+      <DriveCard lib={lib} drive={drive} />
 
       <MicCheck />
 

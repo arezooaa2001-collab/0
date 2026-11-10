@@ -311,3 +311,14 @@ describe('inside the Android app (no browser speech engine)', () => {
     }
   });
 });
+
+describe('Japanese words written only with kanji', () => {
+  it('are read as Japanese when the word is known to be Japanese', () => {
+    expect(segmentByLang('猫')).toEqual([{ text: '猫', lang: 'zh' }]);
+    expect(segmentByLang('猫', 'ja')).toEqual([{ text: '猫', lang: 'ja' }]);
+    expect(segmentByLang('cat 猫', 'ja')).toEqual([
+      { text: 'cat', lang: 'en' },
+      { text: '猫', lang: 'ja' },
+    ]);
+  });
+});

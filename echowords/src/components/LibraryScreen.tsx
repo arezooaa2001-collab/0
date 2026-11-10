@@ -7,6 +7,8 @@ import type { Library } from '../lib/useLibrary';
 import { ConfirmDialog } from './ConfirmDialog';
 import { FolderDialog } from './FolderDialog';
 import { RestoreButton } from './RestoreButton';
+import { DriveCard } from './DriveCard';
+import type { DriveSync } from '../lib/useDriveSync';
 import { useToast } from './Toast';
 import { WordCard } from './WordCard';
 
@@ -15,7 +17,7 @@ type FolderView = 'all' | null | string;
 
 const wordLangs = (w: Word): LangCode[] => (w.transcript ? langsIn(w.transcript) : []);
 
-export function LibraryScreen({ lib, accent, onAddVoice }: { lib: Library; accent: Accent; onAddVoice: (w: Word) => void }) {
+export function LibraryScreen({ lib, drive, accent, onAddVoice }: { lib: Library; drive: DriveSync; accent: Accent; onAddVoice: (w: Word) => void }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [favOnly, setFavOnly] = useState(false);
@@ -124,6 +126,7 @@ export function LibraryScreen({ lib, accent, onAddVoice }: { lib: Library; accen
           <div className="card restore-card">
             <p className="state-title">{t.emptyRestoreTitle}</p>
             <p className="meta">{t.emptyRestoreHelp}</p>
+            <DriveCard lib={lib} drive={drive} compact />
             <RestoreButton lib={lib} big />
           </div>
         </>

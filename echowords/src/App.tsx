@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import logo from './assets/logo.jpg?inline';
+import { AmirAbc, LogoMark, WelcomeSplash } from './components/Brand';
 import { LibraryScreen } from './components/LibraryScreen';
 import { RecordScreen } from './components/RecordScreen';
 import { SettingsScreen } from './components/SettingsScreen';
@@ -10,6 +10,7 @@ import type { Accent } from './lib/stt';
 import { fa, t } from './lib/strings';
 import { APP_VERSION } from './lib/config';
 import { useLibrary } from './lib/useLibrary';
+import { useDriveSync } from './lib/useDriveSync';
 import type { Word } from './lib/db';
 import { downloadBackup } from './lib/backup';
 import { useToast } from './components/Toast';
@@ -18,6 +19,7 @@ type Tab = 'record' | 'library' | 'tutor' | 'settings';
 
 export default function App() {
   const lib = useLibrary();
+  const drive = useDriveSync(lib);
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('record');
   const [accent, setAccent] = useState<Accent>(readAccent);
@@ -33,8 +35,15 @@ export default function App() {
 
   return (
     <div className="app">
+      <WelcomeSplash />
       <header className="topbar">
-        <span className="brand"><img className="brand-logo" src={logo} alt="" /> {t.appName}</span>
+        <span className="brand">
+          <LogoMark size={40} className="brand-logo" />
+          <span className="brand-names">
+            <AmirAbc className="brand-amir" />
+            <span>{t.appName}</span>
+          </span>
+        </span>
         <span className="version">نسخه {fa(APP_VERSION)}</span>
       </header>
       <main className="content">
@@ -51,10 +60,11 @@ export default function App() {
           </div>
         )}
         {/* The record screen is unmounted when leaving it: this always releases the microphone. */}
-        {tab === 'record' && <RecordScreen key={recordKey} lib={lib} accent={accent} initialTarget={voiceFor} onOpenLibrary={() => go('library')} />}
+        {tab === 'record' && <RecordScreen key={recordKey} lib={lib} drive={drive} accent={accent} initialTarget={voiceFor} onOpenLibrary={() => go('library')} />}
         {tab === 'library' && (
           <LibraryScreen
             lib={lib}
+            drive={drive}
             accent={accent}
             onAddVoice={(w) => {
               setVoiceFor(w);
@@ -67,6 +77,7 @@ export default function App() {
         {tab === 'settings' && (
           <SettingsScreen
             lib={lib}
+            drive={drive}
             accent={accent}
             onAccent={(a) => {
               setAccent(a);
