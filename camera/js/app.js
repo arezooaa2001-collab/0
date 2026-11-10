@@ -7,7 +7,7 @@ import { createMp4Writer, webCodecsSupported } from './encoder.js';
 import { initEnhancer, loadFile as loadIntoEnhancer } from './enhancer.js';
 import {
   $, toast, showBusy, hideBusy, fmtTime, fmtBytes, fileNameFor, downloadBlob, shareBlob,
-  canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr,
+  canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr, inApp, saveToDevice, deviceSaveError,
 } from './ui.js';
 
 const MAX_ZOOM = { environment: 250, user: 20 };
@@ -114,6 +114,9 @@ function profileFor(mode) { return mode === 'slow' ? 'slow' : 'normal'; }
 function cameraErrorText(err) {
   const n = err && err.name;
   if (err && err.message === 'insecure') return 'برای دسترسی به دوربین، این صفحه باید با آدرس امن (https) باز شود.';
+  if ((n === 'NotAllowedError' || n === 'SecurityError') && inApp()) {
+    return 'اجازه دوربین داده نشد. دکمه بالا را بزن و «اجازه» را انتخاب کن. اگر دیگر پرسیده نشد: تنظیمات تبلت ← برنامه‌ها ← Camera ← مجوزها ← دوربین را روشن کن.';
+  }
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') {
     return 'اجازه دوربین داده نشد. از تنظیمات مرورگر (آیکون قفل/دوربین کنار نوار آدرس، یا تنظیمات سایت) دسترسی «دوربین» را برای این سایت روی «مجاز» بگذار و دوباره دکمه بالا را بزن.';
   }
@@ -1122,6 +1125,10 @@ async function saveMedia(item) {
     toast('حافظه برنامه پر است؛ این مورد فقط تا بسته شدن برنامه نگه داشته می‌شود. آن را از گالری «ذخیره در دستگاه» کن.', 6000);
   }
   setGalleryThumb(item.thumb);
+  // In the Android app every photo and video also goes into the tablet's own gallery.
+  if (inApp() && item.mode !== 'enhanced') {
+    saveToDevice(item.blob, fileNameFor(item)).catch((err) => toast(deviceSaveError(err), 5000));
+  }
   return item;
 }
 

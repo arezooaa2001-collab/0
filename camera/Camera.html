@@ -2902,7 +2902,46 @@ function fileNameFor(item) {
   return `Camera_${stamp}${tag}.${extFor(item.mime || item.blob?.type)}`;
 }
 
+// Inside the Android app (Camera.apk) files go straight into the tablet's gallery
+// through the native CameraBridge, in base64 chunks.
+const inApp = () => !!window.CameraBridge;
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).slice(String(r.result).indexOf(',') + 1));
+    r.onerror = () => reject(r.error || new Error('read'));
+    r.readAsDataURL(blob);
+  });
+}
+
+let deviceQueue = Promise.resolve();
+function saveToDevice(blob, name, share = false) {
+  const job = deviceQueue.then(async () => {
+    const bridge = window.CameraBridge;
+    const id = bridge.begin(name, blob.type || 'application/octet-stream');
+    if (!id) throw new Error('begin');
+    const CHUNK = 1536 * 1024;
+    for (let o = 0; o < blob.size; o += CHUNK) {
+      if (!bridge.append(id, await blobToBase64(blob.slice(o, o + CHUNK)))) throw new Error('write');
+    }
+    const res = bridge.finish(id, share);
+    if (res !== 'ok') throw new Error(res || 'save');
+  });
+  deviceQueue = job.catch(() => {});
+  return job;
+}
+
+function deviceSaveError(err) {
+  if (err && err.message === 'perm') return 'برای ذخیره در گالری تبلت، اجازه «فایل‌ها» را بده و دوباره امتحان کن.';
+  return 'ذخیره در گالری تبلت ناموفق بود.';
+}
+
 function downloadBlob(blob, name) {
+  if (inApp()) {
+    saveToDevice(blob, name).then(() => toast('در گالری تبلت ذخیره شد (پوشه DCIM/Camera).'), (err) => toast(deviceSaveError(err)));
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -2916,6 +2955,9 @@ function downloadBlob(blob, name) {
 
 // Opens the system share sheet (on iPad/iPhone this offers "Save to Photos").
 async function shareBlob(blob, name) {
+  if (inApp()) {
+    try { await saveToDevice(blob, name, true); return true; } catch (err) { toast(deviceSaveError(err)); return false; }
+  }
   try {
     const file = new File([blob], name, { type: blob.type });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -2981,7 +3023,7 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 const faNum = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-return { $, toast, showBusy, hideBusy, fmtTime, ltr, fmtBytes, extFor, fileNameFor, downloadBlob, shareBlob, canvasToBlob, thumbFromSource, thumbFromImageBlob, thumbFromVideoBlob, sleep, clamp, faNum };
+return { $, toast, showBusy, hideBusy, fmtTime, ltr, fmtBytes, extFor, fileNameFor, inApp, saveToDevice, deviceSaveError, downloadBlob, shareBlob, canvasToBlob, thumbFromSource, thumbFromImageBlob, thumbFromVideoBlob, sleep, clamp, faNum };
 })();
 
 __m['renderer'] = (() => {
@@ -3761,7 +3803,7 @@ const { Renderer } = __m['renderer'];
 const { store } = __m['storage'];
 const { createMp4Writer, webCodecsSupported } = __m['encoder'];
 const { initEnhancer, loadFile: loadIntoEnhancer } = __m['enhancer'];
-const { $, toast, showBusy, hideBusy, fmtTime, fmtBytes, fileNameFor, downloadBlob, shareBlob, canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr } = __m['ui'];
+const { $, toast, showBusy, hideBusy, fmtTime, fmtBytes, fileNameFor, downloadBlob, shareBlob, canvasToBlob, thumbFromSource, thumbFromVideoBlob, clamp, faNum, ltr, inApp, saveToDevice, deviceSaveError } = __m['ui'];
 
 const MAX_ZOOM = { environment: 250, user: 20 };
 const PRESETS = { environment: [1, 2, 5, 10, 25, 50, 100, 250], user: [1, 2, 5, 10, 20] };
@@ -3867,6 +3909,9 @@ function profileFor(mode) { return mode === 'slow' ? 'slow' : 'normal'; }
 function cameraErrorText(err) {
   const n = err && err.name;
   if (err && err.message === 'insecure') return 'برای دسترسی به دوربین، این صفحه باید با آدرس امن (https) باز شود.';
+  if ((n === 'NotAllowedError' || n === 'SecurityError') && inApp()) {
+    return 'اجازه دوربین داده نشد. دکمه بالا را بزن و «اجازه» را انتخاب کن. اگر دیگر پرسیده نشد: تنظیمات تبلت ← برنامه‌ها ← Camera ← مجوزها ← دوربین را روشن کن.';
+  }
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') {
     return 'اجازه دوربین داده نشد. از تنظیمات مرورگر (آیکون قفل/دوربین کنار نوار آدرس، یا تنظیمات سایت) دسترسی «دوربین» را برای این سایت روی «مجاز» بگذار و دوباره دکمه بالا را بزن.';
   }
@@ -4875,6 +4920,10 @@ async function saveMedia(item) {
     toast('حافظه برنامه پر است؛ این مورد فقط تا بسته شدن برنامه نگه داشته می‌شود. آن را از گالری «ذخیره در دستگاه» کن.', 6000);
   }
   setGalleryThumb(item.thumb);
+  // In the Android app every photo and video also goes into the tablet's own gallery.
+  if (inApp() && item.mode !== 'enhanced') {
+    saveToDevice(item.blob, fileNameFor(item)).catch((err) => toast(deviceSaveError(err), 5000));
+  }
   return item;
 }
 

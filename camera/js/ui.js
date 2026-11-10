@@ -58,7 +58,46 @@ export function fileNameFor(item) {
   return `Camera_${stamp}${tag}.${extFor(item.mime || item.blob?.type)}`;
 }
 
+// Inside the Android app (Camera.apk) files go straight into the tablet's gallery
+// through the native CameraBridge, in base64 chunks.
+export const inApp = () => !!window.CameraBridge;
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).slice(String(r.result).indexOf(',') + 1));
+    r.onerror = () => reject(r.error || new Error('read'));
+    r.readAsDataURL(blob);
+  });
+}
+
+let deviceQueue = Promise.resolve();
+export function saveToDevice(blob, name, share = false) {
+  const job = deviceQueue.then(async () => {
+    const bridge = window.CameraBridge;
+    const id = bridge.begin(name, blob.type || 'application/octet-stream');
+    if (!id) throw new Error('begin');
+    const CHUNK = 1536 * 1024;
+    for (let o = 0; o < blob.size; o += CHUNK) {
+      if (!bridge.append(id, await blobToBase64(blob.slice(o, o + CHUNK)))) throw new Error('write');
+    }
+    const res = bridge.finish(id, share);
+    if (res !== 'ok') throw new Error(res || 'save');
+  });
+  deviceQueue = job.catch(() => {});
+  return job;
+}
+
+export function deviceSaveError(err) {
+  if (err && err.message === 'perm') return 'برای ذخیره در گالری تبلت، اجازه «فایل‌ها» را بده و دوباره امتحان کن.';
+  return 'ذخیره در گالری تبلت ناموفق بود.';
+}
+
 export function downloadBlob(blob, name) {
+  if (inApp()) {
+    saveToDevice(blob, name).then(() => toast('در گالری تبلت ذخیره شد (پوشه DCIM/Camera).'), (err) => toast(deviceSaveError(err)));
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -72,6 +111,9 @@ export function downloadBlob(blob, name) {
 
 // Opens the system share sheet (on iPad/iPhone this offers "Save to Photos").
 export async function shareBlob(blob, name) {
+  if (inApp()) {
+    try { await saveToDevice(blob, name, true); return true; } catch (err) { toast(deviceSaveError(err)); return false; }
+  }
   try {
     const file = new File([blob], name, { type: blob.type });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
