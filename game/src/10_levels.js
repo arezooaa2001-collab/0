@@ -280,14 +280,14 @@ const NEW2D = [
 /* ---------- 3D chase levels ---------- */
 const ALL3D = ['bar', 'wall', 'gap', 'mover', 'spikes', 'roller'];
 const L3D = [
-  { kind: '3d', name: 'فرار از غول', theme: 'dusk', len: 2200, giants: 1, speed: 14, gap: 24, types: [], noObst: true, zig: 0.55, seed: 1 },
-  { kind: '3d', name: 'جنگل غول', theme: 'forest', len: 3000, giants: 1, speed: 15, gap: 22, gs: 0.965, types: ['bar', 'wall', 'gap'], dens: 0.65, seed: 2 },
+  { kind: '3d', name: 'فرار از غول', theme: 'sakura', len: 2200, giants: 1, speed: 14, gap: 24, types: [], noObst: true, zig: 0.55, seed: 1 },
+  { kind: '3d', name: 'جنگل غول', theme: 'jungle', len: 3000, giants: 1, speed: 15, gap: 22, gs: 0.965, types: ['bar', 'wall', 'gap'], dens: 0.65, seed: 2 },
   { kind: '3d', name: 'بیابان لرزان', theme: 'desert', len: 3400, giants: 2, speed: 16, gap: 22, gs: 0.97, types: ['bar', 'wall', 'gap', 'mover'], dens: 0.75, seed: 3 },
   { kind: '3d', name: 'کوه یخی', theme: 'snow', len: 3800, giants: 3, speed: 16.5, gap: 21, gs: 0.972, types: ['bar', 'wall', 'gap', 'mover', 'spikes'], dens: 0.85, zig: 0.12, seed: 4 },
   { kind: '3d', name: 'رود آتش', theme: 'lava', len: 4200, giants: 5, speed: 17, gap: 21, gs: 0.975, types: ALL3D, dens: 0.9, zig: 0.1, seed: 5 },
-  { kind: '3d', name: 'شب بی‌پایان', theme: 'night', len: 4800, giants: 8, speed: 17.5, gap: 20, gs: 0.978, types: ALL3D, dens: 1, zig: 0.12, seed: 6 },
+  { kind: '3d', name: 'شب بی‌پایان', theme: 'cyber', len: 4800, giants: 8, speed: 17.5, gap: 20, gs: 0.978, types: ALL3D, dens: 1, zig: 0.12, seed: 6 },
   { kind: '3d', name: 'طوفان سنگی', theme: 'storm', len: 5400, giants: 12, speed: 18, gap: 20, gs: 0.98, types: ALL3D, dens: 1.1, zig: 0.12, seed: 7 },
-  { kind: '3d', name: 'لشکر غول‌ها', theme: 'ash', len: 6200, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
+  { kind: '3d', name: 'لشکر غول‌ها', theme: 'crystal', len: 6200, giants: 20, speed: 18.5, gap: 20, gs: 0.982, types: ALL3D, dens: 1.2, zig: 0.14, seed: 8 },
   { kind: '3d', name: 'آخرالزمان: ۴۵ غول', theme: 'doom', len: 9000, giants: 45, speed: 19.5, gap: 19, gs: 0.985, types: ALL3D, dens: 1.85, zig: 0.14, seed: 9 },
   // level 42: the summit. 45 rooms, the densest course and every hard obstacle type
   { kind: '3d', name: 'قله‌ی آخر: ۴۵ اتاق', theme: 'abyss', len: 12600, giants: 30, speed: 20, gap: 19, gs: 0.986, types: ALL3D, hard: true, dens: 2.15, zig: 0.12, seed: 10, final: true },

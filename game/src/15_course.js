@@ -659,21 +659,35 @@ const CHASE_LV = { 8: 3.7, 28: 3.5 }, REV_LV = { 13: 1, 28: 1 };
 const NEWFAM = ['toggle', 'bounce', 'kick', 'oneway', 'wind', 'gates', 'lava', 'warp', 'spinner', 'maces', 'dash', 'blink', 'toggle', 'float', 'swing', 'kick', 'arrows', 'trolls', 'gates', 'spinner'];
 
 /* ---------- colour schemes: every level looks different ---------- */
+// scen: background scenery, bs: block material, top: floor edge, cel: sky object, th3: 3D theme when played in true 3D
 const BIOMES = {
-  dusk:    { n: 'غروب بنفش', sky: '#3a1c5e', block: '#2f2858', moss: '#4fd8a8' },
-  forest:  { n: 'جنگل شب', sky: '#1d4a3c', block: '#2a4426', moss: '#9be05a' },
-  desert:  { n: 'بیابان', sky: '#7a3a22', block: '#5a3a24', moss: '#ffc46a' },
-  ice:     { n: 'یخچال', sky: '#1d4677', block: '#2c4a70', moss: '#c8f4ff' },
-  volcano: { n: 'آتشفشان', sky: '#5c1616', block: '#3e1c1c', moss: '#ff8a3d' },
-  toxic:   { n: 'مرداب سمی', sky: '#284a16', block: '#26321e', moss: '#c6ff3a' },
-  ocean:   { n: 'اعماق', sky: '#0b3c6c', block: '#16385a', moss: '#3cf0e0' },
-  candy:   { n: 'آب‌نبات', sky: '#7a3a9a', block: '#5c3480', moss: '#ff9ae0' },
-  gold:    { n: 'طلایی', sky: '#5a4012', block: '#3c3020', moss: '#ffd36e' },
-  storm:   { n: 'طوفان', sky: '#2c3346', block: '#2a2f3e', moss: '#a8c4e6' },
-  crimson: { n: 'شب سرخ', sky: '#4e1030', block: '#3a1832', moss: '#ff6f9a' },
-  aurora:  { n: 'شفق', sky: '#0f3040', block: '#1c2c44', moss: '#7af7c8' },
+  dusk:     { n: 'غروب بنفش', sky: '#3a1c5e', block: '#2f2858', moss: '#4fd8a8', scen: 'mountains', bs: 'brick', top: 'grass', cel: 'moon', th3: 'dusk' },
+  forest:   { n: 'جنگل شب', sky: '#1d4a3c', block: '#2a4426', moss: '#9be05a', scen: 'forest', bs: 'cobble', top: 'grass', cel: 'moon', th3: 'forest' },
+  desert:   { n: 'بیابان', sky: '#7a3a22', block: '#5a3a24', moss: '#ffc46a', scen: 'dunes', bs: 'sandstone', top: 'sand', cel: 'sun', th3: 'desert' },
+  ice:      { n: 'یخچال', sky: '#1d4677', block: '#2c4a70', moss: '#c8f4ff', scen: 'crystals', bs: 'iceblock', top: 'snow', cel: 'aurora', th3: 'snow' },
+  volcano:  { n: 'آتشفشان', sky: '#5c1616', block: '#3e1c1c', moss: '#ff8a3d', scen: 'volcano', bs: 'basalt', top: 'embers', cel: 'none', th3: 'lava' },
+  toxic:    { n: 'مرداب سمی', sky: '#284a16', block: '#26321e', moss: '#c6ff3a', scen: 'mushrooms', bs: 'mossy', top: 'slime', cel: 'moon', th3: 'toxic' },
+  ocean:    { n: 'اعماق', sky: '#0b3c6c', block: '#16385a', moss: '#3cf0e0', scen: 'waves', bs: 'coral', top: 'grass', cel: 'none', th3: 'ocean' },
+  candy:    { n: 'آب‌نبات', sky: '#7a3a9a', block: '#5c3480', moss: '#ff9ae0', scen: 'candy', bs: 'candy', top: 'frosting', cel: 'planet', th3: 'candy' },
+  gold:     { n: 'تالار طلایی', sky: '#5a4012', block: '#3c3020', moss: '#ffd36e', scen: 'ruins', bs: 'tiles', top: 'gold', cel: 'sun', th3: 'desert' },
+  storm:    { n: 'طوفان', sky: '#2c3346', block: '#2a2f3e', moss: '#a8c4e6', scen: 'spires', bs: 'brick', top: 'grass', cel: 'none', th3: 'storm' },
+  crimson:  { n: 'شب سرخ', sky: '#4e1030', block: '#3a1832', moss: '#ff6f9a', scen: 'spires', bs: 'tiles', top: 'thorns', cel: 'moon', th3: 'ash' },
+  aurora:   { n: 'شفق', sky: '#0f3040', block: '#1c2c44', moss: '#7af7c8', scen: 'hills', bs: 'cobble', top: 'grass', cel: 'aurora', th3: 'night' },
+  city:     { n: 'شهر نئون', sky: '#14143a', block: '#24244a', moss: '#ff4fd8', scen: 'city', bs: 'metal', top: 'neon', cel: 'none', th3: 'cyber' },
+  sakura:   { n: 'باغ شکوفه', sky: '#5a2a5a', block: '#3a2a40', moss: '#ffb0d8', scen: 'sakura', bs: 'wood', top: 'petals', cel: 'sun', th3: 'sakura' },
+  jungle:   { n: 'جنگل استوایی', sky: '#16402a', block: '#2a3a1e', moss: '#5fe07a', scen: 'jungle', bs: 'mossy', top: 'vines', cel: 'none', th3: 'jungle' },
+  factory:  { n: 'کارخونه', sky: '#2a2620', block: '#3a3430', moss: '#ffb347', scen: 'factory', bs: 'metal', top: 'hazard', cel: 'none', th3: 'ash' },
+  skyland:  { n: 'جزیره‌های آسمان', sky: '#3a70b0', block: '#3a4a6a', moss: '#e8f8ff', scen: 'islands', bs: 'cobble', top: 'cloud', cel: 'sun', th3: 'forest' },
+  pyramid:  { n: 'معبد شنی', sky: '#6a4a20', block: '#6a4a2a', moss: '#ffe0a0', scen: 'pyramids', bs: 'sandstone', top: 'sand', cel: 'sun', th3: 'desert' },
+  crystal:  { n: 'غار بلور', sky: '#2a1050', block: '#24164a', moss: '#c89aff', scen: 'crystals', bs: 'crystal', top: 'crystal', cel: 'none', th3: 'crystal' },
+  swamp:    { n: 'باتلاق مه', sky: '#2a3a2a', block: '#2a3020', moss: '#9ac46a', scen: 'swamp', bs: 'wood', top: 'grass', cel: 'moon', th3: 'toxic' },
+  space:    { n: 'ایستگاه فضایی', sky: '#05051a', block: '#1a1a30', moss: '#7af7ff', scen: 'domes', bs: 'circuit', top: 'neon', cel: 'planet', th3: 'cyber' },
+  autumn:   { n: 'پاییز', sky: '#6a3418', block: '#3a2618', moss: '#ff9a3a', scen: 'forest', bs: 'wood', top: 'leaves', cel: 'sun', th3: 'autumn' },
+  snowpine: { n: 'کاج برفی', sky: '#3a5a7a', block: '#3a4a5a', moss: '#ffffff', scen: 'forest', bs: 'iceblock', top: 'snow', cel: 'moon', th3: 'snow' },
+  ruins:    { n: 'خرابه‌های کهن', sky: '#3a3048', block: '#3a3440', moss: '#b0e08a', scen: 'ruins', bs: 'cobble', top: 'grass', cel: 'twin', th3: 'storm' },
 };
-const BIOME_ORDER = ['dusk', 'forest', 'desert', 'ice', 'crimson', 'toxic', 'ocean', 'gold', 'volcano', 'aurora', 'candy', 'storm'];
+const BIOME_ORDER = ['dusk', 'forest', 'desert', 'ice', 'crimson', 'toxic', 'city', 'ocean', 'gold', 'sakura', 'volcano', 'jungle', 'aurora', 'factory',
+  'candy', 'skyland', 'pyramid', 'crystal', 'storm', 'swamp', 'space', 'autumn', 'snowpine', 'ruins'];
 
 /* ---------- generation ---------- */
 function mkG(P, r, t0, dj) {
