@@ -69,6 +69,8 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // the pet
+    if (petOn()) { const pm = keep(new THREE.MeshLambertMaterial({ color: petBody3(), emissive: petBody3(), emissiveIntensity: .25 })); this.petM = new THREE.Mesh(keep(new THREE.SphereGeometry(.22, 12, 9)), pm); sc.add(this.petM); }
     // race rivals (2D race levels played in the side 3D view)
     this.rivalM = (app.rivals2 && app.rivals2.def === world.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
     // ghost of the best run: the same hero, see-through
@@ -310,6 +312,7 @@ class P3D {
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
+    if (this.petM) { const P = w.pet; this.petM.visible = !!P; if (P) this.petM.position.set(this.X(P.x), this.Y(P.y), .4); }
     this.rivalM.forEach((h, i) => { const r = app.rivals2 && app.rivals2.list[i], q = r && r.w.p; h.g.visible = !!q && !r.done && !(r.poof > 0 && Math.floor(t * 20) % 2);
       if (!h.g.visible) return; const fl = q.g < 0; h.g.position.set(this.X(q.x + PW / 2), fl ? this.Y(q.y) : this.Y(q.y + PHT), -.6); h.g.rotation.set(0, q.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, fl ? Math.PI : 0);
       const lg = Math.abs(q.vx) > 40 && q.onGround ? Math.sin(q.runPhase) * .22 : 0; h.legs[0].position.z = lg; h.legs[1].position.z = -lg; });

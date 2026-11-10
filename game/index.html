@@ -358,7 +358,7 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 <div class="screen fa" id="sShop">
   <div class="panel tall">
     <h2>فروشگاه <span id="shopBal" class="bal"></span></h2>
-    <p class="sub small">با جواهرهایی که توی مرحله‌ها جمع می‌کنی، رنگ، کلاه و رد پا بخر.</p>
+    <p class="sub small">با جواهرهایی که توی مرحله‌ها جمع می‌کنی رنگ، کلاه، رد پا، حیوون همراه (که برات جواهر جمع می‌کنه) و افکت مرگ بخر.</p>
     <div class="shopTop"><canvas id="shopPv" width="220" height="150"></canvas><div class="tabs" id="shopTabs"></div></div>
     <div class="shopGrid" id="shopGrid"></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
@@ -651,7 +651,57 @@ const SKINS = {
     { id: 'none', n: 'بدون رد', i: '·', p: 0 }, { id: 'sparkle', n: 'ستاره‌ریز', i: '✨', p: 60 }, { id: 'bubbles', n: 'حباب', i: '🫧', p: 70 },
     { id: 'hearts', n: 'قلب', i: '💖', p: 90 }, { id: 'fire', n: 'آتش', i: '🔥', p: 100 }, { id: 'rainbow', n: 'رنگین‌کمون', i: '🌈', p: 160 },
   ],
+  // a little friend that flies with you and fetches gems near you
+  pet: [
+    { id: 'none', n: 'بدون همراه', i: '·', p: 0 }, { id: 'cat', n: 'گربه', i: '🐱', p: 80, c: '#ffb36b' }, { id: 'bird', n: 'پرنده', i: '🐦', p: 90, c: '#7af7ff' },
+    { id: 'ghost', n: 'روح کوچولو', i: '👻', p: 110, c: '#efe8ff' }, { id: 'star', n: 'ستاره', i: '⭐', p: 130, c: '#ffd36e' }, { id: 'robot', n: 'ربات', i: '🤖', p: 150, c: '#a8b4d8' },
+    { id: 'dragon', n: 'اژدها', i: '🐲', p: 200, c: '#6ff3a4' },
+  ],
+  // what happens when you die
+  boom: [
+    { id: 'classic', n: 'کلاسیک', i: '💥', p: 0 }, { id: 'confetti', n: 'کاغذ رنگی', i: '🎉', p: 60 }, { id: 'hearts', n: 'قلب‌ها', i: '💕', p: 70 },
+    { id: 'pixel', n: 'پیکسلی', i: '👾', p: 80 }, { id: 'soul', n: 'روح پرواز', i: '👼', p: 90 }, { id: 'firework', n: 'آتیش‌بازی', i: '🎆', p: 120 },
+  ],
 };
+const petOn = () => skinOf('pet').id !== 'none';
+// the pet: follows you, or flies to a gem close to you and brings it (world.pet holds its position)
+function petStep(world, dt) {
+  if (world.silent || !petOn()) { world.pet = null; return; }
+  const p = world.p, P = world.pet || (world.pet = { x: p.x, y: p.y - 40, face: 1, gem: null });
+  let tx = p.x + PW / 2 - p.face * 30, ty = p.y - 26 + Math.sin(world.time * 3) * 6;
+  if (!P.gem || P.gem.gone) { P.gem = null; let best = 150; for (const e of world.act) if (e.type === 'gem' && !e.gone) { const d = Math.hypot(e.x - (p.x + PW / 2), e.y - (p.y + PHT / 2)); if (d < best) { best = d; P.gem = e; } } }
+  if (P.gem) { tx = P.gem.x; ty = P.gem.y; }
+  const k = Math.min(1, dt * (P.gem ? 9 : 6)); P.face = tx > P.x ? 1 : -1; P.x += (tx - P.x) * k; P.y += (ty - P.y) * k;
+  if (P.gem && Math.hypot(P.gem.x - P.x, P.gem.y - P.y) < 16) { world.grabGem(P.gem); P.gem = null; }
+}
+function drawPet(world, t) {
+  const P = world.pet; if (!P) return;
+  const id = skinOf('pet').id, c = skinOf('pet').c, g = ctx, f = P.face;
+  g.save(); g.translate(P.x, P.y + Math.sin(t * 5) * 2); g.scale(f, 1);
+  if (glowK() > 0) { g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .4; g.drawImage(TEX.gCyan, -24, -24, 48, 48); g.restore(); }
+  const eyes = (x, y) => { g.fillStyle = '#1a1030'; g.beginPath(); g.arc(x - 3.5, y, 2, 0, 7); g.arc(x + 3.5, y, 2, 0, 7); g.fill(); };
+  g.fillStyle = c;
+  if (id === 'cat') { g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill(); g.beginPath(); g.moveTo(-8, -4); g.lineTo(-7, -14); g.lineTo(-2, -8); g.moveTo(8, -4); g.lineTo(7, -14); g.lineTo(2, -8); g.fill(); g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, 4); g.quadraticCurveTo(-18, 6, -16, -4 + Math.sin(t * 6) * 3); g.stroke(); eyes(2, -1); }
+  else if (id === 'bird') { g.beginPath(); g.ellipse(0, 0, 9, 7, 0, 0, 7); g.fill(); g.fillStyle = mixHex(c, '#000000', .2); g.beginPath(); g.ellipse(-3, -2 + Math.sin(t * 22) * 4, 6, 3, -.4, 0, 7); g.fill(); g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(8, -1); g.lineTo(13, 1); g.lineTo(8, 3); g.fill(); eyes(4, -2); }
+  else if (id === 'ghost') { g.globalAlpha = .85; g.beginPath(); g.arc(0, -2, 9, Math.PI, 0); g.lineTo(9, 9); for (let k = 0; k < 4; k++) g.lineTo(9 - (k + .5) * 4.5, 9 - (k % 2 ? 0 : 4) + Math.sin(t * 8 + k) * 1.5); g.lineTo(-9, 9); g.closePath(); g.fill(); g.globalAlpha = 1; eyes(1, -2); }
+  else if (id === 'star') { g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5 + t, r = k % 2 ? 4.5 : 11; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); eyes(0, 0); }
+  else if (id === 'robot') { g.fillRect(-8, -8, 16, 15); g.fillStyle = '#2a2547'; g.fillRect(-6, -5, 12, 6); g.fillStyle = '#7af7ff'; g.fillRect(-4, -3, 3, 2); g.fillRect(1, -3, 3, 2); g.strokeStyle = c; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -8); g.lineTo(0, -13); g.stroke(); g.fillStyle = '#ff5d8a'; g.beginPath(); g.arc(0, -14, 2.2, 0, 7); g.fill(); }
+  else if (id === 'dragon') { g.beginPath(); g.ellipse(0, 0, 10, 7, 0, 0, 7); g.fill(); g.fillStyle = mixHex(c, '#000000', .25); g.beginPath(); g.moveTo(-2, -4); g.lineTo(-10, -14 - Math.sin(t * 14) * 4); g.lineTo(-12, -2); g.fill(); g.fillStyle = '#ffb347'; g.beginPath(); g.arc(12, 0, 2 + Math.random() * 1.5, 0, 7); g.fill(); eyes(4, -2); }
+  g.restore();
+}
+// death effects (the world's own burst stays for 'classic')
+function deathFx(world, cx, cy) {
+  const id = skinOf('boom').id; if (id === 'classic') return false;
+  const P = (o) => world.parts.push(Object.assign({ x: cx, y: cy, vx: 0, vy: 0, life: 1, max: 1, size: 4, col: '#fff', g: 0, drag: 1.5 }, o));
+  const R = (a, b) => a + Math.random() * (b - a), n = Math.round(30 * GFX.fx * Perf.fxK) + 6;
+  if (id === 'confetti') for (let i = 0; i < n * 1.6; i++) P({ vx: R(-380, 380), vy: R(-620, -120), g: 900, drag: 1.4, sq: true, size: R(3, 6), life: 1.3, max: 1.3, col: hslHex(R(0, 360), .9, .62) });
+  else if (id === 'hearts') for (let i = 0; i < n; i++) P({ vx: R(-220, 220), vy: R(-320, -60), g: -60, drag: 1.6, heart: true, size: R(5, 9), life: 1.2, max: 1.2, col: Math.random() < .5 ? '#ff5d8a' : '#ff9ac8' });
+  else if (id === 'pixel') { const [a, b] = heroCols(world.time || 0); for (let i = 0; i < 24; i++) P({ x: cx + (i % 6 - 2.5) * 5, y: cy + (Math.floor(i / 6) - 1.5) * 6, vx: R(-260, 260), vy: R(-420, -80), g: 1100, drag: .6, sq: true, size: 6, life: 1.1, max: 1.1, col: i % 3 ? a : b }); }
+  else if (id === 'soul') { P({ soul: true, vy: -70, size: 14, life: 1.4, max: 1.4, drag: 0, col: '#efe8ff' }); for (let i = 0; i < n / 2; i++) P({ vx: R(-80, 80), vy: R(-200, -40), add: true, size: R(2, 3.5), life: .9, max: .9, col: '#d8e8ff' }); }
+  else if (id === 'firework') for (let r = 0; r < 3; r++) { const col = ['#ffd36e', '#ff5d8a', '#7af7ff'][r], ox = R(-30, 30), oy = R(-60, -20); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, sp = R(160, 260); P({ x: cx + ox, y: cy + oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 300, drag: 1.8, add: true, size: 3, life: .9 + r * .15, max: .9 + r * .15, col }); } }
+  return true;
+}
+const petBody3 = () => { const c = skinOf('pet').c; return c ? hexNum(c) : 0xffffff; };
 const skinOf = (slot) => { const w = (typeof ST !== 'undefined' && ST.wear) || {}; return SKINS[slot].find(s => s.id === w[slot]) || SKINS[slot][0]; };
 // body colours of the hero (top, bottom) for the 2D views
 function heroCols(t) {
@@ -2241,6 +2291,7 @@ class World {
     return { added, dropped };
   }
   sfx(n) { if (!this.silent) Sound.play(n); }
+  grabGem(e) { if (e.gone) return; e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(e); }
   // switch blocks: every jump swaps which colour is solid
   flipTog() { this.tog ^= 1; if (!this.silent && this.act.some(e => e.tog != null && !e.gone)) Sound.play('tog'); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
@@ -2385,6 +2436,7 @@ class World {
     }
     if (p.dashT > 0) p.dashT -= dt;
     if (p.kickT > 0) { p.kickT -= dt; if (p.onGround) p.kickT = 0; }
+    if (!this.silent) petStep(this, dt);
     for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
     // last safe standing spot (for the shield's rescue from a fall)
     const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) { const sf = p.safe || (p.safe = [0, 0, 1]); sf[0] = p.x; sf[1] = p.y; sf[2] = p.g; }
@@ -2500,7 +2552,7 @@ class World {
       else if (e.type === 'pow') { if (!this.silent && circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) this.grabPow(e); }
       else if (e.type === 'gem') {
         if (p.magT > 0) { const dx = p.x + PW / 2 - e.x, dy = p.y + PHT / 2 - e.y, d = Math.hypot(dx, dy); if (d < 190 && d > 1) { const s = Math.min(d, (260 + (190 - d) * 4) * dt); e.x += dx / d * s; e.y += dy / d * s; } }
-        if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) { e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(); }
+        if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) this.grabGem(e);
       }
       else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
@@ -2595,9 +2647,11 @@ class World {
     if (this.state !== 'play' || this.saved(cause)) return;
     const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
-    this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
-    this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });
-    this.burst(cx, cy, 18, { col: '#ffb36b', sp: 520, life: .45, size: 2.5, add: true });
+    if (this.silent || !deathFx(this, cx, cy)) {
+      this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
+      this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });
+      this.burst(cx, cy, 18, { col: '#ffb36b', sp: 520, life: .45, size: 2.5, add: true });
+    }
     this.parts.push({ x: cx, y: cy, vx: 0, vy: 0, life: .4, max: .4, size: 0, col: '#fff', g: 0, drag: 0, ring: true });
     this.shake(16); this.sfx('die');
     if (this.onDeath) this.onDeath(cause);
@@ -3594,6 +3648,9 @@ function drawParticles(world) {
   const lim = Math.max(20, Math.round(400 * GFX.fx * Perf.fxK)), arr = world.parts, start = Math.max(0, arr.length - lim);
   for (let i = start; i < arr.length; i++) {
     const q = arr[i], a = q.life / q.max;
+    if (q.heart) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = q.col; const s = q.size * .5; ctx.beginPath(); ctx.arc(q.x - s, q.y, s, 0, 7); ctx.arc(q.x + s, q.y, s, 0, 7); ctx.moveTo(q.x - s * 2, q.y + s * .4); ctx.lineTo(q.x, q.y + s * 2.4); ctx.lineTo(q.x + s * 2, q.y + s * .4); ctx.fill(); ctx.restore(); continue; }
+    if (q.soul) { ctx.save(); ctx.globalAlpha = a * .9; ctx.fillStyle = q.col; const s = q.size, wob = Math.sin(q.life * 14) * 3; ctx.beginPath(); ctx.arc(q.x, q.y - s * .2, s * .7, Math.PI, 0); ctx.lineTo(q.x + s * .7 + wob, q.y + s); ctx.lineTo(q.x - s * .7 + wob, q.y + s); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(q.x - 3, q.y - s * .2, 1.6, 0, 7); ctx.arc(q.x + 3, q.y - s * .2, 1.6, 0, 7); ctx.fill(); ctx.strokeStyle = '#ffd36e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(q.x, q.y - s * 1.1, s * .5, s * .15, 0, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring2) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1.4 - a * .4), 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring) { const r = (1 - a) * 90; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col === '#fff' ? '#ffd9b0' : q.col; ctx.lineWidth = 4 * a + 1; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     ctx.globalAlpha = Math.min(1, a * 1.5);
@@ -3761,6 +3818,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'boss') drawBoss(e, t, world);
   drawGhost(world, t);
+  if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
   drawPlayer(world, t);
   drawParticles(world);
@@ -4379,6 +4437,7 @@ class Run3D {
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
     if (def.rivals) this.initRivals(def.rivals);
+    this.pet3 = !this.headless && petOn();
     // rooms: arches split the run into equal stretches. You restart from an arch when caught: every arch on the
     // easier difficulties, every second one on very hard and every third on insane
     this.rooms = def.rooms || Math.max(2, Math.round(this.len / 700));
@@ -4593,7 +4652,7 @@ class Run3D {
     for (let i = this.ki; i < picks.length; i++) {
       const k = picks[i]; if (k.s > p.s + 1.2) break;
       if (k.got) continue;
-      if (Math.abs(k.x - p.x) < 0.95 && Math.abs(k.y - (p.y + 0.75)) < 1.25) {
+      if ((Math.abs(k.x - p.x) < 0.95 && Math.abs(k.y - (p.y + 0.75)) < 1.25) || (this.pet3 && k.k === 'gem' && Math.abs(k.x - p.x) < 1.8)) {
         k.got = true;
         if (k.k === 'gem') { this.gems++; this.sfx('gem'); }
         else if (k.k === 'shield') p.shield = true;
@@ -4935,6 +4994,10 @@ class Run3D {
   }
 
   buildPlayer(keep) {
+    if (petOn()) { const g = this.petM = new THREE.Group(), m = keep(new THREE.MeshLambertMaterial({ color: petBody3(), emissive: petBody3(), emissiveIntensity: .25 }));
+      g.add(new THREE.Mesh(keep(new THREE.SphereGeometry(.32, 14, 10)), m));
+      for (const s of [-1, 1]) { const e = new THREE.Mesh(keep(new THREE.ConeGeometry(.1, .22, 6)), m); e.position.set(s * .17, .3, 0); g.add(e); const ey = new THREE.Mesh(keep(new THREE.SphereGeometry(.06, 6, 5)), keep(new THREE.MeshBasicMaterial({ color: 0x1a1030 }))); ey.position.set(s * .12, .06, -.29); g.add(ey); }
+      this.scene.add(g); }
     const h = buildHeroMesh(keep); this.pl = h.g; this.plBody = h.body; this.tail = h.tail; this.legs = h.legs; this.pglow = h.glow; this.scene.add(h.g);
     if (gtier(18)) { this.plLight = new THREE.PointLight(0xffc890, 1.3, 16, 1.6); this.scene.add(this.plLight); }
   }
@@ -4968,6 +5031,7 @@ class Run3D {
     this.tail.forEach((m, i) => { m.position.x = 0.15 + Math.sin(t * 14 - i) * 0.08 * (i + 1); m.position.y = 0.55 + Math.sin(t * 11 - i * 1.3) * 0.05 * (i + 1); });
     if (this.state === 'win') { const k = Math.max(0.01, 1 - this.winT * 1.2); pl.scale.setScalar(k); pl.rotation.y += dt * 10; } else { pl.scale.setScalar(1); pl.rotation.y = 0; }
     if (p.inv > 0) pl.visible = pl.visible && (Math.floor(t * 20) % 2 === 0);
+    if (this.petM) this.petM.position.set(p.x + 1.1 + Math.sin(t * 2) * .2, p.y + 1.7 + Math.sin(t * 4) * .15, -p.s + .4);
     this.pShadow.position.set(p.x, 0.02, -p.s); this.pShadow.visible = this.supportAt(p.s, p.x) && !p.falling;
     const shs = 1 / (1 + Math.max(0, p.y) * 0.4); this.pShadow.scale.set(shs, shs, 1);
     if (p.ground && this.state === 'run' && Math.random() < 0.35) this.puff(p.x, p.s + 0.3, 1, 0.3);
@@ -5509,6 +5573,8 @@ class P3D {
     this.spikeG = keep(new THREE.ConeGeometry(0.42, 0.95, 4)); this.spikeG.rotateY(Math.PI / 4); this.spikeG.translate(0, 0.475, 0);
     // hero
     const h = buildHeroMesh(keep); this.hero = h; h.g.scale.setScalar(0.6); sc.add(h.g);
+    // the pet
+    if (petOn()) { const pm = keep(new THREE.MeshLambertMaterial({ color: petBody3(), emissive: petBody3(), emissiveIntensity: .25 })); this.petM = new THREE.Mesh(keep(new THREE.SphereGeometry(.22, 12, 9)), pm); sc.add(this.petM); }
     // race rivals (2D race levels played in the side 3D view)
     this.rivalM = (app.rivals2 && app.rivals2.def === world.def ? app.rivals2.list : []).map(r => { const h = buildHeroMesh(keep, { col: r.col }); h.g.scale.setScalar(.6); sc.add(h.g); return h; });
     // ghost of the best run: the same hero, see-through
@@ -5750,6 +5816,7 @@ class P3D {
     const third = CFG.cam3d === 'third', tw = third ? .1 : .45;
     const turn = p.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw;
     g.rotation.set(0, turn, flip ? Math.PI : 0);
+    if (this.petM) { const P = w.pet; this.petM.visible = !!P; if (P) this.petM.position.set(this.X(P.x), this.Y(P.y), .4); }
     this.rivalM.forEach((h, i) => { const r = app.rivals2 && app.rivals2.list[i], q = r && r.w.p; h.g.visible = !!q && !r.done && !(r.poof > 0 && Math.floor(t * 20) % 2);
       if (!h.g.visible) return; const fl = q.g < 0; h.g.position.set(this.X(q.x + PW / 2), fl ? this.Y(q.y) : this.Y(q.y + PHT), -.6); h.g.rotation.set(0, q.face > 0 ? -Math.PI / 2 - tw : Math.PI / 2 + tw, fl ? Math.PI : 0);
       const lg = Math.abs(q.vx) > 40 && q.onGround ? Math.sin(q.runPhase) * .22 : 0; h.legs[0].position.z = lg; h.legs[1].position.z = -lg; });
@@ -6585,7 +6652,7 @@ function renderShop(tab) {
   if (tab) shopTab = tab;
   const bal = gemBalance(), cur = skinOf(shopTab).id;
   $('shopBal').textContent = '💎 ' + faNum(bal);
-  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
+  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
   $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
     const own = it.p === 0 || ST.owned[shopTab + ':' + it.id], on = cur === it.id;
     return `<button class="shopit${on ? ' on' : ''}${!own && bal < it.p ? ' poor' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
@@ -6595,13 +6662,16 @@ function shopPreview() {
   if (app.screen !== 'sShop') { shopAnim = 0; return; }
   const c = $('shopPv'), g = c.getContext('2d'), t = performance.now() / 1000, main = ctx;
   try {
-  const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play' });
+  const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play', time: 0 });
+  fw.time = t; fw.pet = petOn() ? { x: 40, y: 40 + Math.sin(t * 3) * 5, face: 1 } : null;
+  if (shopTab === 'boom' && t - (shopPreview.bt || 0) > 1.6) { shopPreview.bt = t; deathFx(fw, 61, 66) || fw.parts.push(...Array.from({ length: 24 }, () => ({ x: 61, y: 66, vx: (Math.random() - .5) * 500, vy: -Math.random() * 400, life: .8, max: .8, size: 4, col: Math.random() < .5 ? '#ffe9c4' : '#ff7a45', g: 900, drag: 1.2, sq: true }))); }
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
   ctx = g; ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
   fw.p.x = 61 - PW / 2; fw.p.y = 82 - PHT; emitTrail(fw, t);
-  for (let i = fw.parts.length - 1; i >= 0; i--) { const q = fw.parts[i]; q.life -= 1 / 60; if (q.life <= 0) { fw.parts.splice(i, 1); continue; } q.x += (q.vx - 120) / 60; q.y += q.vy / 60; }
+  for (let i = fw.parts.length - 1; i >= 0; i--) { const q = fw.parts[i]; q.life -= 1 / 60; if (q.life <= 0) { fw.parts.splice(i, 1); continue; } q.vy += (q.g || 0) / 60; q.vx *= 1 - (q.drag || 0) / 60; q.x += (q.vx - (shopTab === 'boom' ? 0 : 120)) / 60; q.y += q.vy / 60; }
   drawParticles(fw);
-  ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore();
+  if (fw.pet) drawPet(fw, t);
+  if (!(shopTab === 'boom' && t - shopPreview.bt < .9)) { ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore(); }
   ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, 83, 150, 2);
   } finally { ctx = main; }
   requestAnimationFrame(shopPreview);

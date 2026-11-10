@@ -97,6 +97,7 @@ class Run3D {
     this.gs = def.noObst ? 1 + (this.gap0 - 7) / this.len : Math.min(0.995, def.gs + this.DD.gsAdd);
     this.generate();
     if (def.rivals) this.initRivals(def.rivals);
+    this.pet3 = !this.headless && petOn();
     // rooms: arches split the run into equal stretches. You restart from an arch when caught: every arch on the
     // easier difficulties, every second one on very hard and every third on insane
     this.rooms = def.rooms || Math.max(2, Math.round(this.len / 700));
@@ -311,7 +312,7 @@ class Run3D {
     for (let i = this.ki; i < picks.length; i++) {
       const k = picks[i]; if (k.s > p.s + 1.2) break;
       if (k.got) continue;
-      if (Math.abs(k.x - p.x) < 0.95 && Math.abs(k.y - (p.y + 0.75)) < 1.25) {
+      if ((Math.abs(k.x - p.x) < 0.95 && Math.abs(k.y - (p.y + 0.75)) < 1.25) || (this.pet3 && k.k === 'gem' && Math.abs(k.x - p.x) < 1.8)) {
         k.got = true;
         if (k.k === 'gem') { this.gems++; this.sfx('gem'); }
         else if (k.k === 'shield') p.shield = true;
@@ -653,6 +654,10 @@ class Run3D {
   }
 
   buildPlayer(keep) {
+    if (petOn()) { const g = this.petM = new THREE.Group(), m = keep(new THREE.MeshLambertMaterial({ color: petBody3(), emissive: petBody3(), emissiveIntensity: .25 }));
+      g.add(new THREE.Mesh(keep(new THREE.SphereGeometry(.32, 14, 10)), m));
+      for (const s of [-1, 1]) { const e = new THREE.Mesh(keep(new THREE.ConeGeometry(.1, .22, 6)), m); e.position.set(s * .17, .3, 0); g.add(e); const ey = new THREE.Mesh(keep(new THREE.SphereGeometry(.06, 6, 5)), keep(new THREE.MeshBasicMaterial({ color: 0x1a1030 }))); ey.position.set(s * .12, .06, -.29); g.add(ey); }
+      this.scene.add(g); }
     const h = buildHeroMesh(keep); this.pl = h.g; this.plBody = h.body; this.tail = h.tail; this.legs = h.legs; this.pglow = h.glow; this.scene.add(h.g);
     if (gtier(18)) { this.plLight = new THREE.PointLight(0xffc890, 1.3, 16, 1.6); this.scene.add(this.plLight); }
   }
@@ -686,6 +691,7 @@ class Run3D {
     this.tail.forEach((m, i) => { m.position.x = 0.15 + Math.sin(t * 14 - i) * 0.08 * (i + 1); m.position.y = 0.55 + Math.sin(t * 11 - i * 1.3) * 0.05 * (i + 1); });
     if (this.state === 'win') { const k = Math.max(0.01, 1 - this.winT * 1.2); pl.scale.setScalar(k); pl.rotation.y += dt * 10; } else { pl.scale.setScalar(1); pl.rotation.y = 0; }
     if (p.inv > 0) pl.visible = pl.visible && (Math.floor(t * 20) % 2 === 0);
+    if (this.petM) this.petM.position.set(p.x + 1.1 + Math.sin(t * 2) * .2, p.y + 1.7 + Math.sin(t * 4) * .15, -p.s + .4);
     this.pShadow.position.set(p.x, 0.02, -p.s); this.pShadow.visible = this.supportAt(p.s, p.x) && !p.falling;
     const shs = 1 / (1 + Math.max(0, p.y) * 0.4); this.pShadow.scale.set(shs, shs, 1);
     if (p.ground && this.state === 'run' && Math.random() < 0.35) this.puff(p.x, p.s + 0.3, 1, 0.3);

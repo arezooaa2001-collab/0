@@ -184,6 +184,7 @@ class World {
     return { added, dropped };
   }
   sfx(n) { if (!this.silent) Sound.play(n); }
+  grabGem(e) { if (e.gone) return; e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(e); }
   // switch blocks: every jump swaps which colour is solid
   flipTog() { this.tog ^= 1; if (!this.silent && this.act.some(e => e.tog != null && !e.gone)) Sound.play('tog'); }
   shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
@@ -328,6 +329,7 @@ class World {
     }
     if (p.dashT > 0) p.dashT -= dt;
     if (p.kickT > 0) { p.kickT -= dt; if (p.onGround) p.kickT = 0; }
+    if (!this.silent) petStep(this, dt);
     for (const k of POW_T) if (p[k] > 0) { p[k] -= dt; if (p[k] <= 0) { p[k] = 0; if (k !== 'inv') this.sfx('pop'); } }
     // last safe standing spot (for the shield's rescue from a fall)
     const gr = p.ground; if (p.onGround && gr && gr.type === 'block' && !gr.falling && !gr.sink && !gr.blink && !gr.moves.length && !gr.patrol && !gr.orbit && !gr.pend && !gr.par && !gr.lava && !gr.oneway) { const sf = p.safe || (p.safe = [0, 0, 1]); sf[0] = p.x; sf[1] = p.y; sf[2] = p.g; }
@@ -443,7 +445,7 @@ class World {
       else if (e.type === 'pow') { if (!this.silent && circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) this.grabPow(e); }
       else if (e.type === 'gem') {
         if (p.magT > 0) { const dx = p.x + PW / 2 - e.x, dy = p.y + PHT / 2 - e.y, d = Math.hypot(dx, dy); if (d < 190 && d > 1) { const s = Math.min(d, (260 + (190 - d) * 4) * dt); e.x += dx / d * s; e.y += dy / d * s; } }
-        if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) { e.gone = true; this.got.add(e.id); this.sfx('gem'); this.burst(e.x, e.y, 12, { col: '#7af7ff', sp: 180, life: .5, add: true, size: 3 }); if (this.onGem) this.onGem(); }
+        if (circRect(e.x, e.y, e.r, p.x, p.y, PW, PHT)) this.grabGem(e);
       }
       else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
@@ -538,9 +540,11 @@ class World {
     if (this.state !== 'play' || this.saved(cause)) return;
     const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
-    this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
-    this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });
-    this.burst(cx, cy, 18, { col: '#ffb36b', sp: 520, life: .45, size: 2.5, add: true });
+    if (this.silent || !deathFx(this, cx, cy)) {
+      this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
+      this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });
+      this.burst(cx, cy, 18, { col: '#ffb36b', sp: 520, life: .45, size: 2.5, add: true });
+    }
     this.parts.push({ x: cx, y: cy, vx: 0, vy: 0, life: .4, max: .4, size: 0, col: '#fff', g: 0, drag: 0, ring: true });
     this.shake(16); this.sfx('die');
     if (this.onDeath) this.onDeath(cause);

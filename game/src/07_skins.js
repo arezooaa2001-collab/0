@@ -15,7 +15,57 @@ const SKINS = {
     { id: 'none', n: 'بدون رد', i: '·', p: 0 }, { id: 'sparkle', n: 'ستاره‌ریز', i: '✨', p: 60 }, { id: 'bubbles', n: 'حباب', i: '🫧', p: 70 },
     { id: 'hearts', n: 'قلب', i: '💖', p: 90 }, { id: 'fire', n: 'آتش', i: '🔥', p: 100 }, { id: 'rainbow', n: 'رنگین‌کمون', i: '🌈', p: 160 },
   ],
+  // a little friend that flies with you and fetches gems near you
+  pet: [
+    { id: 'none', n: 'بدون همراه', i: '·', p: 0 }, { id: 'cat', n: 'گربه', i: '🐱', p: 80, c: '#ffb36b' }, { id: 'bird', n: 'پرنده', i: '🐦', p: 90, c: '#7af7ff' },
+    { id: 'ghost', n: 'روح کوچولو', i: '👻', p: 110, c: '#efe8ff' }, { id: 'star', n: 'ستاره', i: '⭐', p: 130, c: '#ffd36e' }, { id: 'robot', n: 'ربات', i: '🤖', p: 150, c: '#a8b4d8' },
+    { id: 'dragon', n: 'اژدها', i: '🐲', p: 200, c: '#6ff3a4' },
+  ],
+  // what happens when you die
+  boom: [
+    { id: 'classic', n: 'کلاسیک', i: '💥', p: 0 }, { id: 'confetti', n: 'کاغذ رنگی', i: '🎉', p: 60 }, { id: 'hearts', n: 'قلب‌ها', i: '💕', p: 70 },
+    { id: 'pixel', n: 'پیکسلی', i: '👾', p: 80 }, { id: 'soul', n: 'روح پرواز', i: '👼', p: 90 }, { id: 'firework', n: 'آتیش‌بازی', i: '🎆', p: 120 },
+  ],
 };
+const petOn = () => skinOf('pet').id !== 'none';
+// the pet: follows you, or flies to a gem close to you and brings it (world.pet holds its position)
+function petStep(world, dt) {
+  if (world.silent || !petOn()) { world.pet = null; return; }
+  const p = world.p, P = world.pet || (world.pet = { x: p.x, y: p.y - 40, face: 1, gem: null });
+  let tx = p.x + PW / 2 - p.face * 30, ty = p.y - 26 + Math.sin(world.time * 3) * 6;
+  if (!P.gem || P.gem.gone) { P.gem = null; let best = 150; for (const e of world.act) if (e.type === 'gem' && !e.gone) { const d = Math.hypot(e.x - (p.x + PW / 2), e.y - (p.y + PHT / 2)); if (d < best) { best = d; P.gem = e; } } }
+  if (P.gem) { tx = P.gem.x; ty = P.gem.y; }
+  const k = Math.min(1, dt * (P.gem ? 9 : 6)); P.face = tx > P.x ? 1 : -1; P.x += (tx - P.x) * k; P.y += (ty - P.y) * k;
+  if (P.gem && Math.hypot(P.gem.x - P.x, P.gem.y - P.y) < 16) { world.grabGem(P.gem); P.gem = null; }
+}
+function drawPet(world, t) {
+  const P = world.pet; if (!P) return;
+  const id = skinOf('pet').id, c = skinOf('pet').c, g = ctx, f = P.face;
+  g.save(); g.translate(P.x, P.y + Math.sin(t * 5) * 2); g.scale(f, 1);
+  if (glowK() > 0) { g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .4; g.drawImage(TEX.gCyan, -24, -24, 48, 48); g.restore(); }
+  const eyes = (x, y) => { g.fillStyle = '#1a1030'; g.beginPath(); g.arc(x - 3.5, y, 2, 0, 7); g.arc(x + 3.5, y, 2, 0, 7); g.fill(); };
+  g.fillStyle = c;
+  if (id === 'cat') { g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill(); g.beginPath(); g.moveTo(-8, -4); g.lineTo(-7, -14); g.lineTo(-2, -8); g.moveTo(8, -4); g.lineTo(7, -14); g.lineTo(2, -8); g.fill(); g.strokeStyle = c; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, 4); g.quadraticCurveTo(-18, 6, -16, -4 + Math.sin(t * 6) * 3); g.stroke(); eyes(2, -1); }
+  else if (id === 'bird') { g.beginPath(); g.ellipse(0, 0, 9, 7, 0, 0, 7); g.fill(); g.fillStyle = mixHex(c, '#000000', .2); g.beginPath(); g.ellipse(-3, -2 + Math.sin(t * 22) * 4, 6, 3, -.4, 0, 7); g.fill(); g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(8, -1); g.lineTo(13, 1); g.lineTo(8, 3); g.fill(); eyes(4, -2); }
+  else if (id === 'ghost') { g.globalAlpha = .85; g.beginPath(); g.arc(0, -2, 9, Math.PI, 0); g.lineTo(9, 9); for (let k = 0; k < 4; k++) g.lineTo(9 - (k + .5) * 4.5, 9 - (k % 2 ? 0 : 4) + Math.sin(t * 8 + k) * 1.5); g.lineTo(-9, 9); g.closePath(); g.fill(); g.globalAlpha = 1; eyes(1, -2); }
+  else if (id === 'star') { g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5 + t, r = k % 2 ? 4.5 : 11; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); eyes(0, 0); }
+  else if (id === 'robot') { g.fillRect(-8, -8, 16, 15); g.fillStyle = '#2a2547'; g.fillRect(-6, -5, 12, 6); g.fillStyle = '#7af7ff'; g.fillRect(-4, -3, 3, 2); g.fillRect(1, -3, 3, 2); g.strokeStyle = c; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -8); g.lineTo(0, -13); g.stroke(); g.fillStyle = '#ff5d8a'; g.beginPath(); g.arc(0, -14, 2.2, 0, 7); g.fill(); }
+  else if (id === 'dragon') { g.beginPath(); g.ellipse(0, 0, 10, 7, 0, 0, 7); g.fill(); g.fillStyle = mixHex(c, '#000000', .25); g.beginPath(); g.moveTo(-2, -4); g.lineTo(-10, -14 - Math.sin(t * 14) * 4); g.lineTo(-12, -2); g.fill(); g.fillStyle = '#ffb347'; g.beginPath(); g.arc(12, 0, 2 + Math.random() * 1.5, 0, 7); g.fill(); eyes(4, -2); }
+  g.restore();
+}
+// death effects (the world's own burst stays for 'classic')
+function deathFx(world, cx, cy) {
+  const id = skinOf('boom').id; if (id === 'classic') return false;
+  const P = (o) => world.parts.push(Object.assign({ x: cx, y: cy, vx: 0, vy: 0, life: 1, max: 1, size: 4, col: '#fff', g: 0, drag: 1.5 }, o));
+  const R = (a, b) => a + Math.random() * (b - a), n = Math.round(30 * GFX.fx * Perf.fxK) + 6;
+  if (id === 'confetti') for (let i = 0; i < n * 1.6; i++) P({ vx: R(-380, 380), vy: R(-620, -120), g: 900, drag: 1.4, sq: true, size: R(3, 6), life: 1.3, max: 1.3, col: hslHex(R(0, 360), .9, .62) });
+  else if (id === 'hearts') for (let i = 0; i < n; i++) P({ vx: R(-220, 220), vy: R(-320, -60), g: -60, drag: 1.6, heart: true, size: R(5, 9), life: 1.2, max: 1.2, col: Math.random() < .5 ? '#ff5d8a' : '#ff9ac8' });
+  else if (id === 'pixel') { const [a, b] = heroCols(world.time || 0); for (let i = 0; i < 24; i++) P({ x: cx + (i % 6 - 2.5) * 5, y: cy + (Math.floor(i / 6) - 1.5) * 6, vx: R(-260, 260), vy: R(-420, -80), g: 1100, drag: .6, sq: true, size: 6, life: 1.1, max: 1.1, col: i % 3 ? a : b }); }
+  else if (id === 'soul') { P({ soul: true, vy: -70, size: 14, life: 1.4, max: 1.4, drag: 0, col: '#efe8ff' }); for (let i = 0; i < n / 2; i++) P({ vx: R(-80, 80), vy: R(-200, -40), add: true, size: R(2, 3.5), life: .9, max: .9, col: '#d8e8ff' }); }
+  else if (id === 'firework') for (let r = 0; r < 3; r++) { const col = ['#ffd36e', '#ff5d8a', '#7af7ff'][r], ox = R(-30, 30), oy = R(-60, -20); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, sp = R(160, 260); P({ x: cx + ox, y: cy + oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 300, drag: 1.8, add: true, size: 3, life: .9 + r * .15, max: .9 + r * .15, col }); } }
+  return true;
+}
+const petBody3 = () => { const c = skinOf('pet').c; return c ? hexNum(c) : 0xffffff; };
 const skinOf = (slot) => { const w = (typeof ST !== 'undefined' && ST.wear) || {}; return SKINS[slot].find(s => s.id === w[slot]) || SKINS[slot][0]; };
 // body colours of the hero (top, bottom) for the 2D views
 function heroCols(t) {

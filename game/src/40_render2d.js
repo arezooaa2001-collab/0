@@ -723,6 +723,9 @@ function drawParticles(world) {
   const lim = Math.max(20, Math.round(400 * GFX.fx * Perf.fxK)), arr = world.parts, start = Math.max(0, arr.length - lim);
   for (let i = start; i < arr.length; i++) {
     const q = arr[i], a = q.life / q.max;
+    if (q.heart) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = q.col; const s = q.size * .5; ctx.beginPath(); ctx.arc(q.x - s, q.y, s, 0, 7); ctx.arc(q.x + s, q.y, s, 0, 7); ctx.moveTo(q.x - s * 2, q.y + s * .4); ctx.lineTo(q.x, q.y + s * 2.4); ctx.lineTo(q.x + s * 2, q.y + s * .4); ctx.fill(); ctx.restore(); continue; }
+    if (q.soul) { ctx.save(); ctx.globalAlpha = a * .9; ctx.fillStyle = q.col; const s = q.size, wob = Math.sin(q.life * 14) * 3; ctx.beginPath(); ctx.arc(q.x, q.y - s * .2, s * .7, Math.PI, 0); ctx.lineTo(q.x + s * .7 + wob, q.y + s); ctx.lineTo(q.x - s * .7 + wob, q.y + s); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(q.x - 3, q.y - s * .2, 1.6, 0, 7); ctx.arc(q.x + 3, q.y - s * .2, 1.6, 0, 7); ctx.fill(); ctx.strokeStyle = '#ffd36e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(q.x, q.y - s * 1.1, s * .5, s * .15, 0, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring2) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1.4 - a * .4), 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring) { const r = (1 - a) * 90; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col === '#fff' ? '#ffd9b0' : q.col; ctx.lineWidth = 4 * a + 1; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     ctx.globalAlpha = Math.min(1, a * 1.5);
@@ -890,6 +893,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'boss') drawBoss(e, t, world);
   drawGhost(world, t);
+  if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
   drawPlayer(world, t);
   drawParticles(world);

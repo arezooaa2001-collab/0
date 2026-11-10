@@ -141,7 +141,7 @@ function renderShop(tab) {
   if (tab) shopTab = tab;
   const bal = gemBalance(), cur = skinOf(shopTab).id;
   $('shopBal').textContent = '💎 ' + faNum(bal);
-  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
+  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
   $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
     const own = it.p === 0 || ST.owned[shopTab + ':' + it.id], on = cur === it.id;
     return `<button class="shopit${on ? ' on' : ''}${!own && bal < it.p ? ' poor' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
@@ -151,13 +151,16 @@ function shopPreview() {
   if (app.screen !== 'sShop') { shopAnim = 0; return; }
   const c = $('shopPv'), g = c.getContext('2d'), t = performance.now() / 1000, main = ctx;
   try {
-  const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play' });
+  const fw = shopPreview.fw || (shopPreview.fw = { p: { x: 90, y: 0, vx: 200, vy: 0, face: 1, onGround: true }, parts: [], silent: false, state: 'play', time: 0 });
+  fw.time = t; fw.pet = petOn() ? { x: 40, y: 40 + Math.sin(t * 3) * 5, face: 1 } : null;
+  if (shopTab === 'boom' && t - (shopPreview.bt || 0) > 1.6) { shopPreview.bt = t; deathFx(fw, 61, 66) || fw.parts.push(...Array.from({ length: 24 }, () => ({ x: 61, y: 66, vx: (Math.random() - .5) * 500, vy: -Math.random() * 400, life: .8, max: .8, size: 4, col: Math.random() < .5 ? '#ffe9c4' : '#ff7a45', g: 900, drag: 1.2, sq: true }))); }
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
   ctx = g; ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
   fw.p.x = 61 - PW / 2; fw.p.y = 82 - PHT; emitTrail(fw, t);
-  for (let i = fw.parts.length - 1; i >= 0; i--) { const q = fw.parts[i]; q.life -= 1 / 60; if (q.life <= 0) { fw.parts.splice(i, 1); continue; } q.x += (q.vx - 120) / 60; q.y += q.vy / 60; }
+  for (let i = fw.parts.length - 1; i >= 0; i--) { const q = fw.parts[i]; q.life -= 1 / 60; if (q.life <= 0) { fw.parts.splice(i, 1); continue; } q.vy += (q.g || 0) / 60; q.vx *= 1 - (q.drag || 0) / 60; q.x += (q.vx - (shopTab === 'boom' ? 0 : 120)) / 60; q.y += q.vy / 60; }
   drawParticles(fw);
-  ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore();
+  if (fw.pet) drawPet(fw, t);
+  if (!(shopTab === 'boom' && t - shopPreview.bt < .9)) { ctx.save(); ctx.translate(73, 82); drawHero(t, 1, true, 200, 0, t * 9, 1, false); ctx.restore(); }
   ctx.fillStyle = 'rgba(111,243,196,.35)'; ctx.fillRect(0, 83, 150, 2);
   } finally { ctx = main; }
   requestAnimationFrame(shopPreview);
