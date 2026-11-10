@@ -11,6 +11,17 @@ python3 build.py          # writes index.html
 ARTIFACT_OUT=out.html python3 build.py   # also writes a variant without <html>/<head>/<body> wrappers
 ```
 
+## Android app (APK)
+
+`telezar.apk` is the game wrapped in a full-screen Android WebView (landscape, saves kept on the phone, back key = pause/back,
+works offline). Rebuild it after changing the game:
+
+```
+android/build_apk.sh      # needs a JDK and: apt-get install android-sdk-platform-23 aapt dalvik-exchange zipalign apksigner
+```
+
+The build script creates a signing key `android/telezar.keystore` on first use (it is not kept in git). Keep that file: new versions only install over old ones when they are signed with the same key.
+
 ## Source layout
 
 | file | contents |
