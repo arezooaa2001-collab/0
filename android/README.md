@@ -7,6 +7,10 @@ inside the APK (the game page, three.js, the Vazirmatn and Lalezar fonts), so it
 - Signed with APK Signature Scheme v2
 - File pickers (photos, restoring a backup) open the Android chooser; "save backup" opens Android's save dialog
 - Back button asks before quitting; the game pauses in the background; rotating the phone keeps the game state
+- Saving: the game's localStorage is mirrored into the app's own files (`files/save/`, one file per key,
+  written atomically on a background thread). The game autosaves every 15 s and the app asks it to save
+  before going to the background, so progress survives the app being closed or killed, and values larger
+  than WebView's storage quota are kept.
 
 ## Build
 

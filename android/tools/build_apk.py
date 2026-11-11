@@ -182,6 +182,30 @@ def icon_png():
 
 # ---------------------------------------------------------------- game page for the app
 BRIDGE = r"""<script>
+/* Android app: the game's localStorage is mirrored into the app's own save files (AndroidStore).
+   On start the saved values are put back before the game reads them; every write goes to the
+   files too (batched, only when the value changed), and everything is pushed out when the app
+   goes to the background. Reads are served from that copy, so even values larger than the
+   WebView's storage quota are kept. */
+(function(){var S=window.AndroidStore;if(!S||!S.loadAll)return;
+ var ls;try{ls=window.localStorage;}catch(e){return;}
+ var P=Storage.prototype,set=P.setItem,get=P.getItem,rem=P.removeItem,clr=P.clear,mem={},pending={},timer=0,n=0,k;
+ try{var data=JSON.parse(S.loadAll()||'{}');
+  for(k in data){n++;mem[k]=data[k];try{set.call(ls,k,data[k]);}catch(e){}}
+  if(!n){for(var i=0;i<ls.length;i++){k=ls.key(i);if(k!==null){mem[k]=get.call(ls,k);S.setItem(k,mem[k]);}}} // first run: keep what WebView had
+ }catch(e){}
+ function push(){if(timer){clearTimeout(timer);timer=0;}for(var key in pending){var v=pending[key];delete pending[key];try{v===null?S.removeItem(key):S.setItem(key,v);}catch(e){}}}
+ function later(){if(!timer)timer=setTimeout(push,1200);}
+ P.setItem=function(key,v){if(this!==ls)return set.call(this,key,v);key=String(key);v=String(v);
+  if(mem[key]!==v){mem[key]=v;pending[key]=v;later();}
+  try{set.call(this,key,v);}catch(e){} /* over the WebView quota: the app's files still keep it */};
+ P.getItem=function(key){if(this===ls&&Object.prototype.hasOwnProperty.call(mem,String(key)))return mem[String(key)];return get.call(this,key);};
+ P.removeItem=function(key){if(this===ls){key=String(key);delete mem[key];pending[key]=null;later();}return rem.call(this,key);};
+ P.clear=function(){if(this===ls){mem={};pending={};try{S.clear();}catch(e){}}return clr.call(this);};
+ window.__appSave=function(){try{if(window.__gameFlush)window.__gameFlush();}catch(e){}push();return 'saved';};
+ document.addEventListener('visibilitychange',function(){if(document.hidden)window.__appSave();});
+ addEventListener('pagehide',function(){window.__appSave();});
+})();
 /* Android app: send the game's "save backup" download to the native save dialog.
    Blobs are kept when created, because fetch() of a blob: URL is refused on file:// pages. */
 (function(){if(!window.AndroidApp)return;

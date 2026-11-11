@@ -1679,7 +1679,74 @@ function groundBase(x,z){
   if(x>-1.9&&x<1.9&&z>=HALL.zMax+.6&&z<HALL.zMax+1.9)return .12;
   return (Math.abs(roadLocal(x,0))<19&&Math.abs(roadLocal(z,OZ))<19)?CURB:0;
 }
+/* Spatial grid over the hall's colliders: a collision or sight query only visits the
+   boxes in the 4 m cells around it instead of every box in the hall, so placing many
+   more objects no longer slows every frame down. Rebuilt when the layout changes. */
+/* Draw calls: in play every furniture's static mesh (doors and lids stay separate) is merged
+   with its neighbours into one mesh per 8 m area. The designer works on the originals. */
+const HS_BATCH={chunks:new Map()};
+function hsBatchMeshOf(f){for(const m of f.g.children)if(m.isMesh&&m.material===ITEM_MAT&&!m.userData.hsBatch)return m;return null;}
+function hsBatchChunk(k,L){
+  const geos=[],M=new THREE.Matrix4();
+  for(const [f,m] of L){f.g.updateMatrix();m.updateMatrix();M.multiplyMatrices(f.g.matrix,m.matrix);const g=m.geometry.clone();g.applyMatrix4(M);geos.push(g);}
+  const merged=mergeAttr(geos);for(const g of geos)if(g!==merged)g.dispose();merged.computeBoundingSphere();merged.computeBoundingBox();
+  const mesh=new THREE.Mesh(merged,ITEM_MAT);mesh.castShadow=mesh.receiveShadow=true;mesh.userData.hsBatch=true;HS.group.add(mesh);
+  for(const [f,m] of L){m.visible=false;f._batch=k;m.geometry.dispose();}   // dispose frees GPU copies only; data stays for later
+  HS_BATCH.chunks.set(k,{mesh,list:L});
+}
+function hsBatchAll(){
+  hsBatchClear();if(!HS.group||!ITEM_MAT||HS_EDITOR.active)return;
+  try{const by=new Map();
+    for(const f of HS.editFrames||[]){if(!f.done||f.g.parent!==HS.group||!f.g.visible||f._noBatch)continue;const m=hsBatchMeshOf(f);if(!m)continue;
+      const k=Math.floor(f.g.position.x/8)+','+Math.floor(f.g.position.z/8);let L=by.get(k);if(!L)by.set(k,L=[]);L.push([f,m]);}
+    for(const [k,L] of by)if(L.length>=2)hsBatchChunk(k,L);
+    renderer.shadowMap.needsUpdate=true;
+  }catch(e){console.warn('ادغام مدل‌ها',e);hsBatchClear();}
+}
+function hsBatchClear(){
+  for(const c of HS_BATCH.chunks.values()){if(c.mesh.parent)c.mesh.parent.remove(c.mesh);c.mesh.geometry.dispose();for(const [f,m] of c.list){m.visible=true;f._batch=null;}}
+  if(HS_BATCH.chunks.size)renderer.shadowMap.needsUpdate=true;HS_BATCH.chunks.clear();
+}
+function hsBatchRelease(f){ // before Arash lifts something, it must move on its own
+  f._noBatch=true;const k=f._batch;if(!k)return;const c=HS_BATCH.chunks.get(k);if(!c)return;
+  if(c.mesh.parent)c.mesh.parent.remove(c.mesh);c.mesh.geometry.dispose();HS_BATCH.chunks.delete(k);
+  for(const [g,m] of c.list){m.visible=true;g._batch=null;}
+  const rest=c.list.filter(([g])=>g!==f);if(rest.length>=2)hsBatchChunk(k,rest);
+}
+let _FNR=4; // query radius for the next forNearCols call in the hall (reset after use)
+const HS_HASH={sig:'',t:-99,C:2,b:null,c:null,o:null,crB:[],crC:[],st:0,chk:-1};
+function hsHashSig(){return HS.cols.length+'|'+HS.circs.length+'|'+HS.occ.length+'|'+(HS.colVer||0)+'|'+COL.length+'|'+CIRC.length;}
+function hsHashBuild(){
+  const H=HS_HASH,C=H.C;H.b=new Map();H.c=new Map();H.o=new Map();
+  const add=(m,o,x0,x1,z0,z1)=>{const i0=Math.floor(x0/C),i1=Math.floor(x1/C),j0=Math.floor(z0/C),j1=Math.floor(z1/C);
+    if(!(isFinite(i0)&&isFinite(i1)&&isFinite(j0)&&isFinite(j1))||(i1-i0+1)*(j1-j0+1)>2500){(m.big||(m.big=[])).push(o);return;}
+    for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const k=i*65536+j;let a=m.get(k);if(!a)m.set(k,a=[]);a.push(o);}};
+  for(const b of HS.cols)add(H.b,b,b.x0,b.x1,b.z0,b.z1);
+  for(const c of HS.circs)add(H.c,c,c.x-c.r,c.x+c.r,c.z-c.r,c.z+c.r);
+  for(const b of HS.occ)add(H.o,b,b.x0,b.x1,b.z0,b.z1);
+  H.crB=COL.filter(b=>b._crOwner);H.crC=CIRC.filter(c=>c._crOwner);
+  H.sig=hsHashSig();H.t=G.t;
+}
+function hsHashReady(){
+  if(HS_EDITOR.active||!HS.built||!HS.cols)return false; // the designer moves things every frame: plain scan there
+  const H=HS_HASH;if(H.chk!==G.t){H.chk=G.t;if(!H.b||G.t-H.t>2||G.t<H.t||hsHashSig()!==H.sig)hsHashBuild();}
+  return true;
+}
+function hsHashEach(m,i0,i1,j0,j1,fn){const st=++HS_HASH.st;
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const a=m.get(i*65536+j);if(!a)continue;for(let n=0;n<a.length;n++){const o=a[n];if(o._hq===st)continue;o._hq=st;fn(o);}}
+  if(m.big)for(const o of m.big){if(o._hq===st)continue;o._hq=st;fn(o);}
+}
 function forNearCols(x,z,fb,fc){
+  if(!((HS.on||HS_EDITOR.active)&&hsHashReady()))_FNR=4;
+  if((HS.on||HS_EDITOR.active)&&hsHashReady()){
+    const Q=_FNR;_FNR=4;
+    const H=HS_HASH,C=H.C,i0=Math.floor((x-Q)/C),i1=Math.floor((x+Q)/C),j0=Math.floor((z-Q)/C),j1=Math.floor((z+Q)/C);
+    hsHashEach(H.b,i0,i1,j0,j1,b=>{if(b.on!==false&&b.x1>x-Q&&b.x0<x+Q&&b.z1>z-Q&&b.z0<z+Q)fb(b);});
+    hsHashEach(H.c,i0,i1,j0,j1,c=>{if(c.on!==false&&Math.abs(c.x-x)<c.r+Q&&Math.abs(c.z-z)<c.r+Q)fc(c);});
+    for(const b of H.crB)if(b._crOwner.grp.visible&&b.on!==false&&b.x1>x-Q&&b.x0<x+Q&&b.z1>z-Q&&b.z0<z+Q)fb(b);
+    for(const c of H.crC)if(c._crOwner.grp.visible&&c.on!==false&&Math.abs(c.x-x)<c.r+Q&&Math.abs(c.z-z)<c.r+Q)fc(c);
+    return;
+  }
   if(HS.on||HS_EDITOR.active){
     // Collision and camera clearance in BOTH the hide-and-seek game and live designer
     // must use the hall, never invisible city chunks from the normal world.
@@ -2954,7 +3021,7 @@ function pushPile(p){if(!PILE.h||G.feet>.5)return;if(Math.hypot(p.x,p.z)>PILE.R+
 function collideBody(p){const lo=G.feet+((G.grounded||G.zeroG)?STEP:.03),hi=G.feet+BODY.h;
   for(let it=0;it<6;it++){
     const beforeX=p.x,beforeZ=p.z;
-    forNearCols(p.x,p.z,b=>{if(!b.on||b.y1<=lo||b.y0>=hi)return;if(b._hsOBB){const o=b._hsOBB;pushOBB(p,o.cx,o.cz,o.yaw,o.hl,o.hw);}else pushBox(p,b.x0,b.x1,b.z0,b.z1);},c=>{if(c.on===false||c.y1<=lo||c.y0>=hi)return;if(c.ri){pushRing(p,c);return;}const r=solidRadiusAt(c,p.x,p.z,lo,hi);if(r>0)pushCirc(p,c.x,c.z,r);});
+    _FNR=1.6;forNearCols(p.x,p.z,b=>{if(!b.on||b.y1<=lo||b.y0>=hi)return;if(b._hsOBB){const o=b._hsOBB;pushOBB(p,o.cx,o.cz,o.yaw,o.hl,o.hw);}else pushBox(p,b.x0,b.x1,b.z0,b.z1);},c=>{if(c.on===false||c.y1<=lo||c.y0>=hi)return;if(c.ri){pushRing(p,c);return;}const r=solidRadiusAt(c,p.x,p.z,lo,hi);if(r>0)pushCirc(p,c.x,c.z,r);});
     for(const V of SPECIAL)spPush(p,V,lo,hi-.003,BODY.a);
     if(!HS.on&&!MAZE.on&&!HOSP.on&&!EXTRA.on){for(const c of CARS.list){if(c.player)continue;const dx=p.x-c.x,dz=p.z-c.z;if(dx*dx+dz*dz>14)continue;const y0=(c.y||0)+(c.fy||0)-.05,y1=y0+carTop(c,p.x,p.z)+.05;if(lo<y1&&hi>y0)pushOBB(p,c.x,c.z,c.yaw,c.hl,c.hw);}
     for(const q of PEDS.list){if(!q.active)continue;const dx=p.x-q.x,dz=p.z-q.z;if(dx*dx+dz*dz>1.4)continue;const y0=(q.y||0)+(q.fy||0);if(lo<y0+1.75&&hi>y0)pushCirc(p,q.x,q.z,q.state==='sit'?.3:.24);}
@@ -2966,7 +3033,7 @@ function collideBody(p){const lo=G.feet+((G.grounded||G.zeroG)?STEP:.03),hi=G.fe
     if(Math.hypot(p.x-beforeX,p.z-beforeZ)<.0001)break;
   }}
 function groundHeight(x,z,feet,grounded){if(MAZE.on||EXTRA.on)return 0;let g=Math.max(groundBase(x,z),groundBase(x+.2,z),groundBase(x-.2,z),groundBase(x,z+.2),groundBase(x,z-.2));const reach=feet+(grounded?STEP:.06),r=.21;
-  forNearCols(x,z,b=>{if(!b.on||b.y1>reach||b.y1<=g)return;if(!hsObbPoint(b,x,z,r))return;g=b.y1;},c=>{if(c.on===false)return;const d=Math.hypot(x-c.x,z-c.z),rx=solidEllipseRadius(c,x,z);if(d>=rx+(c.sh?0:.19)||(c.ri&&d<c.ri-.19))return;const shapeDistance=c._ellipse?d*c.r/Math.max(.0001,rx):d;const top=c.sh?circTop(c,shapeDistance):c.y1;if(top>reach||top<=g)return;g=top;});
+  _FNR=1.3;forNearCols(x,z,b=>{if(!b.on||b.y1>reach||b.y1<=g)return;if(!hsObbPoint(b,x,z,r))return;g=b.y1;},c=>{if(c.on===false)return;const d=Math.hypot(x-c.x,z-c.z),rx=solidEllipseRadius(c,x,z);if(d>=rx+(c.sh?0:.19)||(c.ri&&d<c.ri-.19))return;const shapeDistance=c._ellipse?d*c.r/Math.max(.0001,rx):d;const top=c.sh?circTop(c,shapeDistance):c.y1;if(top>reach||top<=g)return;g=top;});
   for(const V of SPECIAL){const top=spGround(V,x,z);if(top<=reach&&top>g)g=top;}
   if(!HS.on&&!MAZE.on&&!HOSP.on&&!EXTRA.on)for(const c of CARS.list){if(c.player||c.dead)continue;const dx=x-c.x,dz=z-c.z;if(dx*dx+dz*dz>9)continue;const s=Math.sin(c.yaw),co=Math.cos(c.yaw),lf=dx*s+dz*co,ls=dx*co-dz*s;
     if(Math.abs(lf)>c.hl||Math.abs(ls)>c.hw)continue;const top=(c.y||0)+(c.fy||0)+carTop(c,x,z);if(top<=reach&&top>g)g=top;}
@@ -2977,7 +3044,7 @@ function pushRing(p,c){const dx=p.x-c.x,dz=p.z-c.z,d=Math.hypot(dx,dz)||1e-6,nx=
   if(d<(c.ri+c.r)/2){if(d+e>c.ri){const t=Math.max(0,c.ri-e);p.x=c.x+nx*t;p.z=c.z+nz*t;}}else if(d-e<c.r){p.x=c.x+nx*(c.r+e);p.z=c.z+nz*(c.r+e);}}
 /* the visible body never enters a solid: points on the posed skeleton are tested against everything nearby */
 const _bp=new V3(),_nearB=[],_nearC=[];
-function gatherNear(x,z,R){_nearB.length=0;_nearC.length=0;forNearCols(x,z,b=>{if(b.on!==false&&b.x1>x-R&&b.x0<x+R&&b.z1>z-R&&b.z0<z+R)_nearB.push(b);},c=>{if(c.on!==false&&Math.abs(c.x-x)<R+c.r&&Math.abs(c.z-z)<R+c.r)_nearC.push(c);});}
+function gatherNear(x,z,R){_nearB.length=0;_nearC.length=0;_FNR=Math.min(4,R+.6);forNearCols(x,z,b=>{if(b.on!==false&&b.x1>x-R&&b.x0<x+R&&b.z1>z-R&&b.z0<z+R)_nearB.push(b);},c=>{if(c.on!==false&&Math.abs(c.x-x)<R+c.r&&Math.abs(c.z-z)<R+c.r)_nearC.push(c);});}
 function ptSolid(p,r){let dep=0;
   for(const b of _nearB){if(b.on===false||p.y<=b.y0-r*.5||p.y>=b.y1-.035)continue;const d=hsObbDepth(b,p.x,p.z,r);if(d>dep)dep=d;}
   for(const c of _nearC){if(c.on===false||p.y<=c.y0||p.y>=(c.sh?c.y1:c.y1-.035))continue;const d=Math.hypot(p.x-c.x,p.z-c.z);if(c.ri){const q=Math.min(d-(c.ri-r),(c.r+r)-d);if(q>dep)dep=q;continue;}const rr=solidEllipseRadius(c,p.x,p.z)*(c.sh?circR(c,p.y)/Math.max(.0001,c.r):1);if(rr>0&&rr+r-d>dep)dep=rr+r-d;}
@@ -3006,7 +3073,7 @@ function posePlayer(dt,sp,ph,t,o){gatherNear(G.pos.x,G.pos.z,2.2);let k=Math.min
 /* altitude past 1e5 m is kept in G.spaceX so nearby things never lose precision; the sky has no top */
 function moveAlt(dy){if(G.spaceX>0||G.feet+dy>1e5){const A=G.feet+(G.spaceX||0)+dy;if(A>1e5){G.feet=1e5;G.spaceX=Math.min(1e300,A-1e5);}else{G.feet=A;G.spaceX=0;}}else G.feet+=dy;}
 function ceilHeight(x,z,head){let c=1e9;const r=.17,lim=head-.08;
-  forNearCols(x,z,b=>{if(!b.on||b.y0<lim||b.y0>=c)return;if(!hsObbPoint(b,x,z,r))return;c=b.y0;},
+  _FNR=1.3;forNearCols(x,z,b=>{if(!b.on||b.y0<lim||b.y0>=c)return;if(!hsObbPoint(b,x,z,r))return;c=b.y0;},
     q=>{if(q.on===false)return;const d=Math.hypot(x-q.x,z-q.z);if(d>=q.r+r*.6||(q.ri&&d<q.ri-r*.6))return;const bot=q.sh?circBot(q,Math.min(d,q.r*.995)):q.y0;if(bot<lim||bot>=c)return;c=bot;});
   for(const V of SPECIAL){const bot=spCeil(V,x,z,BODY.a);if(bot>=lim&&bot<c)c=bot;}
   return c;}
@@ -3616,6 +3683,8 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
     <div class="wdseg" role="group" aria-label="قانون زمان قایم‌موشک" style="margin-top:.55rem">${[['timed','زمان معمولی'],['unlimited','∞ نامحدود؛ تا پیدا کردن']].map(([m,label])=>`<button type="button" data-hs-timer="${m}" class="${HS.timerMode===m?'on':''}" aria-pressed="${HS.timerMode===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div style="width:100%"><b>🎯 سختی آرش در قایم‌موشک</b><small>آسان: گوش و چشمش ضعیف‌تره. سخت: تیزتر می‌شنوه، سریع‌تر می‌دوه و مخفیگاه‌های محبوبت رو یادش می‌مونه.</small>
     <div class="wdseg" role="group" aria-label="سختی قایم‌موشک" style="margin-top:.55rem">${[['easy','😊 آسان'],['normal','🙂 معمولی'],['hard','😈 سخت']].map(([m,label])=>`<button type="button" data-hs-diff="${m}" class="${HS.diff===m?'on':''}" aria-pressed="${HS.diff===m}">${label}</button>`).join('')}</div></div></div>
+  <div class="setrow"><div style="width:100%"><b>🧱 آرش و دیوارها / وسایل</b><small>آرش برای دیدن پشت دیوارها و وسایلی که ساختی بلندشون کنه، یا فقط دورشون بزنه و از کنارشون نگاه کنه؟ انتخاب ذخیره می‌شه.</small>
+    <div class="wdseg" role="group" aria-label="بلند کردن دیوار و وسایل توسط آرش" style="margin-top:.55rem">${[['all','🏋️ دیوار و وسایل رو بلند کنه'],['walls','🧱 فقط دیوارها'],['none','🚫 بلند نکنه؛ دور بزنه']].map(([m,label])=>`<button type="button" data-hs-lift="${m}" class="${HS.lift===m?'on':''}" aria-pressed="${HS.lift===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div><b>🏥 بیمارستان آرش</b><small>${ARASH.phase==='care'?'آرش نیاز به مراقبت داره. با ورود به بیمارستان، ۱۸ ثانیه منتظر بمون تا کمکش کنن.':HOSP.on?'الان داخل بیمارستانی.':'بخش بیمارستان جداگانه برای مراقبت و آشتی؛ صدای بازی و تالار اصلی باقی می‌مونن.'}</small></div><button class="rb" id="hospitalBtn">${HOSP.on?'بازگشت به بازی':'ورود به بیمارستان'}</button></div>
   <div class="setrow"><div><b>🔥 هزارتوی مشعل‌ها (فقط اول‌شخص)</b><small>${MAZE.on?'الان داخل هزارتو هستی. راه خروج را پیدا کن.':'یک تالار ۴۰×۴۰ متریِ ستون‌دار با هزارتوی مرحله‌ای، مشعل‌های روشن، برخورد واقعی دیوارها و ذخیرهٔ مرحله.'}</small></div><button class="rb" id="mazeBtn">${MAZE.on?'بازگشت به تالار':'ورود به هزارتو'}</button></div>
   <div class="setrow"><div><b>💾 پشتیبان کل بازی</b><small>وسایل شهر و قایم‌موشک، مرحله‌های هزارتو، تنظیمات و پیشرفت بازی ذخیره می‌شن. می‌تونی فایل پشتیبان را در فضای ابری خودت نگه داری و در نسخه‌های جدید بازیابی کنی. ذخیره روی تبلت به‌تنهایی همگام‌سازی ابری نیست.</small></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="rb" id="arashBackupDownload">📤 ذخیرهٔ همه</button><button class="rb" id="arashBackupRestore">📥 بازیابی</button></div></div>
@@ -3632,6 +3701,7 @@ function panelClick(e){const t=e.target.closest('button');if(!t)return;
   else if(t.dataset.artStyle){arashArtSet(t.dataset.artStyle);openSettings();}
   else if(t.id==='decoySettingsBtn'){closePanel();decoyStartPlacement();}
   else if(t.dataset.hsMode){HS.turnMode=t.dataset.hsMode;try{localStorage.setItem('needle-hs-role-mode',HS.turnMode);}catch(e){}openSettings();}
+  else if(t.dataset.hsLift){HS.lift=t.dataset.hsLift;try{localStorage.setItem('needle-hs-lift',HS.lift);}catch(e){}openSettings();}
   else if(t.dataset.hsDiff){HS.diff=t.dataset.hsDiff;try{localStorage.setItem('needle-hs-diff',HS.diff);}catch(e){}openSettings();}
   else if(t.dataset.hsTimer){HS.timerMode=t.dataset.hsTimer;try{localStorage.setItem('needle-hs-timer-mode',HS.timerMode);}catch(e){}HS.uiKey='';openSettings();}
   else if(t.dataset.frHit){const part=t.dataset.frHit;closePanel();arashHit(part);}
@@ -3694,7 +3764,18 @@ function arashVaultImport(input){
     }catch(e){console.warn(e);toast('این فایل پشتیبان معتبر بازی آرش نیست یا ذخیره‌سازی بسته است.',3700);}
   };reader.onerror=()=>toast('فایل پشتیبان خوانده نشد.',2400);reader.readAsText(file,'utf-8');
 }
+/* Quiet automatic save every 15 s while playing (the designer saves its layout without
+   adding an undo step or a message), plus the existing save on leaving the page. */
+function arashAutoSave(){
+  try{saveLife();saveWorld();crSave();
+    if(HS_EDITOR.active){const d=hsEditorCapture();localStorage.setItem(HS_EDIT_KEY,JSON.stringify(d));HS_EDITOR.layout=d;HS_EDITOR.loaded=true;}
+    else if(HS_EDITOR.loaded&&HS_EDITOR.layout)localStorage.setItem(HS_EDIT_KEY,JSON.stringify(HS_EDITOR.layout));
+    if(typeof EXTRA!=='undefined'&&EXTRA.on)miniSaveProgress();
+  }catch(e){console.warn('ذخیرهٔ خودکار:',e);}
+}
 function arashVaultInit(){
+  window.__gameFlush=arashAutoSave; // the Android app calls this before it goes to the background
+  setInterval(()=>{if(!document.hidden&&G.mode!=='loading'&&G.mode!=='start')arashAutoSave();},15000);
   const input=document.getElementById('arashSaveImport');if(input&&!input.dataset.bound){input.dataset.bound='1';input.addEventListener('change',()=>arashVaultImport(input));}
   addEventListener('pagehide',arashVaultFlush);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)arashVaultFlush();});
@@ -4008,7 +4089,7 @@ function obbPushR(p,cx,cz,yaw,hl,hw,r){const s=Math.sin(yaw),c=Math.cos(yaw),dx=
   const qx=cx+s*qf+c*qs,qz=cz+c*qf-s*qs,ex=p.x-qx,ez=p.z-qz,d=Math.hypot(ex,ez);if(d<r&&d>1e-8){p.x=qx+ex/d*r;p.z=qz+ez/d*r;}}
 function frCollide(p,feet,grounded){const lo=feet+(grounded?STEP:.03),hi=feet+1.8;
   for(let it=0;it<3;it++){
-    forNearCols(p.x,p.z,b=>{if(!b.on||b.y1<=lo||b.y0>=hi)return;if(b._hsOBB){const o=b._hsOBB;obbPushR(p,o.cx,o.cz,o.yaw,o.hl,o.hw,FRB);return;}const qx=clamp(p.x,b.x0,b.x1),qz=clamp(p.z,b.z0,b.z1),dx=p.x-qx,dz=p.z-qz,d=Math.hypot(dx,dz);
+    _FNR=1.6;forNearCols(p.x,p.z,b=>{if(!b.on||b.y1<=lo||b.y0>=hi)return;if(b._hsOBB){const o=b._hsOBB;obbPushR(p,o.cx,o.cz,o.yaw,o.hl,o.hw,FRB);return;}const qx=clamp(p.x,b.x0,b.x1),qz=clamp(p.z,b.z0,b.z1),dx=p.x-qx,dz=p.z-qz,d=Math.hypot(dx,dz);
       if(d<1e-7){const l=p.x-b.x0,r=b.x1-p.x,n=p.z-b.z0,f=b.z1-p.z,m=Math.min(l,r,n,f);if(m===l)p.x=b.x0-FRB;else if(m===r)p.x=b.x1+FRB;else if(m===n)p.z=b.z0-FRB;else p.z=b.z1+FRB;return;}
       if(d<FRB){p.x=qx+dx/d*FRB;p.z=qz+dz/d*FRB;}},
       c=>{if(c.y1<=lo||c.y0>=hi)return;const dx=p.x-c.x,dz=p.z-c.z,d=Math.hypot(dx,dz)||1e-6;
@@ -4840,11 +4921,11 @@ function initCreator(){
 
 /* ================= HIDE AND SEEK: a second hall where you and your friend take turns hiding ================= */
 Object.assign(HS,{built:false,group:null,cols:[],circs:[],occ:[],spots:[],grid:null,gw:0,gh:0,
-  diff:'normal',extN:0,endWall:null,extWalls:[],round:0,role:'seek',turnMode:'alternate',concern:null,phase:'off',t:0,score:{me:0,fr:0},meter:0,mySpot:null,noise:null,noiseT:-9,visited:[],fs:{st:'idle'},
+  diff:'normal',lift:'walls',extN:0,endWall:null,extWalls:[],round:0,role:'seek',turnMode:'alternate',concern:null,phase:'off',t:0,score:{me:0,fr:0},meter:0,mySpot:null,noise:null,noiseT:-9,visited:[],fs:{st:'idle'},
   hint:0,frOff:false,endT:0,panelShown:false,msg:'',eyeAt:[0,0],uiKey:'',timerMode:'timed',stageTheme:null,stageDecor:null,stageProps:null,themeTick:0});
 const HSX={W:15,D:12,H:24.6,PREP_HIDE:20,PREP_SEEK:15,PLAY_FR:60,PLAY_ME:90,CELL:.35};
 const HS_BASE_W=15,HS_BASE_D=12,HS_BASE_HEIGHT=24.6,HS_GROW_PER_ROUND=.20;
-try{const m=localStorage.getItem('needle-hs-role-mode');if(['alternate','me','friend'].includes(m))HS.turnMode=m;const tm=localStorage.getItem('needle-hs-timer-mode');if(['timed','unlimited'].includes(tm))HS.timerMode=tm;const df=localStorage.getItem('needle-hs-diff');if(['easy','normal','hard'].includes(df))HS.diff=df;}catch(e){}
+try{const m=localStorage.getItem('needle-hs-role-mode');if(['alternate','me','friend'].includes(m))HS.turnMode=m;const tm=localStorage.getItem('needle-hs-timer-mode');if(['timed','unlimited'].includes(tm))HS.timerMode=tm;const df=localStorage.getItem('needle-hs-diff');if(['easy','normal','hard'].includes(df))HS.diff=df;const lf=localStorage.getItem('needle-hs-lift');if(['all','walls','none'].includes(lf))HS.lift=lf;}catch(e){}
 const HS_START={me:[6.4,-4.4],fr:[7.6,-4.4],count:[14.05,-8.6],eyes:[14.05,-7.2]};
 let HSB=null;
 
@@ -5806,6 +5887,7 @@ function hsExpandTo(stage){
 
 /* ---- walking grid for the friend (A*) ---- */
 function hsGrid(){
+  HS.colVer=(HS.colVer||0)+1;
   const r=.32;
   // Whole enlarged hall is included. A bounded, adaptive navigation resolution
   // avoids allocating hundreds of millions of nodes on mobile devices.
@@ -5869,7 +5951,15 @@ function hsLine(ax,az,bx,bz){const d=Math.hypot(bx-ax,bz-az),n=Math.min(2400,Mat
 /* ---- line of sight: eye to a point, through anything that blocks the view ---- */
 function hsSlab(a,d,lo,hi,r){if(Math.abs(d)<1e-9)return a>=lo&&a<=hi;let u=(lo-a)/d,v=(hi-a)/d;if(u>v){const w=u;u=v;v=w;}if(u>r[0])r[0]=u;if(v<r[1])r[1]=v;return r[0]<=r[1];}
 const _hr=[0,1];
+function hsSegTest(b,ax,ay,az,dx,dy,dz){_hr[0]=0;_hr[1]=.97;
+  if(b._hsOBB){const o=b._hsOBB,c=Math.cos(o.yaw),ss=Math.sin(o.yaw),xx=ax-o.cx,zz=az-o.cz;
+    return hsSlab(xx*c-zz*ss,dx*c-dz*ss,-o.hw,o.hw,_hr)&&hsSlab(ay,dy,b.y0,b.y1,_hr)&&hsSlab(xx*ss+zz*c,dx*ss+dz*c,-o.hl,o.hl,_hr);}
+  return hsSlab(ax,dx,b.x0,b.x1,_hr)&&hsSlab(ay,dy,b.y0,b.y1,_hr)&&hsSlab(az,dz,b.z0,b.z1,_hr);}
 function hsSeg(ax,ay,az,bx,by,bz){const dx=bx-ax,dy=by-ay,dz=bz-az;
+  if(hsHashReady()){const C=HS_HASH.C,i0=Math.floor(Math.min(ax,bx)/C),i1=Math.floor(Math.max(ax,bx)/C),j0=Math.floor(Math.min(az,bz)/C),j1=Math.floor(Math.max(az,bz)/C);
+    if((i1-i0+1)*(j1-j0+1)<=400){let hit=false;
+      hsHashEach(HS_HASH.o,i0,i1,j0,j1,b=>{if(!hit&&b.on!==false&&hsSegTest(b,ax,ay,az,dx,dy,dz))hit=true;});
+      return !hit;}}
   for(const b of HS.occ){if(b.on===false)continue;_hr[0]=0;_hr[1]=.97;
     if(b._hsOBB){const o=b._hsOBB,c=Math.cos(o.yaw),ss=Math.sin(o.yaw),xx=ax-o.cx,zz=az-o.cz;
       if(hsSlab(xx*c-zz*ss,dx*c-dz*ss,-o.hw,o.hw,_hr)&&hsSlab(ay,dy,b.y0,b.y1,_hr)&&hsSlab(xx*ss+zz*c,dx*ss+dz*c,-o.hl,o.hl,_hr))return false;
@@ -5903,8 +5993,8 @@ function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hs
     FR.x=HS.AX+HS_START.fr[0]+6;FR.z=HS.AZ+HS_START.fr[1];FR.yaw=0;
     const opts=HS.spots.filter(s=>s!==HS.lastFrSpot);const sp=opts[(Math.random()*opts.length)|0];HS.lastFrSpot=sp;F.st='tohide';F.spot=sp;hsGo(sp.ent[0],sp.ent[1]);
     toast('🙈 چشم‌هات رو بستی؛ '+FR.name+' داره قایم می‌شه…',2600);}
-  hsUI(true);}
-function hsExit(){if(!HS.on)return;hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
+  hsBatchAll();hsUI(true);}
+function hsExit(){if(!HS.on)return;hsBatchClear();hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
   FR.hsIn=null;FR.off=HS.frOff;FR.hsV=0;LIGHTS.pool.forEach((l,i)=>{l.position.copy(LIGHTS.poolHome[i]);l.distance=9;l.color.set(0xffa14a);l.intensity=TODS[TODi].lant;});
   G.pos.set(0,0,PILE.R+2);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=0;G.pitch=-.12;resetFriend();
   for(const id of ['hsBar','hsEyes','hsPeek'])$('#'+id).hidden=true;closePanel();toast('برگشتی به تالار خودت.',2000);}
@@ -5981,15 +6071,24 @@ function hsWallRestoreAll(){
   const opened=HS.liftedWalls;if(!opened||!opened.size)return;
   for(const f of opened.values()){
     if(!f||!f.g)continue;
-    f.g.position.y=0;
+    f.g.position.y=0;f._noBatch=false;
     for(const p of f.phys||[])p.ref.on=!!(p.base.on&&f.state?.visible!==false);
   }
   opened.clear();
   if(HS.built)hsGrid();
 }
+function hsLiftBox(f){ // world footprint and height of a placed object, cached for the round
+  if(f._bbT===HS.round&&f._bb)return f._bb;
+  if(HS.group)HS.group.updateWorldMatrix(true,true); // world coordinates, like Arash's position
+  const b=new THREE.Box3().setFromObject(f.g),hx=(b.max.x-b.min.x)/2,hz=(b.max.z-b.min.z)/2;
+  f._bb={cx:(b.min.x+b.max.x)/2,cz:(b.min.z+b.max.z)/2,hx,hz,h:b.max.y-Math.max(0,b.min.y)};f._bbT=HS.round;return f._bb;
+}
+function hsLiftableProp(f){if(f.editorType==='wall'||f.isArchitecture||!String(f.uid).startsWith('custom_'))return false;
+  const b=hsLiftBox(f);return b.h>=.8&&Math.max(b.hx,b.hz)*2>=.7;}
 function hsWallCandidates(){
+  const mode=HS.lift||'walls';
   return typeof hsEditorActiveFrames==='function'?hsEditorActiveFrames().filter(f=>
-    f.editorType==='wall'&&!f.isArchitecture&&f.state?.visible!==false&&f.g?.visible&&
+    (f.editorType==='wall'||(mode!=='walls'&&hsLiftableProp(f)))&&!f.isArchitecture&&f.state?.visible!==false&&f.g?.visible&&
     !(HS.wallVisited&&HS.wallVisited.has(f.uid))):[];
 }
 function hsWallInspectChoose(){
@@ -6000,7 +6099,23 @@ function hsWallInspectChoose(){
     .sort((a,b)=>Math.hypot(a.g.position.x+HS.AX-FR.x,a.g.position.z+HS.AZ-FR.z)-
        Math.hypot(b.g.position.x+HS.AX-FR.x,b.g.position.z+HS.AZ-FR.z));
   for(const f of candidates.slice(0,12)){
-    const v=f.state,cx=HS.AX+v.x,cz=HS.AZ+v.z;
+    const v=f.state,cx=HS.AX+v.x,cz=HS.AZ+v.z,isWall=f.editorType==='wall';
+    if(!isWall||HS.lift==='none'){ // objects: use their footprint; "none": only walk round to the far side
+      const B=isWall?{cx,cz,hx:0,hz:0}:hsLiftBox(f);
+      let ax,az,bx,bz;
+      if(isWall){const nx=Math.sin(v.yaw),nz=Math.cos(v.yaw),side=((FR.x-cx)*nx+(FR.z-cz)*nz)>=0?1:-1,off=Math.max(.85,.18*v.sz+.72);
+        ax=cx+side*nx*off;az=cz+side*nz*off;bx=cx-side*nx*(off+1.0);bz=cz-side*nz*(off+1.0);}
+      else{const dx=FR.x-B.cx,dz=FR.z-B.cz,useX=Math.abs(dx)/(B.hx+.01)>=Math.abs(dz)/(B.hz+.01),sx=dx>=0?1:-1,sz=dz>=0?1:-1;
+        ax=useX?B.cx+sx*(B.hx+.8):B.cx;az=useX?B.cz:B.cz+sz*(B.hz+.8);bx=useX?B.cx-sx*(B.hx+1.0):B.cx;bz=useX?B.cz:B.cz-sz*(B.hz+1.0);}
+      if(HS.lift==='none'){
+        if(hsGo(bx,bz)){if(!HS.wallVisited)HS.wallVisited=new Set();HS.wallVisited.add(f.uid);F.st='patrol';F.spot=null;F.fast=true;F.patrolIdx=undefined;
+          hsBubble(isWall?'دور این دیوار می‌زنم ببینم پشتش کسی هست یا نه 🚶':'یه نگاه به پشت این وسیله بندازم… 👀',2.4);return true;}
+        HS.wallFailed.set(f.uid,G.t);continue;
+      }
+      if(hsGo(ax,az)){F.st='wallApproach';F.wall=f;F.wallStarted=G.t;F.wallBehind=[bx,bz];F.spot=null;F.fast=true;F.wallH=Math.min(2.3,Math.max(1.6,B.h+.4));
+        hsBubble('این '+(HS_EDIT_ASSETS.find(a=>a[0]===f.editorType)?.[2]||'وسیله')+' رو بلند می‌کنم، شاید پشتش قایم شدی! 🏋️',2.5);return true;}
+      HS.wallFailed.set(f.uid,G.t);continue;
+    }
     const nx=Math.sin(v.yaw),nz=Math.cos(v.yaw),lx=Math.cos(v.yaw),lz=-Math.sin(v.yaw);
     const off=Math.max(.85,.18*v.sz+.72);
     const along=Math.max(-1.2*v.sx,Math.min(1.2*v.sx,(FR.x-cx)*lx+(FR.z-cz)*lz));
@@ -6008,7 +6123,7 @@ function hsWallInspectChoose(){
     for(const sign of [side,-side]){
       const x=cx+lx*along+sign*nx*off,z=cz+lz*along+sign*nz*off;
       if(hsGo(x,z)){
-        F.st='wallApproach';F.wall=f;F.wallStarted=G.t;F.wallBehind=[cx+lx*along-sign*nx*(off+1.0),cz+lz*along-sign*nz*(off+1.0)];F.spot=null;F.fast=true;
+        F.st='wallApproach';F.wall=f;F.wallStarted=G.t;F.wallH=3.4;F.wallBehind=[cx+lx*along-sign*nx*(off+1.0),cz+lz*along-sign*nz*(off+1.0)];F.spot=null;F.fast=true;
         hsBubble('اینجا یه دیوار تازه ساخته شده... پشتش رو هم بررسی می‌کنم! 🧱',2.5);
         return true;
       }
@@ -6020,14 +6135,15 @@ function hsWallInspectChoose(){
 function hsWallSearchCtl(dt,o){
   const F=HS.fs,f=F.wall;
   if(!f||!f.g||f.state?.visible===false){F.wall=null;F.st='idle';hsChoose();return o;}
+  if(HS.lift==='none'&&F.st==='wallApproach'){F.wall=null;F.st='idle';hsChoose();return o;} // setting changed mid-way
   if(F.st==='wallApproach'){
     if(!F.path||G.t-F.wallStarted>16){
       HS.wallFailed?.set(f.uid,G.t);F.wall=null;F.st='idle';hsChoose();return o;
     }
     if(hsArrived(Math.max(.64,(HS.navCell||.35)*1.05))){
       F.st='wallLift';F.wallStarted=G.t;F.path=null;F.goal=null;
-      frStand();FR.vx=FR.vz=0;
-      hsBubble('این دیوار جلو دیدمه، آروم بلندش می‌کنم و پشتش رو می‌گردم.',3);
+      frStand();FR.vx=FR.vz=0;hsBatchRelease(f);
+      hsBubble(f.editorType==='wall'?'این دیوار جلو دیدمه، آروم بلندش می‌کنم و پشتش رو می‌گردم.':'یا علی! بلندش کردم… پشتش چی هست؟ 👀',3);
       SFX.creak&&SFX.creak(true);
       return o;
     }
@@ -6036,7 +6152,7 @@ function hsWallSearchCtl(dt,o){
   }
   if(F.st==='wallLift'){
     const t=Math.max(0,G.t-F.wallStarted),e=Math.min(1,t/1.4);
-    f.g.position.y=3.4*(e*e*(3-2*e));
+    f.g.position.y=(F.wallH||3.4)*(e*e*(3-2*e));
     o.face=[HS.AX+f.state.x,HS.AZ+f.state.z];
     if(t>=1.4){
       // Collision is removed only when the visual wall is physically lifted.
@@ -7209,7 +7325,7 @@ function hsEditorTransformPoint(f,lx,lz,state){const c=Math.cos(state.yaw),s=Mat
 function hsEditorLocalPoint(f,x,z){const dx=x-HS.AX-f.original.x,dz=z-HS.AZ-f.original.z,c=Math.cos(f.original.yaw),s=Math.sin(f.original.yaw);
   return [dx*c-dz*s,dx*s+dz*c];}
 function hsEditorApplyFrame(f,next){
-  if(!f||!f.done)return;
+  if(!f||!f.done)return;HS.colVer=(HS.colVer||0)+1;
   const v=hsEditorSanitize(f,next);f.state=v;f.px=v.x;f.pz=v.z;f.yawR=v.yaw;
   f.g.position.set(v.x,0,v.z);f.g.rotation.y=v.yaw;f.g.scale.set(v.sx,v.sy,v.sz);f.g.visible=v.visible;
   for(const q of f.phys){const p=q.ref,b=q.base;
@@ -7506,7 +7622,7 @@ function hsEditorCommit(launch){
   renderer.shadowMap.needsUpdate=true;
   if(HS_EDITOR.inGame){
     if(HS_EDITOR.camView==='fp'||HS_EDITOR.camView==='tp')G.view=HS_EDITOR.camView;
-    hsGrid();
+    hsGrid();hsBatchAll();
     if(G.pose==='stand'){collideBody(G.pos);G.eyeY=G.feet+1.62;}
     if(HS.fs&&HS.fs.goal&&HS.fs.st!=='count'&&HS.fs.st!=='care'&&HS.fs.st!=='hidden'){if(!hsGo(HS.fs.goal[0],HS.fs.goal[1])){HS.fs.st='blocked';HS.fs.t0=G.t;}}
     HS.uiKey='';hsUI(true);toast('✅ طراحی ذخیره شد؛ همان دور قایم‌موشک ادامه دارد.',2400);
@@ -7755,8 +7871,7 @@ function hsEditorAccept(f,s){
   if(bad){hsEditorApplyFrame(f,prev);return false;}return true;
 }
 function hsEditorAddAt(kind,x,z,label){
-  const customCount=hsEditorActiveFrames().filter(f=>f.uid.startsWith('custom_')&&f.state.visible).length;
-  if(customCount>=180){hsEditorMsg('برای حفظ سرعت بازی، حداکثر ۱۸۰ وسیلهٔ سفارشی هم‌زمان فعاله.');return null;}
+  // No item cap: collisions use a spatial grid and play-mode meshes are merged per area (see HS_HASH / HS_BATCH).
   const layout=hsEditorGetLayout();
   const rid=++layout.nextId,id='custom_'+rid;
   const f=hsEditorBuildProp(kind,x-HS.AX,z-HS.AZ,0,id,label);
@@ -8029,6 +8144,7 @@ function hsEditorToolInit(){
 
 function hsEditorOpenCore(){
   if(HS_EDITOR.active)return;
+  hsBatchClear();
   if(HS.on){hsWallRestoreAll();if(HS.dark)hsDarkEnd(true);}
   if(EXTRA.on)miniExit();
   if(ARASH.phase==='care'){toast('اول مراقبت آرش رو در بیمارستان تموم کن.',3000);return;}
