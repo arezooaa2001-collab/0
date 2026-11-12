@@ -128,6 +128,21 @@ input,select{font-family:inherit}
 #bCam{right:22px;bottom:206px;width:52px;height:52px;background:radial-gradient(circle at 40% 30%,rgba(220,220,255,.7),rgba(90,80,170,.75))}
 #bSec{right:84px;bottom:180px;width:56px;height:56px;background:radial-gradient(circle at 40% 30%,rgba(255,120,120,.85),rgba(170,0,40,.8))}
 #bBoard{right:200px;bottom:8px;width:52px;height:52px;background:radial-gradient(circle at 40% 30%,rgba(140,220,255,.9),rgba(60,80,220,.8))}
+#bEmote{right:150px;bottom:212px;width:50px;height:50px;background:radial-gradient(circle at 40% 30%,rgba(255,170,240,.9),rgba(190,40,170,.8))}
+#emoteBar{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;padding:6px;border-radius:16px;background:rgba(20,14,56,.82);border:1px solid var(--line);z-index:6}
+#emoteBar[hidden]{display:none}
+#emoteBar button{width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.1);color:#fff;font:inherit;font-size:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+#emoteBar button small{font-size:10px;font-weight:800}
+#emoteBar button:active{transform:scale(.92)}
+#feed{display:flex;flex-direction:column;gap:3px;margin-top:6px;width:220px;pointer-events:none}
+.feedItem{font-size:11.5px;font-weight:800;line-height:1.35;padding:3px 8px;border-radius:9px;background:rgba(20,14,56,.72);color:#fff;border-inline-start:3px solid #b8b0ff;transition:opacity .3s;direction:rtl}
+.feedItem.bad{border-color:#ff4f6d}.feedItem.good{border-color:#3df2b0}.feedItem.rare{border-color:#ffd23f}
+@media (max-height:430px){#feed{width:180px}.feedItem{font-size:10.5px}}
+.wheelBox{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center}
+.wheelSide{flex:1 1 200px;max-width:340px;display:flex;flex-direction:column;gap:6px}
+.wheelWrap{position:relative;width:min(280px,68vw,56vh);aspect-ratio:1;margin:12px 6px 6px;flex:none}
+.wheelWrap canvas{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 6px #ffd23f,0 8px 30px #0008}
+.wheelPin{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-top:28px solid #ff2a3a;filter:drop-shadow(0 2px 3px #0008)}
 #bSlap{right:176px;bottom:140px;width:58px;height:58px;background:radial-gradient(circle at 40% 30%,rgba(255,200,120,.9),rgba(230,90,30,.8))}
 #bSec .cdRing,#bSlap .cdRing{position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(rgba(255,255,255,.75) var(--p,0%),transparent 0);
   -webkit-mask:radial-gradient(circle,transparent 62%,#000 63%);mask:radial-gradient(circle,transparent 62%,#000 63%);pointer-events:none}
@@ -238,7 +253,7 @@ input,select{font-family:inherit}
 <div id="touch"></div>
 
 <div class="hud" id="hud" hidden>
-  <div id="minimapWrap"><canvas id="minimap" width="200" height="104"></canvas><div id="fps" hidden>FPS ۰</div></div>
+  <div id="minimapWrap"><canvas id="minimap" width="200" height="104"></canvas><div id="fps" hidden>FPS ۰</div><div id="feed"></div></div>
   <div id="topCenter">
     <div class="moneyPill"><div class="coinIco">$</div><b id="moneyVal">۰</b><span id="incomeVal">+۰ در ثانیه</span></div>
     <div class="chips">
@@ -248,6 +263,8 @@ input,select{font-family:inherit}
       <span class="chip" id="refChip" hidden>🛡️ ضدسیلی</span>
       <span class="chip event" id="boostChip" hidden></span>
       <span class="chip" id="rebChip" hidden>♻️ ۰</span>
+      <span class="chip event" id="speedChip" hidden></span>
+      <span class="chip event" id="pkChip" hidden></span>
       <span class="chip event" id="eventChip" hidden></span>
     </div>
     <div id="carryBar" hidden><span>🏃 در حال دزدی! به پایگاهت برگرد</span><span id="homeArrow">⬆</span></div>
@@ -258,6 +275,7 @@ input,select{font-family:inherit}
   <div id="menuBtns">
     <button class="mbtn pe" id="mbMissions" type="button" title="ماموریت‌ها" aria-label="ماموریت‌ها">📜<span class="dot"></span></button>
     <button class="mbtn pe" id="mbDaily" type="button" title="جایزه‌ی روزانه" aria-label="جایزه‌ی روزانه">🎁<span class="dot"></span></button>
+    <button class="mbtn pe" id="mbWheel" type="button" title="گردونه‌ی شانس" aria-label="گردونه‌ی شانس">🎡<span class="dot"></span></button>
     <button class="mbtn pe" id="mbLeader" type="button" title="جدول برترها" aria-label="جدول برترها">🏆</button>
     <button class="mbtn pe" id="mbBook" type="button" title="دانشنامه‌ی میم‌ها" aria-label="دانشنامه">📖</button>
     <button class="mbtn pe" id="mbInv" type="button" title="کلکسیون من" aria-label="کلکسیون من">🎒</button>
@@ -277,7 +295,9 @@ input,select{font-family:inherit}
     <button class="tbtn pe" id="bSec" type="button"><span class="cdRing"></span><i>🛡️</i>امنیت</button>
     <button class="tbtn pe" id="bSlap" type="button"><span class="cdRing"></span><i>🥊</i>سیلی</button>
     <button class="tbtn pe" id="bBoard" type="button"><i>🛹</i>اسکیت</button>
+    <button class="tbtn pe" id="bEmote" type="button"><i>💃</i>شکلک</button>
   </div>
+  <div id="emoteBar" class="pe" hidden></div>
 </div>
 
 <div class="screen" id="loading">
@@ -619,6 +639,7 @@ const UPGRADES = {
   jetpack: { shop: 5, name: 'جت‌پک', emoji: '🎒', max: 1, desc: () => 'روی ماه سه بار وسط هوا بپر', cost: () => 2e16 },
   laserSuit: { shop: 5, name: 'لباس ضدلیزر', emoji: '🥼', max: 1, desc: () => 'لیزرهای چرخان دیگر به تو آسیب نمی‌زنند', cost: () => 5e16 },
   moonBoots: { shop: 5, name: 'چکمه‌ی ماه‌نورد', emoji: '👢', max: 3, desc: (l) => 'سرعت روی ماه با میم دزدی: +' + fa(l * 15) + '٪ → +' + fa((l + 1) * 15) + '٪', cost: (l) => Math.round(1e16 * Math.pow(3, l)) },
+  turret: { name: 'توپ ژله‌ای دفاعی', emoji: '🔫', max: 3, desc: (l) => (l ? 'هر ' + fa(TURRET_CD[l].toFixed(1)) + ' ثانیه → ' : 'یک توپ در هر پایگاهت که به دزدها ژله‌ی چسبناک شلیک می‌کند · ') + 'هر ' + fa(TURRET_CD[l + 1].toFixed(1)) + ' ثانیه یک شلیک' + (l + 1 > 1 ? '؛ گاهی میم دزدیده‌شده را هم برمی‌گرداند' : ''), cost: (l) => Math.round(80000 * Math.pow(12, l)) },
   slap: { name: 'دستکش سیلی', emoji: '🥊', max: 3, desc: (l) => 'زمان استراحت ضربه: ' + fa((3.5 - l * 0.8).toFixed(1)) + ' → ' + fa((2.7 - l * 0.8).toFixed(1)) + ' ثانیه', cost: (l) => Math.round(2500 * Math.pow(4, l)) },
 };
 const UP_KEYS = Object.keys(UPGRADES);
@@ -2673,7 +2694,7 @@ function procBuild(c, b, r) {
 // ------------------------------------------------------------------ game state
 const G = {
   owners: [], player: null, agents: [], units: new Set(), belt: [], time: 0, playing: false, paused: false,
-  event: null, nextEventIn: 150, spawnT: 1, spawnCount: 0, graceT: 90, stats: { bought: 0, stolen: 0, caught: 0, collected: 0, sold: 0, slaps: 0, fuses: 0, chests: 0, bossKills: 0, levels: 0 }, ach: new Set(),
+  event: null, nextEventIn: 150, spawnT: 1, spawnCount: 0, graceT: 90, stats: { bought: 0, stolen: 0, caught: 0, collected: 0, sold: 0, slaps: 0, fuses: 0, chests: 0, bossKills: 0, levels: 0, parkour: 0, spins: 0 }, ach: new Set(),
   discovered: new Set(), look: null, wear: new Set(), name: 'قهرمان', offline: 0, resetting: false, metrics: { steals: 0, delivered: 0, caught: 0, fromPlayer: 0 }, tutorialDone: false, daily: { last: '', streak: 0 }, playTime: 0, lastSave: 0, alerts: new Map(),
 };
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
@@ -2972,6 +2993,9 @@ function deliver(a, base, world) {
   FX.burst(tmpV.set(u.pos.x, u.pos.y + 1, u.pos.z), { count: 40, color: ['#ffd23f', '#3df2b0', '#ffffff', a.owner.color], speed: 6, up: true, life: 1.1 });
   if (a.isPlayer) { Sound.play('success'); UI.banner('دزدی موفق! 🎉', u.c.name + ' حالا مال توست'); G.stats.stolen++; discover(u.c.id); Tutorial.event('stolen'); scheduleSave(); }
   if (from.isPlayer) { Sound.play('caught'); UI.toast('😭 ' + a.owner.name + ' میم ' + u.c.name + ' را از تو دزدید!', 'bad'); scheduleSave(); }
+  if (a.isPlayer) Feed.add('🎉 تو «' + u.c.name + '» را از ' + from.name + ' دزدیدی', 'good');
+  else if (from.isPlayer || feedHere(a.body.pos.x)) Feed.add('🦹 ' + a.owner.name + ' «' + u.c.name + '» را از ' + (from.isPlayer ? 'تو' : from.name) + ' دزدید', from.isPlayer ? 'bad' : '');
+  if (!a.isPlayer && a.brain) { playEmote(a, pick(['dance', 'flex', 'laugh'])); a.brain.react = 2.4; } // a cheeky victory dance
   return true;
 }
 function updateSteals(dt) {
@@ -3044,7 +3068,7 @@ class Agent {
   maxSpeed() {
     let v = this.isPlayer ? (this.sprint ? 9.6 : 6.4) : this.isGuard ? (this.brain.run ? 7.6 : 4.2) : this.owner.hard ? (this.brain.run ? 6.9 : 5.6) : (this.brain.run ? 5.75 : 5.0);
     v *= 1 + 0.07 * this.owner.up.speed;
-    if (this.isPlayer) { if (this.owner.up.petBird) v *= 1.1; if (Extras.riding && !this.carrying) v *= 1.75; if (inW4(this.body.pos.x) && EXW[4].storm.on > 0 && !this.owner.up.furCoat) v *= 0.7; }
+    if (this.isPlayer) { if (this.owner.up.petBird) v *= 1.1; if (Extras.riding && !this.carrying) v *= 1.75; if (inW4(this.body.pos.x) && EXW[4].storm.on > 0 && !this.owner.up.furCoat) v *= 0.7; if (G.speedT > 0) v *= 1.3; }
     if (this.isGuard && (this.owner.elite || this.owner.elite3)) v *= this.owner.elite === 5 ? 1.22 : this.owner.elite === 4 ? 1.15 : 1.1; // guards in the far worlds are faster
     if (this.carrying) {
       v *= this.isPlayer ? 1.15 * (inW2(this.body.pos.x) ? 1 + 0.12 * this.owner.up.turbo : inW5(this.body.pos.x) ? 1 + 0.15 * this.owner.up.moonBoots : 1) : 0.75; // the player gets an adrenaline boost while carrying
@@ -3097,6 +3121,7 @@ class Agent {
     this.receiveT = Math.max(0, (this.receiveT || 0) - dt);
     this.slapT = Math.max(0, (this.slapT || 0) - dt);
     animateAvatar(this.av, dt, { speed: sp, grounded: b.grounded, carrying: !!this.carrying, turn: this.turn, t, stunned: this.stunned, receive: this.receiveT > 0, slap: this.slapT, ride: this.isPlayer && Extras.riding });
+    applyEmote(this, dt);
     if (this.drilling) { const av = this.av; av.armR.rotation.set(-1.5, 0, 0); av.armL.rotation.set(-1.25, 0, 0.32); av.body.position.x = Math.sin(t * 95) * 0.012; av.head.rotation.y = 0; } // holding the drill to the lock
     if (this.label) this.label.visible = dist2(b.pos, camera.position) < 1800;
   }
@@ -3333,7 +3358,7 @@ function updateEconomy(dt) {
   }
 }
 function applyUpgrade(o, key) {
-  const U = UPGRADES[key]; o.up[key] = Math.min(U.max, o.up[key] + 1); o.applyCap(); if (key === 'guardBot') ensurePlayerGuard();
+  const U = UPGRADES[key]; o.up[key] = Math.min(U.max, o.up[key] + 1); o.applyCap(); if (key === 'guardBot') ensurePlayerGuard(); if (key === 'turret') Turrets.sync();
   if (o.isPlayer) { Sound.play('upgrade'); scheduleSave(); }
   return 'ok';
 }
@@ -3457,7 +3482,7 @@ function slap(a, stunTime = 2.2) {
     let msg = '💥 ' + best.owner.name + ' گیج شد!';
     if (best.carrying) {
       const u = best.carrying; returnUnit(u);
-      if (u.owner === a.owner) { const bounty = Math.max(10, Math.floor(u.price * 0.05)); a.owner.money += bounty; msg = '👋 دزد را زدی! «' + u.c.name + '» برگشت · جایزه ' + fmt(bounty); G.stats.caught++; Missions.event('catch'); Sound.play('success'); }
+      if (u.owner === a.owner) { const bounty = Math.max(10, Math.floor(u.price * 0.05)); a.owner.money += bounty; msg = '👋 دزد را زدی! «' + u.c.name + '» برگشت · جایزه ' + fmt(bounty); G.stats.caught++; Feed.add('👮 تو ' + best.owner.name + ' را گرفتی و «' + u.c.name + '» برگشت', 'good'); Missions.event('catch'); Sound.play('success'); }
       else msg += ' میمی که دزدیده بود برگشت سر جایش';
     }
     UI.toast(msg, 'good');
@@ -3595,7 +3620,7 @@ const Day = {
 const plotPrice = (o) => Math.round(5000 * Math.pow(10, o.bases.filter((b) => b.world === 1).length - 1));
 function claimPlot(o, b, silent) {
   if (b.owner || !b.forSale) return false;
-  o.addBase(b); b.build(o.color, o.name + ' ' + fa(o.bases.length), false); o.applyCap(); if (o.secT > 0) b.setBarrier(true);
+  o.addBase(b); b.build(o.color, o.name + ' ' + fa(o.bases.length), false); o.applyCap(); if (o.secT > 0) b.setBarrier(true); Turrets.sync();
   UI.mapBg = null;
   if (!silent) { Sound.play('success'); UI.banner('🏠 پایگاه جدید خریدی!', 'حالا ' + fa(o.totalCap) + ' جا برای میم داری'); FX.burst(tmpV.copy(b.insidePos).setY(3), { count: 50, color: [o.color, '#ffd23f', '#ffffff'], speed: 7, up: true, life: 1.2 }); }
   return true;
@@ -3657,7 +3682,7 @@ let saveQueued = false;
 function scheduleSave(now) { if (now) { doSave(); Cloud.push(); return; } saveQueued = true; }
 function serialize() {
   return {
-    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, portal3: !!G.portal3Unlocked, portal4: !!G.portal4Unlocked, portal5: !!G.portal5Unlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], look: G.look, wear: [...G.wear], tutorialDone: G.tutorialDone, daily: G.daily,
+    v: 1, t: Date.now(), name: G.name, portal: !!G.portalUnlocked, portal3: !!G.portal3Unlocked, portal4: !!G.portal4Unlocked, portal5: !!G.portal5Unlocked, ach: [...G.ach], sc: !!G.secretUsed, rf: !!G.reflect, playTime: Math.floor(G.playTime), stats: G.stats, discovered: [...G.discovered], look: G.look, wear: [...G.wear], wheelNext: G.wheelNext || 0, pkBest: PK.best || 0, tutorialDone: G.tutorialDone, daily: G.daily,
     nextEventIn: Math.floor(G.nextEventIn), dayT: Math.round(Day.t * 1000) / 1000, missions: Missions.list,
     owners: G.owners.map((o) => ({ money: Math.floor(o.money), rebirths: o.rebirths, up: o.up, secCd: Math.floor(o.secCd), bases: o.bases.map((b) => b.index), slots: o.slots.filter((s) => !s.vault).map((s) => (s.unit ? [s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl] : null)),
       vault: o.slots.filter((s) => s.vault && s.unit).map((s) => [s.base.index, s.li - MAX_SLOTS, s.unit.c.id, s.unit.mut, Math.floor(s.pending), s.unit.lvl]), dr: o.drills || 0 })),
@@ -3684,6 +3709,7 @@ function applySave(s) {
   if (Array.isArray(s.discovered)) s.discovered.forEach((id) => { if (CHAR_BY_ID[id]) G.discovered.add(id); });
   G.wear.clear(); if (Array.isArray(s.wear)) s.wear.forEach((k) => { if (typeof k === 'string' && k.length < 40) G.wear.add(k); });
   G.look = cleanLook(s.look); if (G.player) setPlayerLook(G.look);
+  G.wheelNext = num(s.wheelNext, 0, 0, Date.now() + WHEEL_FREE_MS); PK.best = num(s.pkBest, 0, 0, 3600);
   if (s.daily && typeof s.daily === 'object') G.daily = { last: String(s.daily.last || ''), streak: num(s.daily.streak, 0, 0, 7) };
   s.owners.forEach((so, i) => {
     const o = G.owners[i]; if (!so || !o) return;
@@ -3713,7 +3739,8 @@ function seedRivals(from = 0) {
       const u = new Unit(pickChar(1, r), Math.random() < 0.1 ? 1 : 0); u.owner = o; u.slot = o.slots[i]; o.slots[i].unit = u; u.state = 'slotted'; u.placeAtSlot(); u.setPlate('base');
     }
   }
-  for (const o of G.owners) if (!o.isPlayer && o.id >= from) House.seedRival(o); // some rivals lock their best memes in their safe house
+  for (const o of G.owners) if (!o.isPlayer && o.id >= from) { House.seedRival(o); if (Math.random() < (o.hard ? 0.45 : 0.12)) o.up.turret = o.hard ? randi(1, 3) : 1; } // safe houses and jelly turrets
+  Turrets.sync();
 }
 
 // ===================================================================
@@ -4250,7 +4277,7 @@ class Boss {
     if (this.hp <= 0) this.defeat(); else UI.toast('👹 رئیس دزدها: ' + fa(this.hp) + ' جان مانده!', '');
   }
   defeat() {
-    G.stats.bossKills++; Sound.play('rebirth'); UI.banner('👑 رئیس دزدها شکست خورد!', 'صندوق طلایی‌اش را باز کن');
+    G.stats.bossKills++; Feed.add('👑 رئیس دزدها شکست خورد!', 'rare'); Sound.play('rebirth'); UI.banner('👑 رئیس دزدها شکست خورد!', 'صندوق طلایی‌اش را باز کن');
     const p = this.body.pos; spawnChest(this.w, { x: p.x, z: p.z }, true);
     FX.burst(tmpV.copy(p).setY(p.y + 2), { count: 90, color: ['#ffd23f', '#ff2a3a', '#ffffff', '#b061ff'], speed: 10, up: true, life: 1.4 });
     this.remove();
@@ -4327,6 +4354,8 @@ const ACHIEVEMENTS = [
   { id: 'rebirth1', t: 'تولد دوباره', e: '♻️', p: () => [G.owners[0].rebirths, 1], r: 1e6 },
   { id: 'sky', t: 'فاتح آسمان', e: '🏝️', p: () => [G.owners[0].bases.some((b) => b.world === 3) ? 1 : 0, 1], r: 1e11 },
   { id: 'giant', t: 'صاحب غول', e: '🗿', p: () => [G.owners[0].slots.some((s) => s.unit && s.unit.mut === 8) ? 1 : 0, 1], r: 1e6 },
+  { id: 'parkour', t: 'پارکورباز آسمان', e: '🧗', p: () => [G.stats.parkour || 0, 1], r: 2e6 },
+  { id: 'wheel10', t: 'خوش‌شانس', e: '🎡', p: () => [G.stats.spins || 0, 10], r: 1e6 },
   { id: 'ice', t: 'فاتح قطب', e: '❄️', p: () => [G.owners[0].bases.some((b) => b.world === 4) ? 1 : 0, 1], r: 1e14 },
   { id: 'moon', t: 'فاتح ماه', e: '🌙', p: () => [G.owners[0].bases.some((b) => b.world === 5) ? 1 : 0, 1], r: 5e15 },
   { id: 'book100', t: 'کلکسیونر', e: '📗', p: () => [G.discovered.size, 100], r: 1e7 },
@@ -4939,7 +4968,7 @@ const House = {
     a.body.pos.x = b.doorOut.x; a.body.pos.z = b.doorOut.z; a.body.vel.set(0, 0, 0); a.yaw = b.doorYaw; // step up to the lock
     const s = { a, base: b, t: 0, dur: a.isPlayer ? DRILL_DUR.player : DRILL_DUR.npc, tool: buildDrillTool(), spot: b.doorOut.clone(), sparkT: 0 };
     a.av.armR.add(s.tool); a.drilling = s; this.drills.push(s); b.door.label.sprite.visible = true;
-    if (!a.isPlayer && b.owner && b.owner.isPlayer) { UI.banner('🚨 ' + a.owner.name + ' با دریل برقی آمده!', 'دارد در آهنی خانه‌ی امنت را سوراخ می‌کند — برو جلویش را بگیر!'); Sound.play('alarm'); }
+    if (!a.isPlayer && b.owner && b.owner.isPlayer) { Feed.add('🚨 ' + a.owner.name + ' دارد در خانه‌ات را دریل می‌کند!', 'bad'); UI.banner('🚨 ' + a.owner.name + ' با دریل برقی آمده!', 'دارد در آهنی خانه‌ی امنت را سوراخ می‌کند — برو جلویش را بگیر!'); Sound.play('alarm'); }
     else if (a.isPlayer && b.owner) { UI.toast('🔩 دریل روشن شد! تکان نخور… ' + b.owner.name + ' و نگهبان‌هایش ممکن است سر برسند', 'rare'); if (b.owner.agent && b.owner.agent.brain && !b.owner.agent.stunned) b.owner.agent.brain.set('return'); }
     return s;
   },
@@ -4969,7 +4998,7 @@ const House = {
   },
   raidTarget() {
     const o = G.owners[0];
-    const bs = o.bases.filter((b) => this.locked(b) && b.door.state === 'closed' && o.slots.some((s) => s.vault && s.base === b && s.unit && s.unit.state === 'slotted'));
+    const bs = o.bases.filter((b) => b.world === worldOf(G.player.body.pos.x) && this.locked(b) && b.door.state === 'closed' && o.slots.some((s) => s.vault && s.base === b && s.unit && s.unit.state === 'slotted'));
     if (!bs.length) return null;
     const b = pick(bs), cands = G.agents.filter((a) => !a.isPlayer && !a.isGuard && a.brain && a.owner.base.world === b.world && !a.carrying && !a.stunned && !a.drilling && ['idle', 'wander', 'return'].includes(a.brain.state));
     return cands.length ? [b, pick(cands)] : null;
@@ -5022,6 +5051,254 @@ const House = {
   },
   toVault(o, s) { const v = o.slots.find((x) => x.vault && x.base === s.base && !x.unit); if (!v) { UI.toast('🏠 خانه‌ی امن این پایگاه پر است (۴ جا)', 'bad'); return false; } const ok = this.moveUnit(o, s, v); if (ok) UI.toast('🏠 «' + v.unit.c.name + '» دارد به خانه‌ی امن می‌رود', 'good'); return ok; },
   fromVault(o, s) { const f = o.freeSlot(s.base) || o.freeSlot(); if (!f) { UI.toast('🏠 جای خالی بیرون از خانه نداری', 'bad'); return false; } return this.moveUnit(o, s, f); },
+};
+
+// ------------------------------------------------------------------ fun pack: live feed, emotes, lucky wheel, jelly turrets, sky parkour
+// ---- live feed (top-left): steals, catches and big moments in the world you are in
+const Feed = {
+  items: [],
+  add(text, cls = '') {
+    const box = $('feed'); if (!box) return;
+    const el = document.createElement('div'); el.className = 'feedItem ' + cls; el.textContent = text; box.prepend(el);
+    this.items.unshift({ el, t: 9 }); while (this.items.length > 4) this.items.pop().el.remove();
+  },
+  update(dt) { for (let i = this.items.length - 1; i >= 0; i--) { const it = this.items[i]; it.t -= dt; if (it.t < 1) it.el.style.opacity = Math.max(0, it.t).toFixed(2); if (it.t <= 0) { it.el.remove(); this.items.splice(i, 1); } } },
+  clear() { for (const it of this.items) it.el.remove(); this.items.length = 0; },
+};
+const feedHere = (x) => G.player && worldOf(x) === worldOf(G.player.body.pos.x);
+
+// ---- emotes (player: 💃 button / T key; rivals taunt after a successful steal)
+const EMOTES = [['dance', '💃', 'رقص', 3], ['wave', '👋', 'سلام', 2], ['flex', '💪', 'قدرت', 2.2], ['laugh', '😂', 'خنده', 2.2], ['sit', '🧘', 'نشستن', 6], ['flip', '🤸', 'پشتک', 0.9]];
+function playEmote(a, id) {
+  const E = EMOTES.find((e) => e[0] === id); if (!E || a.carrying || a.drilling || a.stunned) return false;
+  a.emote = { id, t: 0, dur: E[3] }; if (a.isPlayer) { UI.floatText(tmpV.copy(a.body.pos).setY(a.body.pos.y + 2.6), E[1], '#ffffff'); Sound.play('click'); Missions.event && Missions.event('emote'); }
+  return true;
+}
+function applyEmote(a, dt) {
+  const av = a.av, e = a.emote;
+  if (!e) { if (av.root.rotation.x) av.root.rotation.x = 0; if (av.legL.position.y !== 0.86) av.legL.position.y = av.legR.position.y = 0.86; return; }
+  e.t += dt; const k = e.t, p = Math.min(1, e.t / e.dur);
+  if (e.t >= e.dur || a.stunned || a.carrying || (a.isPlayer && Math.hypot(a.move.x, a.move.z) > 0.2 && e.id !== 'flip')) { a.emote = null; av.root.rotation.x = 0; av.legL.position.y = av.legR.position.y = 0.86; return; }
+  switch (e.id) {
+    case 'dance': av.armL.rotation.set(-2.6 + Math.sin(k * 9) * 0.5, 0, 0.3); av.armR.rotation.set(-2.6 - Math.sin(k * 9) * 0.5, 0, -0.3); av.body.rotation.y = Math.sin(k * 4.5) * 0.45; av.body.position.y += Math.abs(Math.sin(k * 9)) * 0.12; av.legL.rotation.x = Math.sin(k * 9) * 0.35; av.legR.rotation.x = -Math.sin(k * 9) * 0.35; break;
+    case 'wave': av.armR.rotation.set(-2.75, 0, -0.25 + Math.sin(k * 12) * 0.45); av.head.rotation.z = Math.sin(k * 3) * 0.12; break;
+    case 'flex': { const s = 0.85 + Math.abs(Math.sin(k * 5)) * 0.25; av.armL.rotation.set(-1.55, 0, 1.25 * s); av.armR.rotation.set(-1.55, 0, -1.25 * s); av.body.scale.set(1.06, 1, 1.06); break; }
+    case 'laugh': av.body.rotation.x = -0.15 + Math.sin(k * 22) * 0.07; av.head.rotation.x = -0.35; av.armL.rotation.set(-0.7, 0, 0.55); av.armR.rotation.set(-0.7, 0, -0.55); break;
+    case 'sit': av.body.position.y -= 0.42; av.legL.rotation.x = -1.45; av.legR.rotation.x = -1.45; av.legL.position.y = av.legR.position.y = 0.46; av.armL.rotation.set(-0.4, 0, 0.15); av.armR.rotation.set(-0.4, 0, -0.15); break;
+    case 'flip': { // a real backflip around the hips
+      av.root.rotation.order = 'YXZ'; const th = -TAU * (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2), lift = Math.sin(Math.PI * p) * 1.1;
+      av.root.rotation.x = th; av.root.position.y += 1 - Math.cos(th) + lift; av.root.position.x -= Math.sin(a.yaw) * Math.sin(th); av.root.position.z -= Math.cos(a.yaw) * Math.sin(th);
+      av.armL.rotation.set(-2.9, 0, 0.2); av.armR.rotation.set(-2.9, 0, -0.2); break;
+    }
+  }
+  if (e.id !== 'sit') av.legL.position.y = av.legR.position.y = 0.86;
+}
+
+// ---- lucky wheel: a free spin every 10 minutes, extra spins for coins
+const WHEEL = [
+  { id: 'coins', e: '💰', t: 'سکه', w: 24, c: '#ffd23f' }, { id: 'boost', e: '⚡', t: '۲ برابر', w: 14, c: '#3df2b0' },
+  { id: 'meme', e: '🌟', t: 'میم', w: 12, c: '#b061ff' }, { id: 'coins2', e: '💰', t: 'سکه‌ی زیاد', w: 14, c: '#ff9a1f' },
+  { id: 'speed', e: '🚀', t: 'سرعت', w: 13, c: '#58c4ff' }, { id: 'drill', e: '🔩', t: 'دریل', w: 5, c: '#c0c8d0' },
+  { id: 'chest', e: '🎁', t: 'صندوق', w: 15, c: '#ff4f8b' }, { id: 'jackpot', e: '💎', t: 'جکپات!', w: 3, c: '#7af7ff' },
+];
+const WHEEL_FREE_MS = 10 * 60 * 1000;
+const Wheel = {
+  spinning: false, angle: 0,
+  freeReady() { return Date.now() >= (G.wheelNext || 0); },
+  price() { return Math.max(2500, Math.round(G.player.owner.incomePerSec() * 90)); },
+  draw() {
+    if (this.cv) return this.cv; const N = WHEEL.length, S = 320, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), R = S / 2 - 6;
+    for (let i = 0; i < N; i++) {
+      const a0 = -Math.PI / 2 + (i - 0.5) * TAU / N, a1 = a0 + TAU / N; g.beginPath(); g.moveTo(S / 2, S / 2); g.arc(S / 2, S / 2, R, a0, a1); g.closePath();
+      g.fillStyle = WHEEL[i].c; g.fill(); g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
+      g.save(); g.translate(S / 2, S / 2); g.rotate(a0 + TAU / N / 2 + Math.PI / 2); g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = '34px ' + FONT; g.fillText(WHEEL[i].e, 0, -R + 32); g.font = '900 17px ' + FONT; g.fillStyle = '#1b1446'; g.direction = 'rtl'; g.fillText(WHEEL[i].t, 0, -R + 68); g.restore();
+    }
+    g.beginPath(); g.arc(S / 2, S / 2, 26, 0, TAU); g.fillStyle = '#1b1446'; g.fill(); g.lineWidth = 5; g.strokeStyle = '#ffd23f'; g.stroke(); g.font = '24px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🎡', S / 2, S / 2 + 1);
+    this.cv = c; return c;
+  },
+  pick() { let x = Math.random() * WHEEL.reduce((s, w) => s + w.w, 0); for (let i = 0; i < WHEEL.length; i++) { x -= WHEEL[i].w; if (x <= 0) return i; } return 0; },
+  spin(paid) {
+    if (this.spinning) return; const o = G.player.owner;
+    if (paid) { const pr = this.price(); if (o.money < pr) { Sound.play('error'); UI.toast('💸 برای چرخاندن ' + fmt(pr) + ' سکه لازم داری', 'bad'); return; } o.money -= pr; }
+    else { if (!this.freeReady()) return; G.wheelNext = Date.now() + WHEEL_FREE_MS; }
+    const i = this.pick(), N = WHEEL.length, cv = $('wheelCv'); this.spinning = true; Sound.play('click'); G.stats.spins = (G.stats.spins || 0) + 1;
+    const start = this.angle, target = Math.ceil(start / 360) * 360 + 360 * 5 - i * (360 / N) + rand(-0.32, 0.32) * (360 / N), t0 = performance.now(), D = 4200; let lastSeg = -1;
+    const done = () => { if (!this.spinning) return; this.spinning = false; this.angle = target; const c = $('wheelCv'); if (c) c.style.transform = 'rotate(' + target + 'deg)'; this.award(WHEEL[i]); if (UI.panelKind === 'wheel') UI.openWheel(true); };
+    const step = () => { // purely visual; the prize is decided already and paid by the timer below even if frames stall
+      if (!this.spinning) return; const k = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - k, 3); this.angle = start + (target - start) * e; const c = $('wheelCv'); if (c) c.style.transform = 'rotate(' + this.angle + 'deg)';
+      const seg = Math.floor((this.angle + 180 / N) / (360 / N)); if (seg !== lastSeg) { lastSeg = seg; Sound.tone && Sound.tone(1200, 0.025, 'square', 0.05); }
+      if (k < 1) requestAnimationFrame(step); else done();
+    };
+    void cv; requestAnimationFrame(step); setTimeout(done, D + 150); UI.openWheel(true); scheduleSave();
+  },
+  award(W) {
+    const pl = G.player, o = pl.owner, inc = o.incomePerSec(), w = worldOf(pl.body.pos.x); let msg = '';
+    switch (W.id) {
+      case 'coins': { const c = Math.max(1500, Math.round(inc * 60)); o.money += c; msg = fmt(c) + ' سکه'; break; }
+      case 'coins2': { const c = Math.max(8000, Math.round(inc * 240)); o.money += c; msg = fmt(c) + ' سکه'; break; }
+      case 'boost': G.boostT = Math.max(G.boostT || 0, 180); msg = '۳ دقیقه درآمد دو برابر'; break;
+      case 'speed': G.speedT = 75; msg = '۷۵ ثانیه سرعت ×۱٫۳'; break;
+      case 'drill': o.drills = (o.drills || 0) + 1; msg = 'یک دریل برقی'; break;
+      case 'chest': { const p = pl.body.pos, at = { x: p.x + Math.sin(pl.yaw) * 2.6, z: p.z + Math.cos(pl.yaw) * 2.6 }; pickNav(at.x); const ok = w !== 3 && navOpen(at.x, at.z); spawnChest(w, ok ? at : null, true); msg = 'یک صندوق طلایی ' + (ok ? 'جلوی پایت' : 'روی نقشه'); break; }
+      case 'meme': case 'jackpot': {
+        const r = W.id === 'jackpot' ? 7 : w === 1 ? pick([3, 4, 4, 5]) : pick([5, 5, 6]), u = giveMeme(pickChar(w, r), w > 1 ? worldMut(w) : (W.id === 'jackpot' ? 3 : 0), pl.body.pos);
+        if (W.id === 'jackpot') { const c = Math.max(50000, Math.round(inc * 600)); o.money += c; msg = 'میم الهی + ' + fmt(c) + ' سکه'; } else msg = u ? 'میم «' + u.c.name + '»' : 'ارزش یک میم کمیاب';
+        break;
+      }
+    }
+    Sound.play(W.id === 'jackpot' ? 'rebirth' : 'success'); UI.banner(W.e + ' ' + W.t + '!', 'جایزه‌ی گردونه: ' + msg); Feed.add('🎡 تو از گردونه بردی: ' + msg, 'good');
+    FX.burst(tmpV.copy(pl.body.pos).setY(pl.body.pos.y + 2), { count: 50, color: [W.c, '#ffffff', '#ffd23f'], speed: 6, up: true, life: 1.1 }); scheduleSave();
+  },
+};
+// hand a meme to the player: it walks home from `from` when that is close, otherwise it appears on its pedestal
+function giveMeme(c, mut, from) {
+  const o = G.player.owner, w = from ? worldOf(from.x) : 1, slot = o.freeSlot(null, w) || o.freeSlot(), u = new Unit(c, mut);
+  if (!slot) { o.money += u.price; u.dispose(false); UI.toast('🎁 جای خالی نداشتی؛ ارزش میم (' + fmt(u.price) + ') به پولت اضافه شد', 'good'); return null; }
+  u.owner = o; u.slot = slot; slot.unit = u; slot.pending = 0; u.setPlate('base'); discover(c.id);
+  if (from && from.y < 2 && slot.base.world === w && dist2(from, slot.base.insidePos) < 150 * 150) { u.state = 'transit'; u.pos.set(from.x, Math.max(0, from.y), from.z); setTransit(u, slot.base.slotPos[slot.li]); }
+  else { u.state = 'slotted'; u.placeAtSlot(); FX.burst(tmpV.copy(u.pos).setY(u.pos.y + 1), { count: 30, color: ['#ffd23f', '#ffffff', RARITIES[c.rarity].color], speed: 5, up: true }); }
+  return u;
+}
+
+// ---- jelly turrets: shoot sticky goo at thieves in your base (some tough rivals have them too)
+const TURRET_CD = [0, 2.6, 1.9, 1.3], TURRET_KNOCK = [0, 0.25, 0.45, 0.7];
+const Turrets = {
+  list: [], shots: [], mats: null,
+  ensure(b) {
+    if (b.turret || !b.owner) return b.turret;
+    if (!this.mats) this.mats = { base: mat('#3a3f52', { m: 0.7, r: 0.35 }), head: mat('#dfe6ee', { m: 0.6, r: 0.3 }), goo: mat('#7aff6a', { e: '#3dff3a', ei: 0.9, r: 0.3 }), ball: new THREE.MeshStandardMaterial({ color: '#7aff6a', emissive: '#3dff3a', emissiveIntensity: 1, roughness: 0.2, transparent: true, opacity: 0.85 }) };
+    const M = this.mats, g = new THREE.Group(), lp = b.toWorld(-10.65, -4.2); g.position.set(lp.x, FLOOR_Y, lp.z); scene.add(g);
+    mesh(GEO.cyl, M.base, 0, 0.5, 0, 0.55, 1, 0.55, g); mesh(GEO.cyl, M.goo, 0, 1.05, 0, 0.42, 0.12, 0.42, g);
+    const head = new THREE.Group(); head.position.y = 1.4; g.add(head);
+    mesh(GEO.sphere, M.head, 0, 0, 0, 0.42, 0.38, 0.42, head); mesh(GEO.cyl, M.base, 0, 0.05, 0.5, 0.13, 0.7, 0.13, head).rotation.x = Math.PI / 2; mesh(GEO.sphere, M.goo, 0, 0.32, -0.1, 0.18, 0.18, 0.18, head);
+    for (const s of [-1, 1]) mesh(GEO.sphere, mat('#ff2a3a', { e: '#ff2a3a', ei: 1.5 }), s * 0.16, 0.12, 0.34, 0.05, 0.05, 0.03, head);
+    addCircle(lp.x, lp.z, 0.6, 0, 1.8);
+    b.turret = { g, head, cd: rand(0.5, 1.5), yaw: b.frontYaw, recoil: 0 }; this.list.push(b); return b.turret;
+  },
+  sync() { for (const o of G.owners) if (o.up.turret > 0) for (const b of o.bases) this.ensure(b); for (const b of this.list) b.turret.g.visible = !!(b.owner && b.owner.up.turret > 0); },
+  update(dt) {
+    for (const b of this.list) {
+      const T = b.turret, o = b.owner, lvl = o ? o.up.turret : 0; if (!lvl || !T.g.visible) continue;
+      T.cd -= dt; T.recoil = Math.max(0, T.recoil - dt * 4); T.head.children[1].position.z = 0.5 - T.recoil * 0.25;
+      const tp = T.g.position; let best = null, bd = 16 * 16;
+      for (const ag of G.agents) {
+        if (ag.owner === o || ag.isGuard || ag.stunned || ag.body.pos.y > 4) continue; const p = ag.body.pos, d2 = dist2(p, tp); if (d2 > bd) continue;
+        if (b.contains(p.x, p.z, 0.3) || (ag.carrying && ag.carrying.owner === o)) { bd = d2; best = ag; }
+      }
+      const wantYaw = best ? Math.atan2(best.body.pos.x - tp.x, best.body.pos.z - tp.z) : b.frontYaw + Math.sin(G.time * 0.6) * 0.8;
+      T.yaw += angDiff(T.yaw, wantYaw) * Math.min(1, dt * 6); T.head.rotation.y = T.yaw;
+      if (best && T.cd <= 0 && Math.abs(angDiff(T.yaw, wantYaw)) < 0.25) {
+        T.cd = TURRET_CD[lvl]; T.recoil = 1; const m = new THREE.Mesh(GEO.sphere, this.mats.ball); m.scale.setScalar(0.22); m.position.set(tp.x + Math.sin(T.yaw) * 0.9, tp.y + 1.45, tp.z + Math.cos(T.yaw) * 0.9); scene.add(m);
+        this.shots.push({ m, target: best, b, lvl, t: 0 }); if (G.player && dist2(G.player.body.pos, tp) < 900) Sound.play('zap');
+      }
+    }
+    for (let i = this.shots.length - 1; i >= 0; i--) {
+      const s = this.shots[i], m = s.m, tg = s.target, aim = tmpV.copy(tg.body.pos).setY(tg.body.pos.y + 1.1); s.t += dt;
+      const dx = aim.x - m.position.x, dy = aim.y - m.position.y, dz = aim.z - m.position.z, d = Math.hypot(dx, dy, dz) || 1, sp = 22 * dt;
+      if (d > sp && s.t < 2) { m.position.x += dx / d * sp; m.position.y += dy / d * sp; m.position.z += dz / d * sp; if (Math.random() < 0.5) FX.one(m.position.x, m.position.y, m.position.z, { vx: 0, vy: 0, vz: 0, life: 0.3, size: 0.18, color: '#7aff6a', grav: 0 }); continue; }
+      scene.remove(m); this.shots.splice(i, 1); if (s.t >= 2 || tg.stunned) continue;
+      tg.stun(1 + 0.3 * s.lvl); FX.burst(aim, { count: 22, color: ['#7aff6a', '#c8ffb0', '#ffffff'], speed: 4, life: 0.6 });
+      const o = s.b.owner;
+      if (tg.carrying && tg.carrying.owner === o && Math.random() < TURRET_KNOCK[s.lvl]) { const u = tg.carrying; returnUnit(u); if (o.isPlayer) { UI.toast('🔫 توپ ژله‌ای دزد را زد و «' + u.c.name + '» برگشت!', 'good'); Feed.add('🔫 توپ ژله‌ای تو ' + tg.owner.name + ' را زد', 'good'); } else if (tg.isPlayer) UI.toast('🔫 توپ ژله‌ای ' + o.name + ' بهت خورد و میم برگشت!', 'bad'); }
+      else if (tg.isPlayer) { UI.toast('🔫 توپ ژله‌ای ' + o.name + ' بهت خورد! چسبناک شدی', 'bad'); CAM.shake = Math.max(CAM.shake || 0, 0.2); }
+      else if (o.isPlayer && feedHere(tg.body.pos.x)) Feed.add('🔫 توپ ژله‌ای تو ' + tg.owner.name + ' را چسباند', 'good');
+    }
+  },
+  reset() { for (const s of this.shots) scene.remove(s.m); this.shots.length = 0; },
+};
+
+// ---- sky parkour above the eastern plaza of world 1: launch pad, moving / vanishing / spinning hazards, checkpoint, timer and a prize
+const PK = { built: false, plats: [], movers: [], blinks: [], spinners: [], bounces: [], launch: new THREE.Vector3(24, 0, -14.5), start: null, check: null, finish: null, run: null, fly: null, best: 0, lastPrize: -1e9, cp: false, sndT: 0 };
+const PK_LAYOUT = [
+  // x, top y, z, size x, size z, kind
+  [24, 15, -13, 5.2, 5.2, 'start'], [29.6, 15.8, -13, 2.6, 2.6], [34, 16.8, -11, 2.4, 2.4], [38.5, 17.8, -8.6, 2.4, 2.4, 'blink'], [43, 18.8, -6.2, 2.6, 2.6],
+  [49, 19.6, -2.6, 6, 6, 'spin'], [55.2, 20.6, 0.4, 2.4, 2.4], [59.6, 21.4, 4.2, 3, 3, 'movez'], [64.2, 22.4, 8.6, 2.6, 2.6], [69.6, 23.2, 10.6, 5, 5, 'check'],
+  [75, 24.2, 8.8, 2.3, 2.3], [79.3, 25.2, 6, 2.3, 2.3, 'blink'], [83.5, 25.8, 2.4, 3, 3, 'bounce'], [86.2, 31.6, -2.2, 3.2, 3.2], [82.2, 32.6, -6.2, 2.4, 2.4],
+  [76.8, 33.4, -9.4, 6, 6, 'spin'], [71, 34.4, -11.4, 2.4, 2.4, 'blink'], [65.6, 35.4, -11, 3, 3, 'movex'], [60, 36.4, -8.8, 2.4, 2.4], [55.4, 37.4, -6.2, 2.3, 2.3],
+  [49.6, 38.4, -3, 6.4, 6.4, 'finish'],
+];
+const Parkour = {
+  build() {
+    if (PK.built) return; PK.built = true;
+    const cols = ['#ff4f8b', '#ffd23f', '#3df2b0', '#58c4ff', '#b061ff', '#ff9a1f'], edge = mat('#ffffff', { e: '#ffffff', ei: 0.35 });
+    PK_LAYOUT.forEach(([x, y, z, sx, sz, kind], i) => {
+      const special = kind === 'start' || kind === 'check' || kind === 'finish';
+      const m = new THREE.MeshStandardMaterial({ color: special ? (kind === 'finish' ? '#ffd23f' : kind === 'check' ? '#3df2b0' : '#58c4ff') : kind === 'blink' ? '#ff6a6a' : kind === 'bounce' ? '#7aff6a' : cols[i % cols.length], roughness: 0.45, metalness: 0.1, transparent: kind === 'blink', emissive: kind === 'bounce' ? '#3dff3a' : '#000000', emissiveIntensity: kind === 'bounce' ? 0.5 : 0 });
+      const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+      mesh(rbox(sx, 0.7, sz, 0.12), m, 0, -0.35, 0, 1, 1, 1, g); mesh(GEO.box, edge, 0, -0.02, 0, sx + 0.06, 0.06, sz + 0.06, g, false);
+      mesh(GEO.cone, m, 0, -1.2, 0, Math.min(sx, sz) * 0.35, 1.4, Math.min(sx, sz) * 0.35, g).rotation.x = Math.PI;
+      const c = addBox(x - sx / 2, y - 0.7, z - sz / 2, x + sx / 2, y, z + sz / 2, { cam: false, tag: 'pk' + i });
+      const P = { i, g, c, m, kind, x, y, z, sx, sz }; PK.plats.push(P);
+      if (kind === 'movez' || kind === 'movex') { const ax = kind === 'movex' ? 'x' : 'z', A = 3.4; insertCol(c, x - sx / 2 - (ax === 'x' ? A : 0), z - sz / 2 - (ax === 'z' ? A : 0), x + sx / 2 + (ax === 'x' ? A : 0), z + sz / 2 + (ax === 'z' ? A : 0)); PK.movers.push({ P, ax, A, ph: i, last: 0 }); }
+      if (kind === 'blink') PK.blinks.push({ P, ph: i * 1.3 });
+      if (kind === 'bounce') { PK.bounces.push(P); const ring = mesh(GEO.torus, mat('#7aff6a', { e: '#3dff3a', ei: 1.4 }), 0, 0.08, 0, 1.1, 1.1, 1.4, g, false); ring.rotation.x = Math.PI / 2; }
+      if (kind === 'spin') { const arm = new THREE.Group(); arm.position.y = 0.6; g.add(arm); mesh(GEO.cyl, mat('#2a2f3e', { m: 0.7 }), 0, -0.3, 0, 0.3, 0.6, 0.3, g); mesh(GEO.box, mat('#ff2a3a', { e: '#ff2a3a', ei: 0.8, r: 0.3 }), 0, 0, 0, sx * 0.98, 0.32, 0.32, arm); PK.spinners.push({ P, arm, a: i, spd: i % 2 ? -1.7 : 1.5, len: sx * 0.49 }); }
+      if (kind === 'start') PK.start = P; if (kind === 'check') { PK.check = P; mesh(GEO.cyl, mat('#ffffff'), -sx / 2 + 0.5, 1.2, -sz / 2 + 0.5, 0.06, 2.4, 0.06, g); const fl = mesh(GEO.box, mat('#3df2b0', { e: '#3df2b0', ei: 0.6 }), -sx / 2 + 0.95, 2.05, -sz / 2 + 0.5, 0.9, 0.6, 0.04, g); void fl; }
+      if (kind === 'finish') { PK.finish = P; const tr = new THREE.Group(); tr.position.set(0, 0, 0); g.add(tr); mesh(GEO.cyl, mat('#ffd23f', { m: 1, r: 0.2 }), 0, 0.3, 0, 0.7, 0.6, 0.7, tr); mesh(GEO.cyl, mat('#ffd23f', { m: 1, r: 0.2 }), 0, 0.9, 0, 0.12, 0.6, 0.12, tr); mesh(GEO.sphere, mat('#ffd23f', { m: 1, r: 0.15, e: '#7a5200', ei: 0.4 }), 0, 1.55, 0, 0.55, 0.5, 0.55, tr); PK.trophy = tr; }
+    });
+    // launch pad on the plaza + sign + a beam showing the way up
+    const lp = new THREE.Group(); lp.position.copy(PK.launch); scene.add(lp);
+    mesh(GEO.cyl, mat('#1b1446', { m: 0.5 }), 0, 0.12, 0, 1.7, 0.24, 1.7, lp); PK.padTop = mesh(GEO.cyl, mat('#58c4ff', { e: '#29d9ff', ei: 1.2 }), 0, 0.27, 0, 1.4, 0.08, 1.4, lp);
+    const beam = new THREE.Mesh(PILLAR_GEO, PILLAR_MAT); beam.position.y = 6; beam.scale.set(1.4, 1, 1.4); lp.add(beam);
+    const sign = spriteFromCanvas(labelCanvas([{ t: '🧗 پارکور آسمانی', size: 64, color: '#fff', weight: 900, stroke: 6 }, { t: 'روی سکوی آبی برو · جایزه بالای برج است', size: 30, color: '#fff', weight: 800 }], { w: 640, h: 190, bg: '#1b1446', border: '#58c4ff' }), 6.4, 1.9); sign.position.set(0, 4.6, 0); lp.add(sign);
+    addCircle(PK.launch.x, PK.launch.z, 0.01, 0, 0.01);
+  },
+  onPlat(b) { const t = b.groundTag; return b.grounded && t && t.startsWith('pk') ? PK.plats[+t.slice(2)] : null; },
+  update(dt) {
+    if (!PK.built || !G.player) return; const pl = G.player, b = pl.body, p = b.pos, t = G.time;
+    // moving platforms carry whoever stands on them
+    for (const M of PK.movers) {
+      const P = M.P, off = Math.sin(t * 0.9 + M.ph) * M.A, d = off - M.last; M.last = off; const ax = M.ax;
+      P.g.position[ax] = P[ax] + off; if (ax === 'x') { P.c.minX = P.x - P.sx / 2 + off; P.c.maxX = P.x + P.sx / 2 + off; } else { P.c.minZ = P.z - P.sz / 2 + off; P.c.maxZ = P.z + P.sz / 2 + off; }
+      if (this.onPlat(b) === P) p[ax] += d;
+    }
+    // vanishing platforms: solid, blinking, gone
+    for (const B of PK.blinks) { const ph = (t + B.ph) % 4, P = B.P, solid = ph < 3.1; P.m.opacity = ph < 2.3 ? 1 : solid ? (Math.floor(ph * 10) % 2 ? 0.35 : 0.9) : 0.12; P.c.minY = solid ? P.y - 0.7 : 100; P.c.maxY = solid ? P.y : 101; }
+    // spinning bars knock you off
+    for (const S of PK.spinners) {
+      S.a += S.spd * dt; S.arm.rotation.y = S.a; const P = S.P, dx = p.x - P.x, dz = p.z - P.z;
+      if (Math.abs(dx) > P.sx / 2 + 0.4 || Math.abs(dz) > P.sz / 2 + 0.4 || p.y < P.y - 0.2 || p.y > P.y + 1.15 || pl.stunned) continue;
+      const cx = Math.cos(S.a), cz = -Math.sin(S.a), along = dx * cx + dz * cz, perp = Math.abs(-dx * cz + dz * cx);
+      if (Math.abs(along) < S.len + 0.3 && perp < 0.5) { const sg = Math.sign(S.spd) * Math.sign(along || 1); b.vel.set(-cz * 9 * sg, 6, cx * 9 * sg); b.grounded = false; pl.fling = 0.5; Sound.play('slap'); UI.toast('💥 میله‌ی چرخان پرتت کرد!', 'bad'); }
+    }
+    // bounce pads
+    for (const P of PK.bounces) if (this.onPlat(b) === P && b.vel.y <= 0.5) { b.vel.y = 22; b.grounded = false; Sound.play('djump'); FX.burst(tmpV.set(p.x, p.y + 0.2, p.z), { count: 20, color: ['#7aff6a', '#ffffff'], speed: 4, life: 0.5 }); }
+    if (PK.trophy) PK.trophy.rotation.y += dt * 1.2;
+    if (PK.padTop) PK.padTop.material.emissiveIntensity = 1 + Math.sin(t * 4) * 0.4;
+    // launch flight (an arc from the pad up to the start or the checkpoint)
+    if (PK.fly) {
+      const F = PK.fly; F.t += dt; const k = Math.min(1, F.t / 1.25); p.x = lerp(F.a.x, F.b.x, k); p.z = lerp(F.a.z, F.b.z, k); p.y = lerp(F.a.y, F.b.y, k) + Math.sin(Math.PI * k) * 7; b.vel.set(0, 0, 0); pl.renderY = p.y;
+      if (Math.random() < 0.6) FX.one(p.x, p.y, p.z, { vx: 0, vy: -1, vz: 0, life: 0.5, size: 0.3, color: '#58c4ff', grav: 0 });
+      if (k >= 1) PK.fly = null; return;
+    }
+    if (!G.playing || pl.carrying) return;
+    if (worldOf(p.x) === 1 && dist2(p, PK.launch) < 1.5 * 1.5 && p.y < 1 && !Extras.riding) {
+      const to = PK.cp && PK.check ? PK.check : PK.start; PK.fly = { t: 0, a: p.clone(), b: new THREE.Vector3(to.x, to.y + 0.05, to.z) }; Sound.play('whoosh'); if (!PK.cp) PK.run = null;
+      UI.toast(PK.cp ? '🚩 پرتاب به ایستگاه نیمه‌راه!' : '🧗 پارکور آسمانی! از سکوها بالا برو تا جایزه را بگیری', 'rare');
+    }
+    const on = this.onPlat(b);
+    if (on && on.kind === 'start' && !PK.run) PK.ready = true;
+    if (PK.ready && on && on !== PK.start) { PK.ready = false; PK.run = { t: 0 }; }
+    if (PK.run) PK.run.t += dt;
+    if (on && on.kind === 'check' && !PK.cp) { PK.cp = true; Sound.play('mission'); UI.toast('🚩 ایستگاه نیمه‌راه! اگر بیفتی، سکوی آبی تو را همین‌جا برمی‌گرداند', 'good'); }
+    if (on && on.kind === 'finish' && !PK.done) { PK.done = true; this.win(); }
+    if (on && on.kind === 'start') PK.done = false;
+    if (p.y < 3 && (PK.run || PK.cp || PK.done) && worldOf(p.x) === 1 && !PK.fly) { if (PK.run) UI.toast('🪂 افتادی! ' + (PK.cp ? 'سکوی آبی تو را به ایستگاه نیمه‌راه می‌برد' : 'دوباره از سکوی آبی شروع کن'), 'bad'); PK.run = null; PK.ready = false; if (PK.done) { PK.done = false; PK.cp = false; } }
+  },
+  win() {
+    const pl = G.player, o = pl.owner, tm = PK.run ? PK.run.t : 0; PK.run = null; PK.cp = false;
+    const rec = tm > 0 && (!PK.best || tm < PK.best); if (rec) PK.best = tm;
+    FX.burst(tmpV.copy(pl.body.pos).setY(pl.body.pos.y + 2), { count: 70, color: ['#ffd23f', '#ff4f8b', '#3df2b0', '#58c4ff', '#ffffff'], speed: 8, up: true, life: 1.4 }); Sound.play('rebirth');
+    const ready = G.time - PK.lastPrize > 480;
+    if (ready) {
+      PK.lastPrize = G.time; G.stats.parkour = (G.stats.parkour || 0) + 1; const c = Math.max(20000, Math.round(o.incomePerSec() * 180)); o.money += c;
+      const u = giveMeme(pickChar(1, pick([4, 4, 5, 5, 6])), Math.random() < 0.3 ? 2 : 1, null);
+      UI.banner('🏆 پارکور را تمام کردی!', (tm ? fmtTime(tm) + (rec ? ' — رکورد جدید! ' : ' · ') : '') + fmt(c) + ' سکه' + (u ? ' + «' + u.c.name + '»' : ''));
+      Feed.add('🧗 تو پارکور آسمانی را ' + (tm ? 'در ' + fmtTime(tm) + ' ' : '') + 'تمام کردی!', 'good');
+    } else UI.banner('🏆 دوباره رسیدی بالا!', (tm ? fmtTime(tm) + (rec ? ' — رکورد جدید!' : '') + ' · ' : '') + 'جایزه‌ی بعدی تا ' + fmtTime(480 - (G.time - PK.lastPrize)) + ' دیگر');
+    scheduleSave();
+  },
 };
 
 // ------------------------------------------------------------------ input: keyboard, mouse, multitouch
@@ -5108,6 +5385,12 @@ bindBtn('bCam', () => toggleCamMode());
 bindBtn('bSec', () => doSecurity());
 bindBtn('bSlap', () => doSlap());
 bindBtn('bBoard', () => toggleBoard());
+bindBtn('bEmote', () => toggleEmoteBar());
+function toggleEmoteBar(show) {
+  const bar = $('emoteBar'); if (!bar.childElementCount) bar.innerHTML = EMOTES.map(([id, e, t], i) => '<button type="button" data-emote="' + id + '">' + e + '<small>' + t + (IS_TOUCH ? '' : ' ' + fa(i + 1)) + '</small></button>').join('');
+  bar.hidden = show === undefined ? !bar.hidden : !show;
+}
+$('emoteBar').addEventListener('click', (e) => { const b = e.target.closest('[data-emote]'); if (!b) return; playEmote(G.player, b.dataset.emote); toggleEmoteBar(false); });
 
 const KEYMAP = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
 window.addEventListener('keydown', (e) => {
@@ -5136,6 +5419,9 @@ window.addEventListener('keydown', (e) => {
     case 'KeyM': S.minimap = !S.minimap; saveSettings(); UI.applySettings(); break;
     case 'KeyP': UI.openPause(); break;
     case 'KeyO': toggleFullscreen(); break;
+    case 'KeyT': toggleEmoteBar(); break;
+    case 'KeyU': UI.openWheel(); break;
+    case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': case 'Digit6': if (!$('emoteBar').hidden) { const E = EMOTES[+e.code.slice(5) - 1]; if (E) { playEmote(G.player, E[0]); toggleEmoteBar(false); } } break;
   }
 });
 window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) IN.keys.delete(KEYMAP[e.code]); if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.keys.delete('sprint'); });
@@ -5236,7 +5522,7 @@ function doInteract() {
       else if (r === 'gone') Sound.play('error');
       break;
     }
-    case 'catch': { const th = R.target; if (th.carrying) { const u = th.carrying; returnUnit(u); th.stun(2.2); const bounty = Math.max(10, Math.floor(u.price * 0.05)); o.money += bounty; Sound.play('success'); UI.toast('👋 دزد را زدی! ' + u.c.name + ' برگشت. جایزه: ' + fmt(bounty), 'good'); G.stats.caught++; } break; }
+    case 'catch': { const th = R.target; if (th.carrying) { const u = th.carrying; returnUnit(u); th.stun(2.2); const bounty = Math.max(10, Math.floor(u.price * 0.05)); o.money += bounty; Sound.play('success'); UI.toast('👋 دزد را زدی! ' + u.c.name + ' برگشت. جایزه: ' + fmt(bounty), 'good'); G.stats.caught++; Feed.add('👮 تو ' + th.owner.name + ' را گرفتی و «' + u.c.name + '» برگشت', 'good'); } break; }
     case 'security': doSecurity(); break;
     case 'collect': if (!collectOwner(o, false, R.base)) UI.toast('هنوز پولی جمع نشده', ''); break;
     case 'plot': UI.confirm('خرید پایگاه جدید', 'این زمین را به قیمت ' + fmt(R.price) + ' سکه می‌خری؟ ۱۲ جای تازه برای میم‌هایت (با ظرفیت فعلی ' + fa(o.cap) + ' جای باز) می‌گیری.', () => buyPlot(o, R.base)); break;
@@ -5339,7 +5625,7 @@ const UI = {
   frame(dt) {
     const o = G.player.owner;
     const prev = this.shownMoney; this.shownMoney = Math.abs(o.money - this.shownMoney) < 1 ? o.money : damp(this.shownMoney, o.money, 9, dt);
-    this.hudT -= dt;
+    this.hudT -= dt; Feed.update(dt);
     if (this.hudT > 0) { this.updateFloats(dt); return; }
     this.hudT = 0.1;
     const mv = $('moneyVal'), txt = fmt(this.shownMoney);
@@ -5390,7 +5676,10 @@ const UI = {
     $('bDrop').classList.toggle('off', !a.carrying);
     const sb = $('bSec'), pct = o.secT > 0 ? (o.secT / secDuration(o)) * 100 : o.secCd > 0 ? (1 - o.secCd / secCooldown(o)) * 100 : 0;
     sb.style.setProperty('--p', pct + '%'); sb.classList.toggle('off', o.secCd > 0); sb.classList.toggle('lit', o.secT > 0);
-    $('mbDaily').classList.toggle('notify', G.daily.last !== todayKey());
+    $('mbDaily').classList.toggle('notify', G.daily.last !== todayKey()); $('mbWheel').classList.toggle('notify', Wheel.freeReady());
+    const spc = $('speedChip'); spc.hidden = !(G.speedT > 0); if (G.speedT > 0) spc.textContent = '🚀 سرعت ×۱٫۳ ' + fmtTime(G.speedT);
+    const pkc = $('pkChip'); pkc.hidden = !PK.run && !PK.fly; if (!pkc.hidden) pkc.textContent = '🧗 ' + fmtTime(PK.run ? PK.run.t : 0) + (PK.best ? ' · رکورد ' + fmtTime(PK.best) : '') + (PK.cp ? ' · 🚩' : '');
+    if (this.panelKind === 'wheel' && !Wheel.spinning) { const wi = $('wheelInfo'); if (wi) wi.textContent = Wheel.freeReady() ? '🎉 چرخش رایگان آماده است!' : '⏳ چرخش رایگان بعدی: ' + fmtTime((G.wheelNext - Date.now()) / 1000); }
     $('mbMissions').classList.toggle('notify', Missions.ready());
     $('dayChip').textContent = Day.label(); $('refChip').hidden = !G.reflect;
     const bc = $('boostChip'); bc.hidden = !(G.boostT > 0); if (G.boostT > 0) bc.textContent = '⚡ درآمد ×۲ ' + fmtTime(G.boostT);
@@ -5462,6 +5751,7 @@ const UI = {
     const c = $('minimap'), g = c.getContext('2d'), X = M.X, Z = M.Z, s = this.mapS, dpr = this.mapN / 200;
     g.drawImage(wn >= 4 ? EXW[wn].mapBg : wn === 2 ? this.mapBg2 : wn === 3 ? this.mapBg3 : this.mapBg, 0, 0);
     for (const n of [4, 5]) { const D = EXW[n]; if (D.pIn && D.pIn.g.visible && worldOf(D.entry.x) === wn) { g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(WORLD_EMOJI[n], X(D.entry.x), Z(D.entry.z)); } }
+    if (wn === 1 && PK.built) { g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🧗', X(PK.launch.x), Z(PK.launch.z)); }
     if (wn === 1 && G.portalUnlocked) { g.font = (12 * dpr) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌀', X(PORTAL1.x), Z(PORTAL1.z)); }
     for (const b of W.bases) if (b.barrierActive && b.world === wn) { const w1 = b.toWorld(-3, -10), w2 = b.toWorld(3, -10); g.strokeStyle = '#ff2a3a'; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(X(w1.x), Z(w1.z)); g.lineTo(X(w2.x), Z(w2.z)); g.stroke(); }
     for (const c of Extras.chests) if (c.w === wn && c.opening < 0) { g.fillStyle = '#ffd23f'; g.strokeStyle = '#7a4a00'; g.lineWidth = dpr; const sz = (c.golden ? 5 : 3.5) * dpr; g.fillRect(X(c.pos.x) - sz / 2, Z(c.pos.z) - sz / 2, sz, sz); g.strokeRect(X(c.pos.x) - sz / 2, Z(c.pos.z) - sz / 2, sz, sz); }
@@ -5619,6 +5909,10 @@ const UI = {
       '<p>🛸 <b>یوفو و 🗿 میم غول‌پیکر:</b> در دنیای اول گاهی یوفو میم‌های کمیاب روی نوار می‌اندازد و گاهی یک میم غول‌پیکر با ۲۰ برابر ارزش ظاهر می‌شود. شب‌ها هم آتش‌بازی است!</p>' +
       '<p>🌋 <b>سیاره‌ی گدازه:</b> وقتی ثروتت (پول + ارزش میم‌ها) به ۵۵۰ میلیون برسد، کنار جدول برترها یک پرتال باز می‌شود. آنجا میم‌ها ۲۰۰ برابر می‌ارزند ولی گدازه می‌سوزاند، شهاب‌سنگ می‌بارد، هر پایگاه یک ربات نگهبان دارد و حریف‌ها خیلی سریع‌ترند. جاذبه هم کمتر است!</p>' +
       '<p>⚡ <b>جزیره‌ها سخت‌تر شده‌اند:</b> صاعقه می‌زند (دایره‌ی زرد روی زمین یعنی فرار کن!)، باد تندتر و بیشتر می‌وزد و حریف‌ها و نگهبان‌ها خشن‌ترند. «برق‌گیر» را از ایستگاه هوایی بخر.</p>' +
+      '<p>🎡 <b>گردونه‌ی شانس:</b> هر ۱۰ دقیقه یک چرخش رایگان (دکمه‌ی 🎡 بالا یا کلید <kbd>U</kbd>). جایزه‌ی بزرگش یک میم الهی است!</p>' +
+      '<p>🧗 <b>پارکور آسمانی:</b> در شرق میدان دنیای اول روی سکوی آبی برو تا به آسمان پرتاب شوی. از سکوهای متحرک، ناپدیدشونده و میله‌های چرخان رد شو؛ بالای برج جام طلایی، سکه و یک میم کمیاب منتظرت است. سکوی سبز وسط راه ایستگاه نیمه‌راه است.</p>' +
+      '<p>🔫 <b>توپ ژله‌ای دفاعی:</b> از فروشگاه ارتقا بخر؛ در هر پایگاهت یک توپ نصب می‌شود که به دزدها ژله‌ی چسبناک شلیک می‌کند. مواظب باش: بعضی حریف‌های سرسخت هم توپ دارند!</p>' +
+      '<p>💃 <b>شکلک:</b> با دکمه‌ی 💃 یا کلید <kbd>T</kbd> برقص، دست تکان بده، قدرت‌نمایی کن یا پشتک بزن. حریف‌ها هم بعد از دزدی موفق جلوی چشمت می‌رقصند!</p>' +
       '<p>🏠 <b>خانه‌ی امن:</b> ته هر پایگاه یک خانه‌ی چوبی بزرگ هست با ۴ جای مخصوص. از کلکسیون (کلید <kbd>I</kbd>) دکمه‌ی «بفرست به خانه‌ی امن» را بزن تا میم خودش برود داخل. با ۱ میلیارد سکه از فروشگاه ارتقای پایگاه یک در آهنی قفل‌دار بخر: فقط خودت بازش می‌کنی و حریف‌ها فقط با دریل برقی (خیلی گران و خیلی کم پیش می‌آید) سوراخش می‌کنند. اگر کسی آمد دریل کند، آژیر می‌زند؛ برو با سیلی یا دکمه‌ی «بگیرش» جلویش را بگیر! خودت هم می‌توانی دریل بخری و در خانه‌ی حریف‌ها را سوراخ کنی.</p>' +
       '<p>🏪 <b>فروشگاه‌های داخل پایگاه:</b> ته هر پایگاهت (یک متر جای اضافه) سه فروشگاه کوچک هست: 🛒 ارتقا (ظرفیت، درآمد، سپر، پت و…)، ⚡ سرعت (دویدن معمولی و سرعت موقع دزدی) و 👕 لباس (عوض کردن تیپ بازیکنت). وقتی رئیس دزدها آمده، لازم نیست از پایگاهت بیرون بروی!</p>' +
       '<p>❄️ <b>قطب یخی (دنیای ۴):</b> با ثروت ۱۰۰ تریلیون، روی جزیره‌ی وسط آسمان پرتال یخی باز می‌شود. یخ لیز است، کولاک دید را کم می‌کند و گلوله‌برفی‌های غول‌پیکر میم را از دستت می‌اندازند. میم‌های «یخی» ×۲۰ هزار و «شفقی» ×۶۰ هزار.</p>' +
@@ -5655,9 +5949,19 @@ const UI = {
     const html = '<p class="note">🤖 ربات لباس‌فروش هر چیزی بخری همین‌جا تنت می‌کند؛ هر چیزی یک بار بخری برای همیشه مال توست و هر وقت خواستی دوباره می‌پوشی. موجودی: <b style="color:var(--coin)">' + fmt(o.money) + ' سکه</b></p>' + tabs + rows;
     if (re) this.keepScroll(() => { $('panelBody').innerHTML = html; }); else this.openPanel('wear', '👕 فروشگاه لباس پایگاه', html);
   },
+  openWheel(re) {
+    const o = G.player.owner, free = Wheel.freeReady(), pr = Wheel.price();
+    if (re && this.panelKind !== 'wheel') return;
+    const btns = '<div class="rowBtns" style="justify-content:center;gap:8px;margin-top:6px"><button class="bigBtn" type="button" data-act="spinfree"' + (free && !Wheel.spinning ? '' : ' disabled style="filter:grayscale(1);opacity:.55"') + '>🎡 چرخش رایگان</button>' +
+      '<button class="act buy" type="button" data-act="spinpaid"' + (Wheel.spinning || o.money < pr ? ' disabled' : '') + '>💰 ' + fmt(pr) + '</button></div>';
+    const html = '<div class="wheelBox"><div class="wheelWrap"><div class="wheelPin"></div><span id="wheelHolder"></span></div><div class="wheelSide"><p class="note" id="wheelInfo">' + (free ? '🎉 چرخش رایگان آماده است!' : '⏳ چرخش رایگان بعدی: ' + fmtTime((G.wheelNext - Date.now()) / 1000)) + '</p>' + btns +
+      '<p class="note">جایزه‌ها: سکه، ۳ دقیقه درآمد دو برابر، میم کمیاب، سرعت، صندوق طلایی، دریل برقی و 💎 جکپات (میم الهی + کلی سکه!). هر ۱۰ دقیقه یک چرخش رایگان داری.</p></div></div>';
+    if (re) $('panelBody').innerHTML = html; else this.openPanel('wheel', '🎡 گردونه‌ی شانس', html);
+    const cv = Wheel.draw(); cv.id = 'wheelCv'; cv.style.transform = 'rotate(' + Wheel.angle + 'deg)'; $('wheelHolder').replaceWith(cv);
+  },
   openKeys() {
     const rows = [['W A S D / ← ↑ → ↓', 'حرکت'], ['Shift', 'دویدن'], ['Space', 'پرش (دوبار = پرش دوبل)'], ['E', 'تعامل / خرید / پرتال'], ['F', 'دزدیدن میم'], ['G', 'رها کردن میم'], ['R', 'سیلی'], ['Q', 'سپر لیزری'], ['H', 'اسکیت‌برد'],
-      ['B', 'فروشگاه (کنار مغازه)'], ['I', 'کلکسیون من'], ['K', 'دانشنامه‌ی میم‌ها'], ['J', 'ماموریت‌ها'], ['L', 'جدول برترها'], ['M', 'نقشه‌ی کوچک'], ['C', 'دوربین اول/سوم‌شخص'], ['O', 'تمام‌صفحه'], ['F1', 'همین راهنمای کلیدها'], ['P / Esc', 'توقف'], ['موس', 'کلیک = قفل موس و چرخاندن دوربین · چرخ = زوم']];
+      ['B', 'فروشگاه (کنار مغازه)'], ['I', 'کلکسیون من'], ['K', 'دانشنامه‌ی میم‌ها'], ['J', 'ماموریت‌ها'], ['L', 'جدول برترها'], ['M', 'نقشه‌ی کوچک'], ['C', 'دوربین اول/سوم‌شخص'], ['O', 'تمام‌صفحه'], ['F1', 'همین راهنمای کلیدها'], ['T', 'شکلک‌ها (بعد عدد ۱ تا ۶)'], ['U', 'گردونه‌ی شانس'], ['P / Esc', 'توقف'], ['موس', 'کلیک = قفل موس و چرخاندن دوربین · چرخ = زوم']];
     this.openPanel('keys', '⌨️ کلیدهای ویندوز و کامپیوتر', '<div style="display:flex;flex-direction:column;gap:6px">' + rows.map(([k, v]) => '<div class="lbRow"><span class="nm"><kbd>' + k + '</kbd></span><span class="vl">' + v + '</span></div>').join('') + '</div><p class="note">🎮 دسته‌ی ایکس‌باکس هم کار می‌کند: استیک‌ها حرکت و دوربین، A پرش، X تعامل، B سیلی، Y دزدی، RB دویدن، LB اسکیت‌برد، Start توقف. برای اجرای بازی مثل یک برنامه‌ی ویندوزی، فایل Run-on-Windows.bat کنار فایل بازی را باز کن.</p>');
   },
   openMissions(re, tab) {
@@ -5767,6 +6071,8 @@ $('panelBody').addEventListener('click', (e) => {
     case 'opencloud': break;
     case 'resume': UI.closePanel(); break;
     case 'settings': UI.openSettings(); break;
+    case 'spinfree': Wheel.spin(false); break;
+    case 'spinpaid': Wheel.spin(true); break;
     case 'door': { const b = UI.kioskBase(); if (b && !b.door && o.money >= DOOR_PRICE) { o.money -= DOOR_PRICE; House.install(b); UI.closePanel(); UI.banner('🚪 در آهنی نصب شد!', 'حالا میم‌های خانه‌ی امن فقط با دریل برقی دزدیده می‌شوند'); Sound.play('success'); Missions.event('shop'); scheduleSave(true); } break; }
     case 'doorfix': { const b = UI.kioskBase(); if (b && b.door && b.door.state === 'broken' && o.money >= DOOR_REPAIR) { o.money -= DOOR_REPAIR; House.repair(b); UI.openShop(true); UI.toast('🔧 در آهنی تعمیر و قفل شد', 'good'); scheduleSave(true); } break; }
     case 'drillbuy': if (o.money >= DRILL_PRICE) { o.money -= DRILL_PRICE; o.drills = (o.drills || 0) + 1; Sound.play('buy'); UI.toast('🔩 یک دریل برقی خریدی! برو کنار در آهنی خانه‌ی یک حریف', 'rare'); UI.openShop(true); scheduleSave(true); } break;
@@ -5792,6 +6098,7 @@ $('mbInv').addEventListener('click', () => UI.openInventory());
 $('mbBook').addEventListener('click', () => UI.openBook());
 $('mbLeader').addEventListener('click', () => UI.openLeader());
 $('mbDaily').addEventListener('click', () => UI.openDaily());
+$('mbWheel').addEventListener('click', () => UI.openWheel());
 $('mbMissions').addEventListener('click', () => UI.openMissions());
 
 // ------------------------------------------------------------------ interactive tutorial
@@ -5974,7 +6281,7 @@ function resetWorldTo(s) {
   if (s.portal4 || s.portal5) buildExWorld(4);
   if (s.portal5) buildExWorld(5);
   applySave(s); Missions.ensure(); if (G.portalUnlocked) { buildWorld2(); Portal.show(false); } if (G.portal3Unlocked) { buildWorld3(); Portal3.show(false); } if (G.portal4Unlocked) { buildExWorld(4); ExWorlds.show(4, false); } if (G.portal5Unlocked) { buildExWorld(5); ExWorlds.show(5, false); } ensurePlayerGuard();
-  seedRivals(s.owners.length);
+  seedRivals(s.owners.length); Turrets.sync(); Feed.clear();
   G.owners.forEach((o) => o.applyCap());
   for (const a of G.agents) a.respawn();
   setPlayerName(G.name); $('nameInput').value = G.name; menuInfo();
@@ -6051,6 +6358,7 @@ async function init() {
   G.owners.forEach((o) => o.base.build(o.color, o.name));
   for (const pi of SALE_PLOTS) W.bases[pi].build('#9aa3ae', 'زمین برای فروش', true);
   buildNav(); // after every base has added its walls, so rivals path around them
+  Parkour.build();
   G.player = new Agent(G.owners[0], LOOKS[0], true);
   for (let i = 1; i < G.owners.length; i++) new Agent(G.owners[i], LOOKS[i], false);
   shopkeeper = buildAvatar({ skin: '#ffcf9e', shirt: '#ff4f8b', pants: '#2b3a67', shoes: '#111', hair: 'cap', hairC: '#222', accent: '#ffd23f', hat: '#ffd23f' });
@@ -6068,6 +6376,7 @@ async function init() {
   if (G.portal5Unlocked) { buildExWorld(5); ExWorlds.show(5, false); }
   ensurePlayerGuard();
   seedRivals(save ? save.owners.length : 0); // older saves had fewer rivals: give the new ones a starting base
+  Turrets.sync();
   G.owners.forEach((o) => o.applyCap());
   $('nameInput').value = G.name; setPlayerName(G.name);
   if (savedAt) { const away = clamp((Date.now() - savedAt) / 1000, 0, 7200); G.offline = Math.floor(G.owners[0].incomePerSec() * away * 0.25); for (const o of G.owners) if (!o.isPlayer) o.money += o.incomePerSec() * away * 0.25; }
@@ -6117,7 +6426,7 @@ function simulate(dt) {
     if (W.beltTex) W.beltTex.offset.x -= beltSpeed() * dt / 2;
     for (const mm of Object.values(MUT_MATS)) if (mm.color && mm === MUT_MATS[3]) { mm.color.setHSL((G.time * 0.15) % 1, 0.9, 0.6); mm.emissive.setHSL((G.time * 0.15 + 0.5) % 1, 1, 0.3); }
     if (shopkeeper) { animateAvatar(shopkeeper, dt, { speed: 0, grounded: true, t: G.time, turn: 0 }); Shop.update(dt); }
-    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt); updateExtras(dt); Portal3.update(dt, G.time); ExWorlds.update(dt, G.time); updateLightning(dt); House.update(dt); updateUFO(dt); updateFireworks(dt);
+    Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, G.time); updateReflect(dt); updateExtras(dt); Portal3.update(dt, G.time); ExWorlds.update(dt, G.time); updateLightning(dt); House.update(dt); Turrets.update(dt); Parkour.update(dt); if (G.speedT > 0) G.speedT -= dt; updateUFO(dt); updateFireworks(dt);
     FX.update(dt);
     if (G.playing) { computeInteract(dt); Tutorial.update(dt, G.time); }
   }
@@ -6143,7 +6452,7 @@ function presentFrame(dt) {
   renderer.render(scene, camera);
   if (G.playing && ((saveQueued && G.time - G.lastSave > 2) || G.time - G.lastSave > 15)) doSave();
 }
-if (/[?&]debug/.test(location.search)) window.__dbg = { THREE, pickNav, Sound, House, VAULT_LOCAL, LAYOUT, buildAvatar, animateAvatar, wearBuy, setPlayerLook, WEAR, KIOSKS, EXW, ExWorlds, buildExWorld, BELT4, BELT5, X4_: X4, X5_: X5, Storm3, pickChar, POOLS, tmplOf, CHAR_BY_ID, onIce, worldOf, W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
+if (/[?&]debug/.test(location.search)) window.__dbg = { Feed, Wheel, Turrets, Parkour, PK, playEmote, EMOTES, giveMeme, rebirthCost, inW3, THREE, pickNav, Sound, House, VAULT_LOCAL, LAYOUT, buildAvatar, animateAvatar, wearBuy, setPlayerLook, WEAR, KIOSKS, EXW, ExWorlds, buildExWorld, BELT4, BELT5, X4_: X4, X5_: X5, Storm3, pickChar, POOLS, tmplOf, CHAR_BY_ID, onIce, worldOf, W3, BELT3, Portal3, buildWorld3, w3Walkable, UFO, Fireworks, X3_: X3, Extras, spawnChest, levelUnit, ACHIEVEMENTS, Boss, toggleBoard, doDrop, reflectHit, Shop, UPGRADES, BELTS, sellUnit, collectOwner, rebirth, doSave, loadSave, serialize, Unit, CHARS, Missions, Fusion, Day, slap, MUTATIONS, Portal, W2, BELT2, Hazards, buildWorld2, X2, inLava, sim: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { simulate(step); updateCamera(step, 0); } }, G, W, UI, CAM, IN, S, tryBuy, startSteal, deliver, returnUnit, Tutorial, findPath, NAV, PHYS, camera, renderer, scene, collectOwner, activateSecurity, doInteract, doSteal, INTERACT: () => INTERACT, STEAL: () => STEAL_U };
 init().catch((e) => { console.error(e); showFatal('خطا در ساخت بازی: ' + (e && e.message ? e.message : e)); });
 
 </script>
