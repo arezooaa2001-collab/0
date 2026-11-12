@@ -172,7 +172,7 @@ Object.assign(Game, {
     this.missionProgress('power', 1);
     Sfx.play('charge');
     this.showBanner('۸ ثانیه هیچ‌چی بهت نمی‌خوره!', '🛡️ سپر انرژی');
-    this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
+    this.gainXp(Math.round(pw.xp * this.mult()));
     this.refreshPowers();
   },
 
@@ -238,7 +238,7 @@ Object.assign(Game, {
     $('moonFx').hidden = false;
     Sfx.play('charge');
     this.showBanner('همه سبک شدن؛ بپر و پرواز کن!', '🌙 جاذبه‌ی ماه');
-    this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
+    this.gainXp(Math.round(pw.xp * this.mult()));
     this.refreshPowers();
   },
 
@@ -248,6 +248,7 @@ Object.assign(Game, {
     this.moonG = null;
     $('moonFx').hidden = true;
     for (const w of new Set([M.w, this.world])) if (w) for (const n of w.npcs) delete n.ch.grav;
+    for (const c of M.light || []) delete c.grav;
     if (this.player) delete this.player.ch.grav;
   },
 
@@ -258,7 +259,8 @@ Object.assign(Game, {
     if (M.t <= 0 || this.world !== M.w || this.mode === 'arena') { this.endMoon(); return; }
     const ch = this.player.ch;
     ch.grav = 6;
-    for (const n of M.w.npcs) n.ch.grav = 6;
+    M.light = M.light || new Set();
+    for (const n of M.w.npcs) { n.ch.grav = 6; M.light.add(n.ch); }
     if (ch.airY > 5 && !this.save.stats.moonHigh) { this.save.stats.moonHigh = 1; this.checkAchievements(); }
   },
 
@@ -525,6 +527,7 @@ Object.assign(Game, {
       return;
     }
     if (this.world !== D.w || this.mode === 'arena') { this.endDisco(); return; }
+    if (this.modals.size || this.watch || this.photo) return;
     D.t -= dt;
     D.ball.rotation.y += dt * 1.5;
     D.beams.rotation.y += dt * 0.9;
@@ -545,7 +548,7 @@ Object.assign(Game, {
     for (const s of D.spots) { s.m.removeFromParent(); s.m.material.dispose(); }
     D.spotGeo.dispose();
     for (const n of D.dancers) if (n.state === 'party') { n.state = 'idle'; n.timer = rand(0.5, 2); n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff'); }
-    Sfx.setSong(this.discoSong || 0);
+    Sfx.setSong(this.save.settings.song || 0);
     const st = this.save.stats;
     st.discoBest = Math.max(st.discoBest || 0, D.danced);
     if (done) this.toast(D.danced ? `🪩 مهمونی تموم شد! ${fa(D.danced)} بار رقصیدی.` : '🪩 مهمونی تموم شد. دفعه‌ی بعد از زبانه‌ی «نمایشی» یه رقص بزن!', 'gold');
@@ -602,10 +605,14 @@ Game.playerHit = function (kind) {
 const _bossStomp5 = Game.bossStomp;
 Game.bossStomp = function () {
   const P = this.player;
-  if (P && P.shield && P.ch.grounded) {
+  const B = this.gym && this.gym.boss;
+  const near = B && P && Math.hypot(P.ch.root.position.x - B.ch.root.position.x, P.ch.root.position.z - B.ch.root.position.z) < BOSS.stompR;
+  if (P && P.shield && P.ch.grounded && near && !P.anchor && this.world === this.gym) {
     // the bubble takes the stomp
     P.ch.grounded = false;
-    try { _bossStomp5.call(this); } finally { P.ch.grounded = true; }
+    const ft = this.floatText;
+    this.floatText = () => {}; // no "dodged!" on top of "blocked!"
+    try { _bossStomp5.call(this); } finally { P.ch.grounded = true; this.floatText = ft; }
     this.shieldBlock();
     return;
   }

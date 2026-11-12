@@ -90,6 +90,7 @@ const Game = {
     v.stats.moves = obj(v.stats.moves);
     if (!Array.isArray(v.stats.visited)) v.stats.visited = [];
     v.boost = Object.assign({ used: false, until: 0 }, obj(v.boost));
+    v.drinkUntil = Math.max(0, Number(v.drinkUntil) || 0);
     if (!Array.isArray(v.achievements)) v.achievements = [];
     if (!Array.isArray(v.missions)) v.missions = [];
   },
@@ -871,9 +872,10 @@ const Game = {
       else if (target === 'env') {
         const e = ENV_BY_ID[item];
         // the running track and the trick field have their own tabs
-        const tab = item === 'runtrack' ? 'energy' : item === 'tricks' ? 'field' : 'env';
-        const tabName = { energy: '⚡ انرژی', field: '🌀 حرکت ویژه', env: 'مکان‌ها' }[tab];
-        this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «${tabName}» هستن.`, 'gold');
+        const tab = item === 'runtrack' ? 'energy' : 'env';
+        const tabName = item === 'tricks' ? '🌀 حرکت ویژه' : { energy: '⚡ انرژی', env: 'مکان‌ها' }[tab];
+        const note = item === 'tricks' ? ' (وقتی بری روی زمین پیدا می‌شه)' : '';
+        this.toast(`${e.icon} به «${e.name}» خوش اومدی! ورزش‌های این‌جا توی زبانه‌ی «${tabName}» هستن${note}.`, 'gold');
         if (!this.save.stats.visited.includes(item)) this.save.stats.visited.push(item);
         this.missionProgress('visit', 1, item);
         this.checkAchievements();
@@ -1163,6 +1165,7 @@ const Game = {
         if (typing) e.target.blur();
         const open = [...this.modals].filter((id) => id !== 'startModal' && id !== 'resultModal');
         if (open.length) open.forEach((id) => this.closeModal(id));
+        else if (this.watch) return; // the camera room's own Escape closes it; your exercise carries on
         else if (this.photo) this.exitPhoto();
         else if (this.loop) this.stopLoop();
         return;
@@ -1195,6 +1198,7 @@ const Game = {
       if (e.code === 'Digit7' || e.code === 'Numpad7') this.usePower('beam');
       if (e.code === 'Digit8' || e.code === 'Numpad8') this.usePower('shield');
       if (e.code === 'Digit9' || e.code === 'Numpad9') this.usePower('moon');
+      if (e.code === 'Digit0' || e.code === 'Numpad0') this.usePower('freeze');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1325,7 +1329,8 @@ const Game = {
       this.tickFun3(dt);
       this.tickFun4(dt);
       this.tickFun5(dt);
-      if (this.arm) this.tickArm(dt);
+      this.tickFun6(dt);
+      if (this.arm && !this.modals.size) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());
       if (gained > 0) {
@@ -1345,7 +1350,7 @@ const Game = {
       this.tickLucky();
       if (this.build && this.mode === 'play') this.tickBuild();
       if (this.world === this.gym && this.mode === 'play') this.tickWings(dt);
-      if (this.race) this.tickRace(dt);
+      if (this.race && !this.modals.size) this.tickRace(dt); // the race waits while a menu is open
       if (this.mode === 'play') this.tickHud();
       this.tickSpin();
       if (this.mode === 'play' || this.mode === 'transition') this.tickRun(dt);

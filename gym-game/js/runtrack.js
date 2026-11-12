@@ -527,7 +527,7 @@ Object.assign(Game, {
       if (R.traceT <= 0 && R.trace.length < 60000) { R.traceT = 0.2; R.trace.push(Math.round(R.t * 10) / 10, Math.round(d * 10) / 10, Math.round(pos.x * 10) / 10); }
       const sp = P.vel.length();
       if (sp > 0.2) {
-        const key = RUN_TURBO[P.mode] ? P.mode : (P.mode === 'walk' && !this.keys.has('ShiftLeft') ? 'walk' : P.mode);
+        const key = RUN_TURBO[P.mode] ? P.mode : (P.mode === 'walk' && !this.keys.has('ShiftLeft') && !this.keys.has('ShiftRight') ? 'walk' : P.mode);
         const full = key === 'walk' ? 2.5 : runSpeedFor(this.runLv()) * this.turboMult();
         e.now -= RUN_DRAIN[key] * Math.min(1.2, sp / Math.max(1, full)) * dt;
       }

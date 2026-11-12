@@ -253,7 +253,7 @@ Object.assign(Game, {
       const st = this.save.stats;
       st.beamMax = Math.max(st.beamMax || 0, n);
       if (n) this.noteKnock(n);
-      this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
+      this.gainXp(Math.round(pw.xp * this.mult()));
       this.checkAchievements();
     }, 650);
     this.refreshPowers();
@@ -367,6 +367,8 @@ Object.assign(Game, {
     // on a machine, in a race or arm wrestling the game is off (no free wins)
     if (this.player.anchor || this.arm || this.race) { this.endDodge(null); this.toast('🎯 بازی جاخالی تموم شد (رفتی سراغ کار دیگه).', 'warn'); return; }
     if (this.modals.size || this.watch || this.photo) return;
+    const me = this.player.ch.root.position;
+    if (Math.hypot(me.x - D.cx, me.z - D.cz) > 16) { this.toast('🎯 از زمین بازی بیرون رفتی؛ باختی!', 'warn'); this.endDodge(false); return; }
     D.t -= dt;
     $('dodgeHead').textContent = `🎯 جاخالی • ⏱️ ${fa(Math.ceil(Math.max(0, D.t)))} • ${'❤️'.repeat(Math.max(0, D.lives))}`;
     if (D.t <= 0) { this.endDodge(true); return; }
@@ -388,6 +390,8 @@ Object.assign(Game, {
     if (!D) return;
     this.dodge = null;
     $('dodgePanel').hidden = true;
+    // balls still in the air are gone (no "hit!" after you have already won)
+    if (this.balls) this.balls = this.balls.filter((b) => { if (b.kind !== 'ball') return true; b.m.removeFromParent(); return false; });
     for (const n of D.throwers) if (n.state === 'dodge') { n.state = 'idle'; n.timer = rand(0.5, 2); n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff'); }
     if (won === null) return;
     if (won) {

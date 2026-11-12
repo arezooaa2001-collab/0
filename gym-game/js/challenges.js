@@ -162,6 +162,7 @@ Object.assign(Game, {
   tickChallenge(dt) {
     const ch = this.chal;
     if (!ch) return;
+    if (this.modals.size || this.watch || this.photo) return;
     const c = ch.c;
     const hud = $('chalHud');
     if (ch.count > 0) {
@@ -257,7 +258,7 @@ Object.assign(Game, {
     }
     this.toast(`${c.icon} ${c.name}: ${scoreText}${better ? ' • رکورد جدید! 🎉' : ''} • 🪙 ${fa(coins)}`, 'gold');
     this.addCoins(coins);
-    this.gainXp(Math.round((20 + 30 * tier) * xpMult(this.save.level)), 'reward');
+    this.gainXp(Math.round((20 + 30 * tier) * this.mult()), 'reward');
     this.checkAchievements();
     this.persist();
   },

@@ -141,7 +141,7 @@ Object.assign(Game, {
     }
     this.powerCd[id] = pw.cd;
     this.save.stats.powers++;
-    this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
+    this.gainXp(Math.round(pw.xp * this.mult()));
     this.missionProgress('power', 1);
     this.checkAchievements();
     this.refreshPowers();
@@ -308,6 +308,8 @@ Object.assign(Game, {
   },
 
   tickEvents(dt) {
+    // a surprise event or golden hour does not run out while a menu or the shop is open
+    if (this.modals.size || this.watch || this.photo) return;
     const ev = this.event;
     if (ev) {
       ev.t -= dt;
@@ -358,7 +360,7 @@ Object.assign(Game, {
         Sfx.play('win');
         this.showBanner('چالش رو بردی!', '🪙 ۱۵۰');
         this.addCoins(150);
-        this.gainXp(Math.round(80 * xpMult(this.save.level)), 'reward');
+        this.gainXp(Math.round(80 * this.mult()), 'reward');
         this.confetti();
       } else this.toast('⏱️ وقت چالش تموم شد. دفعه‌ی بعد سریع‌تر!', 'warn');
     } else this.toast(ev.id === 'golden' ? '⚡ ساعت طلایی تموم شد.' : '🪙 باران سکه تموم شد.');

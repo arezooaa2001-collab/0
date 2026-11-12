@@ -134,6 +134,8 @@ class FootballWorld extends EnvWorld {
         this.scene.add(side);
       }
       this.addCollider(Math.min(gx + s * 1.5, gx + s * 1.7), -PITCH.goalW, Math.max(gx + s * 1.5, gx + s * 1.7), PITCH.goalW);
+      // the side nets are solid too: no walking round the keeper into the goal from the side
+      for (const z of [-PITCH.goalW, PITCH.goalW]) this.addCollider(Math.min(gx, gx + s * 1.6), z - 0.06, Math.max(gx, gx + s * 1.6), z + 0.06);
       // corner flags
       for (const z of [-W, W]) {
         this.metal.cyl(0.03, 1.5, gx, 0.75, z, '#ffd34d', 0, 0, 0, 6);

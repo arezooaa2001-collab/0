@@ -47,7 +47,7 @@ Object.assign(Game, {
     this.world.fx.burst({ x: p.x, y: 1, z: p.z }, { count: 60, colors: id === 'giant' ? ['#ff4da6', '#ffd34d', '#ffffff'] : ['#7fe0ff', '#2ecc71', '#ffffff'], speed: 3, up: 3, life: 0.9 });
     this.showBanner(id === 'giant' ? 'مواظب سرت باش!' : 'حواست باشه زیر پا نری!', id === 'giant' ? '🍄 غول شدی!' : '🐜 کوچولو شدی!');
     if (id === 'giant') this.world.gatherFans(p.x, p.z, 14, 6, 6, 'fanclap');
-    this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
+    this.gainXp(Math.round(pw.xp * this.mult()));
     this.missionProgress('power', 1);
     this.checkAchievements();
     this.refreshPowers();

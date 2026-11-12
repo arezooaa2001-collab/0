@@ -196,7 +196,7 @@ Object.assign(Game, {
         Sfx.play('medal');
         this.toast(`🎯 مأموریت انجام شد: ${this.missionText(m)} • 🪙 ${fa(m.reward)}`, 'gold');
         this.addCoins(m.reward);
-        this.gainXp(Math.round(m.reward * 2 * xpMult(this.save.level)), 'reward');
+        this.gainXp(Math.round(m.reward * 2 * this.mult()), 'reward');
         setTimeout(() => {
           const i = this.save.missions.indexOf(m);
           if (i >= 0) this.save.missions.splice(i, 1, this.newMission());
@@ -373,7 +373,7 @@ Object.assign(Game, {
   attachPet() {
     const id = this.save.shop.pet;
     if (!id || !this.owns(id)) { this.pet = null; return; }
-    if (!this.pet || this.pet.kind !== id) this.pet = id === 'dragon' ? new DragonPet() : new Pet(id);
+    if (!this.pet || this.pet.kind !== id) this.pet = id === 'dragon' ? new DragonPet() : id === 'ufo' ? new UfoPet() : new Pet(id);
     this.pet.root.userData.noSolid = true;
     this.world.scene.add(this.pet.root);
     this.pet.place(this.player.ch.root.position);
@@ -453,6 +453,7 @@ Object.assign(Game, {
 
   openMap() {
     if (this.mode !== 'play' || this.race) return;
+    if (this.arm) { this.toast('💪 اول مچ‌اندازی رو تموم کن.', 'warn'); return; }
     const g = $('mapGrid');
     g.innerHTML = '';
     const lv = this.lv();
@@ -526,6 +527,8 @@ Object.assign(Game, {
     else if (a === 'dodge') this.startDodge();
     else if (a === 'hunt') this.startHunt();
     else if (a === 'disco') this.startDisco(true);
+    else if (a === 'danceoff') this.startDanceOff();
+    else if (a === 'arcade') this.goArcade();
     else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }
@@ -643,7 +646,8 @@ Object.assign(Game, {
         const eff = item.effect ? ` (${effectText(item.effect)})` : '';
         this.aiSay('bot', `${res.reply} ${item.icon} «${item.name}»${eff}. ${where} ${shared ? '🌐 بقیه‌ی بازیکن‌ها هم می‌بیننش.' : ''}`, extra);
         Sfx.play('unlock');
-        this.addCoins(20);
+        // a small thank-you, at most once a minute (no coin farming with the example buttons)
+        if (Date.now() - (this.aiCoinT || 0) > 60000) { this.aiCoinT = Date.now(); this.addCoins(20); }
       }
     } catch (e) {
       wait.remove();

@@ -147,6 +147,8 @@ class IslandWorld extends WorldBase {
     for (const n of this.npcs) if (n.station && this.stations.indexOf(n.station) >= this.baseStations) { this.leaveStation(n); n.state = 'idle'; n.timer = 0.5; }
     this.stations.length = this.baseStations;
     if (this.player && this.player.anchor && this.player.anchor.custom) this.player.anchor = null;
+    // an exercise on a machine that is being rebuilt or deleted stops (no reps on a machine that is gone)
+    if (typeof Game !== 'undefined' && Game.loop && Game.loop.st && Game.loop.st.custom && Game.world === this) Game.stopLoop(true);
     const slots = [];
     for (const [r, n] of [[9.5, 8], [15.5, 12]]) {
       for (let i = 0; i < n; i++) {

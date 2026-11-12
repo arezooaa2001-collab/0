@@ -152,7 +152,7 @@ Object.assign(Game, {
     const here = this.world === g && this.mode === 'play';
     if (!g.boss) {
       $('bossPanel').hidden = true;
-      if (!here || this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.modals.size || this.watch || this.photo || this.lv() < 10) return;
+      if (!here || this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.danceOff || this.cannon || this.meter || this.spinInClass() || this.modals.size || this.watch || this.photo || this.lv() < 10) return;
       this.bossTimer = (this.bossTimer ?? BOSS.first) - dt;
       if (this.bossTimer <= 0) { this.bossTimer = rand(...BOSS.every); this.spawnBoss(false); }
       return;

@@ -245,7 +245,8 @@ const Creations = {
 
   init() {
     const local = Store.get(CREATIONS_KEY, []);
-    this.items = (Array.isArray(local) ? local : []).map(validateCreation).filter(Boolean);
+    // things that never reached the shared database keep that mark, so they are not dropped later
+    this.items = (Array.isArray(local) ? local : []).map((r) => { const c = validateCreation(r); if (c && r && r.localOnly) c.localOnly = true; return c; }).filter(Boolean);
     this.emit();
     this.connectCloud();
   },

@@ -271,7 +271,7 @@ Object.assign(Game, {
     Sfx.play('charge');
     this.showBanner('همه‌چیز آهسته شد...', '🐢 حرکت آهسته');
     this.missionProgress('power', 1);
-    this.gainXp(Math.round(pw.xp * xpMult(this.save.level)));
+    this.gainXp(Math.round(pw.xp * this.mult()));
     this.checkAchievements();
     this.refreshPowers();
   },
@@ -358,7 +358,10 @@ Object.assign(Game, {
     for (const n of w.npcs) {
       if (n.sayT > 0) {
         n.sayT -= dt;
-        if (n.sayT <= 0 && !['class', 'race', 'boss', 'buddy', 'leave', 'knocked'].includes(n.state)) n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
+        // after a line, the label goes back to what they are doing
+        const busy = { party: ['🪩 مهمونی!', '#ff4da6'], dcoach: ['🕺 مربی رقص', '#ff4da6'], frozen: ['🥶 یخ زده!', '#bfefff'], dodge: ['🎯 آماده‌ی پرتاب!', '#ff7b00'] }[n.state];
+        if (n.sayT <= 0 && busy) n.ch.setLabel(n.name, busy[0], busy[1]);
+        else if (n.sayT <= 0 && !['class', 'race', 'boss', 'buddy', 'leave', 'knocked'].includes(n.state)) n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
       }
     }
     this.speechT = (this.speechT ?? 6) - dt;

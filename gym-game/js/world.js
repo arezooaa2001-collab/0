@@ -464,6 +464,10 @@ class WorldBase {
       [dirX, dirZ, speed] = this.dodgeNpc(n, dt);
     } else if (n.state === 'party') {
       [dirX, dirZ, speed] = this.partyNpc(n, dt);
+    } else if (n.state === 'frozen') {
+      [dirX, dirZ, speed] = this.frozenNpc(n, dt);
+    } else if (n.state === 'dcoach') {
+      [dirX, dirZ, speed] = this.dcoachNpc(n, dt);
     } else if (n.state === 'buddy') {
       [dirX, dirZ, speed] = this.buddyNpc(n, dt);
     } else if (n.state === 'boss') {
@@ -624,17 +628,28 @@ class WorldBase {
   knockNpc(n, x, z) {
     const ch = n.ch;
     const p = ch.root.position;
+    const was = n.state;
     this.leaveStation(n);
     ch.stopAction();
     n.state = 'knocked';
     n.vel.set(0, 0);
     ch.root.rotation.y = Math.atan2(x - p.x, z - p.z);
     ch.setLabel(n.name, '😵 اوخ!', '#ff9aa2');
-    ch.play('knock', () => {
+    const up = () => {
+      // a dancer gets back to the party if it is still going
+      const D = typeof Game !== 'undefined' && Game.disco;
+      if (was === 'party' && D && D.w === this && D.dancers.includes(n)) {
+        n.state = 'party';
+        n.partyT = rand(0.2, 0.8);
+        ch.setLabel(n.name, '🪩 مهمونی!', '#ff4da6');
+        return;
+      }
       n.state = 'idle';
       n.timer = rand(0.3, 1.2);
       ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff');
-    });
+    };
+    // in the air (a trampoline, a hop) there is no falling over: they just carry on
+    if (!ch.play('knock', up)) up();
   }
 
   npcGain(n, act) {

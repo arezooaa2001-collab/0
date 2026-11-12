@@ -49,7 +49,7 @@ Object.assign(Game, {
       g.fx.burst({ x: WING.punch.x + 0.25, y: 1.45, z: WING.punch.z }, { count: 40, colors: ['#ffd34d', '#ff7b00', '#ffffff'], speed: 3, up: 2, life: 0.8 });
       if (best) { Sfx.play('win'); this.toast(`🥊 رکورد جدید مشت: ${fa(score)}! • 🪙 ۲۰`, 'gold'); this.addCoins(20); }
       else this.toast(`🥊 قدرت مشت: ${fa(score)} • رکورد ${fa(rec.punch)}`);
-      this.gainXp(Math.round(15 * xpMult(this.save.level)));
+      this.gainXp(Math.round(15 * this.mult()));
       this.persist();
     };
     g.playerDo('bigpunch', null);

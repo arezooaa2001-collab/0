@@ -5,17 +5,20 @@
  * «قهرمانِ قهرمانان», with a golden crown, a finale, and endless play after that.
  */
 
+/** Levels you earned (code 2929 and chosen trick levels do not count). */
+function realLv(s) { return Math.max(1, s.level - (s.cheatLv || 0)); }
+
 const GOALS = [
-  { id: 'lv10', icon: '💪', text: 'با ورزش به سطح ۱۰ برس', reward: 100, test: (s) => s.level >= 10, prog: (s) => [s.level, 10] },
+  { id: 'lv10', icon: '💪', text: 'با ورزش به سطح ۱۰ برس', reward: 100, test: (s) => realLv(s) >= 10, prog: (s) => [realLv(s), 10] },
   { id: 'stage3', icon: '🤼', text: 'دو حریف اول کشتی رو شکست بده', reward: 150, test: (s) => s.stage >= 3, prog: (s) => [s.stage - 1, 2] },
-  { id: 'g2', icon: '⚙️', text: `در سطح ${fa(G2_LEVEL)} برو باشگاه فولاد`, reward: 200, test: (s) => s.stats.visited.includes('gym2'), prog: (s) => [Math.min(s.level, G2_LEVEL), G2_LEVEL] },
-  { id: 'lv100', icon: '🌥️', text: 'با ورزش به سطح ۱۰۰ برس', reward: 400, test: (s) => s.level >= 100, prog: (s) => [s.level, 100] },
+  { id: 'g2', icon: '⚙️', text: `در سطح ${fa(G2_LEVEL)} برو باشگاه فولاد`, reward: 200, test: (s) => s.stats.visited.includes('gym2'), prog: (s) => [Math.min(realLv(s), G2_LEVEL), G2_LEVEL] },
+  { id: 'lv100', icon: '🌥️', text: 'با ورزش به سطح ۱۰۰ برس', reward: 400, test: (s) => realLv(s) >= 100, prog: (s) => [realLv(s), 100] },
   { id: 'g2lv20', icon: '🔥', text: 'در باشگاه فولاد به سطح ۲۰ برس', reward: 400, test: (s) => s.g2.best >= 20, prog: (s) => [s.g2.best, 20] },
   { id: 'stage10', icon: '🏆', text: 'هر ۱۰ حریف کشتی رو شکست بده', reward: 600, test: (s) => s.stage > MAIN_STAGES, prog: (s) => [s.stage - 1, MAIN_STAGES] },
   { id: 'g2lv50', icon: '🏗️', text: 'در باشگاه فولاد به سطح ۵۰ برس', reward: 800, test: (s) => s.g2.best >= 50, prog: (s) => [s.g2.best, 50] },
-  { id: 'lv500', icon: '🏛️', text: 'با ورزش به سطح ۵۰۰ برس', reward: 1500, test: (s) => s.level >= 500, prog: (s) => [s.level, 500] },
+  { id: 'lv500', icon: '🏛️', text: 'با ورزش به سطح ۵۰۰ برس', reward: 1500, test: (s) => realLv(s) >= 500, prog: (s) => [realLv(s), 500] },
   { id: 'titan', icon: '⚡', text: 'یه ورزش میدان تایتان رو انجام بده', reward: 1500, test: (s) => !!s.goals.titanDone, prog: (s) => [s.goals.titanDone ? 1 : 0, 1] },
-  { id: 'lv1000', icon: '🌌', text: 'با ورزش به سطح ۱۰۰۰ برس', reward: 3000, test: (s) => s.level >= 1000, prog: (s) => [s.level, 1000] },
+  { id: 'lv1000', icon: '🌌', text: 'با ورزش به سطح ۱۰۰۰ برس', reward: 3000, test: (s) => realLv(s) >= 1000, prog: (s) => [realLv(s), 1000] },
   { id: 'olympus', icon: '👑', text: 'یه ورزش قله‌ی المپ رو انجام بده', reward: 5000, test: (s) => !!s.goals.olympusDone, prog: (s) => [s.goals.olympusDone ? 1 : 0, 1] },
 ];
 

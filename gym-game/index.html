@@ -102,6 +102,16 @@
     <div id="moonFx" class="moon-fx" hidden></div>
     <div id="jetFuel" class="jet-fuel" hidden><span>🎒</span><div class="jet-bar"><div id="jetFill" class="jet-fill"></div></div></div>
     <div id="huntPanel" class="spin-panel hunt-panel" hidden><b id="huntHead" class="spin-head"></b><div class="spin-info">ستاره‌ها رو بگیر: بپر، از ترامپولین، جت‌پک و جاذبه‌ی ماه کمک بگیر!</div></div>
+    <div id="meterPanel" class="spin-panel meter-panel" hidden>
+      <div class="spin-top"><b id="meterHead" class="spin-head"></b><button id="meterCancel" class="spin-x" type="button" aria-label="بی‌خیال">✕</button></div>
+      <div id="meterBar" class="meter"><i class="meter-ok"></i><i class="meter-best"></i><i id="meterNeedle" class="meter-needle"></i></div>
+      <div class="spin-info">کلید <kbd>E</kbd>، دکمه‌ی «الان!» یا خود نوار رو بزن.</div>
+    </div>
+    <div id="dancePanel" class="spin-panel dance-panel" hidden>
+      <div class="spin-top"><b id="danceHead" class="spin-head"></b><button id="danceCancel" class="spin-x" type="button" aria-label="تموم کن">✕</button></div>
+      <div id="danceIcons" class="dance-icons"></div>
+      <div id="danceInfo" class="spin-info"></div>
+    </div>
     <div id="dodgePanel" class="spin-panel dodge-panel" hidden><b id="dodgeHead" class="spin-head"></b><div class="spin-info">توپ‌ها رو جاخالی بده: بدو، بپر، پرش دوبل بزن!</div></div>
     <div id="fbHud" class="fb-hud" hidden>
       <div class="fb-score"><span id="fbRed" class="fb-red">۰</span><span id="fbClock" class="fb-clock">۳:۰۰</span><span id="fbBlue" class="fb-blue">۰</span></div>
@@ -363,7 +373,7 @@
         <li>دویدن: <kbd>R</kbd> • دویدن پرشی: <kbd>F</kbd> • استفاده از چیزی که کنارشی: <kbd>E</kbd></li>
         <li>قدرت‌های ویژه: <kbd>1</kbd> پرش غول • <kbd>2</kbd> دش برق • <kbd>3</kbd> کوبش زمین • <kbd>4</kbd> 🐜 کوچولو • <kbd>5</kbd> 🍄 غول‌پیکر</li>
         <li>پریدن: <kbd>Space</kbd> یا دکمه‌ی گرد «⤴️» کنار دسته‌ی حرکت (روی گوشی و تبلت). وسط هوا دوباره بزن: پرش دوبل!</li>
-        <li>🐢 حرکت آهسته: <kbd>6</kbd> • 🌟 پرتو نهایی: <kbd>7</kbd> • 🛡️ سپر انرژی: <kbd>8</kbd> • 🌙 جاذبه‌ی ماه: <kbd>9</kbd> • 🎥 نمای دوربین: <kbd>C</kbd> • ❄️ گلوله برفی (توی برف): <kbd>Q</kbd></li>
+        <li>🐢 حرکت آهسته: <kbd>6</kbd> • 🌟 پرتو نهایی: <kbd>7</kbd> • 🛡️ سپر انرژی: <kbd>8</kbd> • 🌙 جاذبه‌ی ماه: <kbd>9</kbd> • ❄️ یخ‌زدگی: <kbd>0</kbd> • 🎥 نمای دوربین: <kbd>C</kbd> • ❄️ گلوله برفی (توی برف): <kbd>Q</kbd></li>
         <li>🛹 هاوربرد و 🎒 جت‌پک توی زبانه‌ی «پایه»‌ان؛ با جت‌پک پرش رو نگه دار تا پرواز کنی.</li>
         <li>فوتبال: <kbd>Space</kbd> شوت یا تکل • <kbd>Q</kbd> پاس</li>
         <li>دوربین آزاد: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> حرکت • <kbd>Q</kbd>/<kbd>E</kbd> پایین و بالا • <kbd>Z</kbd>/<kbd>X</kbd> چرخش</li>
@@ -407,6 +417,7 @@
       </ul>
       <h3>چیزهای باحال</h3>
       <ul class="help-list">
+        <li>🏀 بسکتبال و 💥 توپ انسانی ته پیست نینجا (منو ← «بسکتبال و توپ انسانی»): دکمه رو بزن، وقتی عقربه‌ی نوار وسطه دوباره بزن. 🕺 «رقص با مربی» از منو: حرکت‌های مربی رو به ترتیب تکرار کن. 🪅 توی مهمونی دیسکو پینیاتا رو بشکن!</li>
         <li>🚀 قدرت‌های ویژه: پرش غول (سطح ۱۰) تو هوا ملق می‌زنه، دش برق (سطح ۱۸) مثل برق جلو می‌ره و کوبش زمین (سطح ۳۰) همه‌ی اطرافت رو می‌ندازه زمین. کد ۱۸۱۸ اینا رو هم باز می‌کنه.</li>
         <li>💪 مچ‌اندازی: وسط پیست باشگاه یه میز مچ‌اندازی هست. با حریف آسون، هم‌زور یا قهرمان مچ مسابقه بده و تند تند دکمه رو بزن.</li>
         <li>🪙 سکه‌ها و 💎 الماس‌های روی زمین رو جمع کن. ⭐ ستاره‌ی طلایی ۱۵ ثانیه سریع‌ترت می‌کنه، سکه‌ها رو به سمتت می‌کشه و هر کی بهت بخوره می‌افته.</li>
@@ -477,6 +488,8 @@
         <button class="menu-btn hot" type="button" data-menu="dodge">🎯 بازی جاخالی</button>
         <button class="menu-btn hot" type="button" data-menu="hunt">⭐ شکار ستاره</button>
         <button class="menu-btn hot" type="button" data-menu="disco">🪩 مهمونی دیسکو</button>
+        <button class="menu-btn hot" type="button" data-menu="danceoff">🕺 رقص با مربی</button>
+        <button class="menu-btn hot" type="button" data-menu="arcade">🏀 بسکتبال و توپ انسانی</button>
         <button class="menu-btn" type="button" data-menu="look">🎨 ظاهر من</button>
         <button class="menu-btn" type="button" data-menu="stats">📊 آمار من</button>
         <button class="menu-btn" type="button" data-menu="fireworks">🎆 آتش‌بازی</button>
@@ -763,5 +776,6 @@
 <script src="js/fun3.js"></script>
 <script src="js/fun4.js"></script>
 <script src="js/fun5.js"></script>
+<script src="js/fun6.js"></script>
 </body>
 </html>
