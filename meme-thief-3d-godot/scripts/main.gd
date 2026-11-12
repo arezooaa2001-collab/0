@@ -43,6 +43,7 @@ func _setup_scene() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES; env.tonemap_exposure = 1.05
 	env.fog_enabled = true; env.fog_mode = Environment.FOG_MODE_DEPTH; env.fog_light_color = Day.SKY_HOR; env.fog_depth_begin = 90; env.fog_depth_end = 300; env.fog_depth_curve = 1.0
 	env.glow_enabled = false
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	var we := WorldEnvironment.new(); we.environment = env; add_child(we)
 	sun = DirectionalLight3D.new(); sun.light_color = Color.html("#fff0d8"); sun.light_energy = 1.4
 	sun.shadow_enabled = S.Q().shadows; sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS; sun.directional_shadow_max_distance = 90; sun.directional_shadow_split_1 = 0.25
@@ -61,7 +62,8 @@ func set_sky(top: Color, hor: Color, fog_col: Color, fog_near: float, fog_far: f
 	env.fog_light_color = fog_col; env.fog_depth_begin = fog_near; env.fog_depth_end = fog_far
 
 func set_lights(hemi: float, fill_i: float, sun_col: Color, sun_i: float, exposure: float, stars: float) -> void:
-	env.ambient_light_energy = hemi; fill.light_energy = fill_i * 0.7; sun.light_color = sun_col; sun.light_energy = sun_i * 0.5; env.tonemap_exposure = exposure
+	# three.js light intensities are divided by PI in its BRDF; Godot's are not, so scale them down to match the original look
+	env.ambient_light_energy = hemi * 0.5; fill.light_energy = fill_i * 0.35; sun.light_color = sun_col; sun.light_energy = sun_i * 0.34; env.tonemap_exposure = exposure
 	if World.stars_mat:
 		World.stars_mat.albedo_color.a = stars
 		World.stars.position = camera.position
@@ -90,11 +92,9 @@ static func rss() -> String:
 	return str(int(f.get_line().split(" ")[1]) * 4 / 1024) + "MB"
 
 func _boot() -> void:
-	print("[boot] start rss=", rss())
 	UI.set_load(10, "در حال ساختن میدان، پایگاه‌ها و نوار نقاله…")
 	await get_tree().process_frame
 	World.build_world(); Portal.build1()
-	print("[boot] world rss=", rss())
 	UI.set_load(40, "در حال ساختن ۴۲ میم بامزه…")
 	await get_tree().process_frame
 	var ids := []
@@ -106,10 +106,8 @@ func _boot() -> void:
 		if i % 6 == 5:
 			UI.set_load(40 + 30.0 * i / ids.size(), "در حال ساختن ۴۲ میم بامزه…")
 			await get_tree().process_frame
-	print("[boot] templates rss=", rss())
 	UI.set_load(72, "در حال آماده‌سازی حریف‌ها…")
 	await get_tree().process_frame
-	print("[boot] +frame rss=", rss())
 	var save = SaveSys.load_save()
 	Game.init_game(save)
 	var savedAt := 0.0
@@ -146,10 +144,8 @@ func _boot() -> void:
 				o.money += o.income_per_sec() * away * 0.25
 	UI.set_load(88, "در حال پر کردن نوار نقاله…")
 	await get_tree().process_frame
-	print("[boot] rivals rss=", rss())
 	Game.prefill_belt(Game.BELTS[0], 760, 2.2, 3.1)
 	Game.spawnCount = 0
-	print("[boot] belt rss=", rss())
 	Missions.ensure(); Day.update(0.0)
 	UI.apply_settings(false); UI.menu_info()
 	UI.set_load(100, "آماده!")
@@ -194,26 +190,32 @@ func _run_shots() -> void:
 	await _shot(dir + "/shot_book.png")
 	UI.close_panel()
 	Portal.unlock(); Portal.travel(2, W2.PORTAL1)
+	_step_forward(9)
 	for i in 40:
 		await get_tree().process_frame
-	print("[shots] flash alpha=", UI.flash_rect.color.a, " fps=", Engine.get_frames_per_second())
-	await get_tree().create_timer(3.0).timeout
-	print("[shots] flash alpha=", UI.flash_rect.color.a)
 	await _shot(dir + "/shot_lava.png")
 	Portal3.unlock(); Portal.travel(3, W3.PORTAL3)
+	_step_forward(9)
 	for i in 40:
 		await get_tree().process_frame
 	await _shot(dir + "/shot_sky.png")
 	EXW.unlock(4); Portal.travel(4, EXW.D[4].entry)
+	_step_forward(9)
 	for i in 40:
 		await get_tree().process_frame
 	await _shot(dir + "/shot_ice.png")
 	EXW.unlock(5); Portal.travel(5, EXW.D[5].entry)
+	_step_forward(9)
 	for i in 40:
 		await get_tree().process_frame
 	await _shot(dir + "/shot_moon.png")
 	print("[shots] done")
 	get_tree().quit()
+
+func _step_forward(d: float) -> void:
+	var a := Game.player
+	a.body.pos += Vector3(sin(a.yaw) * d, 0.5, cos(a.yaw) * d)
+	Game.cam_pivot = a.body.pos + Vector3(0, 1.65, 0)
 
 func _shot(path: String) -> void:
 	await RenderingServer.frame_post_draw
@@ -225,31 +227,20 @@ func _shot(path: String) -> void:
 
 ## headless smoke test: play for a while, exercise the systems, print a summary and quit
 func _run_test() -> void:
-	print("[test] boot ok: units=", Game.units.size(), " agents=", Game.agents.size(), " owners=", Game.owners.size(), " bases=", World.bases.size(), " mem=", OS.get_static_memory_usage() / 1048576)
-	Game.playing = true; UI.hide_menu()
-	print("[test] mem after menu=", OS.get_static_memory_usage() / 1048576)
-	Sound.init()
-	print("[test] mem after sound=", OS.get_static_memory_usage() / 1048576)
+	print("[test] boot ok: units=", Game.units.size(), " agents=", Game.agents.size(), " owners=", Game.owners.size(), " bases=", World.bases.size())
 	start_play()
-	print("[test] mem after start=", OS.get_static_memory_usage() / 1048576)
 	var o: Owner = Game.player.owner
 	o.money = 5000
 	for i in 12:
 		Game.simulate(0.5)
-		print("[test] sim ", i, " rss=", rss(), " prof=", Game.prof); Game.prof = {}
 		await get_tree().process_frame
-		print("[test] frame rss=", rss())
 	var bought := 0
-	print("[test] belt units=", Game.BELTS[0].list.size(), " t=", Time.get_ticks_msec() / 1000.0)
 	for u in Game.BELTS[0].list.duplicate():
-		print("[test] try_buy ", u.c.name, " at ", u.pos)
-		var pth := Nav.find_path(u.pos.x, u.pos.z, o.base.slotPos[0].x, o.base.slotPos[0].z)
-		print("[test] path len=", pth.size(), " t=", Time.get_ticks_msec() / 1000.0)
 		if Game.try_buy(o, u) == "ok":
 			bought += 1
 			if bought >= 3:
 				break
-	print("[test] bought=", bought, " money=", o.money, " t=", Time.get_ticks_msec() / 1000.0, " rss=", rss())
+	print("[test] bought=", bought, " money=", o.money)
 	Game.activate_security(o)
 	Game.slap(Game.player)
 	Tutorial.finish()
@@ -259,9 +250,7 @@ func _run_test() -> void:
 			Game.player.body.pos = s.unit.pos + Vector3(0.5, 0, 0.5)
 			Game.start_steal(Game.player, s.unit)
 			break
-	print("[test] carrying=", Game.player.carrying != null, " t=", Time.get_ticks_msec() / 1000.0)
-	for i in 40:
-		Game.simulate(0.25)
+	print("[test] carrying=", Game.player.carrying != null)
 	Game.player.body.pos = o.base.insidePos
 	for i in 20:
 		Game.simulate(0.25)
@@ -271,25 +260,29 @@ func _run_test() -> void:
 	Shop.order("cap")
 	for i in 10:
 		Game.simulate(0.25)
-	print("[test] cap after shop=", o.up.cap, " t=", Time.get_ticks_msec() / 1000.0, " rss=", rss())
+	print("[test] cap after shop=", o.up.cap)
 	o.money = 1e12
 	Portal.unlock()
-	print("[test] world2 built=", W2.built, " owners=", Game.owners.size(), " bases=", World.bases.size(), " t=", Time.get_ticks_msec() / 1000.0, " rss=", rss())
+	print("[test] world2 built=", W2.built, " owners=", Game.owners.size(), " bases=", World.bases.size())
 	Portal.travel(2, W2.PORTAL1)
+	_step_forward(9)
 	for i in 40:
 		Game.simulate(0.25); update_camera(0.25)
-	print("[test] player world=", Phys.world_of(Game.player.body.pos.x), " w2 bases=", o.bases.size(), " t=", Time.get_ticks_msec() / 1000.0, " rss=", rss())
+	print("[test] player world=", Phys.world_of(Game.player.body.pos.x), " w2 bases=", o.bases.size())
 	Portal3.unlock()
 	Portal.travel(3, W3.PORTAL3)
+	_step_forward(9)
 	for i in 40:
 		Game.simulate(0.25); update_camera(0.25)
 	EXW.unlock(4); Portal.travel(4, EXW.D[4].entry)
+	_step_forward(9)
 	for i in 40:
 		Game.simulate(0.25); update_camera(0.25)
 	EXW.unlock(5); Portal.travel(5, EXW.D[5].entry)
+	_step_forward(9)
 	for i in 40:
 		Game.simulate(0.25); update_camera(0.25)
-	print("[test] worlds: ", W2.built, W3.built, EXW.D[4].built, EXW.D[5].built, " units=", Game.units.size(), " agents=", Game.agents.size(), " t=", Time.get_ticks_msec() / 1000.0, " rss=", rss())
+	print("[test] worlds: ", W2.built, W3.built, EXW.D[4].built, EXW.D[5].built, " units=", Game.units.size(), " agents=", Game.agents.size())
 	Extras.boss = Extras.Boss.new(5)
 	Extras.spawn_chest(5, null, false)
 	for i in 20:
@@ -300,7 +293,7 @@ func _run_test() -> void:
 	print("[test] save code ok=", back != null, " len=", code.length())
 	var s2 = SaveSys.load_save()
 	print("[test] reload save ok=", s2 != null)
-	print("[test] DONE time=", Game.time, " t=", Time.get_ticks_msec() / 1000.0, " rss=", rss(), " pf_calls=", Nav.pf_calls, " pf_ms=", Nav.pf_time / 1000)
+	print("[test] DONE time=", Game.time)
 	get_tree().quit()
 
 func set_player_name(n: String) -> void:

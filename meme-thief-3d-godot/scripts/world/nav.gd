@@ -105,16 +105,7 @@ func line_open(x0: float, z0: float, x1: float, z1: float) -> bool:
 	return true
 
 ## returns Array of Vector2(x, z) waypoints, or [] when unreachable
-var pf_calls := 0
-var pf_time := 0
 func find_path(sx: float, sz: float, tx: float, tz: float) -> Array:
-	pf_calls += 1
-	var t0 := Time.get_ticks_usec()
-	var r := _find_path(sx, sz, tx, tz)
-	pf_time += Time.get_ticks_usec() - t0
-	return r
-
-func _find_path(sx: float, sz: float, tx: float, tz: float) -> Array:
 	if Phys.world_of(sx) != Phys.world_of(tx):
 		return []
 	pick(sx)

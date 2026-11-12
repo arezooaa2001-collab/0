@@ -725,19 +725,13 @@ func init_game(save) -> void:
 	inited = true
 
 # ---------------------------------------------------------------- simulation step
-var prof := {}
-func _pf(k: String, t0: int) -> void:
-	prof[k] = prof.get(k, 0) + (Time.get_ticks_usec() - t0)
-
 func simulate(dt: float) -> void:
 	time += dt
 	if playing:
 		playTime += dt; graceT -= dt
-	var t0 := Time.get_ticks_usec()
 	for a in agents:
 		if a.brain != null:
 			a.brain.update(dt)
-	_pf("brain", t0); t0 = Time.get_ticks_usec()
 	acc += dt
 	var n := 0
 	while acc >= FIXED and n < 12:
@@ -747,17 +741,12 @@ func simulate(dt: float) -> void:
 		acc -= FIXED; n += 1
 	if n >= 12:
 		acc = 0
-	_pf("phys", t0); t0 = Time.get_ticks_usec()
 	update_belt(dt); update_economy(dt); update_steals(dt); update_events(dt)
-	_pf("belt", t0); t0 = Time.get_ticks_usec()
 	for a in agents:
 		a.visual(dt, time)
-	_pf("avis", t0); t0 = Time.get_ticks_usec()
 	for u in units.duplicate():
 		u.update(dt, time, cam_pos)
-	_pf("units", t0); t0 = Time.get_ticks_usec()
 	World.update(dt, time)
-	_pf("world", t0); t0 = Time.get_ticks_usec()
 	if Chars.mut_mats.has(3):
 		var mm: StandardMaterial3D = Chars.mut_mats[3]
 		mm.albedo_color = Color.from_hsv(fmod(time * 0.15, 1.0), 0.9, 0.6 + 0.3)
@@ -766,6 +755,4 @@ func simulate(dt: float) -> void:
 		shopkeeper.animate(dt, {"speed": 0, "grounded": true, "t": time, "turn": 0})
 		Shop.update(dt)
 	Fusion.update(dt); Day.update(dt); Hazards.update(dt); Portal.update(dt, time); update_reflect(dt); Extras.update(dt); Portal3.update(dt, time); EXW.update(dt, time); W3.update_lightning(dt); House.update(dt); Extras.update_ufo(dt); Extras.update_fireworks(dt)
-	_pf("rest", t0); t0 = Time.get_ticks_usec()
 	FX.update(dt)
-	_pf("fx", t0)

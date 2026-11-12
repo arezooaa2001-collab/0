@@ -229,7 +229,7 @@ func _build_hud() -> void:
 	prompt.custom_minimum_size = Vector2(0, 0); prompt.size_flags_horizontal = 0; prompt.autowrap_mode = TextServer.AUTOWRAP_OFF
 	prompt.add_theme_stylebox_override("normal", sb("rgba(27,20,70,.85)", 12, COIN, 1, 8)); prompt.visible = false; hud.add_child(prompt)
 	# banner (center)
-	banner_box = vbox(2); banner_box.set_anchors_preset(Control.PRESET_CENTER); banner_box.grow_horizontal = Control.GROW_DIRECTION_BOTH; banner_box.grow_vertical = Control.GROW_DIRECTION_BOTH; banner_box.position.y = -120; banner_box.mouse_filter = Control.MOUSE_FILTER_IGNORE; hud.add_child(banner_box)
+	banner_box = vbox(2); banner_box.set_anchors_preset(Control.PRESET_CENTER_TOP); banner_box.anchor_top = 0.3; banner_box.anchor_bottom = 0.3; banner_box.offset_left = -450; banner_box.offset_right = 450; banner_box.mouse_filter = Control.MOUSE_FILTER_IGNORE; hud.add_child(banner_box)
 	banner_t = lbl("", 36, COIN, true, HORIZONTAL_ALIGNMENT_CENTER); banner_t.add_theme_font_override("font", FONT_BLACK); banner_t.add_theme_color_override("font_outline_color", Sign.css(INK)); banner_t.add_theme_constant_override("outline_size", 8); banner_box.add_child(banner_t)
 	banner_s = lbl("", 18, "#fff8ec", true, HORIZONTAL_ALIGNMENT_CENTER); banner_s.add_theme_color_override("font_outline_color", Sign.css(INK)); banner_s.add_theme_constant_override("outline_size", 6); banner_box.add_child(banner_s)
 	banner_box.modulate.a = 0
