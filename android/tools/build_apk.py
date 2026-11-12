@@ -195,7 +195,7 @@ BRIDGE = r"""<script>
   if(!n){for(var i=0;i<ls.length;i++){k=ls.key(i);if(k!==null){mem[k]=get.call(ls,k);S.setItem(k,mem[k]);}}} // first run: keep what WebView had
  }catch(e){}
  function push(){if(timer){clearTimeout(timer);timer=0;}for(var key in pending){var v=pending[key];delete pending[key];try{v===null?S.removeItem(key):S.setItem(key,v);}catch(e){}}}
- function later(){if(!timer)timer=setTimeout(push,1200);}
+ function later(){if(!timer)timer=setTimeout(push,600);}
  P.setItem=function(key,v){if(this!==ls)return set.call(this,key,v);key=String(key);v=String(v);
   if(mem[key]!==v){mem[key]=v;pending[key]=v;later();}
   try{set.call(this,key,v);}catch(e){} /* over the WebView quota: the app's files still keep it */};

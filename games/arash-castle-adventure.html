@@ -2925,7 +2925,7 @@ function decoyGroundFromScreen(clientX,clientY){
 }
 function decoyPlace(x,y,z){
  const yaw=G.poseAt&&G.pose!=='stand'&&G.poseAt.yaw!==undefined?G.poseAt.yaw:PL.yaw;
- const d=decoyBuild({x,y,z,yaw,pose:decoyPoseName()});if(d){toast('🗿 مجسمه هم‌شکل خودت گذاشته شد! آرش ممکنه اشتباه بگیره.',2400);SFX.tick&&SFX.tick(.25);}return !!d;
+ const d=decoyBuild({x,y,z,yaw,pose:decoyPoseName()});arashSaveSoon();if(d){toast('🗿 مجسمه هم‌شکل خودت گذاشته شد! آرش ممکنه اشتباه بگیره.',2400);SFX.tick&&SFX.tick(.25);}return !!d;
 }
 function decoyCancelPlacement(){ARASH_DECOYS.placing=false;document.getElementById('decoyPlacer').hidden=true;document.getElementById('decoyTouchSurface').hidden=true;}
 function decoyStartPlacement(){
@@ -3729,7 +3729,7 @@ function panelClick(e){const t=e.target.closest('button');if(!t)return;
    subsystem and offers an honest portable backup users can keep in cloud storage. */
 const ARASH_VAULT={version:2};
 function arashVaultFlush(){
-  try{saveLife();saveWorld();crSave();
+  try{saveLife();saveWorld();crSave();resumeSave();
     if(HS_EDITOR.active)hsEditorSave();
     else if(HS_EDITOR.loaded&&HS_EDITOR.layout)localStorage.setItem(HS_EDIT_KEY,JSON.stringify(HS_EDITOR.layout));
     if(typeof EXTRA!=='undefined'&&EXTRA.on)miniSaveProgress();
@@ -3764,10 +3764,42 @@ function arashVaultImport(input){
     }catch(e){console.warn(e);toast('این فایل پشتیبان معتبر بازی آرش نیست یا ذخیره‌سازی بسته است.',3700);}
   };reader.onerror=()=>toast('فایل پشتیبان خوانده نشد.',2400);reader.readAsText(file,'utf-8');
 }
+/* ===== CONTINUE WHERE YOU LEFT OFF =====
+   The stage number used to be kept only by the artifact host (window.claude.hot), so in a
+   normal browser or the Android app every restart began at stage 1 in front of the haystack.
+   Now the stage, where you stood and what you were playing (hide-and-seek round and score,
+   the torch maze) are saved with everything else and restored when you press start. */
+const RESUME_KEY='needle-resume';let RESUME=null;
+function resumeCapture(){
+  const r={v:1,level:G.level||1,at:Date.now(),area:'world'};
+  if(HS.on){r.area='hs';r.hs={round:HS.round||1,score:HS.score||{me:0,fr:0}};}
+  else if(MAZE.on)r.area='maze';
+  else if(!HOSP.on&&!EXTRA.on&&!ARC.on&&G.mode==='walk'&&!INT.cur&&!G.zeroG&&Number.isFinite(G.pos.x)&&Number.isFinite(G.pos.z)&&G.feet<60)
+    r.pos=[+G.pos.x.toFixed(2),+G.feet.toFixed(2),+G.pos.z.toFixed(2)],r.yaw=+G.yaw.toFixed(3),r.pitch=+G.pitch.toFixed(3);
+  return r;
+}
+function resumeSave(){if(G.mode==='loading'||G.mode==='start'&&!G.started)return;try{localStorage.setItem(RESUME_KEY,JSON.stringify(resumeCapture()));}catch(e){}}
+function resumeLoad(){try{const r=JSON.parse(localStorage.getItem(RESUME_KEY)||'null');return r&&r.v===1?r:null;}catch(e){return null;}}
+function resumeApply(){ // right after the start button
+  const r=RESUME;RESUME=null;if(!r)return;
+  try{
+    if(r.area==='hs'&&r.hs){HS.round=Math.max(0,(r.hs.round|0)-1);hsStart();if(HS.on){if(r.hs.score)HS.score={me:r.hs.score.me|0,fr:r.hs.score.fr|0};HS.uiKey='';hsUI(true);toast('▶ قایم‌موشک از دور '+fa(HS.round)+' ادامه پیدا کرد.',2600);}return;}
+    if(r.area==='maze'){mazeEnter();return;}
+    if(r.pos&&r.pos.every(Number.isFinite)&&G.mode==='walk'){
+      G.pos.set(r.pos[0],0,r.pos[2]);G.feet=Math.max(0,r.pos[1]);G.vy=0;G.vel.set(0,0,0);G.grounded=false;
+      G.yaw=r.yaw||0;G.pitch=clamp(r.pitch||0,-1.2,1.2);PL.yaw=G.yaw+Math.PI;collideBody(G.pos);G.eyeY=G.feet+1.62;
+      if(typeof updateChunks==='function')updateChunks(false);
+      toast('▶ از همون جایی که بودی ادامه بده.',2200);
+    }
+  }catch(e){console.warn('ادامهٔ بازی:',e);}
+}
+/* Something changed (an object placed, moved, deleted, a stage won...): save shortly after. */
+let SAVE_SOON=0;
+function arashSaveSoon(){if(SAVE_SOON)clearTimeout(SAVE_SOON);SAVE_SOON=setTimeout(()=>{SAVE_SOON=0;arashAutoSave();},1200);}
 /* Quiet automatic save every 15 s while playing (the designer saves its layout without
    adding an undo step or a message), plus the existing save on leaving the page. */
 function arashAutoSave(){
-  try{saveLife();saveWorld();crSave();
+  try{saveLife();saveWorld();crSave();resumeSave();
     if(HS_EDITOR.active){const d=hsEditorCapture();localStorage.setItem(HS_EDIT_KEY,JSON.stringify(d));HS_EDITOR.layout=d;HS_EDITOR.loaded=true;}
     else if(HS_EDITOR.loaded&&HS_EDITOR.layout)localStorage.setItem(HS_EDIT_KEY,JSON.stringify(HS_EDITOR.layout));
     if(typeof EXTRA!=='undefined'&&EXTRA.on)miniSaveProgress();
@@ -3775,7 +3807,8 @@ function arashAutoSave(){
 }
 function arashVaultInit(){
   window.__gameFlush=arashAutoSave; // the Android app calls this before it goes to the background
-  setInterval(()=>{if(!document.hidden&&G.mode!=='loading'&&G.mode!=='start')arashAutoSave();},15000);
+  setInterval(()=>{if(!document.hidden&&G.mode!=='loading'&&G.mode!=='start')arashAutoSave();},8000);
+  setInterval(()=>{if(!document.hidden&&G.started)resumeSave();},2000); // where you are: small, so often
   const input=document.getElementById('arashSaveImport');if(input&&!input.dataset.bound){input.dataset.bound='1';input.addEventListener('change',()=>arashVaultImport(input));}
   addEventListener('pagehide',arashVaultFlush);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)arashVaultFlush();});
@@ -4856,7 +4889,7 @@ function crRemoveCols(it){for(const b of it.cols||[]){const i=COL.indexOf(b);if(
 function crSave(){try{localStorage.setItem('needle-creations',JSON.stringify(CREATIONS.map(it=>({spec:it.spec,x:+it.x.toFixed(2),y:+it.y.toFixed(2),z:+it.z.toFixed(2),yaw:+it.yaw.toFixed(3),name:it.name}))));}
   catch(e){toast('جای ذخیرهٔ ساخته‌ها پر شد؛ چند عکس را پاک کن.',2600);}}
 function crLoad(){try{const a=JSON.parse(localStorage.getItem('needle-creations')||'[]');for(const s of a)crPlace(s.spec,s.x,s.y,s.z,s.yaw,s.name,true);}catch(e){}}
-function crPlace(spec,x,y,z,yaw,name,instant){const {grp,items}=crBuild(spec);const sc=spec.scale||1;grp.scale.setScalar(sc);grp.position.set(x,y,z);grp.rotation.y=yaw;scene.add(grp);
+function crPlace(spec,x,y,z,yaw,name,instant){if(!instant)arashSaveSoon();const {grp,items}=crBuild(spec);const sc=spec.scale||1;grp.scale.setScalar(sc);grp.position.set(x,y,z);grp.rotation.y=yaw;scene.add(grp);
   const it={id:CR_ID++,spec,grp,items,x,y,z,yaw,name:name||'چیز',t0:G.t,done:!!instant};
   if(instant){crAddCols(it);CREATIONS.push(it);}else{if(!CR_GHOST)CR_GHOST=new THREE.MeshBasicMaterial({color:0x7fe8ff,transparent:true,opacity:.35,wireframe:true,depthWrite:false});
     for(const o of items){o.real=o.mesh.material;o.mesh.material=CR_GHOST;o.mesh.castShadow=false;}grp.scale.setScalar(sc*.05);CR_PEND.push(it);}
@@ -4873,7 +4906,7 @@ function updateCreator(dt){if(CR_GHOST)CR_GHOST.opacity=.22+.18*Math.sin(G.t*6);
 function crStatus(){const el=document.getElementById('crStatus');if(!el)return;if(!CR_PEND.length){el.textContent='';return;}const it=CR_PEND[0];const s=Math.max(0,Math.ceil(10-(G.t-it.t0)));el.textContent=`در حال ساختن «${it.name}»… ${fa(s)} ثانیه`+(CR_PEND.length>1?` (و ${fa(CR_PEND.length-1)} چیز دیگر)`:'');}
 function crList(){const el=document.getElementById('crList');if(!el)return;if(!CREATIONS.length){el.innerHTML='<p class="empty">هنوز چیزی نساخته‌ای.</p>';return;}
   el.innerHTML='<ul class="rows">'+CREATIONS.slice().reverse().map(it=>`<li><span>${it.name.replace(/</g,'')}</span><span class="qty">${fa(Math.round(Math.hypot(it.x-G.pos.x,it.z-G.pos.z)))} متر</span><button type="button" class="rb ghost" data-crdel="${it.id}">پاک کن</button></li>`).join('')+'</ul>';}
-function crDelete(id){const i=CREATIONS.findIndex(it=>it.id===id);if(i<0)return;const it=CREATIONS[i];crRemoveCols(it);scene.remove(it.grp);it.grp.traverse(o=>{if(o.geometry)o.geometry.dispose();});CREATIONS.splice(i,1);crSave();crList();}
+function crDelete(id){arashSaveSoon();const i=CREATIONS.findIndex(it=>it.id===id);if(i<0)return;const it=CREATIONS[i];crRemoveCols(it);scene.remove(it.grp);it.grp.traverse(o=>{if(o.geometry)o.geometry.dispose();});CREATIONS.splice(i,1);crSave();crList();}
 
 /* where in front of you to put a thing of radius R */
 function crSpot(R,where,idx,n,ring){const fx=-Math.sin(G.yaw),fz=-Math.cos(G.yaw),rx=-fz,rz=fx;let dx=fx,dz=fz;if(where==='back'){dx=-fx;dz=-fz;}else if(where==='left'){dx=-rx;dz=-rz;}else if(where==='right'){dx=rx;dz=rz;}
@@ -5993,8 +6026,8 @@ function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hs
     FR.x=HS.AX+HS_START.fr[0]+6;FR.z=HS.AZ+HS_START.fr[1];FR.yaw=0;
     const opts=HS.spots.filter(s=>s!==HS.lastFrSpot);const sp=opts[(Math.random()*opts.length)|0];HS.lastFrSpot=sp;F.st='tohide';F.spot=sp;hsGo(sp.ent[0],sp.ent[1]);
     toast('🙈 چشم‌هات رو بستی؛ '+FR.name+' داره قایم می‌شه…',2600);}
-  hsBatchAll();hsUI(true);}
-function hsExit(){if(!HS.on)return;hsBatchClear();hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
+  hsBatchAll();hsUI(true);arashSaveSoon();}
+function hsExit(){if(!HS.on)return;hsBatchClear();setTimeout(arashSaveSoon,0);hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
   FR.hsIn=null;FR.off=HS.frOff;FR.hsV=0;LIGHTS.pool.forEach((l,i)=>{l.position.copy(LIGHTS.poolHome[i]);l.distance=9;l.color.set(0xffa14a);l.intensity=TODS[TODi].lant;});
   G.pos.set(0,0,PILE.R+2);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=0;G.pitch=-.12;resetFriend();
   for(const id of ['hsBar','hsEyes','hsPeek'])$('#'+id).hidden=true;closePanel();toast('برگشتی به تالار خودت.',2000);}
@@ -7578,7 +7611,7 @@ function hsEditorRestoreSnapshot(d){
   if(HS_EDITOR.selection&&!HS_EDITOR.selection.state.visible)HS_EDITOR.selection=null;
   hsGrid();hsEditorUpdateHandles();hsEditorUpdateControls();
 }
-function hsEditorCheckpoint(){
+function hsEditorCheckpoint(){arashSaveSoon();
   const snap=hsEditorCapture(),json=JSON.stringify(snap),old=HS_EDITOR.history[HS_EDITOR.historyIndex];
   if(old===json)return;
   HS_EDITOR.history=HS_EDITOR.history.slice(0,HS_EDITOR.historyIndex+1);HS_EDITOR.history.push(json);
@@ -7877,7 +7910,7 @@ function hsEditorAddAt(kind,x,z,label){
   const f=hsEditorBuildProp(kind,x-HS.AX,z-HS.AZ,0,id,label);
   if(!f){hsEditorMsg('این مدل ساخته نشد.');return null;}
   if(!hsEditorAccept(f,{...f.state,x:f.px,z:f.pz})){hsEditorApplyFrame(f,{...f.state,visible:false});hsEditorMsg('این نقطه فضای کافی نداره؛ جای دیگه رو انتخاب کن.');return null;}
-  hsEditorSelect(f);hsEditorCheckpoint();hsEditorMsg('✅ وسیله روی تالار قرار گرفت. می‌تونی مستقیم روی مدل بکشیش.');SFX.place&&SFX.place();return f;
+  hsEditorSelect(f);hsEditorCheckpoint();arashSaveSoon();hsEditorMsg('✅ وسیله روی تالار قرار گرفت. می‌تونی مستقیم روی مدل بکشیش.');SFX.place&&SFX.place();return f;
 }
 /* All editing input is performed through gestures on the live rendered scene.
   One finger: select/drag a prop, edge-drag to extend x/z walls, empty-floor drag to orbit.
@@ -8828,7 +8861,7 @@ function startLevel(L){
   G.mode='walk';G.zoom=0;G.levelStart=G.t;G.found=null;G.hintNear=false;G.threadHint=false;G.nextHint=75;G.glintT=0;G.depth=G.depthTarget=0;G.wasIn=false;
   HAND.group.visible=false;setDepthUI();SFX.rustle(0,0,0);
   DOOR.target=DOOR.open=0;updateDoor(0);G.zf=0;G.out=false;
-  $('#lvl').textContent='مرحلهٔ '+fa(L);
+  $('#lvl').textContent='مرحلهٔ '+fa(L);if(G.started)arashSaveSoon();
   showUI();toast(L===1?'برو جلو، تا کنار کپهٔ گندم':'کپه بزرگ‌تر شده؛ سوزن هم کوچک‌تر',2600);
 }
 
@@ -8874,7 +8907,7 @@ $('#jumpBtn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropag
 for(const id of ['#runBtn','#jumpBtn'])$(id).addEventListener('click',e=>e.preventDefault());
 $('#viewBtn').addEventListener('click',e=>{e.stopPropagation();toggleView();canvas.focus();});
 $('#exitBtn').addEventListener('click',()=>exitSearch());
-$('#startBtn').addEventListener('click',()=>{SFX.init();SFX.resume();$('#start').hidden=true;startLevel(G.level);canvas.focus();if(!G.frGreeted){G.frGreeted=true;setTimeout(()=>(!FR.off)&&frSay('سلام رفیق! من '+FR.name+'م و همه‌جا کنارتم. هر کاری داشتی از دکمهٔ 💬 بهم بگو؛ با دکمهٔ ✨ هم هر چیزی بخوای برات ساخته می‌شه.',7),1300);}});
+$('#startBtn').addEventListener('click',()=>{SFX.init();SFX.resume();$('#start').hidden=true;startLevel(G.level);G.started=true;resumeApply();canvas.focus();if(!G.frGreeted){G.frGreeted=true;setTimeout(()=>(!FR.off)&&frSay('سلام رفیق! من '+FR.name+'م و همه‌جا کنارتم. هر کاری داشتی از دکمهٔ 💬 بهم بگو؛ با دکمهٔ ✨ هم هر چیزی بخوای برات ساخته می‌شه.',7),1300);}});
 $('#nextBtn').addEventListener('click',()=>{$('#win').hidden=true;SFX.resume();startLevel(G.level+1);});
 
 /* ---------------- input ---------------- */
@@ -9202,7 +9235,7 @@ function boot(data){data=data||{};loadWorld();
   try{const pm=new THREE.PMREMGenerator(renderer);ENV.in=pm.fromScene(scene,.03,.1,60).texture;scene.environment=ENV.in;pm.dispose();}catch(e){}
   CITY.root=new THREE.Group();scene.add(CITY.root);
   buildHallExterior();buildMosque(P+OZ);buildCars();buildPeds();buildSignals();buildRoadPlane();buildPlayer();decoyInit();setViewLabel();buildSpace();buildFriend();applyWorldLook();initCreator();if(WORLD.zeroG&&!G.zeroG)setZeroG(true);
-  const start=data.level||1;if(data.best)G.best=data.best;
+  RESUME=resumeLoad();const start=data.level||(RESUME&&RESUME.level>0&&RESUME.level<1000?RESUME.level|0:1);if(data.best)G.best=data.best;
   G.level=start;buildPile(start);applyTOD(worldTOD(start));spawnPlayer();if(FR.rig)resetFriend();updateChunks(false);loadLife();warmShaders();try{if(localStorage.getItem('needle-zg')==='1')setZeroG(true);}catch(e){}
   onResize();G.mode='start';if(ARASH_ART.mode==='cartoon')arashArtSet('cartoon');
   $('#wdBtn').disabled=false;$('#wdBtn').addEventListener('click',()=>{SFX.init();SFX.resume();openWorldDesigner(true);});const b=$('#startBtn');b.disabled=false;b.textContent=start>1?'ادامه از مرحلهٔ '+fa(start):'شروع';
