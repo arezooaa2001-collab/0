@@ -13,6 +13,7 @@ import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -22,6 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -40,6 +42,11 @@ public class MainActivity extends Activity {
     private static final int REQ_SAVE = 2;
     // View.SYSTEM_UI_FLAG_* (API 19) as literals; the compile stubs are API 16.
     private static final int IMMERSIVE = 0x100 | 0x200 | 0x400 | 0x2 | 0x4 | 0x1000;
+    /* The game is served from this https address (reserved by Android for app content, it never
+       reaches the internet) instead of file://. On file:// pages Android WebView may block or
+       drop localStorage; on an https origin it saves exactly like a normal browser does. */
+    static final String HOST = "appassets.androidplatform.net";
+    static final String HOME = "https://" + HOST + "/assets/index.html";
 
     private WebView web;
     private ValueCallback<Uri[]> pickCallback;
@@ -67,8 +74,13 @@ public class MainActivity extends Activity {
 
         web.setWebViewClient(new WebViewClient() {
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                return asset(url);
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("file:") || url.startsWith("blob:") || url.startsWith("data:")) return false;
+                if (url.startsWith("https://" + HOST + "/") || url.startsWith("blob:") || url.startsWith("data:")) return false;
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
                 return true;
             }
@@ -80,8 +92,29 @@ public class MainActivity extends Activity {
         setContentView(web);
 
         if (state != null) web.restoreState(state);
-        if (web.getUrl() == null) web.loadUrl("file:///android_asset/index.html");
+        String cur = web.getUrl();
+        if (cur == null || !cur.startsWith("https://" + HOST + "/")) web.loadUrl(HOME);
         immersive();
+    }
+
+    /** Serves https://appassets.androidplatform.net/assets/... from the APK's assets folder. */
+    private WebResourceResponse asset(String url) {
+        String prefix = "https://" + HOST + "/assets/";
+        if (url == null || !url.startsWith(prefix)) return null;
+        String path = Uri.parse(url).getPath();
+        if (path == null || !path.startsWith("/assets/")) return null;
+        path = path.substring("/assets/".length());
+        if (path.length() == 0 || path.contains("..")) return null;
+        try {
+            InputStream in = getAssets().open(path);
+            String mime = path.endsWith(".html") ? "text/html" : path.endsWith(".js") ? "application/javascript"
+                    : path.endsWith(".css") ? "text/css" : path.endsWith(".woff2") ? "font/woff2"
+                    : path.endsWith(".png") ? "image/png" : path.endsWith(".json") ? "application/json" : "application/octet-stream";
+            boolean text = mime.startsWith("text/") || mime.endsWith("javascript") || mime.endsWith("json");
+            return new WebResourceResponse(mime, text ? "UTF-8" : null, in);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static void callIfExists(Object target, String name, boolean arg) {
@@ -171,7 +204,7 @@ public class MainActivity extends Activity {
     }
 
     /* <input type="file">: photos for the builder, backup restore */
-    private class Chrome extends WebChromeClient {
+    public class Chrome extends WebChromeClient {
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, WebChromeClient.FileChooserParams params) {
             if (pickCallback != null) pickCallback.onReceiveValue(null);
             pickCallback = callback;
@@ -198,7 +231,7 @@ public class MainActivity extends Activity {
      * key, written atomically on a background thread. WebView storage alone lost progress when
      * the app was closed or killed, and has a size quota; this has neither problem.
      */
-    static class Store {
+    public static class Store {
         private static final String DELETE = new String("\u0000delete");
         private final File dir;
         private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -219,6 +252,15 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < out.length; i++) out[i] = (byte) Integer.parseInt(name.substring(1 + 2 * i, 3 + 2 * i), 16);
                 return new String(out, "UTF-8");
             } catch (Exception e) { return null; }
+        }
+
+        /** For the save-status line in the game's settings: number of saved entries. */
+        @JavascriptInterface
+        public int count() {
+            File[] files = dir.listFiles();
+            int n = 0;
+            if (files != null) for (File f : files) if (f.getName().startsWith("k") && !f.getName().endsWith(".tmp")) n++;
+            return n;
         }
 
         @JavascriptInterface
@@ -314,7 +356,7 @@ public class MainActivity extends Activity {
     }
 
     /* JS bridge: the game's "save backup" download goes to Android's save dialog */
-    private class Bridge {
+    public class Bridge {
         @JavascriptInterface
         public void saveFile(final String name, final String mime, final String base64) {
             final byte[] data;

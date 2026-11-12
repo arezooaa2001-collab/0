@@ -3687,6 +3687,7 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
     <div class="wdseg" role="group" aria-label="بلند کردن دیوار و وسایل توسط آرش" style="margin-top:.55rem">${[['all','🏋️ دیوار و وسایل رو بلند کنه'],['walls','🧱 فقط دیوارها'],['none','🚫 بلند نکنه؛ دور بزنه']].map(([m,label])=>`<button type="button" data-hs-lift="${m}" class="${HS.lift===m?'on':''}" aria-pressed="${HS.lift===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div><b>🏥 بیمارستان آرش</b><small>${ARASH.phase==='care'?'آرش نیاز به مراقبت داره. با ورود به بیمارستان، ۱۸ ثانیه منتظر بمون تا کمکش کنن.':HOSP.on?'الان داخل بیمارستانی.':'بخش بیمارستان جداگانه برای مراقبت و آشتی؛ صدای بازی و تالار اصلی باقی می‌مونن.'}</small></div><button class="rb" id="hospitalBtn">${HOSP.on?'بازگشت به بازی':'ورود به بیمارستان'}</button></div>
   <div class="setrow"><div><b>🔥 هزارتوی مشعل‌ها (فقط اول‌شخص)</b><small>${MAZE.on?'الان داخل هزارتو هستی. راه خروج را پیدا کن.':'یک تالار ۴۰×۴۰ متریِ ستون‌دار با هزارتوی مرحله‌ای، مشعل‌های روشن، برخورد واقعی دیوارها و ذخیرهٔ مرحله.'}</small></div><button class="rb" id="mazeBtn">${MAZE.on?'بازگشت به تالار':'ورود به هزارتو'}</button></div>
+  <div class="setrow"><div style="width:100%"><b>💾 وضعیت ذخیره</b><small id="saveStatus">${saveStatusText()}</small></div><button class="rb" id="saveNowBtn">ذخیره الان</button></div>
   <div class="setrow"><div><b>💾 پشتیبان کل بازی</b><small>وسایل شهر و قایم‌موشک، مرحله‌های هزارتو، تنظیمات و پیشرفت بازی ذخیره می‌شن. می‌تونی فایل پشتیبان را در فضای ابری خودت نگه داری و در نسخه‌های جدید بازیابی کنی. ذخیره روی تبلت به‌تنهایی همگام‌سازی ابری نیست.</small></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="rb" id="arashBackupDownload">📤 ذخیرهٔ همه</button><button class="rb" id="arashBackupRestore">📥 بازیابی</button></div></div>
   <div class="setrow"><div style="width:100%"><b>🎮 بازی‌های ماجراجویی در دو محیط جدید</b><small>باغ شفق و رصدخانهٔ آسمان؛ جمع‌آوری گنج، شکار نورها و مسابقهٔ نشانه‌ها با کنترل سه‌بعدی و ذخیرهٔ رکورد.</small><div class="wdseg" style="margin-top:.45rem;display:flex;gap:6px;flex-wrap:wrap">${Object.entries(MINI_AREAS).flatMap(([a,n])=>Object.entries(MINI_NAMES).map(([m,label])=>`<button type="button" data-mini="${a}:${m}">${n} · ${label}</button>`)).join('')}</div></div></div>
   <div class="setrow"><div><b>📱 گرافیک مخصوص گوشی معمولی</b><small>بهینه‌سازی یک‌باره مطابق مدل و توان قابل‌شناسایی دستگاه؛ بدون کاهش خودکار تصویر در حین بازی. برای انتخاب، مدل رو همراه عکس واقعی از بخش «درباره تلفن» دستگاه ثبت کن.</small></div><button type="button" class="rb" id="arcDeviceChoose">📱 انتخاب دستگاه</button></div>
@@ -3712,6 +3713,7 @@ function panelClick(e){const t=e.target.closest('button');if(!t)return;
   else if(t.id==='arcDeviceSave'){arashDeviceSave();}
   else if(t.dataset.mini){const [area,mode]=t.dataset.mini.split(':');closePanel();miniEnter(area,mode);}
   else if(t.dataset.miniResult){closePanel();if(t.dataset.miniResult==='exit')miniExit();else if(EXTRA.on)miniCreateItems();}
+  else if(t.id==='saveNowBtn'){arashAutoSave();try{window.__appSave&&window.__appSave();}catch(e){}toast('💾 همه‌چیز ذخیره شد.',1800);const st=document.getElementById('saveStatus');if(st)st.textContent=saveStatusText();}
   else if(t.id==='arashBackupDownload'){closePanel();arashVaultExport();}
   else if(t.id==='arashBackupRestore'){closePanel();document.getElementById('arashSaveImport').click();}
   else if(t.id==='hsHallSizeSettings'){closePanel();hsHallSizeOpen();}
@@ -3793,12 +3795,23 @@ function resumeApply(){ // right after the start button
     }
   }catch(e){console.warn('ادامهٔ بازی:',e);}
 }
+/* What the settings show about saving, so it can be checked on the device itself. */
+function saveStatusText(){
+  let ok=false;try{const v=String(Date.now());localStorage.setItem('needle-save-test',v);ok=localStorage.getItem('needle-save-test')===v;localStorage.removeItem('needle-save-test');}catch(e){}
+  let n=0;try{for(let i=0;i<localStorage.length;i++)if(/^needle-/.test(localStorage.key(i)||''))n++;}catch(e){}
+  let t=(ok?'✅ ذخیره‌سازی کار می‌کنه':'❌ ذخیره‌سازی این مرورگر بسته‌ست')+' · '+fa(n)+' بخش ذخیره‌شده';
+  const S=window.AndroidStore;
+  if(S){let c=-1;try{c=S.count();}catch(e){}t+=c>=0?' · 📱 فایل‌های برنامه: ✅ '+fa(c)+' فایل':' · 📱 فایل‌های برنامه: ❌ وصل نیست';}
+  if(window.__lastSave)t+=' · آخرین ذخیرهٔ خودکار: '+fa(Math.max(0,Math.round((Date.now()-window.__lastSave)/1000)))+' ثانیه پیش';
+  return t;
+}
 /* Something changed (an object placed, moved, deleted, a stage won...): save shortly after. */
 let SAVE_SOON=0;
 function arashSaveSoon(){if(SAVE_SOON)clearTimeout(SAVE_SOON);SAVE_SOON=setTimeout(()=>{SAVE_SOON=0;arashAutoSave();},1200);}
 /* Quiet automatic save every 15 s while playing (the designer saves its layout without
    adding an undo step or a message), plus the existing save on leaving the page. */
 function arashAutoSave(){
+  window.__lastSave=Date.now();
   try{saveLife();saveWorld();crSave();resumeSave();
     if(HS_EDITOR.active){const d=hsEditorCapture();localStorage.setItem(HS_EDIT_KEY,JSON.stringify(d));HS_EDITOR.layout=d;HS_EDITOR.loaded=true;}
     else if(HS_EDITOR.loaded&&HS_EDITOR.layout)localStorage.setItem(HS_EDIT_KEY,JSON.stringify(HS_EDITOR.layout));
