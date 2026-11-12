@@ -69,8 +69,9 @@ export class RoadLife {
       b.prev = along;
       if (prev === null || Math.sign(prev) === Math.sign(along) || lat > 6.2) continue;
       const sp = p.groundSpeed ?? Math.abs(p.speed);
-      if (sp < 7) {
-        g.shake = Math.max(g.shake || 0, 0.15);
+      // races and Crazy Taxi: the AI ignores bumps, so the player only gets a jolt
+      if (sp < 7 || g.race.state !== 'idle' || g.crazy.state !== 'idle') {
+        g.shake = Math.max(g.shake || 0, sp < 7 ? 0.15 : 0.35);
         continue;
       }
       // too fast over the bump: the taxi bucks into the air
@@ -146,7 +147,10 @@ export class RoadLife {
       const mx = (A.x + B.x) / 2, mz = (A.z + B.z) / 2, d = Math.hypot(mx - p.x, mz - p.z);
       if (d < 90 || d > 220) continue;
       if (!this.convoy.length) for (let i = 0; i < 4; i++) this.convoy.push(this.weddingCar(i === 0));
+      const lead = this.convoy[0];
+      lead.picks = new Map();
       this.convoy.forEach((c, i) => {
+        if (i) c.leader = lead;
         c.spawnOn(e.id, e.a, 0.62 - i * 0.16);
         c.persona = 0.72;
       });

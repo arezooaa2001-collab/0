@@ -135,14 +135,14 @@ export class Nature {
     c.fillStyle = grd;
     c.fillRect(0, 0, 128, 128);
     const mistTex = new THREE.CanvasTexture(cv);
-    this.mistMat = new THREE.MeshBasicMaterial({ map: mistTex, transparent: true, opacity: 0, depthWrite: false, color: 0xe8eef5 });
+    this.mistMat = new THREE.MeshBasicMaterial({ map: mistTex, transparent: true, opacity: 0, depthWrite: false, color: 0xe8eef5, side: THREE.DoubleSide });
     this.mist = [];
     const mg = new THREE.PlaneGeometry(110, 110);
     mg.rotateX(-Math.PI / 2);
     for (let i = 0; i < 9; i++) {
       const m = new THREE.Mesh(mg, this.mistMat);
       const a = (i / 9) * Math.PI * 2, d = 60 + (i % 3) * 70;
-      m.userData = { x: 1350 + Math.cos(a) * d, z: -750 + Math.sin(a) * d, y: 1.5 + (i % 3) * 2, ph: i };
+      m.userData = { x: 1350 + Math.cos(a) * d, z: -750 + Math.sin(a) * d, y: 0.8 + (i % 3) * 1.1, ph: i };
       m.renderOrder = 6;
       scene.add(m);
       this.mist.push(m);

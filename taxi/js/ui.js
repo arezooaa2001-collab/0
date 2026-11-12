@@ -1,5 +1,5 @@
 import { fa, faMoney, faDist, clamp, levelFor, xpFor, levelTitle } from './util.js';
-import { GEAR_LABEL, TOP_GEAR, CAR_MODELS } from './vehicle.js';
+import { GEAR_LABEL, TOP_GEAR, CAR_MODELS, PERF } from './vehicle.js';
 import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
@@ -105,7 +105,7 @@ export class UI {
     document.querySelectorAll('#gearbox [data-g]').forEach((b) => {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        g.player.requestGear(parseInt(b.dataset.g, 10));
+        this.pickGear(parseInt(b.dataset.g, 10));
         // on phones the gate folds away again after shifting
         clearTimeout(this.gearFold);
         this.gearFold = setTimeout(() => $('gearbox').classList.remove('open'), 1400);
@@ -122,9 +122,13 @@ export class UI {
     $('btnDoor').addEventListener('click', () => g.onfoot.toggle());
     $('btnBag').addEventListener('click', () => this.openInventory());
     $('btnRadio').addEventListener('click', () => this.cycleRadio());
-    $('btnAch').addEventListener('click', () => this.openAchievements());
-    $('btnFleet').addEventListener('click', () => g.fleet.open());
+    $('btnPhone').addEventListener('click', () => (this.panelOpen ? this.closePanel() : g.phone.open()));
+    $('storyChip').addEventListener('click', () => g.phone.open('story'));
     $('btnCruise').addEventListener('click', () => g.setCruise(!g.cruise));
+    $('btnShift').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      g.drag.shift(1);
+    });
     $('btnGuide').addEventListener('click', () => g.toggleGuide());
     $('btnLights').addEventListener('click', () => {
       g.player.lights = !g.player.lights;
@@ -191,6 +195,7 @@ export class UI {
   }
   toggleAuto(v) {
     const p = this.g.player;
+    if (this.g.drag.state !== 'idle') return this.toast('🚦 توی درگ باید خودت دنده عوض کنی!', 'warn');
     p.auto = v === undefined ? !p.auto : v;
     $('btnAuto').textContent = p.auto ? 'خودکار' : 'دستی';
     $('btnAuto').classList.toggle('active', p.auto);
@@ -225,9 +230,10 @@ export class UI {
       if (e.code === 'KeyU' && g.state === 'play') g.setCruise(!g.cruise);
       if (e.code === 'KeyJ' && g.state === 'play') this.panelOpen ? this.closePanel() : g.fleet.open();
       if (e.code === 'KeyO' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openAchievements();
+      if (e.code === 'KeyZ' && g.state === 'play') this.panelOpen ? this.closePanel() : g.phone.open();
       if (e.code === 'KeyI' && g.state === 'play') this.panelOpen ? this.closePanel() : this.openInventory();
       const walking = g.onfoot.active || g.onfoot.busy;
-      if (e.code in map && g.state === 'play' && !walking) p.requestGear(map[e.code]);
+      if (e.code in map && g.state === 'play' && !walking) this.pickGear(map[e.code]);
       if (g.state === 'play' && !walking && (e.code === 'KeyE' || e.code === 'ShiftLeft')) this.gearStep(1);
       if (g.state === 'play' && !walking && (e.code === 'KeyQ' || e.code === 'ControlLeft')) this.gearStep(-1);
       if (e.code === 'KeyC') g.cycleCamera();
@@ -258,6 +264,12 @@ export class UI {
     let n;
     if (dir > 0) n = t === -1 ? 0 : t === 0 ? 1 : Math.min(TOP_GEAR, t + 1);
     else n = t === 1 ? 0 : t === 0 ? -1 : t === -1 ? -1 : t - 1;
+    this.pickGear(n);
+  }
+  /** every gear request goes through here, so the drag race can take over the shifting */
+  pickGear(n) {
+    const g = this.g, p = g.player;
+    if (g.drag.state !== 'idle') return g.drag.shift(n > p.gear ? 1 : -1);
     p.requestGear(n);
   }
   input() {
@@ -289,11 +301,24 @@ export class UI {
     $('hud').classList.toggle('off', !on);
   }
   /** tap on the big map: drop (or remove) a custom GPS waypoint */
+  /** custom waypoint (the phone's apps use it): the guide arrow shows the way */
+  navTo(x, z, label, addr = '') {
+    const g = this.g;
+    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle') {
+      this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
+      return false;
+    }
+    if (!(g.guide && g.guide.custom)) g.guidePrev = g.guideOn;
+    g.setGuide({ x, z, label, addr: addr || REGION_NAMES[regionAt(x, z)], custom: true });
+    g.guideOn = true;
+    $('btnGuide').classList.add('active');
+    return true;
+  }
   mapWaypoint(e) {
     const g = this.g;
     const c = $('bigmapCanvas'), r = c.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width) * HALF * 2 - HALF, z = ((e.clientY - r.top) / r.height) * HALF * 2 - HALF;
-    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle') {
+    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle') {
       this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
       return;
     }
@@ -491,7 +516,11 @@ export class UI {
     $('fuelBar').style.width = (p.fuel / tank) * 100 + '%';
     $('superBar').style.width = (p.superFuel / tank) * 100 + '%';
     $('fuelBar').parentElement.parentElement.classList.toggle('low', p.fuelTotal() / tank < 0.15);
-    $('fuelText').textContent = fa(Math.round(p.fuelTotal())) + 'L';
+    $('fuelText').textContent = p.spec.ev ? fa(Math.round((p.fuelTotal() / tank) * 100)) + '٪' : fa(Math.round(p.fuelTotal())) + 'L';
+    if (this.fuelIcon !== !!p.spec.ev) {
+      this.fuelIcon = !!p.spec.ev;
+      $('fuelText').parentElement.firstElementChild.textContent = p.spec.ev ? '🔋' : '⛽';
+    }
     $('healthBar').style.width = p.health + '%';
     $('healthBar').parentElement.parentElement.classList.toggle('low', p.health < 30);
     const h = Math.floor(g.hour), m = Math.floor((g.hour - h) * 60);
@@ -637,7 +666,11 @@ export class UI {
     icon(w.police.padX, w.police.padZ, '#1f4fa0', 11, '🚓');
     const race = g.race;
     if (race.state === 'idle') {
-      if (g.crazy.state === 'idle' && g.parking.state === 'idle') for (const s of race.spots) icon(s.padX, s.padZ, '#8e24aa', 11, '🏁');
+      if (g.crazy.state === 'idle' && g.parking.state === 'idle' && g.drag.state === 'idle') {
+        for (const s of race.spots) icon(s.padX, s.padZ, '#8e24aa', 11, '🏁');
+        icon(g.drag.spot.padX, g.drag.spot.padZ, '#c62828', 11, '🚦');
+      }
+      for (const ic of g.events.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
     }
     else {
       for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
@@ -746,6 +779,8 @@ export class UI {
     for (const s of g.race.spots) dot(s.padX, s.padZ, '#8e24aa', '🏁');
     dot(g.crazy.spot.padX, g.crazy.spot.padZ, '#ff6a00', '🔥');
     dot(g.parking.spot.padX, g.parking.spot.padZ, '#1565c0', '🅿️');
+    dot(g.drag.spot.padX, g.drag.spot.padZ, '#c62828', '🚦');
+    for (const ic of g.events.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     {
       const sp = w.stuntPark;
       dot(sp.x, sp.z, '#e65100', '🚀', 10);
@@ -924,25 +959,26 @@ export class UI {
   }
   openStation(s) {
     const g = this.g, p = g.player;
-    const PR = 1500, PS = 3000;
+    const ev = !!p.spec.ev, U = ev ? 'کیلووات' : 'لیتر';
+    const PR = ev ? 600 : 1500, PS = 3000;
     const render = () => {
       const space = p.tank - p.fuelTotal();
       const fullR = Math.ceil(space) * PR, fullS = Math.ceil(space) * PS;
       this.panel(`
         <h2>⛽ ${s.name}</h2>
         <div class="tank"><div class="tr"><i style="width:${(p.fuel / p.tank) * 100}%"></i><i class="s" style="width:${(p.superFuel / p.tank) * 100}%"></i></div>
-        <span>${fa(p.fuelTotal().toFixed(1)).replace('.', '٫')} / ${fa(p.tank)} لیتر</span></div>
+        <span>${fa(p.fuelTotal().toFixed(1)).replace('.', '٫')} / ${fa(p.tank)} ${U}</span></div>
         <div class="grid2">
-          <div class="card r"><h3>بنزین معمولی</h3><p>${faMoney(PR)} تومان / لیتر</p>
-            <button data-a="r10">+۱۰ لیتر • ${faMoney(Math.min(10, Math.ceil(space)) * PR)}</button>
+          <div class="card r"><h3>${ev ? '⚡ شارژ باتری' : 'بنزین معمولی'}</h3><p>${faMoney(PR)} تومان / ${U}</p>
+            <button data-a="r10">+۱۰ ${U} • ${faMoney(Math.min(10, Math.ceil(space)) * PR)}</button>
             <button data-a="rf">باک رو پر کن • ${faMoney(fullR)}</button></div>
           <div class="card wash"><h3>🧽 کارواش</h3><div class="hb"><i style="width:${(1 - (p.dirt || 0)) * 100}%"></i></div><p>تمیزی: ${fa(Math.round((1 - (p.dirt || 0)) * 100))}٪ • ماشین تمیز = مسافر راضی</p>
             <button data-wash="1" ${(p.dirt || 0) < 0.03 ? 'disabled' : ''}>شستن ماشین • ${faMoney(WASH_COST)}</button></div>
-          <div class="card s"><h3>🚀 بنزین سوپر</h3><p>${faMoney(PS)} تومان / لیتر</p>
+          ${ev ? '<div class="card"><h3>🔌 ماشین برقی</h3><p>ماشین برقیه، بنزین نمی‌خواد! شارژش خیلی ارزون‌تره 🌱</p></div>' : `<div class="card s"><h3>🚀 بنزین سوپر</h3><p>${faMoney(PS)} تومان / لیتر</p>
             <button data-a="s10">+۱۰ لیتر • ${faMoney(Math.min(10, Math.ceil(space)) * PS)}</button>
-            <button data-a="sf">باک رو پر کن • ${faMoney(fullS)}</button></div>
+            <button data-a="sf">باک رو پر کن • ${faMoney(fullS)}</button></div>`}
         </div>
-        <p class="note">بنزین سوپر تا وقتی توی باکه، سرعت ماشین رو تا ۲۰٪ و شتاب رو تا ۳۰٪ بیشتر می‌کنه. برای سفرهای خیلی دور عالیه!</p>
+        <p class="note">${ev ? '⚡ هر ' + U + ' شارژ حدوداً به اندازه یه لیتر بنزین راه میره.' : ''} بنزین سوپر تا وقتی توی باکه، سرعت ماشین رو تا ۲۰٪ و شتاب رو تا ۳۰٪ بیشتر می‌کنه. برای سفرهای خیلی دور عالیه!</p>
         <p class="money">موجودی: ${faMoney(g.money)} تومان${g.coins ? ` + 🪙 ${fa(g.coins)} سکه` : ''}</p>`, (el) => {
         const wb = el.querySelector('[data-wash]');
         if (wb) wb.onclick = () => {
@@ -981,8 +1017,9 @@ export class UI {
             g.money -= Math.round(L * price);
             if (sup) p.superFuel += L;
             else p.fuel += L;
+            g.stats.fuelBuys = (g.stats.fuelBuys || 0) + 1;
             g.audio.cash();
-            this.toast(`${fa(L.toFixed(1)).replace('.', '٫')} لیتر ${sup ? 'سوپر' : 'معمولی'} زدی ⛽`, 'good');
+            this.toast(ev ? `⚡ ${fa(L.toFixed(1)).replace('.', '٫')} کیلووات شارژ شد` : `${fa(L.toFixed(1)).replace('.', '٫')} لیتر ${sup ? 'سوپر' : 'معمولی'} زدی ⛽`, 'good');
             g.save();
             render();
           };
@@ -1006,6 +1043,7 @@ export class UI {
             <button data-a="rep" ${p.health >= 99.5 ? 'disabled' : ''}>تعمیر کامل • ${(g.stats.insurance || 0) > 0 ? '🛡️ رایگان (بیمه)' : faMoney(rc)}</button></div>
           <div class="card"><h3>ارتقای موتور (درجه سرعت)</h3><p>سطح ${fa(lvl)} از ۵ • حداکثر سرعت ${fa(Math.round(p.topSpeed() * 3.6))} km/h</p>
             ${lvl < 5 ? `<button data-a="eng">سطح ${fa(lvl + 1)} • ${faMoney(ENG[lvl])}</button>` : '<button disabled>حداکثر سطح ✔</button>'}</div>
+          <div class="card perf"><h3>🏁 قطعات مسابقه‌ای</h3><p>روی همه ماشین‌هات کار می‌کنه</p><div class="perfrow">${PERF.map(([id, icon, name, desc, price]) => `<div class="${p.hasPerf(id) ? 'got' : ''}"><b>${icon} ${name}</b><small>${desc}</small><button data-perf="${id}" ${p.hasPerf(id) ? 'disabled' : ''}>${p.hasPerf(id) ? '✔ نصب شده' : faMoney(price)}</button></div>`).join('')}</div></div>
           <div class="card showroom"><h3>🚗 نمایشگاه ماشین</h3><div class="cars">${Object.entries(CAR_MODELS).map(([id, m]) => {
             const owned = p.owned.includes(id), cur = p.model === id;
             const bar = (label, v, max) => `<div class="cs"><span>${label}</span><i><b style="width:${Math.min(100, (v / max) * 100)}%"></b></i></div>`;
@@ -1042,7 +1080,7 @@ export class UI {
               this.toast('مسافر توی ماشینه! اول سفر رو تموم کن', 'warn');
               return;
             }
-            if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle') {
+            if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle') {
               this.toast('وسط مسابقه که نمیشه ماشین عوض کرد! 😅', 'warn');
               return;
             }
@@ -1082,6 +1120,19 @@ export class UI {
           g.save();
           render();
         };
+        el.querySelectorAll('[data-perf]').forEach((b) => {
+          b.onclick = () => {
+            const part = PERF.find((x) => x[0] === b.dataset.perf);
+            if (!part || p.hasPerf(part[0]) || !buy(part[4])) return;
+            p.perf = [...(p.perf || []), part[0]];
+            p.applyPerf();
+            if (part[0] === 'turbo') {
+              g.audio.burst(0.5, 2600, 'highpass', 0.25);
+              g.audio.tone(2200, 0.4, 0.05, 'sine');
+            }
+            done(`${part[1]} ${part[2]} نصب شد! 🔧`);
+          };
+        });
         el.querySelectorAll('[data-tint]').forEach((b) => {
           b.onclick = () => {
             const v = +b.dataset.tint;
@@ -1244,9 +1295,12 @@ export class UI {
   }
   cycleRadio() {
     const g = this.g;
+    this.setRadio(STATIONS[(STATIONS.indexOf(g.radio || null) + 1) % STATIONS.length]);
+  }
+  setRadio(st) {
+    const g = this.g;
     g.audio.init();
-    const i = (STATIONS.indexOf(g.radio || null) + 1) % STATIONS.length;
-    g.radio = STATIONS[i];
+    g.radio = STATIONS.includes(st) ? st : null;
     g.audio.setRadio(g.radio);
     $('btnRadio').classList.toggle('active', !!g.radio);
     this.toast(g.radio ? STATION_NAME[g.radio] : '📻 رادیو خاموش', 'info');
@@ -1324,7 +1378,7 @@ export class UI {
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>
         <label><input type="checkbox" data-s="sound"> صدا</label>
         <label><input type="checkbox" data-s="voice"> صدای مسافرها (اگه مرورگر فارسی بلد باشه)</label>
-        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • O افتخارات • I کوله • V پیاده شدن • X عکاسی • J شرکت تاکسیرانی • U کروز کنترل • F ورود به پمپ/تعمیرگاه</div>
+        <div class="help"><b>کیبورد:</b> W/S یا ↑↓ گاز و ترمز • A/D فرمان • ۱ تا ۷ و R و N دنده • Q/E دنده پایین/بالا • Space ترمز دستی • C دوربین • G فلش راهنما • M نقشه • H بوق • L چراغ • B نیترو • K رادیو • Z گوشی 📱 • O افتخارات • I کوله • V پیاده شدن • X عکاسی • J شرکت تاکسیرانی • U کروز کنترل • F ورود به پمپ/تعمیرگاه</div>
         <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
         <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
         <button data-a="photo">📸 حالت عکاسی (X)</button>

@@ -97,8 +97,12 @@ export class TrafficCar {
     const n = G.nodes[this.lastNode];
     let opts = n.edges.filter((id) => G.edges[id] !== this.lastEdge);
     if (!opts.length) opts = [this.lastEdge.id];
+    const key = this.lastNode + ':' + this.lastEdge.id;
     let pickId;
-    if (opts.length > 1) {
+    // convoy followers take the same turns as their leader
+    const led = this.leader && this.leader.picks && this.leader.picks.get(key);
+    if (led !== undefined && opts.includes(led)) pickId = led;
+    else if (opts.length > 1) {
       // prefer going straight
       const ld = this.queue[this.queue.length - 1];
       let best = null, bd = -2;
@@ -110,6 +114,10 @@ export class TrafficCar {
       }
       pickId = Math.random() < 0.55 ? best : pick(opts);
     } else pickId = opts[0];
+    if (this.picks) {
+      this.picks.set(key, pickId);
+      if (this.picks.size > 80) this.picks.delete(this.picks.keys().next().value);
+    }
     this.pushEdge(G.edges[pickId], this.lastNode);
   }
   update(dt, time) {
@@ -138,7 +146,7 @@ export class TrafficCar {
     let target = (isCity ? 12.5 : 21) * this.persona;
     // traffic light
     let holdAtLight = false;
-    if (tgt.node) {
+    if (tgt.node && !this.isEmergency) {
       const st = world.lightState(tgt.node, tgt.axis, time);
       if ((st === 'r' || (st === 'y' && dist > 14)) && dist < 45) {
         target = Math.min(target, Math.max(0, (dist - 1.5) * 0.55));
@@ -195,8 +203,8 @@ export class Traffic {
     this.game = game;
     this.world = game.world;
     this.templates = [];
-    for (let i = 0; i < 12; i++) {
-      const type = i < 7 ? 'sedan' : i < 10 ? 'hatch' : 'van';
+    for (let i = 0; i < 14; i++) {
+      const type = i < 6 ? 'sedan' : i < 9 ? 'hatch' : i < 11 ? 'van' : i < 13 ? 'suv' : 'classic';
       const color = type === 'van' ? pick([0xf4f4f2, 0xd8d0b8, 0x2a6aa8]) : COLORS[i % COLORS.length];
       this.templates.push(buildCar({ type, color }).root);
     }
@@ -264,7 +272,12 @@ export class Traffic {
     const tg = this.game.rides && this.game.rides.target;
     if (tg && tg.active) obs.push(tg);
     const rl = this.game.roadLife;
-    if (rl) for (const c of [...rl.convoy, ...rl.blockers]) if (c.active) obs.push(c);
+    if (rl) {
+      for (const c of rl.convoy) if (c.active) obs.push(c);
+      for (const c of rl.blockers) if (c.active) obs.push(c);
+    }
+    const ev = this.game.events;
+    if (ev && ev.ambCar.active) obs.push(ev.ambCar);
     const limit = this.limit ?? this.cars.length;
     let active = 0;
     for (const c of this.cars) {

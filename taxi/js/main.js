@@ -32,6 +32,10 @@ import { Post } from './post.js';
 import { CarLights } from './lights.js';
 import { Nature } from './nature.js';
 import { RoadLife } from './roadlife.js';
+import { Career } from './career.js';
+import { Drag } from './drag.js';
+import { RoadEvents } from './events.js';
+import { Phone } from './phone.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -88,7 +92,8 @@ class Game {
     const q0 = this.settings.quality;
     const q = q0 === 'ultra' ? 'high' : q0; // ultra = high world detail + full post effects + sharper shadows
     const canvas = document.getElementById('gl');
-    const renderer = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: q !== 'low', powerPreference: 'high-performance' }));
+    // medium and up render through the post chain, whose scene target is multisampled already
+    const renderer = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }));
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === 'high' ? 2 : q === 'medium' ? 1.35 : 1));
     this.post = new Post(renderer, { low: 0, medium: 1, high: 2, ultra: 3 }[q0] ?? 0);
     renderer.shadowMap.enabled = q !== 'low';
@@ -156,10 +161,14 @@ class Game {
     this.thrills = new Thrills(this);
     this.parking = new Parking(this);
     this.fleet = new Fleet(this);
+    this.drag = new Drag(this);
+    this.events = new RoadEvents(this);
     this.ambient = new Ambient(this);
     this.carLights = new CarLights(this);
     this.nature = new Nature(this);
     this.roadLife = new RoadLife(this);
+    this.career = new Career(this);
+    this.phone = new Phone(this);
     this.arrow = buildArrow();
     this.player.group.add(this.arrow.group);
     this.fx = {
@@ -206,7 +215,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [],
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -224,7 +233,9 @@ class Game {
       p.fuel = d.fuel; p.superFuel = d.superFuel; p.tank = d.tank; p.health = d.health; p.engineLevel = d.engine;
       if (Array.isArray(d.owned)) p.owned = d.owned;
       if (d.paints && typeof d.paints === 'object') p.paints = d.paints;
+      p.perf = Array.isArray(d.perf) ? d.perf : [];
       if (d.model && d.model !== p.model) p.buildModel(d.model);
+      else p.applyPerf();
       const paint = p.paints[p.model] ?? d.paint;
       if (paint !== null && paint !== undefined) p.setPaint(paint);
       if (d.neon) p.setNeon(d.neon);
@@ -291,6 +302,15 @@ class Game {
     cont.onclick = () => start(false);
   }
   /** a little present for coming back every day (streaks grow the gift) */
+  /** a new in-game day: keep a week of earnings for the bank app, the rival drivers work too */
+  newDay() {
+    const s = this.stats;
+    s.hist = (Array.isArray(s.hist) ? s.hist : []).concat([s.today || 0]).slice(-6);
+    s.today = 0;
+    this.career.board();
+    const r = this.career.rank();
+    this.career.message('اتحادیه تاکسی‌رانی', `📊 گزارش روز ${fa(this.day - 1)}: الان نفر ${fa(r)} رتبه‌بندی راننده‌های شهری${r === 1 ? ' 👑' : '. ادامه بده!'}`, true);
+  }
   loginBonus() {
     const s = this.stats, d = new Date();
     const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -311,6 +331,10 @@ class Game {
       if (!this.stats.seenV3) {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
+      }
+      if (!this.stats.seenV9) {
+        this.stats.seenV9 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 📱 گوشی (Z) با 📖 حالت داستانی و رتبه‌بندی، 🚦 پیست درگ کویر، 🚗 ۴ ماشین جدید (برقی، شاسی‌بلند، لیموزین، پیکان)، 🏁 قطعات مسابقه‌ای، 🚑 آمبولانس، 🆘 ماشین خراب و 🍔 غذارسانی!', 'info'), 30500);
       }
       if (!this.stats.seenV8) {
         this.stats.seenV8 = true;
@@ -340,6 +364,7 @@ class Game {
     this.stats.seenV6 = true;
     this.stats.seenV7 = true;
     this.stats.seenV8 = true;
+    this.stats.seenV9 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -726,6 +751,8 @@ class Game {
     else if (z.kind === 'race') this.race.offer(z);
     else if (z.kind === 'crazy') this.crazy.offer();
     else if (z.kind === 'parking') this.parking.offer();
+    else if (z.kind === 'drag') this.drag.offer();
+    else if (z.kind === 'help') this.events.help();
     else if (z.kind === 'fuelHelp') {
       const cost = 80000;
       this.topUp(cost);
@@ -764,17 +791,18 @@ class Game {
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
-    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle';
-    for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot, this.parking.spot] : [])]) {
+    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job;
+    for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot, this.parking.spot, this.drag.spot] : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
+    if (!zone) zone = this.events.zone();
     // stranded: roadside help beats every pad except a pump or a garage that can fix it right here
     // a pump fixes an empty tank and a garage fixes a wreck; anything else needs roadside help
     if (zone?.kind !== 'gas' && p.fuelTotal() <= 0.01) zone = { kind: 'fuelHelp' };
     else if (zone?.kind !== 'garage' && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
-      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'parking' ? '🅿️ چالش پارک • شروع کن!' : zone.kind === 'fuelHelp' ? '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
+      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'parking' ? '🅿️ چالش پارک • شروع کن!' : zone.kind === 'drag' ? '🚦 درگ ۴۰۰ متری • مسابقه بده!' : zone.kind === 'help' ? `🆘 کمک به راننده: ${this.events.strand.prob[3]}` : zone.kind === 'fuelHelp' ? (p.spec.ev ? '🔋 باتری تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)') : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
       this.ui.zone(txt);
       this.stopT = sp < 0.6 && !this.ui.controlsHeld() ? (this.stopT || 0) + dt : 0;
       if (this.stopT > 0.5 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {
@@ -825,6 +853,7 @@ class Game {
     return false;
   }
   fine(amount, msg) {
+    this.stats.finesTotal = (this.stats.finesTotal || 0) + amount;
     this.topUp(amount);
     this.money = Math.max(0, this.money - amount);
     this.ui.flash();
@@ -881,8 +910,9 @@ class Game {
     const p = this.player, fx = this.fx;
     const s = Math.sin(p.heading), c = Math.cos(p.heading);
     const sp = Math.abs(p.speed);
-    if (p.throttle > 0.2 && Math.random() < p.throttle * 0.7 && this.state === 'play') {
-      const x = p.pos.x - s * 2.35 + c * 0.5, z = p.pos.z - c * 2.35 - s * 0.5;
+    if (p.throttle > 0.2 && Math.random() < p.throttle * 0.7 && this.state === 'play' && !p.spec.ev) {
+      const hl = p.car.P.len / 2 + 0.1;
+      const x = p.pos.x - s * hl + c * 0.5, z = p.pos.z - c * hl - s * 0.5;
       fx.exhaust.emit(x, p.y + 0.3, z, -s * 1.5 + (Math.random() - 0.5), 0.6, -c * 1.5 + (Math.random() - 0.5), 0.9, 0.25, 4, 0.35);
     }
     if (p.offroad && sp > 4) {
@@ -936,7 +966,7 @@ class Game {
     // exhaust backfire on fast upshifts and when lifting off at high revs
     const gas = this.lastInput ? this.lastInput.gas : 0, g0 = this.prevGas ?? 0;
     const upshift = p.shift && !this.prevShift && p.targetGear > p.gear && p.gear >= 1;
-    if (this.state === 'play' && !this.onfoot.active && ((upshift && p.rpm > 4300 && sp > 9) || (g0 > 0.8 && gas < 0.1 && p.rpm > 5000 && Math.random() < (p.sportExhaust ? 0.95 : 0.6)))) this.backfire();
+    if (this.state === 'play' && !this.onfoot.active && !p.spec.ev && ((upshift && p.rpm > 4300 && sp > 9) || (g0 > 0.8 && gas < 0.1 && p.rpm > 5000 && Math.random() < (p.sportExhaust ? 0.95 : 0.6)))) this.backfire();
     this.prevShift = !!p.shift;
     this.prevGas = gas;
     fx.fire.update(dt, -2);
@@ -993,6 +1023,7 @@ class Game {
     const dt = Math.min(0.05, this.clock.getDelta()) * (this.timeScale || 1) * (this.state === 'play' ? this.slowmo || 1 : 1);
     const st = this.state;
     this.audio.update(dt);
+    if (st !== 'play' && st !== 'cutscene') this.post.calm();
     if (st === 'jail') {
       this.police.update(dt);
       this.ui.update(dt);
@@ -1026,6 +1057,7 @@ class Game {
       this.hour -= 24;
       this.day++;
       this.ui.toast(`🌅 روز ${fa(this.day)} شروع شد`, 'info');
+      this.newDay();
     }
     this.updateEnv(dt);
     this.weather.update(dt);
@@ -1033,7 +1065,10 @@ class Game {
     const inp = this.ui.input();
     // cruise control holds the speed until you brake (or press gas yourself)
     if (this.cruise) {
-      if (inp.brake > 0.1 || inp.handbrake || !this.player.gear || this.player.gear < 1) this.setCruise(false);
+      const cp = this.player;
+      // a gear change passes through neutral; only a real neutral/reverse, a dead car or leaving the wheel cancels
+      const offGear = (!cp.gear || cp.gear < 1) && !cp.shift;
+      if (inp.brake > 0.1 || inp.handbrake || offGear || st !== 'play' || this.onfoot.active || this.onfoot.busy || cp.health <= 0 || cp.fuelTotal() <= 0 || cp.burning) this.setCruise(false);
       else if (inp.gas < 0.05) inp.gas = this.player.speed < this.cruise - 0.3 ? 0.7 : 0;
     }
     this.lastInput = inp;
@@ -1057,6 +1092,8 @@ class Game {
     this.race.update(dt);
     this.crazy.update(dt);
     this.parking.update(dt);
+    this.drag.update(dt);
+    this.events.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);
@@ -1068,6 +1105,7 @@ class Game {
       this.roadLife.update(dt);
       this.stunts.update(dt);
       this.ach.track(dt);
+      this.career.update(dt);
     }
     this.rides.update(dt);
     this.chat.update(dt);

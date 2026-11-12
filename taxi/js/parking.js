@@ -82,7 +82,7 @@ export class Parking {
   }
   canStart() {
     const g = this.g;
-    if (this.state !== 'idle' || g.race.state !== 'idle' || g.crazy.state !== 'idle') return false;
+    if (this.state !== 'idle' || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.drag.state !== 'idle') return false;
     if (g.time < (this.nextT || 0)) return g.ui.toast(`🅿️ پارکینگ‌بان: یه کم استراحت کن! ${fa(Math.ceil(this.nextT - g.time))} ثانیه دیگه بیا`, 'warn'), false;
     if (g.rides.ride) return g.ui.toast('اول سفر مسافرت رو تموم کن 🧳', 'warn'), false;
     if (g.police.state !== 'none') return g.ui.toast('با پلیس پشت سرت؟! 🚨', 'warn'), false;

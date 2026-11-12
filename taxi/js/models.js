@@ -177,6 +177,21 @@ const PROFILES = {
     len: 4.0, W: 0.86, belt: 0.98, roof: 1.5, wsZ: 0.85, roofF: 0.1, roofR: -1.55, rwZ: -1.95, wheelZ: 1.28,
     top: [[-2.0, 0.6], [-1.99, 0.85], [-1.95, 0.98], [0.85, 0.98], [1.4, 0.9], [1.88, 0.84], [1.98, 0.76], [2.0, 0.6]],
   },
+  // boxy 70s saloon with an upright windscreen
+  classic: {
+    len: 4.3, W: 0.83, belt: 0.95, roof: 1.43, wsZ: 0.82, roofF: 0.3, roofR: -0.85, rwZ: -1.3, wheelZ: 1.3,
+    top: [[-2.15, 0.6], [-2.14, 0.86], [-2.05, 0.92], [-1.4, 0.95], [0.82, 0.95], [1.8, 0.91], [2.1, 0.88], [2.15, 0.62]],
+  },
+  // tall 4x4 on bigger wheels
+  suv: {
+    len: 4.7, W: 0.97, belt: 1.12, roof: 1.82, wsZ: 1.05, roofF: 0.4, roofR: -1.95, rwZ: -2.25, wheelZ: 1.5, rh: 0.4, wheelS: 1.16,
+    top: [[-2.35, 0.7], [-2.34, 1.08], [-2.28, 1.12], [1.05, 1.12], [1.75, 1.04], [2.25, 0.98], [2.35, 0.86], [2.35, 0.7]],
+  },
+  // stretched limousine: the long rear compartment has its own windows
+  limo: {
+    len: 6.3, W: 0.9, belt: 0.95, roof: 1.42, wsZ: 1.75, roofF: 1.0, roofR: -2.1, rwZ: -2.45, wheelZ: 2.3,
+    top: [[-3.15, 0.6], [-3.13, 0.8], [-3.0, 0.92], [-2.7, 0.95], [1.75, 0.95], [2.35, 0.89], [2.95, 0.82], [3.1, 0.75], [3.15, 0.6]],
+  },
   van: {
     len: 4.8, W: 0.95, belt: 1.15, roof: 2.0, wsZ: 1.55, roofF: 1.15, roofR: -2.3, rwZ: -2.38, wheelZ: 1.55,
     top: [[-2.4, 0.6], [-2.39, 1.15], [1.55, 1.15], [2.2, 1.0], [2.38, 0.85], [2.4, 0.6]],
@@ -285,8 +300,8 @@ function gearKnobTexture() {
 export function buildCar(opts = {}) {
   const mats = sharedMats();
   const type = opts.type || 'sedan';
-  const pname = { taxi: 'sedan', police: 'sedan', hatchTaxi: 'hatch' }[type] || type;
-  const isTaxi = type === 'taxi' || type === 'hatchTaxi';
+  const pname = { taxi: 'sedan', police: 'sedan', hatchTaxi: 'hatch', classicTaxi: 'classic', ev: 'hatch' }[type] || type;
+  const isTaxi = type === 'taxi' || type === 'hatchTaxi' || type === 'classicTaxi' || type === 'ev';
   const P = PROFILES[pname];
   const interior = !!opts.interior;
   const paint = opts.paintMat || paintMat(opts.color ?? 0xf2c40d, interior);
@@ -295,10 +310,11 @@ export function buildCar(opts = {}) {
   const tail = opts.tailMat || mats.tailOff;
   const half = P.len / 2;
   const W = P.W;
-  const archR = 0.43, axleY = 0.33;
+  const wS = P.wheelS || 1, rh = P.rh || 0.3;
+  const archR = 0.43 * wS, axleY = 0.33 * wS;
   const topFn = (z) => interp(P.top, z);
   const botFn = (z) => {
-    let y = interp([[-half, 0.44], [-half + 0.17, 0.3], [half - 0.17, 0.3], [half, 0.44]], z);
+    let y = interp([[-half, rh + 0.14], [-half + 0.17, rh], [half - 0.17, rh], [half, rh + 0.14]], z);
     for (const wz of [P.wheelZ, -P.wheelZ]) {
       const dz = z - wz;
       if (Math.abs(dz) < archR) y = Math.max(y, axleY + Math.sqrt(archR * archR - dz * dz));
@@ -450,6 +466,11 @@ export function buildCar(opts = {}) {
   // windshield + rear glass
   const ws = quad([W - 0.06, P.belt + 0.005, P.wsZ], [-(W - 0.06), P.belt + 0.005, P.wsZ], [-(W - 0.1), P.roof - 0.005, P.roofF], [W - 0.1, P.roof - 0.005, P.roofF], glass, body);
   ws.renderOrder = 5;
+  if (interior) {
+    // kept apart from the other glass so window tint never darkens the driver's view
+    ws.userData.noMerge = true;
+    ws.userData.windshield = true;
+  }
   const rw = quad([W - 0.06, P.belt + 0.005, P.rwZ], [-(W - 0.06), P.belt + 0.005, P.rwZ], [-(W - 0.1), P.roof - 0.005, P.roofR], [W - 0.1, P.roof - 0.005, P.roofR], pname === 'van' ? paint : glass, body);
   rw.renderOrder = 5;
   // wipers (animated on the player's car)
@@ -482,18 +503,20 @@ export function buildCar(opts = {}) {
   }
   box(0.62, 0.14, 0.05, mats.trim, 0, topFn(fz - 0.1) - 0.13, fz, body); // grille
   for (let i = 0; i < 3; i++) box(0.6, 0.012, 0.02, mats.chrome, 0, topFn(fz - 0.1) - 0.08 - i * 0.045, fz + 0.02, body);
-  box(2 * W + 0.02, 0.16, 0.14, mats.plastic, 0, 0.4, half - 0.02, body); // bumper F
-  box(2 * W + 0.02, 0.16, 0.14, mats.plastic, 0, 0.42, -half + 0.03, body); // bumper R
+  const bumperMat = pname === 'classic' || pname === 'limo' ? mats.chrome : mats.plastic;
+  box(2 * W + 0.02, 0.16, 0.14, bumperMat, 0, rh + 0.1, half - 0.02, body); // bumper F
+  box(2 * W + 0.02, 0.16, 0.14, bumperMat, 0, rh + 0.12, -half + 0.03, body); // bumper R
   const pf = new THREE.Mesh(cached('plate', () => new THREE.PlaneGeometry(0.52, 0.115)), mats.plate);
-  pf.position.set(0, 0.42, half + 0.055);
+  pf.position.set(0, rh + 0.12, half + 0.055);
   body.add(pf);
   const pr = pf.clone();
-  pr.position.set(0, 0.52, -half - 0.03);
+  pr.position.set(0, rh + 0.22, -half - 0.03);
   pr.rotation.y = Math.PI;
   body.add(pr);
   const ex = cyl(0.035, 0.035, 0.2, mats.chrome, 10, body);
   ex.rotation.x = Math.PI / 2;
-  ex.position.set(-0.5, 0.3, -half - 0.02);
+  ex.position.set(-0.5, rh, -half - 0.02);
+  if (type === 'ev') ex.visible = false;
 
   // --- wheels
   const wheels = [];
@@ -512,6 +535,7 @@ export function buildCar(opts = {}) {
       const steer = new THREE.Group();
       steer.position.set(side * (W - 0.12), axleY, wz);
       const spin = new THREE.Group();
+      if (wS !== 1) spin.scale.setScalar(wS);
       steer.add(spin);
       spin.add(new THREE.Mesh(tireG, mats.tire));
       spin.add(new THREE.Mesh(rimG, mats.rim));
@@ -531,7 +555,7 @@ export function buildCar(opts = {}) {
   const out = { root, body, wheels, doors, P, type, paint, wipers, wsN };
 
   // --- type specific roof equipment
-  if (isTaxi || (interior && type !== 'sport')) {
+  if (isTaxi || (interior && type !== 'sport' && type !== 'limo')) {
     const sg = new THREE.Group();
     sg.position.set(0, P.roof + 0.16, (P.roofF + P.roofR) / 2 - 0.1);
     const signMat = new THREE.MeshStandardMaterial({ map: signTexture('تاکسی', '#ffd21a', '#111'), emissive: 0xffffff, emissiveMap: null, emissiveIntensity: 0.0, roughness: 0.4 });
@@ -563,6 +587,42 @@ export function buildCar(opts = {}) {
       tip.rotation.x = Math.PI / 2;
       tip.position.set(x, 0.32, -P.len / 2 - 0.04);
     }
+  }
+  if (pname === 'suv') {
+    // roof rails, fender flares, bull bar and a spare wheel on the tailgate
+    for (const x of [W - 0.12, -(W - 0.12)]) {
+      box(0.05, 0.05, P.roofF - P.roofR - 0.2, mats.trim, x, P.roof + 0.1, (P.roofF + P.roofR) / 2, body);
+      for (const z of [P.roofF - 0.15, P.roofR + 0.15]) box(0.05, 0.1, 0.05, mats.trim, x, P.roof + 0.05, z, body);
+    }
+    for (const wz of [P.wheelZ, -P.wheelZ]) for (const side of [1, -1]) box(0.08, 0.1, archR * 2.3, mats.plastic, side * (W + 0.01), axleY + archR - 0.02, wz, body);
+    for (const x of [0.35, -0.35]) box(0.06, 0.45, 0.06, mats.chrome, x, rh + 0.25, half + 0.12, body);
+    box(0.9, 0.06, 0.06, mats.chrome, 0, rh + 0.45, half + 0.12, body);
+    const spare = new THREE.Mesh(cached('spareT', () => {
+      const g = new THREE.CylinderGeometry(0.36, 0.36, 0.24, 18);
+      g.rotateX(Math.PI / 2);
+      return g;
+    }), mats.tire);
+    spare.position.set(0, rh + 0.62, -half - 0.14);
+    body.add(spare);
+  }
+  if (pname === 'classic') {
+    // chrome side trim and round headlamp rings of the old Tehran taxis
+    for (const side of [1, -1]) box(0.012, 0.03, P.len - 0.4, mats.chrome, side * (W + 0.006), 0.62, 0, body);
+  }
+  if (type === 'limo') {
+    for (const side of [1, -1]) box(0.012, 0.035, P.len - 0.5, mats.chrome, side * (W + 0.006), 0.6, 0, body);
+    // a little VIP light on the roof
+    const vip = box(0.5, 0.08, 0.2, mats.chrome, 0, P.roof + 0.06, P.roofF - 0.4, body);
+    vip.name = 'vip';
+  }
+  if (type === 'ev') {
+    // teal accent along the sills and a lightning badge on the doors
+    const acc = new THREE.MeshStandardMaterial({ color: 0x00e5c0, emissive: 0x00a890, emissiveIntensity: 0.4, roughness: 0.4, name: 'evAccent' });
+    for (const side of [1, -1]) {
+      box(0.012, 0.06, P.len - 0.6, acc, side * (W + 0.008), rh + 0.18, 0, body);
+      box(0.012, 0.16, 0.08, acc, side * (W + 0.008), 0.62, 0.35, body);
+    }
+    box(0.5, 0.05, 0.05, acc, 0, topFn(half - 0.1) - 0.13, half + 0.03, body);
   }
   if (type === 'police') {
     const lb = new THREE.Group();
@@ -1070,8 +1130,9 @@ export function poseSit(p) {
   p.hips.position.y = 0;
   p.hpL.rotation.set(-1.45, 0, 0.05);
   p.hpR.rotation.set(-1.45, 0, -0.05);
-  p.knL.rotation.set(1.3, 0, 0);
-  p.knR.rotation.set(1.3, 0, 0);
+  // shins reach forward into the footwell (with the old 1.3 the feet poked out under the car)
+  p.knL.rotation.set(0.15, 0, 0);
+  p.knR.rotation.set(0.15, 0, 0);
   p.spine.rotation.x = -0.12;
   p.shL.rotation.set(-0.5, 0, 0.1);
   p.shR.rotation.set(-0.5, 0, -0.1);

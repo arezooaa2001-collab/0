@@ -550,6 +550,9 @@ export class World {
     // parking lot for the parking challenge, next to the desert road
     this.lot = { x: -62, z: 520, w: 44, d: 32 };
     this.flats.push({ x: this.lot.x, z: this.lot.z, r: 34 });
+    // drag strip: a dead-straight quarter mile in the desert, east of the stunt park
+    this.drag = { x: 450, z0: 560, len: 402, z1: 1180, hw: 9 };
+    for (let z = this.drag.z0 - 50; z <= this.drag.z1; z += 16) this.flats.push({ x: this.drag.x, z, r: 24 });
     const P = this.stuntPark;
     for (const [dx, dz, rot, len, h] of [[-50, -40, Math.PI / 2, 12, 2.4], [-50, 0, Math.PI / 2, 14, 3.4], [-50, 40, Math.PI / 2, 18, 5], [20, -45, 0, 12, 2.6], [40, 30, -Math.PI / 2, 22, 7]]) {
       this.ramps.push({ x: P.x + dx, z: P.z + dz, rot, len, w: 6, h, park: true });
@@ -686,6 +689,10 @@ export class World {
       for (let i = 0; i < 12; i++) out.push({ i, row, x: L.x - 18 + i * 3 + 1.5, z: L.z + row * 6.6, hw: 1.5, hd: 2.8 });
     return out;
   }
+  onDrag(x, z, pad = 0) {
+    const D = this.drag;
+    return !!D && Math.abs(x - D.x) < D.hw + pad && z > D.z0 - 50 - pad && z < D.z1 + pad;
+  }
   rampHeight(x, z) {
     let best = -Infinity;
     for (const r of this.ramps) {
@@ -700,6 +707,7 @@ export class World {
   surfaceAt(x, z) {
     if (this.roadDist(x, z) < 7.5) return 'road';
     if (this.lot && Math.abs(x - this.lot.x) < this.lot.w / 2 && Math.abs(z - this.lot.z) < this.lot.d / 2) return 'pave';
+    if (this.onDrag(x, z)) return 'road';
     if (Math.abs(x) < 410 && Math.abs(z) < 410) return 'pave';
     const r = regionAt(x, z);
     return r === 'desert' ? 'sand' : r === 'city' ? 'grass' : 'grass';
@@ -1287,6 +1295,7 @@ export class World {
     if (Math.hypot(x - 1160, z - 1525) < 44) return false;
     if (this.stuntPark && Math.hypot(x - this.stuntPark.x, z - this.stuntPark.z) < 110) return false;
     if (this.lot && Math.abs(x - this.lot.x) < this.lot.w / 2 + 12 && Math.abs(z - this.lot.z) < this.lot.d / 2 + 12) return false;
+    if (this.onDrag(x, z, 24)) return false;
     if (this.ramps) for (const r of this.ramps) if (!r.park && Math.hypot(x - r.x - (Math.sin(r.rot) * r.len) / 2, z - r.z - (Math.cos(r.rot) * r.len) / 2) < r.len / 2 + 6) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
@@ -1873,6 +1882,13 @@ export class World {
     g.fillRect((-405 + HALF) * k, (-405 + HALF) * k, 810 * k, 810 * k);
     g.lineCap = 'round';
     g.lineJoin = 'round';
+    if (this.drag) {
+      const D = this.drag;
+      g.fillStyle = '#3a3c40';
+      g.fillRect((D.x - D.hw + HALF) * k, (D.z0 - 50 + HALF) * k, D.hw * 2 * k, (D.z1 - D.z0 + 50) * k);
+      g.fillStyle = '#fff';
+      g.fillRect((D.x - D.hw + HALF) * k, (D.z0 + D.len + HALF) * k - 1, D.hw * 2 * k, 2);
+    }
     for (const pass of [0, 1]) {
       for (const r of this.roads) {
         g.strokeStyle = pass ? (r.type === 'city' ? '#e9e6dc' : '#ffd36a') : 'rgba(0,0,0,0.5)';

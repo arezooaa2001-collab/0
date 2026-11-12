@@ -120,7 +120,12 @@ export class Post {
     const gl2 = renderer.capabilities.isWebGL2;
     const half = gl2 && (renderer.extensions.has('EXT_color_buffer_half_float') || renderer.extensions.has('EXT_color_buffer_float'));
     this.hdr = half;
-    const type = half ? THREE.HalfFloatType : THREE.UnsignedByteType;
+    // without float targets the 8-bit linear buffer clips and bands: render straight to the screen instead
+    if (!half) {
+      this.enabled = false;
+      return;
+    }
+    const type = THREE.HalfFloatType;
     const opts = { type, depthBuffer: false, stencilBuffer: false };
     this.rt = new THREE.WebGLRenderTarget(4, 4, { type, samples: gl2 ? 4 : 0 });
     this.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
@@ -174,6 +179,13 @@ export class Post {
     u.ca.value = this.level >= 3 ? fast * 0.003 + (nitro ? 0.003 : 0) : 0;
     u.radial.value = this.level >= 3 ? fast * 0.018 + (nitro ? 0.022 : 0) : 0;
     u.grain.value = this.level >= 3 ? 0.035 : 0.012;
+  }
+  /** no motion effects (photo mode, pause, menu, jail): the speed blur would freeze on screen */
+  calm() {
+    if (!this.enabled) return;
+    const u = this.mFinal.uniforms;
+    u.ca.value = 0;
+    u.radial.value = 0;
   }
   render(scene, camera) {
     const R = this.R;

@@ -120,7 +120,10 @@ export class Weather {
       this.fogSaid = true;
       g.ui.toast('🌫️ صبح مه‌آلوده؛ چراغ‌ها رو روشن کن و آروم برو', 'info');
     } else if (mfog < 0.05) this.fogSaid = false;
-    g.scene.fog.far = g.fogFar * (1 - 0.55 * r) * (1 - 0.72 * this.sand) * (1 - 0.6 * mfog);
+    // near must stay well below far, or three's fog turns inside out (near clear, far away sharp)
+    const far = Math.max(90, g.fogFar * (1 - 0.55 * r) * (1 - 0.72 * this.sand) * (1 - 0.6 * mfog));
+    g.scene.fog.far = far;
+    g.scene.fog.near = Math.min(160, far * 0.35);
     if (mfog > 0.01) g.scene.fog.color.lerp(this.mistCol || (this.mistCol = new THREE.Color(0xc9d2da)), 0.5 * mfog);
     // wet roads reflect
     for (const k in g.world.roadMats) {

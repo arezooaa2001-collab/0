@@ -136,6 +136,16 @@ export class AudioSys {
   setEngine(rpm, throttle, on) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    if (this.electric) {
+      // electric motor: a quiet rising whine instead of combustion
+      const w = 140 + rpm * 0.16;
+      this.e1.frequency.setTargetAtTime(w, t, 0.05);
+      this.e2.frequency.setTargetAtTime(w * 0.5, t, 0.05);
+      this.e3.frequency.setTargetAtTime(w * 3.01, t, 0.05);
+      this.engFilter.frequency.setTargetAtTime(900 + rpm * 0.3, t, 0.05);
+      this.engGain.gain.setTargetAtTime(on ? 0.02 + throttle * 0.035 : 0, t, 0.08);
+      return;
+    }
     const f = Math.max(20, (rpm / 60) * 2);
     this.e1.frequency.setTargetAtTime(f, t, 0.03);
     this.e2.frequency.setTargetAtTime(f * 0.5, t, 0.03);

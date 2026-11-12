@@ -34,7 +34,7 @@ export class Crazy {
     const g = this.g;
     if (this.state !== 'idle') return false;
     if (g.rides.ride) return g.ui.toast('اول سفر مسافرت رو تموم کن 🧳', 'warn'), false;
-    if (g.race.state !== 'idle' || g.parking.state !== 'idle') return false;
+    if (g.race.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle') return false;
     if (g.police.state !== 'none') return g.ui.toast('با پلیس پشت سرت؟! اول گمشون کن 🚨', 'warn'), false;
     if (g.player.burning || g.onfoot.active) return false;
     return true;
@@ -189,7 +189,7 @@ export class Crazy {
   }
   update(dt) {
     const g = this.g, p = g.player;
-    this.beacon.visible = this.state === 'idle' && g.race.state === 'idle' && g.parking.state === 'idle';
+    this.beacon.visible = this.state === 'idle' && g.race.state === 'idle' && g.parking.state === 'idle' && g.drag.state === 'idle';
     this.beacon.userData.ring.rotation.z += dt;
     this.destBeacon.userData.ring.rotation.z -= dt * 2;
     for (const w of (this.leaving || []).slice()) {

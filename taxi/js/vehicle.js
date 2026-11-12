@@ -8,7 +8,7 @@ const MUD = new THREE.Color(0x6b5a43);
 // 7-speed gate: 1-2 | 3-4 | 5-6 | 7-R
 export const GEAR_POS = { '-1': [1.5, -1], 0: [0, 0], 1: [-1.5, 1], 2: [-1.5, -1], 3: [-0.5, 1], 4: [-0.5, -1], 5: [0.5, 1], 6: [0.5, -1], 7: [1.5, 1] };
 export const TOP_GEAR = 7;
-const GEAR_MAX = { '-1': 7.5, 1: 8.5, 2: 14, 3: 20.5, 4: 27, 5: 34, 6: 41, 7: 48 };
+export const GEAR_MAX = { '-1': 7.5, 1: 8.5, 2: 14, 3: 20.5, 4: 27, 5: 34, 6: 41, 7: 48 };
 const GEAR_ACC = { '-1': 3.8, 1: 5.0, 2: 4.3, 3: 3.6, 4: 3.0, 5: 2.5, 6: 2.1, 7: 1.8 };
 export const GEAR_LABEL = { '-1': 'R', 0: 'N', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' };
 const REACH = 0.21, SEG = 0.12, RET = 0.24;
@@ -21,9 +21,20 @@ const POLE_R = new THREE.Vector3(-1, -1.2, -0.4).normalize();
 
 export const CAR_MODELS = {
   taxi: { name: 'سمند تاکسی', icon: '🚕', type: 'taxi', color: 0xf3c614, speed: 1, acc: 1, grip: 1, fuel: 1, price: 0, desc: 'تاکسی زرد کلاسیک؛ همه‌کاره و مطمئن' },
+  classic: { name: 'پیکان کلاسیک', icon: '🚖', type: 'classicTaxi', color: 0xf57c00, speed: 0.86, acc: 0.88, grip: 0.92, fuel: 1.15, price: 250000, tips: 1.25, desc: 'تاکسی نارنجی قدیمی؛ نوستالژی خالص! مسافرها ۲۵٪ انعام بیشتر میدن' },
   hatch: { name: 'هاچ‌بک شهری', icon: '🚗', type: 'hatchTaxi', color: 0xf3c614, speed: 0.92, acc: 1.15, grip: 1.2, fuel: 0.65, price: 450000, desc: 'کوچیک و فرز؛ کم‌مصرف، عالی برای شهر' },
+  ev: { name: 'تاکسی برقی', icon: '⚡', type: 'ev', color: 0xf2f4f5, speed: 1.06, acc: 1.4, grip: 1.12, fuel: 0.35, price: 1900000, ev: true, desc: 'بی‌صدا و بی‌دود؛ گشتاور آنی و شارژ خیلی ارزون (بنزین سوپر روش اثر نداره)' },
+  suv: { name: 'شاسی‌بلند ۴×۴', icon: '🚙', type: 'suv', color: 0x37474f, speed: 1.05, acc: 1.05, grip: 1.05, fuel: 1.35, price: 1500000, offroad: true, desc: 'قوی و بلند؛ توی شن و خاکی مثل جاده می‌ره' },
   sport: { name: 'اسپرت توربو', icon: '🏎️', type: 'sport', color: 0xc62828, speed: 1.32, acc: 1.5, grip: 1.1, fuel: 1.5, price: 2600000, desc: 'وحشی و سریع؛ برای مسابقه و فرار از پلیس' },
+  limo: { name: 'لیموزین VIP', icon: '🎩', type: 'limo', color: 0x111111, speed: 1.12, acc: 0.95, grip: 0.88, fuel: 1.6, price: 3800000, vip: true, desc: 'مسافرهای VIP عاشقشن؛ ۳ برابر بیشتر مسافر VIP میاد' },
 };
+/** performance parts (fit every car): id, icon, name, description, price */
+export const PERF = [
+  ['turbo', '🌀', 'توربو', 'شتاب ۱۵٪ و سرعت ۵٪ بیشتر + صدای فیس توربو', 900000],
+  ['tires', '🛞', 'لاستیک اسپرت', 'چسبندگی و فرمون‌پذیری بیشتر، استارت درگ راحت‌تر', 500000],
+  ['brakes', '🛑', 'ترمز مسابقه‌ای', 'ترمزگیری ۳۵٪ قوی‌تر', 350000],
+  ['susp', '🔩', 'کمک‌فنر اسپرت', 'ماشین پایین‌تر و کمتر کج میشه، فرمون دقیق‌تر', 450000],
+];
 
 export class PlayerCar {
   constructor(game) {
@@ -62,6 +73,7 @@ export class PlayerCar {
     this.tank = 45;
     this.health = 100;
     this.engineLevel = 0;
+    this.perf = [];
     this.nitro = 100;
     this.nitroOn = false;
     this.pitch = 0;
@@ -124,12 +136,18 @@ export class PlayerCar {
     });
     this.buildNeon();
     this.applyMods();
+    this.applyPerf();
+    game.audio.electric = !!M.ev;
     if (old) {
       if (game.arrow) this.group.add(game.arrow.group);
       if (game.navTex) this.car.screen.material = new THREE.MeshBasicMaterial({ map: game.navTex });
       this.updateLever();
       this.syncTransform(0);
     }
+  }
+  /** visible side of the performance parts: lowered body */
+  applyPerf() {
+    if (this.car) this.car.body.position.y = this.hasPerf('susp') ? -0.05 : 0;
   }
   /** switch to an owned car (from the showroom) */
   setModel(id) {
@@ -142,14 +160,21 @@ export class PlayerCar {
     return this.fuel + this.superFuel;
   }
   superRatio() {
+    if (this.spec && this.spec.ev) return 0;
     const t = this.fuelTotal();
     return t > 0 ? this.superFuel / t : 0;
   }
+  hasPerf(id) {
+    return !!(this.perf && this.perf.includes(id));
+  }
+  gripMul() {
+    return this.spec.grip * (this.hasPerf('tires') ? 1.12 : 1) * (this.hasPerf('susp') ? 1.04 : 1);
+  }
   speedMul() {
-    return this.spec.speed * (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
+    return this.spec.speed * (this.hasPerf('turbo') ? 1.05 : 1) * (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
   }
   accelMul() {
-    return this.spec.acc * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1) * (this.overheat ? 0.55 : 1);
+    return this.spec.acc * (this.hasPerf('turbo') ? 1.15 : 1) * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1) * (this.overheat ? 0.55 : 1);
   }
   /** underglow: a soft additive pool of light under the car plus two neon tubes */
   buildNeon() {
@@ -250,12 +275,20 @@ export class PlayerCar {
     this.car.root.traverse((o) => {
       if (!o.isMesh || !o.material) return;
       const n = o.material.name;
-      if (n === 'glass') o.material = M.glass;
+      if (n === 'glass' && !o.userData.windshield) o.material = M.glass;
       else if (n === 'rim') o.material = M.rim;
       else if (n === 'plate' && usePlate) o.material = M.plate;
     });
     // bolt-on spoiler (the sports car already has its own wing)
-    if (this.spoilerMesh) this.spoilerMesh.removeFromParent();
+    if (this.spoilerMesh) {
+      this.spoilerMesh.removeFromParent();
+      this.spoilerMesh.traverse((o) => {
+        if (o.isMesh) {
+          o.geometry.dispose();
+          if (o.material && !o.material.userData.shared) o.material.dispose();
+        }
+      });
+    }
     this.spoilerMesh = null;
     if (this.spoiler && this.model !== 'sport') {
       const P = this.car.P, grp = new THREE.Group();
@@ -320,6 +353,7 @@ export class PlayerCar {
     return GEAR_MAX[TOP_GEAR] * this.speedMul();
   }
   placeAt(x, z, heading) {
+    if (this.game.cruise) this.game.setCruise(false);
     this.pos.set(x, 0, z);
     this.heading = heading;
     this.speed = 0;
@@ -339,6 +373,15 @@ export class PlayerCar {
     else if (this.shift.phase === 'return') this.shift = { phase: 'reach', t: this.handBlend * REACH };
     else if (this.shift.phase === 'move') this.buildPath();
     this.game.audio.click(0.4);
+  }
+  /** instant shift without the hand animation (drag racing): a short power cut via the clutch */
+  quickShift(g, clutch = 0.4) {
+    this.gear = this.targetGear = g;
+    this.shift = null;
+    this.handBlend = 0;
+    this.clutch = Math.max(this.clutch, clutch);
+    [this.lever.c, this.lever.r] = GEAR_POS[g];
+    this.updateLever();
   }
   buildPath() {
     const s = this.shift;
@@ -457,7 +500,7 @@ export class PlayerCar {
     this.brake = damp(this.brake, brk, 12, dt);
 
     const absV = Math.abs(this.speed);
-    const maxSteer = (0.62 / (1 + absV / 15)) * Math.min(1.15, this.spec.grip);
+    const maxSteer = (0.62 / (1 + absV / 15)) * Math.min(1.3, this.gripMul());
     const pull = this.health < 50 ? (50 - this.health) / 50 * 0.04 : 0;
     this.steer = damp(this.steer, clamp(inp.steer, -1, 1) * maxSteer + pull, inp.steer === 0 ? 6 : 9, dt);
 
@@ -486,7 +529,8 @@ export class PlayerCar {
     const surf = world.surfaceAt(this.pos.x, this.pos.z);
     this.offroad = surf === 'sand' || surf === 'grass';
     // engine temperature: long stints at the red line boil the engine
-    const hot = this.rpm > 6200 && this.throttle > 0.5;
+    // only over-revving a lower gear boils it; cruising flat out in top gear is fine
+    const hot = this.rpm > 6200 && this.throttle > 0.5 && this.gear < TOP_GEAR;
     this.temp = clamp((this.temp || 0) + dt * (hot ? 0.07 + (this.nitroOn ? 0.05 : 0) : -0.04 - absV * 0.001), 0, 1.05);
     if (this.temp >= 1 && !this.overheat) {
       this.overheat = true;
@@ -506,9 +550,9 @@ export class PlayerCar {
         this.game.ui.toast('🧽 ماشینت حسابی کثیف شده! مسافرها خوششون نمیاد؛ برو کارواش (پمپ بنزین‌ها)', 'warn');
       }
     }
-    let decel = this.brake * 10;
+    let decel = this.brake * (this.hasPerf('brakes') ? 13.5 : 10);
     if (inp.handbrake) decel += absV > 8 ? 3.2 : 6.5;
-    decel += (surf === 'sand' ? 1.7 : surf === 'grass' ? 0.8 : 0.16) + 0.00042 * absV * absV;
+    decel += (this.spec.offroad ? (surf === 'sand' ? 0.45 : surf === 'grass' ? 0.3 : 0.16) : surf === 'sand' ? 1.7 : surf === 'grass' ? 0.8 : 0.16) + 0.00042 * absV * absV;
     if (this.air) {
       // flying: no traction, only air drag
       force = 0;
@@ -529,7 +573,7 @@ export class PlayerCar {
       steerSpeed = (g === -1 ? -1 : 1) * Math.max(Math.abs(this.speed), 2.5 * this.throttle);
     }
     let yawRate = (-steerSpeed * Math.tan(this.steer)) / 2.7;
-    const grip = (surf === 'sand' ? 0.85 : 1) * (this.game.weather ? this.game.weather.grip() : 1);
+    const grip = (surf === 'sand' ? (this.spec.offroad ? 0.97 : 0.85) : 1) * (this.hasPerf('tires') ? 1.04 : 1) * (this.game.weather ? this.game.weather.grip() : 1);
     // a slide starts with the handbrake and is kept alive with throttle + steering
     const extV = Math.hypot(this.ext.x, this.ext.y);
     if (inp.handbrake && absV > 7 && !this.air) this.sliding = true;
@@ -754,8 +798,9 @@ export class PlayerCar {
     }
     if (dt > 0) {
       const lat = this.speed * this.yawRate;
-      this.bodyRoll = damp(this.bodyRoll, clamp(lat * 0.011, -0.07, 0.07), 5, dt);
-      this.bodyPitch = damp(this.bodyPitch, clamp(-this.lastAccel * 0.006, -0.05, 0.05), 5, dt);
+      const stiff = this.hasPerf('susp') ? 0.55 : 1;
+      this.bodyRoll = damp(this.bodyRoll, clamp(lat * 0.011 * stiff, -0.07, 0.07), 5, dt);
+      this.bodyPitch = damp(this.bodyPitch, clamp(-this.lastAccel * 0.006 * stiff, -0.05, 0.05), 5, dt);
     }
     let shake = 0;
     if (this.offroad) shake = Math.sin(performance.now() * 0.05) * Math.min(1, Math.abs(this.speed) / 20) * 0.012;
@@ -830,8 +875,8 @@ export class PlayerCar {
       dr.head.rotation.y = this.headYaw;
       dr.head.rotation.x = this.handBlend > 0.3 ? 0.18 : 0;
       // feet on pedals
-      dr.knL.rotation.x = 1.3 - this.clutch * 0.25;
-      dr.knR.rotation.x = 1.3 - Math.max(this.throttle, this.brake) * 0.2;
+      dr.knL.rotation.x = 0.15 + this.clutch * 0.12;
+      dr.knR.rotation.x = 0.15 + Math.max(this.throttle, this.brake) * 0.1;
       dr.hpR.rotation.y = this.brake > this.throttle ? 0.06 : -0.04;
     }
   }

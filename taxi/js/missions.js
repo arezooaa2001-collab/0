@@ -59,7 +59,7 @@ export class Rides {
     const toPick = w.routeLength(w.route(p.x, p.z, pickup.x, pickup.z));
     const female = Math.random() < 0.5;
     const moodKey = pick(['normal', 'normal', 'hurry', 'scared', 'chatty', 'grumpy']);
-    const vip = Math.random() < 0.15;
+    const vip = Math.random() < (g.player.spec.vip ? 0.45 : 0.15);
     let fare = 35000 + len * 78;
     if (moodKey === 'hurry') fare *= 1.3;
     if (vip) fare *= 3;
@@ -434,7 +434,8 @@ export class Rides {
       fare *= 0.5;
       g.ui.toast('⭐ مسافر VIP دیر رسید؛ نصف کرایه رو داد', 'warn');
     } else if (r.o.vip) g.ui.toast('⭐ مسافر VIP راضی بود! کرایه سه‌برابر 💰', 'good');
-    let tip = stars >= 4 ? Math.round((r.o.fare * (stars - 3) * 0.08) / 1000) * 1000 : 0;
+    let tip = stars >= 4 ? Math.round((r.o.fare * (stars - 3) * 0.08 * (g.player.spec.tips || 1)) / 1000) * 1000 : 0;
+    if (g.player.spec.tips && stars >= 3) tip += 5000;
     if (r.likedT > 20) {
       tip += Math.round((r.o.fare * 0.15) / 1000) * 1000;
       setTimeout(() => g.ui.toast('🎶 مسافر عاشق آهنگای رادیو شد و انعام بیشتری داد!', 'good'), 1200);
@@ -445,6 +446,8 @@ export class Rides {
     if (!failed) g.stats.completed = (g.stats.completed || 0) + 1;
     if (r.o.kind === 'tour') g.stats.tours = (g.stats.tours || 0) + 1;
     g.stats.earned += total;
+    g.stats.today = (g.stats.today || 0) + total;
+    if (!failed && (r.o.kind || r.o.vip)) g.stats.specialRides = (g.stats.specialRides || 0) + 1;
     g.stats.ratingSum += stars;
     if (stars === 5) g.stats.fiveStars = (g.stats.fiveStars || 0) + 1;
     g.addXp(failed ? 10 : 30 + stars * 10 + (r.o.vip ? 40 : 0) + (r.o.kind ? 80 : 0));
@@ -540,7 +543,7 @@ export class Rides {
     const g = this.game, L = this.lost;
     if (!L) return;
     const car = g.player, sp = car.groundSpeed ?? Math.abs(car.speed);
-    const free = !this.ride && (this.state === 'idle' || this.state === 'offer') && g.race.state === 'idle' && g.crazy.state === 'idle' && g.parking.state === 'idle';
+    const free = !this.ride && (this.state === 'idle' || this.state === 'offer') && g.race.state === 'idle' && g.crazy.state === 'idle' && g.parking.state === 'idle' && g.drag.state === 'idle';
     if (free && !g.guide) g.setGuide({ x: L.x, z: L.z, label: `${L.item.split(' ')[0]} پس دادن به ${L.name}`, addr: 'بیرون منتظرته', lost: true });
     if (g.time > L.until) {
       this.lost = null;
@@ -548,7 +551,10 @@ export class Rides {
       g.ui.toast(`${L.name} دیگه منتظر نموند... 😕`, 'warn');
       return;
     }
-    if (free && !g.onfoot.active && Math.hypot(car.pos.x - L.x, car.pos.z - L.z) < 16 && sp < 2) {
+    const dl = Math.hypot(car.pos.x - L.x, car.pos.z - L.z);
+    // you only notice it after driving off: the return counts once you've been away and come back
+    if (dl > 60) L.armed = true;
+    if (free && L.armed && !g.onfoot.active && dl < 16 && sp < 2) {
       this.lost = null;
       if (g.guide && g.guide.lost) g.clearGuide();
       g.money += 60000;

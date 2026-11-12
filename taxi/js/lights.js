@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+const SIDES = [0.62, -0.62];
+const ALARM_CORNERS = [[2.2, 0.75], [2.2, -0.75], [-2.25, 0.75], [-2.25, -0.75]];
+
 const MAX = 90; // light points per pool
 
 function glowTexture() {
@@ -113,7 +116,7 @@ export class CarLights {
     for (const c of g.traffic.cars) {
       if (!c.active || !(c.alarmT > 0) || !ph) continue;
       const fx = Math.sin(c.heading), fz = Math.cos(c.heading), y = c.group.position.y + 0.72;
-      for (const [f, s] of [[2.2, 0.75], [2.2, -0.75], [-2.25, 0.75], [-2.25, -0.75]]) this.amber.add(c.pos.x + fx * f + fz * s, y, c.pos.z + fz * f - fx * s);
+      for (const [f, s] of ALARM_CORNERS) this.amber.add(c.pos.x + fx * f + fz * s, y, c.pos.z + fz * f - fx * s);
     }
     if (g.roadLife) g.roadLife.flashers((x, y, z, col) => (col === 'red' ? this.red : this.blue).add(x, y, z));
     // traffic, police, rival, chase target and company taxis
@@ -122,11 +125,18 @@ export class CarLights {
       const list = this.list || (this.list = []);
       list.length = 0;
       for (const c of g.traffic.cars) if (c.active) list.push(c);
-      for (const extra of [g.police.unit, g.race.rival, g.rides.target, ...(g.roadLife ? g.roadLife.convoy : [])]) if (extra && extra.active && !list.includes(extra)) list.push(extra);
+      const add = (extra) => {
+        if (extra && extra.active && !list.includes(extra)) list.push(extra);
+      };
+      add(g.police.unit);
+      add(g.race.rival);
+      add(g.rides.target);
+      if (g.roadLife) for (const c of g.roadLife.convoy) add(c);
+      if (g.events) add(g.events.ambCar);
       for (const c of list) {
         if (Math.abs(c.pos.x - cam.x) > 400 || Math.abs(c.pos.z - cam.z) > 400) continue;
         const fx = Math.sin(c.heading), fz = Math.cos(c.heading), y = c.group.position.y + 0.72;
-        for (const s of [0.62, -0.62]) {
+        for (const s of SIDES) {
           this.head.add(c.pos.x + fx * 2.2 + fz * s, y, c.pos.z + fz * 2.2 - fx * s);
           this.tail.add(c.pos.x - fx * 2.25 + fz * s, y + 0.05, c.pos.z - fz * 2.25 - fx * s);
         }
