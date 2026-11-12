@@ -19,6 +19,7 @@ function drawView(dt) {
   else if (v === 'r25') { if (app.run) drawRunPseudo(app.run, clock, dt); }
   else if (v === 'x3') { if (app.run) app.run.render(dt); }
   else render(app.world, clock, dt);
+  if (app.state === 'edit') edOverlay(clock);
 }
 /* ---------- errors never stop the game: each part of a frame is guarded, problems are shown and repaired ---------- */
 const ERR = { n: 0, seen: {}, draw: 0, fixed: 0 };
@@ -48,14 +49,24 @@ function frame(now) {
 }
 function simFrame(dt) {
   if (app.state === 'play') {
-    acc += dt; const inp = readInput(); let n = 0;
+    acc += dt * (mutOn('fast') ? 1.25 : 1); const inp = readInput(); let n = 0;
     if (app.kind === 'run' && app.run) { while (acc >= STEP && n < 14) { app.run.update(STEP, inp); acc -= STEP; n++; } }
-    else if (app.world) { const sp = app.world.D.speed; while (acc >= STEP && n < 14) { app.world.step(STEP * sp, inp); if (app.rivals2) app.rivals2.tick(app.world.ck); acc -= STEP; n++; } }
+    else if (app.world) {
+      const sp = app.world.D.speed;
+      // the robot's run from the editor: one recorded input every 8 steps; any key or touch hands control back to you
+      if (app.demo && (inp.left || inp.right || inp.jump)) { app.demo = null; app.taunt('🎮 حالا خودت بازی کن!', '#9ef9ff'); }
+      while (acc >= STEP && n < 14) { app.world.step(STEP * sp, app.demo ? demoInput(app.demo) : inp); if (app.rivals2) app.rivals2.tick(app.world.ck); acc -= STEP; n++; }
+    }
     if (n >= 14) acc = 0;
-    app.levelT += dt; ST.time += dt;
+    app.levelT += dt * (mutOn('fast') ? 1.25 : 1); ST.time += dt;
     if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);
   } else if (app.state === 'title' && app.world) {
     app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;
+}
+function demoInput(d) {
+  const a = d.i < d.acts.length ? d.acts.charCodeAt(d.i) - 48 : 0;
+  if (++d.n >= 8) { d.n = 0; d.i++; }
+  return ED_ACTS[a] || ED_ACTS[0];
 }
 requestAnimationFrame(frame);

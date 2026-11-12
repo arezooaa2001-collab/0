@@ -744,7 +744,7 @@ class Run3D {
     r.render(this.scene, cam);
     // rear-view mirror: shows the giants behind you
     // the mirror is the first extra to go when the device struggles (adaptive quality)
-    const m = GFX.mir && Perf.si < 3 && !Perf.fxDrop ? this.mirrorRect() : null;
+    const m = GFX.mir && Perf.si < 3 && !Perf.fxDrop && !mutScr() ? this.mirrorRect() : null;
     const mEl = document.getElementById('mirror'), showM = this.state !== 'intro' && !!m;
     if (mEl.classList.contains('off') === showM) mEl.classList.toggle('off', !showM);
     if (m && showM) {

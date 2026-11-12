@@ -148,7 +148,7 @@ function drawRunPseudo(run, t, dt) {
   const cam = { x: p.x * .55 + (Math.random() - .5) * shk * .05, y: 3.3 + Math.max(0, p.y) * .35 + intro * 3, s: p.s - 6.6 - intro * 6, hz: ch * (.42 - intro * .06), f: ch * .95, cx: cw / 2 + (Math.random() - .5) * shk };
   pseudoScene(run, c, cam, 0, 0, cw, ch, t, false);
   // rear-view mirror drawn on the canvas, framed by the HUD mirror box
-  if (GFX.mir && run.state !== 'intro') {
+  if (GFX.mir && run.state !== 'intro' && !mutScr()) {
     const m = run.mirrorRect && run.mirrorRect.call(run); const el = $('mirror');
     if (m) { const mx = m.x * dpr, my = m.y * dpr, mw = m.w * dpr, mh = m.h * dpr;
       ctx.save(); ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip();

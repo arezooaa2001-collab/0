@@ -96,3 +96,13 @@ function drawBoss(e, t, world) {
   // hearts over its head while it fights
   if (e.hp > 0 && e.awake) { ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ff5d8a'; for (let k = 0; k < 3; k++) { ctx.globalAlpha = k < e.hp ? 1 : .2; ctx.beginPath(); const hx = x + w / 2 + (k - 1) * 26, hy = y - 26; ctx.arc(hx - 5, hy, 6, 0, 7); ctx.arc(hx + 5, hy, 6, 0, 7); ctx.moveTo(hx - 11, hy + 2); ctx.lineTo(hx, hy + 14); ctx.lineTo(hx + 11, hy + 2); ctx.fill(); } ctx.globalAlpha = 1; }
 }
+
+/* ---------- boss rush: the four arenas back to back, each in its own world, then the door ---------- */
+const RUSH = ['golem', 'spider', 'dragon', 'king'], RUSH_BIOME = { golem: 'desert', spider: 'factory', dragon: 'volcano', king: 'crimson' };
+function bossRushDef() {
+  const fin = { hand: true, w: 14, t0: TOP_MAX, spawn: [1, TOP_MAX - 1], build: P => { P.block(null, 0, 15, 14, 3); P.door(8, 13); P.trig(1.5, 0, .5, 18, () => P.say('هر چهار غول رو شکست دادی! 🏆')); } };
+  const def = { name: 'نبرد غول‌ها', rush: true, noRun: true, biome: RUSH_BIOME[RUSH[0]], spawn: [1, TOP_MAX - 1], secs: RUSH.map(k => bossArena(k)).concat([fin]), nObs: RUSH.length };
+  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
+  def.relayout(); def.rooms = def.secs.length;
+  return def;
+}

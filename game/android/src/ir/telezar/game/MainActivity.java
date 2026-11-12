@@ -1,12 +1,16 @@
 package ir.telezar.game;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -45,12 +49,32 @@ public class MainActivity extends Activity {
         s.setTextZoom(100);
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient());
+        web.addJavascriptInterface(new Bridge(), "TelezarApp");   // share / copy level codes from the editor
         web.setVerticalScrollBarEnabled(false);
         web.setHorizontalScrollBarEnabled(false);
         setContentView(web);
         hideBars();
         if (state != null) web.restoreState(state);
         else web.loadUrl("file:///android_asset/index.html");
+    }
+
+    /** Called from the page: send a level code to another app, or put it on the clipboard. */
+    public class Bridge {
+        @JavascriptInterface
+        public void share(final String text) {
+            runOnUiThread(new Runnable() { @Override public void run() {
+                try {
+                    Intent i = new Intent(Intent.ACTION_SEND); i.setType("text/plain"); i.putExtra(Intent.EXTRA_TEXT, text);
+                    startActivity(Intent.createChooser(i, "\u0641\u0631\u0633\u062a\u0627\u062f\u0646"));
+                } catch (Exception ignored) { }
+            } });
+        }
+        @JavascriptInterface
+        public void copy(final String text) {
+            runOnUiThread(new Runnable() { @Override public void run() {
+                try { ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("telezar", text)); } catch (Exception ignored) { }
+            } });
+        }
     }
 
     private void hideBars() {

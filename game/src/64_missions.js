@@ -14,6 +14,8 @@ const MISSION_POOL = [
   { id: 'jump', t: n => `${faNum(n)} بار بپر`, n: [150, 250, 400], r: 15 },
   { id: 'death', t: n => `${faNum(n)} بار بمیر 😈 (آره، درست خوندی!)`, n: [10, 20], r: 15 },
   { id: 'shop', t: () => 'یه چیز از فروشگاه بخر', n: [1], r: 20 },
+  { id: 'make', t: () => 'توی «سازنده‌ی مرحله» یه مرحله بساز و خودت ردش کن', n: [1], r: 35 },
+  { id: 'mut', t: () => 'یه مرحله رو با یکی از «چالش‌های ویژه» ببر', n: [1], r: 35 },
 ];
 const CHEST_GEMS = [10, 15, 20, 30, 40, 55, 80];
 const Missions = {
@@ -53,7 +55,7 @@ const Missions = {
     const s = this.chestState(); if (!s.ready) return 0;
     ST.chest = { last: dayKey(), streak: s.day }; ST.gems += s.gems; writeSave(); this.badge(); return s.gems;
   },
-  claimable() { return this.chestState().ready || this.today().some(m => m.done && !m.got); },
+  claimable() { return this.chestState().ready || this.today().some(m => m.done && !m.got) || (typeof Wheel !== 'undefined' && Wheel.free()); },
   badge() { const b = document.getElementById('bMissions'); if (b) b.classList.toggle('dot', this.claimable()); },
 };
 function renderMissions() {

@@ -123,7 +123,12 @@ $('modeList').addEventListener('click', e => {
 });
 
 /* records & achievements */
-function renderStats() {
+let statTab = 'rec';
+function renderStats(tab) {
+  if (tab) statTab = tab;
+  const nc = TRAPS.filter(t => (ST.dc || {})[t[0]]).length;
+  $('statTabs').innerHTML = [['rec', '🏆 رکوردها'], ['traps', `📖 دانشنامه‌ی تله‌ها (${faNum(nc)}/${faNum(TRAPS.length)})`]].map(([k, n]) => `<button class="tab${k === statTab ? ' on' : ''}" data-sttab="${k}">${n}</button>`).join('');
+  if (statTab === 'traps') { $('statsBody').innerHTML = renderTraps(); return; }
   const pr = progOf(app.diff), stars = pr.stars || {}, best = pr.best || {};
   const won = Object.keys(stars).length, got = ACH.filter(a => ST.ach[a[0]]).length;
   let h = `<div class="kv"><div><b>${faNum(won)}/${faNum(LEVELS.length)}</b><span>مرحله‌ی برده‌شده</span></div><div><b>${faNum(totalStars(app.diff))}</b><span>ستاره (${DIFFS[app.diff].name})</span></div>
@@ -133,6 +138,8 @@ function renderStats() {
     <div class="sec"><h3>رکورد مرحله‌ها (${DIFFS[app.diff].name})</h3><div class="lvStars">${LEVELS.map((L, i) => `<div title="${esc(L.name)}"><b>${faNum(i + 1)}</b>${stars[i] ? '<span style="color:var(--gold)">' + '★'.repeat(stars[i]) + '</span>' : '—'}<br>${best[i] ? fmtT(best[i]) : ''}</div>`).join('')}</div></div>`;
   $('statsBody').innerHTML = h;
 }
+
+$('statTabs').addEventListener('click', e => { const b = e.target.closest('[data-sttab]'); if (b) { Sound.play('click'); renderStats(b.dataset.sttab); $('statsBody').scrollTop = 0; } });
 
 /* gem shop: colours, hats and trails */
 let shopTab = 'color', shopAnim = 0;
@@ -178,16 +185,25 @@ $('shopGrid').addEventListener('click', e => {
 function renderEndless() {
   const best = (ST.endBest || {})[app.diff] || 0, d = dailyBest();
   $('endList').innerHTML = `<button class="mcard" data-end="0"><b>♾️ بی‌پایان آزاد</b><small>هر بار یه مسیر تازه و تصادفی.<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${faNum(best)} متر</b></small></button>
-    <button class="mcard" data-end="1"><b>🗓️ چالش امروز</b><small>یه مسیر ثابت برای امروز؛ فردا عوض می‌شه.<br>رکورد امروز: <b style="color:var(--gold)">${faNum(d)} متر</b></small></button>`;
+    <button class="mcard" data-end="1"><b>🗓️ چالش امروز</b><small>یه مسیر ثابت برای امروز؛ فردا عوض می‌شه.<br>رکورد امروز: <b style="color:var(--gold)">${faNum(d)} متر</b></small></button>
+    <button class="mcard" data-rush="1"><b>🗿 نبرد غول‌ها</b><small>هر چهار غول آخر مرحله پشت سر هم، هر کدوم توی دنیای خودش. با زمان مسابقه بده!<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${(ST.rush || {})[app.diff] ? fmtT(ST.rush[app.diff]) + ' ثانیه' : '—'}</b></small></button>`;
+  $('mutBox').innerHTML = renderMuts();
 }
-$('endList').addEventListener('click', e => { const b = e.target.closest('[data-end]'); if (b) { Sound.play('click'); app.startEndless(b.dataset.end === '1'); } });
+$('endList').addEventListener('click', e => {
+  const b = e.target.closest('[data-end],[data-rush]'); if (!b) return; Sound.play('click');
+  if (b.dataset.rush) app.startRush(); else app.startEndless(b.dataset.end === '1');
+});
+$('mutBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-mut]'); if (!b) return; Sound.play('click');
+  const M = ST.mut || (ST.mut = {}); M[b.dataset.mut] = !M[b.dataset.mut]; writeSave(); renderEndless();
+});
 $('bEndless').onclick = () => { Sound.init(); Sound.play('click'); renderEndless(); app.open('sEndless'); };
 $('bOverAgain').onclick = () => { Sound.play('click'); app.startEndless(); };
 $('bOverMenu').onclick = () => { Sound.play('click'); app.menu(); };
 $('bShop').onclick = () => { Sound.init(); Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };
 
 /* daily missions + chest */
-$('bMissions').onclick = () => { Sound.init(); Sound.play('click'); renderMissions(); app.open('sMissions'); };
+$('bMissions').onclick = () => { Sound.init(); Sound.play('click'); renderMissions(); renderWheel(); app.open('sMissions'); };
 $('sMissions').addEventListener('click', e => {
   const c = e.target.closest('[data-chest]'), m = e.target.closest('[data-mis]');
   if (c) { const g = Missions.openChest(); if (g) { Sound.play('win'); app.taunt(`🎁 ${faNum(g)} جواهر گرفتی!`, '#7af7ff'); } renderMissions(); }

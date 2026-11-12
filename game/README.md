@@ -14,7 +14,7 @@ ARTIFACT_OUT=out.html python3 build.py   # also writes a variant without <html>/
 ## Android app (APK)
 
 `telezar.apk` is the game wrapped in a full-screen Android WebView (landscape, saves kept on the phone, back key = pause/back,
-works offline). Rebuild it after changing the game:
+works offline; level codes from the editor can be shared to other apps or copied). Rebuild it after changing the game:
 
 ```
 android/build_apk.sh      # needs a JDK and: apt-get install android-sdk-platform-23 aapt dalvik-exchange zipalign apksigner
@@ -32,7 +32,7 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/15_course.js` | long scrolling levels: catalogue of 171 obstacle designs (switch blocks, kicker springs, pressure plates, spinners and more), per-level selection without repeats (FLAVOR families + one newer mechanic family per level), independent chunks with checkpoint flags, chase/reverse chunks, underground cave chunks (auto / all / picked / off), gems, power-ups (shield, star, slow time, magnet, spring shoes), 24 level looks (BIOMES: colours, background scenery, block material, floor edge, sky object, matching 3D theme); the level's hand-made screen is its finale; `CHUNK_FIX` holds solver-verified seeds |
 | `src/16_rivaldata.js` | recorded solver runs used by the rivals of the 2D race levels (generated) |
 | `src/17_endless.js` | endless mode and daily challenge: a course of solver-checked chunks that grows ahead of the player, with zones |
-| `src/22_boss.js` | boss arenas (golem, spider, dragon, trap king) that close levels 13, 23, 33 and 39: attacks, red buttons that drop weights, drawing |
+| `src/22_boss.js` | boss arenas (golem, spider, dragon, trap king) that close levels 13, 23, 33 and 39: attacks, red buttons that drop weights, drawing; the boss rush (all four arenas in a row, each in its own scenery) |
 | `src/20_world.js` | 2D platformer simulation (traps, physics, save/load snapshots): trampolines, wind/updraft zones, low gravity, teleporters, blinking blocks, orbit/pendulum platforms, one-way planks, dash pads, lava/acid, fake spikes, gems, power-up effects, death slow-motion; long levels built section by section (`secBuilder`), camera, checkpoints, update window around the player |
 | `src/40_render2d.js` | 2D canvas renderer: classic view and the 2.5D extruded view, scrolling camera, static blocks cached in 640 px tiles, per-biome block textures and parallax scenery (mountains, cities, forests, dunes, crystals, islands, ruins, …), caves, high-tier sky effects (mist, moon rays, meteors) |
 | `src/42_weather.js` | weather (rain, snow, flood, storm, automatic) for the 2D views and both three.js views, rain/wind sounds |
@@ -41,7 +41,10 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/52_run3dx.js` | six newer 3D obstacle types described by moving parts (lasers, saws, hammers, sliding walls, turning bars, pillars), the shared autopilot / rival AI, rival runners, and the conversion of any platformer level into a 3D run (true 3D mode) |
 | `src/55_p3d.js` | three.js view for platformer levels (side-3D mode): side camera or third-person camera, mesh reuse on respawn |
 | `src/58_rivals2d.js` | rivals of the race levels played in 2D: each replays recorded solver runs room by room in its own invisible copy of the level |
+| `src/62_editor.js` | level editor: a grid 1–5 screens wide with 24 tools (ground, planks, ice, moving and crumbling platforms, fake/falling/invisible blocks, spikes incl. hidden and falling ones, saws, lasers, lava, springs, gravity orbs, gems, start, door, fake door, checkpoints); play-testing, a robot that searches for a way through (the same Go-Explore search used to check the game's own levels) and replays it, save slots, share codes (`TZ1-…`), sample level |
 | `src/64_missions.js` | daily missions, the daily chest with a 7-day streak, player level (XP) |
+| `src/66_traps.js` | trap encyclopedia: a card for every kind of trap you have died to, death counts per trap and per level |
+| `src/67_extras.js` | challenge modifiers (darkness, upside-down screen, mirrored world, turbo) with bonus rewards, and the daily lucky wheel |
 | `src/60_app.js`, `src/65_ui.js` | app flow, records, achievements, gem shop, endless/daily runs with lives, ghost of the best run, settings, mode, and records screens |
 
 ## Game modes

@@ -258,6 +258,7 @@ function resize() {
   S = Math.min(cw / W, ch / H); OX = (cw - W * S) / 2; OY = (ch - H * S) / 2;
   EXT = { l: OX / S + 4, r: OX / S + 4, t: OY / S + 4, b: OY / S + 4 };
   ctx.imageSmoothingEnabled = true;
+  if (app.state === 'edit') edLayout();   // the editor makes room for its tool columns
   buildBackground();
   layoutTouch();
 }

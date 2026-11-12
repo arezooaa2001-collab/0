@@ -42,7 +42,8 @@
     <div class="menu">
       <button class="btn primary wide" id="bPlay">▶ شروع بازی</button>
       <button class="btn" id="bLevels">🗺️ انتخاب مرحله</button>
-      <button class="btn hot" id="bEndless">♾️ حالت بی‌پایان</button>
+      <button class="btn hot" id="bEndless">🎲 حالت‌های ویژه</button>
+      <button class="btn hot" id="bEditor">🛠️ سازنده‌ی مرحله</button>
       <button class="btn hot" id="bShop">🛒 فروشگاه</button>
       <button class="btn hot" id="bMissions">🎯 مأموریت‌ها و جایزه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
@@ -73,6 +74,7 @@
       <button class="btn primary wide" id="bResume">▶ ادامه</button>
       <button class="btn" id="bRestart2">↻ شروع دوباره</button>
       <button class="btn" id="bRestartAll">⏮ کل مرحله از اول</button>
+      <button class="btn" id="bEdBack" hidden>✏️ برگرد به سازنده</button>
       <button class="btn" id="bMode2">🎮 حالت بازی</button>
       <button class="btn" id="bSet2">⚙️ تنظیمات</button>
       <button class="btn" id="bSound2">🔊 صدا: روشن</button>
@@ -112,6 +114,7 @@
 <div class="screen fa" id="sStats">
   <div class="panel tall">
     <h2>رکوردها و دستاوردها</h2>
+    <div class="tabs" id="statTabs"></div>
     <div class="setBody" id="statsBody"></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
@@ -121,16 +124,54 @@
   <div class="panel tall">
     <h2>🎯 مأموریت‌های امروز</h2>
     <div id="chestBox"></div>
+    <div id="wheelBox"></div>
     <div id="misList"></div>
     <p class="sub small">هر روز سه مأموریت تازه می‌گیری. جواهرهای جایزه رو توی فروشگاه خرج کن.</p>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
 </div>
+<div class="screen fa" id="sMy">
+  <div class="panel tall">
+    <h2>🛠️ سازنده‌ی مرحله</h2>
+    <p class="sub small">مرحله‌ی خودت رو با تله‌های پنهان بساز، خودت (یا ربات) ردش کن و کدش رو برای دوستات بفرست تا اونا هم گیر بیفتن 😈</p>
+    <div class="row myTop"><button class="btn primary" id="bEdNew">＋ مرحله‌ی جدید</button><button class="btn" id="bEdImp">📥 وارد کردن کد</button></div>
+    <div class="setBody" id="myList"></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div id="edCode" class="fa"><div class="panel">
+  <h2 id="edCodeH"></h2><p class="sub small" id="edCodeP"></p>
+  <textarea id="edCodeTa" rows="5" spellcheck="false" dir="ltr"></textarea>
+  <div class="row"><button class="btn primary" id="edCodeCopy">📋 کپی</button><button class="btn primary" id="edCodeSend">📤 فرستادن</button><button class="btn primary" id="edCodeAdd">📥 اضافه کن</button><button class="btn" id="edCodeX">بستن</button></div>
+</div></div>
+<div id="edUI" class="fa">
+  <div id="edL" class="edCol">
+    <button data-ed="exit" title="خروج (Esc)" aria-label="خروج">✖</button>
+    <button data-ed="test" class="go" title="بازی و تست (Enter)" aria-label="تست">▶</button>
+    <button data-ed="bot" title="ربات امتحانش کنه" aria-label="ربات">🤖</button>
+    <button data-ed="help" title="راهنما" aria-label="راهنما">❓</button>
+    <button data-ed="undo" title="برگرد (Ctrl+Z)" aria-label="برگرد">↶</button>
+    <button data-ed="redo" title="دوباره (Ctrl+Y)" aria-label="دوباره">↷</button>
+    <button data-ed="left" title="برو چپ" aria-label="چپ">«</button>
+    <button data-ed="right" title="برو راست" aria-label="راست">»</button>
+    <button data-ed="pan" id="edPan" title="جابه‌جایی صفحه" aria-label="جابه‌جایی">✋</button>
+    <button data-ed="theme" title="ظاهر مرحله" aria-label="ظاهر">🎨</button>
+    <button data-ed="more" title="یه صفحه بیشتر" aria-label="صفحه‌ی بیشتر">＋</button>
+    <button data-ed="less" title="یه صفحه کمتر" aria-label="صفحه‌ی کمتر">－</button>
+    <button data-ed="name" title="اسم مرحله" aria-label="اسم">✏️</button>
+    <button data-ed="clear" title="پاک کردن همه" aria-label="پاک کردن همه">🗑</button>
+  </div>
+  <div id="edR" class="edCol"><div id="edTools"></div></div>
+  <div id="edHead"><b id="edName"></b><span id="edPage"></span><div id="edPos"><i></i></div></div>
+  <div id="edTip"></div>
+  <div id="edBot"><div class="panel"><b id="edBotTxt"></b><div class="bar"><i id="edBotBar"></i></div>
+    <div class="row"><button class="btn primary" id="edBotGo">▶ ببین چطوری</button><button class="btn" id="edBotX">بستن</button></div></div></div>
+</div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">
-    <h2>♾️ بی‌پایان</h2>
-    <p class="sub small">مسیری که تموم نمی‌شه: هرچی جلوتر بری سخت‌تر می‌شه. ۳ جون داری و هر ۵ چک‌پوینت یه جون اضافه می‌گیری.</p>
-    <div class="modes" id="endList"></div>
+    <h2>🎲 حالت‌های ویژه</h2>
+    <div class="diffbox"><div class="diffs" data-diffs></div></div>
+    <div class="setBody" id="endBody"><div class="modes" id="endList"></div><div id="mutBox"></div></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
 </div>
