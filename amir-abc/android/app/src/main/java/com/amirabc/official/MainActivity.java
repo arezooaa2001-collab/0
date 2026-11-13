@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);          // reveal animations + button effects
+        s.setDomStorageEnabled(true);          // remembers the colour chosen on the colour page
         s.setAllowFileAccess(false);           // android_asset still works; no other file access
         s.setAllowContentAccess(false);
         s.setGeolocationEnabled(false);

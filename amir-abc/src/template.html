@@ -66,7 +66,7 @@ img{max-width:100%;display:block}
   inset:0;
   z-index:-2;
   overflow:hidden;
-  background:linear-gradient(160deg,#c5170f 0%,#e2420e 22%,#f47b0c 45%,#c9a114 62%,#3fae3a 80%,#0f8f45 100%);
+  background:var(--bg-grad,linear-gradient(160deg,#c5170f 0%,#e2420e 22%,#f47b0c 45%,#c9a114 62%,#3fae3a 80%,#0f8f45 100%));
 }
 .bg::after{ /* soft dark veil keeps white text readable */
   content:"";
@@ -81,13 +81,13 @@ img{max-width:100%;display:block}
   width:80vmax;
   height:80vmax;
   border-radius:50%;
-  opacity:.75;
+  opacity:var(--blob-op,.75);
   will-change:transform;
   animation:drift 26s ease-in-out infinite alternate;
 }
-.blob.r{background:radial-gradient(circle,rgba(255,40,30,.85) 0%,rgba(255,40,30,0) 62%);top:-30vmax;right:-25vmax}
-.blob.o{background:radial-gradient(circle,rgba(255,160,20,.8) 0%,rgba(255,160,20,0) 62%);top:20%;left:-35vmax;animation-duration:32s;animation-delay:-8s}
-.blob.g{background:radial-gradient(circle,rgba(30,210,90,.8) 0%,rgba(30,210,90,0) 62%);bottom:-35vmax;right:-20vmax;animation-duration:29s;animation-delay:-14s}
+.blob.r{background:radial-gradient(circle,var(--b1,rgba(255,40,30,.85)) 0%,var(--b1z,rgba(255,40,30,0)) 62%);top:-30vmax;right:-25vmax}
+.blob.o{background:radial-gradient(circle,var(--b2,rgba(255,160,20,.8)) 0%,var(--b2z,rgba(255,160,20,0)) 62%);top:20%;left:-35vmax;animation-duration:32s;animation-delay:-8s}
+.blob.g{background:radial-gradient(circle,var(--b3,rgba(30,210,90,.8)) 0%,var(--b3z,rgba(30,210,90,0)) 62%);bottom:-35vmax;right:-20vmax;animation-duration:29s;animation-delay:-14s}
 .bg .light{
   position:absolute;
   inset:-20%;
@@ -168,7 +168,7 @@ main{
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:clamp(18px,4vh,34px);
+  gap:clamp(34px,5vh,44px);
 }
 .logo-wrap{
   position:relative;
@@ -201,7 +201,7 @@ main{
   margin:0;
   padding:5px;
   border-radius:var(--radius-lg);
-  background:linear-gradient(120deg,#ff2d20,#ff8a00 35%,#ffd23f 50%,#24c95a 68%,#ff8a00 85%,#ff2d20);
+  background:var(--frame-grad,linear-gradient(120deg,#ff2d20,#ff8a00 35%,#ffd23f 50%,#24c95a 68%,#ff8a00 85%,#ff2d20));
   box-shadow:var(--shadow),0 0 22px rgba(255,214,90,.7),0 0 60px -6px rgba(255,170,40,.6);
 }
 .shine{ /* light sweep across the logo */
@@ -502,6 +502,161 @@ bdi{white-space:nowrap}
   .card-body{border-radius:18px}
 }
 
+/* ---------- Logo = link to the colour page ---------- */
+.logo-link{display:block;border-radius:calc(var(--radius-lg) - 5px);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.logo-link img{transition:filter .2s ease,transform .2s ease}
+.logo-link:hover img{filter:brightness(1.18) contrast(1.06) saturate(1.25)}
+.logo-link:active img{transform:scale(.99)}
+.logo-link:focus-visible{outline:3px solid #fff;outline-offset:6px}
+.logo-badge{
+  position:absolute;
+  left:50%;
+  bottom:-17px;
+  z-index:3;
+  transform:translateX(-50%);
+  white-space:nowrap;
+  max-width:94%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  padding:6px clamp(10px,3vw,16px);
+  border-radius:99px;
+  background:rgba(22,9,4,.88);
+  border:1px solid rgba(255,213,106,.75);
+  color:#ffe28a;
+  font-size:clamp(11.5px,3.3vw,13.5px);
+  font-weight:700;
+  line-height:1.5;
+  box-shadow:0 4px 14px rgba(0,0,0,.4),0 0 12px rgba(255,205,90,.35);
+}
+html.still .blob,html.still .bg .light{animation:none}
+
+/* ---------- Colour settings page ---------- */
+body.theme-open main,body.theme-open footer{display:none}
+.theme-page[hidden]{display:none}
+.theme-page{
+  max-width:760px;
+  margin:0 auto;
+  padding:
+    calc(env(safe-area-inset-top,0px) + 18px)
+    calc(env(safe-area-inset-right,0px) + var(--gutter))
+    calc(env(safe-area-inset-bottom,0px) + 36px)
+    calc(env(safe-area-inset-left,0px) + var(--gutter));
+  animation:heroIn .45s ease both;
+}
+.tp-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.tp-title{margin:0;font-size:clamp(22px,5.5vw,30px);font-weight:800;line-height:1.4;text-shadow:0 2px 10px rgba(0,0,0,.35);outline:none}
+.tp-back,.tool{
+  min-height:44px;
+  padding:0 16px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(20,8,4,.5);
+  color:#fff;
+  font:inherit;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.tool:disabled{opacity:.4;cursor:not-allowed}
+.tp-intro{margin:0 0 14px;font-size:15px;line-height:1.9;color:rgba(255,255,255,.92);text-shadow:0 1px 6px rgba(0,0,0,.35)}
+.tp-preview{
+  height:96px;
+  margin-bottom:14px;
+  border-radius:18px;
+  background:var(--bg-grad,linear-gradient(160deg,#c5170f,#f47b0c,#0f8f45));
+  border:2px solid rgba(255,255,255,.35);
+  box-shadow:var(--shadow);
+  display:grid;
+  place-items:center;
+}
+.tp-preview span{padding:4px 14px;border-radius:99px;background:rgba(0,0,0,.35);font-weight:700;font-size:14px}
+.tp-card{
+  margin-bottom:14px;
+  padding:16px;
+  border-radius:20px;
+  background:var(--glass);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 10px 30px -14px rgba(0,0,0,.6);
+}
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .tp-card{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+}
+.tp-card h2{margin:0 0 12px;font-size:17px;font-weight:800;color:#ffe28a}
+.tp-hint{margin:-4px 0 12px;font-size:14px;line-height:1.8;color:rgba(255,255,255,.85)}
+.theme-page.is-solid .only-rainbow{display:none}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{
+  min-height:50px;
+  padding:8px;
+  border-radius:14px;
+  border:2px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  font:inherit;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+  touch-action:manipulation;
+  transition:border-color .15s ease,background .15s ease,transform .1s ease;
+}
+.opt:active,.swatch:active,.slot:active{transform:scale(.96)}
+.opt[aria-pressed="true"]{border-color:#ffd56a;background:rgba(255,213,106,.16);box-shadow:0 0 0 3px rgba(255,213,106,.25)}
+.styles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.opt .sample{display:block;border-radius:10px;margin-bottom:6px;border:1px solid rgba(255,255,255,.25)}
+.style-opt .sample{height:58px}
+.preset .sample{height:28px}
+.slots{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.slot{
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  border:3px solid rgba(255,255,255,.55);
+  color:#fff;
+  font:inherit;
+  font-weight:800;
+  font-size:16px;
+  text-shadow:0 0 4px #000,0 0 2px #000;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.slot[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 3px #ffd56a,0 0 16px rgba(255,213,106,.85)}
+.tp-tools{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:8px;margin-top:16px}
+.swatch{aspect-ratio:1;min-height:40px;border-radius:11px;border:2px solid rgba(255,255,255,.35);cursor:pointer;touch-action:manipulation;padding:0}
+.swatch[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 3px #ffd56a}
+.range-label{display:block;margin:16px 0 8px;font-size:14.5px;font-weight:700}
+.range{-webkit-appearance:none;appearance:none;display:block;width:100%;height:16px;margin:0;border-radius:99px;border:1px solid rgba(255,255,255,.35);outline:none;cursor:pointer}
+.range.hue{background:linear-gradient(90deg,#f00,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00)}
+.range::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid #ffd56a;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.range::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #ffd56a;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.range:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.switch{display:flex;align-items:center;gap:12px;font-weight:700;font-size:15.5px;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch-ui{position:relative;flex:none;width:52px;height:30px;border-radius:99px;background:rgba(255,255,255,.25);transition:background .2s ease}
+.switch-ui::after{content:"";position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .2s ease}
+.switch input:checked + .switch-ui{background:linear-gradient(90deg,#f3c552,#d9a531)}
+.switch input:checked + .switch-ui::after{transform:translateX(-22px)}
+.switch input:focus-visible + .switch-ui{outline:3px solid #fff;outline-offset:3px}
+.tp-actions{display:grid;gap:10px;margin-top:6px}
+.tp-done{
+  min-height:56px;
+  border:0;
+  border-radius:16px;
+  background:linear-gradient(100deg,#d9a531,#fff1b0 45%,#f3c552 60%,#b8801f);
+  color:#3a2405;
+  font:inherit;
+  font-size:17px;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 10px 26px -10px rgba(255,190,60,.8),0 3px 10px rgba(0,0,0,.3);
+  touch-action:manipulation;
+}
+.tp-done:active{transform:scale(.98)}
+.tp-back:focus-visible,.tool:focus-visible,.opt:focus-visible,.slot:focus-visible,.swatch:focus-visible,.tp-done:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media (max-width:420px){.styles{grid-template-columns:repeat(2,1fr)}}
+
 /* Respect "reduce motion" */
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -511,6 +666,71 @@ bdi{white-space:nowrap}
   .js .reveal{opacity:1;transform:none}
 }
 </style>
+<script>
+/* AMIR ABC theme engine: reads the saved colour choice and applies it before the page paints. */
+(function () {
+  "use strict";
+  var KEY = "amirabc-theme-v1";
+  var STYLES = ["diagonal", "vertical", "horizontal", "radial", "conic", "stripes"];
+  var DEFAULT = { mode: "rainbow", style: "diagonal", colors: ["#c5170f", "#f47b0c", "#0f8f45"], solid: "#c5170f", motion: true };
+  var HEX = /^#[0-9a-f]{6}$/i;
+  var OK = false;
+  try { OK = !!(window.CSS && CSS.supports && CSS.supports("background-image", "linear-gradient(90deg in oklch, red, blue)")); } catch (e) {}
+
+  function clone(t) { return JSON.parse(JSON.stringify(t)); }
+  function valid(t) {
+    return !!t && (t.mode === "rainbow" || t.mode === "solid") && STYLES.indexOf(t.style) >= 0 &&
+      Array.isArray(t.colors) && t.colors.length >= 2 && t.colors.length <= 7 &&
+      t.colors.every(function (c) { return HEX.test(c); }) && HEX.test(t.solid) && typeof t.motion === "boolean";
+  }
+  function load() {
+    try { var t = JSON.parse(localStorage.getItem(KEY)); if (valid(t)) return t; } catch (e) {}
+    return clone(DEFAULT);
+  }
+  function save(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); return true; } catch (e) { return false; } }
+  function rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  function hex(r, g, b) {
+    return "#" + [r, g, b].map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? "0" : "") + v.toString(16); }).join("");
+  }
+  function mix(h, amt) { var c = rgb(h), t = amt > 0 ? 255 : 0, a = Math.abs(amt); return hex(c[0] + (t - c[0]) * a, c[1] + (t - c[1]) * a, c[2] + (t - c[2]) * a); }
+  function rgba(h, a) { var c = rgb(h); return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")"; }
+  function stops(cols) { var n = cols.length; return cols.map(function (c, i) { return c + " " + Math.round(i / (n - 1) * 100) + "%"; }).join(","); }
+  function gradient(style, cols) {
+    var sp = OK ? " in oklch" : "";   /* oklch keeps colour transitions bright (no muddy middle) */
+    switch (style) {
+      case "vertical": return "linear-gradient(180deg" + sp + "," + stops(cols) + ")";
+      case "horizontal": return "linear-gradient(90deg" + sp + "," + stops(cols) + ")";
+      case "radial": return "radial-gradient(circle at 50% 35%" + sp + "," + stops(cols) + ")";
+      case "conic": return "conic-gradient(from 200deg at 50% 45%" + sp + "," + cols.join(",") + "," + cols[0] + ")";
+      case "stripes":
+        var n = cols.length;
+        return "linear-gradient(160deg," + cols.map(function (c, i) {
+          return c + " " + (i / n * 100).toFixed(2) + "% " + ((i + 1) / n * 100).toFixed(2) + "%";
+        }).join(",") + ")";
+      default: return "linear-gradient(160deg" + sp + "," + stops(cols) + ")";
+    }
+  }
+  function palette(t) { return t.mode === "solid" ? [mix(t.solid, 0.22), t.solid, mix(t.solid, -0.35)] : t.colors; }
+  function apply(t) {
+    var d = document.documentElement, s = d.style, cols = palette(t), n = cols.length;
+    var mid = cols[Math.floor((n - 1) / 2)];
+    s.setProperty("--bg-grad", t.mode === "solid"
+      ? "linear-gradient(160deg," + mix(t.solid, 0.15) + " 0%," + t.solid + " 50%," + mix(t.solid, -0.3) + " 100%)"
+      : gradient(t.style, cols));
+    s.setProperty("--b1", rgba(cols[0], 0.85)); s.setProperty("--b1z", rgba(cols[0], 0));
+    s.setProperty("--b2", rgba(mid, 0.8));     s.setProperty("--b2z", rgba(mid, 0));
+    s.setProperty("--b3", rgba(cols[n - 1], 0.8)); s.setProperty("--b3z", rgba(cols[n - 1], 0));
+    s.setProperty("--blob-op", t.mode === "rainbow" && (t.style === "stripes" || t.style === "conic") ? "0.3" : "0.75");
+    s.setProperty("--rainbow", "linear-gradient(120deg," + stops(cols) + ")");
+    s.setProperty("--frame-grad", "linear-gradient(120deg," + stops(cols.concat([cols[0]])) + ")");
+    d.classList.toggle("still", !t.motion);
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute("content", cols[0]);
+  }
+  window.AmirTheme = { DEFAULT: DEFAULT, STYLES: STYLES, clone: clone, load: load, save: save, apply: apply, gradient: gradient, hex: hex, rgb: rgb };
+  apply(load());
+})();
+</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -541,8 +761,11 @@ bdi{white-space:nowrap}
     <div class="logo-wrap">
     <div class="logo-glow" aria-hidden="true"></div>
     <figure class="frame">
+      <a class="logo-link" id="logoLink" href="#theme" aria-label="تغییر رنگ سایت (با زدن روی لوگو، صفحه انتخاب رنگ باز می‌شود)">
       <img src="data:image/webp;base64,{{IMG}}" width="2048" height="1280" decoding="async" fetchpriority="high"
            alt="لوگوی AMIR BAKHTIARI ABC: نوشته‌ی نقره‌ای AMIR و آبی BAKHTIARI همراه با یک کتاب باز و حروف ABC، داخل یک دایره‌ی نئونی آبی روی زمینه‌ی مشکی">
+      <span class="logo-badge" aria-hidden="true">🎨 برای تغییر رنگ سایت، روی لوگو بزنید</span>
+      </a>
     <span class="shine" aria-hidden="true"></span>
     </figure>
     <div class="sparkles" aria-hidden="true">
@@ -557,7 +780,7 @@ bdi{white-space:nowrap}
       <svg class="spark" viewBox="0 0 24 24" style="--x:64%;--y:74%;--s:20px;--d:1.9s;--t:3.1s"><use href="#star"/></svg>
       <svg class="spark" viewBox="0 0 24 24" style="--x:22%;--y:50%;--s:14px;--d:2.8s;--t:2.7s"><use href="#star"/></svg>
       <svg class="spark" viewBox="0 0 24 24" style="--x:79%;--y:55%;--s:16px;--d:1.4s;--t:2.6s"><use href="#star"/></svg>
-      <svg class="spark" viewBox="0 0 24 24" style="--x:50%;--y:103%;--s:22px;--d:1s;--t:3s"><use href="#star"/></svg>
+      <svg class="spark" viewBox="0 0 24 24" style="--x:24%;--y:101%;--s:22px;--d:1s;--t:3s"><use href="#star"/></svg>
     </div>
     </div>
     <a class="scroll-hint" href="#about">
@@ -597,6 +820,63 @@ bdi{white-space:nowrap}
 
 <!-- Section 6: footer -->
 <footer>© AMIR ABC</footer>
+
+<!-- Colour settings page (opens when the logo is tapped: #theme) -->
+<section class="theme-page" id="themePage" hidden aria-labelledby="tpTitle">
+  <header class="tp-head">
+    <button type="button" class="tp-back" id="tpBack">→ بازگشت</button>
+    <h1 class="tp-title" id="tpTitle" tabindex="-1">🎨 رنگ سایت</h1>
+  </header>
+  <p class="tp-intro">رنگ سایت را همان‌طور که دوست دارید بسازید. تغییرات همان لحظه روی سایت دیده می‌شوند و روی همین دستگاه ذخیره می‌شوند.</p>
+
+  <div class="tp-preview" aria-hidden="true"><span>پیش‌نمایش رنگ سایت</span></div>
+
+  <div class="tp-card" role="group" aria-labelledby="tpModeT">
+    <h2 id="tpModeT">نوع رنگ سایت</h2>
+    <div class="seg">
+      <button type="button" class="opt" data-mode="rainbow">🌈 رنگین‌کمانی</button>
+      <button type="button" class="opt" data-mode="solid">🎨 تک‌رنگ</button>
+    </div>
+  </div>
+
+  <div class="tp-card only-rainbow" role="group" aria-labelledby="tpStyleT">
+    <h2 id="tpStyleT">نوع رنگین‌کمان</h2>
+    <div class="styles" id="tpStyles"></div>
+  </div>
+
+  <div class="tp-card only-rainbow" role="group" aria-labelledby="tpPresetT">
+    <h2 id="tpPresetT">رنگین‌کمان‌های آماده</h2>
+    <div class="presets" id="tpPresets"></div>
+  </div>
+
+  <div class="tp-card" role="group" aria-labelledby="tpColorsTitle">
+    <h2 id="tpColorsTitle">رنگ‌های رنگین‌کمان</h2>
+    <p class="tp-hint only-rainbow">روی یکی از دایره‌ها بزنید، بعد رنگ جدیدش را از پایین انتخاب کنید.</p>
+    <div class="slots" id="tpSlots"></div>
+    <div class="tp-tools only-rainbow">
+      <button type="button" class="tool" id="tpAdd">＋ افزودن رنگ</button>
+      <button type="button" class="tool" id="tpRemove">－ حذف رنگ انتخاب‌شده</button>
+    </div>
+    <div class="swatches" id="tpSwatches" aria-label="رنگ‌ها"></div>
+    <label class="range-label" for="tpHue">رنگ دلخواه</label>
+    <input class="range hue" id="tpHue" type="range" min="0" max="359" step="1" dir="ltr">
+    <label class="range-label" for="tpLight">روشنی</label>
+    <input class="range light" id="tpLight" type="range" min="12" max="88" step="1" dir="ltr">
+  </div>
+
+  <div class="tp-card">
+    <label class="switch">
+      <input type="checkbox" id="tpMotion">
+      <span class="switch-ui" aria-hidden="true"></span>
+      <span>حرکت آرام رنگ‌ها در پس‌زمینه</span>
+    </label>
+  </div>
+
+  <div class="tp-actions">
+    <button type="button" class="tp-done" id="tpDone">✔ تأیید و بازگشت به سایت</button>
+    <button type="button" class="tool tp-reset" id="tpReset">↺ رنگ پیش‌فرض (قرمز، نارنجی، سبز)</button>
+  </div>
+</section>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -662,6 +942,167 @@ bdi{white-space:nowrap}
       showToast("اتصال اینترنت برقرار نیست. برای ورود به اینستاگرام، اینترنت را روشن کنید و دوباره امتحان کنید.");
     }
   });
+
+  // ---- Colour settings page ----
+  var T = window.AmirTheme;
+  var page = document.getElementById("themePage");
+  if (T && page) {
+    var $ = function (id) { return document.getElementById(id); };
+    var theme = T.load(), sel = 0, fromSite = false, savedY = 0;
+    var FA = "۰۱۲۳۴۵۶۷۸۹";
+    var fa = function (n) { return String(n).replace(/\d/g, function (d) { return FA[d]; }); };
+    var STYLE_NAMES = { diagonal: "مورب", vertical: "عمودی", horizontal: "افقی", radial: "دایره‌ای", conic: "چرخشی", stripes: "نواری" };
+    var PRESETS = [
+      ["پیش‌فرض", ["#c5170f", "#f47b0c", "#0f8f45"]],
+      ["رنگین‌کمان کامل", ["#e8261c", "#ff8a00", "#ffd60a", "#18b84a", "#00b4d8", "#3a86ff", "#7b2cbf"]],
+      ["غروب", ["#5a189a", "#d6246e", "#ff8a00", "#ffd60a"]],
+      ["اقیانوس", ["#023e8a", "#0077b6", "#00b4d8", "#48cae4"]],
+      ["جنگل", ["#0f5132", "#18b84a", "#a7c957"]],
+      ["طلایی", ["#3d2a05", "#b8860b", "#f3c552"]],
+      ["بنفش و صورتی", ["#5a189a", "#9d4edd", "#ff7ab8"]],
+      ["آتش", ["#6a040f", "#d00000", "#ff8a00", "#ffd60a"]]
+    ];
+    var SWATCHES = ["#e8261c", "#d00000", "#ff4d6d", "#d6246e", "#ff7ab8", "#ff8a00", "#f4a261", "#ffb703",
+      "#ffd60a", "#f3c552", "#b8860b", "#8d5524", "#18b84a", "#2dc653", "#a7c957", "#0f5132", "#0f766e",
+      "#00b4d8", "#48cae4", "#3a86ff", "#0077b6", "#023e8a", "#7b2cbf", "#9d4edd", "#c77dff", "#5a189a",
+      "#ffffff", "#adb5bd", "#343a40", "#000000"];
+
+    var toHsl = function (h) {
+      var c = T.rgb(h), r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+      var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn, hh = 0, s = 0;
+      if (d) {
+        s = d / (1 - Math.abs(2 * l - 1));
+        hh = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        hh = Math.round(hh * 60); if (hh < 0) hh += 360;
+      }
+      return [hh, Math.round(s * 100), Math.round(l * 100)];
+    };
+    var hslHex = function (h, s, l) {
+      s /= 100; l /= 100;
+      var k = function (n) { return (n + h / 30) % 12; }, a = s * Math.min(l, 1 - l);
+      var f = function (n) { return 255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))); };
+      return T.hex(f(0), f(8), f(4));
+    };
+    var mkBtn = function (cls, text) {
+      var b = document.createElement("button"); b.type = "button"; b.className = cls;
+      if (text) b.textContent = text; return b;
+    };
+    var cur = function () { return theme.mode === "solid" ? theme.solid : theme.colors[sel]; };
+    var commit = function (keepSliders) { T.apply(theme); T.save(theme); render(keepSliders); };
+    var setCur = function (hx, keepSliders) {
+      if (theme.mode === "solid") theme.solid = hx; else theme.colors[sel] = hx;
+      commit(keepSliders);
+    };
+    var same = function (a, b) { return a.length === b.length && a.every(function (c, i) { return c.toLowerCase() === b[i].toLowerCase(); }); };
+
+    // static swatches
+    SWATCHES.forEach(function (c) {
+      var b = mkBtn("swatch"); b.style.background = c; b.setAttribute("data-c", c);
+      b.setAttribute("aria-label", "رنگ " + c);
+      b.addEventListener("click", function () { setCur(c); });
+      $("tpSwatches").appendChild(b);
+    });
+
+    function render(keepSliders) {
+      [].forEach.call(page.querySelectorAll("[data-mode]"), function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-mode") === theme.mode));
+      });
+      page.classList.toggle("is-solid", theme.mode === "solid");
+
+      var st = $("tpStyles"); st.textContent = "";
+      T.STYLES.forEach(function (k) {
+        var b = mkBtn("opt style-opt"), sw = document.createElement("span");
+        sw.className = "sample"; sw.style.background = T.gradient(k, theme.colors);
+        b.appendChild(sw); b.appendChild(document.createTextNode(STYLE_NAMES[k]));
+        b.setAttribute("aria-pressed", String(theme.style === k));
+        b.addEventListener("click", function () { theme.style = k; commit(); });
+        st.appendChild(b);
+      });
+
+      var pr = $("tpPresets"); pr.textContent = "";
+      PRESETS.forEach(function (p) {
+        var b = mkBtn("opt preset"), sw = document.createElement("span");
+        sw.className = "sample"; sw.style.background = T.gradient("horizontal", p[1]);
+        b.appendChild(sw); b.appendChild(document.createTextNode(p[0]));
+        b.setAttribute("aria-pressed", String(same(theme.colors, p[1])));
+        b.addEventListener("click", function () { theme.colors = p[1].slice(); sel = 0; commit(); });
+        pr.appendChild(b);
+      });
+
+      var list = theme.mode === "solid" ? [theme.solid] : theme.colors;
+      if (sel > list.length - 1) sel = list.length - 1;
+      var sl = $("tpSlots"); sl.textContent = "";
+      list.forEach(function (c, i) {
+        var b = mkBtn("slot", fa(i + 1)); b.style.background = c;
+        b.setAttribute("aria-pressed", String(i === sel));
+        b.setAttribute("aria-label", (theme.mode === "solid" ? "رنگ سایت" : "رنگ " + fa(i + 1)) + "، " + c);
+        b.addEventListener("click", function () { sel = i; render(); });
+        sl.appendChild(b);
+      });
+      $("tpAdd").disabled = theme.mode === "solid" || theme.colors.length >= 7;
+      $("tpRemove").disabled = theme.mode === "solid" || theme.colors.length <= 2;
+      $("tpColorsTitle").textContent = theme.mode === "solid" ? "رنگ سایت" : "رنگ‌های رنگین‌کمان";
+
+      var c = cur().toLowerCase();
+      [].forEach.call($("tpSwatches").children, function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-c") === c));
+      });
+      var hsl = toHsl(c);
+      if (!keepSliders) { $("tpHue").value = hsl[0]; $("tpLight").value = Math.max(12, Math.min(88, hsl[2])); }
+      $("tpLight").style.background = "linear-gradient(90deg,#000," + hslHex(+$("tpHue").value, 85, 50) + ",#fff)";
+      $("tpMotion").checked = theme.motion;
+    }
+
+    [].forEach.call(page.querySelectorAll("[data-mode]"), function (b) {
+      b.addEventListener("click", function () { theme.mode = b.getAttribute("data-mode"); sel = 0; commit(); });
+    });
+    $("tpHue").addEventListener("input", function () { setCur(hslHex(+this.value, 85, +$("tpLight").value), true); });
+    $("tpLight").addEventListener("input", function () { setCur(hslHex(+$("tpHue").value, 85, +this.value), true); });
+    $("tpAdd").addEventListener("click", function () {
+      if (theme.colors.length >= 7) return;
+      var h = toHsl(theme.colors[theme.colors.length - 1]);
+      theme.colors.push(hslHex((h[0] + 50) % 360, 85, 50)); sel = theme.colors.length - 1; commit();
+    });
+    $("tpRemove").addEventListener("click", function () {
+      if (theme.colors.length <= 2) return;
+      theme.colors.splice(sel, 1); sel = Math.max(0, sel - 1); commit();
+    });
+    $("tpMotion").addEventListener("change", function () { theme.motion = this.checked; commit(); });
+    $("tpReset").addEventListener("click", function () { theme = T.clone(T.DEFAULT); sel = 0; commit(); showToast("رنگ پیش‌فرض برگشت."); });
+
+    var jump = function (y) {
+      var de = document.documentElement, old = de.style.scrollBehavior;
+      de.style.scrollBehavior = "auto"; window.scrollTo(0, y); de.style.scrollBehavior = old;
+    };
+    var goBack = function () { if (fromSite) { history.back(); } else { location.hash = "top"; } };
+    $("tpBack").addEventListener("click", goBack);
+    $("tpDone").addEventListener("click", function () {
+      var ok = T.save(theme);
+      goBack();
+      showToast(ok ? "رنگ سایت ذخیره شد ✓" : "رنگ اعمال شد، اما این مرورگر اجازه ذخیره‌کردن نمی‌دهد.");
+    });
+
+    var logo = document.getElementById("logoLink");
+    if (logo) logo.addEventListener("click", function () { fromSite = true; });
+
+    var route = function () {
+      var on = location.hash === "#theme";
+      if (on === !page.hidden) return;
+      if (on) {
+        savedY = window.scrollY || 0;
+        theme = T.load(); sel = 0; render();
+        page.hidden = false; document.body.classList.add("theme-open");
+        jump(0);
+        try { $("tpTitle").focus({ preventScroll: true }); } catch (e) { $("tpTitle").focus(); }
+      } else {
+        page.hidden = true; document.body.classList.remove("theme-open");
+        if (location.hash !== "#top" && location.hash !== "#about") jump(savedY);
+        fromSite = false;
+      }
+    };
+    window.addEventListener("hashchange", route);
+    route();
+  }
 })();
 </script>
 </body>
