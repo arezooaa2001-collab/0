@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AMIR ABC</string>
+    <string name="no_internet">اتصال اینترنت برقرار نیست. برای ورود به اینستاگرام، اینترنت را روشن کنید و دوباره امتحان کنید.</string>
+    <string name="no_app">برنامه‌ای برای باز کردن اینستاگرام پیدا نشد. لطفاً یک مرورگر یا برنامه اینستاگرام نصب کنید.</string>
+    <string name="load_error">بارگذاری صفحه با مشکل روبه‌رو شد. لطفاً برنامه را دوباره باز کنید.</string>
+</resources>

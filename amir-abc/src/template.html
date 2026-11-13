@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7a1408">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="AMIR ABC — ویدیوهای کاربردی هوش مصنوعی، قابلیت‌های جدید Gemini و معرفی ویتامین‌های میوه‌ها در اینستاگرام.">
+<meta name="referrer" content="no-referrer">
+<title>AMIR ABC</title>
+<style>
+@font-face{
+  font-family:"Vazirmatn";
+  src:url(data:font/woff2;base64,{{FONT}}) format("woff2");
+  font-weight:100 900;
+  font-style:normal;
+  font-display:swap;
+}
+:root{
+  --red:#e8261c;
+  --orange:#ff8a00;
+  --green:#18b84a;
+  --ink:#ffffff;
+  --ink-soft:rgba(255,255,255,.88);
+  --glass:rgba(18,8,6,.56);
+  --glass-edge:rgba(255,255,255,.14);
+  --rainbow:linear-gradient(120deg,var(--red) 0%,var(--orange) 50%,var(--green) 100%);
+  --radius-lg:26px;
+  --radius-md:18px;
+  --shadow:0 24px 60px -18px rgba(0,0,0,.65),0 8px 22px -8px rgba(0,0,0,.45);
+  --gutter:clamp(16px,4vw,40px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{
+  scroll-behavior:smooth;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  background:#5a0f06;
+}
+body{
+  margin:0;
+  min-height:100vh;
+  min-height:100dvh;
+  color:var(--ink);
+  font-family:"Vazirmatn",Tahoma,"Segoe UI","Noto Sans Arabic",system-ui,sans-serif;
+  font-size:17px;
+  line-height:1.9;
+  overflow-x:hidden;
+  background:transparent;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+img{max-width:100%;display:block}
+
+/* ---------- Rainbow background (red / orange / green) ---------- */
+.bg{
+  position:fixed;
+  inset:0;
+  z-index:-2;
+  overflow:hidden;
+  background:linear-gradient(160deg,#c5170f 0%,#e2420e 22%,#f47b0c 45%,#c9a114 62%,#3fae3a 80%,#0f8f45 100%);
+}
+.bg::after{ /* soft dark veil keeps white text readable */
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(120% 80% at 50% 0%,rgba(0,0,0,0) 0%,rgba(0,0,0,.18) 70%),
+    linear-gradient(180deg,rgba(0,0,0,.10),rgba(0,0,0,.28));
+}
+.blob{
+  position:absolute;
+  width:80vmax;
+  height:80vmax;
+  border-radius:50%;
+  opacity:.75;
+  will-change:transform;
+  animation:drift 26s ease-in-out infinite alternate;
+}
+.blob.r{background:radial-gradient(circle,rgba(255,40,30,.85) 0%,rgba(255,40,30,0) 62%);top:-30vmax;right:-25vmax}
+.blob.o{background:radial-gradient(circle,rgba(255,160,20,.8) 0%,rgba(255,160,20,0) 62%);top:20%;left:-35vmax;animation-duration:32s;animation-delay:-8s}
+.blob.g{background:radial-gradient(circle,rgba(30,210,90,.8) 0%,rgba(30,210,90,0) 62%);bottom:-35vmax;right:-20vmax;animation-duration:29s;animation-delay:-14s}
+.bg .light{
+  position:absolute;
+  inset:-20%;
+  background:radial-gradient(40% 30% at 50% 30%,rgba(255,240,200,.22),rgba(255,240,200,0) 70%);
+  animation:glow 9s ease-in-out infinite alternate;
+}
+@keyframes drift{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  50%{transform:translate3d(6vmax,4vmax,0) scale(1.08)}
+  100%{transform:translate3d(-5vmax,7vmax,0) scale(.96)}
+}
+@keyframes glow{from{opacity:.55}to{opacity:1}}
+
+/* ---------- Loader ---------- */
+.loader{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(160deg,#a8140c,#e2600f 50%,#13924a);
+  transition:opacity .45s ease,visibility .45s ease;
+  animation:loaderFailsafe .4s ease 2.6s forwards; /* never blocks, even without JS */
+}
+.loader.done{opacity:0;visibility:hidden}
+.loader-inner{text-align:center}
+.loader-title{
+  direction:ltr;
+  font-weight:900;
+  font-size:clamp(34px,9vw,56px);
+  letter-spacing:.06em;
+  text-shadow:0 0 22px rgba(255,255,255,.45),0 6px 20px rgba(0,0,0,.35);
+}
+.loader-bar{
+  width:min(180px,50vw);
+  height:5px;
+  margin:14px auto 0;
+  border-radius:99px;
+  background:rgba(255,255,255,.25);
+  overflow:hidden;
+}
+.loader-bar span{
+  display:block;
+  height:100%;
+  width:45%;
+  border-radius:inherit;
+  background:#fff;
+  animation:bar 1s ease-in-out infinite;
+}
+@keyframes bar{from{transform:translateX(130%)}to{transform:translateX(-230%)}}
+@keyframes loaderFailsafe{to{opacity:0;visibility:hidden}}
+
+/* ---------- Layout ---------- */
+main{
+  width:100%;
+  max-width:980px;
+  margin:0 auto;
+  padding:
+    calc(env(safe-area-inset-top,0px) + clamp(18px,4vw,44px))
+    calc(env(safe-area-inset-right,0px) + var(--gutter))
+    0
+    calc(env(safe-area-inset-left,0px) + var(--gutter));
+}
+
+/* ---------- Section 1: hero image ---------- */
+.hero{
+  min-height:calc(100vh - 40px);
+  min-height:calc(100svh - 40px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(18px,4vh,34px);
+}
+.frame{
+  position:relative;
+  width:100%;
+  margin:0;
+  padding:5px;
+  border-radius:var(--radius-lg);
+  background:linear-gradient(120deg,#ff2d20,#ff8a00 35%,#ffd23f 50%,#24c95a 68%,#ff8a00 85%,#ff2d20);
+  box-shadow:var(--shadow),0 0 46px -6px rgba(255,140,0,.55);
+  animation:heroIn 1s cubic-bezier(.2,.75,.25,1) both;
+}
+.frame::before{ /* soft glow under the image */
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  bottom:-26px;
+  height:40px;
+  border-radius:50%;
+  background:rgba(0,0,0,.45);
+  filter:blur(22px);
+  z-index:-1;
+}
+.frame img{
+  width:100%;
+  height:auto;
+  aspect-ratio:2048/1280;
+  object-fit:contain;
+  border-radius:calc(var(--radius-lg) - 5px);
+  background:#000;
+}
+@media (orientation:portrait){
+  .hero{min-height:74vh;min-height:74svh}
+}
+@keyframes heroIn{
+  from{opacity:0;transform:translate3d(0,18px,0) scale(.985)}
+  to{opacity:1;transform:none}
+}
+.scroll-hint{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color:var(--ink);
+  text-decoration:none;
+  font-size:15px;
+  font-weight:600;
+  padding:8px 18px;
+  border-radius:99px;
+  background:rgba(0,0,0,.22);
+  border:1px solid rgba(255,255,255,.22);
+  animation:heroIn 1s .35s cubic-bezier(.2,.75,.25,1) both;
+}
+.scroll-hint svg{animation:nudge 1.8s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+
+/* ---------- Section 2: title ---------- */
+.about{
+  padding:clamp(48px,10vh,96px) 0 clamp(28px,6vh,56px);
+  scroll-margin-top:12px;
+}
+.title{
+  direction:ltr;
+  margin:0 0 clamp(22px,4vw,34px);
+  text-align:center;
+  font-weight:900;
+  font-size:clamp(46px,13vw,104px);
+  line-height:1.05;
+  letter-spacing:.04em;
+  color:#fff;
+  text-shadow:
+    0 0 18px rgba(255,255,255,.55),
+    0 0 42px rgba(255,190,90,.45),
+    0 6px 0 rgba(120,20,8,.35),
+    0 14px 30px rgba(0,0,0,.45);
+}
+
+/* ---------- Section 3: intro card ---------- */
+.card{
+  position:relative;
+  padding:2px;
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+}
+.card::before{ /* rainbow border only (inside stays glass) */
+  content:"";
+  position:absolute;
+  inset:0;
+  padding:2px;
+  border-radius:inherit;
+  background:var(--rainbow);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  pointer-events:none;
+}
+.card-body{
+  border-radius:calc(var(--radius-lg) - 2px);
+  background:var(--glass);
+  padding:clamp(22px,5vw,44px);
+  text-align:right;
+  overflow-wrap:break-word;
+  word-wrap:break-word;
+}
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .card-body{
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    backdrop-filter:blur(14px) saturate(140%);
+  }
+}
+.card p{
+  margin:0 0 1.05em;
+  color:var(--ink-soft);
+  font-size:clamp(16px,2.1vw,18.5px);
+  line-height:2.05;
+}
+.card p:last-child{margin-bottom:0}
+.card p:first-child{color:#fff;font-weight:600}
+.card bdi{font-weight:800;color:#fff}
+
+/* ---------- Section 4 & 5: Instagram button ---------- */
+.cta{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  margin-top:clamp(30px,6vw,46px);
+  text-align:center;
+}
+.ig-btn{
+  position:relative;
+  overflow:hidden;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  width:min(100%,440px);
+  min-height:62px;
+  padding:14px 26px;
+  border-radius:20px;
+  color:#fff;
+  text-decoration:none;
+  font-family:inherit;
+  font-size:clamp(17px,4.4vw,20px);
+  font-weight:800;
+  line-height:1.4;
+  background:linear-gradient(115deg,#feda75 -10%,#fa7e1e 18%,#d62976 50%,#962fbf 78%,#4f5bd5 105%);
+  box-shadow:0 14px 34px -10px rgba(214,41,118,.75),0 4px 12px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.35);
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+  touch-action:manipulation;
+  -webkit-user-select:none;
+  user-select:none;
+}
+.ig-btn::after{ /* gentle sheen */
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:40%;
+  left:-60%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);
+  transform:skewX(-18deg);
+  animation:sheen 4.5s ease-in-out 1.5s infinite;
+  pointer-events:none;
+}
+@keyframes sheen{0%,70%{left:-60%}100%{left:130%}}
+.ig-btn:hover{filter:brightness(1.07);transform:translateY(-2px)}
+.ig-btn:active,.ig-btn.pressed{transform:scale(.965);box-shadow:0 6px 18px -8px rgba(214,41,118,.8),0 2px 6px rgba(0,0,0,.25)}
+.ig-btn:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.ig-btn .ripple{
+  position:absolute;
+  border-radius:50%;
+  background:rgba(255,255,255,.45);
+  transform:scale(0);
+  animation:ripple .55s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes ripple{to{transform:scale(1);opacity:0}}
+.cta-note{
+  margin:0;
+  font-size:14.5px;
+  line-height:1.8;
+  color:rgba(255,255,255,.9);
+  text-shadow:0 1px 6px rgba(0,0,0,.35);
+}
+
+/* ---------- Section 6: footer ---------- */
+footer{
+  padding:clamp(40px,8vh,70px) var(--gutter) calc(env(safe-area-inset-bottom,0px) + 26px);
+  text-align:center;
+  direction:ltr;
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:.06em;
+  color:rgba(255,255,255,.85);
+}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 22px);
+  z-index:40;
+  width:max-content;
+  max-width:min(460px,calc(100vw - 32px));
+  padding:12px 20px;
+  border-radius:14px;
+  background:rgba(20,8,6,.92);
+  border:1px solid var(--glass-edge);
+  color:#fff;
+  font-size:15px;
+  line-height:1.7;
+  text-align:center;
+  box-shadow:var(--shadow);
+  transform:translate(-50%,140%);
+  opacity:0;
+  transition:transform .3s ease,opacity .3s ease;
+}
+.toast.show{transform:translate(-50%,0);opacity:1}
+
+/* ---------- Scroll reveal (only when JS is running) ---------- */
+.js .reveal{
+  opacity:0;
+  transform:translate3d(0,26px,0);
+  transition:opacity .8s ease,transform .8s cubic-bezier(.2,.75,.25,1);
+}
+.js .reveal.visible{opacity:1;transform:none}
+.js .reveal.d1{transition-delay:.12s}
+.js .reveal.d2{transition-delay:.22s}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+@media (max-width:480px){
+  body{font-size:16px}
+  .frame{padding:4px;border-radius:20px}
+  .frame img{border-radius:16px}
+  .card{border-radius:20px}
+  .card-body{border-radius:18px}
+}
+
+/* Respect "reduce motion" */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .blob,.bg .light,.ig-btn::after,.scroll-hint svg{animation:none!important}
+  .js .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><div class="blob r"></div><div class="blob o"></div><div class="blob g"></div><div class="light"></div></div>
+
+<div class="loader" id="loader" aria-hidden="true">
+  <div class="loader-inner">
+    <div class="loader-title">AMIR ABC</div>
+    <div class="loader-bar"><span></span></div>
+  </div>
+</div>
+
+<main id="top">
+  <!-- Section 1: main image -->
+  <section class="hero" aria-label="تصویر اصلی">
+    <figure class="frame">
+      <img src="data:image/webp;base64,{{IMG}}" width="2048" height="1280" decoding="async" fetchpriority="high"
+           alt="لوگوی AMIR BAKHTIARI ABC: نوشته‌ی نقره‌ای AMIR و آبی BAKHTIARI همراه با یک کتاب باز و حروف ABC، داخل یک دایره‌ی نئونی آبی روی زمینه‌ی مشکی">
+    </figure>
+    <a class="scroll-hint" href="#about">
+      ادامه را ببینید
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14m0 0-6-6m6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </section>
+
+  <section class="about" id="about" aria-labelledby="title">
+    <!-- Section 2: title -->
+    <h1 class="title reveal" id="title">AMIR ABC</h1>
+
+    <!-- Section 3: intro card -->
+    <article class="card reveal d1">
+      <div class="card-body">
+        <p><bdi dir="ltr">AMIR ABC</bdi> یک تولیدکننده محتوا در اینستاگرام است که ویدیوهای کاربردی درباره هوش مصنوعی منتشر می‌کند.</p>
+        <p>موضوع پیج او معرفی قابلیت‌های جدید هوش مصنوعی <bdi dir="ltr">Gemini</bdi> و انتشار ویدیوهای ساخته‌شده با هوش مصنوعی است.</p>
+        <p>بخش مهمی از محتوای این پیج به ویدیوهای آموزشی و کاربردی اختصاص دارد که در آن‌ها میوه‌ها معرفی می‌شوند و درباره ویتامین‌های موجود در آن‌ها توضیح داده می‌شود.</p>
+        <p>این ویدیوها تلاش می‌کنند اطلاعات مفیدی را به روشی جذاب، سرگرم‌کننده و قابل‌فهم در اختیار مخاطبان قرار دهند.</p>
+        <p>اگر به هوش مصنوعی، قابلیت‌های جدید <bdi dir="ltr">Gemini</bdi> و ویدیوهای کاربردی درباره میوه‌ها و ویتامین‌های آن‌ها علاقه دارید، می‌توانید از طریق لینک زیر مستقیماً وارد پیج اینستاگرام <bdi dir="ltr">AMIR ABC</bdi> شوید.</p>
+      </div>
+    </article>
+
+    <!-- Section 4 & 5: Instagram link + note -->
+    <div class="cta reveal d2">
+      <a class="ig-btn" id="igBtn"
+         href="https://www.instagram.com/amir_khan_2020b?mdxt=cHBpemQ1am9rZDA5"
+         target="_blank" rel="noopener noreferrer"
+         aria-describedby="igNote">📸 ورود به اینستاگرام <bdi dir="ltr">AMIR ABC</bdi><span class="sr-only"> (در پنجره‌ی جدید باز می‌شود)</span></a>
+      <p class="cta-note" id="igNote">با انتخاب این دکمه، به صفحه اینستاگرام <bdi dir="ltr">AMIR ABC</bdi> هدایت می‌شوید.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Section 6: footer -->
+<footer>© AMIR ABC</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var doc = document.documentElement;
+  doc.classList.add("js");
+
+  // ---- Loader: hide as soon as the page is ready (short, never blocking) ----
+  var loader = document.getElementById("loader");
+  function hideLoader() { if (loader) { loader.classList.add("done"); } }
+  if (document.readyState === "complete") { setTimeout(hideLoader, 250); }
+  else { window.addEventListener("load", function () { setTimeout(hideLoader, 250); }); }
+  setTimeout(hideLoader, 1500);
+
+  // ---- Reveal on scroll ----
+  var items = document.querySelectorAll(".reveal");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!("IntersectionObserver" in window) || reduce) {
+    for (var i = 0; i < items.length; i++) { items[i].classList.add("visible"); }
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    for (var j = 0; j < items.length; j++) { io.observe(items[j]); }
+  }
+
+  // ---- Toast ----
+  var toast = document.getElementById("toast");
+  var toastTimer;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 3800);
+  }
+  window.amirAbcToast = showToast;
+
+  // ---- Instagram button: touch ripple + offline guard ----
+  var btn = document.getElementById("igBtn");
+  btn.addEventListener("pointerdown", function (ev) {
+    var r = btn.getBoundingClientRect();
+    var size = Math.max(r.width, r.height) * 2.2;
+    var dot = document.createElement("span");
+    dot.className = "ripple";
+    dot.style.width = dot.style.height = size + "px";
+    dot.style.left = (ev.clientX - r.left - size / 2) + "px";
+    dot.style.top = (ev.clientY - r.top - size / 2) + "px";
+    btn.appendChild(dot);
+    setTimeout(function () { if (dot.parentNode) { dot.parentNode.removeChild(dot); } }, 600);
+  });
+  btn.addEventListener("keydown", function (ev) {
+    if (ev.key === " " || ev.key === "Spacebar") { ev.preventDefault(); btn.click(); }
+  });
+  btn.addEventListener("click", function (ev) {
+    btn.classList.add("pressed");
+    setTimeout(function () { btn.classList.remove("pressed"); }, 160);
+    if (navigator.onLine === false) {
+      ev.preventDefault();
+      showToast("اتصال اینترنت برقرار نیست. برای ورود به اینستاگرام، اینترنت را روشن کنید و دوباره امتحان کنید.");
+    }
+  });
+})();
+</script>
+</body>
+</html>
