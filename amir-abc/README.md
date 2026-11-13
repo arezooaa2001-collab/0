@@ -20,4 +20,4 @@ python3 make_icons.py      # ساخت دوباره آیکون‌ها
 کلید امضای APK در `android/keystore/` ساخته می‌شود و عمداً در git نیست.
 اگر با کلید دیگری بسازید، برای نصب نسخه جدید باید نسخه قبلی را پاک کنید.
 
-فونت: Vazirmatn (مجوز OFL، فایل `assets/Vazirmatn-OFL.txt`).
+فونت‌ها: Vazirmatn و Cinzel Decorative (هر دو با مجوز OFL؛ فایل‌های `assets/*-OFL.txt`).
