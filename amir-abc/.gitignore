@@ -4,3 +4,6 @@ android/.gradle/
 android/local.properties
 android/keystore/
 *.idsig
+*.png
+!assets/*.png
+!android/**/*.png
