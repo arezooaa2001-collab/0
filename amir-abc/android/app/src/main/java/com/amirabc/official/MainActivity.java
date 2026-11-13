@@ -150,11 +150,24 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web != null && web.canGoBack()) {
-            web.goBack();
-        } else {
+        if (web == null) {
             super.onBackPressed();
+            return;
         }
+        // First let the page close its colour-settings screen; otherwise go back or exit.
+        web.evaluateJavascript(
+            "(function(){try{return !!(window.amirAbcBack&&window.amirAbcBack())}catch(e){return false}})()",
+            new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String handled) {
+                    if ("true".equals(handled)) return;
+                    if (web != null && web.canGoBack()) {
+                        web.goBack();
+                    } else {
+                        finish();
+                    }
+                }
+            });
     }
 
     @Override

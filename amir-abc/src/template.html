@@ -683,11 +683,22 @@ body.theme-open main,body.theme-open footer{display:none}
       Array.isArray(t.colors) && t.colors.length >= 2 && t.colors.length <= 7 &&
       t.colors.every(function (c) { return HEX.test(c); }) && HEX.test(t.solid) && typeof t.motion === "boolean";
   }
+  var NAME_PREFIX = "amirabc-theme:";
   function load() {
     try { var t = JSON.parse(localStorage.getItem(KEY)); if (valid(t)) return t; } catch (e) {}
+    try {   /* fallback for viewers that block localStorage */
+      if (String(window.name).indexOf(NAME_PREFIX) === 0) {
+        var u = JSON.parse(String(window.name).slice(NAME_PREFIX.length)); if (valid(u)) return u;
+      }
+    } catch (e) {}
     return clone(DEFAULT);
   }
-  function save(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); return true; } catch (e) { return false; } }
+  function save(t) {
+    var ok = false, json = JSON.stringify(t);
+    try { localStorage.setItem(KEY, json); ok = true; } catch (e) {}
+    try { window.name = NAME_PREFIX + json; ok = true; } catch (e) {}
+    return ok;
+  }
   function rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
   function hex(r, g, b) {
     return "#" + [r, g, b].map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? "0" : "") + v.toString(16); }).join("");
@@ -907,6 +918,16 @@ body.theme-open main,body.theme-open footer{display:none}
     for (var j = 0; j < items.length; j++) { io.observe(items[j]); }
   }
 
+  // ---- "See more" button: smooth scroll without changing the address ----
+  var hint = document.querySelector(".scroll-hint");
+  if (hint) hint.addEventListener("click", function (ev) {
+    var target = document.getElementById("about");
+    if (!target) return;
+    ev.preventDefault();
+    try { target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); }
+    catch (e) { target.scrollIntoView(true); }
+  });
+
   // ---- Toast ----
   var toast = document.getElementById("toast");
   var toastTimer;
@@ -1074,34 +1095,48 @@ body.theme-open main,body.theme-open footer{display:none}
       var de = document.documentElement, old = de.style.scrollBehavior;
       de.style.scrollBehavior = "auto"; window.scrollTo(0, y); de.style.scrollBehavior = old;
     };
-    var goBack = function () { if (fromSite) { history.back(); } else { location.hash = "top"; } };
-    $("tpBack").addEventListener("click", goBack);
-    $("tpDone").addEventListener("click", function () {
-      var ok = T.save(theme);
-      goBack();
-      showToast(ok ? "رنگ سایت ذخیره شد ✓" : "رنگ اعمال شد، اما این مرورگر اجازه ذخیره‌کردن نمی‌دهد.");
-    });
+    // History is only an extra (for the phone/browser back button) and only in a normal tab,
+    // never inside a file viewer/iframe, where it can break the page.
+    var topLevel = false;
+    try { topLevel = window.top === window.self; } catch (e) {}
+    var pushed = false;
 
-    var logo = document.getElementById("logoLink");
-    if (logo) logo.addEventListener("click", function () { fromSite = true; });
-
-    var route = function () {
-      var on = location.hash === "#theme";
-      if (on === !page.hidden) return;
-      if (on) {
-        savedY = window.scrollY || 0;
-        theme = T.load(); sel = 0; render();
-        page.hidden = false; document.body.classList.add("theme-open");
-        jump(0);
-        try { $("tpTitle").focus({ preventScroll: true }); } catch (e) { $("tpTitle").focus(); }
-      } else {
-        page.hidden = true; document.body.classList.remove("theme-open");
-        if (location.hash !== "#top" && location.hash !== "#about") jump(savedY);
-        fromSite = false;
+    var openTheme = function () {
+      if (!page.hidden) return;
+      savedY = window.scrollY || 0;
+      theme = T.load(); sel = 0; render();
+      page.hidden = false; document.body.classList.add("theme-open");
+      jump(0);
+      try { $("tpTitle").focus({ preventScroll: true }); } catch (e) { try { $("tpTitle").focus(); } catch (e2) {} }
+      if (topLevel && window.history && history.pushState) {
+        try { history.pushState({ amirTheme: 1 }, ""); pushed = true; } catch (e) { pushed = false; }
       }
     };
-    window.addEventListener("hashchange", route);
-    route();
+    var closeTheme = function (fromPopstate) {
+      if (page.hidden) return false;
+      page.hidden = true; document.body.classList.remove("theme-open");
+      jump(savedY);
+      try { $("logoLink").focus({ preventScroll: true }); } catch (e) {}
+      if (pushed && !fromPopstate) {
+        pushed = false;
+        try { if (history.state && history.state.amirTheme) history.back(); } catch (e) {}
+      }
+      pushed = false;
+      return true;
+    };
+    window.addEventListener("popstate", function () { closeTheme(true); });
+    // Used by the Android app's back button: returns true when it closed the colour page.
+    window.amirAbcBack = function () { return closeTheme(false); };
+
+    $("tpBack").addEventListener("click", function () { closeTheme(false); });
+    $("tpDone").addEventListener("click", function () {
+      T.save(theme);
+      closeTheme(false);
+      showToast("رنگ سایت اعمال شد ✓");
+    });
+    var logo = document.getElementById("logoLink");
+    if (logo) logo.addEventListener("click", function (ev) { ev.preventDefault(); openTheme(); });
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") closeTheme(false); });
   }
 })();
 </script>
