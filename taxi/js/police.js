@@ -312,6 +312,8 @@ export class Police {
     g.ui.setHud(false);
     g.ui.toast('🚔 دستگیر شدی!', 'bad');
     if (g.rides.ride || g.rides.state === 'offer') g.rides.cancel('مسافر ترسید و پیاده شد...', true);
+    if (g.events && g.events.job) g.events.endJob(false, '🔒 دستگیر شدی؛ سفارش غذا لغو شد');
+    if (g.bounty && g.bounty.state !== 'idle') g.bounty.end();
     this.step = -1;
     if (g.arson) g.arson.clearVictim();
     g.fade(1, 0.45, () => {

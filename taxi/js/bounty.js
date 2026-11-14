@@ -101,6 +101,7 @@ export class Bounty {
     this.state = 'chase';
     g.rides.cooldown = Math.max(g.rides.cooldown, 20);
     $('bountyHud').classList.remove('hidden');
+    document.body.classList.add('timedmode');
     g.ui.say('🚓 بی‌سیم پلیس', `${crook[1]} ${crook[0]} داره فرار می‌کنه! نذار در بره! 🎯`);
     g.audio.tone(700, 0.2, 0.12, 'square');
     g.audio.tone(900, 0.2, 0.12, 'square', 0.25);
@@ -140,6 +141,7 @@ export class Bounty {
     g.slowmo = 0.3;
     g.replay.offer();
     $('bountyHud').classList.add('hidden');
+    document.body.classList.remove('timedmode');
     g.save();
   }
   end(msg) {
@@ -152,6 +154,7 @@ export class Bounty {
       this.fug.deactivate();
     }
     $('bountyHud').classList.add('hidden');
+    document.body.classList.remove('timedmode');
     if (msg) {
       g.ui.toast(msg, 'warn');
       g.audio.bad();

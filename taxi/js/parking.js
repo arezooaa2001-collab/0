@@ -87,6 +87,7 @@ export class Parking {
     if (g.rides.ride) return g.ui.toast('اول سفر مسافرت رو تموم کن 🧳', 'warn'), false;
     if (g.police.state !== 'none') return g.ui.toast('با پلیس پشت سرت؟! 🚨', 'warn'), false;
     if (g.player.burning || g.onfoot.active || g.onfoot.busy) return false;
+    if (g.player.car.P.len > 5) return g.ui.toast('🅿️ لیموزین توی این جای پارک‌ها جا نمیشه! با یه ماشین دیگه بیا', 'warn'), false;
     return true;
   }
   offer() {

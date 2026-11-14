@@ -95,8 +95,16 @@ class Game {
     const q0 = this.settings.quality;
     const q = q0 === 'ultra' ? 'high' : q0; // ultra = high world detail + full post effects + sharper shadows
     const canvas = document.getElementById('gl');
-    // medium and up render through the post chain, whose scene target is multisampled already
-    const renderer = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }));
+    // medium and up render through the post chain, whose scene target is multisampled already;
+    // without float targets the chain switches off, so the canvas itself must anti-alias then
+    let floatOk = false;
+    try {
+      const tc = document.createElement('canvas').getContext('webgl2');
+      floatOk = !!tc && !!(tc.getExtension('EXT_color_buffer_half_float') || tc.getExtension('EXT_color_buffer_float'));
+      const lose = tc && tc.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    } catch (e) { floatOk = false; }
+    const renderer = (this.renderer = new THREE.WebGLRenderer({ canvas, antialias: q !== 'low' && !floatOk, powerPreference: 'high-performance' }));
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === 'high' ? 2 : q === 'medium' ? 1.35 : 1));
     this.post = new Post(renderer, { low: 0, medium: 1, high: 2, ultra: 3 }[q0] ?? 0);
     renderer.shadowMap.enabled = q !== 'low';
@@ -221,7 +229,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat, otherTank: p.otherTank || null,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -241,6 +249,7 @@ class Game {
       if (d.paints && typeof d.paints === 'object') p.paints = d.paints;
       p.perf = Array.isArray(d.perf) ? d.perf : [];
       p.flat = !!d.flat;
+      if (d.otherTank && typeof d.otherTank === 'object') p.otherTank = { fuel: +d.otherTank.fuel || 0, superFuel: +d.otherTank.superFuel || 0 };
       if (d.model && d.model !== p.model) p.buildModel(d.model);
       else p.applyPerf();
       const paint = p.paints[p.model] ?? d.paint;
@@ -766,13 +775,14 @@ class Game {
     else if (z.kind === 'parking') this.parking.offer();
     else if (z.kind === 'drag') this.drag.offer();
     else if (z.kind === 'help') this.events.help();
+    else if (z.kind === 'helping') return;
     else if (z.kind === 'fuelHelp') {
       const cost = 80000;
       this.topUp(cost);
       if (this.money >= cost) {
         this.money -= cost;
-        this.ui.toast('امداد خودرو ۸ لیتر بنزین آورد ⛽', 'good');
-      } else this.ui.toast('امداد خودرو دلش سوخت و مجانی ۸ لیتر بنزین داد 😅', 'info');
+        this.ui.toast(this.player.spec.ev ? 'امداد خودرو باتری رو ۸ واحد شارژ کرد 🔋' : 'امداد خودرو ۸ لیتر بنزین آورد ⛽', 'good');
+      } else this.ui.toast(this.player.spec.ev ? 'امداد خودرو دلش سوخت و مجانی شارژت کرد 😅🔋' : 'امداد خودرو دلش سوخت و مجانی ۸ لیتر بنزین داد 😅', 'info');
       this.player.fuel += 8;
       this.audio.cash();
     } else if (z.kind === 'tow') {
@@ -815,7 +825,7 @@ class Game {
     else if (zone?.kind !== 'garage' && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
-      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'parking' ? '🅿️ چالش پارک • شروع کن!' : zone.kind === 'drag' ? '🚦 درگ ۴۰۰ متری • مسابقه بده!' : zone.kind === 'help' ? `🆘 کمک به راننده: ${this.events.strand.prob[3]}` : zone.kind === 'fuelHelp' ? (p.spec.ev ? '🔋 باتری تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)') : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
+      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'parking' ? '🅿️ چالش پارک • شروع کن!' : zone.kind === 'drag' ? '🚦 درگ ۴۰۰ متری • مسابقه بده!' : zone.kind === 'help' ? `🆘 کمک به راننده: ${this.events.strand.prob[3]}` : zone.kind === 'helping' ? zone.text : zone.kind === 'fuelHelp' ? (p.spec.ev ? '🔋 باتری تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)') : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
       this.ui.zone(txt);
       this.stopT = sp < 0.6 && !this.ui.controlsHeld() ? (this.stopT || 0) + dt : 0;
       if (this.stopT > 0.5 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {

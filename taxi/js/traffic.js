@@ -186,7 +186,8 @@ export class TrafficCar {
       const f = rx * fx + rz * fz;
       if (f <= 0 || f > 32) continue;
       const l = Math.abs(rx * fz - rz * fx);
-      if (l > 2.3) continue;
+      // an ambulance squeezes past anything pulled over to the side
+      if (l > (this.isEmergency ? 1.5 : 2.3)) continue;
       const gap = f - 4.8;
       target = Math.min(target, Math.max(0, gap - 1.5) * 0.85);
     }
@@ -263,6 +264,8 @@ export class Traffic {
     for (let i = 0; i < (this.limit ?? this.cars.length) * 0.8; i++) this.spawnNear(p, 30, 320);
   }
   onHit(car, impact, by) {
+    // an ambulance shrugs it off and carries on to its emergency
+    if (car.isEmergency) return;
     // a parked-up car's alarm goes off when you hit it
     if (by === this.game.player && impact > 2 && !car.isPolice && !car.isRival) car.alarmT = 8;
     if (car.isFleet && by === this.game.player) {

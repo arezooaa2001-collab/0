@@ -242,6 +242,15 @@ export class PlayerCar {
   /** switch to an owned car (from the showroom) */
   setModel(id) {
     if (!CAR_MODELS[id] || id === this.model) return;
+    // the electric car has its own battery: petrol and charge never mix
+    const wasEv = !!(this.spec && this.spec.ev), isEv = !!CAR_MODELS[id].ev;
+    if (wasEv !== isEv) {
+      const cur = { fuel: this.fuel, superFuel: this.superFuel };
+      const st = this.otherTank || { fuel: isEv ? this.tank : 26, superFuel: 0 };
+      this.fuel = Math.min(this.tank, st.fuel || 0);
+      this.superFuel = Math.min(this.tank - this.fuel, st.superFuel || 0);
+      this.otherTank = cur;
+    }
     this.paintHex = this.paints[id];
     this.buildModel(id);
     if (this.game.setCamera) this.game.setCamera(this.game.camMode, true);
@@ -764,21 +773,32 @@ export class PlayerCar {
     this.animate(dt, inp);
   }
 
+  /** collision circles along the body (long cars spread them so the nose and tail are covered) */
+  offs() {
+    const half = this.car ? this.car.P.len / 2 : 2.25;
+    if (half <= 2.45) return OFFS;
+    if (this._offsHalf !== half) {
+      this._offsHalf = half;
+      this._offs = [-(half - CAR_R), 0, half - CAR_R];
+    }
+    return this._offs;
+  }
   circles(out) {
-    const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+    const fx = Math.sin(this.heading), fz = Math.cos(this.heading), O = this.offs();
     for (let i = 0; i < 3; i++) {
-      out[i * 2] = this.pos.x + fx * OFFS[i];
-      out[i * 2 + 1] = this.pos.z + fz * OFFS[i];
+      out[i * 2] = this.pos.x + fx * O[i];
+      out[i * 2 + 1] = this.pos.z + fz * O[i];
     }
     return out;
   }
   collide(world, dynamics) {
+    const O = this.offs();
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const hits = this._q;
     let worst = 0, worstObj = null;
     for (let iter = 0; iter < 2; iter++) {
       for (let i = 0; i < 3; i++) {
-        const cx = this.pos.x + fx * OFFS[i], cz = this.pos.z + fz * OFFS[i];
+        const cx = this.pos.x + fx * O[i], cz = this.pos.z + fz * O[i];
         world.statics.query(cx, cz, CAR_R + 1, hits);
         for (const o of hits) {
           if (o.ramp && (this.air || this.y > o.ramp.y + 0.6)) continue;

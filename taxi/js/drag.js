@@ -463,7 +463,9 @@ export class Drag {
     const r18 = this.model.at(18.3) + R.react, r201 = this.model.at(201) + R.react;
     const rv201 = this.model.v(this.model.at(201)) * 3.6, rtrap = this.model.v(this.model.at(LEN)) * 3.6;
     const row = (t, a, b, best) => `<tr><td>${t}</td><td class="${best === 0 ? 'w' : ''}">${a}</td><td class="${best === 1 ? 'w' : ''}">${b}</td></tr>`;
-    setTimeout(() => {
+    const showSlip = () => {
+      // paused, photo mode or watching the replay: show it when you're back
+      if (g.state === 'pause' || g.state === 'photo' || g.state === 'replay' || g.ui.panelOpen) return setTimeout(showSlip, 600);
       if (g.state !== 'play') return;
       g.ui.panel(`<h2>🧾 برگه زمان درگ</h2>
         <div class="slip ${win ? 'win' : 'lose'}"><div class="sh">${win ? '🏆 بردی!' : '😞 باختی'}${rec ? ' • رکورد جدید! 🎉' : ''}</div>
@@ -478,17 +480,21 @@ export class Drag {
         el.querySelector('[data-a=ok]').onclick = () => g.ui.closePanel();
         el.querySelector('[data-a=again]').onclick = () => {
           g.ui.closePanel();
+          if (this.state === 'done') this.end(true);
           const p = g.player;
           p.placeAt(this.spot.padX, this.spot.padZ, 0);
           this.offer();
         };
       });
-    }, 1800);
+    };
+    setTimeout(showSlip, 1800);
     g.save();
   }
   update(dt) {
     const g = this.g, p = g.player, D = this.D;
     if (this.state === 'idle') return;
+    // after the finish line nothing can cancel the race any more
+    if (this.state === 'done' && (g.state === 'jail' || g.police.state !== 'none' || g.onfoot.active || g.onfoot.busy || p.burning || p.health <= 0)) return this.end(true);
     if (g.state === 'jail' || g.police.state === 'chase' || g.police.state === 'arrest') return this.end(false, '🚨 مسابقه درگ لغو شد');
     if (g.onfoot.active || g.onfoot.busy) return this.end(false, 'از ماشین پیاده شدی؛ مسابقه لغو شد');
     if (p.burning || p.health <= 0) return this.end(false, 'ماشینت از کار افتاد! 💥');
@@ -535,7 +541,7 @@ export class Drag {
       <div class="dr"><span>⚙️ ${p.gear > 0 ? fa(p.gear) : 'N'}</span><span>${fa(Math.round(Math.abs(p.speed) * 3.6))} km/h</span><span>📏 ${fa(Math.round(dist))} م</span><span>⏱ ${this.state === 'run' || this.state === 'done' ? fmt(this.t).slice(0, -1) : '—'}</span></div>`;
     if (html !== this.hudText) {
       $('dragInfo').innerHTML = this.hudText = html;
-      hud.classList.toggle('canshift', this.state === 'run' && p.gear >= 1 && p.gear < TOP_GEAR && rpm >= SHIFT[0]);
+      $('btnShift').classList.toggle('canshift', this.state === 'run' && p.gear >= 1 && p.gear < TOP_GEAR && rpm >= SHIFT[0]);
     }
   }
   runUpdate(dt, inp) {

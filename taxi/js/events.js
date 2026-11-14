@@ -101,7 +101,7 @@ export class RoadEvents {
     const rx = p.pos.x - c.pos.x, rz = p.pos.z - c.pos.z;
     const f = rx * fx + rz * fz, l = Math.abs(rx * fz - rz * fx);
     if (g.onfoot.active) return;
-    if (f > 0 && f < 60 && l < 3) {
+    if (f > 0 && f < 60 && l < 2.5) {
       A.behind = true;
       if (!A.warned) {
         A.warned = true;
@@ -109,7 +109,7 @@ export class RoadEvents {
       }
     }
     // blocking: right in front of it while it has to crawl
-    if (f > 0 && f < 25 && l < 2.3 && c.speed < 6) A.blockT += dt;
+    if (f > 0 && f < 25 && l < 1.5 && c.speed < 6) A.blockT += dt;
     else A.blockT = Math.max(0, A.blockT - dt * 0.5);
     if (A.blockT > 5 && !A.fined) {
       A.fined = true;
@@ -158,6 +158,8 @@ export class RoadEvents {
     const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
     const ne = w.nearestEdge(p.pos.x + fx * 220, p.pos.z + fz * 220);
     if (!ne || ne.dist > 60) return false;
+    // not in or next to an intersection
+    if (ne.t * ne.edge.len < 22 || (1 - ne.t) * ne.edge.len < 22) return false;
     const dd = Math.hypot(ne.x - p.pos.x, ne.z - p.pos.z);
     if (dd < 140 || dd > 320) return false;
     // keep clear of pumps, garages and the mini-game pads
@@ -191,6 +193,7 @@ export class RoadEvents {
   /** zone for the main loop: stop next to the car to help */
   zone() {
     const S = this.strand, p = this.g.player;
+    if (S && S.state === 'fixing') return { kind: 'helping', text: `🔧 داری کمک می‌کنی… ${fa(Math.max(0, Math.ceil(S.t)))}` };
     if (!S || S.state !== 'wait') return null;
     if (Math.hypot(p.pos.x - S.x, p.pos.z - S.z) > 13) return null;
     return { kind: 'help', padX: S.x, padZ: S.z };
@@ -203,8 +206,9 @@ export class RoadEvents {
     if (id === 'fuel') {
       if (p.spec.ev) return g.ui.toast('ماشینت برقیه! بنزین نداری که بدی 😅', 'warn');
       if (p.fuelTotal() < 8) return g.ui.toast('⛽ خودتم بنزین کم داری!', 'warn');
-      p.fuel = Math.max(0, p.fuel - 5);
-      if (p.fuel <= 0) p.superFuel = Math.max(0, p.superFuel - 5);
+      const fromReg = Math.min(5, p.fuel);
+      p.fuel -= fromReg;
+      p.superFuel = Math.max(0, p.superFuel - (5 - fromReg));
       return this.helped();
     }
     S.state = 'fixing';
@@ -254,7 +258,6 @@ export class RoadEvents {
         return g.ui.toast('از ماشینش دور شدی! دوباره کنارش وایسا', 'warn');
       }
       S.t -= dt;
-      g.ui.zone(`🔧 داری کمک می‌کنی… ${fa(Math.max(0, Math.ceil(S.t)))}`);
       if (S.t <= 0) this.helped();
     } else if (S.state === 'leave') {
       // the fixed car pulls away and disappears down the road
@@ -298,7 +301,7 @@ export class RoadEvents {
         <p>${J.state === 'toShop' ? '🛵 برو رستوران و غذا رو بگیر' : `⏱ ${fa(Math.max(0, Math.ceil(J.left)))} ثانیه تا تحویل • 🔥 کیفیت غذا ${fa(Math.round(J.q * 100))}٪`}</p>
         <button data-job="cancel" class="ghost">❌ لغو سفارش</button></div>`;
     }
-    const L = this.ordersList();
+    const L = (this.shown = this.ordersList().slice());
     if (!L.length) return '<p class="note">فعلاً سفارشی نیست، بعداً سر بزن 🛵</p>';
     return `<p class="note">غذا رو از رستوران بگیر و داغ داغ برسون! تصادف = غذا می‌ریزه 😬</p>
       <div class="jobs">${L.map((o, i) => `<div class="card"><h3>${o.name}</h3><p>📦 ${o.food}</p><p>📍 ${o.dest.name} • ${fa((o.dist / 1000).toFixed(1)).replace('.', '٫')} کیلومتر</p><p>💰 ${faMoney(o.pay)} • ⏱ ${fa(o.limit)} ثانیه</p><button data-job="${i}">قبول ✅</button></div>`).join('')}</div>`;
@@ -310,9 +313,11 @@ export class RoadEvents {
         this.endJob(false, '❌ سفارش رو لغو کردی');
         return phone.render();
       }
-      const o = this.ordersList()[+v];
+      // exactly the order that was on screen, even if the list has refreshed since
+      const o = this.shown && this.shown[+v];
       if (o && this.startJob(o)) {
-        this.orders.splice(+v, 1);
+        const i = this.orders ? this.orders.indexOf(o) : -1;
+        if (i >= 0) this.orders.splice(i, 1);
         this.g.ui.closePanel();
       }
     }));
@@ -328,6 +333,7 @@ export class RoadEvents {
     g.setGuide({ x: o.shop.x, z: o.shop.z, label: o.name, addr: o.shop.name });
     g.rides.cooldown = Math.max(g.rides.cooldown, 20);
     $('jobHud').classList.remove('hidden');
+    document.body.classList.add('timedmode');
     g.ui.toast(`🛵 سفارش ${o.name} رو قبول کردی! برو غذا رو بگیر`, 'good');
     return true;
   }
@@ -336,6 +342,7 @@ export class RoadEvents {
     if (!J) return;
     this.job = null;
     $('jobHud').classList.add('hidden');
+    document.body.classList.remove('timedmode');
     if (g.guide && !g.guide.custom) g.clearGuide();
     if (!ok) {
       if (msg) g.ui.toast(msg, 'warn');

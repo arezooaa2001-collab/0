@@ -326,7 +326,8 @@ body.onfoot #steerZone .hint { visibility: hidden; }
 
 /* jail: only the joystick, camera button and the day counter */
 body.injail #topLeft, body.injail #topRight, body.injail #topCenter, body.injail #speedo, body.injail #rightPad,
-body.injail #talk, body.injail #zoneBtn, body.injail #offer, body.injail #result, body.injail #incident, body.injail #chat { display: none !important; }
+body.injail #talk, body.injail #zoneBtn, body.injail #offer, body.injail #result, body.injail #incident, body.injail #chat,
+body.injail #jobHud, body.injail #dragHud, body.injail #bountyHud, body.injail #replayChip { display: none !important; }
 body.injail #buttons button:not(#btnCam) { display: none; }
 body.injail #jail { top: 8px; bottom: auto; padding: 6px 12px; width: min(60vw, 340px); background: rgba(10,10,12,.7); }
 body.injail #jail .jt { font-size: 15px; }
@@ -567,6 +568,7 @@ body.metered.timedmode #zoneBtn { bottom: calc(162px + var(--safe-b)); }
 @keyframes bpulse { 50% { transform: scale(1.18); } }
 #storyChip { display: block; margin-top: 4px; font-size: 11px; font-weight: 700; background: linear-gradient(90deg, rgba(124,58,237,.75), rgba(219,39,119,.7)); border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 3px 9px; color: #fff; }
 #storyChip.hidden { display: none; }
+#storyChip { pointer-events: auto; cursor: pointer; }
 .pbox.phonebox { width: min(92vw, 380px); padding: 10px; border-radius: 34px; background: linear-gradient(160deg, #1b2030, #0b0e15); border: 3px solid #2c3242; box-shadow: 0 30px 90px rgba(0,0,0,.7), inset 0 0 0 2px rgba(255,255,255,.04); }
 .phonebox .pclose { left: 16px; top: 14px; width: 28px; height: 28px; font-size: 13px; z-index: 2; }
 .pbox.phonebox { overflow: hidden; }
@@ -635,7 +637,9 @@ body.metered.timedmode #zoneBtn { bottom: calc(162px + var(--safe-b)); }
 #dragMsg.late { color: #ff5252; }
 #btnShift { pointer-events: auto; font-size: 17px; font-weight: 900; padding: 9px 26px; border-radius: 14px; background: linear-gradient(180deg, #3b82f6, #1d4ed8); border: 2px solid #93c5fd; color: #fff; box-shadow: 0 4px 0 #1e3a8a; touch-action: none; }
 #btnShift:active { transform: translateY(3px); box-shadow: 0 1px 0 #1e3a8a; }
-#dragHud.canshift #btnShift { background: linear-gradient(180deg, #22c55e, #15803d); border-color: #bbf7d0; box-shadow: 0 4px 0 #14532d, 0 0 24px #22c55e; animation: czpulse .35s infinite alternate; }
+#btnShift { display: none; }
+body.dragmode #btnShift { display: block; }
+#btnShift.canshift { background: linear-gradient(180deg, #22c55e, #15803d); border-color: #bbf7d0; box-shadow: 0 4px 0 #14532d, 0 0 24px #22c55e; animation: czpulse .35s infinite alternate; }
 body.dragmode #status, body.dragmode #meter { display: none !important; }
 @media (max-height: 480px) { #dragHud { bottom: calc(78px + var(--safe-b)); gap: 3px; } #dragInfo { padding: 4px 10px; min-width: 220px; } #dragInfo .rpm { width: 200px; height: 11px; } #btnShift { padding: 6px 20px; font-size: 15px; } #dragMsg { font-size: 21px; } }
 .dragtips { display: flex; flex-direction: column; gap: 3px; background: var(--glass2); border-radius: 14px; padding: 8px 10px; font-size: 12px; line-height: 1.7; margin: 6px 0; }
@@ -703,3 +707,8 @@ body.metered #bountyHud { bottom: calc(118px + var(--safe-b)); }
 .wx .wnow b { font-size: 18px; }
 .wx .wnow small { font-size: 12px; opacity: .85; }
 @media (max-width: 760px) and (max-height: 480px) { #bountyHud, #jobHud { bottom: calc(118px + var(--safe-b)); font-size: 11px; gap: 7px; } #bountyHud .bhp { width: 64px; } }
+/* review: the drag readout sits above the car, the shift button right above the steering buttons (left thumb) */
+#dragHud { top: calc(19% + 20px); bottom: auto; }
+#btnShift { position: fixed; left: calc(14px + var(--safe-l)); bottom: calc(124px + var(--safe-b)); width: 204px; padding: 12px 0; font-size: 19px; z-index: 7; }
+#dragMsg { bottom: auto; top: 100%; margin: 8px 0 0; }
+@media (max-height: 480px) { #dragHud { top: calc(16% + 18px); bottom: auto; } #btnShift { bottom: calc(100px + var(--safe-b)); width: 170px; padding: 9px 0; font-size: 16px; } }
