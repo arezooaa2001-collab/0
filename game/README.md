@@ -33,7 +33,7 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/16_rivaldata.js` | recorded solver runs used by the rivals of the 2D race levels (generated) |
 | `src/17_endless.js` | endless mode and daily challenge: a course of solver-checked chunks that grows ahead of the player, with zones |
 | `src/22_boss.js` | boss arenas (golem, spider, dragon, trap king) that close levels 13, 23, 33 and 39: attacks, red buttons that drop weights, drawing; the boss rush (all four arenas in a row, each in its own scenery) |
-| `src/20_world.js` | 2D platformer simulation (traps, physics, save/load snapshots): trampolines, wind/updraft zones, low gravity, teleporters, blinking blocks, orbit/pendulum platforms, one-way planks, dash pads, lava/acid, fake spikes, gems, power-up effects, death slow-motion; long levels built section by section (`secBuilder`), camera, checkpoints, update window around the player |
+| `src/20_world.js` | 2D platformer simulation (traps, physics, save/load snapshots that also keep the window of simulated entities, so a search replays exactly), near misses: trampolines, wind/updraft zones, low gravity, teleporters, blinking blocks, orbit/pendulum platforms, one-way planks, dash pads, lava/acid, fake spikes, gems, power-up effects, death slow-motion; long levels built section by section (`secBuilder`), camera, checkpoints, update window around the player |
 | `src/40_render2d.js` | 2D canvas renderer: classic view and the 2.5D extruded view, scrolling camera, static blocks cached in 640 px tiles, per-biome block textures and parallax scenery (mountains, cities, forests, dunes, crystals, islands, ruins, …), caves, high-tier sky effects (mist, moon rays, meteors) |
 | `src/42_weather.js` | weather (rain, snow, flood, storm, automatic) for the 2D views and both three.js views, rain/wind sounds |
 | `src/45_views.js` | chase levels drawn in 2D (side view) and pseudo-3D (road) |
@@ -41,10 +41,12 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/52_run3dx.js` | six newer 3D obstacle types described by moving parts (lasers, saws, hammers, sliding walls, turning bars, pillars), the shared autopilot / rival AI, rival runners, and the conversion of any platformer level into a 3D run (true 3D mode) |
 | `src/55_p3d.js` | three.js view for platformer levels (side-3D mode): side camera or third-person camera, mesh reuse on respawn |
 | `src/58_rivals2d.js` | rivals of the race levels played in 2D: each replays recorded solver runs room by room in its own invisible copy of the level |
-| `src/62_editor.js` | level editor: a grid 1–5 screens wide with 24 tools (ground, planks, ice, moving and crumbling platforms, fake/falling/invisible blocks, spikes incl. hidden and falling ones, saws, lasers, lava, springs, gravity orbs, gems, start, door, fake door, checkpoints); play-testing, a robot that searches for a way through (the same Go-Explore search used to check the game's own levels) and replays it, save slots, share codes (`TZ1-…`), sample level |
+| `src/62_editor.js` | level editor: a grid 1–5 screens wide with 33 tools (ground, planks, ice, moving and crumbling platforms, fake/falling/invisible blocks, spikes incl. hidden and falling ones, saws, lasers, lava, springs, bounce pads, conveyors, pink/blue switch blocks, teleporter pairs, updrafts, arrow shooters, gravity orbs, gems, start, door, fake door, checkpoints); play-testing (also from the part you are looking at), zoomed-out view, a robot that searches for a way through (the same Go-Explore search used to check the game's own levels) and replays it, save slots, share codes (`TZ1-…`), two sample levels |
 | `src/64_missions.js` | daily missions, the daily chest with a 7-day streak, player level (XP) |
 | `src/66_traps.js` | trap encyclopedia: a card for every kind of trap you have died to, death counts per trap and per level |
 | `src/67_extras.js` | challenge modifiers (darkness, upside-down screen, mirrored world, turbo) with bonus rewards, and the daily lucky wheel |
+| `src/68_duo.js` | two players on one device: split-screen race (each half has its own copy of the level, camera and static-tile cache), countdown, keyboard and touch controls per player, results and score |
+| `src/69_road.js` | reward road: gems for every player level and shop items that only unlock at a level |
 | `src/60_app.js`, `src/65_ui.js` | app flow, records, achievements, gem shop, endless/daily runs with lives, ghost of the best run, settings, mode, and records screens |
 
 ## Game modes

@@ -15,6 +15,7 @@ const MISSION_POOL = [
   { id: 'death', t: n => `${faNum(n)} بار بمیر 😈 (آره، درست خوندی!)`, n: [10, 20], r: 15 },
   { id: 'shop', t: () => 'یه چیز از فروشگاه بخر', n: [1], r: 20 },
   { id: 'make', t: () => 'توی «سازنده‌ی مرحله» یه مرحله بساز و خودت ردش کن', n: [1], r: 35 },
+  { id: 'near', t: n => `${faNum(n)} بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)`, n: [8, 15, 25], r: 25 },
   { id: 'mut', t: () => 'یه مرحله رو با یکی از «چالش‌های ویژه» ببر', n: [1], r: 35 },
 ];
 const CHEST_GEMS = [10, 15, 20, 30, 40, 55, 80];
@@ -76,11 +77,12 @@ const XP = {
   need: l => (l - 1) * (l - 1) * 40,
   add(n, why) {
     if (!(n > 0)) return; const before = this.lvl(ST.xp); ST.xp = (ST.xp || 0) + Math.round(n); const after = this.lvl(ST.xp);
-    if (after > before) { const g = after * 10; ST.gems += g; Sound.play('win'); setTimeout(() => app.taunt(`⭐ سطح ${faNum(after)}! جایزه: ${faNum(g)} جواهر`, '#ffd36e'), 900); if (after >= 5) unlockAch('lvl5'); if (after >= 10) unlockAch('lvl10'); writeSave(); }
+    if (after > before) { let g = 0, its = []; for (let l = before + 1; l <= after; l++) { g += l * 10; if (typeof roadItems === 'function') its = its.concat(roadItems(l)); } ST.gems += g; Sound.play('win');
+      setTimeout(() => app.taunt(`⭐ سطح ${faNum(after)}! جایزه: ${faNum(g)} جواهر` + (its.length ? ` + ${its.map(x => x.it.i + ' ' + x.it.n).join('، ')}` : ''), '#ffd36e'), 900); if (after >= 5) unlockAch('lvl5'); if (after >= 10) unlockAch('lvl10'); writeSave(); }
     this.ui();
   },
   ui() {
     const el = document.getElementById('xpBox'); if (!el) return; const l = this.lvl(ST.xp), a = this.need(l), b = this.need(l + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
-    el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small>`;
+    el.title = 'جاده‌ی جایزه'; el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small><em>جاده‌ی جایزه ›</em>`;
   },
 };

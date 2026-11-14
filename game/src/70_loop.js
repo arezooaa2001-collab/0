@@ -18,6 +18,7 @@ function drawView(dt) {
   else if (v === 'r2') { if (app.run) drawRun2D(app.run, clock, dt); }
   else if (v === 'r25') { if (app.run) drawRunPseudo(app.run, clock, dt); }
   else if (v === 'x3') { if (app.run) app.run.render(dt); }
+  else if (v === 'duo') duoRender(clock, dt);
   else render(app.world, clock, dt);
   if (app.state === 'edit') edOverlay(clock);
 }
@@ -48,7 +49,8 @@ function frame(now) {
   try { if ((saveT += dt) > 15) { saveT = 0; if (app.state === 'play') writeSave(); } } catch (e) { reportErr('save', e); }
 }
 function simFrame(dt) {
-  if (app.state === 'play') {
+  if (app.state === 'play' && app.duo) duoSim(dt);
+  else if (app.state === 'play') {
     acc += dt * (mutOn('fast') ? 1.25 : 1); const inp = readInput(); let n = 0;
     if (app.kind === 'run' && app.run) { while (acc >= STEP && n < 14) { app.run.update(STEP, inp); acc -= STEP; n++; } }
     else if (app.world) {

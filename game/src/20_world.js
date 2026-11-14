@@ -146,7 +146,7 @@ class World {
   }
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
-    this.rev = false; this.tog = 0;
+    this.rev = false; this.tog = 0; this.nmC = null;
     this.dark = !!this.def.dark || (!this.silent && mutOn('dark'));
     // endless course: only the sections around the checkpoint are built
     if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
@@ -443,7 +443,7 @@ class World {
     const p = this.p;
     for (const e of this.act) {
       if (e.gone || e.hidden) continue;
-      if (e.type === 'spike') { if (!e.fake && !e.off && e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die(e.arrow ? 'arrow' : 'spike', e); }
+      if (e.type === 'spike') { if (!e.fake && !e.off && e.pop > 0.6) { const sb = this.spikeBox(e); if (hit(p, sb)) return this.die(e.arrow ? 'arrow' : 'spike', e); if (!this.silent && e.pop >= 1 && hit(p, { x: sb.x - 11, y: sb.y - 11, w: sb.w + 22, h: sb.h + 22 })) this.nearChk(e); } }
       else if (e.type === 'tele') {
         if (e.cd <= 0 && hit(p, e)) { const d = this.lv.e(e.to); if (d) {
           this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#7af7ff', sp: 200, life: .45, add: true, size: 3 });
@@ -458,7 +458,7 @@ class World {
       else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
       else if (e.type === 'boss') { if (e.hp > 0 && hit(p, { x: e.x + 14, y: e.y + 18, w: e.w - 28, h: e.h - 18 })) return this.die('boss', e); }
-      else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw', e); }
+      else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw', e); if (!this.silent && circRect(e.x, e.y, e.r * this.D.saw + 16, p.x, p.y, PW, PHT)) this.nearChk(e); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser', e); }
       else if (e.type === 'block' && e.lava) { if (hit(p, { x: e.x, y: e.y + 8, w: e.w, h: e.h })) return this.die('lava', e); }
       else if (e.type === 'portal') { if (e.open > 0.9 && hit(p, { x: e.x + 10, y: e.y + 12, w: e.w - 20, h: e.h - 20 })) return this.win(e, 'portal'); }
@@ -482,7 +482,20 @@ class World {
         }
       }
     }
-    if (p.y > H + 60 || p.y < -110) this.die('fall');
+    if (p.y > H + 60 || p.y < -110) return this.die('fall');
+    if (this.nmC && this.nmC.size) this.nearTick();
+  }
+  /* near misses: a trap you brushed past (inside a small margin) and left alive */
+  nearChk(e) { (this.nmC || (this.nmC = new Set())).add(e); e.nmIn = this.time; }
+  nearTick() {
+    for (const e of this.nmC) {
+      if (this.time - e.nmIn < .06) continue;
+      this.nmC.delete(e);
+      if (this.time < (e.nmT || 0) || this.time < (this.nmT || 0) || (this.p.onGround && Math.abs(this.p.vx) < 60)) continue;
+      e.nmT = this.time + 3; this.nmT = this.time + 1.2;
+      this.parts.push({ x: this.p.x + PW / 2, y: this.p.y - 16, vx: 0, vy: -45, life: .9, max: .9, size: 0, col: '#ffd36e', g: 0, drag: 0, txt: 'نزدیک بود! 😅' });
+      if (this.onNear) this.onNear(e);
+    }
   }
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
@@ -490,7 +503,10 @@ class World {
   save(sub) {
     const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
     const lv = this.lv, ents = lv.ents;
-    return { ck: this.ck, camX: this.camX, look: this.look,
+    // which entities are simulated (the window around the player) is part of the state: it decides when far traps start moving
+    let actI = null;
+    if (this.act !== ents) { if (this.act.some(e => ents[e.ix] !== e)) ents.forEach((e, i) => { e.ix = i; }); actI = this.act.map(e => e.ix); }
+    return { ck: this.ck, camX: this.camX, look: this.look, actX: this.actX, actI,
       ents: (sub ? sub.map(i => ents[i]) : ents).map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
       p: Object.assign({}, this.p, { ground: ents.indexOf(this.p.ground) }),
       trigs: lv.trigs.slice(), fired: lv.trigs.map(t => t.fired),
@@ -501,7 +517,8 @@ class World {
   load(sn, sub) {
     const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
     const lv = this.lv, ents = lv.ents;
-    this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
+    this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look;
+    if (sn.actX != null) { this.actX = sn.actX; this.act = sn.actI ? sn.actI.map(i => ents[i]) : ents; } else this.actX = -1e9;
     (sub ? sub.map(i => ents[i]) : ents).forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });
     this.p = Object.assign({}, sn.p, { ground: sn.p.ground >= 0 ? ents[sn.p.ground] : null });
     lv.trigs = sn.trigs.slice(); lv.trigs.forEach((t, i) => t.fired = sn.fired[i]);
@@ -547,7 +564,7 @@ class World {
   }
   die(cause, src) {
     if (this.state !== 'play' || this.saved(cause)) return;
-    const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
+    const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.nmC = null; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
     if (this.silent || !deathFx(this, cx, cy)) {
       this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });

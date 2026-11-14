@@ -13,6 +13,11 @@
   <div class="tb" id="tJ"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 4 3.5 14h5v6h7v-6h5z"/></svg></div>
 </div>
 
+<div id="touch2" aria-hidden="true">
+  <div class="tb2" data-p="0" data-k="left">◀</div><div class="tb2" data-p="0" data-k="right">▶</div><div class="tb2 j" data-p="0" data-k="jump">▲</div>
+  <div class="tb2 j" data-p="1" data-k="jump">▲</div><div class="tb2" data-p="1" data-k="left">◀</div><div class="tb2" data-p="1" data-k="right">▶</div>
+</div>
+
 <div id="hud">
   <button class="hbtn" id="bPause" aria-label="توقف"><svg viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
   <button class="hbtn" id="bCam" aria-label="دوربین سه‌بعدی" title="دوربین: کنار / سوم شخص (کلید C)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button>
@@ -44,6 +49,7 @@
       <button class="btn" id="bLevels">🗺️ انتخاب مرحله</button>
       <button class="btn hot" id="bEndless">🎲 حالت‌های ویژه</button>
       <button class="btn hot" id="bEditor">🛠️ سازنده‌ی مرحله</button>
+      <button class="btn hot" id="bDuo">👥 دو نفره</button>
       <button class="btn hot" id="bShop">🛒 فروشگاه</button>
       <button class="btn hot" id="bMissions">🎯 مأموریت‌ها و جایزه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
@@ -159,6 +165,8 @@
     <button data-ed="more" title="یه صفحه بیشتر" aria-label="صفحه‌ی بیشتر">＋</button>
     <button data-ed="less" title="یه صفحه کمتر" aria-label="صفحه‌ی کمتر">－</button>
     <button data-ed="name" title="اسم مرحله" aria-label="اسم">✏️</button>
+    <button data-ed="here" title="تست از همین‌جا (از جایی که داری می‌بینی)" aria-label="تست از اینجا">⏯</button>
+    <button data-ed="zoom" title="نمای دور / نزدیک" aria-label="بزرگنمایی">🔍</button>
     <button data-ed="clear" title="پاک کردن همه" aria-label="پاک کردن همه">🗑</button>
   </div>
   <div id="edR" class="edCol"><div id="edTools"></div></div>
@@ -166,6 +174,37 @@
   <div id="edTip"></div>
   <div id="edBot"><div class="panel"><b id="edBotTxt"></b><div class="bar"><i id="edBotBar"></i></div>
     <div class="row"><button class="btn primary" id="edBotGo">▶ ببین چطوری</button><button class="btn" id="edBotX">بستن</button></div></div></div>
+</div>
+<div class="screen fa" id="sDuo">
+  <div class="panel tall">
+    <h2>👥 مسابقه‌ی دو نفره</h2>
+    <p class="sub small">دو نفر روی یه دستگاه: صفحه نصف می‌شه و هر کی زودتر به در برسه برنده‌ست. هر کدوم تله‌های خودش رو داره.<br>
+      کیبورد: نفر چپ <kbd>A</kbd> <kbd>D</kbd> و <kbd>W</kbd> — نفر راست <kbd>←</kbd> <kbd>→</kbd> و <kbd>↑</kbd> · گوشی: هر نفر سه دکمه‌ی سمت خودش</p>
+    <div class="diffbox"><div class="diffs" data-diffs></div></div>
+    <div class="setBody">
+      <div class="duoTop"><button class="btn primary" data-duo="rand">🎲 یه مرحله‌ی تصادفی</button><b id="duoScoreTop"></b></div>
+      <div class="sec"><h3>مرحله‌ها</h3><div class="grid" id="duoGrid"></div></div>
+      <div class="sec"><h3>🛠️ مرحله‌های ساختنی</h3><div class="chips" id="duoCustom"></div></div>
+    </div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sDuoEnd">
+  <div class="panel">
+    <h1 class="logo" id="duoWin" style="font-size:clamp(34px,7vw,60px)"></h1>
+    <p class="sub" id="duoSub"></p>
+    <div class="stat"><div><b id="duoScore">۰</b><span>امتیاز (چپ - راست)</span></div><div><b id="duoT">۰</b><span>زمان</span></div><div><b id="duoD1">۰</b><span>مرگ بازیکن ۱</span></div><div><b id="duoD2">۰</b><span>مرگ بازیکن ۲</span></div></div>
+    <div class="menu"><button class="btn primary wide" id="bDuoAgain">↻ یه دور دیگه</button><button class="btn" id="bDuoNext">⏭ مرحله‌ی بعدی</button><button class="btn" id="bDuoPick">🗺️ انتخاب مرحله</button><button class="btn wide" id="bDuoMenu">منوی اصلی</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sRoad">
+  <div class="panel tall">
+    <h2>⭐ جاده‌ی جایزه</h2>
+    <div id="roadHead" class="roadHead"></div>
+    <p class="sub small">با هر کاری که توی بازی می‌کنی تجربه می‌گیری. هر سطح جواهر جایزه داره و بعضی سطح‌ها یه آیتم مخصوص که توی فروشگاه خریدنی نیست.</p>
+    <div class="setBody" id="roadList"></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bRoadShop">🛒 فروشگاه</button><button class="btn" data-back>بازگشت</button></div>
+  </div>
 </div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">

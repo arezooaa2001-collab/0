@@ -259,6 +259,7 @@ function resize() {
   EXT = { l: OX / S + 4, r: OX / S + 4, t: OY / S + 4, b: OY / S + 4 };
   ctx.imageSmoothingEnabled = true;
   if (app.state === 'edit') edLayout();   // the editor makes room for its tool columns
+  else if (app.duo) duoLayout();         // two players: each half of the screen uses the full height
   buildBackground();
   layoutTouch();
 }

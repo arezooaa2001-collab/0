@@ -327,6 +327,34 @@ body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
 #wheelCv{width:min(170px,34vw);height:auto;flex:0 0 auto}
 .wInfo{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}.wInfo b{font-size:16px}.wInfo small{font-size:12px;color:var(--muted);line-height:1.6}
 #wheelRes{color:#ffd36e!important;font-weight:800}
+
+/* two players */
+body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #bCam,body.duo #lvlTag,body.duo #revBadge{display:none!important}
+#touch2{position:fixed;inset:0;z-index:10;display:none;direction:ltr}
+#touch2.on{display:block}
+.tb2{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 10px);width:clamp(48px,12vh,72px);height:clamp(48px,12vh,72px);border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(18px,4vh,26px);color:#fff;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);opacity:.75;transition:transform .06s,background .1s}
+.tb2.p{transform:scale(.92);background:rgba(255,255,255,.3)}
+.tb2[data-p="0"]{border-color:rgba(255,211,110,.7)}.tb2[data-p="1"]{border-color:rgba(122,247,255,.7)}
+.tb2[data-p="0"][data-k="left"]{left:calc(env(safe-area-inset-left) + 10px)}
+.tb2[data-p="0"][data-k="right"]{left:calc(env(safe-area-inset-left) + 10px + clamp(56px,14vh,82px))}
+.tb2[data-p="0"][data-k="jump"]{left:max(calc(env(safe-area-inset-left) + 20px + clamp(104px,26vh,154px)),32%)}
+.tb2[data-p="1"][data-k="jump"]{right:max(calc(env(safe-area-inset-right) + 20px + clamp(104px,26vh,154px)),32%)}
+.tb2[data-p="1"][data-k="left"]{right:calc(env(safe-area-inset-right) + 10px + clamp(56px,14vh,82px))}
+.tb2[data-p="1"][data-k="right"]{right:calc(env(safe-area-inset-right) + 10px)}
+.duoTop{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+.duoTop b{color:var(--gold);font-size:14px}
+#duoCustom .chip{margin:2px}
+
+/* reward road */
+#xpBox{cursor:pointer}#xpBox em{font-style:normal;font-size:11px;color:#ffd36e;margin-right:6px;opacity:.85}
+.roadHead{display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:6px}.roadHead small{color:var(--muted)}
+.road{display:flex;align-items:center;gap:10px;padding:8px 10px;margin:5px 0;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);opacity:.6}
+.road.got{opacity:1;border-color:rgba(155,224,90,.5)}.road.next{opacity:1;border-color:#ffd36e;box-shadow:0 0 14px rgba(255,211,110,.35)}
+.road.big .rr{font-weight:800}.road .rl{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:rgba(255,211,110,.18);font-weight:900;flex:0 0 auto}
+.road .rr{flex:1;display:flex;gap:10px;flex-wrap:wrap;font-size:13.5px}.road .ri{color:#c59bff}.road .ri small{color:var(--muted);font-weight:600}
+.road .rs{font-size:16px}
+.shopit.road{border-style:dashed}
 </style>
 </head>
 <body>
@@ -343,6 +371,11 @@ body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
   <div class="tb" id="tL"><svg viewBox="0 0 24 24" fill="#fff"><path d="M15.5 4.5 7 12l8.5 7.5z"/></svg></div>
   <div class="tb" id="tR"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8.5 4.5 17 12l-8.5 7.5z"/></svg></div>
   <div class="tb" id="tJ"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 4 3.5 14h5v6h7v-6h5z"/></svg></div>
+</div>
+
+<div id="touch2" aria-hidden="true">
+  <div class="tb2" data-p="0" data-k="left">◀</div><div class="tb2" data-p="0" data-k="right">▶</div><div class="tb2 j" data-p="0" data-k="jump">▲</div>
+  <div class="tb2 j" data-p="1" data-k="jump">▲</div><div class="tb2" data-p="1" data-k="left">◀</div><div class="tb2" data-p="1" data-k="right">▶</div>
 </div>
 
 <div id="hud">
@@ -376,6 +409,7 @@ body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
       <button class="btn" id="bLevels">🗺️ انتخاب مرحله</button>
       <button class="btn hot" id="bEndless">🎲 حالت‌های ویژه</button>
       <button class="btn hot" id="bEditor">🛠️ سازنده‌ی مرحله</button>
+      <button class="btn hot" id="bDuo">👥 دو نفره</button>
       <button class="btn hot" id="bShop">🛒 فروشگاه</button>
       <button class="btn hot" id="bMissions">🎯 مأموریت‌ها و جایزه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
@@ -491,6 +525,8 @@ body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
     <button data-ed="more" title="یه صفحه بیشتر" aria-label="صفحه‌ی بیشتر">＋</button>
     <button data-ed="less" title="یه صفحه کمتر" aria-label="صفحه‌ی کمتر">－</button>
     <button data-ed="name" title="اسم مرحله" aria-label="اسم">✏️</button>
+    <button data-ed="here" title="تست از همین‌جا (از جایی که داری می‌بینی)" aria-label="تست از اینجا">⏯</button>
+    <button data-ed="zoom" title="نمای دور / نزدیک" aria-label="بزرگنمایی">🔍</button>
     <button data-ed="clear" title="پاک کردن همه" aria-label="پاک کردن همه">🗑</button>
   </div>
   <div id="edR" class="edCol"><div id="edTools"></div></div>
@@ -498,6 +534,37 @@ body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
   <div id="edTip"></div>
   <div id="edBot"><div class="panel"><b id="edBotTxt"></b><div class="bar"><i id="edBotBar"></i></div>
     <div class="row"><button class="btn primary" id="edBotGo">▶ ببین چطوری</button><button class="btn" id="edBotX">بستن</button></div></div></div>
+</div>
+<div class="screen fa" id="sDuo">
+  <div class="panel tall">
+    <h2>👥 مسابقه‌ی دو نفره</h2>
+    <p class="sub small">دو نفر روی یه دستگاه: صفحه نصف می‌شه و هر کی زودتر به در برسه برنده‌ست. هر کدوم تله‌های خودش رو داره.<br>
+      کیبورد: نفر چپ <kbd>A</kbd> <kbd>D</kbd> و <kbd>W</kbd> — نفر راست <kbd>←</kbd> <kbd>→</kbd> و <kbd>↑</kbd> · گوشی: هر نفر سه دکمه‌ی سمت خودش</p>
+    <div class="diffbox"><div class="diffs" data-diffs></div></div>
+    <div class="setBody">
+      <div class="duoTop"><button class="btn primary" data-duo="rand">🎲 یه مرحله‌ی تصادفی</button><b id="duoScoreTop"></b></div>
+      <div class="sec"><h3>مرحله‌ها</h3><div class="grid" id="duoGrid"></div></div>
+      <div class="sec"><h3>🛠️ مرحله‌های ساختنی</h3><div class="chips" id="duoCustom"></div></div>
+    </div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sDuoEnd">
+  <div class="panel">
+    <h1 class="logo" id="duoWin" style="font-size:clamp(34px,7vw,60px)"></h1>
+    <p class="sub" id="duoSub"></p>
+    <div class="stat"><div><b id="duoScore">۰</b><span>امتیاز (چپ - راست)</span></div><div><b id="duoT">۰</b><span>زمان</span></div><div><b id="duoD1">۰</b><span>مرگ بازیکن ۱</span></div><div><b id="duoD2">۰</b><span>مرگ بازیکن ۲</span></div></div>
+    <div class="menu"><button class="btn primary wide" id="bDuoAgain">↻ یه دور دیگه</button><button class="btn" id="bDuoNext">⏭ مرحله‌ی بعدی</button><button class="btn" id="bDuoPick">🗺️ انتخاب مرحله</button><button class="btn wide" id="bDuoMenu">منوی اصلی</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sRoad">
+  <div class="panel tall">
+    <h2>⭐ جاده‌ی جایزه</h2>
+    <div id="roadHead" class="roadHead"></div>
+    <p class="sub small">با هر کاری که توی بازی می‌کنی تجربه می‌گیری. هر سطح جواهر جایزه داره و بعضی سطح‌ها یه آیتم مخصوص که توی فروشگاه خریدنی نیست.</p>
+    <div class="setBody" id="roadList"></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bRoadShop">🛒 فروشگاه</button><button class="btn" data-back>بازگشت</button></div>
+  </div>
 </div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">
@@ -749,26 +816,31 @@ const SKINS = {
     { id: 'classic', n: 'کلاسیک', i: '🥚', p: 0 }, { id: 'mint', n: 'نعنایی', i: '🌿', p: 40, c: '#8ff0c8' }, { id: 'ice', n: 'یخی', i: '🧊', p: 70, c: '#bfe8ff' },
     { id: 'ruby', n: 'یاقوتی', i: '❤️', p: 60, c: '#ff7a8a' }, { id: 'shadow', n: 'سایه', i: '🖤', p: 90, c: '#6a5a8a' }, { id: 'gold', n: 'طلایی', i: '🏅', p: 120, c: '#ffd36e' },
     { id: 'galaxy', n: 'کهکشانی', i: '🌌', p: 200, c: '#b18cff', anim: true },
+    { id: 'neon', n: 'نئونی', i: '💚', p: 0, lvl: 2, c: '#39ffb4' }, { id: 'aurora', n: 'شفق قطبی', i: '🌠', p: 0, lvl: 15, c: '#7affc8', anim: 'aurora' },
   ],
   hat: [
     { id: 'none', n: 'بدون کلاه', i: '🌱', p: 0 }, { id: 'cap', n: 'کلاه کپ', i: '🧢', p: 30 }, { id: 'party', n: 'کلاه جشن', i: '🎉', p: 50 },
     { id: 'horns', n: 'شاخ شیطون', i: '😈', p: 80 }, { id: 'halo', n: 'هاله‌ی فرشته', i: '😇', p: 100 }, { id: 'tophat', n: 'کلاه شاپو', i: '🎩', p: 120 },
     { id: 'crown', n: 'تاج پادشاهی', i: '👑', p: 150 }, { id: 'wizard', n: 'کلاه جادوگر', i: '🧙', p: 180 },
+    { id: 'viking', n: 'کلاه وایکینگ', i: '⚔️', p: 0, lvl: 6 }, { id: 'ninja', n: 'سربند نینجا', i: '🥷', p: 0, lvl: 18 },
   ],
   trail: [
     { id: 'none', n: 'بدون رد', i: '·', p: 0 }, { id: 'sparkle', n: 'ستاره‌ریز', i: '✨', p: 60 }, { id: 'bubbles', n: 'حباب', i: '🫧', p: 70 },
     { id: 'hearts', n: 'قلب', i: '💖', p: 90 }, { id: 'fire', n: 'آتش', i: '🔥', p: 100 }, { id: 'rainbow', n: 'رنگین‌کمون', i: '🌈', p: 160 },
+    { id: 'snow', n: 'دونه‌ی برف', i: '❄️', p: 0, lvl: 4 }, { id: 'bolt', n: 'صاعقه', i: '⚡', p: 0, lvl: 12 },
   ],
   // a little friend that flies with you and fetches gems near you
   pet: [
     { id: 'none', n: 'بدون همراه', i: '·', p: 0 }, { id: 'cat', n: 'گربه', i: '🐱', p: 80, c: '#ffb36b' }, { id: 'bird', n: 'پرنده', i: '🐦', p: 90, c: '#7af7ff' },
     { id: 'ghost', n: 'روح کوچولو', i: '👻', p: 110, c: '#efe8ff' }, { id: 'star', n: 'ستاره', i: '⭐', p: 130, c: '#ffd36e' }, { id: 'robot', n: 'ربات', i: '🤖', p: 150, c: '#a8b4d8' },
     { id: 'dragon', n: 'اژدها', i: '🐲', p: 200, c: '#6ff3a4' },
+    { id: 'phoenix', n: 'ققنوس', i: '🔥', p: 0, lvl: 10, c: '#ff8a3a' }, { id: 'ufo', n: 'بشقاب‌پرنده', i: '🛸', p: 0, lvl: 20, c: '#9ef9ff' },
   ],
   // what happens when you die
   boom: [
     { id: 'classic', n: 'کلاسیک', i: '💥', p: 0 }, { id: 'confetti', n: 'کاغذ رنگی', i: '🎉', p: 60 }, { id: 'hearts', n: 'قلب‌ها', i: '💕', p: 70 },
     { id: 'pixel', n: 'پیکسلی', i: '👾', p: 80 }, { id: 'soul', n: 'روح پرواز', i: '👼', p: 90 }, { id: 'firework', n: 'آتیش‌بازی', i: '🎆', p: 120 },
+    { id: 'blackhole', n: 'سیاه‌چاله', i: '🕳️', p: 0, lvl: 8 }, { id: 'nova', n: 'ابرنواختر', i: '🌟', p: 0, lvl: 25 },
   ],
 };
 const petOn = () => skinOf('pet').id !== 'none';
@@ -794,6 +866,21 @@ function drawPet(world, t) {
   else if (id === 'ghost') { g.globalAlpha = .85; g.beginPath(); g.arc(0, -2, 9, Math.PI, 0); g.lineTo(9, 9); for (let k = 0; k < 4; k++) g.lineTo(9 - (k + .5) * 4.5, 9 - (k % 2 ? 0 : 4) + Math.sin(t * 8 + k) * 1.5); g.lineTo(-9, 9); g.closePath(); g.fill(); g.globalAlpha = 1; eyes(1, -2); }
   else if (id === 'star') { g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5 + t, r = k % 2 ? 4.5 : 11; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); eyes(0, 0); }
   else if (id === 'robot') { g.fillRect(-8, -8, 16, 15); g.fillStyle = '#2a2547'; g.fillRect(-6, -5, 12, 6); g.fillStyle = '#7af7ff'; g.fillRect(-4, -3, 3, 2); g.fillRect(1, -3, 3, 2); g.strokeStyle = c; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -8); g.lineTo(0, -13); g.stroke(); g.fillStyle = '#ff5d8a'; g.beginPath(); g.arc(0, -14, 2.2, 0, 7); g.fill(); }
+  else if (id === 'phoenix') {
+    if (glowK() > 0) { g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .7; g.drawImage(TEX.gGold, -26, -22, 52, 44); g.restore(); }
+    g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(-8, 2); g.quadraticCurveTo(-22, 6 + Math.sin(t * 9) * 4, -26, -6 + Math.sin(t * 7) * 3); g.quadraticCurveTo(-16, 0, -8, -3); g.fill();
+    g.fillStyle = c; g.beginPath(); g.ellipse(0, 0, 9, 7, 0, 0, 7); g.fill();
+    g.fillStyle = '#ffd36e'; g.beginPath(); g.moveTo(-2, -3); g.lineTo(-9, -15 - Math.sin(t * 20) * 5); g.lineTo(4, -5); g.fill();
+    g.fillStyle = '#ff5d3a'; g.beginPath(); g.moveTo(3, -6); g.lineTo(5, -13); g.lineTo(8, -6); g.fill();
+    g.fillStyle = '#ffe28a'; g.beginPath(); g.moveTo(9, 0); g.lineTo(14, 1); g.lineTo(9, 3); g.fill(); eyes(4, -1);
+    if (world.parts && !world.silent && Math.random() < .3) world.parts.push({ x: P.x - f * 14, y: P.y + 2, vx: -f * 30, vy: -20 - Math.random() * 30, life: .5, max: .5, size: 3, col: Math.random() < .5 ? '#ff7a2a' : '#ffd36e', g: 0, drag: 1.5, add: true });
+  }
+  else if (id === 'ufo') {
+    if (glowK() > 0) { g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .25 + Math.sin(t * 6) * .1; g.fillStyle = '#9ef9ff'; g.beginPath(); g.moveTo(-6, 4); g.lineTo(6, 4); g.lineTo(12, 30); g.lineTo(-12, 30); g.fill(); g.restore(); }
+    g.fillStyle = 'rgba(190,240,255,.75)'; g.beginPath(); g.arc(0, -3, 7, Math.PI, 0); g.fill(); eyes(0, -4);
+    g.fillStyle = '#8a96b8'; g.beginPath(); g.ellipse(0, 0, 15, 5, 0, 0, 7); g.fill();
+    for (let k = 0; k < 4; k++) { g.fillStyle = Math.floor(t * 6 + k) % 2 ? '#ffd36e' : '#ff5d8a'; g.beginPath(); g.arc(-10 + k * 6.6, 1, 1.6, 0, 7); g.fill(); }
+  }
   else if (id === 'dragon') { g.beginPath(); g.ellipse(0, 0, 10, 7, 0, 0, 7); g.fill(); g.fillStyle = mixHex(c, '#000000', .25); g.beginPath(); g.moveTo(-2, -4); g.lineTo(-10, -14 - Math.sin(t * 14) * 4); g.lineTo(-12, -2); g.fill(); g.fillStyle = '#ffb347'; g.beginPath(); g.arc(12, 0, 2 + Math.random() * 1.5, 0, 7); g.fill(); eyes(4, -2); }
   g.restore();
 }
@@ -806,6 +893,17 @@ function deathFx(world, cx, cy) {
   else if (id === 'hearts') for (let i = 0; i < n; i++) P({ vx: R(-220, 220), vy: R(-320, -60), g: -60, drag: 1.6, heart: true, size: R(5, 9), life: 1.2, max: 1.2, col: Math.random() < .5 ? '#ff5d8a' : '#ff9ac8' });
   else if (id === 'pixel') { const [a, b] = heroCols(world.time || 0); for (let i = 0; i < 24; i++) P({ x: cx + (i % 6 - 2.5) * 5, y: cy + (Math.floor(i / 6) - 1.5) * 6, vx: R(-260, 260), vy: R(-420, -80), g: 1100, drag: .6, sq: true, size: 6, life: 1.1, max: 1.1, col: i % 3 ? a : b }); }
   else if (id === 'soul') { P({ soul: true, vy: -70, size: 14, life: 1.4, max: 1.4, drag: 0, col: '#efe8ff' }); for (let i = 0; i < n / 2; i++) P({ vx: R(-80, 80), vy: R(-200, -40), add: true, size: R(2, 3.5), life: .9, max: .9, col: '#d8e8ff' }); }
+  else if (id === 'blackhole') {
+    // everything is pulled into a dark swirl, then it pops
+    world.parts.push({ x: cx, y: cy, vx: 0, vy: 0, life: .9, max: .9, size: 0, col: '#7b3fe0', g: 0, drag: 0, ring: true });
+    for (let i = 0; i < n * 1.4; i++) { const a = R(0, 7), r = R(50, 120); P({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, vx: -Math.cos(a) * r * 1.6 + Math.sin(a) * 160, vy: -Math.sin(a) * r * 1.6 - Math.cos(a) * 160, drag: .2, add: true, size: R(2, 4), life: .65, max: .65, col: Math.random() < .5 ? '#c59bff' : '#7af7ff' }); }
+    P({ vx: 0, vy: 0, size: 18, life: .7, max: .7, drag: 0, col: '#05020f', sq: true });
+  }
+  else if (id === 'nova') {
+    for (let r = 0; r < 2; r++) world.parts.push({ x: cx, y: cy, vx: 0, vy: 0, life: .5 + r * .3, max: .5 + r * .3, size: 0, col: r ? '#ffd36e' : '#fff', g: 0, drag: 0, ring: true });
+    for (let i = 0; i < n * 2.2; i++) { const a = i / (n * 2.2) * Math.PI * 2, sp = R(260, 560); P({ vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: 2.2, add: true, size: R(2.5, 5), life: R(.6, 1.1), max: 1.1, col: hslHex(R(30, 60), 1, R(.6, .85)) }); }
+    if (!world.silent) world.flash = Math.max(world.flash || 0, .8);
+  }
   else if (id === 'firework') for (let r = 0; r < 3; r++) { const col = ['#ffd36e', '#ff5d8a', '#7af7ff'][r], ox = R(-30, 30), oy = R(-60, -20); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, sp = R(160, 260); P({ x: cx + ox, y: cy + oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 300, drag: 1.8, add: true, size: 3, life: .9 + r * .15, max: .9 + r * .15, col }); } }
   return true;
 }
@@ -816,7 +914,7 @@ function heroCols(t) {
   if (HERO_OVR) return [mixHex(HERO_OVR, '#ffffff', .45), mixHex(HERO_OVR, '#000000', .12)];
   const c = skinOf('color');
   if (!c.c) return [PAL.bodyTop, PAL.bodyBot];
-  const base = c.anim ? hslHex((t * 60) % 360, .75, .72) : c.c;
+  const base = c.anim === 'aurora' ? hslHex(150 + Math.sin(t * 1.3) * 70, .8, .7) : c.anim ? hslHex((t * 60) % 360, .75, .72) : c.c;
   return [mixHex(base, '#ffffff', .45), mixHex(base, '#000000', .12)];
 }
 // hat drawn on top of the 2D hero (origin at the feet, f = facing, body top at y = -34)
@@ -829,6 +927,15 @@ function drawHat(t, f) {
   else if (h === 'halo') { const y = -50 + Math.sin(t * 3) * 1.5; if (glowK() > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = .6; g.drawImage(TEX.gGold, -26, y - 16, 52, 32); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; } g.strokeStyle = '#ffe28a'; g.lineWidth = 3.5; g.beginPath(); g.ellipse(0, y, 13, 4, 0, 0, 7); g.stroke(); }
   else if (h === 'tophat') { g.fillStyle = '#1c1426'; g.fillRect(-15, -36, 30, 4); g.fillRect(-10, -56, 20, 21); g.fillStyle = '#ff5d8a'; g.fillRect(-10, -42, 20, 4); }
   else if (h === 'crown') { g.fillStyle = '#ffc94a'; g.beginPath(); g.moveTo(-13, -33); g.lineTo(-13, -46); g.lineTo(-7, -39); g.lineTo(0, -50); g.lineTo(7, -39); g.lineTo(13, -46); g.lineTo(13, -33); g.closePath(); g.fill(); g.strokeStyle = '#a8741a'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#ff3d71'; g.beginPath(); g.arc(0, -38, 2.6, 0, 7); g.fill(); g.fillStyle = '#7af7ff'; g.beginPath(); g.arc(-7, -37, 2, 0, 7); g.arc(7, -37, 2, 0, 7); g.fill(); }
+  else if (h === 'viking') {
+    g.fillStyle = '#9aa0b4'; g.beginPath(); g.arc(0, -32, 13, Math.PI, 0); g.fill(); g.fillStyle = '#6a5a3a'; g.fillRect(-14, -34, 28, 4);
+    g.fillStyle = '#efe6d0'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * 11, -38); g.quadraticCurveTo(s * 22, -42, s * 21, -56); g.quadraticCurveTo(s * 15, -46, s * 7, -42); g.closePath(); g.fill(); }
+    g.fillStyle = '#c9cfe0'; g.fillRect(-1.5, -45, 3, 10);
+  }
+  else if (h === 'ninja') {
+    g.fillStyle = '#e8384f'; g.fillRect(-14, -30, 28, 5); g.fillStyle = '#c0c8d8'; g.fillRect(-4, -30, 8, 5);
+    for (const k of [0, 1]) { g.fillStyle = '#e8384f'; g.beginPath(); const sw = Math.sin(t * 12 + k) * 4; g.moveTo(-f * 13, -29); g.quadraticCurveTo(-f * (22 + k * 4), -31 + sw, -f * (30 + k * 3), -24 + sw + k * 4); g.lineTo(-f * 13, -26); g.fill(); }
+  }
   else if (h === 'wizard') { g.fillStyle = '#5a3aa8'; g.beginPath(); g.ellipse(0, -33, 18, 4, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(-12, -34); g.lineTo(12, -34); g.quadraticCurveTo(4, -50, -f * 8, -66); g.closePath(); g.fill(); g.fillStyle = '#ffd36e'; for (const [x, y] of [[-3, -42], [3, -50], [-1, -56]]) { g.beginPath(); g.arc(x, y, 1.8, 0, 7); g.fill(); } }
   g.restore(); return true;
 }
@@ -843,6 +950,8 @@ function emitTrail(world, t) {
   else if (tr === 'rainbow') { q.col = hslHex((t * 300 + Math.random() * 60) % 360, .9, .65); q.add = false; q.sq = true; q.size = 5; q.vx *= .3; q.vy *= .3; }
   else if (tr === 'hearts') { q.col = '#ff7ab8'; q.vy = -30; q.size = 4.5; }
   else if (tr === 'bubbles') { q.col = '#9ef9ff'; q.vy = -40; q.ring2 = true; q.size = 4; q.add = false; }
+  else if (tr === 'snow') { q.col = '#f4fbff'; q.vy = 25 + Math.random() * 20; q.vx *= .4; q.size = 2.5 + Math.random() * 1.5; q.add = false; q.life = q.max = 1.1; q.drag = .4; }
+  else if (tr === 'bolt') { q.col = Math.random() < .5 ? '#9ef9ff' : '#ffffff'; q.size = 2 + Math.random() * 2.5; q.life = q.max = .22; q.vx = (Math.random() - .5) * 260; q.vy = (Math.random() - .5) * 260; q.sq = true; }
   world.parts.push(q);
 }
 // 3D hats for buildHeroMesh (units: hero is about 1.6 tall, top of the head near y = 1.37)
@@ -857,6 +966,8 @@ function buildHat3(g, keep) {
   else if (h === 'tophat') { add(new THREE.CylinderGeometry(.42, .42, .05, 18), L(0x1c1426), 0, 1.36, 0); add(new THREE.CylinderGeometry(.28, .28, .5, 18), L(0x1c1426), 0, 1.62, 0); add(new THREE.CylinderGeometry(.285, .285, .08, 18), L(0xff5d8a), 0, 1.44, 0); }
   else if (h === 'crown') { add(new THREE.CylinderGeometry(.3, .3, .2, 10, 1, true), keep(new THREE.MeshLambertMaterial({ color: 0xffc94a, side: THREE.DoubleSide })), 0, 1.44, 0); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; add(new THREE.ConeGeometry(.06, .18, 6), L(0xffc94a), Math.cos(a) * .3, 1.63, Math.sin(a) * .3); } }
   else if (h === 'wizard') { add(new THREE.CylinderGeometry(.55, .55, .04, 18), L(0x5a3aa8), 0, 1.36, 0); add(new THREE.ConeGeometry(.32, .95, 14), L(0x5a3aa8), 0, 1.85, 0); }
+  else if (h === 'viking') { add(new THREE.SphereGeometry(.43, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), L(0x9aa0b4), 0, 1.28, 0); for (const s of [-1, 1]) add(new THREE.ConeGeometry(.08, .45, 8), L(0xefe6d0), s * .42, 1.55, 0, 0, -s * .7); }
+  else if (h === 'ninja') add(new THREE.TorusGeometry(.4, .06, 8, 22), L(0xe8384f), 0, 1.2, 0, Math.PI / 2);
   return true;
 }
 const skinBody3 = () => { const c = skinOf('color'); return c.c ? hexNum(c.c) : hexNum(colOf('player')); };
@@ -2361,7 +2472,7 @@ class World {
   }
   respawn(first) {
     if (this.rev && this.onRev) this.onRev(false);
-    this.rev = false; this.tog = 0;
+    this.rev = false; this.tog = 0; this.nmC = null;
     this.dark = !!this.def.dark || (!this.silent && mutOn('dark'));
     // endless course: only the sections around the checkpoint are built
     if (this.def.endless) { this.only = []; for (let i = Math.max(0, this.ck - 1); i < this.secs.length; i++) this.only.push(i); this.minX = this.secs[this.only[0]].x0 * T; }
@@ -2658,7 +2769,7 @@ class World {
     const p = this.p;
     for (const e of this.act) {
       if (e.gone || e.hidden) continue;
-      if (e.type === 'spike') { if (!e.fake && !e.off && e.pop > 0.6 && hit(p, this.spikeBox(e))) return this.die(e.arrow ? 'arrow' : 'spike', e); }
+      if (e.type === 'spike') { if (!e.fake && !e.off && e.pop > 0.6) { const sb = this.spikeBox(e); if (hit(p, sb)) return this.die(e.arrow ? 'arrow' : 'spike', e); if (!this.silent && e.pop >= 1 && hit(p, { x: sb.x - 11, y: sb.y - 11, w: sb.w + 22, h: sb.h + 22 })) this.nearChk(e); } }
       else if (e.type === 'tele') {
         if (e.cd <= 0 && hit(p, e)) { const d = this.lv.e(e.to); if (d) {
           this.burst(p.x + PW / 2, p.y + PHT / 2, 16, { col: '#7af7ff', sp: 200, life: .45, add: true, size: 3 });
@@ -2673,7 +2784,7 @@ class World {
       else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
       else if (e.type === 'boss') { if (e.hp > 0 && hit(p, { x: e.x + 14, y: e.y + 18, w: e.w - 28, h: e.h - 18 })) return this.die('boss', e); }
-      else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw', e); }
+      else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw', e); if (!this.silent && circRect(e.x, e.y, e.r * this.D.saw + 16, p.x, p.y, PW, PHT)) this.nearChk(e); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser', e); }
       else if (e.type === 'block' && e.lava) { if (hit(p, { x: e.x, y: e.y + 8, w: e.w, h: e.h })) return this.die('lava', e); }
       else if (e.type === 'portal') { if (e.open > 0.9 && hit(p, { x: e.x + 10, y: e.y + 12, w: e.w - 20, h: e.h - 20 })) return this.win(e, 'portal'); }
@@ -2697,7 +2808,20 @@ class World {
         }
       }
     }
-    if (p.y > H + 60 || p.y < -110) this.die('fall');
+    if (p.y > H + 60 || p.y < -110) return this.die('fall');
+    if (this.nmC && this.nmC.size) this.nearTick();
+  }
+  /* near misses: a trap you brushed past (inside a small margin) and left alive */
+  nearChk(e) { (this.nmC || (this.nmC = new Set())).add(e); e.nmIn = this.time; }
+  nearTick() {
+    for (const e of this.nmC) {
+      if (this.time - e.nmIn < .06) continue;
+      this.nmC.delete(e);
+      if (this.time < (e.nmT || 0) || this.time < (this.nmT || 0) || (this.p.onGround && Math.abs(this.p.vx) < 60)) continue;
+      e.nmT = this.time + 3; this.nmT = this.time + 1.2;
+      this.parts.push({ x: this.p.x + PW / 2, y: this.p.y - 16, vx: 0, vy: -45, life: .9, max: .9, size: 0, col: '#ffd36e', g: 0, drag: 0, txt: 'نزدیک بود! 😅' });
+      if (this.onNear) this.onNear(e);
+    }
   }
 
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
@@ -2705,7 +2829,10 @@ class World {
   save(sub) {
     const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
     const lv = this.lv, ents = lv.ents;
-    return { ck: this.ck, camX: this.camX, look: this.look,
+    // which entities are simulated (the window around the player) is part of the state: it decides when far traps start moving
+    let actI = null;
+    if (this.act !== ents) { if (this.act.some(e => ents[e.ix] !== e)) ents.forEach((e, i) => { e.ix = i; }); actI = this.act.map(e => e.ix); }
+    return { ck: this.ck, camX: this.camX, look: this.look, actX: this.actX, actI,
       ents: (sub ? sub.map(i => ents[i]) : ents).map(e => { const o = { pi: e.patrol ? e.patrol.i : -1, moves: e.moves.map(m => ({ tx: m.tx, ty: m.ty, sp: m.sp, delay: m.delay })) }; for (const k of K) o[k] = e[k]; return o; }),
       p: Object.assign({}, this.p, { ground: ents.indexOf(this.p.ground) }),
       trigs: lv.trigs.slice(), fired: lv.trigs.map(t => t.fired),
@@ -2716,7 +2843,8 @@ class World {
   load(sn, sub) {
     const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
     const lv = this.lv, ents = lv.ents;
-    this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look; this.actX = -1e9;
+    this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look;
+    if (sn.actX != null) { this.actX = sn.actX; this.act = sn.actI ? sn.actI.map(i => ents[i]) : ents; } else this.actX = -1e9;
     (sub ? sub.map(i => ents[i]) : ents).forEach((e, i) => { const o = sn.ents[i]; for (const k of K) e[k] = o[k]; e.moves = o.moves.map(m => Object.assign({}, m)); e.patrol = o.pi >= 0 ? e.patrol0 : null; if (e.patrol) e.patrol.i = o.pi; });
     this.p = Object.assign({}, sn.p, { ground: sn.p.ground >= 0 ? ents[sn.p.ground] : null });
     lv.trigs = sn.trigs.slice(); lv.trigs.forEach((t, i) => t.fired = sn.fired[i]);
@@ -2762,7 +2890,7 @@ class World {
   }
   die(cause, src) {
     if (this.state !== 'play' || this.saved(cause)) return;
-    const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
+    const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.nmC = null; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
     if (this.silent || !deathFx(this, cx, cy)) {
       this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
@@ -3337,6 +3465,7 @@ function resize() {
   EXT = { l: OX / S + 4, r: OX / S + 4, t: OY / S + 4, b: OY / S + 4 };
   ctx.imageSmoothingEnabled = true;
   if (app.state === 'edit') edLayout();   // the editor makes room for its tool columns
+  else if (app.duo) duoLayout();         // two players: each half of the screen uses the full height
   buildBackground();
   layoutTouch();
 }
@@ -6198,6 +6327,9 @@ const ACH = [
   ['cards', '📖', 'دانشنامه‌ی کامل', 'با همه‌ی ۱۶ نوع تله بمیر (همه‌ی کارت‌ها)'],
   ['rush', '🏟️', 'قهرمان میدان', 'توی «نبرد غول‌ها» هر چهار غول رو پشت سر هم شکست بده'],
   ['rushInsane', '💀', 'غول‌کش دیوانه', 'نبرد غول‌ها رو روی سختی دیوانه‌وار ببر'],
+  ['duo', '👥', 'رفیق بازی', 'یه دور مسابقه‌ی دو نفره رو ببر'],
+  ['duo5', '🤼', 'قهرمان دو نفره', 'توی مسابقه‌ی دو نفره ۵ دور ببر'],
+  ['near50', '😅', 'مو به مو', '۵۰ بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -6303,10 +6435,10 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); },
   open(id) { this.show(id); },
   goBack() {
-    Sound.play('click'); if (this.state === 'over') return this.menu();
+    Sound.play('click'); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
     const b = this.state === 'pause' ? 'sPause' : this.state === 'end' ? 'sEnd' : 'sTitle';
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
@@ -6318,7 +6450,7 @@ const app = {
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? rm : ck) + (mu ? ' · ' + mu : '');
     $('pprog').classList.toggle('on', !!n);
   },
-  label() { if (this.custom) return `🛠️ ${esc(this.custom.lv.name)}`; if (this.rush) return '🗿 نبرد غول‌ها'; return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
+  label() { if (this.duo) return '👥 دو نفره · ' + esc(this.duo.src.name); if (this.custom) return `🛠️ ${esc(this.custom.lv.name)}`; if (this.rush) return '🗿 نبرد غول‌ها'; return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
     this.realmIdx = -1; this.idx = i; this.endless = null; this.custom = null; this.demo = null; this.rush = null;
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
@@ -6332,6 +6464,40 @@ const app = {
     this.rush = { best: (ST.rush || {})[this.diff] || 0 }; this.runStart = performance.now(); this.deaths = 0;
     this.startDef(bossRushDef(), {});
     setTimeout(() => { if (this.rush) this.taunt('🗿 چهار غول پشت سر هم! دکمه‌های قرمز رو بزن', '#ffd36e'); }, 2100);
+  },
+  // two players on one device: split screen race (see 68_duo.js)
+  startDuo(src) {
+    mutApply(false); this.teardown(); Ghost.stop();
+    this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
+    const def = src.def, D = this.duo = { src, def, w: [], cam: [null, null], tiles: [new Map(), new Map()], wx: [0, 0], deaths: [0, 0], won: -1, count: 3.6, time: 0 };
+    this.def = def; this.kind = 'plat'; this.view = 'duo';
+    if (def.courseOpt) refreshCaves(); setBiome(def.biome);
+    cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on'); $('revBadge').classList.remove('on');
+    this.state = 'play'; this.show(null); this.levelT = 0; this.levelDeaths = 0; acc = 0;
+    $('hud').classList.add('on'); document.body.classList.add('duo'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch(); t2Layer.classList.toggle('on', isTouch);
+    for (let k = 0; k < 2; k++) {
+      const w = new World(def, { diff: this.diff, ck: 0 });
+      w.onDeath = () => { D.deaths[k]++; if (CFG.vib && navigator.vibrate) navigator.vibrate(25); };
+      w.onWin = () => this.duoEnd(k);
+      w.onCheckpoint = i => { const o = D.w[1 - k]; if (D.won < 0 && i > o.ck && D.lead !== k) { D.lead = k; this.taunt(`${DUO_NAME[k]} جلو افتاد! 🚪 اتاق ${faNum(i + 1)}`, DUO_COL[k]); } };
+      w.onSay = t => { const now = performance.now(); if (now - (this.sayT || 0) > 1500) { this.sayT = now; this.taunt(t, '#ffd36e'); } };
+      D.w.push(w);
+    }
+    this.world = D.w[0];
+    duoLayout(); this.updTag();
+    $('bSmall').textContent = `👥 دو نفره · ${src.name}`; $('bBig').textContent = `${DUO_NAME[0]} در برابر ${DUO_NAME[1]}`;
+    $('banner').classList.add('show'); clearTimeout(this.bannerT); this.bannerT = setTimeout(() => $('banner').classList.remove('show'), 2400);
+    Perf.reset(2); this.dirty = true;
+  },
+  duoEnd(k) {
+    const D = this.duo; if (!D || this.state !== 'play') return;
+    this.state = 'duoEnd'; duoTouchOff();
+    $('duoWin').textContent = `🏆 ${DUO_NAME[D.won >= 0 ? D.won : k]} برد!`; $('duoWin').style.color = DUO_COL[D.won >= 0 ? D.won : k];
+    $('duoSub').textContent = D.src.name;
+    $('duoScore').innerHTML = `<span dir="ltr"><i style="font-style:normal;color:${DUO_COL[0]}">${faNum(duoScore[0])}</i> - <i style="font-style:normal;color:${DUO_COL[1]}">${faNum(duoScore[1])}</i></span>`; $('duoT').textContent = fmtT(D.time || this.levelT);
+    $('duoD1').textContent = faNum(D.deaths[0]); $('duoD2').textContent = faNum(D.deaths[1]);
+    $('bDuoNext').hidden = D.src.idx == null;
+    setTimeout(() => { if (this.duo === D && this.state === 'duoEnd') this.show('sDuoEnd'); }, 700);
   },
   // the scenery changes in the middle of a level (endless zones, boss rush arenas)
   swapBiome(b, small, big) {
@@ -6412,6 +6578,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { if (def.custom) return; ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
+      w.onNear = () => { ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = (c, e) => this.onDeath(c, e); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
@@ -6441,6 +6608,7 @@ const app = {
     Perf.reset(2); this.dirty = true;
   },
   restartView() {
+    if (this.duo) return;
     if (!this.def || (this.state !== 'play' && this.state !== 'pause')) return;
     const st = this.state, sc = this.screen;
     // keep the room / checkpoint, time and deaths: only the view is rebuilt
@@ -6566,12 +6734,13 @@ const app = {
   },
   customWin() {
     const C = this.custom, lv = C.lv, t = this.levelT, d = this.levelDeaths, byBot = this.demoUsed;
-    if (!byBot && !lv.sample) { lv.ok = true; const s = Ed.get(lv.id); if (s) { s.ok = true; Ed.put(s); } }
-    if (!byBot && lv.mine) { unlockAch('maker'); Missions.ev('make'); }
-    if (!byBot && !lv.mine && !lv.sample) unlockAch('friend');
-    this.taunt(byBot ? '🤖 ربات رسید به در!' : `🏁 ${lv.mine && C.test ? 'مرحله‌ات تأیید شد! حالا می‌تونی کدش رو بفرستی' : 'ردش کردی!'}  ⏱ ${fmtT(t)} · 💀 ${faNum(d)}`, '#ffd36e');
+    const real = !byBot && !lv.partial;
+    if (real && !lv.sample) { lv.ok = true; const s = Ed.get(lv.id); if (s) { s.ok = true; Ed.put(s); } if (ED.lv && ED.lv.id === lv.id) ED.lv.ok = true; }
+    if (real && lv.mine) { unlockAch('maker'); Missions.ev('make'); }
+    if (real && !lv.mine && !lv.sample) unlockAch('friend');
+    this.taunt(byBot ? '🤖 ربات رسید به در!' : `🏁 ${lv.partial ? 'رسیدی به در! (برای تأیید، کل مرحله رو از اول رد کن)' : lv.mine && C.test ? 'مرحله‌ات تأیید شد! حالا می‌تونی کدش رو بفرستی' : 'ردش کردی!'}  ⏱ ${fmtT(t)} · 💀 ${faNum(d)}`, '#ffd36e');
     $('fade').classList.add('on');
-    setTimeout(() => { if (this.custom !== C) return; if (C.test && ED.lv === lv) edOpen(lv, true); else this.menu('sMy'); }, 1300);
+    setTimeout(() => { if (this.custom !== C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else this.menu('sMy'); }, 1300);
   },
   finish() {
     mutApply(false); this.teardown(); this.view = 'p2'; this.kind = 'plat'; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
@@ -6584,6 +6753,7 @@ const app = {
   },
   updDeaths() { $('dCount').textContent = faNum(this.deaths); },
   restart() {
+    if (this.duo) return;
     if (this.kind === 'run') { if (this.run && (this.run.state === 'run' || this.run.state === 'intro')) this.run.respawn(false); return; }
     if (this.world && this.world.state === 'play') { this.world.respawn(false); }
   },
@@ -6592,6 +6762,7 @@ const app = {
     if (!this.def) return;
     if (this.custom) return this.startCustom(this.custom.lv, { test: this.custom.test });
     if (this.rush) return this.startRush();
+    if (this.duo) return this.startDuo(this.duo.src);
     if (this.endless) return this.startEndless();
     if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { ck: 0 });
     const pr = progOf(this.diff); if (pr.ck && pr.ck[this.idx]) { delete pr.ck[this.idx]; writeSave(); }
@@ -6600,7 +6771,8 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); $('bEdBack').hidden = !this.custom; this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu(to = 'sTitle') {
-    mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
+    mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    if (this.duo) { this.duo = null; document.body.classList.remove('duo'); duoTouchOff(); resize(); } this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(LEVELS[0].biome);
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); if (to === 'sMy') renderMy(); this.show(to); this.world = new World(0, { silent: true });
   },
@@ -6612,7 +6784,7 @@ const app = {
     writeSave(); renderDiffs();
     if (this.state === 'pause') {
       if (this.realmIdx < 0) { this.unlocked = Math.max(this.unlocked, this.idx + 1); writeSave(); }
-      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else if (this.rush) this.startRush(); else this.startDef(this.def);
+      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else if (this.rush) this.startRush(); else if (this.duo) this.startDuo(this.duo.src); else this.startDef(this.def);
     }
     if ($('sLevels').classList.contains('on')) this.buildGrid();
     if ($('sEndless').classList.contains('on')) renderEndless();
@@ -6656,7 +6828,7 @@ $('bResume').onclick = () => { Sound.play('click'); app.resume(); };
 $('bRestart2').onclick = () => { Sound.play('click'); app.resume(); app.restart(); };
 $('bRestartAll').onclick = () => { Sound.play('click'); app.restartLevel(); };
 $('bMenu').onclick = $('bMenu2').onclick = () => { Sound.play('click'); app.menu(); };
-$('bEdBack').onclick = () => { Sound.play('click'); const C = app.custom; if (!C) return; if (C.test && ED.lv === C.lv) edOpen(C.lv, true); else app.menu('sMy'); };
+$('bEdBack').onclick = () => { Sound.play('click'); const C = app.custom; if (!C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else app.menu('sMy'); };
 $('bAgain').onclick = () => { Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(0); };
 function renderDiffs() {
   document.querySelectorAll('[data-diffs]').forEach(box => {
@@ -6696,6 +6868,15 @@ const EDT = [
   ['z', '🔴', 'لیزر', 'از این خونه تا زمین؛ روشن و خاموش می‌شه'],
   ['L', '🌋', 'گدازه', 'داغه!'],
   ['j', '⏫', 'فنر', 'پرتت می‌کنه بالا'],
+  ['b', '🟣', 'بالشتک پرشی', 'روش بری خیلی بلند پرت می‌شی'],
+  ['<', '⬅️', 'نوار نقاله به چپ', 'تو رو به سمت چپ می‌بره'],
+  ['>', '➡️', 'نوار نقاله به راست', 'تو رو به سمت راست می‌بره'],
+  ['q', '🩷', 'بلوک صورتی', 'با هر پرش، بلوک‌های صورتی و آبی جاشون عوض می‌شه (اول صورتی سفته)'],
+  ['Q', '🩵', 'بلوک آبی', 'با هر پرش، بلوک‌های صورتی و آبی جاشون عوض می‌شه (اول آبی خالیه)'],
+  ['t', '🌀', 'تله‌پورت ورودی', 'تو رو می‌بره به خروجی هم‌شماره‌اش (اولین ورودی به اولین خروجی و…)'],
+  ['T', '🎯', 'تله‌پورت خروجی', 'جایی که از تله‌پورت ورودی سر در میاری'],
+  ['u', '🌬️', 'باد رو به بالا', 'یه ستون باد که تو رو بالا می‌بره'],
+  ['a', '🏹', 'تیرانداز', 'پشت سر هم به سمت چپ تیر می‌زنه'],
   ['o', '🌀', 'گوی جاذبه', 'جاذبه رو برعکس می‌کنه'],
   ['e', '💎', 'جواهر', 'برای جمع کردن (جواهرهای مرحله‌های ساختنی به حساب فروشگاه نمی‌رن)'],
   ['P', '🙂', 'شروع', 'جای شروع بازیکن (فقط یکی)'],
@@ -6706,7 +6887,8 @@ const EDT = [
 ];
 const EDC = new Set(EDT.map(t => t[0]));
 const edTool = c => EDT.find(t => t[0] === c);
-const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c']);
+const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c', 'a', 'q', 'Q']);
+const ED_SOLID = 'gibq<>dQcmpa';   // cells you can stand on (for "test from here" and arrow walls)
 
 /* ---------- grid -> level ---------- */
 // All the level's things are built by its last section (so the door is kept); the other sections only give the
@@ -6734,6 +6916,15 @@ function edBuild(P, G, ox) {
   runs('V', (x, y, w) => P.spikes(null, X(x), y, w, 'down'));
   runs('h', (x, y, w) => { const k = id(); dyn(P.spikes(k, X(x), y, w, 'up', { hidden: true })); P.trig(X(x) - 1.3, y - 3, w + 2.6, 4, () => P.pop(k)); });
   runs('L', (x, y, w) => P.block(null, X(x), y + .3, w, Math.max(.7, R - y - .3), { lava: true, ghost: true }));
+  runs('b', (x, y, w) => P.block(null, X(x), y, w, 1, { bounce: 22 }));
+  runs('<', (x, y, w) => P.block(null, X(x), y, w, 1, { conv: -2.5 }));
+  runs('>', (x, y, w) => P.block(null, X(x), y, w, 1, { conv: 2.5 }));
+  runs('q', (x, y, w) => dyn(P.block(null, X(x), y, w, 1, { tog: 0 })));
+  runs('Q', (x, y, w) => dyn(P.block(null, X(x), y, w, 1, { tog: 1 })));
+  // teleporters: the n-th entrance (left to right) leads to the n-th exit
+  const tin = edFind(G, 't').sort((a, b) => a[0] - b[0] || a[1] - b[1]), tout = edFind(G, 'T').sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  tout.forEach(([x, y], i) => P.tele('tx' + i, X(x) + .05, y - .6));
+  tin.forEach(([x, y], i) => P.tele('tn' + i, X(x) + .05, y - .6, i < tout.length ? 'tx' + i : undefined));
   for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
     const c = at(x, y), lx = X(x);
     if (c === 'c') dyn(P.block(id(), lx, y, 1, .5, { crumble: .45 }));
@@ -6744,6 +6935,12 @@ function edBuild(P, G, ox) {
     else if (c === 'W') dyn(P.saw(null, lx + .5, y + .5, .6, { patrol: [[lx - 1.5, y + .5], [lx + 2.5, y + .5]], speed: 3 }));
     else if (c === 'z') { let len = 1; while (y + len < R && !'gi'.includes(at(x, y + len))) len++; dyn(P.laser(id(), lx + .5 - 5 / T, y, len, 'v', { on: 1.1, off: 1.4 })); }
     else if (c === 'j') dyn(P.spring(null, lx, y));
+    else if (c === 'u') { const top = Math.max(0, y - 9); P.zone(id(), 'wind', lx, top, 1, y + 1 - top, { fy: -18 }); }
+    else if (c === 'a') {
+      P.block(null, lx, y + .15, 1, .85);
+      let x1 = x - 1; while (x1 > Math.max(-1, x - 16) && !ED_SOLID.includes(at(x1, y))) x1--;
+      const end = X(x1 + 1); if (end < lx - 1) dyn(P.spikes(id(), lx - 1, y, 1, 'left', { arrow: true, pjump: true, patrol: [[lx - 1, y], [end, y]], speed: 7 }));
+    }
     else if (c === 'o') dyn(P.orb(id(), lx + .5, y + .5));
     else if (c === 'e') P.gem(lx + .5, y + .5);
     else if (c === 'D') dyn(P.door(lx - .2, y - 1));
@@ -6868,17 +7065,19 @@ function edRebuild() {
 // the playfield sits between the two tool columns (it gets smaller, never covered)
 function edLayout() {
   // the tool columns use the empty bars beside a wide screen when there are some (the playfield keeps its full height)
-  const side = Math.round(clamp((innerWidth - innerHeight * W / H) / 2, 60, 96)) * dpr, avail = Math.max(100, cw - side * 2);
-  S = Math.min(avail / W, ch / H); OX = side + (avail - W * S) / 2; OY = (ch - H * S) / 2;
-  EXT = { l: OX / S + 4, r: (cw - OX - W * S) / S + 4, t: OY / S + 4, b: OY / S + 4 };
+  const side = Math.round(clamp((innerWidth - innerHeight * W / H) / 2, 60, 96)) * dpr, avail = Math.max(100, cw - side * 2), z = ED.zoom || 1;
+  S = Math.min(avail / (W * z), ch / H); OX = z > 1 ? side : side + (avail - W * S) / 2; OY = (ch - H * S) / 2;
+  ED.vw = Math.min(avail / S, W * z);
+  EXT = { l: OX / S + 4, r: (cw - OX) / S - W + 4, t: OY / S + 4, b: OY / S + 4 };
   STT.tiles.clear(); buildBackground(); app.dirty = true;
   document.documentElement.style.setProperty('--edSide', (side / dpr) + 'px');
 }
 function edCell(cx, cy) {
   const x = (cx * dpr - OX) / S + ED.cam, y = (cy * dpr - OY) / S;
-  return { x: Math.floor(x / T), y: Math.floor(y / T), inside: y >= 0 && y < H && x >= ED.cam - 1 && x <= ED.cam + W + 1 };
+  return { x: Math.floor(x / T), y: Math.floor(y / T), inside: y >= 0 && y < H && x >= ED.cam - 1 && x <= ED.cam + edVW() + 1 };
 }
-function edScroll(dx) { ED.cam = clamp(ED.cam + dx, 0, Math.max(0, edCols() * T - W)); if (ED.world) ED.world.camX = ED.cam; app.dirty = true; edMini(); }
+const edVW = () => ED.vw || W;   // how much of the level is visible (more when zoomed out)
+function edScroll(dx) { ED.cam = clamp(ED.cam + dx, 0, Math.max(0, edCols() * T - edVW())); if (ED.world) ED.world.camX = ED.cam; app.dirty = true; edMini(); }
 
 /* ---------- icons: the real game pieces drawn small (falls back to the emoji) ---------- */
 function edIcon(code) {
@@ -6890,26 +7089,29 @@ function edIcon(code) {
     const P = secBuilder(L, { x0: 0, spawn: [0, 0] }, 0, true);
     const grid = Array.from({ length: 4 }, () => '    '.split(''));
     grid[2][1] = code === 'P' || code === 'K' ? ' ' : code;
-    if (code === 'm' || code === 'p' || code === 'S' || code === 'V' || code === 'L') grid[2][2] = code;
+    if ('mpSVLb<>qQ'.includes(code)) grid[2][2] = code;
+    if (code === 'a') { grid[2][2] = code; grid[2][1] = ' '; }
     edBuild(P, grid.map(r => r.join('')), 0); P.done(); L.link(0);
     ctx = g; CAMX = 0; LW = 1e6; hints = true;
-    const tall = code === 'D' || code === 'F' || code === 'K' || code === 'P', wide = grid[2][2] !== ' ';
+    const tall = code === 'D' || code === 'F' || code === 'K' || code === 'P' || code === 't' || code === 'T', wide = grid[2][2] !== ' ';
     const span = tall ? 2.6 : wide ? 2.4 : 1.6, k = 72 / (span * T), cx = (wide ? 2 : 1.5) * T, cy = tall ? 1.95 * T : 2.5 * T;
     g.setTransform(k, 0, 0, k, 36 - cx * k, 36 - cy * k);
     for (const e of L.ents) {
       if (e.type === 'block') { if (e.hidden) { ctx.save(); ctx.setLineDash([6, 6]); ctx.strokeStyle = '#9ef9dc'; ctx.lineWidth = 3; ctx.strokeRect(e.x + 2, e.y + 2, e.w - 4, e.h - 4); ctx.restore(); } else drawBlock(e, 0); }
-      else if (e.type === 'spike') { ctx.save(); if (e.hidden) ctx.globalAlpha = .5; const p = e.pop; e.pop = 1; drawSpikeRaw(e); e.pop = p; ctx.restore(); }
+      else if (e.type === 'spike') { ctx.save(); if (e.hidden) ctx.globalAlpha = .5; const p = e.pop; e.pop = 1; if (e.arrow) drawSpike(e); else drawSpikeRaw(e); e.pop = p; ctx.restore(); }
       else if (e.type === 'saw') drawSaw(e, 0);
       else if (e.type === 'spring') drawSpringRaw(e);
       else if (e.type === 'orb') drawOrb(e, 0);
       else if (e.type === 'gem') drawGem(e, 0);
       else if (e.type === 'door') drawDoor(e, 0, null);
       else if (e.type === 'laser') { e.act = true; drawLaser(e, 0); }
+      else if (e.type === 'tele') drawTele(e, 0);
+      else if (e.type === 'zone' && e.kind === 'wind') { ctx.save(); ctx.fillStyle = 'rgba(158,249,255,.25)'; ctx.fillRect(e.x, e.y + e.h - 1.6 * T, e.w, 1.6 * T); ctx.restore(); }
     }
     if (code === 'K') drawFlag({ x: 1.4 * T, y: 1.1 * T, h: 2.4 * T, on: true, wave: 0 }, 0);
     if (code === 'P') { ctx.save(); ctx.translate(1.5 * T, 3 * T); ctx.scale(1.5, 1.5); drawHero(0, 1, true, 0, 0, 0, 2, false); ctx.restore(); }
     if (code === 'W' || code === 'm') { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.fillText('⟷', 4, 18); }
-    if (code === 'd' || code === 'r' || code === 'c' || code === 'h' || code === 'f') { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '20px sans-serif'; ctx.fillText(edTool(code)[1], 44, 22); }
+    if ('drchfu<>'.includes(code)) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '20px sans-serif'; ctx.fillText(edTool(code)[1], 44, 22); }
   } catch (e) { return null; }
   finally { ctx = main; CAMX = cm; LW = lw; hints = hi; }
   return c;
@@ -6926,7 +7128,7 @@ function edPalette() {
 }
 function edTip(text) { const el = $('edTip'); el.textContent = text; el.classList.add('on'); clearTimeout(edTip.t); edTip.t = setTimeout(() => el.classList.remove('on'), 3200); }
 function edMini() {
-  const n = edCols() / ED_SW, k = ED.cam / Math.max(1, edCols() * T - W);
+  const n = edCols() / ED_SW, k = ED.cam / Math.max(1, edCols() * T - edVW());
   $('edPage').textContent = `${faNum(n)} صفحه`;
   $('edPos').style.setProperty('--k', n > 1 ? k.toFixed(3) : '0'); $('edPos').style.setProperty('--n', n);
 }
@@ -6935,7 +7137,7 @@ function edMini() {
 function edOpen(lv, back) {
   mutApply(false); app.teardown(); app.custom = null; app.demo = null; app.rush = null; Ghost.stop(); app.rivals2 = null; app.endless = null;
   if (!back) { ED.undo = []; ED.redo = []; ED.cam = 0; ED.botBest = null; ED.botActs = null; }
-  ED.lv = lv; ED.cam = clamp(ED.cam, 0, Math.max(0, edCols() * T - W)); ED.pan = false; $('edPan').classList.remove('on');
+  ED.lv = lv; ED.cam = clamp(ED.cam, 0, Math.max(0, edCols() * T - edVW())); ED.pan = false; $('edPan').classList.remove('on');
   app.state = 'edit'; app.kind = 'plat'; app.view = 'p2'; app.def = null; app.show(null);
   cv.style.display = 'block'; $('c3').style.display = 'none'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
   setBiome(lv.biome); edLayout(); edRebuild(); edPalette(); edMini();
@@ -7002,11 +7204,11 @@ addEventListener('keydown', e => {
 });
 
 /* ---------- what the editor draws over the level ---------- */
-const ED_MARK = { d: '⬇️', c: '💢', r: '☄️', f: '👻', m: '⟷', h: '🙈', n: '❔', F: '🎭' };
+const ED_MARK = { d: '⬇️', c: '💢', r: '☄️', f: '👻', m: '⟷', h: '🙈', n: '❔', F: '🎭', u: '🌬️', '<': '⬅️', '>': '➡️', a: '🏹' };
 function edOverlay(t) {
   if (!ED.lv || !ED.world) return;
   if (ED.need) edRebuild();
-  const G = ED.lv.g, C = edCols(), x0 = Math.max(0, Math.floor(ED.cam / T) - 1), x1 = Math.min(C, Math.ceil((ED.cam + W) / T) + 1);
+  const G = ED.lv.g, C = edCols(), x0 = Math.max(0, Math.floor(ED.cam / T) - 1), x1 = Math.min(C, Math.ceil((ED.cam + edVW()) / T) + 1);
   worldTransform(0, 0);
   ctx.save();
   // the grid
@@ -7025,6 +7227,9 @@ function edOverlay(t) {
     else if (c === 'K' && x <= (edFind(G, 'P')[0] || [2])[0]) { ctx.globalAlpha = .6; ctx.fillText('🚩', x * T + T / 2, y * T + T / 2); }
   }
   ctx.globalAlpha = 1;
+  // teleporter pairs are numbered
+  ctx.font = 'bold 18px sans-serif'; ctx.fillStyle = '#fff';
+  for (const [ch, col] of [['t', '#c59bff'], ['T', '#7af7ff']]) edFind(G, ch).sort((a, b) => a[0] - b[0] || a[1] - b[1]).forEach(([x, y], i) => { ctx.fillStyle = col; ctx.fillText(faNum(i + 1), x * T + T / 2, (y - .9) * T); });
   // the robot's best try when it could not finish
   if (ED.botBest) { const b = ED.botBest; ctx.fillStyle = 'rgba(255,61,113,.25)'; ctx.fillRect(b.x - 4, 0, 8, H); ctx.font = '26px sans-serif'; ctx.fillText('🤖', b.x, Math.max(30, b.y - 30)); }
   // cursor
@@ -7034,7 +7239,7 @@ function edOverlay(t) {
 
 /* ---------- robot: searches inputs that beat the level (same search the game's own levels were checked with) ---------- */
 const ED_ACTS = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 1, 1], [0, 0, 1]].map(a => ({ left: !!a[0], right: !!a[1], jump: !!a[2] }));
-let edBotJob = null;
+let edBotJob = null, edBotLast = null;
 function edBotStop() { if (edBotJob) { edBotJob.stop = true; edBotJob = null; } $('edBot').classList.remove('on'); }
 function edBotStart() {
   if (!edReady()) return;
@@ -7042,7 +7247,7 @@ function edBotStart() {
   const def = edDef(ED.lv), diff = app.diff, w = new World(def, { silent: true, diff }), nSec = def.secs.length;
   const dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); });
   const STEPS = 8, dtS = w.D.speed / 120;
-  const job = edBotJob = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0 };
+  const job = edBotJob = edBotLast = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
   let rs = 12345; const Rn = () => { rs = (rs * 1664525 + 1013904223) % 4294967296; return rs / 4294967296; };
   const doorOf = () => w.lv.ents.find(e => e.type === 'door' && !e.fake && !e.gone);
   const goalX = s => s < nSec - 1 ? (def.secs[s + 1].x0 + .45) * T : null;
@@ -7051,7 +7256,7 @@ function edBotStart() {
   const key = () => {
     const p = w.p; let fs = ''; for (const t of w.lv.trigs) fs += t.fired ? '1' : '0';
     let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + e.patrol.i + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
-    return ((p.x / 20) | 0) + ',' + ((p.y / 20) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + fs + mq;
+    return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + fs + mq;
   };
   const score = s => { const p = w.p, gx = goalX(s); if (gx != null) return -Math.abs(gx - p.x) - .15 * Math.abs(p.y - 560); const d = doorOf(); return d ? -(Math.abs(p.x - d.x) + .8 * Math.abs(p.y - d.y)) : 0; };
   const snap = () => w.save(dynIdx), load = sn => w.load(sn, dynIdx);
@@ -7060,7 +7265,8 @@ function edBotStart() {
   const begin = () => { root = { snap: snap(), parent: null, acts: [], depth: 0, visits: 0, score: score(job.sec) }; arch = new Map([[key(), root]]); list = [root]; job.secT0 = performance.now(); };
   begin();
   $('edBot').classList.add('on'); $('edBotTxt').textContent = '🤖 ربات داره راه رد شدن رو پیدا می‌کنه…'; $('edBotGo').hidden = true; $('edBotBar').style.transform = 'scaleX(0)';
-  const SEC_MS = 9000, TOTAL_MS = 45000;
+  // a room gets a share of the minute (at least 9 s); the archive of reached places is capped so phones keep enough memory
+  const TOTAL_MS = 60000, SEC_MS = clamp(TOTAL_MS / nSec, 9000, 30000), CAP = 7000;
   const slice = () => {
     if (job.stop) return;
     const until = performance.now() + 22; let found = null;
@@ -7082,18 +7288,18 @@ function edBotStart() {
           arch.set(k, ent); if (!cur) list.push(ent); else list[list.indexOf(cur)] = ent;
           parent = ent; seq = [];
         }
-        if (list.length > 2500) break;
+        if (list.length > CAP) break;
       }
     }
     const el = performance.now() - job.secT0;
     $('edBotBar').style.transform = `scaleX(${clamp((job.sec + Math.min(1, el / SEC_MS)) / nSec, 0, 1).toFixed(3)})`;
     if (found) {
       const chain = [found.seq]; for (let n = found.parent; n && n.parent; n = n.parent) chain.push(n.acts);
-      job.acts.push(...chain.reverse().flat()); job.sec++;
+      job.acts.push(...chain.reverse().flat()); job.sec++; job.marks.push({ n: job.acts.length, x: w.p.x, y: w.p.y, ck: w.ck, t: w.time });
       if (job.sec >= nSec) return edBotDone(job, true);
       // the next room starts from where this one was finished (so the whole run can be replayed in one go)
       begin(); $('edBotTxt').textContent = `🤖 اتاق ${faNum(job.sec)} از ${faNum(nSec)} رد شد…`;
-    } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > 2500) {
+    } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > CAP) {
       let bx = list[0]; for (const x of list) if (x.score > bx.score) bx = x;
       return edBotDone(job, false, { x: bx.snap.p.x + PW / 2, y: bx.snap.p.y });
     }
@@ -7126,11 +7332,21 @@ function edReady() {
   if (!edFind(g, 'P').length) { edTip('اول جای 🙂 شروع رو مشخص کن!'); Sound.play('die'); return false; }
   return true;
 }
-function edTest(demo) {
+// here: start from the part of the level you are looking at (a quick try; it does not count as beating the level)
+function edTest(demo, here) {
   if (!edReady()) return;
+  let lv = ED.lv;
+  if (here) {
+    const G = lv.g, C = edCols(), x0 = clamp(Math.floor(ED.cam / T) + 2, 0, C - 1); let spot = null;
+    for (let x = x0; x < Math.min(C, x0 + 24) && !spot; x++) for (let y = ED_R - 2; y >= 1; y--) if (' e'.includes(G[y][x]) && ' e'.includes(G[y - 1][x]) && ED_SOLID.includes(G[y + 1][x])) { spot = [x, y]; break; }
+    if (!spot) { edTip('اینجا جایی برای وایستادن پیدا نکردم؛ یه کم جابه‌جا شو'); Sound.play('die'); return; }
+    lv = JSON.parse(JSON.stringify(lv)); lv.partial = true;
+    lv.g = lv.g.map(r => r.replace(/P/g, ' ').replace(/K/g, (m, i) => i <= spot[0] ? ' ' : 'K'));
+    lv.g[spot[1]] = lv.g[spot[1]].slice(0, spot[0]) + 'P' + lv.g[spot[1]].slice(spot[0] + 1);
+  }
   edBotStop(); $('edUI').classList.remove('on'); if (!ED.lv.sample) Ed.put(ED.lv);
   app.state = 'test'; resize(); STT.tiles.clear();
-  app.startCustom(ED.lv, { test: true, demo: demo ? ED.botActs : null });
+  app.startCustom(lv, { test: true, demo: demo ? ED.botActs : null });
 }
 
 /* ---------- "my levels" screen ---------- */
@@ -7205,8 +7421,10 @@ $('edUI').addEventListener('click', e => {
   else if (a === 'undo') edUndo(false);
   else if (a === 'redo') edUndo(true);
   else if (a === 'pan') { ED.pan = !ED.pan; b.classList.toggle('on', ED.pan); for (const x of $('edTools').children) x.classList.toggle('on', !ED.pan && x.dataset.t === ED.tool); edTip(ED.pan ? '✋ حالا با کشیدن روی صفحه، مرحله رو جابه‌جا کن' : 'دوباره می‌تونی بکشی'); }
-  else if (a === 'left') edScroll(-W / 2);
-  else if (a === 'right') edScroll(W / 2);
+  else if (a === 'left') edScroll(-edVW() / 2);
+  else if (a === 'right') edScroll(edVW() / 2);
+  else if (a === 'zoom') { ED.zoom = ED.zoom > 1 ? 1 : 2; b.classList.toggle('on', ED.zoom > 1); edLayout(); edScroll(0); edTip(ED.zoom > 1 ? '🔍 نمای دور: دو برابر بیشتر از مرحله رو می‌بینی' : '🔍 نمای عادی'); }
+  else if (a === 'here') edTest(false, true);
   else if (a === 'more' || a === 'less') {
     edOwn(); const C = edCols(), n = C / ED_SW + (a === 'more' ? 1 : -1);
     if (n < 1 || n > ED_MAXS) return edTip(n < 1 ? 'کمتر از یه صفحه نمی‌شه' : `حداکثر ${faNum(ED_MAXS)} صفحه`);
@@ -7243,6 +7461,7 @@ const MISSION_POOL = [
   { id: 'death', t: n => `${faNum(n)} بار بمیر 😈 (آره، درست خوندی!)`, n: [10, 20], r: 15 },
   { id: 'shop', t: () => 'یه چیز از فروشگاه بخر', n: [1], r: 20 },
   { id: 'make', t: () => 'توی «سازنده‌ی مرحله» یه مرحله بساز و خودت ردش کن', n: [1], r: 35 },
+  { id: 'near', t: n => `${faNum(n)} بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)`, n: [8, 15, 25], r: 25 },
   { id: 'mut', t: () => 'یه مرحله رو با یکی از «چالش‌های ویژه» ببر', n: [1], r: 35 },
 ];
 const CHEST_GEMS = [10, 15, 20, 30, 40, 55, 80];
@@ -7304,12 +7523,13 @@ const XP = {
   need: l => (l - 1) * (l - 1) * 40,
   add(n, why) {
     if (!(n > 0)) return; const before = this.lvl(ST.xp); ST.xp = (ST.xp || 0) + Math.round(n); const after = this.lvl(ST.xp);
-    if (after > before) { const g = after * 10; ST.gems += g; Sound.play('win'); setTimeout(() => app.taunt(`⭐ سطح ${faNum(after)}! جایزه: ${faNum(g)} جواهر`, '#ffd36e'), 900); if (after >= 5) unlockAch('lvl5'); if (after >= 10) unlockAch('lvl10'); writeSave(); }
+    if (after > before) { let g = 0, its = []; for (let l = before + 1; l <= after; l++) { g += l * 10; if (typeof roadItems === 'function') its = its.concat(roadItems(l)); } ST.gems += g; Sound.play('win');
+      setTimeout(() => app.taunt(`⭐ سطح ${faNum(after)}! جایزه: ${faNum(g)} جواهر` + (its.length ? ` + ${its.map(x => x.it.i + ' ' + x.it.n).join('، ')}` : ''), '#ffd36e'), 900); if (after >= 5) unlockAch('lvl5'); if (after >= 10) unlockAch('lvl10'); writeSave(); }
     this.ui();
   },
   ui() {
     const el = document.getElementById('xpBox'); if (!el) return; const l = this.lvl(ST.xp), a = this.need(l), b = this.need(l + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
-    el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small>`;
+    el.title = 'جاده‌ی جایزه'; el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small><em>جاده‌ی جایزه ›</em>`;
   },
 };
 /* ============================ SETTINGS / MODE / RECORDS SCREENS ============================ */
@@ -7464,8 +7684,8 @@ function renderShop(tab) {
   $('shopBal').textContent = '💎 ' + faNum(bal);
   $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
   $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
-    const own = it.p === 0 || ST.owned[shopTab + ':' + it.id], on = cur === it.id;
-    return `<button class="shopit${on ? ' on' : ''}${!own && bal < it.p ? ' poor' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
+    const lk = lockedLv(it), own = !lk && (it.p === 0 || ST.owned[shopTab + ':' + it.id]), on = cur === it.id;
+    return `<button class="shopit${on ? ' on' : ''}${lk || (!own && bal < it.p) ? ' poor' : ''}${it.lvl ? ' road' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : lk ? `🔒 سطح ${faNum(it.lvl)}` : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
   }).join('');
 }
 function shopPreview() {
@@ -7490,6 +7710,7 @@ $('shopTabs').addEventListener('click', e => { const b = e.target.closest('[data
 $('shopGrid').addEventListener('click', e => {
   const b = e.target.closest('[data-item]'); if (!b) return;
   const it = SKINS[shopTab].find(s => s.id === b.dataset.item), key = shopTab + ':' + it.id, own = it.p === 0 || ST.owned[key];
+  if (lockedLv(it)) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); app.taunt(`⭐ این جایزه‌ی سطح ${faNum(it.lvl)} توی «جاده‌ی جایزه»‌ست`, '#ffd36e'); return; }
   if (!own) {
     if (gemBalance() < it.p) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
     ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win'); Missions.ev('shop');
@@ -7685,6 +7906,173 @@ function renderWheel() {
   Wheel.draw(); renderWheelBtn();
 }
 $('wheelBox').addEventListener('click', e => { if (e.target.closest('#bSpin')) { Sound.init(); Wheel.spin(); } });
+/* ============================ TWO PLAYERS (split screen) ============================ */
+// Two people race through the same level on one device. Each player has a copy of the level (own traps, own
+// checkpoints) and half of the screen; the first one through the door wins the round.
+// Keyboard: left player A / D and W or Space, right player ← / → and ↑. Touch: three buttons on each side.
+const DUO_COL = ['#ffd36e', '#7af7ff'], DUO_NAME = ['بازیکن ۱', 'بازیکن ۲'];
+let duoScore = [0, 0];
+const duoTouch = [{ left: false, right: false, jump: false }, { left: false, right: false, jump: false }];
+function duoInput(k) {
+  const t = duoTouch[k];
+  return k === 0 ? { left: !!(keys.KeyA || t.left), right: !!(keys.KeyD || t.right), jump: !!(keys.KeyW || keys.Space || t.jump) }
+    : { left: !!(keys.ArrowLeft || t.left), right: !!(keys.ArrowRight || t.right), jump: !!(keys.ArrowUp || keys.Enter || keys.NumpadEnter || t.jump) };
+}
+// both halves use the full height of the screen
+function duoLayout() {
+  S = ch / H; OY = 0; OX = 0;
+  EXT = { l: cw / S, r: cw / S, t: 4, b: 4 };
+  STT.tiles.clear(); if (app.duo) for (const m of app.duo.tiles) m.clear();
+  buildBackground(); app.dirty = true;
+}
+function duoCam(D, k, dt) {
+  const w = D.w[k], VW = (cw / 2) / S, p = w.p, m = w.minX || 0;
+  const tgt = clamp(p.x + PW / 2 - VW * .4 + w.look * .5, m, Math.max(m, w.lw - VW));
+  D.cam[k] = D.cam[k] == null || Math.abs(D.cam[k] - tgt) > VW * 1.5 ? tgt : lerp(D.cam[k], tgt, Math.min(1, dt * 7));
+}
+function duoSim(dt) {
+  const D = app.duo; if (!D) return;
+  for (let k = 0; k < 2; k++) duoCam(D, k, dt);
+  if (D.count > -.5) {
+    const before = Math.ceil(D.count - .6); D.count -= dt; const after = Math.ceil(D.count - .6);
+    if (after !== before && after >= 0) Sound.play(after > 0 ? 'click' : 'spawn');
+    if (D.count > .6) { acc = 0; return; }
+  }
+  acc += dt * (mutOn('fast') ? 1.25 : 1); let n = 0;
+  const inp = [duoInput(0), duoInput(1)], sp = D.w[0].D.speed;
+  while (acc >= STEP && n < 14) {
+    for (let k = 0; k < 2; k++) if (D.won < 0 || D.won === k) D.w[k].step(STEP * sp, inp[k]);
+    acc -= STEP; n++;
+    // the first one to touch the door wins (checked every step so a tie goes to who really was first)
+    if (D.won < 0) for (let k = 0; k < 2; k++) if (D.w[k].state === 'win') { duoDecide(k); break; }
+  }
+  if (n >= 14) acc = 0;
+  if (D.won < 0) { app.levelT += dt * (mutOn('fast') ? 1.25 : 1); ST.time += dt; }
+}
+function duoDecide(k) {
+  const D = app.duo; D.won = k; D.time = app.levelT; duoScore[k]++;
+  unlockAch('duo'); if (duoScore[k] >= 5) unlockAch('duo5');
+  app.taunt(`🏆 ${DUO_NAME[k]} برد!`, DUO_COL[k]); if (CFG.vib && navigator.vibrate) navigator.vibrate([40, 30, 80]);
+  const w = D.w[1 - k]; w.flash = .6; w.shake(10);
+  // photo finish: the other one was nearly at the door too
+  const d = w.lv.ents.find(e => e.type === 'door' && !e.fake); if (d && w.state === 'play' && Math.abs(w.p.x - d.x) < 3 * T && Math.abs(w.p.y - d.y) < 3 * T) setTimeout(() => app.taunt('📸 عکس پایان! فقط یه قدم فاصله بود', '#ffffff'), 900);
+}
+function duoRender(t, dt) {
+  const D = app.duo; if (!D) return;
+  const half = Math.floor(cw / 2), tiles0 = STT.tiles, ox0 = OX, wx0 = WX.lastCam;
+  for (let k = 0; k < 2; k++) {
+    const w = D.w[k], c0 = w.camX;
+    ctx.save(); ctx.beginPath(); ctx.rect(k * half, 0, k ? cw - half : half, ch); ctx.clip();
+    OX = k * half; STT.tiles = D.tiles[k]; WX.lastCam = D.wx[k]; w.camX = D.cam[k] ?? c0; HERO_OVR = k ? DUO_COL[1] : null;
+    try { render(w, t, k ? 0 : dt); }
+    finally { D.wx[k] = WX.lastCam; w.camX = c0; HERO_OVR = null; ctx.restore(); }
+  }
+  OX = ox0; STT.tiles = tiles0; WX.lastCam = wx0;
+  // divider, names, rooms and deaths, countdown, winner
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const gr = ctx.createLinearGradient(half - 6 * dpr, 0, half + 6 * dpr, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.5, 'rgba(8,4,24,.95)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gr; ctx.fillRect(half - 6 * dpr, 0, 12 * dpr, ch); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(half - dpr, 0, 2 * dpr, ch);
+  const f = Math.round(clamp(ch / 26, 12 * dpr, 22 * dpr));
+  ctx.textBaseline = 'top'; ctx.direction = 'rtl';
+  for (let k = 0; k < 2; k++) {
+    const w = D.w[k], n = w.secs ? w.secs.length : 1, x0 = k * half, cx = x0 + half / 2;
+    const txt = `${DUO_NAME[k]} · 🚪 ${faNum(w.ck + 1)}/${faNum(n)} · 💀 ${faNum(D.deaths[k])}`;
+    ctx.font = `800 ${f}px Vazirmatn, Tahoma, sans-serif`; ctx.textAlign = 'center';
+    const tw = ctx.measureText(txt).width + f * 1.4, y = Math.round(ch * .1);
+    ctx.fillStyle = 'rgba(10,6,28,.62)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - tw / 2, y, tw, f * 1.7, f * .85) : ctx.rect(cx - tw / 2, y, tw, f * 1.7); ctx.fill();
+    ctx.fillStyle = DUO_COL[k]; ctx.fillText(txt, cx, y + f * .32);
+    // progress bar along the level
+    const pk = clamp((w.p.x + PW) / w.lw, 0, 1), bw = half * .5, by = y + f * 1.95;
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(cx - bw / 2, by, bw, 4 * dpr); ctx.fillStyle = DUO_COL[k]; ctx.fillRect(cx - bw / 2, by, bw * pk, 4 * dpr);
+    if (D.won >= 0) {
+      ctx.font = `900 ${f * 2.4}px Vazirmatn, Tahoma, sans-serif`; ctx.fillStyle = D.won === k ? '#ffd36e' : 'rgba(255,255,255,.75)';
+      ctx.fillText(D.won === k ? '🏆 بردی!' : '😵 باختی!', cx, ch * .36);
+    }
+  }
+  if (D.count > -.5) {
+    const n = Math.ceil(D.count - .6), s = n > 0 ? faNum(n) : 'برو!', k = D.count - Math.floor(D.count), sc = 1 + (n > 0 ? k * .5 : 0);
+    ctx.font = `900 ${Math.round(f * 4.5 * sc)}px Vazirmatn, Tahoma, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = n > 0 ? .95 : clamp((D.count + .5) * 2, 0, 1);
+    for (let j = 0; j < 2; j++) { const cx = j * half + half / 2; ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(s, cx + 4 * dpr, ch * .6 + 4 * dpr); ctx.fillStyle = n > 0 ? '#fff6d8' : '#6ff3c4'; ctx.fillText(s, cx, ch * .6); }
+    ctx.globalAlpha = 1;
+  }
+  ctx.direction = 'inherit'; ctx.textBaseline = 'alphabetic';
+}
+
+/* ---------- picking the level ---------- */
+function duoLevels() {
+  const out = [];
+  LEVELS.forEach((L, i) => { if (L.kind !== '3d' && !L.rest && i < Math.max(app.unlocked, 7)) out.push({ key: 'L' + i, n: faNum(i + 1), name: L.name, rooms: L.rooms || 1 }); });
+  return out;
+}
+function renderDuo() {
+  $('duoScoreTop').textContent = duoScore[0] + duoScore[1] ? `امتیاز: ${DUO_NAME[0]} ${faNum(duoScore[0])} — ${faNum(duoScore[1])} ${DUO_NAME[1]}` : '';
+  $('duoGrid').innerHTML = duoLevels().map(l => `<button class="lv" data-duo="${l.key}" title="${esc(l.name)}">${l.n}<span class="rs">🚪${faNum(l.rooms)}</span></button>`).join('');
+  const cust = Ed.list().concat(ED_SAMPLES.map((_, i) => edSample(i)));
+  $('duoCustom').innerHTML = cust.map(lv => `<button class="chip" data-duo="C:${lv.id}">🛠️ ${esc(lv.name)}</button>`).join('');
+}
+function duoSrc(key) {
+  if (key === 'rand') { const l = duoLevels().filter(x => x.rooms <= 10); key = (l.length ? l : duoLevels())[Math.floor(Math.random() * (l.length || duoLevels().length))].key; }
+  if (key.startsWith('L')) { const i = +key.slice(1); return { key, idx: i, def: LEVELS[i], name: `مرحله ${faNum(i + 1)}: ${LEVELS[i].name}` }; }
+  const lv = edById(key.slice(2)); return lv ? { key, def: edDef(lv), name: `🛠️ ${lv.name}` } : null;
+}
+// next round: the next platformer level after this one
+function duoNextKey(src) {
+  if (!src || src.idx == null) return 'rand';
+  const l = duoLevels(), i = l.findIndex(x => x.key === src.key); return (l[i + 1] || l[0]).key;
+}
+$('bDuo').onclick = () => { Sound.init(); Sound.play('click'); duoScore = [0, 0]; renderDuo(); app.open('sDuo'); };
+$('sDuo').addEventListener('click', e => { const b = e.target.closest('[data-duo]'); if (!b) return; Sound.play('click'); const s = duoSrc(b.dataset.duo); if (s) app.startDuo(s); });
+$('bDuoAgain').onclick = () => { Sound.play('click'); if (app.duo) app.startDuo(app.duo.src); };
+$('bDuoNext').onclick = () => { Sound.play('click'); if (app.duo) { const s = duoSrc(duoNextKey(app.duo.src)); if (s) app.startDuo(s); } };
+$('bDuoPick').onclick = () => { Sound.play('click'); app.menu('sDuo'); renderDuo(); };
+$('bDuoMenu').onclick = () => { Sound.play('click'); app.menu(); };
+
+/* ---------- touch: three buttons for each player on their own side ---------- */
+const t2Layer = $('touch2'), t2Btns = [...t2Layer.querySelectorAll('.tb2')], t2Ptrs = new Map();
+function t2Pick(x, y, keepJump) {
+  const side = x < innerWidth / 2 ? 0 : 1; let best = null, bd = 1e9;
+  for (const b of t2Btns) { if (+b.dataset.p !== side || (keepJump && b.dataset.k === 'jump')) continue; const r = b.getBoundingClientRect(), d = Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y); if (d < bd) { bd = d; best = b; } }
+  return best;
+}
+function t2Refresh() {
+  for (const t of duoTouch) t.left = t.right = t.jump = false;
+  for (const b of t2Btns) b.classList.remove('p');
+  for (const b of t2Ptrs.values()) { duoTouch[+b.dataset.p][b.dataset.k] = true; b.classList.add('p'); }
+}
+t2Layer.addEventListener('pointerdown', e => {
+  e.preventDefault(); Sound.init(); try { t2Layer.setPointerCapture(e.pointerId); } catch (_) {}
+  const b = t2Pick(e.clientX, e.clientY); if (b) { t2Ptrs.set(e.pointerId, b); t2Refresh(); if (CFG.vib && navigator.vibrate) navigator.vibrate(6); }
+});
+t2Layer.addEventListener('pointermove', e => {
+  const b = t2Ptrs.get(e.pointerId); if (!b || b.dataset.k === 'jump') return;
+  const nb = t2Pick(e.clientX, e.clientY, true); if (nb && nb !== b && nb.dataset.p === b.dataset.p) { t2Ptrs.set(e.pointerId, nb); t2Refresh(); }
+});
+const t2End = e => { if (t2Ptrs.delete(e.pointerId)) t2Refresh(); };
+t2Layer.addEventListener('pointerup', t2End); t2Layer.addEventListener('pointercancel', t2End); t2Layer.addEventListener('lostpointercapture', t2End);
+t2Layer.addEventListener('contextmenu', e => e.preventDefault());
+function duoTouchOff() { t2Ptrs.clear(); t2Refresh(); t2Layer.classList.remove('on'); }
+/* ============================ REWARD ROAD ============================ */
+// Every player level pays gems; some levels also unlock a shop item that cannot be bought (it.lvl in SKINS).
+const ROAD_MAX = 25;
+const SLOT_N = { color: 'رنگ', hat: 'کلاه', trail: 'رد پا', pet: 'همراه', boom: 'افکت مرگ' };
+const roadItems = lv => { const out = []; for (const slot in SKINS) for (const it of SKINS[slot]) if (it.lvl === lv) out.push({ slot, it }); return out; };
+const lockedLv = it => !!it.lvl && XP.lvl(ST.xp) < it.lvl;
+function renderRoad() {
+  const L = XP.lvl(ST.xp), a = XP.need(L), b = XP.need(L + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
+  $('roadHead').innerHTML = `<b>⭐ سطح ${faNum(L)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)} تا سطح ${faNum(L + 1)}</small>`;
+  let h = '';
+  for (let lv = 2; lv <= ROAD_MAX; lv++) {
+    const got = L >= lv, items = roadItems(lv);
+    h += `<div class="road${got ? ' got' : ''}${lv === L + 1 ? ' next' : ''}${items.length ? ' big' : ''}"><div class="rl">${faNum(lv)}</div>
+      <div class="rr"><span>💎 ${faNum(lv * 10)}</span>${items.map(({ slot, it }) => `<span class="ri">${it.i} ${it.n} <small>(${SLOT_N[slot]})</small></span>`).join('')}</div>
+      <div class="rs">${got ? '✔' : '🔒'}</div></div>`;
+  }
+  $('roadList').innerHTML = h;
+  const nx = $('roadList').querySelector('.next'); if (nx) setTimeout(() => nx.scrollIntoView({ block: 'center' }), 30);
+}
+$('xpBox').addEventListener('click', () => { Sound.init(); Sound.play('click'); renderRoad(); app.open('sRoad'); });
+$('bRoadShop').onclick = () => { Sound.play('click'); renderShop(); app.open('sShop'); if (!shopAnim) { shopAnim = 1; requestAnimationFrame(shopPreview); } };
 /* ============================ MAIN LOOP ============================ */
 const sv = loadSave();
 app.prog = sv.prog || {}; app.diff = clamp(sv.diff ?? 1, 0, DIFFS.length - 1);
@@ -7705,6 +8093,7 @@ function drawView(dt) {
   else if (v === 'r2') { if (app.run) drawRun2D(app.run, clock, dt); }
   else if (v === 'r25') { if (app.run) drawRunPseudo(app.run, clock, dt); }
   else if (v === 'x3') { if (app.run) app.run.render(dt); }
+  else if (v === 'duo') duoRender(clock, dt);
   else render(app.world, clock, dt);
   if (app.state === 'edit') edOverlay(clock);
 }
@@ -7735,7 +8124,8 @@ function frame(now) {
   try { if ((saveT += dt) > 15) { saveT = 0; if (app.state === 'play') writeSave(); } } catch (e) { reportErr('save', e); }
 }
 function simFrame(dt) {
-  if (app.state === 'play') {
+  if (app.state === 'play' && app.duo) duoSim(dt);
+  else if (app.state === 'play') {
     acc += dt * (mutOn('fast') ? 1.25 : 1); const inp = readInput(); let n = 0;
     if (app.kind === 'run' && app.run) { while (acc >= STEP && n < 14) { app.run.update(STEP, inp); acc -= STEP; n++; } }
     else if (app.world) {

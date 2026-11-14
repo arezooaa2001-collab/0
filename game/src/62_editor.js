@@ -21,6 +21,15 @@ const EDT = [
   ['z', '🔴', 'لیزر', 'از این خونه تا زمین؛ روشن و خاموش می‌شه'],
   ['L', '🌋', 'گدازه', 'داغه!'],
   ['j', '⏫', 'فنر', 'پرتت می‌کنه بالا'],
+  ['b', '🟣', 'بالشتک پرشی', 'روش بری خیلی بلند پرت می‌شی'],
+  ['<', '⬅️', 'نوار نقاله به چپ', 'تو رو به سمت چپ می‌بره'],
+  ['>', '➡️', 'نوار نقاله به راست', 'تو رو به سمت راست می‌بره'],
+  ['q', '🩷', 'بلوک صورتی', 'با هر پرش، بلوک‌های صورتی و آبی جاشون عوض می‌شه (اول صورتی سفته)'],
+  ['Q', '🩵', 'بلوک آبی', 'با هر پرش، بلوک‌های صورتی و آبی جاشون عوض می‌شه (اول آبی خالیه)'],
+  ['t', '🌀', 'تله‌پورت ورودی', 'تو رو می‌بره به خروجی هم‌شماره‌اش (اولین ورودی به اولین خروجی و…)'],
+  ['T', '🎯', 'تله‌پورت خروجی', 'جایی که از تله‌پورت ورودی سر در میاری'],
+  ['u', '🌬️', 'باد رو به بالا', 'یه ستون باد که تو رو بالا می‌بره'],
+  ['a', '🏹', 'تیرانداز', 'پشت سر هم به سمت چپ تیر می‌زنه'],
   ['o', '🌀', 'گوی جاذبه', 'جاذبه رو برعکس می‌کنه'],
   ['e', '💎', 'جواهر', 'برای جمع کردن (جواهرهای مرحله‌های ساختنی به حساب فروشگاه نمی‌رن)'],
   ['P', '🙂', 'شروع', 'جای شروع بازیکن (فقط یکی)'],
@@ -31,7 +40,8 @@ const EDT = [
 ];
 const EDC = new Set(EDT.map(t => t[0]));
 const edTool = c => EDT.find(t => t[0] === c);
-const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c']);
+const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c', 'a', 'q', 'Q']);
+const ED_SOLID = 'gibq<>dQcmpa';   // cells you can stand on (for "test from here" and arrow walls)
 
 /* ---------- grid -> level ---------- */
 // All the level's things are built by its last section (so the door is kept); the other sections only give the
@@ -59,6 +69,15 @@ function edBuild(P, G, ox) {
   runs('V', (x, y, w) => P.spikes(null, X(x), y, w, 'down'));
   runs('h', (x, y, w) => { const k = id(); dyn(P.spikes(k, X(x), y, w, 'up', { hidden: true })); P.trig(X(x) - 1.3, y - 3, w + 2.6, 4, () => P.pop(k)); });
   runs('L', (x, y, w) => P.block(null, X(x), y + .3, w, Math.max(.7, R - y - .3), { lava: true, ghost: true }));
+  runs('b', (x, y, w) => P.block(null, X(x), y, w, 1, { bounce: 22 }));
+  runs('<', (x, y, w) => P.block(null, X(x), y, w, 1, { conv: -2.5 }));
+  runs('>', (x, y, w) => P.block(null, X(x), y, w, 1, { conv: 2.5 }));
+  runs('q', (x, y, w) => dyn(P.block(null, X(x), y, w, 1, { tog: 0 })));
+  runs('Q', (x, y, w) => dyn(P.block(null, X(x), y, w, 1, { tog: 1 })));
+  // teleporters: the n-th entrance (left to right) leads to the n-th exit
+  const tin = edFind(G, 't').sort((a, b) => a[0] - b[0] || a[1] - b[1]), tout = edFind(G, 'T').sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  tout.forEach(([x, y], i) => P.tele('tx' + i, X(x) + .05, y - .6));
+  tin.forEach(([x, y], i) => P.tele('tn' + i, X(x) + .05, y - .6, i < tout.length ? 'tx' + i : undefined));
   for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
     const c = at(x, y), lx = X(x);
     if (c === 'c') dyn(P.block(id(), lx, y, 1, .5, { crumble: .45 }));
@@ -69,6 +88,12 @@ function edBuild(P, G, ox) {
     else if (c === 'W') dyn(P.saw(null, lx + .5, y + .5, .6, { patrol: [[lx - 1.5, y + .5], [lx + 2.5, y + .5]], speed: 3 }));
     else if (c === 'z') { let len = 1; while (y + len < R && !'gi'.includes(at(x, y + len))) len++; dyn(P.laser(id(), lx + .5 - 5 / T, y, len, 'v', { on: 1.1, off: 1.4 })); }
     else if (c === 'j') dyn(P.spring(null, lx, y));
+    else if (c === 'u') { const top = Math.max(0, y - 9); P.zone(id(), 'wind', lx, top, 1, y + 1 - top, { fy: -18 }); }
+    else if (c === 'a') {
+      P.block(null, lx, y + .15, 1, .85);
+      let x1 = x - 1; while (x1 > Math.max(-1, x - 16) && !ED_SOLID.includes(at(x1, y))) x1--;
+      const end = X(x1 + 1); if (end < lx - 1) dyn(P.spikes(id(), lx - 1, y, 1, 'left', { arrow: true, pjump: true, patrol: [[lx - 1, y], [end, y]], speed: 7 }));
+    }
     else if (c === 'o') dyn(P.orb(id(), lx + .5, y + .5));
     else if (c === 'e') P.gem(lx + .5, y + .5);
     else if (c === 'D') dyn(P.door(lx - .2, y - 1));
@@ -193,17 +218,19 @@ function edRebuild() {
 // the playfield sits between the two tool columns (it gets smaller, never covered)
 function edLayout() {
   // the tool columns use the empty bars beside a wide screen when there are some (the playfield keeps its full height)
-  const side = Math.round(clamp((innerWidth - innerHeight * W / H) / 2, 60, 96)) * dpr, avail = Math.max(100, cw - side * 2);
-  S = Math.min(avail / W, ch / H); OX = side + (avail - W * S) / 2; OY = (ch - H * S) / 2;
-  EXT = { l: OX / S + 4, r: (cw - OX - W * S) / S + 4, t: OY / S + 4, b: OY / S + 4 };
+  const side = Math.round(clamp((innerWidth - innerHeight * W / H) / 2, 60, 96)) * dpr, avail = Math.max(100, cw - side * 2), z = ED.zoom || 1;
+  S = Math.min(avail / (W * z), ch / H); OX = z > 1 ? side : side + (avail - W * S) / 2; OY = (ch - H * S) / 2;
+  ED.vw = Math.min(avail / S, W * z);
+  EXT = { l: OX / S + 4, r: (cw - OX) / S - W + 4, t: OY / S + 4, b: OY / S + 4 };
   STT.tiles.clear(); buildBackground(); app.dirty = true;
   document.documentElement.style.setProperty('--edSide', (side / dpr) + 'px');
 }
 function edCell(cx, cy) {
   const x = (cx * dpr - OX) / S + ED.cam, y = (cy * dpr - OY) / S;
-  return { x: Math.floor(x / T), y: Math.floor(y / T), inside: y >= 0 && y < H && x >= ED.cam - 1 && x <= ED.cam + W + 1 };
+  return { x: Math.floor(x / T), y: Math.floor(y / T), inside: y >= 0 && y < H && x >= ED.cam - 1 && x <= ED.cam + edVW() + 1 };
 }
-function edScroll(dx) { ED.cam = clamp(ED.cam + dx, 0, Math.max(0, edCols() * T - W)); if (ED.world) ED.world.camX = ED.cam; app.dirty = true; edMini(); }
+const edVW = () => ED.vw || W;   // how much of the level is visible (more when zoomed out)
+function edScroll(dx) { ED.cam = clamp(ED.cam + dx, 0, Math.max(0, edCols() * T - edVW())); if (ED.world) ED.world.camX = ED.cam; app.dirty = true; edMini(); }
 
 /* ---------- icons: the real game pieces drawn small (falls back to the emoji) ---------- */
 function edIcon(code) {
@@ -215,26 +242,29 @@ function edIcon(code) {
     const P = secBuilder(L, { x0: 0, spawn: [0, 0] }, 0, true);
     const grid = Array.from({ length: 4 }, () => '    '.split(''));
     grid[2][1] = code === 'P' || code === 'K' ? ' ' : code;
-    if (code === 'm' || code === 'p' || code === 'S' || code === 'V' || code === 'L') grid[2][2] = code;
+    if ('mpSVLb<>qQ'.includes(code)) grid[2][2] = code;
+    if (code === 'a') { grid[2][2] = code; grid[2][1] = ' '; }
     edBuild(P, grid.map(r => r.join('')), 0); P.done(); L.link(0);
     ctx = g; CAMX = 0; LW = 1e6; hints = true;
-    const tall = code === 'D' || code === 'F' || code === 'K' || code === 'P', wide = grid[2][2] !== ' ';
+    const tall = code === 'D' || code === 'F' || code === 'K' || code === 'P' || code === 't' || code === 'T', wide = grid[2][2] !== ' ';
     const span = tall ? 2.6 : wide ? 2.4 : 1.6, k = 72 / (span * T), cx = (wide ? 2 : 1.5) * T, cy = tall ? 1.95 * T : 2.5 * T;
     g.setTransform(k, 0, 0, k, 36 - cx * k, 36 - cy * k);
     for (const e of L.ents) {
       if (e.type === 'block') { if (e.hidden) { ctx.save(); ctx.setLineDash([6, 6]); ctx.strokeStyle = '#9ef9dc'; ctx.lineWidth = 3; ctx.strokeRect(e.x + 2, e.y + 2, e.w - 4, e.h - 4); ctx.restore(); } else drawBlock(e, 0); }
-      else if (e.type === 'spike') { ctx.save(); if (e.hidden) ctx.globalAlpha = .5; const p = e.pop; e.pop = 1; drawSpikeRaw(e); e.pop = p; ctx.restore(); }
+      else if (e.type === 'spike') { ctx.save(); if (e.hidden) ctx.globalAlpha = .5; const p = e.pop; e.pop = 1; if (e.arrow) drawSpike(e); else drawSpikeRaw(e); e.pop = p; ctx.restore(); }
       else if (e.type === 'saw') drawSaw(e, 0);
       else if (e.type === 'spring') drawSpringRaw(e);
       else if (e.type === 'orb') drawOrb(e, 0);
       else if (e.type === 'gem') drawGem(e, 0);
       else if (e.type === 'door') drawDoor(e, 0, null);
       else if (e.type === 'laser') { e.act = true; drawLaser(e, 0); }
+      else if (e.type === 'tele') drawTele(e, 0);
+      else if (e.type === 'zone' && e.kind === 'wind') { ctx.save(); ctx.fillStyle = 'rgba(158,249,255,.25)'; ctx.fillRect(e.x, e.y + e.h - 1.6 * T, e.w, 1.6 * T); ctx.restore(); }
     }
     if (code === 'K') drawFlag({ x: 1.4 * T, y: 1.1 * T, h: 2.4 * T, on: true, wave: 0 }, 0);
     if (code === 'P') { ctx.save(); ctx.translate(1.5 * T, 3 * T); ctx.scale(1.5, 1.5); drawHero(0, 1, true, 0, 0, 0, 2, false); ctx.restore(); }
     if (code === 'W' || code === 'm') { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.fillText('⟷', 4, 18); }
-    if (code === 'd' || code === 'r' || code === 'c' || code === 'h' || code === 'f') { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '20px sans-serif'; ctx.fillText(edTool(code)[1], 44, 22); }
+    if ('drchfu<>'.includes(code)) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = '20px sans-serif'; ctx.fillText(edTool(code)[1], 44, 22); }
   } catch (e) { return null; }
   finally { ctx = main; CAMX = cm; LW = lw; hints = hi; }
   return c;
@@ -251,7 +281,7 @@ function edPalette() {
 }
 function edTip(text) { const el = $('edTip'); el.textContent = text; el.classList.add('on'); clearTimeout(edTip.t); edTip.t = setTimeout(() => el.classList.remove('on'), 3200); }
 function edMini() {
-  const n = edCols() / ED_SW, k = ED.cam / Math.max(1, edCols() * T - W);
+  const n = edCols() / ED_SW, k = ED.cam / Math.max(1, edCols() * T - edVW());
   $('edPage').textContent = `${faNum(n)} صفحه`;
   $('edPos').style.setProperty('--k', n > 1 ? k.toFixed(3) : '0'); $('edPos').style.setProperty('--n', n);
 }
@@ -260,7 +290,7 @@ function edMini() {
 function edOpen(lv, back) {
   mutApply(false); app.teardown(); app.custom = null; app.demo = null; app.rush = null; Ghost.stop(); app.rivals2 = null; app.endless = null;
   if (!back) { ED.undo = []; ED.redo = []; ED.cam = 0; ED.botBest = null; ED.botActs = null; }
-  ED.lv = lv; ED.cam = clamp(ED.cam, 0, Math.max(0, edCols() * T - W)); ED.pan = false; $('edPan').classList.remove('on');
+  ED.lv = lv; ED.cam = clamp(ED.cam, 0, Math.max(0, edCols() * T - edVW())); ED.pan = false; $('edPan').classList.remove('on');
   app.state = 'edit'; app.kind = 'plat'; app.view = 'p2'; app.def = null; app.show(null);
   cv.style.display = 'block'; $('c3').style.display = 'none'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
   setBiome(lv.biome); edLayout(); edRebuild(); edPalette(); edMini();
@@ -327,11 +357,11 @@ addEventListener('keydown', e => {
 });
 
 /* ---------- what the editor draws over the level ---------- */
-const ED_MARK = { d: '⬇️', c: '💢', r: '☄️', f: '👻', m: '⟷', h: '🙈', n: '❔', F: '🎭' };
+const ED_MARK = { d: '⬇️', c: '💢', r: '☄️', f: '👻', m: '⟷', h: '🙈', n: '❔', F: '🎭', u: '🌬️', '<': '⬅️', '>': '➡️', a: '🏹' };
 function edOverlay(t) {
   if (!ED.lv || !ED.world) return;
   if (ED.need) edRebuild();
-  const G = ED.lv.g, C = edCols(), x0 = Math.max(0, Math.floor(ED.cam / T) - 1), x1 = Math.min(C, Math.ceil((ED.cam + W) / T) + 1);
+  const G = ED.lv.g, C = edCols(), x0 = Math.max(0, Math.floor(ED.cam / T) - 1), x1 = Math.min(C, Math.ceil((ED.cam + edVW()) / T) + 1);
   worldTransform(0, 0);
   ctx.save();
   // the grid
@@ -350,6 +380,9 @@ function edOverlay(t) {
     else if (c === 'K' && x <= (edFind(G, 'P')[0] || [2])[0]) { ctx.globalAlpha = .6; ctx.fillText('🚩', x * T + T / 2, y * T + T / 2); }
   }
   ctx.globalAlpha = 1;
+  // teleporter pairs are numbered
+  ctx.font = 'bold 18px sans-serif'; ctx.fillStyle = '#fff';
+  for (const [ch, col] of [['t', '#c59bff'], ['T', '#7af7ff']]) edFind(G, ch).sort((a, b) => a[0] - b[0] || a[1] - b[1]).forEach(([x, y], i) => { ctx.fillStyle = col; ctx.fillText(faNum(i + 1), x * T + T / 2, (y - .9) * T); });
   // the robot's best try when it could not finish
   if (ED.botBest) { const b = ED.botBest; ctx.fillStyle = 'rgba(255,61,113,.25)'; ctx.fillRect(b.x - 4, 0, 8, H); ctx.font = '26px sans-serif'; ctx.fillText('🤖', b.x, Math.max(30, b.y - 30)); }
   // cursor
@@ -359,7 +392,7 @@ function edOverlay(t) {
 
 /* ---------- robot: searches inputs that beat the level (same search the game's own levels were checked with) ---------- */
 const ED_ACTS = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 1, 1], [0, 0, 1]].map(a => ({ left: !!a[0], right: !!a[1], jump: !!a[2] }));
-let edBotJob = null;
+let edBotJob = null, edBotLast = null;
 function edBotStop() { if (edBotJob) { edBotJob.stop = true; edBotJob = null; } $('edBot').classList.remove('on'); }
 function edBotStart() {
   if (!edReady()) return;
@@ -367,7 +400,7 @@ function edBotStart() {
   const def = edDef(ED.lv), diff = app.diff, w = new World(def, { silent: true, diff }), nSec = def.secs.length;
   const dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); });
   const STEPS = 8, dtS = w.D.speed / 120;
-  const job = edBotJob = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0 };
+  const job = edBotJob = edBotLast = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
   let rs = 12345; const Rn = () => { rs = (rs * 1664525 + 1013904223) % 4294967296; return rs / 4294967296; };
   const doorOf = () => w.lv.ents.find(e => e.type === 'door' && !e.fake && !e.gone);
   const goalX = s => s < nSec - 1 ? (def.secs[s + 1].x0 + .45) * T : null;
@@ -376,7 +409,7 @@ function edBotStart() {
   const key = () => {
     const p = w.p; let fs = ''; for (const t of w.lv.trigs) fs += t.fired ? '1' : '0';
     let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + e.patrol.i + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
-    return ((p.x / 20) | 0) + ',' + ((p.y / 20) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + fs + mq;
+    return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + fs + mq;
   };
   const score = s => { const p = w.p, gx = goalX(s); if (gx != null) return -Math.abs(gx - p.x) - .15 * Math.abs(p.y - 560); const d = doorOf(); return d ? -(Math.abs(p.x - d.x) + .8 * Math.abs(p.y - d.y)) : 0; };
   const snap = () => w.save(dynIdx), load = sn => w.load(sn, dynIdx);
@@ -385,7 +418,8 @@ function edBotStart() {
   const begin = () => { root = { snap: snap(), parent: null, acts: [], depth: 0, visits: 0, score: score(job.sec) }; arch = new Map([[key(), root]]); list = [root]; job.secT0 = performance.now(); };
   begin();
   $('edBot').classList.add('on'); $('edBotTxt').textContent = '🤖 ربات داره راه رد شدن رو پیدا می‌کنه…'; $('edBotGo').hidden = true; $('edBotBar').style.transform = 'scaleX(0)';
-  const SEC_MS = 9000, TOTAL_MS = 45000;
+  // a room gets a share of the minute (at least 9 s); the archive of reached places is capped so phones keep enough memory
+  const TOTAL_MS = 60000, SEC_MS = clamp(TOTAL_MS / nSec, 9000, 30000), CAP = 7000;
   const slice = () => {
     if (job.stop) return;
     const until = performance.now() + 22; let found = null;
@@ -407,18 +441,18 @@ function edBotStart() {
           arch.set(k, ent); if (!cur) list.push(ent); else list[list.indexOf(cur)] = ent;
           parent = ent; seq = [];
         }
-        if (list.length > 2500) break;
+        if (list.length > CAP) break;
       }
     }
     const el = performance.now() - job.secT0;
     $('edBotBar').style.transform = `scaleX(${clamp((job.sec + Math.min(1, el / SEC_MS)) / nSec, 0, 1).toFixed(3)})`;
     if (found) {
       const chain = [found.seq]; for (let n = found.parent; n && n.parent; n = n.parent) chain.push(n.acts);
-      job.acts.push(...chain.reverse().flat()); job.sec++;
+      job.acts.push(...chain.reverse().flat()); job.sec++; job.marks.push({ n: job.acts.length, x: w.p.x, y: w.p.y, ck: w.ck, t: w.time });
       if (job.sec >= nSec) return edBotDone(job, true);
       // the next room starts from where this one was finished (so the whole run can be replayed in one go)
       begin(); $('edBotTxt').textContent = `🤖 اتاق ${faNum(job.sec)} از ${faNum(nSec)} رد شد…`;
-    } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > 2500) {
+    } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > CAP) {
       let bx = list[0]; for (const x of list) if (x.score > bx.score) bx = x;
       return edBotDone(job, false, { x: bx.snap.p.x + PW / 2, y: bx.snap.p.y });
     }
@@ -451,11 +485,21 @@ function edReady() {
   if (!edFind(g, 'P').length) { edTip('اول جای 🙂 شروع رو مشخص کن!'); Sound.play('die'); return false; }
   return true;
 }
-function edTest(demo) {
+// here: start from the part of the level you are looking at (a quick try; it does not count as beating the level)
+function edTest(demo, here) {
   if (!edReady()) return;
+  let lv = ED.lv;
+  if (here) {
+    const G = lv.g, C = edCols(), x0 = clamp(Math.floor(ED.cam / T) + 2, 0, C - 1); let spot = null;
+    for (let x = x0; x < Math.min(C, x0 + 24) && !spot; x++) for (let y = ED_R - 2; y >= 1; y--) if (' e'.includes(G[y][x]) && ' e'.includes(G[y - 1][x]) && ED_SOLID.includes(G[y + 1][x])) { spot = [x, y]; break; }
+    if (!spot) { edTip('اینجا جایی برای وایستادن پیدا نکردم؛ یه کم جابه‌جا شو'); Sound.play('die'); return; }
+    lv = JSON.parse(JSON.stringify(lv)); lv.partial = true;
+    lv.g = lv.g.map(r => r.replace(/P/g, ' ').replace(/K/g, (m, i) => i <= spot[0] ? ' ' : 'K'));
+    lv.g[spot[1]] = lv.g[spot[1]].slice(0, spot[0]) + 'P' + lv.g[spot[1]].slice(spot[0] + 1);
+  }
   edBotStop(); $('edUI').classList.remove('on'); if (!ED.lv.sample) Ed.put(ED.lv);
   app.state = 'test'; resize(); STT.tiles.clear();
-  app.startCustom(ED.lv, { test: true, demo: demo ? ED.botActs : null });
+  app.startCustom(lv, { test: true, demo: demo ? ED.botActs : null });
 }
 
 /* ---------- "my levels" screen ---------- */
@@ -530,8 +574,10 @@ $('edUI').addEventListener('click', e => {
   else if (a === 'undo') edUndo(false);
   else if (a === 'redo') edUndo(true);
   else if (a === 'pan') { ED.pan = !ED.pan; b.classList.toggle('on', ED.pan); for (const x of $('edTools').children) x.classList.toggle('on', !ED.pan && x.dataset.t === ED.tool); edTip(ED.pan ? '✋ حالا با کشیدن روی صفحه، مرحله رو جابه‌جا کن' : 'دوباره می‌تونی بکشی'); }
-  else if (a === 'left') edScroll(-W / 2);
-  else if (a === 'right') edScroll(W / 2);
+  else if (a === 'left') edScroll(-edVW() / 2);
+  else if (a === 'right') edScroll(edVW() / 2);
+  else if (a === 'zoom') { ED.zoom = ED.zoom > 1 ? 1 : 2; b.classList.toggle('on', ED.zoom > 1); edLayout(); edScroll(0); edTip(ED.zoom > 1 ? '🔍 نمای دور: دو برابر بیشتر از مرحله رو می‌بینی' : '🔍 نمای عادی'); }
+  else if (a === 'here') edTest(false, true);
   else if (a === 'more' || a === 'less') {
     edOwn(); const C = edCols(), n = C / ED_SW + (a === 'more' ? 1 : -1);
     if (n < 1 || n > ED_MAXS) return edTip(n < 1 ? 'کمتر از یه صفحه نمی‌شه' : `حداکثر ${faNum(ED_MAXS)} صفحه`);

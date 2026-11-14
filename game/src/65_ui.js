@@ -150,8 +150,8 @@ function renderShop(tab) {
   $('shopBal').textContent = '💎 ' + faNum(bal);
   $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
   $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
-    const own = it.p === 0 || ST.owned[shopTab + ':' + it.id], on = cur === it.id;
-    return `<button class="shopit${on ? ' on' : ''}${!own && bal < it.p ? ' poor' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
+    const lk = lockedLv(it), own = !lk && (it.p === 0 || ST.owned[shopTab + ':' + it.id]), on = cur === it.id;
+    return `<button class="shopit${on ? ' on' : ''}${lk || (!own && bal < it.p) ? ' poor' : ''}${it.lvl ? ' road' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : lk ? `🔒 سطح ${faNum(it.lvl)}` : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
   }).join('');
 }
 function shopPreview() {
@@ -176,6 +176,7 @@ $('shopTabs').addEventListener('click', e => { const b = e.target.closest('[data
 $('shopGrid').addEventListener('click', e => {
   const b = e.target.closest('[data-item]'); if (!b) return;
   const it = SKINS[shopTab].find(s => s.id === b.dataset.item), key = shopTab + ':' + it.id, own = it.p === 0 || ST.owned[key];
+  if (lockedLv(it)) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); app.taunt(`⭐ این جایزه‌ی سطح ${faNum(it.lvl)} توی «جاده‌ی جایزه»‌ست`, '#ffd36e'); return; }
   if (!own) {
     if (gemBalance() < it.p) { Sound.play('click'); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
     ST.spent = (ST.spent || 0) + it.p; ST.owned[key] = 1; Sound.play('win'); Missions.ev('shop');
