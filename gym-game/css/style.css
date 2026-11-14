@@ -1104,3 +1104,36 @@ kbd {
   /* short phones: the powers start right of the challenge button (swipe the row for the rest) */
   .powers { left: calc(max(12px, var(--safe-l)) + 58px); max-width: calc(56vw - 96px); }
 }
+
+/* round 13: the bowling / archery panel */
+.game-panel { border-color: rgba(123, 237, 159, 0.75); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(123, 237, 159, 0.35); }
+.game-panel .spin-head { color: #c9f7d6; font-size: 16px; }
+.game-boxes { display: flex; gap: 5px; justify-content: center; direction: rtl; }
+.game-box { flex: 1; max-width: 62px; display: grid; gap: 1px; text-align: center; padding: 3px 2px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); border: 2px solid transparent; }
+.game-box.now { border-color: #7bed9f; background: rgba(123, 237, 159, 0.2); }
+.gb-marks { font: 600 12px/1.2 var(--body); color: #e8ecf5; direction: ltr; white-space: nowrap; }
+.game-box b { font: 400 16px/1.2 var(--display); color: #ffd34d; min-height: 19px; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .game-box b { font-size: 13px; min-height: 15px; }
+  .game-panel .spin-info { font-size: 12px; }
+}
+
+/* narrow portrait phones: the ready button sits left of the strength card instead of over it */
+@media (max-width: 420px) {
+  .ready-btn { left: calc(max(12px, var(--safe-l)) + 50px); transform: none; padding: 6px 12px 7px; transform-origin: left top; }
+  .ready-btn:active { transform: translateY(3px); }
+}
+@media (max-width: 375px) {
+  .ready-btn { transform: scale(0.86); }
+  .ready-btn:active { transform: scale(0.86) translateY(3px); }
+}
+/* a race or a challenge banner takes the top: the chips under it step aside */
+.hud:has(#raceHud:not([hidden])) .ready-btn,
+.hud:has(#raceHud:not([hidden])) .goal-chip,
+.hud:has(#raceHud:not([hidden])) .wheel-chip,
+.hud:has(#chalHud:not([hidden])) .goal-chip,
+.hud:has(#chalHud:not([hidden])) .wheel-chip { display: none !important; }
+/* landscape phones: the build bar moves right, clear of the joystick */
+@media (max-height: 480px) and (orientation: landscape) {
+  .build-bar { left: auto; right: max(12px, var(--safe-r)); transform: none; width: min(560px, calc(100% - 190px)); bottom: calc(var(--safe-b) + 10px); }
+}

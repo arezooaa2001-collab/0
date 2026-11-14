@@ -403,7 +403,8 @@ const Game = {
       this.world.releaseStation();
       P.ch.root.position.y = 0;
     }
-    this.lastExerciseEnd = this.clock;
+    // only a finished rep keeps a combo going: tapping move after move without doing one breaks it
+    this.lastExerciseEnd = L.reps > 0 ? this.clock : -10;
     if (L.onStop) L.onStop(quiet);
     if (!quiet && L.reps > 0) this.toast(`⏹ تموم شد: ${fa(L.reps)} بار «${L.m.name}»`);
     this.showStop();
@@ -1173,6 +1174,8 @@ const Game = {
       // the camera room has its own keys; the hidden player must not use powers or travel meanwhile
       if (this.watch) return;
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      // Enter is a game key (arm wrestling): it must not also press the HUD button that has focus
+      if ((e.code === 'Enter' || e.code === 'NumpadEnter') && e.target && e.target.closest && e.target.closest('#hud')) e.preventDefault();
       if (this.modals.size) return;
       if (this.mode === 'arena') {
         if (!e.repeat) this.arena.key(e.code);
@@ -1199,6 +1202,7 @@ const Game = {
       if (e.code === 'Digit8' || e.code === 'Numpad8') this.usePower('shield');
       if (e.code === 'Digit9' || e.code === 'Numpad9') this.usePower('moon');
       if (e.code === 'Digit0' || e.code === 'Numpad0') this.usePower('freeze');
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.usePower('tornado');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1330,6 +1334,7 @@ const Game = {
       this.tickFun4(dt);
       this.tickFun5(dt);
       this.tickFun6(dt);
+      this.tickFun7(dt);
       if (this.arm && !this.modals.size) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());

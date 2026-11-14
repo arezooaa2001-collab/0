@@ -107,6 +107,8 @@ Object.assign(Game, {
       s.xp = Math.min(s.xp, xpNeed(s.level) - 1);
     }
     s.cheatLv = 0;
+    // chests are counted on earned levels: forget hundreds that only cheats reached
+    if (s.chestHundred != null) s.chestHundred = Math.min(s.chestHundred, Math.floor(s.level / 100));
     const lost = before - this.lv();
     setPlayerLevelLook(this.player, this.lv());
     this.labelPlayer();

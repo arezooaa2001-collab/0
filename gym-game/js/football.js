@@ -714,6 +714,9 @@ class FootballWorld extends EnvWorld {
   updateExtra(dt) {
     super.updateExtra(dt);
     this.homeRing.rotation.z += dt;
+    // the match waits while a menu, the camera room or photo mode is open
+    const G = typeof Game !== 'undefined' ? Game : null;
+    if (G && G.world === this && (G.modals.size || G.watch || G.photo)) return;
     this.match(dt);
   }
 

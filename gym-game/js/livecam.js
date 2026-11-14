@@ -61,6 +61,7 @@ Object.assign(Game, {
 
   openWatch(key) {
     if (this.mode !== 'play') return;
+    if (this.race || this.arm || (this.miniBusy && this.miniBusy()) || this.cannon || this.dodge) { this.closeModal('menuModal'); this.toast('اول مسابقه یا بازی‌ای که توشی رو تموم کن.', 'warn'); return; }
     Sfx.init();
     this.closeModal('menuModal');
     this.keys.clear();

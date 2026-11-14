@@ -71,7 +71,7 @@ Object.assign(Game, {
       if (P.ch.root.scale.x !== 1) P.ch.root.scale.setScalar(1);
       return;
     }
-    M.t -= dt;
+    if (!this.modals.size && !this.watch && !this.photo) M.t -= dt;
     const target = M.t > 0 ? MORPHS[M.id].scale : 1;
     const ch = P.ch;
     let s = ch.root.scale.x;

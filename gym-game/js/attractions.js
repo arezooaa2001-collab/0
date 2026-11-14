@@ -82,10 +82,13 @@ Object.assign(Game, {
       this.react = null;
       this.setReactLights('#ffd34d');
       setTimeout(() => { if (!this.react) this.setReactLights('#33384a'); }, 900);
+      // fast hands pay, but once a minute at most (a new record always pays)
       const fast = ms < 320;
+      const pay = fast && (best || this.clock - (this.reactCoinT ?? -1e9) > 60);
+      if (pay) this.reactCoinT = this.clock;
       Sfx.play(fast ? 'success' : 'click');
-      this.toast(`⚡ زمان واکنش: ${fa(ms)} میلی‌ثانیه${best ? ' • رکورد جدید!' : ''}${fast ? ' • 🪙 ۳۰' : ''}`, 'gold');
-      if (fast) this.addCoins(30);
+      this.toast(`⚡ زمان واکنش: ${fa(ms)} میلی‌ثانیه${best ? ' • رکورد جدید!' : ''}${pay ? ' • 🪙 ۳۰' : ''}`, 'gold');
+      if (pay) this.addCoins(30);
       this.persist();
     }
   },

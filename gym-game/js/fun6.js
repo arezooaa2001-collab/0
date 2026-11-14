@@ -1035,8 +1035,11 @@ const _quickTravel6 = Game.quickTravel;
 Game.quickTravel = function (x, z, special) {
   if (this.cannon && this.cannon.state === 'fly') { this.closeModal('qtModal'); this.toast('وسط پرواز نمی‌شه جابه‌جا شد! 💥', 'warn'); return; }
   if (this.dodge || this.hunt) { this.closeModal('qtModal'); this.toast('وسط بازی جاخالی یا شکار ستاره نمی‌شه جابه‌جا شد!', 'warn'); return; }
-  this.cancelMeter();
-  this.endDanceOff(null);
+  // only give up what you are doing when the trip is really going to happen
+  if (this.world === this.gym && this.mode === 'play' && !this.race && !this.arm && !this.build && !this.photo) {
+    this.cancelMeter();
+    this.endDanceOff(null);
+  }
   _quickTravel6.call(this, x, z, special);
 };
 

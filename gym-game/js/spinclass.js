@@ -304,6 +304,7 @@ Object.assign(Game, {
   spinBlock(m, st) {
     if (!st || st.cls !== 'spin' || this.world !== this.gym) return false;
     const w = this.gym;
+    if (w.boss) { Sfx.play('error'); this.toast('🐉 با غول توی باشگاه کلاس اسپینینگ تشکیل نمی‌شه؛ اول شکستش بده!', 'warn'); return true; }
     const S = w.spinState();
     const need = w.spinNeed();
     const seated = w.spinSeated();

@@ -190,7 +190,7 @@ Object.assign(Game, {
     const P = this.player;
     const S = P && P.shield;
     if (!S) return;
-    S.t -= dt;
+    if (!this.modals.size && !this.watch && !this.photo) S.t -= dt;
     if (S.t <= 0 || this.mode === 'arena') { this.endShield(); return; }
     const ch = P.ch;
     // a rebuilt body gets the bubble back
@@ -255,7 +255,7 @@ Object.assign(Game, {
   tickMoon(dt) {
     const M = this.moonG;
     if (!M) return;
-    M.t -= dt;
+    if (!this.modals.size && !this.watch && !this.photo) M.t -= dt;
     if (M.t <= 0 || this.world !== M.w || this.mode === 'arena') { this.endMoon(); return; }
     const ch = this.player.ch;
     ch.grav = 6;
@@ -375,7 +375,7 @@ Object.assign(Game, {
   startHunt() {
     this.closeModal('menuModal');
     const w = this.world;
-    if (this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.hunt || this.inFootball() || w.allowTurbo) {
+    if (this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.hunt || this.cannon || this.meter || this.danceOff || this.miniBusy() || this.inFootball() || w.allowTurbo) {
       this.toast('شکار ستاره وقتی کار دیگه‌ای نمی‌کنی شروع می‌شه (توی پیست دو و فوتبال نه).', 'warn');
       return;
     }
@@ -521,7 +521,7 @@ Object.assign(Game, {
     const D = this.disco;
     if (!D) {
       // now and then the gym throws a party by itself
-      if (this.world !== g || this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.lava || g.boss || this.hunt || this.modals.size || this.watch || this.photo) return;
+      if (this.world !== g || this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.lava || g.boss || this.hunt || this.cannon || this.meter || this.danceOff || this.miniBusy() || this.modals.size || this.watch || this.photo) return;
       this.discoTimer = (this.discoTimer ?? rand(300, 480)) - dt;
       if (this.discoTimer <= 0) { this.discoTimer = rand(480, 720); this.startDisco(false); }
       return;

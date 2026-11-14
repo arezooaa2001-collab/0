@@ -337,7 +337,7 @@ Object.assign(Game, {
   startDodge() {
     this.closeModal('menuModal');
     const w = this.world;
-    if (w !== this.gym || this.mode !== 'play' || this.race || this.arm || this.dodge || this.lava || this.hunt || this.gym.boss) {
+    if (w !== this.gym || this.mode !== 'play' || this.race || this.arm || this.dodge || this.lava || this.hunt || this.gym.boss || this.cannon || this.meter || this.danceOff || this.miniBusy()) {
       this.toast('بازی جاخالی توی باشگاه اصلی، وقتی کار دیگه‌ای نمی‌کنی، شروع می‌شه.', 'warn');
       return;
     }
@@ -391,7 +391,7 @@ Object.assign(Game, {
     this.dodge = null;
     $('dodgePanel').hidden = true;
     // balls still in the air are gone (no "hit!" after you have already won)
-    if (this.balls) this.balls = this.balls.filter((b) => { if (b.kind !== 'ball') return true; b.m.removeFromParent(); return false; });
+    if (this.balls) this.balls = this.balls.filter((b) => { if (b.kind !== 'ball') return true; b.m.removeFromParent(); b.m.geometry.dispose(); b.m.material.dispose(); return false; });
     for (const n of D.throwers) if (n.state === 'dodge') { n.state = 'idle'; n.timer = rand(0.5, 2); n.ch.setLabel(n.name, 'سطح ' + fa(n.level), '#7fe0ff'); }
     if (won === null) return;
     if (won) {
@@ -413,7 +413,7 @@ Object.assign(Game, {
     const L = this.lava;
     const here = this.world === g && this.mode === 'play';
     if (!L) {
-      if (!here || this.race || this.arm || this.dodge || this.build || g.boss || this.hunt || this.modals.size || this.watch || this.photo || this.lv() < 15) return;
+      if (!here || this.race || this.arm || this.dodge || this.build || g.boss || this.hunt || this.cannon || this.meter || this.danceOff || this.miniBusy() || this.spinInClass() || this.modals.size || this.watch || this.photo || this.lv() < 15) return;
       this.lavaTimer = (this.lavaTimer ?? rand(240, 360)) - dt;
       if (this.lavaTimer <= 0) { this.lavaTimer = rand(360, 540); this.startLava(); }
       return;
@@ -518,7 +518,7 @@ Object.assign(Game, {
   /** Each hundred of levels earned by exercise gives one chest, once (keyed on the real level). */
   levelChest() {
     const s = this.save;
-    const h = Math.floor(s.level / 100);
+    const h = Math.floor(realLv(s) / 100);
     if (s.chestHundred == null) { s.chestHundred = h; return; }
     if (h <= s.chestHundred) return;
     s.chestHundred = h;
@@ -556,7 +556,7 @@ Object.assign(Game, {
   /* ---------- every frame ---------- */
 
   tickFun4(dt) {
-    if (this.save && this.save.chestHundred == null) this.save.chestHundred = Math.floor(this.save.level / 100);
+    if (this.save && this.save.chestHundred == null) this.save.chestHundred = Math.floor(realLv(this.save) / 100);
     if (this.chestOwed && this.mode === 'play' && this.world.pickups && !(this.world instanceof RunWorld) && this.spawnLevelChest(0)) this.chestOwed--;
     this.tickBoard(dt);
     this.tickJet(dt);

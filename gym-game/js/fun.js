@@ -739,6 +739,7 @@ Object.assign(Game, {
 
   enterPhoto() {
     if (this.mode !== 'play') return;
+    if (this.race || this.arm || (this.miniBusy && this.miniBusy()) || this.cannon || this.dodge) { this.closeModal('menuModal'); this.toast('اول مسابقه یا بازی‌ای که توشی رو تموم کن.', 'warn'); return; }
     this.closeModal('menuModal');
     this.photo = true;
     this.keys.clear();

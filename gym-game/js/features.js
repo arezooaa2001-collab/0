@@ -373,7 +373,7 @@ Object.assign(Game, {
   attachPet() {
     const id = this.save.shop.pet;
     if (!id || !this.owns(id)) { this.pet = null; return; }
-    if (!this.pet || this.pet.kind !== id) this.pet = id === 'dragon' ? new DragonPet() : id === 'ufo' ? new UfoPet() : new Pet(id);
+    if (!this.pet || this.pet.kind !== id) this.pet = id === 'dragon' ? new DragonPet() : id === 'ufo' ? new UfoPet() : id === 'penguin' ? new PenguinPet() : new Pet(id);
     this.pet.root.userData.noSolid = true;
     this.world.scene.add(this.pet.root);
     this.pet.place(this.player.ch.root.position);
@@ -529,6 +529,7 @@ Object.assign(Game, {
     else if (a === 'disco') this.startDisco(true);
     else if (a === 'danceoff') this.startDanceOff();
     else if (a === 'arcade') this.goArcade();
+    else if (a === 'south') this.goSouth();
     else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }

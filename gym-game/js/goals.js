@@ -11,7 +11,7 @@ function realLv(s) { return Math.max(1, s.level - (s.cheatLv || 0)); }
 const GOALS = [
   { id: 'lv10', icon: '💪', text: 'با ورزش به سطح ۱۰ برس', reward: 100, test: (s) => realLv(s) >= 10, prog: (s) => [realLv(s), 10] },
   { id: 'stage3', icon: '🤼', text: 'دو حریف اول کشتی رو شکست بده', reward: 150, test: (s) => s.stage >= 3, prog: (s) => [s.stage - 1, 2] },
-  { id: 'g2', icon: '⚙️', text: `در سطح ${fa(G2_LEVEL)} برو باشگاه فولاد`, reward: 200, test: (s) => s.stats.visited.includes('gym2'), prog: (s) => [Math.min(realLv(s), G2_LEVEL), G2_LEVEL] },
+  { id: 'g2', icon: '⚙️', text: `در سطح ${fa(G2_LEVEL)} برو باشگاه فولاد`, reward: 200, test: (s) => s.stats.visited.includes('gym2') && realLv(s) >= G2_LEVEL, prog: (s) => [Math.min(realLv(s), G2_LEVEL), G2_LEVEL] },
   { id: 'lv100', icon: '🌥️', text: 'با ورزش به سطح ۱۰۰ برس', reward: 400, test: (s) => realLv(s) >= 100, prog: (s) => [realLv(s), 100] },
   { id: 'g2lv20', icon: '🔥', text: 'در باشگاه فولاد به سطح ۲۰ برس', reward: 400, test: (s) => s.g2.best >= 20, prog: (s) => [s.g2.best, 20] },
   { id: 'stage10', icon: '🏆', text: 'هر ۱۰ حریف کشتی رو شکست بده', reward: 600, test: (s) => s.stage > MAIN_STAGES, prog: (s) => [s.stage - 1, MAIN_STAGES] },
@@ -127,6 +127,8 @@ Object.assign(Game, {
   /** A zone lift done for real. */
   zoneDone(m) {
     const g = this.save.goals;
+    // the champion's path only counts levels earned by exercise (not codes, boosts or temporary levels)
+    if (realLv(this.save) < m.zone) return;
     if (m.zone >= OLYMPUS_LEVEL) g.olympusDone = (g.olympusDone || 0) + 1;
     else g.titanDone = (g.titanDone || 0) + 1;
     const p = this.player.ch.root.position;

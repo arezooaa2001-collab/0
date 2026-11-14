@@ -74,13 +74,19 @@ Object.assign(Game, {
   bossLv() { return 1 + (this.save.stats.bossWins || 0); },
 
   /** Bring the monster in now (from the menu too). */
+  /** Is the player in the middle of something the boss would spoil? */
+  bossBlocked() {
+    return !!(this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.danceOff || this.cannon || this.meter
+      || this.photo || this.spinInClass() || (this.miniBusy && this.miniBusy()));
+  },
+
   spawnBoss(byHand) {
     const g = this.gym;
     if (g.boss || this.world !== g || this.mode !== 'play') {
       if (byHand) this.toast(this.world !== this.gym ? 'غول فقط توی باشگاه اصلی میاد.' : 'غول همین الان این‌جاست!', 'warn');
       return;
     }
-    if (this.race || this.arm || this.build || this.dodge || this.lava) { if (byHand) this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
+    if (this.bossBlocked()) { if (byHand) this.toast(this.spinInClass() ? 'وسط کلاس اسپینینگ نمی‌شه غول رو صدا زد!' : 'اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
     if (byHand) this.closeModal('menuModal');
     // every other fight is the fire monster, which also throws fireballs
     const fire = (this.save.stats.bossWins || 0) % 2 === 1;
@@ -152,7 +158,7 @@ Object.assign(Game, {
     const here = this.world === g && this.mode === 'play';
     if (!g.boss) {
       $('bossPanel').hidden = true;
-      if (!here || this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.danceOff || this.cannon || this.meter || this.spinInClass() || this.modals.size || this.watch || this.photo || this.lv() < 10) return;
+      if (!here || this.bossBlocked() || this.modals.size || this.watch || this.lv() < 10) return;
       this.bossTimer = (this.bossTimer ?? BOSS.first) - dt;
       if (this.bossTimer <= 0) { this.bossTimer = rand(...BOSS.every); this.spawnBoss(false); }
       return;

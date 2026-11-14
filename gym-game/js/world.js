@@ -468,6 +468,10 @@ class WorldBase {
       [dirX, dirZ, speed] = this.frozenNpc(n, dt);
     } else if (n.state === 'dcoach') {
       [dirX, dirZ, speed] = this.dcoachNpc(n, dt);
+    } else if (n.state === 'twister') {
+      [dirX, dirZ, speed] = this.twisterNpc(n, dt);
+    } else if (n.state === 'flung') {
+      [dirX, dirZ, speed] = this.flungNpc(n, dt);
     } else if (n.state === 'buddy') {
       [dirX, dirZ, speed] = this.buddyNpc(n, dt);
     } else if (n.state === 'boss') {
