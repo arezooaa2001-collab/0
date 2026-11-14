@@ -253,7 +253,7 @@ main{
   0%{transform:translateX(-120%) skewX(-16deg)}
   45%,100%{transform:translateX(320%) skewX(-16deg)}
 }
-.frame img{
+.frame .logo-amir-img{
   width:100%;
   height:auto;
   aspect-ratio:2048/1280;
@@ -657,6 +657,126 @@ body.theme-open main,body.theme-open footer{display:none}
 .tp-back:focus-visible,.tool:focus-visible,.opt:focus-visible,.slot:focus-visible,.swatch:focus-visible,.tp-done:focus-visible{outline:3px solid #fff;outline-offset:3px}
 @media (max-width:420px){.styles{grid-template-columns:repeat(2,1fr)}}
 
+/* ---------- Logo choice: new crown logo (default) / previous AMIR logo ---------- */
+html.logo-amir .logo-crown-img,html:not(.logo-amir) .logo-amir-img{display:none}
+html:not(.logo-amir) .logo-wrap{max-width:min(100%,540px,70vh);max-width:min(100%,540px,70svh);margin:0 auto}
+html:not(.logo-amir) .frame{padding:0;background:none;box-shadow:none;border-radius:16%}
+html:not(.logo-amir) .logo-glow{inset:6%;border-radius:16%}
+html:not(.logo-amir) .shine{inset:7%;border-radius:13%}
+html:not(.logo-amir) .logo-link{border-radius:16%}
+.logo-crown-img{
+  width:100%;
+  height:auto;
+  aspect-ratio:1/1;
+  filter:brightness(1.06) saturate(1.15) drop-shadow(0 0 14px rgba(255,215,100,.55));
+}
+html:not(.logo-amir) .logo-link:hover .logo-crown-img{filter:brightness(1.16) saturate(1.25) drop-shadow(0 0 18px rgba(255,215,100,.75))}
+html:not(.logo-amir) .logo-badge{bottom:-4px}
+
+/* ---------- Popular videos ---------- */
+.videos{margin-top:clamp(30px,6vw,44px);text-align:center}
+.vid-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:min(100%,440px);
+  min-height:58px;
+  padding:12px 22px;
+  border-radius:20px;
+  border:2px solid rgba(255,213,106,.85);
+  background:rgba(20,8,4,.62);
+  color:#ffe28a;
+  font:inherit;
+  font-size:clamp(16px,4.2vw,19px);
+  font-weight:800;
+  line-height:1.5;
+  cursor:pointer;
+  touch-action:manipulation;
+  box-shadow:0 10px 28px -12px rgba(0,0,0,.7),0 0 18px rgba(255,205,90,.35);
+  transition:transform .15s ease,background .15s ease;
+}
+.vid-toggle:hover{background:rgba(40,16,6,.72)}
+.vid-toggle:active{transform:scale(.97)}
+.vid-toggle:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.vid-toggle .chev{display:inline-block;transition:transform .25s ease}
+.vid-toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.vid-panel{margin-top:22px;animation:heroIn .5s ease both}
+.vid-panel[hidden]{display:none}
+.vid-title{margin:0 0 16px;font-size:clamp(20px,5vw,26px);font-weight:800;color:#ffe28a;text-shadow:0 2px 10px rgba(0,0,0,.4)}
+.vid-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:18px;align-items:start}
+.vid-card{
+  padding:12px;
+  border-radius:22px;
+  background:var(--glass);
+  border:1px solid rgba(255,213,106,.35);
+  box-shadow:var(--shadow);
+  text-align:right;
+}
+.vid-head{display:flex;align-items:center;gap:10px;margin:2px 4px 10px;font-weight:800;font-size:16px}
+.vid-num{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#fff1b0,#d9a531);color:#3a2405;font-weight:900;flex:none}
+.vid-stage{position:relative;border-radius:16px;overflow:hidden;background:#05030a}
+.vid-play{
+  position:relative;
+  display:block;
+  width:100%;
+  aspect-ratio:9/16;
+  max-height:72vh;
+  padding:0;
+  border:0;
+  background:radial-gradient(circle at 50% 40%,#2a0d40,#05030a 75%);
+  color:#fff;
+  font:inherit;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.vid-poster{position:absolute;inset:8% 6% auto;width:88%;height:auto;aspect-ratio:1/1;object-fit:contain;opacity:.55;filter:blur(.3px)}
+.play-ic{
+  position:absolute;
+  left:50%;
+  top:50%;
+  display:grid;
+  place-items:center;
+  width:78px;
+  height:78px;
+  margin:-39px 0 0 -39px;
+  border-radius:50%;
+  background:linear-gradient(115deg,#feda75,#fa7e1e 30%,#d62976 60%,#962fbf);
+  box-shadow:0 0 0 6px rgba(255,255,255,.18),0 10px 30px rgba(0,0,0,.6);
+  font-size:30px;
+  padding-left:5px;
+  transition:transform .15s ease;
+}
+.vid-play:hover .play-ic{transform:scale(1.07)}
+.vid-play:active .play-ic{transform:scale(.94)}
+.vid-play:focus-visible{outline:3px solid #fff;outline-offset:-3px}
+.play-tx{position:absolute;left:0;right:0;bottom:12%;font-weight:800;font-size:17px;text-shadow:0 2px 8px #000}
+.vid-frame{display:block;width:100%;aspect-ratio:10/22;max-height:86vh;border:0;background:#fff}
+.vid-loading{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;z-index:-1}
+.vid-error{padding:28px 16px;text-align:center;line-height:1.9;color:#ffe28a}
+.vid-ig{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:48px;
+  margin-top:10px;
+  border-radius:14px;
+  color:#fff;
+  text-decoration:none;
+  font-weight:800;
+  font-size:15.5px;
+  background:linear-gradient(115deg,#fa7e1e,#d62976 50%,#962fbf);
+  box-shadow:0 6px 18px -8px rgba(214,41,118,.8);
+}
+.vid-ig:active{transform:scale(.98)}
+.vid-ig:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.vid-note{margin:16px 0 0;font-size:14px;line-height:1.8;color:rgba(255,255,255,.9);text-shadow:0 1px 6px rgba(0,0,0,.4)}
+
+/* logo option on the colour page */
+.logos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.logo-opt .sample{height:auto;aspect-ratio:16/10;background:#05030a center/contain no-repeat}
+
 /* Respect "reduce motion" */
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -672,14 +792,15 @@ body.theme-open main,body.theme-open footer{display:none}
   "use strict";
   var KEY = "amirabc-theme-v1";
   var STYLES = ["diagonal", "vertical", "horizontal", "radial", "conic", "stripes"];
-  var DEFAULT = { mode: "rainbow", style: "diagonal", colors: ["#c5170f", "#f47b0c", "#0f8f45"], solid: "#c5170f", motion: true };
+  var DEFAULT = { mode: "rainbow", style: "diagonal", colors: ["#c5170f", "#f47b0c", "#0f8f45"], solid: "#c5170f", motion: true, logo: "crown" };
   var HEX = /^#[0-9a-f]{6}$/i;
   var OK = false;
   try { OK = !!(window.CSS && CSS.supports && CSS.supports("background-image", "linear-gradient(90deg in oklch, red, blue)")); } catch (e) {}
 
   function clone(t) { return JSON.parse(JSON.stringify(t)); }
   function valid(t) {
-    return !!t && (t.mode === "rainbow" || t.mode === "solid") && STYLES.indexOf(t.style) >= 0 &&
+    if (t && typeof t === "object" && t.logo === undefined) t.logo = "crown";   /* older saves */
+    return !!t && (t.logo === "crown" || t.logo === "amir") && (t.mode === "rainbow" || t.mode === "solid") && STYLES.indexOf(t.style) >= 0 &&
       Array.isArray(t.colors) && t.colors.length >= 2 && t.colors.length <= 7 &&
       t.colors.every(function (c) { return HEX.test(c); }) && HEX.test(t.solid) && typeof t.motion === "boolean";
   }
@@ -735,6 +856,7 @@ body.theme-open main,body.theme-open footer{display:none}
     s.setProperty("--rainbow", "linear-gradient(120deg," + stops(cols) + ")");
     s.setProperty("--frame-grad", "linear-gradient(120deg," + stops(cols.concat([cols[0]])) + ")");
     d.classList.toggle("still", !t.motion);
+    d.classList.toggle("logo-amir", t.logo === "amir");
     var m = document.querySelector('meta[name="theme-color"]');
     if (m) m.setAttribute("content", cols[0]);
   }
@@ -773,7 +895,9 @@ body.theme-open main,body.theme-open footer{display:none}
     <div class="logo-glow" aria-hidden="true"></div>
     <figure class="frame">
       <a class="logo-link" id="logoLink" href="#theme" aria-label="تغییر رنگ سایت (با زدن روی لوگو، صفحه انتخاب رنگ باز می‌شود)">
-      <img src="data:image/webp;base64,{{IMG}}" width="2048" height="1280" decoding="async" fetchpriority="high"
+      <img class="logo-crown-img" src="data:image/webp;base64,{{CROWN}}" width="1024" height="1024" decoding="async" fetchpriority="high"
+           alt="لوگوی ABC: حروف براق و نورانی ABC زیر یک تاج، با کوه‌ها، رعد و برق، ماه و دریای درخشان، داخل قاب نئونی رنگین‌کمانی">
+      <img class="logo-amir-img" src="data:image/webp;base64,{{IMG}}" width="2048" height="1280" decoding="async"
            alt="لوگوی AMIR BAKHTIARI ABC: نوشته‌ی نقره‌ای AMIR و آبی BAKHTIARI همراه با یک کتاب باز و حروف ABC، داخل یک دایره‌ی نئونی آبی روی زمینه‌ی مشکی">
       <span class="logo-badge" aria-hidden="true">🎨 برای تغییر رنگ سایت، روی لوگو بزنید</span>
       </a>
@@ -826,6 +950,38 @@ body.theme-open main,body.theme-open footer{display:none}
          aria-describedby="igNote"><span class="ig-label">📸 ورود به اینستاگرام <bdi dir="ltr">AMIR ABC</bdi></span><span class="sr-only"> (در پنجره‌ی جدید باز می‌شود)</span></a>
       <p class="cta-note" id="igNote">با انتخاب این دکمه، به صفحه اینستاگرام <bdi dir="ltr">AMIR ABC</bdi> هدایت می‌شوید.</p>
     </div>
+
+    <!-- Popular videos -->
+    <div class="videos reveal" id="videos">
+      <button type="button" class="vid-toggle" id="vidToggle" aria-expanded="false" aria-controls="vidPanel">🎬 دیدن ۳ ویدیوی محبوب <bdi dir="ltr">AMIR ABC</bdi> <span class="chev" aria-hidden="true">▾</span></button>
+      <div class="vid-panel" id="vidPanel" hidden>
+        <h2 class="vid-title">ویدیوهای محبوب <bdi dir="ltr">AMIR ABC</bdi></h2>
+        <div class="vid-list">
+        <article class="vid-card" data-code="DccBr_ZurHG" data-n="1">
+          <div class="vid-head"><span class="vid-num">۱</span>ویدیوی محبوب اول</div>
+          <div class="vid-stage">
+            <button type="button" class="vid-play" aria-label="پخش ویدیوی اول داخل برنامه"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">پخش ویدیو</span></button>
+          </div>
+          <a class="vid-ig" href="https://www.instagram.com/reel/DccBr_ZurHG/?srtk=cDljaWhnaTdzdWtq" target="_blank" rel="noopener noreferrer">📸 دیدن این ویدیو در اینستاگرام</a>
+        </article>
+        <article class="vid-card" data-code="DfpwZdHOYEM" data-n="2">
+          <div class="vid-head"><span class="vid-num">۲</span>ویدیوی محبوب دوم</div>
+          <div class="vid-stage">
+            <button type="button" class="vid-play" aria-label="پخش ویدیوی دوم داخل برنامه"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">پخش ویدیو</span></button>
+          </div>
+          <a class="vid-ig" href="https://www.instagram.com/reel/DfpwZdHOYEM/?mdxt=Y2wyeWZ2N2M4dnR3" target="_blank" rel="noopener noreferrer">📸 دیدن این ویدیو در اینستاگرام</a>
+        </article>
+        <article class="vid-card" data-code="DfmMQqjuK5k" data-n="3">
+          <div class="vid-head"><span class="vid-num">۳</span>ویدیوی محبوب سوم</div>
+          <div class="vid-stage">
+            <button type="button" class="vid-play" aria-label="پخش ویدیوی سوم داخل برنامه"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">پخش ویدیو</span></button>
+          </div>
+          <a class="vid-ig" href="https://www.instagram.com/reel/DfmMQqjuK5k/?dlrf=Y3BmMDloYzNtemFx" target="_blank" rel="noopener noreferrer">📸 دیدن این ویدیو در اینستاگرام</a>
+        </article>
+        </div>
+        <p class="vid-note">ویدیوها با پخش‌کننده‌ی رسمی اینستاگرام پخش می‌شوند و برای دیدنشان اتصال اینترنت لازم است.</p>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -841,6 +997,14 @@ body.theme-open main,body.theme-open footer{display:none}
   <p class="tp-intro">رنگ سایت را همان‌طور که دوست دارید بسازید. تغییرات همان لحظه روی سایت دیده می‌شوند و روی همین دستگاه ذخیره می‌شوند.</p>
 
   <div class="tp-preview" aria-hidden="true"><span>پیش‌نمایش رنگ سایت</span></div>
+
+  <div class="tp-card" role="group" aria-labelledby="tpLogoT">
+    <h2 id="tpLogoT">لوگوی بالای صفحه</h2>
+    <div class="logos">
+      <button type="button" class="opt logo-opt" data-logo="crown"><span class="sample"></span>لوگوی جدید <bdi dir="ltr">ABC</bdi></button>
+      <button type="button" class="opt logo-opt" data-logo="amir"><span class="sample"></span>لوگوی قبلی <bdi dir="ltr">AMIR</bdi></button>
+    </div>
+  </div>
 
   <div class="tp-card" role="group" aria-labelledby="tpModeT">
     <h2 id="tpModeT">نوع رنگ سایت</h2>
@@ -927,6 +1091,65 @@ body.theme-open main,body.theme-open footer{display:none}
     try { target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); }
     catch (e) { target.scrollIntoView(true); }
   });
+
+  // ---- Popular videos (Instagram's official embedded player, loaded only on demand) ----
+  var vidToggle = document.getElementById("vidToggle"), vidPanel = document.getElementById("vidPanel");
+  if (vidToggle && vidPanel) {
+    var logoImg = document.querySelector(".logo-crown-img");
+    [].forEach.call(vidPanel.querySelectorAll(".vid-poster"), function (im) { if (logoImg) im.src = logoImg.src; });
+    vidToggle.addEventListener("click", function () {
+      var open = vidPanel.hidden;
+      vidPanel.hidden = !open;
+      vidToggle.setAttribute("aria-expanded", String(open));
+      if (open) {
+        try { vidPanel.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) {}
+      } else {
+        [].forEach.call(vidPanel.querySelectorAll(".vid-card"), resetCard);   // stop playback when closing
+      }
+    });
+    var resetCard = function (card) {
+      var stage = card.querySelector(".vid-stage");
+      if (!stage.querySelector("iframe") && !stage.querySelector(".vid-error")) return;
+      stage.textContent = "";
+      stage.appendChild(card._poster);
+    };
+    [].forEach.call(vidPanel.querySelectorAll(".vid-card"), function (card) {
+      var code = card.getAttribute("data-code");
+      var btn = card.querySelector(".vid-play");
+      card._poster = btn;
+      btn.addEventListener("click", function () {
+        if (!/^[A-Za-z0-9_-]+$/.test(code)) return;
+        if (navigator.onLine === false) {
+          showToast("برای پخش ویدیو، اینترنت را روشن کنید و دوباره امتحان کنید.");
+          return;
+        }
+        // only one video at a time
+        [].forEach.call(vidPanel.querySelectorAll(".vid-card"), function (c) { if (c !== card) resetCard(c); });
+        var stage = card.querySelector(".vid-stage");
+        var f = document.createElement("iframe");
+        f.className = "vid-frame";
+        f.title = "ویدیوی " + card.getAttribute("data-n") + " از AMIR ABC در اینستاگرام";
+        f.src = "https://www.instagram.com/reel/" + code + "/embed/";
+        f.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
+        f.setAttribute("allowfullscreen", "");
+        f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+        var loading = document.createElement("div");
+        loading.className = "vid-loading"; loading.textContent = "در حال بارگذاری ویدیو…";
+        stage.textContent = "";
+        stage.appendChild(loading); stage.appendChild(f);
+        var loaded = false;
+        f.addEventListener("load", function () { loaded = true; });
+        setTimeout(function () {
+          if (loaded || !f.parentNode) return;
+          stage.textContent = "";
+          var err = document.createElement("div");
+          err.className = "vid-error";
+          err.textContent = "ویدیو باز نشد. اتصال اینترنت را بررسی کنید یا از دکمه‌ی «دیدن این ویدیو در اینستاگرام» استفاده کنید.";
+          stage.appendChild(err);
+        }, 15000);
+      });
+    });
+  }
 
   // ---- Toast ----
   var toast = document.getElementById("toast");
@@ -1024,7 +1247,18 @@ body.theme-open main,body.theme-open footer{display:none}
       $("tpSwatches").appendChild(b);
     });
 
+    var crownSrc = (document.querySelector(".logo-crown-img") || {}).src || "";
+    var amirSrc = (document.querySelector(".logo-amir-img") || {}).src || "";
+    [].forEach.call(page.querySelectorAll("[data-logo]"), function (b) {
+      var src = b.getAttribute("data-logo") === "amir" ? amirSrc : crownSrc;
+      if (src) b.querySelector(".sample").style.backgroundImage = 'url("' + src + '")';
+      b.addEventListener("click", function () { theme.logo = b.getAttribute("data-logo"); commit(); });
+    });
+
     function render(keepSliders) {
+      [].forEach.call(page.querySelectorAll("[data-logo]"), function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-logo") === theme.logo));
+      });
       [].forEach.call(page.querySelectorAll("[data-mode]"), function (b) {
         b.setAttribute("aria-pressed", String(b.getAttribute("data-mode") === theme.mode));
       });
@@ -1089,7 +1323,7 @@ body.theme-open main,body.theme-open footer{display:none}
       theme.colors.splice(sel, 1); sel = Math.max(0, sel - 1); commit();
     });
     $("tpMotion").addEventListener("change", function () { theme.motion = this.checked; commit(); });
-    $("tpReset").addEventListener("click", function () { theme = T.clone(T.DEFAULT); sel = 0; commit(); showToast("رنگ پیش‌فرض برگشت."); });
+    $("tpReset").addEventListener("click", function () { var lg = theme.logo; theme = T.clone(T.DEFAULT); theme.logo = lg; sel = 0; commit(); showToast("رنگ پیش‌فرض برگشت."); });
 
     var jump = function (y) {
       var de = document.documentElement, old = de.style.scrollBehavior;

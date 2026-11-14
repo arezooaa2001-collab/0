@@ -9,10 +9,15 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.CookieManager;
+import android.webkit.WebChromeClient;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 /**
@@ -26,15 +31,21 @@ public class MainActivity extends Activity {
     private static final String INSTAGRAM_PACKAGE = "com.instagram.android";
 
     private WebView web;
+    private FrameLayout root;
+    private View fullscreenView;
+    private WebChromeClient.CustomViewCallback fullscreenCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        root = new FrameLayout(this);
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(0xC5, 0x17, 0x0F));
         web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
-        setContentView(web);
+        root.addView(web, new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(root);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);          // reveal animations + button effects
@@ -47,6 +58,10 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(true);
 
         web.setWebViewClient(new AppClient());
+        web.setWebChromeClient(new AppChrome());
+        // Instagram's embedded player (inside an iframe) needs its own cookies to play.
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) {
             web.loadUrl(HOME);
@@ -66,6 +81,44 @@ public class MainActivity extends Activity {
             // Never show Android's raw error page.
             showFriendlyError(view);
         }
+    }
+
+    /** Lets videos in the embedded player go full screen. */
+    private final class AppChrome extends WebChromeClient {
+        @Override
+        public void onShowCustomView(View view, CustomViewCallback callback) {
+            if (fullscreenView != null) {
+                callback.onCustomViewHidden();
+                return;
+            }
+            fullscreenView = view;
+            fullscreenCallback = callback;
+            view.setBackgroundColor(Color.BLACK);
+            root.addView(view, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            web.setVisibility(View.GONE);
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+
+        @Override
+        public void onHideCustomView() {
+            exitFullscreen();
+        }
+    }
+
+    private boolean exitFullscreen() {
+        if (fullscreenView == null) return false;
+        root.removeView(fullscreenView);
+        fullscreenView = null;
+        web.setVisibility(View.VISIBLE);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+        if (fullscreenCallback != null) {
+            fullscreenCallback.onCustomViewHidden();
+            fullscreenCallback = null;
+        }
+        return true;
     }
 
     /** @return true if the WebView must NOT load the URL itself. */
@@ -150,6 +203,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (exitFullscreen()) return;          // leave full-screen video first
         if (web == null) {
             super.onBackPressed();
             return;
