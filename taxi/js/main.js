@@ -35,6 +35,9 @@ import { RoadLife } from './roadlife.js';
 import { Career } from './career.js';
 import { Drag } from './drag.js';
 import { RoadEvents } from './events.js';
+import { Replay } from './replay.js';
+import { Bounty } from './bounty.js';
+import { Extras } from './extras.js';
 import { Phone } from './phone.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
@@ -163,6 +166,9 @@ class Game {
     this.fleet = new Fleet(this);
     this.drag = new Drag(this);
     this.events = new RoadEvents(this);
+    this.replay = new Replay(this);
+    this.bounty = new Bounty(this);
+    this.extras = new Extras(this);
     this.ambient = new Ambient(this);
     this.carLights = new CarLights(this);
     this.nature = new Nature(this);
@@ -215,7 +221,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [],
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -234,6 +240,7 @@ class Game {
       if (Array.isArray(d.owned)) p.owned = d.owned;
       if (d.paints && typeof d.paints === 'object') p.paints = d.paints;
       p.perf = Array.isArray(d.perf) ? d.perf : [];
+      p.flat = !!d.flat;
       if (d.model && d.model !== p.model) p.buildModel(d.model);
       else p.applyPerf();
       const paint = p.paints[p.model] ?? d.paint;
@@ -244,6 +251,7 @@ class Game {
         p.rim = d.mods.rim || 'silver';
         p.plateText = d.mods.plate || '';
         p.spoiler = !!d.mods.spoiler;
+        p.livery = typeof d.mods.livery === 'string' ? d.mods.livery : '';
         p.sportExhaust = this.audio.sportExhaust = !!d.mods.exhaust;
         p.modsOwned = Array.isArray(d.mods.owned) ? d.mods.owned : [];
         p.applyMods();
@@ -332,6 +340,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV10) {
+        this.stats.seenV10 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 🎬 ریپلی سینمایی، 🎯 شکار مجرم‌های فراری، 🚧 میخ پلیس، 🌀 چرخش ۳۶۰ توی هوا، 📻 خبر رادیو، 🎆 جشن شب جمعه، 🌈 رنگین‌کمان و 🔥 برچسب بدنه!', 'info'), 35000);
+      }
       if (!this.stats.seenV9) {
         this.stats.seenV9 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 📱 گوشی (Z) با 📖 حالت داستانی و رتبه‌بندی، 🚦 پیست درگ کویر، 🚗 ۴ ماشین جدید (برقی، شاسی‌بلند، لیموزین، پیکان)، 🏁 قطعات مسابقه‌ای، 🚑 آمبولانس، 🆘 ماشین خراب و 🍔 غذارسانی!', 'info'), 30500);
@@ -365,6 +377,7 @@ class Game {
     this.stats.seenV7 = true;
     this.stats.seenV8 = true;
     this.stats.seenV9 = true;
+    this.stats.seenV10 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -791,7 +804,7 @@ class Game {
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
-    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job;
+    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job && this.bounty.state === 'idle';
     for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot, this.parking.spot, this.drag.spot] : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
@@ -925,6 +938,17 @@ class Game {
         fx.dust.emit(x, p.y + 0.2, z, (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 1.4, 0.9, 3, sand ? 0.45 : 0.25);
       }
     }
+    if (p.flat && sp > 6 && !p.air && this.state === 'play' && Math.random() < 0.6) {
+      for (const side of [1, -1]) {
+        const x = p.pos.x + c * side * 0.8 - s * 1.3, z = p.pos.z - s * side * 0.8 - c * 1.3;
+        fx.spark.emit(x, p.y + 0.1, z, -s * 3 + (Math.random() - 0.5) * 2, 1 + Math.random() * 2, -c * 3 + (Math.random() - 0.5) * 2, 0.35, 0.18, 1, 1);
+      }
+      this.flatT = (this.flatT || 0) - 1 / 60;
+      if (this.flatT <= 0) {
+        this.flatT = Math.max(0.08, 2.4 / sp);
+        this.audio.burst(0.04, 900, 'bandpass', 0.18);
+      }
+    }
     if (p.health < 35 && Math.random() < 0.5) {
       const x = p.pos.x + s * 1.8, z = p.pos.z + c * 1.8;
       fx.smoke.emit(x, p.y + 1, z, (Math.random() - 0.5) * 0.5, 1.6, (Math.random() - 0.5) * 0.5, 2.2, 0.6, 4, p.health < 15 ? 0.7 : 0.4);
@@ -983,6 +1007,7 @@ class Game {
     this.audio.backfire(0.7 + Math.random() * 0.5);
   }
   crashFx(e) {
+    if (e.impact > 14) this.replay.offer();
     const p = this.player;
     const s = Math.sin(p.heading), c = Math.cos(p.heading);
     const n = Math.min(40, e.impact * 4);
@@ -1051,6 +1076,11 @@ class Game {
       this.post.render(this.scene, this.camera);
       return;
     }
+    if (st === 'replay') {
+      this.replay.update(Math.min(0.05, dt));
+      this.post.render(this.scene, this.camera);
+      return;
+    }
     this.time += dt;
     this.hour += (dt * 24) / DAY_SECONDS;
     if (this.hour >= 24) {
@@ -1094,6 +1124,8 @@ class Game {
     this.parking.update(dt);
     this.drag.update(dt);
     this.events.update(dt);
+    this.bounty.update(dt);
+    this.extras.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);
@@ -1127,6 +1159,7 @@ class Game {
       this.saveT = 0;
       this.save();
     }
+    if (st === 'play') this.replay.record(dt / (this.slowmo || 1) / (this.timeScale || 1));
     const env = this.env || { night: 0, sunDir: { y: 1 } };
     this.post.tune({ night: env.night, dusk: Math.max(0, 1 - Math.abs(env.sunDir.y) * 4) * (1 - env.night), speed: this.player.groundSpeed || 0, nitro: this.player.nitroOn, time: this.time, flash: this.flashT > 0 ? this.flashT : 0 });
     this.post.render(this.scene, this.camera);

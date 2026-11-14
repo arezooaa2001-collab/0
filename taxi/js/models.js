@@ -866,6 +866,23 @@ function buildInterior(out, P, mats) {
   box(0.22, 0.055, 0.01, mats.mirror, 0, 0, -0.015, rv);
   box(0.02, 0.06, 0.02, mats.trim, 0, 0.05, 0.01, rv);
   body.add(rv);
+  // little pine-tree air freshener hanging from the mirror (swings with the car)
+  const charm = new THREE.Group();
+  charm.position.set(0.05, P.roof - 0.14, P.roofF - 0.12);
+  const strM = new THREE.MeshBasicMaterial({ color: 0xeeeeee });
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.13, 4), strM);
+  str.position.y = -0.065;
+  charm.add(str);
+  const pine = new THREE.Shape();
+  pine.moveTo(0, 0);
+  for (const [x, y] of [[0.035, -0.03], [0.015, -0.03], [0.045, -0.065], [0.02, -0.065], [0.05, -0.1], [0.008, -0.1], [0.008, -0.12], [-0.008, -0.12], [-0.008, -0.1], [-0.05, -0.1], [-0.02, -0.065], [-0.045, -0.065], [-0.015, -0.03], [-0.035, -0.03]]) pine.lineTo(x, y);
+  pine.closePath();
+  const tree = new THREE.Mesh(new THREE.ShapeGeometry(pine), new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.8, side: THREE.DoubleSide }));
+  tree.position.y = -0.13;
+  charm.add(tree);
+  charm.userData.noMerge = true;
+  body.add(charm);
+  out.charm = charm;
   for (const x of [dx, -dx]) {
     const sv = box(0.36, 0.015, 0.16, mats.headliner, x, P.roof - 0.04, P.roofF - 0.06, body);
     sv.rotation.x = 0.1;

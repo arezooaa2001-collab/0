@@ -14,15 +14,18 @@ export class Phone {
       { id: 'lb', icon: '📊', name: 'رتبه‌بندی', html: () => game.career.boardHtml() },
       { id: 'bank', icon: '🏦', name: 'بانک', html: () => this.bankHtml() },
       { id: 'food', icon: '🍔', name: 'غذارسان', html: () => game.events.phoneHtml(), bind: (el, ph) => game.events.bindPhone(el, ph), badge: () => (game.events.job ? 1 : 0) },
+      { id: 'bounty', icon: '🎯', name: 'تحت تعقیب', html: () => game.bounty.boardHtml(), bind: (el) => game.bounty.bind(el), badge: () => (game.bounty.state !== 'idle' ? 1 : 0) },
       { id: 'drag', icon: '🚦', name: 'پیست درگ', open: () => {
         const sp = game.drag.spot;
         game.ui.closePanel();
         if (game.ui.navTo(sp.padX, sp.padZ, '🚦 پیست درگ کویر', 'کویر، شرق پارک پرش')) game.ui.toast('🚦 فلش راهنما تو رو به پیست درگ کویر می‌بره', 'good');
       } },
+      { id: 'weather', icon: '🌦️', name: 'هواشناسی', html: () => this.weatherHtml() },
       { id: 'ach', icon: '🏆', name: 'افتخارات', open: () => game.ui.openAchievements() },
       { id: 'fleet', icon: '💼', name: 'شرکت', open: () => game.fleet.open() },
       { id: 'radio', icon: '📻', name: 'رادیو', html: () => this.radioHtml(), bind: (el) => this.bindRadio(el) },
       { id: 'map', icon: '🗺️', name: 'نقشه', open: () => { game.ui.closePanel(); game.ui.toggleBigMap(true); } },
+      { id: 'replay', icon: '🎬', name: 'ریپلی', open: () => { game.ui.closePanel(); game.replay.open(); } },
       { id: 'cam', icon: '📸', name: 'دوربین', open: () => { game.ui.closePanel(); game.photo.open(); } },
       { id: 'set', icon: '⚙️', name: 'تنظیمات', open: () => game.ui.openMenu() },
     ];
@@ -95,6 +98,21 @@ export class Phone {
       ].map(([i, t, v]) => `<div><span>${i}</span><small>${t}</small><b>${v}</b></div>`).join('')}</div>
       <h4>📈 درآمد ۷ روز اخیر</h4>
       <div class="spark">${hist.map((v, i) => `<i style="height:${Math.max(4, (v / max) * 100)}%" title="${faMoney(v)}"${i === hist.length - 1 ? ' class="now"' : ''}></i>`).join('')}</div></div>`;
+  }
+  weatherHtml() {
+    const g = this.g, w = g.weather;
+    const N = { clear: ['☀️', 'آفتابی'], cloudy: ['☁️', 'ابری'], rain: ['🌧️', 'بارونی'], storm: ['⛈️', 'طوفانی'] };
+    const now = N[w.kind] || N.clear, next = N[w.next] || now;
+    const foggyTomorrow = ((g.day + 1) * 7) % 3 === 0;
+    const fri = 7 - (g.day % 7);
+    return `<div class="wx"><div class="wnow"><span>${now[0]}</span><b>${now[1]}</b><small>${w.snow > 0.3 ? '❄️ توی کوهستان برف میاد' : w.sand > 0.3 ? '🌪️ طوفان شن توی کویر' : ''}</small></div>
+      <div class="statgrid">${[
+        ['⏭️', 'بعدش', `${next[0]} ${next[1]}`],
+        ['🌫️', 'صبح فردا', foggyTomorrow ? 'مه‌آلود' : 'صاف'],
+        ['🎆', 'جشن شب جمعه', fri === 7 ? (g.extras.festival() ? 'همین الان! 🎉' : 'امشب ساعت ۱۹') : `${fa(fri)} روز دیگه`],
+        ['🛣️', 'جاده', w.rain > 0.3 || w.snow > 0.3 ? 'لیز ⚠️' : 'خشک ✅'],
+      ].map(([i, t, v]) => `<div><span>${i}</span><small>${t}</small><b>${v}</b></div>`).join('')}</div>
+      <p class="note">بارون که بند بیاد و آفتاب دربیاد، رنگین‌کمان رو پشت به خورشید ببین 🌈</p></div>`;
   }
   radioHtml() {
     const g = this.g, list = [[null, '🔇', 'خاموش'], ['pop', '🎤', 'رادیو پاپ'], ['sonati', '🎻', 'رادیو سنتی'], ['electro', '🎧', 'رادیو الکترو']];

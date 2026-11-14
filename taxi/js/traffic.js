@@ -40,6 +40,13 @@ export class TrafficCar {
   hit(jx, jz, impact, by) {
     this.knock.x += jx;
     this.knock.y += jz;
+    if (this.isFugitive) {
+      // a fleeing criminal takes the hit and keeps going (until it's wrecked)
+      this.speed *= Math.max(0.45, 1 - impact * 0.05);
+      this.spin += (Math.random() - 0.5) * impact * 0.05;
+      this.mgr.game.bounty.onHit(impact, by);
+      return;
+    }
     if (this.isRival) {
       // a racing rival shrugs off light bumps
       this.speed *= Math.max(0.6, 1 - impact * 0.03);
@@ -102,7 +109,19 @@ export class TrafficCar {
     // convoy followers take the same turns as their leader
     const led = this.leader && this.leader.picks && this.leader.picks.get(key);
     if (led !== undefined && opts.includes(led)) pickId = led;
-    else if (opts.length > 1) {
+    else if (this.fleeFrom && opts.length > 1) {
+      // a fugitive turns away from whoever chases it
+      const f = this.fleeFrom;
+      let bd = -1;
+      for (const id of opts) {
+        const o = G.nodes[G.other(G.edges[id], this.lastNode)];
+        const d = Math.hypot(o.x - f.x, o.z - f.z) + Math.random() * 60;
+        if (d > bd) {
+          bd = d;
+          pickId = id;
+        }
+      }
+    } else if (opts.length > 1) {
       // prefer going straight
       const ld = this.queue[this.queue.length - 1];
       let best = null, bd = -2;
@@ -278,6 +297,8 @@ export class Traffic {
     }
     const ev = this.game.events;
     if (ev && ev.ambCar.active) obs.push(ev.ambCar);
+    const bt = this.game.bounty;
+    if (bt && bt.fug && bt.fug.active) obs.push(bt.fug);
     const limit = this.limit ?? this.cars.length;
     let active = 0;
     for (const c of this.cars) {

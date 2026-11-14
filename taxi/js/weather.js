@@ -68,6 +68,12 @@ export class Weather {
     this.grey = new THREE.Color(0x7c8590);
     this.dark = new THREE.Color(0x4a5058);
   }
+  /** the weather after the current spell (the radio forecasts it) */
+  pickNext() {
+    let k = KINDS[Math.floor(Math.random() * KINDS.length)];
+    if (k === this.kind) k = 'clear';
+    return k;
+  }
   set(kind, announce = true) {
     this.kind = kind;
     this.target.cloud = kind === 'clear' ? 0 : kind === 'cloudy' ? 0.6 : kind === 'rain' ? 0.85 : 1;
@@ -78,10 +84,11 @@ export class Weather {
   update(dt) {
     const g = this.g;
     this.timer -= dt;
+    if (!this.next) this.next = this.pickNext();
     if (this.timer <= 0) {
       this.timer = 120 + Math.random() * 180;
-      let k = KINDS[Math.floor(Math.random() * KINDS.length)];
-      if (k === this.kind) k = 'clear';
+      const k = this.next;
+      this.next = null;
       if (k !== this.kind) this.set(k);
     }
     this.cloud = damp(this.cloud, this.target.cloud, 0.25, dt);

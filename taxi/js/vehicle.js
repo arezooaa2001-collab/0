@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildCar, buildPerson, poseSit, armIK, sharedMats } from './models.js';
-import { clamp, lerp, damp, easeInOut, collideCircle } from './util.js';
+import { clamp, lerp, damp, easeInOut, collideCircle, wrapAngle } from './util.js';
 
 const MUD = new THREE.Color(0x6b5a43);
 
@@ -28,6 +28,96 @@ export const CAR_MODELS = {
   sport: { name: 'اسپرت توربو', icon: '🏎️', type: 'sport', color: 0xc62828, speed: 1.32, acc: 1.5, grip: 1.1, fuel: 1.5, price: 2600000, desc: 'وحشی و سریع؛ برای مسابقه و فرار از پلیس' },
   limo: { name: 'لیموزین VIP', icon: '🎩', type: 'limo', color: 0x111111, speed: 1.12, acc: 0.95, grip: 0.88, fuel: 1.6, price: 3800000, vip: true, desc: 'مسافرهای VIP عاشقشن؛ ۳ برابر بیشتر مسافر VIP میاد' },
 };
+/** side decals for the tuning shop: id, icon, name */
+export const LIVERIES = [['', '✕', 'هیچی'], ['flames', '🔥', 'شعله'], ['stripes', '🏁', 'خط مسابقه'], ['bolt', '⚡', 'صاعقه'], ['stars', '⭐', 'ستاره']];
+const liveryTex = {};
+function liveryTexture(id) {
+  if (liveryTex[id]) return liveryTex[id];
+  const cv = document.createElement('canvas');
+  cv.width = 512;
+  cv.height = 128;
+  const c = cv.getContext('2d');
+  if (id === 'flames') {
+    const grd = c.createLinearGradient(0, 0, 512, 0);
+    grd.addColorStop(0, '#fff176');
+    grd.addColorStop(0.35, '#ff9800');
+    grd.addColorStop(0.75, '#e53935');
+    grd.addColorStop(1, 'rgba(183,28,28,0)');
+    c.fillStyle = grd;
+    c.beginPath();
+    c.moveTo(0, 20);
+    // tongues licking backwards
+    const tips = [[150, 8], [230, 30], [330, 14], [420, 46], [500, 62], [400, 78], [310, 104], [210, 92], [120, 118]];
+    let x0 = 0;
+    for (const [x, y] of tips) {
+      c.quadraticCurveTo((x0 + x) / 2, y < 64 ? y + 30 : y - 30, x, y);
+      x0 = x;
+    }
+    c.lineTo(0, 108);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = 'rgba(80,0,0,0.6)';
+    c.lineWidth = 3;
+    c.stroke();
+  } else if (id === 'stripes') {
+    c.fillStyle = '#fafafa';
+    c.fillRect(0, 34, 512, 18);
+    c.fillRect(0, 76, 512, 18);
+    c.fillStyle = '#111';
+    c.fillRect(0, 56, 512, 16);
+    c.font = 'bold 54px sans-serif';
+    c.fillStyle = '#fafafa';
+    c.fillText('77', 210, 120);
+  } else if (id === 'bolt') {
+    c.fillStyle = '#ffeb3b';
+    c.strokeStyle = '#111';
+    c.lineWidth = 5;
+    c.beginPath();
+    c.moveTo(10, 50);
+    c.lineTo(200, 40);
+    c.lineTo(180, 64);
+    c.lineTo(360, 52);
+    c.lineTo(330, 78);
+    c.lineTo(505, 64);
+    c.lineTo(300, 98);
+    c.lineTo(320, 76);
+    c.lineTo(150, 88);
+    c.lineTo(170, 66);
+    c.lineTo(10, 74);
+    c.closePath();
+    c.fill();
+    c.stroke();
+  } else if (id === 'stars') {
+    const star = (x, y, r, col) => {
+      c.fillStyle = col;
+      c.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r;
+        c[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      c.closePath();
+      c.fill();
+    };
+    const sw = c.createLinearGradient(0, 0, 512, 0);
+    sw.addColorStop(0, 'rgba(41,121,255,0.9)');
+    sw.addColorStop(1, 'rgba(41,121,255,0)');
+    c.fillStyle = sw;
+    c.beginPath();
+    c.moveTo(0, 70);
+    c.quadraticCurveTo(260, 40, 512, 76);
+    c.lineTo(512, 92);
+    c.quadraticCurveTo(260, 60, 0, 96);
+    c.fill();
+    star(70, 50, 34, '#ffd600');
+    star(150, 70, 22, '#ffffff');
+    star(215, 44, 16, '#ffd600');
+    star(270, 74, 11, '#ffffff');
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return (liveryTex[id] = t);
+}
 /** performance parts (fit every car): id, icon, name, description, price */
 export const PERF = [
   ['turbo', '🌀', 'توربو', 'شتاب ۱۵٪ و سرعت ۵٪ بیشتر + صدای فیس توربو', 900000],
@@ -168,13 +258,13 @@ export class PlayerCar {
     return !!(this.perf && this.perf.includes(id));
   }
   gripMul() {
-    return this.spec.grip * (this.hasPerf('tires') ? 1.12 : 1) * (this.hasPerf('susp') ? 1.04 : 1);
+    return this.spec.grip * (this.hasPerf('tires') ? 1.12 : 1) * (this.hasPerf('susp') ? 1.04 : 1) * (this.flat ? 0.62 : 1);
   }
   speedMul() {
-    return this.spec.speed * (this.hasPerf('turbo') ? 1.05 : 1) * (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.nitroOn ? 1.3 : 1);
+    return this.spec.speed * (this.hasPerf('turbo') ? 1.05 : 1) * (1 + 0.08 * this.engineLevel) * (1 + 0.2 * this.superRatio()) * (this.health < 30 ? 0.8 : 1) * (this.flat ? 0.7 : 1) * (this.nitroOn ? 1.3 : 1);
   }
   accelMul() {
-    return this.spec.acc * (this.hasPerf('turbo') ? 1.15 : 1) * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.nitroOn ? 2.2 : 1) * (this.overheat ? 0.55 : 1);
+    return this.spec.acc * (this.hasPerf('turbo') ? 1.15 : 1) * (1 + 0.12 * this.engineLevel) * (1 + 0.3 * this.superRatio()) * (this.health < 30 ? 0.75 : 1) * (this.flat ? 0.8 : 1) * (this.nitroOn ? 2.2 : 1) * (this.overheat ? 0.55 : 1);
   }
   /** underglow: a soft additive pool of light under the car plus two neon tubes */
   buildNeon() {
@@ -279,6 +369,29 @@ export class PlayerCar {
       else if (n === 'rim') o.material = M.rim;
       else if (n === 'plate' && usePlate) o.material = M.plate;
     });
+    // side decals
+    if (this.liveryMesh) {
+      this.liveryMesh.removeFromParent();
+      this.liveryMesh.traverse((o) => o.isMesh && o.geometry.dispose());
+      this.liveryMesh = null;
+    }
+    if (this.livery) {
+      const P = this.car.P, grp = new THREE.Group();
+      if (!this.liveryMat) this.liveryMat = new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.35, metalness: 0.2, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+      this.liveryMat.map = liveryTexture(this.livery);
+      this.liveryMat.needsUpdate = true;
+      const len = P.len * 0.66, h = 0.34, y = ((P.rh || 0.3) + P.belt) / 2 + 0.03;
+      for (const side of [1, -1]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(len, h), this.liveryMat);
+        m.rotation.y = side * Math.PI / 2;
+        // mirrored on the far side so the design always runs front to back
+        if (side < 0) m.scale.x = -1;
+        m.position.set(side * (P.W + 0.014), y, -0.05);
+        grp.add(m);
+      }
+      this.car.body.add(grp);
+      this.liveryMesh = grp;
+    }
     // bolt-on spoiler (the sports car already has its own wing)
     if (this.spoilerMesh) {
       this.spoilerMesh.removeFromParent();
@@ -354,6 +467,8 @@ export class PlayerCar {
   }
   placeAt(x, z, heading) {
     if (this.game.cruise) this.game.setCruise(false);
+    if (this.game.replay) this.game.replay.reset();
+    this.airSpin = 0;
     this.pos.set(x, 0, z);
     this.heading = heading;
     this.speed = 0;
@@ -503,6 +618,8 @@ export class PlayerCar {
     const maxSteer = (0.62 / (1 + absV / 15)) * Math.min(1.3, this.gripMul());
     const pull = this.health < 50 ? (50 - this.health) / 50 * 0.04 : 0;
     this.steer = damp(this.steer, clamp(inp.steer, -1, 1) * maxSteer + pull, inp.steer === 0 ? 6 : 9, dt);
+    // in the air the steering spins the car for tricks (the flight path doesn't change)
+    if (this.air && controllable && this.airT > 0.25) this.airSpin = (this.airSpin || 0) - clamp(inp.steer, -1, 1) * 6.2 * dt;
 
     const g = this.gear;
     const engaged = (!this.shift || this.shift.phase === 'return') && g !== 0;
@@ -711,7 +828,8 @@ export class PlayerCar {
     }
     if (worst > 1.2) {
       this.events.push({ type: 'crash', impact: worst, other: worstObj });
-      const dmg = Math.max(0, worst - 2.5) * 2.3 * (worstObj && worstObj.isPolice ? 0.5 : 1);
+      // ramming a fugitive is the job, so the taxi takes much less from it
+      const dmg = Math.max(0, worst - 2.5) * 2.3 * (worstObj && worstObj.isPolice ? 0.5 : worstObj && worstObj.isFugitive ? 0.3 : 1);
       this.health = Math.max(0, this.health - dmg);
     }
   }
@@ -766,7 +884,19 @@ export class PlayerCar {
         this.vy = 0;
         this.prevGround = groundY;
         this.vyGround = 0;
-        this.landed = { airT: this.airT, height: this.airMax, imp };
+        // a spin trick: whole turns score, landing crooked costs speed and a dent
+        const spin = this.airSpin || 0;
+        this.airSpin = 0;
+        // small corrections are forgiven; only a real half-done spin lands crooked
+        const off = Math.abs(spin) < 1.3 ? 0 : Math.abs(wrapAngle(spin));
+        const turns = off < 0.6 ? Math.round(Math.abs(spin) / (Math.PI * 2)) : 0;
+        this.landed = { airT: this.airT, height: this.airMax, imp, turns, wipe: off >= 0.6 };
+        if (off >= 0.6) {
+          this.speed *= 0.35;
+          this.ext.set(0, 0);
+          this.health = Math.max(0, this.health - 6);
+          this.game.audio.crash(8);
+        }
         this.game.shake = Math.max(this.game.shake || 0, Math.min(1, imp / 18));
         if (imp > 16) {
           this.health = Math.max(0, this.health - (imp - 16) * 1.5);
@@ -807,7 +937,7 @@ export class PlayerCar {
     this.syncX = p.x;
     this.syncZ = p.z;
     this.group.position.set(p.x, this.y + shake, p.z);
-    this.group.rotation.set(this.pitch + this.bodyPitch, this.heading, this.roll + this.bodyRoll);
+    this.group.rotation.set(this.pitch + this.bodyPitch, this.heading + (this.airSpin || 0), this.roll + this.bodyRoll);
     this.p = p;
   }
 
@@ -816,6 +946,17 @@ export class PlayerCar {
     for (const w of c.wheels) {
       w.spin.rotation.x += (this.speed / 0.33) * dt;
       if (w.front) w.steer.rotation.y = -this.steer;
+    }
+    // the air freshener swings like a pendulum when you brake, accelerate and corner
+    if (c.charm && dt > 0) {
+      const S = this.sw || (this.sw = { x: 0, z: 0, vx: 0, vz: 0 });
+      const lon = clamp(this.lastAccel || 0, -25, 25), lat = clamp(this.speed * (this.yawRate || 0), -25, 25);
+      const h = Math.min(dt, 1 / 30);
+      S.vx += (-70 * S.x - 2.2 * S.vx - lon * 0.9) * h;
+      S.vz += (-70 * S.z - 2.2 * S.vz + lat * 0.9) * h;
+      S.x = clamp(S.x + S.vx * h, -0.9, 0.9);
+      S.z = clamp(S.z + S.vz * h, -0.9, 0.9);
+      c.charm.rotation.set(S.x, Math.sin(this.game.time * 0.7) * 0.4, S.z);
     }
     const wheelRot = (this.steer / 0.62) * 2.6;
     c.steering.rotation.z = wheelRot;
@@ -883,5 +1024,6 @@ export class PlayerCar {
 
   repair() {
     this.health = 100;
+    this.flat = false;
   }
 }

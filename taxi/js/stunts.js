@@ -87,6 +87,19 @@ export class Stunts {
       p.landed = null;
       const free = p.geyserLaunch;
       p.geyserLaunch = false;
+      if (driving && L.wipe) {
+        setTimeout(() => g.ui.toast('💥 کج فرود اومدی! قبل از فرود فرمون رو صاف کن', 'bad'), 300);
+      } else if (driving && L.turns) {
+        // 360 / 720 / 1080 spins
+        const deg = L.turns * 360, bonus = 40000 * L.turns * L.turns;
+        g.money += bonus;
+        g.addXp(25 * L.turns);
+        s.spins = (s.spins || 0) + L.turns;
+        s.bestSpin = Math.max(s.bestSpin || 0, deg);
+        g.audio.tone(1200, 0.12, 0.12, 'sine');
+        g.audio.tone(1600, 0.18, 0.12, 'sine', 0.12);
+        setTimeout(() => this.banner(`🌀 ${fa(deg)} درجه! +${faMoney(bonus)}`), 900);
+      }
       if (driving && L.airT > 0.5 && !free) {
         const pts = Math.round(L.airT * 100 + L.height * 25);
         const cash = pts * 150;
@@ -98,6 +111,7 @@ export class Stunts {
         g.audio.cash();
         this.banner(`🚀 پرش ${fa(L.airT.toFixed(1)).replace('.', '٫')} ثانیه • +${faMoney(cash)} تومان`);
         if (L.imp > 16) g.ui.toast('💥 فرود سخت! ماشین آسیب دید', 'bad');
+        if (L.airT > 0.9 || L.turns) g.replay.offer();
       }
     }
     this.slow = damp(this.slow, slowTarget, slowTarget < 1 ? 8 : 4, dt);

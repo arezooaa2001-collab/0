@@ -16,6 +16,62 @@ export class RoadLife {
     this.blockers = [];
     this.blockT = 0;
     this.alarmBeep = 0;
+    this.buildSpikes();
+  }
+  /** a spike strip laid across the road in front of a police roadblock */
+  buildSpikes() {
+    const grp = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(12.5, 0.05, 0.42), new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.7, metalness: 0.4 }));
+    base.position.y = 0.03;
+    grp.add(base);
+    const N = 34;
+    const spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(0.06, 0.2, 5), new THREE.MeshStandardMaterial({ color: 0xc0c4c8, metalness: 0.9, roughness: 0.3 }), N);
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < N; i++) {
+      m.makeTranslation(-6 + (i / (N - 1)) * 12, 0.14, (i % 2 ? 0.1 : -0.1));
+      spikes.setMatrixAt(i, m);
+    }
+    grp.add(spikes);
+    // yellow-black ends so you can see it coming
+    const cv = document.createElement('canvas');
+    cv.width = 64;
+    cv.height = 8;
+    const c = cv.getContext('2d');
+    for (let i = 0; i < 8; i++) {
+      c.fillStyle = i % 2 ? '#111' : '#ffd21a';
+      c.fillRect(i * 8, 0, 8, 8);
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    for (const x of [-6.4, 6.4]) {
+      const e = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.5), new THREE.MeshStandardMaterial({ map: tex }));
+      e.position.set(x, 0.04, 0);
+      grp.add(e);
+    }
+    grp.visible = false;
+    this.g.scene.add(grp);
+    this.spikes = grp;
+    this.spikeAt = null;
+  }
+  updateSpikes() {
+    const g = this.g, S = this.spikeAt, p = g.player;
+    if (!S || g.onfoot.active || p.air) return;
+    const rx = p.pos.x - S.x, rz = p.pos.z - S.z;
+    if (rx * rx + rz * rz > 900) {
+      S.prev = null;
+      return;
+    }
+    const along = rx * S.dx + rz * S.dz, lat = Math.abs(rx * S.dz - rz * S.dx);
+    const prev = S.prev;
+    S.prev = along;
+    if (prev === null || Math.sign(prev) === Math.sign(along) || lat > 6.6) return;
+    if (!p.flat) {
+      p.flat = true;
+      g.stats.flats = (g.stats.flats || 0) + 1;
+      g.audio.burst(0.35, 2400, 'highpass', 0.7);
+      g.audio.burst(0.5, 300, 'lowpass', 0.6);
+      g.shake = Math.max(g.shake || 0, 0.7);
+      g.ui.toast('💥 روی میخ‌های پلیس رفتی! لاستیک‌ها ترکید؛ ماشین کند و لغزنده شده. برو تعمیرگاه 🔧', 'bad');
+    }
   }
 
   /* ---------------- speed bumps ---------------- */
@@ -236,13 +292,22 @@ export class RoadLife {
           c.sync(0);
         });
         this.blockAt = { x: ne.x, z: ne.z };
-        g.ui.toast('🚧 پلیس جلوتر جاده رو بسته! دورش بزن', 'bad');
+        // the spike strip lies across the road on your side of the block
+        const sg = fx * ne.dx + fz * ne.dz > 0 ? 1 : -1;
+        const sx = ne.x - ne.dx * sg * 16, sz = ne.z - ne.dz * sg * 16;
+        this.spikes.position.set(sx, w.heightAt(sx, sz), sz);
+        this.spikes.rotation.y = Math.atan2(ne.dx, ne.dz);
+        this.spikes.visible = true;
+        this.spikeAt = { x: sx, z: sz, dx: ne.dx, dz: ne.dz, prev: null };
+        g.ui.toast('🚧 پلیس جلوتر جاده رو بسته و میخ ریخته! دورش بزن', 'bad');
       }
     }
     // clear the block once the chase is over or it's far behind
     if (this.blockAt && (pol.state !== 'chase' || Math.hypot(this.blockAt.x - p.pos.x, this.blockAt.z - p.pos.z) > 350)) {
       for (const b of this.blockers) b.deactivate();
       this.blockAt = null;
+      this.spikes.visible = false;
+      this.spikeAt = null;
     }
   }
   /** red/blue flashes on the roadblock cars (drawn by CarLights) */
@@ -261,5 +326,6 @@ export class RoadLife {
     this.updateAlarms(dt);
     this.updateConvoy(dt);
     this.updateRoadblocks(dt);
+    this.updateSpikes();
   }
 }

@@ -459,6 +459,7 @@ export class Drag {
       g.audio.bad();
     }
     this.drawBoard(this.board, { et: S.et, trap: tr, ret: rivalEt, rival: 'CPU', win });
+    g.replay.offer();
     const r18 = this.model.at(18.3) + R.react, r201 = this.model.at(201) + R.react;
     const rv201 = this.model.v(this.model.at(201)) * 3.6, rtrap = this.model.v(this.model.at(LEN)) * 3.6;
     const row = (t, a, b, best) => `<tr><td>${t}</td><td class="${best === 0 ? 'w' : ''}">${a}</td><td class="${best === 1 ? 'w' : ''}">${b}</td></tr>`;

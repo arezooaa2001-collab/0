@@ -1,5 +1,5 @@
 import { fa, faMoney, faDist, clamp, levelFor, xpFor, levelTitle } from './util.js';
-import { GEAR_LABEL, TOP_GEAR, CAR_MODELS, PERF } from './vehicle.js';
+import { GEAR_LABEL, TOP_GEAR, CAR_MODELS, PERF, LIVERIES } from './vehicle.js';
 import { HALF, REGION_NAMES, regionAt } from './world.js';
 import { MOODS } from './missions.js';
 
@@ -243,7 +243,9 @@ export class UI {
       if (e.code === 'KeyM') this.toggleBigMap();
       if (e.code === 'KeyT') this.toggleAuto();
       if (e.code === 'KeyF') g.zoneAction();
-      if ((e.code === 'KeyP' || e.code === 'Escape') && g.state === 'photo') g.photo.close();
+      if (e.code === 'Backquote' && (g.state === 'play' || g.state === 'replay')) g.state === 'replay' ? g.replay.close() : g.replay.open();
+      if ((e.code === 'KeyP' || e.code === 'Escape') && g.state === 'replay') g.replay.close();
+      else if ((e.code === 'KeyP' || e.code === 'Escape') && g.state === 'photo') g.photo.close();
       else if (e.code === 'KeyP' || e.code === 'Escape') g.pause(g.state !== 'pause');
       if (e.code === 'Enter' && this.offerCb && !this.panelOpen) this.offerCb.accept();
       if (e.code === 'KeyY' && this.offerCb && !this.panelOpen) this.offerCb.guide();
@@ -304,7 +306,7 @@ export class UI {
   /** custom waypoint (the phone's apps use it): the guide arrow shows the way */
   navTo(x, z, label, addr = '') {
     const g = this.g;
-    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle') {
+    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle') {
       this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
       return false;
     }
@@ -552,6 +554,7 @@ export class UI {
       else if (p.rpm > 6400 && p.gear > 0 && p.gear < TOP_GEAR) hint = '⬆ دنده رو بالا ببر';
       else if (p.gear > 2 && p.rpm < 1700 && p.throttle > 0.5) hint = '⬇ دنده سنگینه، کم کن';
     }
+    if (p.flat) hint = hint || '🛞 پنچری! برو تعمیرگاه';
     if (p.superRatio() > 0.25) hint = hint || '🚀 بنزین سوپر فعاله';
     if (p.temp > 0.75) hint = p.overheat ? '🌡️ موتور جوش آورده!' : '🌡️ موتور داره داغ میشه...';
     $('shiftHint').textContent = hint;
@@ -671,6 +674,8 @@ export class UI {
         icon(g.drag.spot.padX, g.drag.spot.padZ, '#c62828', 11, '🚦');
       }
       for (const ic of g.events.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
+      const bi = g.bounty.mapIcon();
+      if (bi) icon(bi.x, bi.z, bi.col, 12, bi.txt);
     }
     else {
       for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
@@ -781,6 +786,8 @@ export class UI {
     dot(g.parking.spot.padX, g.parking.spot.padZ, '#1565c0', '🅿️');
     dot(g.drag.spot.padX, g.drag.spot.padZ, '#c62828', '🚦');
     for (const ic of g.events.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
+    const bi = g.bounty.mapIcon();
+    if (bi) dot(bi.x, bi.z, bi.col, bi.txt);
     {
       const sp = w.stuntPark;
       dot(sp.x, sp.z, '#e65100', '🚀', 10);
@@ -1033,14 +1040,14 @@ export class UI {
     const ENG = [300000, 650000, 1100000, 1700000, 2600000];
     const TANK = [[55, 250000], [65, 500000], [80, 900000]];
     const render = () => {
-      const rc = Math.ceil((100 - p.health) * 3500 / 1000) * 1000;
+      const rc = Math.ceil((100 - p.health) * 3500 / 1000) * 1000 + (p.flat ? 80000 : 0);
       const lvl = p.engineLevel;
       const ti = TANK.findIndex((t) => t[0] > p.tank);
       this.panel(`
         <h2>🔧 ${s.name}</h2>
         <div class="grid2">
           <div class="card"><h3>تعمیر بدنه و موتور</h3><div class="hb"><i style="width:${p.health}%"></i></div><p>سلامت: ${fa(Math.round(p.health))}٪</p>
-            <button data-a="rep" ${p.health >= 99.5 ? 'disabled' : ''}>تعمیر کامل • ${(g.stats.insurance || 0) > 0 ? '🛡️ رایگان (بیمه)' : faMoney(rc)}</button></div>
+            ${p.flat ? '<p>🛞 لاستیک‌ها پنچرن! (۸۰٬۰۰۰ تومان)</p>' : ''}<button data-a="rep" ${p.health >= 99.5 && !p.flat ? 'disabled' : ''}>تعمیر کامل • ${(g.stats.insurance || 0) > 0 ? '🛡️ رایگان (بیمه)' : faMoney(rc)}</button></div>
           <div class="card"><h3>ارتقای موتور (درجه سرعت)</h3><p>سطح ${fa(lvl)} از ۵ • حداکثر سرعت ${fa(Math.round(p.topSpeed() * 3.6))} km/h</p>
             ${lvl < 5 ? `<button data-a="eng">سطح ${fa(lvl + 1)} • ${faMoney(ENG[lvl])}</button>` : '<button disabled>حداکثر سطح ✔</button>'}</div>
           <div class="card perf"><h3>🏁 قطعات مسابقه‌ای</h3><p>روی همه ماشین‌هات کار می‌کنه</p><div class="perfrow">${PERF.map(([id, icon, name, desc, price]) => `<div class="${p.hasPerf(id) ? 'got' : ''}"><b>${icon} ${name}</b><small>${desc}</small><button data-perf="${id}" ${p.hasPerf(id) ? 'disabled' : ''}>${p.hasPerf(id) ? '✔ نصب شده' : faMoney(price)}</button></div>`).join('')}</div></div>
@@ -1061,6 +1068,7 @@ export class UI {
           <div class="card tune"><h3>🛠️ تیونینگ</h3>
             <div class="tunerow"><b>🪟 شیشه دودی</b>${TINTS.map((t, i) => `<button data-tint="${i}" class="${(p.tint || 0) === i ? 'cur' : ''}">${t}</button>`).join('')}<small>${faMoney(150000)}</small></div>
             <div class="tunerow"><b>⚙️ رینگ</b>${RIMS.map(([id, col, name]) => `<button data-rim="${id}" class="${(p.rim || 'silver') === id ? 'cur' : ''}" title="${name}" style="background:${col};color:${id === 'black' ? '#fff' : '#111'}">${name}</button>`).join('')}<small>${faMoney(100000)}</small></div>
+            <div class="tunerow"><b>🔥 برچسب بدنه</b>${LIVERIES.map(([id, icon, name]) => `<button data-liv="${id}" class="${(p.livery || '') === id ? 'cur' : ''}" title="${name}">${icon} ${name}</button>`).join('')}<small>${faMoney(120000)}</small></div>
             <div class="tunerow"><b>🔤 پلاک شخصی</b><input data-plate maxlength="10" placeholder="مثلاً ۷۷ ب ۷۷۷" value="${p.plateText || ''}"><button data-a2="plate">ثبت • ${faMoney(50000)}</button></div>
             <div class="tunerow"><b>🪽 بال عقب</b><button data-a2="spoiler" class="${p.spoiler ? 'cur' : ''}">${(p.modsOwned || []).includes('spoiler') ? (p.spoiler ? 'برداشتن' : 'نصب') : 'خرید • ' + faMoney(200000)}</button>
               <b>💨 اگزوز اسپرت</b><button data-a2="exhaust" class="${p.sportExhaust ? 'cur' : ''}">${(p.modsOwned || []).includes('exhaust') ? (p.sportExhaust ? 'خاموش' : 'روشن') : 'خرید • ' + faMoney(400000)}</button></div>
@@ -1131,6 +1139,14 @@ export class UI {
               g.audio.tone(2200, 0.4, 0.05, 'sine');
             }
             done(`${part[1]} ${part[2]} نصب شد! 🔧`);
+          };
+        });
+        el.querySelectorAll('[data-liv]').forEach((b) => {
+          b.onclick = () => {
+            const v = b.dataset.liv;
+            if ((p.livery || '') === v || (v && !buy(120000))) return;
+            p.livery = v;
+            done(v ? `${LIVERIES.find((l) => l[0] === v)[1]} برچسب جدید چسبید!` : 'برچسب‌ها کنده شد');
           };
         });
         el.querySelectorAll('[data-tint]').forEach((b) => {
@@ -1273,7 +1289,9 @@ export class UI {
     const wanted = g.police.state === 'chase';
     this.panel(`<h2>🚓 کلانتری مرکزی</h2>
       ${wanted ? `<p>داری تعقیب میشی. اگه خودت رو معرفی کنی و جریمه رو بدی، زندان نمیری.</p><p class="money">جریمه: ${faMoney(g.police.fine)} تومان • موجودی: ${faMoney(g.money)}</p><button data-a="surrender" ${g.wallet() >= g.police.fine ? '' : 'disabled'}>معرفی و پرداخت جریمه</button>`
-        : '<p>سلام! اینجا کلانتریه. اگه یه روز تحت تعقیب بودی می‌تونی بیای اینجا خودتو معرفی کنی و فقط جریمه بدی.</p>'}`, (el) => {
+        : `<p>سلام! اینجا کلانتریه. اگه یه روز تحت تعقیب بودی می‌تونی بیای اینجا خودتو معرفی کنی و فقط جریمه بدی.</p>
+          <h3>🎯 فهرست تحت تعقیب‌ها</h3>${g.bounty.boardHtml()}`}`, (el) => {
+      g.bounty.bind(el);
       const b = el.querySelector('[data-a=surrender]');
       if (b) b.onclick = () => {
         if (g.state !== 'play' || g.police.state !== 'chase' || g.wallet() < g.police.fine) {
@@ -1382,12 +1400,18 @@ export class UI {
         <label>🔑 کد مخفی <span class="code"><input type="text" inputmode="numeric" maxlength="8" placeholder="مثلاً ۱۵۱۵" data-code><button data-a="code">ثبت</button></span></label>
         <label>🤖 کلید API جمنای (برای چت با مسافر) <span class="code"><input type="password" dir="ltr" placeholder="AIza..." data-gkey><button data-a="gkey">ذخیره</button></span></label>
         <button data-a="photo">📸 حالت عکاسی (X)</button>
+        <button data-a="replay">🎬 ریپلی ۱۲ ثانیه آخر (کلید \`)</button>
         <button data-a="reset" class="danger">🗑️ شروع دوباره از اول</button>
       </div>`, (el) => {
       el.querySelector('[data-a=resume]').onclick = () => this.closePanel();
       el.querySelector('[data-a=photo]').onclick = () => {
         this.closePanel();
         g.photo.open();
+      };
+      el.querySelector('[data-a=replay]').onclick = () => {
+        this.closePanel();
+        if (g.state === 'pause') g.pause(false);
+        g.replay.open();
       };
       const codeIn = el.querySelector('[data-code]');
       const submit = () => {

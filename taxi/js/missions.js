@@ -68,6 +68,7 @@ export class Rides {
     if (g.weather && (g.weather.wet ?? g.weather.rain) > 0.3) surge.push(['☔', 1.25]);
     if (g.env && g.env.night > 0.6) surge.push(['🌙', 1.2]);
     if ((g.hour >= 7 && g.hour < 9.5) || (g.hour >= 17 && g.hour < 20)) surge.push(['🚦', 1.15]);
+    if (g.extras && g.extras.festival()) surge.push(['🎆', 1.2]);
     const surgeK = surge.reduce((k, s) => k * s[1], 1);
     fare *= surgeK;
     fare = Math.round(fare / 1000) * 1000;
@@ -278,6 +279,10 @@ export class Rides {
         r.complaints++;
         this.say('دیر شد! گفتم که عجله دارم!');
       }
+      if (!r.o.kind && !r.follow) {
+        this.updateErrand(dt, sp);
+        if (r.errand && r.errand.state !== 'done') return;
+      }
       if (r.follow && sp < 1.6) {
         // "stop right here": anywhere is fine once the tail is over; walk away from the door side
         const dp = this.doorWorld(r.door || 'rr', 1.4);
@@ -292,6 +297,64 @@ export class Rides {
       r.outT += dt;
       if (r.outT > 7) this.finish();
     }
+  }
+  /** "can we stop at the bakery on the way?" — a short stop for a bigger tip */
+  updateErrand(dt, sp) {
+    const g = this.game, r = this.ride, car = g.player, w = g.world;
+    if (!r.errand) {
+      if (r.errandAsked || r.t < 10) return;
+      r.errandAsked = true;
+      if (Math.random() > 0.22) return;
+      const dd = Math.hypot(car.pos.x - r.o.dest.x, car.pos.z - r.o.dest.z);
+      const cands = w.places.filter((pl) => {
+        if (pl === r.o.dest) return false;
+        const d = Math.hypot(pl.x - car.pos.x, pl.z - car.pos.z);
+        return d > 80 && d < Math.min(520, dd * 0.8);
+      });
+      if (!cands.length) return;
+      const pl = pick(cands);
+      const what = pick(['یه نون بربری بخرم 🍞', 'از عابربانک پول بگیرم 🏧', 'یه دسته گل بخرم 💐', 'داروهام رو از داروخونه بگیرم 💊', 'یه بستنی بخرم 🍦', 'یه جعبه شیرینی بگیرم 🍰']);
+      r.errand = { pl, what, state: 'go', t: 0 };
+      r.o.expected += 40;
+      this.say(`ببخشید، میشه سر راه یه لحظه بریم ${pl.name}؟ می‌خوام ${what}. انعامت محفوظه! 🙏`);
+      g.setGuide({ x: pl.x, z: pl.z, label: `🛍️ ${pl.name}`, addr: 'توقف کوتاه مسافر' });
+      this.beacon.position.set(pl.x, w.heightAt(pl.x, pl.z), pl.z);
+      return;
+    }
+    const E = r.errand;
+    if (E.state === 'go') {
+      const d = Math.hypot(car.pos.x - E.pl.x, car.pos.z - E.pl.z);
+      if (d < 14 && sp < 1.6) {
+        E.state = 'wait';
+        E.t = 0;
+        car.car.doors[r.door].target = 1;
+        g.audio.door();
+        this.say('مرسی! یه لحظه صبر کن، الان برمی‌گردم 🛍️');
+      }
+    } else if (E.state === 'wait') {
+      E.t += dt;
+      const d = Math.hypot(car.pos.x - E.pl.x, car.pos.z - E.pl.z);
+      if (d > 30) {
+        E.state = 'done';
+        r.complaints++;
+        car.car.doors[r.door].target = 0;
+        this.say('کجا رفتی؟! نزدیک بود جا بمونم! 😠 خب دیگه، بریم.');
+        this.backToDest();
+      } else if (E.t > 7) {
+        E.state = 'done';
+        r.errandTip = 30000 + Math.round(Math.random() * 4) * 5000;
+        car.car.doors[r.door].target = 0;
+        g.audio.door();
+        g.stats.errands = (g.stats.errands || 0) + 1;
+        this.say(`گرفتم! مرسی که صبر کردی 😊 حالا بریم ${r.o.dest.name}`);
+        this.backToDest();
+      }
+    }
+  }
+  backToDest() {
+    const g = this.game, r = this.ride;
+    g.setGuide({ x: r.o.dest.x, z: r.o.dest.z, label: r.o.dest.name, addr: r.o.destAddr });
+    this.beacon.position.set(r.o.dest.x, g.world.heightAt(r.o.dest.x, r.o.dest.z), r.o.dest.z);
   }
   doorWorld(door, out) {
     const car = this.game.player;
@@ -440,6 +503,7 @@ export class Rides {
       tip += Math.round((r.o.fare * 0.15) / 1000) * 1000;
       setTimeout(() => g.ui.toast('🎶 مسافر عاشق آهنگای رادیو شد و انعام بیشتری داد!', 'good'), 1200);
     }
+    if (r.errandTip) tip += r.errandTip;
     const total = Math.round(fare / 1000) * 1000 + tip;
     g.money += total;
     g.stats.trips++;
@@ -700,6 +764,8 @@ export class Rides {
       const hot = this.game.police.state === 'chase' || this.game.police.state === 'dispatch';
       return `🕶️ ${r.o.name} ← مخفیگاه${hot ? ' • 🚨 اول پلیس رو گم کن!' : ''}`;
     }
+    if (this.state === 'toDest' && r.errand && r.errand.state === 'go') return `🛍️ ${r.o.name} می‌خواد سر راه بره ${r.errand.pl.name}`;
+    if (this.state === 'toDest' && r.errand && r.errand.state === 'wait') return `🛍️ مسافر داره خرید می‌کنه… ${fa(Math.max(0, Math.ceil(7 - r.errand.t)))}`;
     if (this.state === 'toDest') {
       let s = `🧳 ${r.o.name} ← ${r.o.dest.name}`;
       if (r.o.mood === 'hurry' || r.o.vip) s += ` • ⏱️ ${fa(Math.max(0, Math.ceil(r.o.expected - r.t)))} ثانیه`;
