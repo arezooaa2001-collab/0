@@ -54,7 +54,7 @@ export class RoadLife {
   }
   updateSpikes() {
     const g = this.g, S = this.spikeAt, p = g.player;
-    if (!S || g.onfoot.active || p.air) return;
+    if (!S || g.onfoot.active) return;
     const rx = p.pos.x - S.x, rz = p.pos.z - S.z;
     if (rx * rx + rz * rz > 900) {
       S.prev = null;
@@ -64,6 +64,8 @@ export class RoadLife {
     const prev = S.prev;
     S.prev = along;
     if (prev === null || Math.sign(prev) === Math.sign(along) || lat > 6.6) return;
+    // jumped clean over it
+    if (p.air) return;
     if (!p.flat) {
       p.flat = true;
       g.stats.flats = (g.stats.flats || 0) + 1;

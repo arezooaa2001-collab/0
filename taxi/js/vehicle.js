@@ -65,9 +65,8 @@ function liveryTexture(id) {
     c.fillRect(0, 76, 512, 18);
     c.fillStyle = '#111';
     c.fillRect(0, 56, 512, 16);
-    c.font = 'bold 54px sans-serif';
     c.fillStyle = '#fafafa';
-    c.fillText('77', 210, 120);
+    for (let i = 0; i < 6; i++) c.fillRect(380 + i * 22, 100, 12, 12);
   } else if (id === 'bolt') {
     c.fillStyle = '#ffeb3b';
     c.strokeStyle = '#111';
@@ -347,6 +346,14 @@ export class PlayerCar {
     if (this.spec && this.spec.ev) return 0;
     const t = this.fuelTotal();
     return t > 0 ? this.superFuel / t : 0;
+  }
+  /** a flat belongs to the car that ran over the spikes */
+  get flat() {
+    return !!(this.flatCars && this.flatCars[this.model]);
+  }
+  set flat(v) {
+    if (!this.flatCars) this.flatCars = {};
+    this.flatCars[this.model] = !!v;
   }
   hasPerf(id) {
     return !!(this.perf && this.perf.includes(id));
@@ -713,7 +720,8 @@ export class PlayerCar {
     const pull = this.health < 50 ? (50 - this.health) / 50 * 0.04 : 0;
     this.steer = damp(this.steer, clamp(inp.steer, -1, 1) * maxSteer + pull, inp.steer === 0 ? 6 : 9, dt);
     // in the air the steering spins the car for tricks (the flight path doesn't change)
-    if (this.air && controllable && this.airT > 0.25) this.airSpin = (this.airSpin || 0) - clamp(inp.steer, -1, 1) * 6.2 * dt;
+    const st = clamp(inp.steer, -1, 1);
+    if (this.air && controllable && this.airT > 0.25 && Math.abs(st) > 0.3) this.airSpin = (this.airSpin || 0) - Math.sign(st) * (Math.abs(st) - 0.3) / 0.7 * 6.2 * dt;
 
     const g = this.gear;
     const engaged = (!this.shift || this.shift.phase === 'return') && g !== 0;
@@ -993,7 +1001,8 @@ export class PlayerCar {
         const spin = this.airSpin || 0;
         this.airSpin = 0;
         // small corrections are forgiven; only a real half-done spin lands crooked
-        const off = Math.abs(spin) < 1.3 ? 0 : Math.abs(wrapAngle(spin));
+        // launched by a geyser, bump, tornado or UFO: no crooked-landing punishment
+        const off = Math.abs(spin) < 1.3 || this.geyserLaunch ? 0 : Math.abs(wrapAngle(spin));
         const turns = off < 0.6 ? Math.round(Math.abs(spin) / (Math.PI * 2)) : 0;
         this.landed = { airT: this.airT, height: this.airMax, imp, turns, wipe: off >= 0.6 };
         if (off >= 0.6) {

@@ -60,7 +60,7 @@ export class Extras {
     g.audio.tone(784, 0.12, 0.06, 'sine');
     g.audio.tone(988, 0.12, 0.06, 'sine', 0.14);
     g.audio.tone(1175, 0.2, 0.06, 'sine', 0.28);
-    if (Math.random() < 0.3 && DJ[g.radio]) {
+    if (Math.random() < 0.3 && DJ[g.radio] && !g.rides.ride) {
       const [name, lines] = DJ[g.radio];
       g.ui.say(name, pick(lines));
     } else g.ui.toast(`📻 خبر: ${this.bulletin()}`, 'info');

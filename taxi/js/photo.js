@@ -120,7 +120,7 @@ export class Photo {
     }
     g.sky.mesh.position.copy(cam.position);
   }
-  capture() {
+  capture(opts = {}) {
     const g = this.g;
     // render and read back in the same task (no preserveDrawingBuffer needed)
     g.post.render(g.scene, g.camera);
@@ -129,7 +129,7 @@ export class Photo {
     c.width = src.width;
     c.height = src.height;
     const ctx = c.getContext('2d');
-    const flt = FILTERS[this.filter][1];
+    const flt = opts.plain ? 'none' : FILTERS[this.filter][1];
     if (flt !== 'none') ctx.filter = flt;
     ctx.drawImage(src, 0, 0);
     ctx.filter = 'none';

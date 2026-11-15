@@ -28,11 +28,19 @@ export class Replay {
       this.tvAt = null;
     };
     $('replayChip').onclick = () => this.open();
-    $('rpShot').onclick = () => game.photo.capture();
+    $('rpShot').onclick = () => game.photo.capture({ plain: true });
     $('rpBar').addEventListener('pointerdown', (e) => this.seek(e));
   }
   reset() {
     this.count = 0;
+    this.chipT = 0;
+    $('replayChip').classList.add('hidden');
+  }
+  /** the light glows are placed from the live cars; they would hang in mid-air during a replay */
+  glows(on) {
+    const L = this.g.carLights;
+    if (!L) return;
+    for (const k of ['head', 'tail', 'amber', 'white', 'red', 'blue']) if (L[k]) L[k].pts.visible = on;
   }
   /** called every play frame after the world moved */
   record(dt) {
@@ -54,6 +62,20 @@ export class Replay {
     for (const o of g.traffic.obstacles) {
       if (n >= MAXC) break;
       if (o === g.player || !o.group || !o.active) continue;
+      f.refs[n] = o;
+      const k = n * 6, gp = o.group.position, gr = o.group.rotation;
+      f.c[k] = gp.x;
+      f.c[k + 1] = gp.y;
+      f.c[k + 2] = gp.z;
+      f.c[k + 3] = gr.x;
+      f.c[k + 4] = gr.y;
+      f.c[k + 5] = gr.z;
+      n++;
+    }
+    // the drag-race rival is a bare model, not a traffic car
+    const dr = g.drag && g.drag.rival;
+    if (dr && n < MAXC) {
+      const o = dr.proxy || (dr.proxy = { group: dr.root, active: true });
       f.refs[n] = o;
       const k = n * 6, gp = o.group.position, gr = o.group.rotation;
       f.c[k] = gp.x;
@@ -86,6 +108,7 @@ export class Replay {
   }
   open() {
     const g = this.g;
+    if (g.onfoot.active) return g.ui.toast('🎬 اول سوار ماشین شو', 'info');
     if (g.state !== 'play' || g.ui.panelOpen || this.count < 60) {
       if (this.count < 60 && g.state === 'play') g.ui.toast('🎬 هنوز چیزی برای ریپلی ضبط نشده', 'info');
       return;
@@ -118,6 +141,7 @@ export class Replay {
     this.tvAt = null;
     this.camPos = null;
     document.body.classList.add('replaymode');
+    this.glows(false);
     $('replay').classList.remove('hidden');
     $('rpSlow').classList.remove('active');
     $('rpPlay').textContent = '⏸️';
@@ -140,6 +164,7 @@ export class Replay {
     g.camera.updateProjectionMatrix();
     g.camInit = true;
     document.body.classList.remove('replaymode');
+    this.glows(true);
     $('replay').classList.add('hidden');
     if (g.police.state === 'chase') g.audio.siren(true);
   }

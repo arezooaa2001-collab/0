@@ -41,7 +41,9 @@ export class TrafficCar {
     this.knock.x += jx;
     this.knock.y += jz;
     if (this.isFugitive) {
-      // a fleeing criminal takes the hit and keeps going (until it's wrecked)
+      // a fleeing criminal takes the hit and keeps going (until it's wrecked); it never piles up a shove
+      this.knock.x -= jx;
+      this.knock.y -= jz;
       this.speed *= Math.max(0.45, 1 - impact * 0.05);
       this.spin += (Math.random() - 0.5) * impact * 0.05;
       this.mgr.game.bounty.onHit(impact, by);

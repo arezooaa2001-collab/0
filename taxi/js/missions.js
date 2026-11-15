@@ -304,18 +304,20 @@ export class Rides {
     if (!r.errand) {
       if (r.errandAsked || r.t < 10) return;
       r.errandAsked = true;
-      if (Math.random() > 0.22) return;
+      if (Math.random() > 0.22 || r.o.vip || r.o.mood === 'hurry') return;
       const dd = Math.hypot(car.pos.x - r.o.dest.x, car.pos.z - r.o.dest.z);
       const cands = w.places.filter((pl) => {
         if (pl === r.o.dest) return false;
         const d = Math.hypot(pl.x - car.pos.x, pl.z - car.pos.z);
-        return d > 80 && d < Math.min(520, dd * 0.8);
+        // roughly on the way: closer to the destination than we are now
+        return d > 80 && d < Math.min(520, dd * 0.8) && Math.hypot(pl.x - r.o.dest.x, pl.z - r.o.dest.z) < dd * 0.9;
       });
       if (!cands.length) return;
       const pl = pick(cands);
       const what = pick(['یه نون بربری بخرم 🍞', 'از عابربانک پول بگیرم 🏧', 'یه دسته گل بخرم 💐', 'داروهام رو از داروخونه بگیرم 💊', 'یه بستنی بخرم 🍦', 'یه جعبه شیرینی بگیرم 🍰']);
       r.errand = { pl, what, state: 'go', t: 0 };
-      r.o.expected += 40;
+      const detour = Math.hypot(pl.x - car.pos.x, pl.z - car.pos.z) + Math.hypot(pl.x - r.o.dest.x, pl.z - r.o.dest.z) - dd;
+      r.o.expected += 20 + Math.max(0, detour) / 9;
       this.say(`ببخشید، میشه سر راه یه لحظه بریم ${pl.name}؟ می‌خوام ${what}. انعامت محفوظه! 🙏`);
       g.setGuide({ x: pl.x, z: pl.z, label: `🛍️ ${pl.name}`, addr: 'توقف کوتاه مسافر' });
       this.beacon.position.set(pl.x, w.heightAt(pl.x, pl.z), pl.z);

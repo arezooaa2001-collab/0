@@ -76,11 +76,11 @@ export class Bounty {
     let spot = null;
     const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
     for (let k = 0; k < 40 && !spot; k++) {
-      const a = Math.atan2(fx, fz) + (Math.random() - 0.5) * 2.2, d = 120 + Math.random() * 140;
+      const a = Math.atan2(fx, fz) + (Math.random() - 0.5) * 2.2, d = 90 + Math.random() * 110;
       const ne = w.nearestEdge(p.pos.x + Math.sin(a) * d, p.pos.z + Math.cos(a) * d);
       if (!ne || ne.edge.len < 40) continue;
       const dd = Math.hypot(ne.x - p.pos.x, ne.z - p.pos.z);
-      if (dd > 100 && dd < 300) spot = ne;
+      if (dd > 70 && dd < 220) spot = ne;
     }
     if (!spot) return g.ui.toast('🎯 مجرم رو گم کردیم! یه جای دیگه امتحان کن', 'warn');
     if (g.rides.state === 'offer') g.rides.decline();
@@ -90,7 +90,7 @@ export class Bounty {
     const towardB = (g.world.graph.nodes[e.b].x - p.pos.x) ** 2 + (g.world.graph.nodes[e.b].z - p.pos.z) ** 2 > (g.world.graph.nodes[e.a].x - p.pos.x) ** 2 + (g.world.graph.nodes[e.a].z - p.pos.z) ** 2;
     c.spawnOn(e.id, towardB ? e.a : e.b, towardB ? spot.t : 1 - spot.t);
     c.fleeFrom = p.pos;
-    c.persona = e.road.type === 'city' ? 1.75 : 1.45;
+    c.persona = e.road.type === 'city' ? 1.55 : 1.35;
     c.speed = 12;
     this.fug = c;
     this.crook = crook;
@@ -124,6 +124,9 @@ export class Bounty {
     const g = this.g, s = g.stats, c = this.crook, f = this.fug;
     this.state = 'done';
     this.doneT = 0;
+    // the wreck skids a few metres and spins to a stop
+    const fx = Math.sin(f.heading), fz = Math.cos(f.heading), v = Math.min(9, f.speed);
+    f.knock.set(fx * v, fz * v);
     f.state = 'parked';
     f.speed = 0;
     f.spin = 1.2;
@@ -138,7 +141,7 @@ export class Bounty {
     g.addXp(80);
     g.audio.cash();
     g.ui.achievement('🎯', `${c[1]} ${c[0]} رو گرفتی! +${faMoney(pay)}`, coins, '🚔 شکار موفق');
-    g.slowmo = 0.3;
+    g.stunts.slow = 0.3;
     g.replay.offer();
     $('bountyHud').classList.add('hidden');
     document.body.classList.remove('timedmode');
@@ -183,10 +186,10 @@ export class Bounty {
     this.time -= dt;
     this.hitT -= dt;
     const d = Math.hypot(f.pos.x - p.pos.x, f.pos.z - p.pos.z);
-    this.farT = d > 330 ? this.farT + dt : 0;
-    if (this.farT > 6) return this.end(`🎯 ${this.crook[0]} از دستت فرار کرد!`);
+    this.farT = d > 380 ? this.farT + dt : 0;
+    if (this.farT > 8) return this.end(`🎯 ${this.crook[0]} از دستت فرار کرد!`);
     if (this.time <= 0) return this.end('⏱ وقت تموم شد؛ مجرم فرار کرد');
-    if (d > 420) return this.end(`🎯 ${this.crook[0]} از دستت فرار کرد!`);
+    if (d > 480) return this.end(`🎯 ${this.crook[0]} از دستت فرار کرد!`);
     const hud = $('bountyHud');
     const html = `<b>${this.crook[1]} ${this.crook[0]}</b><div class="bhp"><i style="width:${this.hp}%"></i></div><span>⏱ ${fa(Math.ceil(this.time))}</span><span>📏 ${fa(Math.round(d))} م</span>`;
     if (html !== this.hudText) hud.innerHTML = this.hudText = html;

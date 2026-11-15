@@ -235,7 +235,7 @@ class Game {
     const p = this.player;
     const d = {
       money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat, otherTank: p.otherTank || null,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat, flatCars: p.flatCars || {}, otherTank: p.otherTank || null,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -254,10 +254,12 @@ class Game {
       if (Array.isArray(d.owned)) p.owned = d.owned;
       if (d.paints && typeof d.paints === 'object') p.paints = d.paints;
       p.perf = Array.isArray(d.perf) ? d.perf : [];
-      p.flat = !!d.flat;
+      p.flatCars = d.flatCars && typeof d.flatCars === 'object' ? { ...d.flatCars } : {};
       if (d.otherTank && typeof d.otherTank === 'object') p.otherTank = { fuel: +d.otherTank.fuel || 0, superFuel: +d.otherTank.superFuel || 0 };
       if (d.model && d.model !== p.model) p.buildModel(d.model);
       else p.applyPerf();
+      // older saves only knew one flat flag, for the car in use
+      if (d.flat && !d.flatCars) p.flat = true;
       const paint = p.paints[p.model] ?? d.paint;
       if (paint !== null && paint !== undefined) p.setPaint(paint);
       if (d.neon) p.setNeon(d.neon);
@@ -536,7 +538,7 @@ class Game {
     if (code === '1818') {
       const p = this.player;
       this.coins += 100;
-      p.health = 100;
+      p.repair();
       if (p.fuelTotal() <= 0.01) p.fuel = 5;
       this.audio.cash();
       this.ui.flash();
@@ -548,7 +550,7 @@ class Game {
     if (code === '1515') {
       const p = this.player;
       this.coins += 1100;
-      p.health = 100;
+      p.repair();
       p.fuel = Math.max(0, p.tank - p.superFuel);
       this.audio.cash();
       this.ui.flash();

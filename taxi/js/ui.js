@@ -206,6 +206,15 @@ export class UI {
     const g = this.g;
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      // watching a replay: only its own keys
+      if (g.state === 'replay') {
+        if (e.code === 'Backquote' || e.code === 'Escape' || e.code === 'KeyP') g.replay.close();
+        else if (e.code === 'Space') {
+          e.preventDefault();
+          g.replay.togglePause();
+        }
+        return;
+      }
       this.keys[e.code] = true;
       if (['ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
