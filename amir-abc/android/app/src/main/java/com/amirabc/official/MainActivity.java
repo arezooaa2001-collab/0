@@ -12,7 +12,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
-import android.webkit.WebChromeClient;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -32,8 +31,7 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private FrameLayout root;
-    private View fullscreenView;
-    private WebChromeClient.CustomViewCallback fullscreenCallback;
+    private FullscreenChrome chrome;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,7 +56,10 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(true);
 
         web.setWebViewClient(new AppClient());
-        web.setWebChromeClient(new AppChrome());
+        chrome = new FullscreenChrome(this, root, web, null);
+        web.setWebChromeClient(chrome);
+        // Lets the page know it runs inside the app (shows the in-app Instagram option).
+        s.setUserAgentString(s.getUserAgentString() + " AmirAbcApp/" + BuildInfo.VERSION);
         // Instagram's embedded player (inside an iframe) needs its own cookies to play.
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
@@ -83,55 +84,30 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Lets videos in the embedded player go full screen. */
-    private final class AppChrome extends WebChromeClient {
-        @Override
-        public void onShowCustomView(View view, CustomViewCallback callback) {
-            if (fullscreenView != null) {
-                callback.onCustomViewHidden();
-                return;
-            }
-            fullscreenView = view;
-            fullscreenCallback = callback;
-            view.setBackgroundColor(Color.BLACK);
-            root.addView(view, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            web.setVisibility(View.GONE);
-            getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        }
-
-        @Override
-        public void onHideCustomView() {
-            exitFullscreen();
-        }
-    }
-
-    private boolean exitFullscreen() {
-        if (fullscreenView == null) return false;
-        root.removeView(fullscreenView);
-        fullscreenView = null;
-        web.setVisibility(View.VISIBLE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-        if (fullscreenCallback != null) {
-            fullscreenCallback.onCustomViewHidden();
-            fullscreenCallback = null;
-        }
-        return true;
-    }
-
     /** @return true if the WebView must NOT load the URL itself. */
     private boolean handleUrl(String url) {
         if (url == null) return true;
         if (url.startsWith("file:///android_asset/")) return false; // our own page
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+        if (scheme.equals("amirabc") && "instagram".equals(uri.getHost())) {
+            openInstagramInApp();
+            return true;
+        }
         if (scheme.equals("http") || scheme.equals("https")) {
             openExternal(uri);
         }
         // Any other scheme (javascript:, intent:, file:, ...) is blocked.
         return true;
+    }
+
+    /** Opens the AMIR ABC page in the app's own Instagram screen. */
+    private void openInstagramInApp() {
+        if (!isOnline()) {
+            notifyUser(getString(R.string.no_internet));
+            return;
+        }
+        startActivity(new Intent(this, InstagramActivity.class));
     }
 
     private void openExternal(Uri uri) {
@@ -203,7 +179,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (exitFullscreen()) return;          // leave full-screen video first
+        if (chrome != null && chrome.exit()) return;   // leave full-screen video first
         if (web == null) {
             super.onBackPressed();
             return;

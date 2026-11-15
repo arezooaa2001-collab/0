@@ -771,6 +771,11 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
 }
 .vid-ig:active{transform:scale(.98)}
 .vid-ig:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.full-frame{display:block;width:100%;height:min(820px,85vh);border:0;background:#fff}
+.full-card{max-width:560px;margin:0 auto}
+.app-only{display:none}
+html.in-app .app-only{display:block}
+html.in-app #fullToggle .chev{display:none}
 .vid-note{margin:16px 0 0;font-size:14px;line-height:1.8;color:rgba(255,255,255,.9);text-shadow:0 1px 6px rgba(0,0,0,.4)}
 
 /* logo option on the colour page */
@@ -896,7 +901,7 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
     <figure class="frame">
       <a class="logo-link" id="logoLink" href="#theme" aria-label="تغییر رنگ سایت (با زدن روی لوگو، صفحه انتخاب رنگ باز می‌شود)">
       <img class="logo-crown-img" src="data:image/webp;base64,{{CROWN}}" width="1024" height="1024" decoding="async" fetchpriority="high"
-           alt="لوگوی ABC: حروف براق و نورانی ABC زیر یک تاج، با کوه‌ها، رعد و برق، ماه و دریای درخشان، داخل قاب نئونی رنگین‌کمانی">
+           alt="لوگوی AMIR ABC: نوشته‌ی براق و نورانی AMIR و زیر آن ABC، با تاج، کوه‌ها، رعد و برق، ماه و دریای درخشان، داخل قاب نئونی رنگین‌کمانی">
       <img class="logo-amir-img" src="data:image/webp;base64,{{IMG}}" width="2048" height="1280" decoding="async"
            alt="لوگوی AMIR BAKHTIARI ABC: نوشته‌ی نقره‌ای AMIR و آبی BAKHTIARI همراه با یک کتاب باز و حروف ABC، داخل یک دایره‌ی نئونی آبی روی زمینه‌ی مشکی">
       <span class="logo-badge" aria-hidden="true">🎨 برای تغییر رنگ سایت، روی لوگو بزنید</span>
@@ -982,6 +987,20 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
         <p class="vid-note">ویدیوها با پخش‌کننده‌ی رسمی اینستاگرام پخش می‌شوند و برای دیدنشان اتصال اینترنت لازم است.</p>
       </div>
     </div>
+
+    <!-- Whole Instagram page -->
+    <div class="videos reveal" id="igFull">
+      <button type="button" class="vid-toggle" id="fullToggle" aria-expanded="false" aria-controls="fullPanel">📱 دیدن کامل پیج <bdi dir="ltr">AMIR ABC</bdi> <span class="chev" aria-hidden="true">▾</span></button>
+      <p class="vid-note app-only">پیج داخل خود برنامه باز می‌شود: پست‌ها و ویدیوها را ببینید و بعد از ورود به حساب اینستاگرامتان، لایک کنید.</p>
+      <div class="vid-panel" id="fullPanel" hidden>
+        <h2 class="vid-title">پیج <bdi dir="ltr">AMIR ABC</bdi></h2>
+        <div class="vid-card full-card">
+          <div class="vid-stage full-stage" id="fullStage"><div class="vid-loading">در حال بارگذاری پیج…</div></div>
+          <a class="vid-ig" href="https://www.instagram.com/amir_khan_2020b?mdxt=cHBpemQ1am9rZDA5" target="_blank" rel="noopener noreferrer">📸 باز کردن کامل پیج در اینستاگرام</a>
+        </div>
+        <p class="vid-note">در نسخه‌ی مرورگر، پست‌های پیج با نمایشگر رسمی اینستاگرام نشان داده می‌شوند. لایک‌کردن فقط در خود اینستاگرام یا داخل اپ اندروید <bdi dir="ltr">AMIR ABC</bdi> (بعد از ورود به حساب) ممکن است.</p>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -1001,8 +1020,8 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
   <div class="tp-card" role="group" aria-labelledby="tpLogoT">
     <h2 id="tpLogoT">لوگوی بالای صفحه</h2>
     <div class="logos">
-      <button type="button" class="opt logo-opt" data-logo="crown"><span class="sample"></span>لوگوی جدید <bdi dir="ltr">ABC</bdi></button>
-      <button type="button" class="opt logo-opt" data-logo="amir"><span class="sample"></span>لوگوی قبلی <bdi dir="ltr">AMIR</bdi></button>
+      <button type="button" class="opt logo-opt" data-logo="crown"><span class="sample"></span>لوگوی جدید <bdi dir="ltr">AMIR ABC</bdi></button>
+      <button type="button" class="opt logo-opt" data-logo="amir"><span class="sample"></span>لوگوی قبلی <bdi dir="ltr">AMIR BAKHTIARI</bdi></button>
     </div>
   </div>
 
@@ -1148,6 +1167,48 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
           stage.appendChild(err);
         }, 15000);
       });
+    });
+  }
+
+  // ---- Whole Instagram page ----
+  var inApp = /AmirAbcApp\//.test(navigator.userAgent || "");
+  if (inApp) doc.classList.add("in-app");
+  var fullToggle = document.getElementById("fullToggle"), fullPanel = document.getElementById("fullPanel");
+  if (fullToggle && fullPanel) {
+    fullToggle.addEventListener("click", function () {
+      if (navigator.onLine === false) {
+        showToast("برای دیدن پیج، اینترنت را روشن کنید و دوباره امتحان کنید.");
+        return;
+      }
+      if (inApp) {               // Android app: opens the page in the app's own Instagram screen
+        location.href = "amirabc://instagram";
+        return;
+      }
+      var open = fullPanel.hidden;
+      fullPanel.hidden = !open;
+      fullToggle.setAttribute("aria-expanded", String(open));
+      var stage = document.getElementById("fullStage");
+      if (open && !stage.querySelector("iframe")) {
+        var f = document.createElement("iframe");
+        f.className = "full-frame";
+        f.title = "پیج AMIR ABC در اینستاگرام";
+        f.src = "https://www.instagram.com/amir_khan_2020b/embed/";
+        f.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
+        f.setAttribute("allowfullscreen", "");
+        f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+        var ok = false;
+        f.addEventListener("load", function () { ok = true; });
+        stage.appendChild(f);
+        setTimeout(function () {
+          if (ok || !f.parentNode) return;
+          stage.textContent = "";
+          var err = document.createElement("div");
+          err.className = "vid-error";
+          err.textContent = "پیج اینجا باز نشد. اتصال اینترنت را بررسی کنید یا از دکمه‌ی «باز کردن کامل پیج در اینستاگرام» استفاده کنید.";
+          stage.appendChild(err);
+        }, 15000);
+      }
+      if (open) { try { fullPanel.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) {} }
     });
   }
 

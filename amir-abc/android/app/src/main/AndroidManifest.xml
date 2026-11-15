@@ -25,5 +25,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- AMIR ABC's Instagram page inside the app -->
+        <activity
+            android:name=".InstagramActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:label="@string/ig_title" />
     </application>
 </manifest>

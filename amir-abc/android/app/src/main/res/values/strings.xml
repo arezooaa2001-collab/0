@@ -4,4 +4,10 @@
     <string name="no_internet">اتصال اینترنت برقرار نیست. برای ورود به اینستاگرام، اینترنت را روشن کنید و دوباره امتحان کنید.</string>
     <string name="no_app">برنامه‌ای برای باز کردن اینستاگرام پیدا نشد. لطفاً یک مرورگر یا برنامه اینستاگرام نصب کنید.</string>
     <string name="load_error">بارگذاری صفحه با مشکل روبه‌رو شد. لطفاً برنامه را دوباره باز کنید.</string>
+    <string name="ig_title">پیج اینستاگرام AMIR ABC</string>
+    <string name="ig_back">→ بازگشت</string>
+    <string name="ig_back_desc">بازگشت به سایت AMIR ABC</string>
+    <string name="ig_reload">بارگذاری دوباره</string>
+    <string name="ig_error">پیج اینستاگرام باز نشد. اتصال اینترنت را بررسی کنید و دوباره امتحان کنید.</string>
+    <string name="ig_retry">تلاش دوباره</string>
 </resources>
