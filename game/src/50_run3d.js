@@ -354,7 +354,7 @@ class Run3D {
 
   /* ---------------- scene ---------------- */
   buildScene() {
-    const TH = this.TH = THEMES3[this.def.theme] || THEMES3.dusk, def = this.def, rng = srand(def.seed * 31 + 5);
+    const TH = this.TH = THEMES3[aiTheme3(this.def) || this.def.theme] || THEMES3.dusk, def = this.def, rng = srand(def.seed * 31 + 5);
     const sc = this.scene = new THREE.Scene();
     const disp = this.disp = [];
     const keep = o => { disp.push(o); return o; };

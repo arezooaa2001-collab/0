@@ -53,6 +53,7 @@
       <button class="btn hot" id="bEndless">🎲 حالت‌های ویژه</button>
       <button class="btn hot" id="bEditor">🛠️ سازنده‌ی مرحله</button>
       <button class="btn hot" id="bDuo">👥 دو نفره</button>
+      <button class="btn hot aiBtn" id="bAI" hidden>🤖 هوش مصنوعی</button>
       <button class="btn hot" id="bShop">🛒 فروشگاه</button>
       <button class="btn hot" id="bMissions">🎯 مأموریت‌ها و جایزه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
@@ -86,6 +87,7 @@
       <button class="btn" id="bRestartAll">⏮ کل مرحله از اول</button>
       <button class="btn" id="bEdBack" hidden>✏️ برگرد به سازنده</button>
       <button class="btn" id="bPhoto">📸 حالت عکس</button>
+      <button class="btn aiBtn" id="bAI2" hidden>🤖 به هوش مصنوعی بگو</button>
       <button class="btn" id="bMode2">🎮 حالت بازی</button>
       <button class="btn" id="bSet2">⚙️ تنظیمات</button>
       <button class="btn" id="bSound2">🔊 صدا: روشن</button>
@@ -145,7 +147,7 @@
   <div class="panel tall">
     <h2>🛠️ سازنده‌ی مرحله</h2>
     <p class="sub small">مرحله‌ی خودت رو با تله‌های پنهان بساز، خودت (یا ربات) ردش کن و کدش رو برای دوستات بفرست تا اونا هم گیر بیفتن 😈</p>
-    <div class="row myTop"><button class="btn primary" id="bEdNew">＋ مرحله‌ی جدید</button><button class="btn" id="bEdImp">📥 وارد کردن کد</button></div>
+    <div class="row myTop"><button class="btn primary" id="bEdNew">＋ مرحله‌ی جدید</button><button class="btn" id="bEdImp">📥 وارد کردن کد</button><button class="btn" id="bLab2" hidden>🧪 تله‌های هوش مصنوعی</button></div>
     <div class="setBody" id="myList"></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
@@ -233,6 +235,31 @@
   <div class="phBar"><div class="chips" id="phFilters"></div>
     <div class="phBtns"><button class="btn" data-ph="album" id="phCount">🖼️</button><button class="phShot" data-ph="shot" aria-label="عکس بگیر"></button><button class="btn" data-ph="close">✖ برگرد</button></div></div>
   <div id="phFlash"></div>
+</div>
+<div class="screen fa" id="sAI">
+  <div class="panel tall aiPanel">
+    <h2>🤖 هوش مصنوعی تله‌زار</h2>
+    <p class="sub small">هر چی بخوای بگو: ظاهر مرحله‌ها رو عوض کنه، تله‌ی تازه بسازه، مرحله طراحی کنه یا رنگ جدید درست کنه. (فقط توی claude.ai کار می‌کنه و از حساب Claude خودت استفاده می‌کنه.)</p>
+    <div id="aiLog" class="setBody"></div>
+    <div class="chips" id="aiChips">
+      <button class="chip" data-aiq="همه‌ی مرحله‌ها رو آتشین کن 🔥">🔥 مرحله‌ها رو آتشین کن</button>
+      <button class="chip" data-aiq="یه تله‌ی جدید و غافلگیرکننده بساز که سقف یهو بیاد پایین">🪤 یه تله‌ی تازه بساز</button>
+      <button class="chip" data-aiq="یه مرحله‌ی کوتاه و باحال با چندتا تله‌ی پنهان بساز">🗺️ یه مرحله بساز</button>
+      <button class="chip" data-aiq="یه رنگ جدید و خاص برای آدمکم بساز و تنش کن">🎨 رنگ تازه</button>
+      <button class="chip" data-aiq="ظاهر همه‌ی مرحله‌ها رو برگردون به حالت اول">↩️ برگردون</button>
+    </div>
+    <div class="aiRow"><textarea id="aiIn" rows="2" placeholder="مثلاً: مرحله‌ی ۵ رو یخی و برفی کن"></textarea><button class="btn primary" id="aiSend">ارسال</button><button class="btn" id="aiStop" hidden>⏹ توقف</button></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bLab">🧪 آزمایشگاه تله‌ها</button><button class="btn" id="aiNew">🆕 گفت‌وگوی تازه</button><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sLab">
+  <div class="panel tall">
+    <h2>🧪 آزمایشگاه تله‌ها</h2>
+    <p class="sub small">تله‌هایی که هوش مصنوعی ساخته اینجان. هر کدوم رو امتحان کن؛ توی «سازنده‌ی مرحله» هم ته ستون ابزارها پیداشون می‌کنی.</p>
+    <div class="row" style="justify-content:center;margin-bottom:8px"><button class="btn primary" id="bGaunt">▶ همه‌ی تله‌ها پشت سر هم</button></div>
+    <div class="setBody" id="labList"></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
 </div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">

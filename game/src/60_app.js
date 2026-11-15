@@ -116,6 +116,7 @@ const ACH = [
   ['gradeS', '🅢', 'رتبه‌ی S', 'یه مرحله رو با رتبه‌ی S تموم کن'],
   ['gradeS10', '💫', 'افسانه', 'ده مرحله رو با رتبه‌ی S تموم کن'],
   ['photo', '📸', 'عکاس', 'توی «حالت عکس» (از منوی توقف) یه عکس بگیر'],
+  ['ai', '🤖', 'دوست هوشمند', 'با هوش مصنوعی تله‌زار حرف بزن (فقط توی claude.ai)'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -221,7 +222,7 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad', 'sRevive', 'sAlbum']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); $('albumBig').classList.remove('on'); },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad', 'sRevive', 'sAlbum', 'sAI', 'sLab']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); $('albumBig').classList.remove('on'); },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click'); if (this.state === 'revive') return this.reviveAnswer(false); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
@@ -258,7 +259,7 @@ const app = {
     this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
     const def = src.def, D = this.duo = { src, def, w: [], cam: [null, null], tiles: [new Map(), new Map()], wx: [0, 0], deaths: [0, 0], won: -1, count: 3.6, time: 0 };
     this.def = def; this.kind = 'plat'; this.view = 'duo';
-    if (def.courseOpt) refreshCaves(); setBiome(def.biome);
+    if (def.courseOpt) refreshCaves(); setBiome(biomeOf(def));
     cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on'); $('revBadge').classList.remove('on');
     this.state = 'play'; this.show(null); this.levelT = 0; this.levelDeaths = 0; acc = 0;
     $('hud').classList.add('on'); document.body.classList.add('duo'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch(); t2Layer.classList.toggle('on', isTouch);
@@ -288,6 +289,7 @@ const app = {
   },
   // the scenery changes in the middle of a level (endless zones, boss rush arenas)
   swapBiome(b, small, big) {
+    if (AIX.apply.all && BIOMES[AIX.apply.all] && !(this.custom)) b = AIX.apply.all;   // an AI look for all levels wins
     if (!b || !BIOMES[b] || BIOMES[b] === BIOME) return;
     setBiome(b); if (this.world) this.world.def.biome = b; if (this.p3) { const w = this.p3.world; this.p3.dispose(); this.p3 = new P3D(w); }
     $('bSmall').textContent = small; $('bBig').textContent = big;
@@ -296,7 +298,7 @@ const app = {
   // a level made in the editor (test: started from the editor, which it goes back to; demo: the robot's run is replayed)
   startCustom(lv, opt = {}) {
     this.realmIdx = -1; this.idx = -1; this.endless = null; this.rush = null;
-    this.custom = { lv, test: !!opt.test }; this.demo = opt.demo ? { acts: opt.demo, i: 0, n: 0 } : null; this.demoUsed = !!this.demo;
+    this.custom = { lv, test: !!opt.test, back: opt.back }; this.demo = opt.demo ? { acts: opt.demo, i: 0, n: 0 } : null; this.demoUsed = !!this.demo;
     this.runStart = performance.now(); this.deaths = 0;
     this.startDef(edDef(lv), {});
     if (this.demo) setTimeout(() => { if (this.demo) this.taunt('🤖 ربات داره بازی می‌کنه… هر دکمه‌ای بزنی خودت ادامه می‌دی', '#9ef9ff'); }, 2100);
@@ -361,7 +363,7 @@ const app = {
     let v = viewOf(rdef);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
+    if (this.kind === 'plat') { setBiome(biomeOf(def)); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; } mutApply(true);
     $('bEmote').hidden = this.kind === 'run' || def.kind === '3d' || (CFG.mode === '3d' && !def.noRun && !def.endless); $('emoteBar').classList.remove('on');
@@ -553,11 +555,11 @@ const app = {
     if (real && !lv.mine && !lv.sample) unlockAch('friend');
     this.taunt(byBot ? '🤖 ربات رسید به در!' : `🏁 ${lv.partial ? 'رسیدی به در! (برای تأیید، کل مرحله رو از اول رد کن)' : lv.mine && C.test ? 'مرحله‌ات تأیید شد! حالا می‌تونی کدش رو بفرستی' : 'ردش کردی!'}  ⏱ ${fmtT(t)} · 💀 ${faNum(d)}`, '#ffd36e');
     $('fade').classList.add('on');
-    setTimeout(() => { if (this.custom !== C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else this.menu('sMy'); }, 1300);
+    setTimeout(() => { if (this.custom !== C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else { this.menu(C.back || 'sMy'); if (C.back === 'sLab') renderLab(); } }, 1300);
   },
   finish() {
     mutApply(false); this.teardown(); this.view = 'p2'; this.kind = 'plat'; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    setBiome(LEVELS[0].biome); this.world = new World(0, { silent: true });
+    setBiome(biomeOf(LEVELS[0])); this.world = new World(0, { silent: true });
     this.state = 'end'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch();
     const secs = Math.round((performance.now() - this.runStart) / 1000);
     $('eDeaths').textContent = faNum(this.deaths); $('eDiff').textContent = DIFFS[this.diff].name; $('eDiff').style.color = DIFFS[this.diff].col; $('eTime').textContent = `${faNum(Math.floor(secs / 60))}:${faNum(String(secs % 60).padStart(2, '0'))}`;
@@ -586,7 +588,7 @@ const app = {
   menu(to = 'sTitle') {
     mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null;
     if (this.duo) { this.duo = null; document.body.classList.remove('duo'); duoTouchOff(); resize(); } this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    setBiome(LEVELS[0].biome);
+    setBiome(biomeOf(LEVELS[0]));
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); if (to === 'sMy') renderMy(); this.show(to); this.world = new World(0, { silent: true });
   },
   setDiff(d) {
@@ -643,7 +645,7 @@ $('bResume').onclick = () => { Sound.play('click'); app.resume(); };
 $('bRestart2').onclick = () => { Sound.play('click'); app.resume(); app.restart(); };
 $('bRestartAll').onclick = () => { Sound.play('click'); app.restartLevel(); };
 $('bMenu').onclick = $('bMenu2').onclick = () => { Sound.play('click'); app.menu(); };
-$('bEdBack').onclick = () => { Sound.play('click'); const C = app.custom; if (!C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else app.menu('sMy'); };
+$('bEdBack').onclick = () => { Sound.play('click'); const C = app.custom; if (!C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else { app.menu(C.back || 'sMy'); if (C.back === 'sLab') renderLab(); } };
 $('bAgain').onclick = () => { Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(0); };
 function renderDiffs() {
   document.querySelectorAll('[data-diffs]').forEach(box => {

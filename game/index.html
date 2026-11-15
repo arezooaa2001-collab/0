@@ -397,6 +397,20 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
 #albumBig.on{display:flex}#albumBig img{max-width:100%;max-height:calc(100vh - 110px);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 #albumBig .row{flex-wrap:wrap;justify-content:center}
 #albumBig .btn{padding:8px 14px;font-size:15px}
+
+/* in-game AI chat */
+.aiBtn{background:linear-gradient(180deg,rgba(197,155,255,.35),rgba(122,247,255,.18))!important;border-color:rgba(197,155,255,.7)!important}
+.aiPanel #aiLog{display:flex;flex-direction:column;gap:8px;padding:4px 2px 8px;min-height:120px}
+.aiMsg{max-width:88%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word;text-align:right}
+.aiMsg.user{align-self:flex-start;background:rgba(111,243,196,.16);border:1px solid rgba(111,243,196,.4)}
+.aiMsg.ai{align-self:flex-end;background:rgba(197,155,255,.13);border:1px solid rgba(197,155,255,.35)}
+.aiNote{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(255,255,255,.18);font-size:12.5px;font-weight:700;color:#ffd36e}
+.aiNote .chip{padding:5px 10px;font-size:12px}
+#aiChips{justify-content:flex-start;margin:6px 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}#aiChips::-webkit-scrollbar{display:none}#aiChips .chip{flex:0 0 auto}
+.aiPanel .sub{font-size:12px;margin:0 0 6px}#aiChips .chip{font-size:12.5px;padding:6px 10px}
+.aiRow{display:flex;gap:8px;align-items:stretch}
+.aiRow textarea{flex:1;min-width:0;border-radius:12px;border:1px solid var(--line);background:#0c0820;color:var(--ink);font:14px/1.5 Vazirmatn,Tahoma,sans-serif;padding:8px 10px;resize:none;user-select:text;-webkit-user-select:text;direction:rtl}
+.aiRow .btn{padding:10px 16px;font-size:15px}
 </style>
 </head>
 <body>
@@ -455,6 +469,7 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
       <button class="btn hot" id="bEndless">🎲 حالت‌های ویژه</button>
       <button class="btn hot" id="bEditor">🛠️ سازنده‌ی مرحله</button>
       <button class="btn hot" id="bDuo">👥 دو نفره</button>
+      <button class="btn hot aiBtn" id="bAI" hidden>🤖 هوش مصنوعی</button>
       <button class="btn hot" id="bShop">🛒 فروشگاه</button>
       <button class="btn hot" id="bMissions">🎯 مأموریت‌ها و جایزه</button>
       <button class="btn" id="bMode">🎮 حالت بازی</button>
@@ -488,6 +503,7 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
       <button class="btn" id="bRestartAll">⏮ کل مرحله از اول</button>
       <button class="btn" id="bEdBack" hidden>✏️ برگرد به سازنده</button>
       <button class="btn" id="bPhoto">📸 حالت عکس</button>
+      <button class="btn aiBtn" id="bAI2" hidden>🤖 به هوش مصنوعی بگو</button>
       <button class="btn" id="bMode2">🎮 حالت بازی</button>
       <button class="btn" id="bSet2">⚙️ تنظیمات</button>
       <button class="btn" id="bSound2">🔊 صدا: روشن</button>
@@ -547,7 +563,7 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
   <div class="panel tall">
     <h2>🛠️ سازنده‌ی مرحله</h2>
     <p class="sub small">مرحله‌ی خودت رو با تله‌های پنهان بساز، خودت (یا ربات) ردش کن و کدش رو برای دوستات بفرست تا اونا هم گیر بیفتن 😈</p>
-    <div class="row myTop"><button class="btn primary" id="bEdNew">＋ مرحله‌ی جدید</button><button class="btn" id="bEdImp">📥 وارد کردن کد</button></div>
+    <div class="row myTop"><button class="btn primary" id="bEdNew">＋ مرحله‌ی جدید</button><button class="btn" id="bEdImp">📥 وارد کردن کد</button><button class="btn" id="bLab2" hidden>🧪 تله‌های هوش مصنوعی</button></div>
     <div class="setBody" id="myList"></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
@@ -635,6 +651,31 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
   <div class="phBar"><div class="chips" id="phFilters"></div>
     <div class="phBtns"><button class="btn" data-ph="album" id="phCount">🖼️</button><button class="phShot" data-ph="shot" aria-label="عکس بگیر"></button><button class="btn" data-ph="close">✖ برگرد</button></div></div>
   <div id="phFlash"></div>
+</div>
+<div class="screen fa" id="sAI">
+  <div class="panel tall aiPanel">
+    <h2>🤖 هوش مصنوعی تله‌زار</h2>
+    <p class="sub small">هر چی بخوای بگو: ظاهر مرحله‌ها رو عوض کنه، تله‌ی تازه بسازه، مرحله طراحی کنه یا رنگ جدید درست کنه. (فقط توی claude.ai کار می‌کنه و از حساب Claude خودت استفاده می‌کنه.)</p>
+    <div id="aiLog" class="setBody"></div>
+    <div class="chips" id="aiChips">
+      <button class="chip" data-aiq="همه‌ی مرحله‌ها رو آتشین کن 🔥">🔥 مرحله‌ها رو آتشین کن</button>
+      <button class="chip" data-aiq="یه تله‌ی جدید و غافلگیرکننده بساز که سقف یهو بیاد پایین">🪤 یه تله‌ی تازه بساز</button>
+      <button class="chip" data-aiq="یه مرحله‌ی کوتاه و باحال با چندتا تله‌ی پنهان بساز">🗺️ یه مرحله بساز</button>
+      <button class="chip" data-aiq="یه رنگ جدید و خاص برای آدمکم بساز و تنش کن">🎨 رنگ تازه</button>
+      <button class="chip" data-aiq="ظاهر همه‌ی مرحله‌ها رو برگردون به حالت اول">↩️ برگردون</button>
+    </div>
+    <div class="aiRow"><textarea id="aiIn" rows="2" placeholder="مثلاً: مرحله‌ی ۵ رو یخی و برفی کن"></textarea><button class="btn primary" id="aiSend">ارسال</button><button class="btn" id="aiStop" hidden>⏹ توقف</button></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bLab">🧪 آزمایشگاه تله‌ها</button><button class="btn" id="aiNew">🆕 گفت‌وگوی تازه</button><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sLab">
+  <div class="panel tall">
+    <h2>🧪 آزمایشگاه تله‌ها</h2>
+    <p class="sub small">تله‌هایی که هوش مصنوعی ساخته اینجان. هر کدوم رو امتحان کن؛ توی «سازنده‌ی مرحله» هم ته ستون ابزارها پیداشون می‌کنی.</p>
+    <div class="row" style="justify-content:center;margin-bottom:8px"><button class="btn primary" id="bGaunt">▶ همه‌ی تله‌ها پشت سر هم</button></div>
+    <div class="setBody" id="labList"></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
 </div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">
@@ -5049,7 +5090,7 @@ class Run3D {
 
   /* ---------------- scene ---------------- */
   buildScene() {
-    const TH = this.TH = THEMES3[this.def.theme] || THEMES3.dusk, def = this.def, rng = srand(def.seed * 31 + 5);
+    const TH = this.TH = THEMES3[aiTheme3(this.def) || this.def.theme] || THEMES3.dusk, def = this.def, rng = srand(def.seed * 31 + 5);
     const sc = this.scene = new THREE.Scene();
     const disp = this.disp = [];
     const keep = o => { disp.push(o); return o; };
@@ -6404,6 +6445,7 @@ const ACH = [
   ['gradeS', '🅢', 'رتبه‌ی S', 'یه مرحله رو با رتبه‌ی S تموم کن'],
   ['gradeS10', '💫', 'افسانه', 'ده مرحله رو با رتبه‌ی S تموم کن'],
   ['photo', '📸', 'عکاس', 'توی «حالت عکس» (از منوی توقف) یه عکس بگیر'],
+  ['ai', '🤖', 'دوست هوشمند', 'با هوش مصنوعی تله‌زار حرف بزن (فقط توی claude.ai)'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -6509,7 +6551,7 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad', 'sRevive', 'sAlbum']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); $('albumBig').classList.remove('on'); },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad', 'sRevive', 'sAlbum', 'sAI', 'sLab']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); $('albumBig').classList.remove('on'); },
   open(id) { this.show(id); },
   goBack() {
     Sound.play('click'); if (this.state === 'revive') return this.reviveAnswer(false); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
@@ -6546,7 +6588,7 @@ const app = {
     this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
     const def = src.def, D = this.duo = { src, def, w: [], cam: [null, null], tiles: [new Map(), new Map()], wx: [0, 0], deaths: [0, 0], won: -1, count: 3.6, time: 0 };
     this.def = def; this.kind = 'plat'; this.view = 'duo';
-    if (def.courseOpt) refreshCaves(); setBiome(def.biome);
+    if (def.courseOpt) refreshCaves(); setBiome(biomeOf(def));
     cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on'); $('revBadge').classList.remove('on');
     this.state = 'play'; this.show(null); this.levelT = 0; this.levelDeaths = 0; acc = 0;
     $('hud').classList.add('on'); document.body.classList.add('duo'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch(); t2Layer.classList.toggle('on', isTouch);
@@ -6576,6 +6618,7 @@ const app = {
   },
   // the scenery changes in the middle of a level (endless zones, boss rush arenas)
   swapBiome(b, small, big) {
+    if (AIX.apply.all && BIOMES[AIX.apply.all] && !(this.custom)) b = AIX.apply.all;   // an AI look for all levels wins
     if (!b || !BIOMES[b] || BIOMES[b] === BIOME) return;
     setBiome(b); if (this.world) this.world.def.biome = b; if (this.p3) { const w = this.p3.world; this.p3.dispose(); this.p3 = new P3D(w); }
     $('bSmall').textContent = small; $('bBig').textContent = big;
@@ -6584,7 +6627,7 @@ const app = {
   // a level made in the editor (test: started from the editor, which it goes back to; demo: the robot's run is replayed)
   startCustom(lv, opt = {}) {
     this.realmIdx = -1; this.idx = -1; this.endless = null; this.rush = null;
-    this.custom = { lv, test: !!opt.test }; this.demo = opt.demo ? { acts: opt.demo, i: 0, n: 0 } : null; this.demoUsed = !!this.demo;
+    this.custom = { lv, test: !!opt.test, back: opt.back }; this.demo = opt.demo ? { acts: opt.demo, i: 0, n: 0 } : null; this.demoUsed = !!this.demo;
     this.runStart = performance.now(); this.deaths = 0;
     this.startDef(edDef(lv), {});
     if (this.demo) setTimeout(() => { if (this.demo) this.taunt('🤖 ربات داره بازی می‌کنه… هر دکمه‌ای بزنی خودت ادامه می‌دی', '#9ef9ff'); }, 2100);
@@ -6649,7 +6692,7 @@ const app = {
     let v = viewOf(rdef);
     if (isGL(v) && !getRenderer3()) { v = this.kind === 'run' ? 'r25' : 'p25'; setTimeout(() => this.taunt('این دستگاه سه‌بعدی رو پشتیبانی نمی‌کنه؛ نمای شبه‌سه‌بعدی', '#ffd36e'), 700); }
     this.view = v;
-    if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
+    if (this.kind === 'plat') { setBiome(biomeOf(def)); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
     this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; } mutApply(true);
     $('bEmote').hidden = this.kind === 'run' || def.kind === '3d' || (CFG.mode === '3d' && !def.noRun && !def.endless); $('emoteBar').classList.remove('on');
@@ -6841,11 +6884,11 @@ const app = {
     if (real && !lv.mine && !lv.sample) unlockAch('friend');
     this.taunt(byBot ? '🤖 ربات رسید به در!' : `🏁 ${lv.partial ? 'رسیدی به در! (برای تأیید، کل مرحله رو از اول رد کن)' : lv.mine && C.test ? 'مرحله‌ات تأیید شد! حالا می‌تونی کدش رو بفرستی' : 'ردش کردی!'}  ⏱ ${fmtT(t)} · 💀 ${faNum(d)}`, '#ffd36e');
     $('fade').classList.add('on');
-    setTimeout(() => { if (this.custom !== C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else this.menu('sMy'); }, 1300);
+    setTimeout(() => { if (this.custom !== C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else { this.menu(C.back || 'sMy'); if (C.back === 'sLab') renderLab(); } }, 1300);
   },
   finish() {
     mutApply(false); this.teardown(); this.view = 'p2'; this.kind = 'plat'; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    setBiome(LEVELS[0].biome); this.world = new World(0, { silent: true });
+    setBiome(biomeOf(LEVELS[0])); this.world = new World(0, { silent: true });
     this.state = 'end'; $('hud').classList.remove('on'); tLayer.classList.remove('on'); ptrs.clear(); refreshTouch();
     const secs = Math.round((performance.now() - this.runStart) / 1000);
     $('eDeaths').textContent = faNum(this.deaths); $('eDiff').textContent = DIFFS[this.diff].name; $('eDiff').style.color = DIFFS[this.diff].col; $('eTime').textContent = `${faNum(Math.floor(secs / 60))}:${faNum(String(secs % 60).padStart(2, '0'))}`;
@@ -6874,7 +6917,7 @@ const app = {
   menu(to = 'sTitle') {
     mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null;
     if (this.duo) { this.duo = null; document.body.classList.remove('duo'); duoTouchOff(); resize(); } this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
-    setBiome(LEVELS[0].biome);
+    setBiome(biomeOf(LEVELS[0]));
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); if (to === 'sMy') renderMy(); this.show(to); this.world = new World(0, { silent: true });
   },
   setDiff(d) {
@@ -6931,7 +6974,7 @@ $('bResume').onclick = () => { Sound.play('click'); app.resume(); };
 $('bRestart2').onclick = () => { Sound.play('click'); app.resume(); app.restart(); };
 $('bRestartAll').onclick = () => { Sound.play('click'); app.restartLevel(); };
 $('bMenu').onclick = $('bMenu2').onclick = () => { Sound.play('click'); app.menu(); };
-$('bEdBack').onclick = () => { Sound.play('click'); const C = app.custom; if (!C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else app.menu('sMy'); };
+$('bEdBack').onclick = () => { Sound.play('click'); const C = app.custom; if (!C) return; if (C.test && ED.lv) edOpen(ED.lv, true); else { app.menu(C.back || 'sMy'); if (C.back === 'sLab') renderLab(); } };
 $('bAgain').onclick = () => { Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(0); };
 function renderDiffs() {
   document.querySelectorAll('[data-diffs]').forEach(box => {
@@ -7047,6 +7090,7 @@ function edBuild(P, G, ox) {
     else if (c === 'o') dyn(P.orb(id(), lx + .5, y + .5));
     else if (c === 'e') P.gem(lx + .5, y + .5);
     else if (c === 'D') dyn(P.door(lx - .2, y - 1));
+    else if (aiTrapOf(c)) aiBuildTrap(P, aiTrapOf(c), lx, y, 'a' + x + '_' + y + '_');
     else if (c === 'F') { const k = id(); dyn(P.spikes(k + 's', lx - 1, y, 3, 'up', { hidden: true })); dyn(P.add(k, { type: 'door', fake: k + 's', x: (lx - .2) * T, y: (y - 1) * T, w: 1.4 * T, h: 2 * T })); }
   }
 }
@@ -7087,7 +7131,8 @@ function edNew(screens = 2) {
 // run-length rows ("_" = empty), joined with "/", packed as UTF-8 base64 (URL-safe)
 function edCode(lv) {
   const rle = lv.g.map(r => { let s = ''; for (let i = 0; i < r.length;) { let j = i; while (j < r.length && r[j] === r[i]) j++; const c = r[i] === ' ' ? '_' : r[i]; s += (j - i > 1 ? j - i : '') + c; i = j; } return s; }).join('/');
-  const json = JSON.stringify({ v: 1, n: (lv.name || '').slice(0, 40), b: lv.biome, g: rle });
+  const xs = {}; for (const r of lv.g) for (const c of r) { const t = aiTrapOf(c); if (t && !xs[c]) xs[c] = { name: t.name, icon: t.icon, description: t.desc, parts: t.parts, triggers: t.trigs.map(g => ({ x: g.x, y: g.y, w: g.w, h: g.h, when: g.when, actions: g.acts })) }; }
+  const json = JSON.stringify(Object.assign({ v: 1, n: (lv.name || '').slice(0, 40), b: lv.biome, g: rle }, Object.keys(xs).length ? { x: xs } : {}));
   const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '.').replace(/=+$/, '');
   return 'TZ1-' + b64;
 }
@@ -7096,7 +7141,9 @@ function edDecode(code) {
     const m = String(code).replace(/\s+/g, '').match(/TZ1-([A-Za-z0-9\-._]+)/); if (!m) return null;
     let b = m[1].replace(/-/g, '+').replace(/\./g, '/'); while (b.length % 4) b += '=';
     const o = JSON.parse(decodeURIComponent(escape(atob(b))));
-    const g = String(o.g).split('/').map(s => { let r = ''; s.replace(/(\d*)(\D)/g, (_, n, c) => { r += (c === '_' ? ' ' : c).repeat(n ? Math.min(+n, 200) : 1); return ''; }); return r; });
+    let g = String(o.g).split('/').map(s => { let r = ''; s.replace(/(\d*)(\D)/g, (_, n, c) => { r += (c === '_' ? ' ' : c).repeat(n ? Math.min(+n, 200) : 1); return ''; }); return r; });
+    // traps made by someone's AI come with the code: add them here (or reuse an identical one) and map their letters
+    if (o.x && typeof o.x === 'object') { const map = {}; for (const ch in o.x) { const loc = aiImportTrap(o.x[ch]); if (!loc) return null; map[ch] = loc; } g = g.map(r => [...r].map(c => map[c] || c).join('')); }
     const lv = { id: 'i' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), name: String(o.n || 'مرحله‌ی دوستم').slice(0, 40), biome: BIOMES[o.b] ? o.b : 'dusk', g, ok: false, mine: false, t: Date.now() };
     return edValid(lv) ? lv : null;
   } catch (e) { return null; }
@@ -7184,7 +7231,7 @@ function edScroll(dx) { ED.cam = clamp(ED.cam + dx, 0, Math.max(0, edCols() * T 
 
 /* ---------- icons: the real game pieces drawn small (falls back to the emoji) ---------- */
 function edIcon(code) {
-  if (code === ' ') return null;
+  if (code === ' ' || aiTrapOf(code)) return null;
   const c = mkC(72, 72), g = c.getContext('2d'), main = ctx, cm = CAMX, lw = LW, hi = hints;
   try {
     const fw = { d: 0, D: DIFFS[0], silent: true, burst() {}, sfx() {}, shake() {}, say() {} };
@@ -7250,7 +7297,7 @@ function edOpen(lv, back) {
 function edClose(to = 'sMy') {
   $('edUI').classList.remove('on'); edBotStop();
   if (ED.lv && !ED.lv.sample) Ed.put(ED.lv);
-  app.state = 'title'; resize(); STT.tiles.clear(); setBiome(LEVELS[0].biome); app.world = new World(0, { silent: true });
+  app.state = 'title'; resize(); STT.tiles.clear(); setBiome(biomeOf(LEVELS[0])); app.world = new World(0, { silent: true });
   if (to === 'sMy') { renderMy(); app.show('sMy'); } else app.menu();
 }
 // the first change to a sample level makes it your own copy
@@ -7327,6 +7374,7 @@ function edOverlay(t) {
   for (let y = 0; y < ED_R; y++) for (let x = x0; x < x1; x++) {
     const c = G[y][x];
     if (ED_MARK[c]) { ctx.globalAlpha = .85; ctx.fillText(ED_MARK[c], x * T + T * .72, y * T + T * .3); }
+    else if (aiTrapOf(c)) { ctx.globalAlpha = .9; ctx.fillStyle = 'rgba(197,155,255,.35)'; ctx.fillRect(x * T + 2, y * T + 2, T - 4, T - 4); ctx.fillStyle = '#fff'; ctx.fillText(aiTrapOf(c).icon, x * T + T / 2, y * T + T / 2); }
     else if (c === 'K' && x <= (edFind(G, 'P')[0] || [2])[0]) { ctx.globalAlpha = .6; ctx.fillText('🚩', x * T + T / 2, y * T + T / 2); }
   }
   ctx.globalAlpha = 1;
@@ -7344,13 +7392,14 @@ function edOverlay(t) {
 const ED_ACTS = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 1, 1], [0, 0, 1]].map(a => ({ left: !!a[0], right: !!a[1], jump: !!a[2] }));
 let edBotJob = null, edBotLast = null;
 function edBotStop() { if (edBotJob) { edBotJob.stop = true; edBotJob = null; } $('edBot').classList.remove('on'); }
-function edBotStart() {
-  if (!edReady()) return;
-  edBotStop();
-  const def = edDef(ED.lv), diff = app.diff, w = new World(def, { silent: true, diff }), nSec = def.secs.length;
+// The robot: Go-Explore over the game's own simulation, room by room (each room continues from where the last one was
+// finished, so the whole run replays in one go), then checked once more on a fresh world. Runs in small slices so the
+// page stays responsive. Used by the editor and the trap lab. Returns {job, promise}; job.stop = true cancels.
+function solveDef(def, diff, opt = {}) {
+  const w = new World(def, { silent: true, diff }), nSec = def.secs.length;
   const dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); });
   const STEPS = 8, dtS = w.D.speed / 120;
-  const job = edBotJob = edBotLast = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
+  const job = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
   let rs = 12345; const Rn = () => { rs = (rs * 1664525 + 1013904223) % 4294967296; return rs / 4294967296; };
   const doorOf = () => w.lv.ents.find(e => e.type === 'door' && !e.fake && !e.gone);
   const goalX = s => s < nSec - 1 ? (def.secs[s + 1].x0 + .45) * T : null;
@@ -7358,8 +7407,8 @@ function edBotStart() {
   const done = s => s < nSec - 1 ? w.ck > s && w.p.onGround && w.state === 'play' : w.state === 'win';
   const key = () => {
     const p = w.p; let fs = ''; for (const t of w.lv.trigs) fs += t.fired ? '1' : '0';
-    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + e.patrol.i + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
-    return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + fs + mq;
+    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol || e.orbit) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + (e.patrol ? e.patrol.i : '') + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
+    return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + (w.rev ? 'r' : '') + fs + mq;
   };
   const score = s => { const p = w.p, gx = goalX(s); if (gx != null) return -Math.abs(gx - p.x) - .15 * Math.abs(p.y - 560); const d = doorOf(); return d ? -(Math.abs(p.x - d.x) + .8 * Math.abs(p.y - d.y)) : 0; };
   const snap = () => w.save(dynIdx), load = sn => w.load(sn, dynIdx);
@@ -7367,61 +7416,73 @@ function edBotStart() {
   let arch, list, root;
   const begin = () => { root = { snap: snap(), parent: null, acts: [], depth: 0, visits: 0, score: score(job.sec) }; arch = new Map([[key(), root]]); list = [root]; job.secT0 = performance.now(); };
   begin();
-  $('edBot').classList.add('on'); $('edBotTxt').textContent = '🤖 ربات داره راه رد شدن رو پیدا می‌کنه…'; $('edBotGo').hidden = true; $('edBotBar').style.transform = 'scaleX(0)';
-  // a room gets a share of the minute (at least 9 s); the archive of reached places is capped so phones keep enough memory
-  const TOTAL_MS = 60000, SEC_MS = clamp(TOTAL_MS / nSec, 9000, 30000), CAP = 7000;
-  const slice = () => {
-    if (job.stop) return;
-    const until = performance.now() + 22; let found = null;
-    while (!found && performance.now() < until) {
-      job.iters++;
-      let e; if (Rn() < .5) { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 6; k++) { const c = list[(Rn() * list.length) | 0]; if (c.visits < e.visits) e = c; } }
-      else { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 8; k++) { const c = list[(Rn() * list.length) | 0]; if (c.score > e.score) e = c; } }
-      e.visits++; load(e.snap);
-      let parent = e, a = (Rn() * 6) | 0; const len = 2 + ((Rn() * 14) | 0); let seq = [];
-      for (let i = 0; i < len; i++) {
-        if (Rn() < .3) a = (Rn() * 6) | 0;
-        run(a); seq.push(a);
-        if (w.state === 'dead') break;
-        if (done(job.sec)) { found = { parent, seq: seq.slice() }; break; }
-        if (w.state !== 'play') break;
-        const k = key(), cur = arch.get(k), depth = parent.depth + seq.length;
-        if (!cur || depth < cur.depth) {
-          const ent = { snap: snap(), parent, acts: seq.slice(), depth, visits: cur ? cur.visits : 0, score: score(job.sec) };
-          arch.set(k, ent); if (!cur) list.push(ent); else list[list.indexOf(cur)] = ent;
-          parent = ent; seq = [];
-        }
-        if (list.length > CAP) break;
+  // a room gets a share of the time (at least 9 s); the archive of reached places is capped so phones keep enough memory
+  const TOTAL_MS = opt.totalMs || 60000, SEC_MS = clamp(TOTAL_MS / nSec, Math.min(9000, TOTAL_MS), 30000), CAP = 7000;
+  const promise = new Promise(resolve => {
+    const finish = (ok, best) => {
+      if (ok) {
+        // check the whole run once more on a fresh world, exactly as it will be replayed
+        const v = new World(def, { silent: true, diff }), dv = v.D.speed / 120;
+        for (let i = 0; i < job.acts.length && v.state === 'play'; i++) for (let j = 0; j < 8; j++) { v.step(dv, ED_ACTS[job.acts[i]]); if (v.state !== 'play') break; }
+        ok = v.state === 'win';
       }
-    }
-    const el = performance.now() - job.secT0;
-    $('edBotBar').style.transform = `scaleX(${clamp((job.sec + Math.min(1, el / SEC_MS)) / nSec, 0, 1).toFixed(3)})`;
-    if (found) {
-      const chain = [found.seq]; for (let n = found.parent; n && n.parent; n = n.parent) chain.push(n.acts);
-      job.acts.push(...chain.reverse().flat()); job.sec++; job.marks.push({ n: job.acts.length, x: w.p.x, y: w.p.y, ck: w.ck, t: w.time });
-      if (job.sec >= nSec) return edBotDone(job, true);
-      // the next room starts from where this one was finished (so the whole run can be replayed in one go)
-      begin(); $('edBotTxt').textContent = `🤖 اتاق ${faNum(job.sec)} از ${faNum(nSec)} رد شد…`;
-    } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > CAP) {
-      let bx = list[0]; for (const x of list) if (x.score > bx.score) bx = x;
-      return edBotDone(job, false, { x: bx.snap.p.x + PW / 2, y: bx.snap.p.y });
-    }
+      resolve({ ok, acts: ok ? job.acts.join('') : null, best: ok ? null : best || null, stopped: job.stop, ms: Math.round(performance.now() - job.t0) });
+    };
+    const slice = () => {
+      if (job.stop) return finish(false);
+      const until = performance.now() + (opt.sliceMs || 22); let found = null;
+      while (!found && performance.now() < until) {
+        job.iters++;
+        let e; if (Rn() < .5) { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 6; k++) { const c = list[(Rn() * list.length) | 0]; if (c.visits < e.visits) e = c; } }
+        else { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 8; k++) { const c = list[(Rn() * list.length) | 0]; if (c.score > e.score) e = c; } }
+        e.visits++; load(e.snap);
+        let parent = e, a = (Rn() * 6) | 0; const len = 2 + ((Rn() * 14) | 0); let seq = [];
+        for (let i = 0; i < len; i++) {
+          if (Rn() < .3) a = (Rn() * 6) | 0;
+          run(a); seq.push(a);
+          if (w.state === 'dead') break;
+          if (done(job.sec)) { found = { parent, seq: seq.slice() }; break; }
+          if (w.state !== 'play') break;
+          const k = key(), cur = arch.get(k), depth = parent.depth + seq.length;
+          if (!cur || depth < cur.depth) {
+            const ent = { snap: snap(), parent, acts: seq.slice(), depth, visits: cur ? cur.visits : 0, score: score(job.sec) };
+            arch.set(k, ent); if (!cur) list.push(ent); else list[list.indexOf(cur)] = ent;
+            parent = ent; seq = [];
+          }
+          if (list.length > CAP) break;
+        }
+      }
+      const el = performance.now() - job.secT0;
+      if (opt.onProgress) opt.onProgress(clamp((job.sec + Math.min(1, el / SEC_MS)) / nSec, 0, 1), job.sec, nSec);
+      if (found) {
+        const chain = [found.seq]; for (let n = found.parent; n && n.parent; n = n.parent) chain.push(n.acts);
+        job.acts.push(...chain.reverse().flat()); job.sec++; job.marks.push({ n: job.acts.length, x: w.p.x, y: w.p.y, ck: w.ck, t: w.time });
+        if (job.sec >= nSec) return finish(true);
+        begin();
+      } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > CAP) {
+        let bx = list[0]; for (const x of list) if (x.score > bx.score) bx = x;
+        return finish(false, { x: bx.snap.p.x + PW / 2, y: bx.snap.p.y });
+      }
+      requestAnimationFrame(slice);
+    };
     requestAnimationFrame(slice);
-  };
-  requestAnimationFrame(slice);
+  });
+  return { job, promise };
 }
-function edBotDone(job, ok, best) {
+function edBotStart() {
+  if (!edReady()) return;
+  edBotStop();
+  $('edBot').classList.add('on'); $('edBotTxt').textContent = '🤖 ربات داره راه رد شدن رو پیدا می‌کنه…'; $('edBotGo').hidden = true; $('edBotBar').style.transform = 'scaleX(0)';
+  const S = solveDef(edDef(ED.lv), app.diff, { onProgress: (k, sec, n) => { $('edBotBar').style.transform = `scaleX(${k.toFixed(3)})`; if (sec > 0 && sec < n) $('edBotTxt').textContent = `🤖 اتاق ${faNum(sec)} از ${faNum(n)} رد شد…`; } });
+  const job = edBotJob = edBotLast = S.job;
+  S.promise.then(r => { if (job.acts) job.result = r; edBotDone(job, r.ok, r.best, r.acts); });
+}
+function edBotDone(job, ok, best, acts) {
   if (job !== edBotJob) return;
   $('edBotBar').style.transform = 'scaleX(1)';
   if (ok) {
-    // check the whole run once more on a fresh world, exactly as it will be replayed
-    const v = new World(edDef(ED.lv), { silent: true, diff: app.diff }), dtS = v.D.speed / 120;
-    for (let i = 0; i < job.acts.length && v.state === 'play'; i++) for (let j = 0; j < 8; j++) { v.step(dtS, ED_ACTS[job.acts[i]]); if (v.state !== 'play') break; }
-    ok = v.state === 'win';
-  }
-  if (ok) {
-    ED.lv.bot = true; ED.botActs = job.acts.join(''); ED.botDiff = app.diff; if (!ED.lv.sample) Ed.put(ED.lv);
-    $('edBotTxt').textContent = `✅ ربات ردش کرد! (${faNum((job.acts.length * 8 / 120).toFixed(1))} ثانیه)`; $('edBotGo').hidden = false; Sound.play('win'); unlockAch('robot');
+    ED.lv.bot = true; ED.botActs = acts; ED.botDiff = app.diff; if (!ED.lv.sample) Ed.put(ED.lv);
+    $('edBotTxt').textContent = `✅ ربات ردش کرد! (${faNum((acts.length * 8 / 120).toFixed(1))} ثانیه)`; $('edBotGo').hidden = false; Sound.play('win'); unlockAch('robot');
   } else {
     ED.botBest = best || null; app.dirty = true;
     $('edBotTxt').textContent = '😵 ربات نتونست ردش کنه. جایی که گیر کرد رو با 🤖 نشون دادم؛ شاید راهی نداره یا خیلی سخته.'; Sound.play('die');
@@ -7455,6 +7516,7 @@ function edTest(demo, here) {
 /* ---------- "my levels" screen ---------- */
 function edStats(lv) { let n = 0, gem = 0; for (const r of lv.g) for (const c of r) { if (ED_HAZ.has(c)) n++; if (c === 'e') gem++; } return { screens: lv.g[0].length / ED_SW, n, gem, rooms: edDef(lv).secs.length }; }
 function renderMy() {
+  $('bLab2').hidden = !AIX.traps.length;
   const L = Ed.list(), all = L.concat(ED_SAMPLES.map((_, i) => edSample(i)));
   $('myList').innerHTML = all.length ? all.map(lv => { const s = edStats(lv);
     return `<div class="myLv${lv.sample ? ' smp' : ''}"><div class="mt"><b>${esc(lv.name)}</b><small>${faNum(s.screens)} صفحه · ${faNum(s.rooms)} اتاق · ${faNum(s.n)} تله${s.gem ? ` · 💎${faNum(s.gem)}` : ''}${lv.mine ? '' : lv.sample ? ' · نمونه' : ' · از یه دوست'}</small>
@@ -8460,7 +8522,7 @@ function albumView(i) {
   const p = albumCache[i]; if (!p) return;
   // inside an embedded page (an iframe) downloads are usually blocked, so the save button is only offered where it works
   let framed = false; try { framed = window.self !== window.top; } catch (e) { framed = true; }
-  const canSave = !!(window.TelezarApp && TelezarApp.saveImage) || !framed;
+  const canSave = !!(window.TelezarApp && TelezarApp.saveImage) || !!phDL || !framed;
   $('albumBig').innerHTML = `<img src="${p.d}" alt=""><div class="row">${canSave ? '<button class="btn primary" data-av="save">📥 ذخیره در گالری</button>' : ''}${window.TelezarApp || (navigator.canShare) ? '<button class="btn" data-av="share">📤 فرستادن</button>' : ''}<button class="btn" data-av="del">🗑</button><button class="btn" data-av="x">بستن</button></div>`;
   $('albumBig').dataset.i = i; $('albumBig').classList.add('on');
 }
@@ -8472,6 +8534,11 @@ $('albumBig').addEventListener('click', async e => {
   else if (a === 'del') { await Album.del(p.id); $('albumBig').classList.remove('on'); renderAlbum(); }
   else if (a === 'save') {
     if (window.TelezarApp && TelezarApp.saveImage) { const r = String(TelezarApp.saveImage(b64)); app.taunt(r === 'ok' ? '✅ توی گالری (پوشه‌ی Pictures/Telezar) ذخیره شد' : r.startsWith('file:') ? '✅ ذخیره شد: ' + r.slice(5) : '❌ ذخیره نشد', r === 'err' ? '#ff9a8a' : '#9be05a'); }
+    else if (phDL) {
+      // inside claude.ai: the viewer confirms the save
+      try { const blob = await (await fetch(p.d)).blob(); await phDL.save({ filename: `telezar-${p.t}.jpg`, data: blob }); app.taunt('✅ عکس ذخیره شد', '#9be05a'); }
+      catch (e) { if (e && (e.code === 'unavailable' || e.code === 'not_granted' || e.code === 'capability_disabled' || e.code === 'capability_removed')) { phDL = null; b.remove(); } else if (e && e.code === 'rate_limited') app.taunt('یه لحظه صبر کن و دوباره بزن', '#ffd36e'); }
+    }
     else { const l = document.createElement('a'); l.href = p.d; l.download = `telezar-${p.t}.jpg`; document.body.appendChild(l); l.click(); l.remove(); }
   }
   else if (a === 'share') {
@@ -8481,7 +8548,363 @@ $('albumBig').addEventListener('click', async e => {
     } catch (e) {}
   }
 });
+// claude.ai offers saving through its own confirmation (the downloads capability); elsewhere a normal download
+let phDL = null;
+(async () => { try { if (window.claude && typeof window.claude.use === 'function') phDL = await window.claude.use('downloads'); } catch (e) { phDL = null; } })();
 $('bAlbum').onclick = () => { Sound.init(); Sound.play('click'); renderAlbum(); app.open('sAlbum'); };
+/* ============================ IN-GAME AI (only inside claude.ai) ============================ */
+// A chat with Claude that changes the game through a few page tools: level looks (colours, scenery, 3D theme,
+// music, weather), brand-new traps (described as parts + triggers, checked by the robot), new levels for the editor
+// and new body colours. Everything it makes is kept in this browser (localStorage) like the rest of the save.
+// The feature appears only where the page can reach Claude (a claude.ai artifact view); elsewhere it stays hidden.
+const AI_KEY = 'telezar_ai';
+const AIX = (() => { try { const v = JSON.parse(localStorage.getItem(AI_KEY)); if (v && typeof v === 'object') return Object.assign({ looks: {}, apply: { all: null, lv: {} }, traps: [], colors: [] }, v); } catch (e) {} return { looks: {}, apply: { all: null, lv: {} }, traps: [], colors: [] }; })();
+function aiSave() { try { localStorage.setItem(AI_KEY, JSON.stringify(AIX)); } catch (e) {} }
+const AI_ENUM = {
+  scen: ['mountains', 'forest', 'dunes', 'crystals', 'volcano', 'mushrooms', 'waves', 'candy', 'ruins', 'spires', 'hills', 'city', 'sakura', 'jungle', 'factory', 'islands', 'pyramids', 'swamp', 'domes'],
+  bs: ['brick', 'cobble', 'sandstone', 'iceblock', 'basalt', 'mossy', 'coral', 'candy', 'tiles', 'metal', 'wood', 'crystal', 'circuit'],
+  top: ['grass', 'sand', 'snow', 'embers', 'slime', 'frosting', 'gold', 'thorns', 'neon', 'petals', 'vines', 'hazard', 'cloud', 'crystal', 'leaves'],
+  cel: ['moon', 'sun', 'aurora', 'none', 'planet', 'twin'],
+  th3: Object.keys(THEMES3), mus: ['dusk', 'bright', 'desert', 'frost', 'fire', 'neon', 'wild', 'rest', 'chase', 'boss'],
+  weather: ['off', 'rain', 'snow', 'flood', 'storm', 'auto'],
+};
+const hexOk = c => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : null;
+
+/* ---------- level looks ---------- */
+// which look a level uses: its own AI look, the AI look for all levels, or its normal one
+function biomeOf(def) {
+  if (!def || def.custom) return def && def.biome;
+  const i = LEVELS.indexOf(def), k = (i >= 0 && AIX.apply.lv[i]) || AIX.apply.all;
+  return k && BIOMES[k] ? k : def.biome;
+}
+function aiTheme3(def) {
+  const i = def.from != null && def.from >= 0 ? def.from : LEVELS.indexOf(def), k = (i >= 0 && AIX.apply.lv[i]) || AIX.apply.all;
+  return k && BIOMES[k] && BIOMES[k].th3 && THEMES3[BIOMES[k].th3] ? BIOMES[k].th3 : null;
+}
+function aiRegisterLooks() { for (const k in AIX.looks) BIOMES[k] = AIX.looks[k]; }
+// a running level shows a new look straight away
+function aiRefreshLook() {
+  if (app.state === 'title' || app.state === 'end') { setBiome(biomeOf(LEVELS[0])); return; }
+  if (!app.def || app.def.custom) return;
+  if (app.kind === 'plat' && !app.duo) { setBiome(biomeOf(app.def)); app.refreshVisuals(); if (app.p3) app.restartView(); }
+  else if (app.duo) { setBiome(biomeOf(app.def)); duoLayout(); }
+  else if (app.run) app.restartView();
+}
+
+/* ---------- traps made by the AI ---------- */
+// Grid codes for AI traps in editor levels (characters no built-in tool uses)
+const AI_CODES = 'ABCEGHIJMNORUXYZklsvxy';
+const aiTrapOf = c => AIX.traps.find(t => t.code === c) || null;
+function aiRegisterTrap(t) {
+  if (!t.code || EDC.has(t.code) && !aiTrapOf(t.code)) { const free = [...AI_CODES].find(c => !EDC.has(c)); if (!free) return false; t.code = free; }
+  if (!EDT.some(x => x[0] === t.code)) EDT.push([t.code, t.icon, t.name, t.desc + ' (ساخت هوش مصنوعی)']);
+  EDC.add(t.code); ED_HAZ.add(t.code); return true;
+}
+function aiUnregisterTrap(t) { const i = EDT.findIndex(x => x[0] === t.code); if (i >= 0) EDT.splice(i, 1); EDC.delete(t.code); ED_HAZ.delete(t.code); }
+// checks and tidies a trap description; throws a readable list of problems
+function aiCleanTrap(inp) {
+  const err = [], num = (v, a, b, d) => { const n = Number(v); return Number.isFinite(n) ? clamp(n, a, b) : d; };
+  const idOk = v => v == null || v === '' ? null : /^[a-zA-Z0-9_]{1,12}$/.test(String(v)) ? String(v) : (err.push(`id «${v}» فقط حروف انگلیسی/عدد/_ تا ۱۲ تا`), null);
+  const name = String(inp.name || '').trim().slice(0, 24); if (!name) err.push('name لازمه');
+  const icon = [...String(inp.icon || '🪤')].slice(0, 2).join('') || '🪤';
+  const desc = String(inp.description || inp.desc || '').trim().slice(0, 90);
+  const parts = Array.isArray(inp.parts) ? inp.parts.slice(0, 20) : (err.push('parts باید آرایه باشه'), []);
+  const ids = new Set(), P = [];
+  for (const [i, q] of parts.entries()) {
+    if (!q || typeof q !== 'object') { err.push(`part ${i} شیء نیست`); continue; }
+    const k = String(q.kind || q.k || ''); if (!['block', 'spike', 'saw', 'laser', 'spring', 'orb', 'gem', 'wind', 'lava'].includes(k)) { err.push(`part ${i}: kind «${k}» ناشناخته`); continue; }
+    const o = { k, x: num(q.x, -8, 8, 0), y: num(q.y, -13, 3, 0) }, id = idOk(q.id); if (id) { if (ids.has(id)) err.push(`id تکراری ${id}`); ids.add(id); o.id = id; }
+    if (k === 'block' || k === 'wind' || k === 'lava') { o.w = num(q.w, .2, 10, 1); o.h = num(q.h, .2, 10, 1); }
+    if (k === 'block') { for (const f of ['hidden', 'ghost', 'crumble', 'ice', 'bounce']) if (q[f]) o[f] = true; if (q.conveyor) o.conv = num(q.conveyor, -4, 4, 0); }
+    if (k === 'spike') { o.n = Math.round(num(q.n, 1, 10, 1)); o.dir = ['up', 'down', 'left', 'right'].includes(q.dir) ? q.dir : 'up'; if (q.hidden) o.hidden = true; if (q.arrow) o.arrow = true; }
+    if (k === 'saw') o.r = num(q.r, .3, 1.4, .6);
+    if (k === 'laser') { o.len = num(q.len, 1, 14, 4); o.dir = q.dir === 'h' ? 'h' : 'v'; o.on = num(q.on, .3, 4, 1.1); o.off = num(q.off, .3, 4, 1.4); }
+    if (k === 'wind') { o.fx = num(q.fx, -25, 25, 0); o.fy = num(q.fy, -25, 25, 0); }
+    if (Array.isArray(q.path) && q.path.length && ['block', 'spike', 'saw', 'laser'].includes(k)) { o.path = q.path.slice(0, 6).map(p => [num(p && p[0], -12, 12, 0), num(p && p[1], -12, 12, 0)]); o.speed = num(q.speed, .5, 14, 3); }
+    if (o.arrow && !o.path) err.push(`part ${i}: arrow به path نیاز داره`);
+    if (q.orbit && (k === 'saw' || k === 'block')) o.orbit = { rad: num(q.orbit.radius ?? q.orbit.rad, .5, 5, 2), speed: num(q.orbit.speed, -5, 5, 1.5) };
+    if (q.follow != null) { const f = String(q.follow); if (P.some(p => p.id === f && p.k === 'block')) o.follow = f; else err.push(`part ${i}: follow «${f}» باید id یه block قبلی باشه`); }
+    P.push(o);
+  }
+  if (!P.length) err.push('دست‌کم یه part لازمه');
+  const TG = [];
+  for (const [i, t] of (Array.isArray(inp.triggers) ? inp.triggers.slice(0, 8) : []).entries()) {
+    if (!t || typeof t !== 'object') continue;
+    const o = { x: num(t.x, -10, 10, 0), y: num(t.y, -14, 3, -2), w: num(t.w, .3, 14, 1), h: num(t.h, .3, 14, 3), when: ['touch', 'ground', 'head'].includes(t.when) ? t.when : 'touch', acts: [] };
+    for (const a of (Array.isArray(t.actions) ? t.actions.slice(0, 6) : [])) {
+      const d = String(a && a.do || ''); if (!['pop', 'fall', 'move', 'say', 'shake', 'reverse', 'sound'].includes(d)) { err.push(`trigger ${i}: action «${d}» ناشناخته`); continue; }
+      const A = { do: d, delay: num(a.delay, 0, 5, 0) };
+      if (['pop', 'fall', 'move'].includes(d)) { if (!ids.has(String(a.id))) { err.push(`trigger ${i}: id «${a.id}» توی parts نیست`); continue; } A.id = String(a.id); }
+      if (d === 'pop' && !P.find(p => p.id === A.id && p.hidden)) err.push(`trigger ${i}: pop فقط برای part با hidden:true`);
+      if (d === 'move') { A.dx = num(a.dx, -20, 20, 0); A.dy = num(a.dy, -20, 20, 0); A.speed = num(a.speed, .5, 20, 6); }
+      if (d === 'say') A.text = String(a.text || '').slice(0, 40);
+      if (d === 'sound') A.name = ['rumble', 'crack', 'whoosh', 'thud', 'pop', 'orb', 'spring', 'roar'].includes(a.name) ? a.name : 'pop';
+      o.acts.push(A);
+    }
+    if (o.acts.length) TG.push(o);
+  }
+  if (err.length) throw new Error(err.slice(0, 8).join(' | '));
+  return { name, icon, desc, parts: P, trigs: TG };
+}
+// builds one placed copy of an AI trap (lx, y: the cell it was put in; every part id gets the copy's prefix)
+function aiBuildTrap(P, t, lx, y, inst) {
+  const id = q => q ? inst + q : null, mk = e => { if (e) e.dyn = true; return e; };
+  for (const q of t.parts) {
+    const ax = lx + q.x, ay = y + q.y, o = {};
+    if (q.path) { o.patrol = [[ax, ay]].concat(q.path.map(p => [ax + p[0], ay + p[1]])); o.speed = q.speed; }
+    if (q.orbit) o.orbit = { rad: q.orbit.rad, w: q.orbit.speed, ph: 0 };
+    if (q.follow) o.parent = inst + q.follow;
+    if (q.k === 'block') {
+      if (q.hidden) o.hidden = true; if (q.ghost) o.ghost = true; if (q.crumble) o.crumble = .45; if (q.ice) o.ice = true; if (q.bounce) o.bounce = 22; if (q.conv) o.conv = q.conv;
+      o.fallV = 80; mk(P.block(id(q.id), ax, ay, q.w, q.h, o));
+    } else if (q.k === 'lava') P.block(null, ax, ay + .3, q.w, q.h, { lava: true, ghost: true });
+    else if (q.k === 'spike') { if (q.hidden) o.hidden = true; if (q.arrow) { o.arrow = true; o.pjump = true; } o.fallV = 100; mk(P.spikes(id(q.id), ax, ay, q.n, q.dir, o)); }
+    else if (q.k === 'saw') mk(P.saw(id(q.id), ax, ay, q.r, o));
+    else if (q.k === 'laser') mk(P.laser(id(q.id), ax, ay, q.len, q.dir, Object.assign({ on: q.on, off: q.off }, o)));
+    else if (q.k === 'spring') mk(P.spring(id(q.id), ax, ay));
+    else if (q.k === 'orb') mk(P.orb(id(q.id), ax, ay));
+    else if (q.k === 'gem') P.gem(ax, ay);
+    else if (q.k === 'wind') mk(P.zone(id(q.id), 'wind', ax, ay, q.w, q.h, { fx: q.fx, fy: q.fy }));
+  }
+  for (const g of t.trigs) {
+    P.trig(lx + g.x, y + g.y, g.w, g.h, () => {
+      for (const a of g.acts) {
+        const run = () => {
+          if (a.do === 'pop') P.pop(inst + a.id);
+          else if (a.do === 'fall') P.fall(inst + a.id, 0);
+          else if (a.do === 'move') P.move(inst + a.id, a.dx, a.dy, a.speed, 0);
+          else if (a.do === 'say') P.say(a.text);
+          else if (a.do === 'shake') P.shake(8);
+          else if (a.do === 'sound') P.sfx(a.name);
+          else if (a.do === 'reverse') { P.reverse(true); P.after(3, () => P.reverse(false)); }
+        };
+        if (a.delay > 0) P.after(a.delay, run); else run();
+      }
+    }, { ground: g.when === 'ground', rising: g.when === 'head' });
+  }
+}
+// a one-screen room with the trap in the middle (for testing it and for the robot)
+function aiTrapRoom(t) {
+  const lv = edNew(1); lv.id = 'airoom_' + t.code; lv.name = `🧪 ${t.name}`; lv.mine = false; lv.sample = true; lv.ok = true; lv.biome = AIX.apply.all && BIOMES[AIX.apply.all] ? AIX.apply.all : 'factory';
+  lv.g = lv.g.map((r, y) => y === 14 ? r.slice(0, 16) + t.code + r.slice(17) : r);
+  return lv;
+}
+// all AI traps one after another, each in its own room
+function aiGauntlet() {
+  const list = AIX.traps.slice(0, 9); if (!list.length) return null;
+  const C = Math.max(ED_SW, list.length * 16 + 8), lv = edNew(1);
+  lv.g = lv.g.map((r, y) => (y >= 15 ? 'g' : ' ').repeat(C));
+  const set = (x, y, c) => { lv.g[y] = lv.g[y].slice(0, x) + c + lv.g[y].slice(x + 1); };
+  set(2, 14, 'P'); list.forEach((t, i) => { if (i) set(i * 16 + 1, 14, 'K'); set(i * 16 + 9, 14, t.code); }); set(C - 3, 14, 'D');
+  Object.assign(lv, { id: 'aigauntlet', name: '🧪 همه‌ی تله‌های هوش مصنوعی', biome: AIX.apply.all && BIOMES[AIX.apply.all] ? AIX.apply.all : 'factory', mine: false, sample: true, ok: true });
+  return lv;
+}
+// a trap that came inside a level code: reuse an identical one or add it (returns its letter here, or null)
+function aiImportTrap(raw) {
+  let c; try { c = aiCleanTrap(raw || {}); } catch (e) { return null; }
+  const same = AIX.traps.find(t => JSON.stringify([t.parts, t.trigs]) === JSON.stringify([c.parts, c.trigs])); if (same) return same.code;
+  if (AIX.traps.length >= AI_CODES.length) return null;
+  let name = c.name; while (AIX.traps.some(t => t.name === name)) name += '+';
+  const t = Object.assign({ id: 't' + Date.now().toString(36) + AIX.traps.length }, c, { name, ok: null, made: Date.now(), from: 'code' });
+  if (!aiRegisterTrap(t)) return null; AIX.traps.push(t); aiSave(); ED.iconBiome = null; return t.code;
+}
+function aiCheckTrap(t) {
+  t.ok = null; renderLab();
+  const S = solveDef(edDef(aiTrapRoom(t)), 1, { totalMs: 25000 });
+  return S.promise.then(r => { t.ok = r.ok; aiSave(); renderLab(); return r.ok; });
+}
+
+/* ---------- the lab (a section for the AI's traps) ---------- */
+function renderLab() {
+  const el = document.getElementById('labList'); if (!el) return;
+  el.innerHTML = AIX.traps.length ? AIX.traps.map(t => `<div class="myLv"><div class="ci" style="font-size:30px">${esc(t.icon)}</div><div class="mt"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small>
+      <small class="${t.ok ? 'ok' : 'no'}">${t.ok == null ? '⏳ ربات داره امتحانش می‌کنه…' : t.ok ? '✅ ربات ردش کرد' : '⚠️ ربات نتونست ردش کنه'}</small></div>
+      <div class="ma"><button class="btn primary" data-lab="play" data-c="${t.code}">▶</button><button class="btn" data-lab="check" data-c="${t.code}">🤖</button><button class="btn" data-lab="del" data-c="${t.code}">🗑</button></div></div>`).join('')
+    : '<p class="sub small">هنوز تله‌ای نساختی. به هوش مصنوعی بگو مثلاً «یه تله بساز که سقف یهو بیاد پایین».</p>';
+  $('bGaunt').disabled = !AIX.traps.length;
+}
+$('labList').addEventListener('click', e => {
+  const b = e.target.closest('[data-lab]'); if (!b) return; Sound.play('click'); const t = aiTrapOf(b.dataset.c); if (!t) return;
+  if (b.dataset.lab === 'play') app.startCustom(aiTrapRoom(t), { back: 'sLab' });
+  else if (b.dataset.lab === 'check') aiCheckTrap(t);
+  else if (b.dataset.lab === 'del' && confirm(`تله‌ی «${t.name}» پاک بشه؟`)) { aiUnregisterTrap(t); AIX.traps = AIX.traps.filter(x => x !== t); aiSave(); renderLab(); }
+});
+$('bGaunt').onclick = () => { Sound.play('click'); const lv = aiGauntlet(); if (lv) app.startCustom(lv, { back: 'sLab' }); };
+$('bLab').onclick = $('bLab2').onclick = () => { Sound.play('click'); renderLab(); app.open('sLab'); };
+
+/* ---------- tools Claude can call ---------- */
+const AI_TOOLS = [
+  { name: 'set_look', description: 'Change how levels look: colours, background scenery, block material, edge/top style, sky object, 3D theme, music, optional weather. target: "all" (every main level), "current" (the level being played), "levels" (numbers in `levels`) or "reset" (back to normal; with `levels` only those). Returns what was applied.',
+    inputSchema: { type: 'object', properties: { target: { type: 'string', enum: ['all', 'current', 'levels', 'reset'] }, levels: { type: 'array', items: { type: 'integer' } }, name: { type: 'string' },
+      sky: { type: 'string', description: '#rrggbb' }, block: { type: 'string', description: '#rrggbb' }, accent: { type: 'string', description: '#rrggbb edge/grass colour' },
+      scenery: { type: 'string', enum: AI_ENUM.scen }, blockStyle: { type: 'string', enum: AI_ENUM.bs }, top: { type: 'string', enum: AI_ENUM.top }, celestial: { type: 'string', enum: AI_ENUM.cel },
+      theme3d: { type: 'string', enum: AI_ENUM.th3 }, music: { type: 'string', enum: AI_ENUM.mus }, weather: { type: 'string', enum: AI_ENUM.weather } }, required: ['target'] },
+    execute: inp => aiSetLook(inp) },
+  { name: 'create_trap', description: 'Create a brand-new trap for the game (it gets its own section, the Trap Lab, and becomes an editor tool). Parts and triggers use tile units relative to the cell the trap is placed in (y=1 is the top of the ground under it). The robot then tries to pass it; returns {code, passable}. If passable is false, redesign (same name replaces it).',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' }, icon: { type: 'string', description: 'one emoji' }, description: { type: 'string', description: 'Persian, one short line' },
+      parts: { type: 'array', items: { type: 'object' }, description: 'see the trap guide in the instructions' }, triggers: { type: 'array', items: { type: 'object' } } }, required: ['name', 'icon', 'parts'] },
+    execute: inp => aiCreateTrap(inp) },
+  { name: 'delete_trap', description: 'Delete an AI-made trap by its name. Returns the remaining trap names.',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+    execute: inp => { const t = AIX.traps.find(x => x.name === String(inp.name)); if (!t) throw new Error('trap not found'); aiUnregisterTrap(t); AIX.traps = AIX.traps.filter(x => x !== t); aiSave(); renderLab(); return { left: AIX.traps.map(x => x.name) }; } },
+  { name: 'create_level', description: 'Create a playable level for the player (saved in the level editor list). rows: exactly 18 strings of equal length (32 to 160), one character per tile, using the editor codes from the instructions (AI trap codes allowed). Needs one P (start) and one D (door). The robot tries it (about 30 s) and the result is returned.',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' }, look: { type: 'string', description: 'a look key: one of the normal ones or an AI look' }, rows: { type: 'array', items: { type: 'string' } } }, required: ['name', 'rows'] },
+    execute: inp => aiCreateLevel(inp) },
+  { name: 'add_color', description: 'Add a new free body colour for the hero to the shop (and wear it if wear is true).',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' }, color: { type: 'string', description: '#rrggbb' }, icon: { type: 'string' }, wear: { type: 'boolean' } }, required: ['name', 'color'] },
+    execute: inp => { const c = hexOk(inp.color); if (!c) throw new Error('color must be #rrggbb'); const it = { id: 'aic' + Date.now().toString(36), n: String(inp.name).slice(0, 20), i: [...String(inp.icon || '🎨')].slice(0, 2).join(''), p: 0, c };
+      AIX.colors.push(it); SKINS.color.push(it); if (inp.wear) { ST.wear = Object.assign({}, ST.wear, { color: it.id }); writeSave(); } aiSave(); aiNote(`🎨 رنگ تازه: ${it.i} ${it.n}`); return { added: it.n, worn: !!inp.wear }; } },
+];
+function aiSetLook(inp) {
+  const tg = String(inp.target || 'all'), lvls = (Array.isArray(inp.levels) ? inp.levels : []).map(n => Math.round(Number(n)) - 1).filter(i => i >= 0 && i < LEVELS.length);
+  if (tg === 'reset') { if (lvls.length) for (const i of lvls) delete AIX.apply.lv[i]; else { AIX.apply.all = null; AIX.apply.lv = {}; } aiSave(); aiRefreshLook(); aiNote('↩️ ظاهر مرحله‌ها برگشت'); return { reset: lvls.length ? lvls.map(i => i + 1) : 'all' }; }
+  const base = BIOMES[biomeOf(LEVELS[Math.max(0, app.idx)])] || BIOMES.dusk;
+  const pick = (v, list, d) => list.includes(v) ? v : d;
+  const look = { n: String(inp.name || 'ظاهر هوش مصنوعی').slice(0, 24), sky: hexOk(inp.sky) || base.sky, block: hexOk(inp.block) || base.block, moss: hexOk(inp.accent) || base.moss,
+    scen: pick(inp.scenery, AI_ENUM.scen, base.scen), bs: pick(inp.blockStyle, AI_ENUM.bs, base.bs), top: pick(inp.top, AI_ENUM.top, base.top), cel: pick(inp.celestial, AI_ENUM.cel, base.cel),
+    th3: pick(inp.theme3d, AI_ENUM.th3, base.th3), mus: pick(inp.music, AI_ENUM.mus, base.mus), ai: true };
+  const key = 'ai_' + Date.now().toString(36); AIX.looks[key] = look; BIOMES[key] = look;
+  if (tg === 'all') AIX.apply.all = key;
+  else if (tg === 'current') { if (!(app.idx >= 0 && app.def && LEVELS[app.idx] === app.def)) throw new Error('no main level is being played right now; use target all or levels'); AIX.apply.lv[app.idx] = key; }
+  else { if (!lvls.length) throw new Error('levels is empty'); for (const i of lvls) AIX.apply.lv[i] = key; }
+  // forget looks nothing uses any more
+  const used = new Set([AIX.apply.all, ...Object.values(AIX.apply.lv)]); for (const k in AIX.looks) if (!used.has(k)) { delete AIX.looks[k]; }
+  if (inp.weather && AI_ENUM.weather.includes(inp.weather)) { CFG.weather = inp.weather; saveCfg(); }
+  aiSave(); aiRefreshLook(); aiNote(`🎨 ظاهر «${look.n}» روی ${tg === 'all' ? 'همه‌ی مرحله‌ها' : tg === 'current' ? 'این مرحله' : 'مرحله‌های ' + lvls.map(i => faNum(i + 1)).join('، ')}`);
+  return { applied: look.n, target: tg, levels: lvls.map(i => i + 1) };
+}
+async function aiCreateTrap(inp) {
+  const c = aiCleanTrap(inp), old = AIX.traps.find(x => x.name === c.name);
+  if (!old && AIX.traps.length >= AI_CODES.length) throw new Error('too many traps; delete one first');
+  const t = old || { id: 't' + Date.now().toString(36) }; Object.assign(t, c, { ok: null, made: Date.now() });
+  if (!old) { if (!aiRegisterTrap(t)) throw new Error('no free code'); AIX.traps.push(t); } else { aiUnregisterTrap(t); EDC.delete(t.code); aiRegisterTrap(t); }
+  aiSave(); ED.iconBiome = null;
+  const note = aiNote(`🪤 تله‌ی «${t.icon} ${t.name}» ساخته شد · ربات داره امتحانش می‌کنه…`, [['🧪 امتحانش کن', 'trap:' + t.code]]);
+  const ok = await aiCheckTrap(t);
+  if (note) note.firstChild.textContent = `🪤 تله‌ی «${t.icon} ${t.name}» ${ok ? '✅ قابل رد شدنه' : '⚠️ ربات نتونست ردش کنه'}`;
+  return { code: t.code, passable: ok };
+}
+async function aiCreateLevel(inp) {
+  const rows = (Array.isArray(inp.rows) ? inp.rows : []).map(r => String(r));
+  if (rows.length !== ED_R) throw new Error(`rows must be exactly ${ED_R} strings`);
+  const C = Math.max(...rows.map(r => r.length)); const g = rows.map(r => (r + ' '.repeat(C)).slice(0, C));
+  const bad = new Set(); for (const r of g) for (const ch of r) if (!EDC.has(ch)) bad.add(ch);
+  if (bad.size) throw new Error('unknown characters: ' + [...bad].join(' '));
+  const lv = { id: 'm' + Date.now().toString(36), name: String(inp.name || 'مرحله‌ی هوش مصنوعی').slice(0, 40), biome: BIOMES[inp.look] ? inp.look : 'dusk', g, ok: false, mine: true, ai: true, t: Date.now() };
+  if (!edValid(lv)) throw new Error('width must be 32..160');
+  if (!edFind(g, 'P').length || !edFind(g, 'D').length) throw new Error('needs one P and one D');
+  Ed.put(lv);
+  const note = aiNote(`🗺️ مرحله‌ی «${lv.name}» ساخته شد · ربات داره امتحانش می‌کنه…`, [['▶ بازی کن', 'lv:' + lv.id], ['✏️ توی سازنده', 'ed:' + lv.id]]);
+  const r = await solveDef(edDef(lv), 1, { totalMs: 30000 }).promise;
+  if (r.ok) { lv.bot = true; Ed.put(lv); }
+  if (note) note.firstChild.textContent = `🗺️ مرحله‌ی «${lv.name}» ${r.ok ? '✅ ربات ردش کرد' : '⚠️ ربات نتونست ردش کنه'}`;
+  return { saved: lv.name, width: C, passable: r.ok, robotStuckAtTile: r.best ? [Math.round(r.best.x / T), Math.round(r.best.y / T)] : null };
+}
+
+/* ---------- what Claude is told ---------- */
+function aiRules() {
+  const st = {
+    playing: app.state === 'play' || app.state === 'pause' ? (app.custom ? 'custom level' : app.idx >= 0 ? `main level ${app.idx + 1} (${LEVELS[app.idx].name}) in ${app.kind === 'run' ? '3D' : '2D'}` : app.endless ? 'endless' : 'other') : 'menu',
+    lookAll: AIX.apply.all ? AIX.looks[AIX.apply.all].n : null, lookPerLevel: Object.entries(AIX.apply.lv).map(([i, k]) => [+i + 1, AIX.looks[k] && AIX.looks[k].n]),
+    aiTraps: AIX.traps.map(t => ({ code: t.code, name: t.name, passable: t.ok })), weather: CFG.weather, levels: LEVELS.length,
+    normalLooks: Object.keys(BIOMES).filter(k => !BIOMES[k].ai).map(k => `${k}=${BIOMES[k].n}`).join(', '),
+  };
+  return `You are «هوش تله‌زار», the AI built into the Persian troll platformer game «تله‌زار» (Telezar). The player talks to you in Persian.
+Always answer in friendly, playful Persian, short (1-4 sentences). You change the game ONLY by calling the tools; never claim a change you did not make with a tool.
+If a request is impossible with the tools (for example giving free gems, or anything outside this game), say so kindly and offer what you can do.
+When the player asks for a "new trap" (تله), design one with create_trap. When they ask to change how levels look (e.g. «آتشین کن»), use set_look with fitting colours and styles.
+
+GAME STATE: ${JSON.stringify(st)}
+
+LOOK OPTIONS (set_look): scenery: ${AI_ENUM.scen.join(', ')} | blockStyle: ${AI_ENUM.bs.join(', ')} | top: ${AI_ENUM.top.join(', ')} | celestial: ${AI_ENUM.cel.join(', ')} | theme3d: ${AI_ENUM.th3.join(', ')} | music: ${AI_ENUM.mus.join(', ')} | weather: ${AI_ENUM.weather.join(', ')}.
+Colours are dark-ish backgrounds with a bright accent. Example fiery look: sky #5c1616, block #3e1c1c, accent #ff8a3d, scenery volcano, blockStyle basalt, top embers, celestial none, theme3d lava, music fire.
+
+TRAP GUIDE (create_trap). Units are tiles (1 tile = the hero's height-ish; hero is 0.6 wide, 0.75 tall, runs 7.5 tiles/s, jumps about 3.3 tiles high and 5 tiles far).
+Coordinates are relative to the anchor cell where the player places the trap: (0,0) is that cell's top-left, x grows right, y grows DOWN, the ground surface under it is at y=1. Keep x in -8..8 and y in -12..1 (the trap sits on flat ground; the player comes from the left and must get past it to the right).
+parts: [{kind, id?, x, y, ...}] kinds:
+- block {w,h, hidden?, ghost? (looks solid, falls through), crumble?, ice?, bounce?, conveyor? (-4..4 tiles/s), path?, speed?, orbit?}
+- spike {n (1-10), dir: up|down|left|right, hidden?, arrow? (flies along path and jumps back; needs path), path?, speed?}  (a spike tile is 1x1; x,y is its top-left)
+- saw {r (0.3-1.4), x,y = centre, path?, speed?, orbit? {radius, speed (rad/s)}}
+- laser {len, dir: v|h, on, off (seconds)}  (vertical from y down)
+- spring, orb (flips gravity), gem, lava {w,h}, wind {w,h, fx, fy (tiles/s; fy -18 lifts)}
+path = list of [dx,dy] offsets from the part's start, visited in a loop; speed in tiles/s.
+follow: the id of an earlier block — the part then moves and falls together with that block (e.g. spikes under a crushing ceiling).
+triggers: [{x,y,w,h, when: touch|ground (player standing inside)|head (player jumping up into it), actions:[{do: pop (show a hidden part)|fall (part drops)|move {dx,dy,speed}|say {text, Persian}|shake|sound {name: rumble|crack|whoosh|thud|pop|orb|spring|roar}|reverse (controls flipped 3 s), id?, delay? (s)}]}]
+Make traps surprising but fair: there must be a way through (timing, a hidden route, waiting). Avoid walls taller than 3 tiles without a way around. Prefer 3-12 parts.
+Example — "سقف خاردار" (a ceiling with spikes that slams down once you are under it, then goes back up):
+parts [{kind:"block",id:"c",x:-1,y:-7,w:4,h:1},{kind:"spike",x:-1,y:-6,n:4,dir:"down",follow:"c"}]
+triggers [{x:-2,y:-6,w:1,h:7,when:"touch",actions:[{do:"sound",name:"rumble"},{do:"move",id:"c",dx:0,dy:4.5,speed:12,delay:0.35},{do:"move",id:"c",dx:0,dy:-4.5,speed:3,delay:1.2},{do:"say",text:"سقف!"}]}]
+(moves on the same id queue one after another; delay is the wait before that move starts)
+
+LEVEL GRID (create_level): 18 rows, 32-160 columns, one char per tile; the bottom rows are usually ground.
+codes: ' ' empty, g ground, p plank (jump through), i ice, m moving platform, c crumbling, f fake ground, d falling ground, n invisible block, S spike up, V spike down, h hidden spike, r falling spike, w saw, W moving saw, z laser, L lava, j spring, b bounce pad, < > conveyors, q pink switch block (solid first), Q blue switch block, t teleporter in, T teleporter out, u updraft, a arrow shooter, o gravity orb, e gem, P start (one), D door (one), F fake door, K checkpoint${AIX.traps.length ? ', AI traps: ' + AIX.traps.map(t => `${t.code}=${t.name}`).join(', ') : ''}.
+Hero needs 2 empty tiles of headroom. Keep jumps under 3 tiles up and 4 tiles across.`;
+}
+
+/* ---------- chat ---------- */
+const AIC = { sample: null, tools: false, turns: [], busy: false, ctl: null, bubble: null };
+function aiAdd(role, text) {
+  const d = document.createElement('div'); d.className = 'aiMsg ' + role; const t = document.createElement('div'); t.className = 'aiT'; t.textContent = text; d.appendChild(t);
+  $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; return d;
+}
+// a line under Claude's answer for every change a tool made (with buttons to try it)
+function aiNote(text, btns = []) {
+  const host = AIC.bubble; if (!host) return null;
+  const n = document.createElement('div'); n.className = 'aiNote'; const s = document.createElement('span'); s.textContent = text; n.appendChild(s);
+  for (const [label, act] of btns) { const b = document.createElement('button'); b.className = 'chip'; b.textContent = label; b.dataset.aiAct = act; n.appendChild(b); }
+  host.appendChild(n); $('aiLog').scrollTop = $('aiLog').scrollHeight; return n;
+}
+const AI_ERR = { not_granted: 'اجازه‌ی استفاده از Claude داده نشد.', sampling_disabled: 'Claude برای این حساب فعال نیست.', rate_limited: 'یه کم زیاد پرسیدی؛ چند دقیقه‌ی دیگه دوباره امتحان کن.',
+  session_expired: 'باید دوباره وارد claude.ai بشی.', refused: 'این درخواست رو نمی‌تونم انجام بدم.', prompt_too_large: 'گفت‌وگو خیلی طولانی شد؛ «گفت‌وگوی تازه» رو بزن.', tools_unavailable: 'این‌جا ابزارهای تغییر بازی در دسترس نیستن.' };
+async function aiSend(text) {
+  text = String(text || '').trim(); if (!text || AIC.busy || !AIC.sample) return;
+  AIC.busy = true; $('aiIn').value = ''; aiBusyUI(true);
+  aiAdd('user', text); AIC.turns.push({ role: 'user', content: text });
+  const bubble = AIC.bubble = aiAdd('ai', 'دارم فکر می‌کنم… 🤔'); const tx = bubble.firstChild;
+  const ctl = AIC.ctl = new AbortController();
+  const tools = AIC.tools ? AI_TOOLS.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema, execute: async (inp, ctx) => { if (ctx && ctx.signal && ctx.signal.aborted) throw new Error('stopped'); try { return await t.execute(inp || {}); } catch (e) { aiNote('⚠️ ' + String(e.message || e).slice(0, 120)); throw e; } } })) : undefined;
+  try {
+    const hist = AIC.turns.slice(-12); while (hist.length && hist[0].role !== 'user') hist.shift();
+    const { text: ans } = await AIC.sample([{ role: 'user', content: aiRules() }, ...hist], Object.assign({ signal: ctl.signal, modelTier: 'default', onText: ({ text }) => { tx.textContent = text; $('aiLog').scrollTop = $('aiLog').scrollHeight; } }, tools ? { tools } : { cache: false }));
+    tx.textContent = ans || '✔'; AIC.turns.push({ role: 'assistant', content: ans || '✔' });
+    if (!ST.ach.ai) unlockAch('ai');
+  } catch (e) {
+    const code = e && e.code;
+    tx.textContent = (e && e.text) || (code === 'cancelled' ? '⏹ متوقف شد.' : AI_ERR[code] || 'یه مشکلی پیش اومد؛ دوباره امتحان کن.');
+    if (e && e.text) AIC.turns.push({ role: 'assistant', content: e.text });
+    if (code === 'not_granted' || code === 'sampling_disabled') aiHide();
+  } finally { AIC.busy = false; AIC.ctl = null; AIC.bubble = null; aiBusyUI(false); }
+}
+function aiBusyUI(b) { $('aiSend').hidden = b; $('aiStop').hidden = !b; $('aiIn').disabled = b; }
+function aiHide() { for (const id of ['bAI', 'bAI2']) $(id).hidden = true; }
+$('aiSend').onclick = () => { Sound.play('click'); aiSend($('aiIn').value); };
+$('aiStop').onclick = () => { if (AIC.ctl) AIC.ctl.abort(); };
+$('aiIn').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSend($('aiIn').value); } });
+$('aiChips').addEventListener('click', e => { const b = e.target.closest('[data-aiq]'); if (b) { Sound.play('click'); aiSend(b.dataset.aiq); } });
+$('aiNew').onclick = () => { Sound.play('click'); if (AIC.busy) return; AIC.turns = []; $('aiLog').innerHTML = ''; aiAdd('ai', AI_HELLO); };
+$('aiLog').addEventListener('click', e => {
+  const b = e.target.closest('[data-ai-act]'); if (!b) return; Sound.play('click'); const [k, v] = b.dataset.aiAct.split(':');
+  if (k === 'trap') { const t = aiTrapOf(v); if (t) app.startCustom(aiTrapRoom(t), { back: 'sAI' }); }
+  else if (k === 'lv') { const lv = Ed.get(v); if (lv) app.startCustom(lv, { back: 'sAI' }); }
+  else if (k === 'ed') { const lv = Ed.get(v); if (lv) edOpen(lv); }
+});
+const AI_HELLO = 'سلام! من هوش مصنوعی تله‌زارم 😈 بگو چی کار کنم: ظاهر مرحله‌ها رو عوض کنم، تله‌ی تازه بسازم، یه مرحله طراحی کنم یا یه رنگ جدید برای آدمکت درست کنم.';
+function aiOpen() { Sound.init(); Sound.play('click'); if (!$('aiLog').children.length) aiAdd('ai', AI_HELLO + (AIC.tools ? '' : '\n(این‌جا ابزارهای تغییر بازی در دسترس نیستن؛ فقط می‌تونیم حرف بزنیم.)')); app.open('sAI'); setTimeout(() => $('aiIn').focus(), 50); }
+$('bAI').onclick = aiOpen; $('bAI2').onclick = aiOpen;
+
+/* ---------- start: bring back what the AI made, and look for Claude ---------- */
+aiRegisterLooks();
+for (const t of AIX.traps) aiRegisterTrap(t);
+for (const c of AIX.colors) if (!SKINS.color.some(x => x.id === c.id)) SKINS.color.push(c);
+if (AIX.apply.all && BIOMES[AIX.apply.all]) setBiome(biomeOf(LEVELS[0]));
+(async () => {
+  try {
+    if (!window.claude || typeof window.claude.use !== 'function') return;
+    const s = await window.claude.use('sample'); if (!s) return;
+    AIC.sample = s; try { const lim = await s.limits(); AIC.tools = !!(lim && lim.tools); } catch (e) { AIC.tools = false; }
+    $('bAI').hidden = false; $('bAI2').hidden = false;
+  } catch (e) {}
+})();
 /* ============================ TEST HOOK ============================ */
 // Deterministic headless simulation used for verifying each level is beatable.
 window.TRAPLAND = {

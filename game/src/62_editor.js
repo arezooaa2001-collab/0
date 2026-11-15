@@ -97,6 +97,7 @@ function edBuild(P, G, ox) {
     else if (c === 'o') dyn(P.orb(id(), lx + .5, y + .5));
     else if (c === 'e') P.gem(lx + .5, y + .5);
     else if (c === 'D') dyn(P.door(lx - .2, y - 1));
+    else if (aiTrapOf(c)) aiBuildTrap(P, aiTrapOf(c), lx, y, 'a' + x + '_' + y + '_');
     else if (c === 'F') { const k = id(); dyn(P.spikes(k + 's', lx - 1, y, 3, 'up', { hidden: true })); dyn(P.add(k, { type: 'door', fake: k + 's', x: (lx - .2) * T, y: (y - 1) * T, w: 1.4 * T, h: 2 * T })); }
   }
 }
@@ -137,7 +138,8 @@ function edNew(screens = 2) {
 // run-length rows ("_" = empty), joined with "/", packed as UTF-8 base64 (URL-safe)
 function edCode(lv) {
   const rle = lv.g.map(r => { let s = ''; for (let i = 0; i < r.length;) { let j = i; while (j < r.length && r[j] === r[i]) j++; const c = r[i] === ' ' ? '_' : r[i]; s += (j - i > 1 ? j - i : '') + c; i = j; } return s; }).join('/');
-  const json = JSON.stringify({ v: 1, n: (lv.name || '').slice(0, 40), b: lv.biome, g: rle });
+  const xs = {}; for (const r of lv.g) for (const c of r) { const t = aiTrapOf(c); if (t && !xs[c]) xs[c] = { name: t.name, icon: t.icon, description: t.desc, parts: t.parts, triggers: t.trigs.map(g => ({ x: g.x, y: g.y, w: g.w, h: g.h, when: g.when, actions: g.acts })) }; }
+  const json = JSON.stringify(Object.assign({ v: 1, n: (lv.name || '').slice(0, 40), b: lv.biome, g: rle }, Object.keys(xs).length ? { x: xs } : {}));
   const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '.').replace(/=+$/, '');
   return 'TZ1-' + b64;
 }
@@ -146,7 +148,9 @@ function edDecode(code) {
     const m = String(code).replace(/\s+/g, '').match(/TZ1-([A-Za-z0-9\-._]+)/); if (!m) return null;
     let b = m[1].replace(/-/g, '+').replace(/\./g, '/'); while (b.length % 4) b += '=';
     const o = JSON.parse(decodeURIComponent(escape(atob(b))));
-    const g = String(o.g).split('/').map(s => { let r = ''; s.replace(/(\d*)(\D)/g, (_, n, c) => { r += (c === '_' ? ' ' : c).repeat(n ? Math.min(+n, 200) : 1); return ''; }); return r; });
+    let g = String(o.g).split('/').map(s => { let r = ''; s.replace(/(\d*)(\D)/g, (_, n, c) => { r += (c === '_' ? ' ' : c).repeat(n ? Math.min(+n, 200) : 1); return ''; }); return r; });
+    // traps made by someone's AI come with the code: add them here (or reuse an identical one) and map their letters
+    if (o.x && typeof o.x === 'object') { const map = {}; for (const ch in o.x) { const loc = aiImportTrap(o.x[ch]); if (!loc) return null; map[ch] = loc; } g = g.map(r => [...r].map(c => map[c] || c).join('')); }
     const lv = { id: 'i' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), name: String(o.n || 'مرحله‌ی دوستم').slice(0, 40), biome: BIOMES[o.b] ? o.b : 'dusk', g, ok: false, mine: false, t: Date.now() };
     return edValid(lv) ? lv : null;
   } catch (e) { return null; }
@@ -234,7 +238,7 @@ function edScroll(dx) { ED.cam = clamp(ED.cam + dx, 0, Math.max(0, edCols() * T 
 
 /* ---------- icons: the real game pieces drawn small (falls back to the emoji) ---------- */
 function edIcon(code) {
-  if (code === ' ') return null;
+  if (code === ' ' || aiTrapOf(code)) return null;
   const c = mkC(72, 72), g = c.getContext('2d'), main = ctx, cm = CAMX, lw = LW, hi = hints;
   try {
     const fw = { d: 0, D: DIFFS[0], silent: true, burst() {}, sfx() {}, shake() {}, say() {} };
@@ -300,7 +304,7 @@ function edOpen(lv, back) {
 function edClose(to = 'sMy') {
   $('edUI').classList.remove('on'); edBotStop();
   if (ED.lv && !ED.lv.sample) Ed.put(ED.lv);
-  app.state = 'title'; resize(); STT.tiles.clear(); setBiome(LEVELS[0].biome); app.world = new World(0, { silent: true });
+  app.state = 'title'; resize(); STT.tiles.clear(); setBiome(biomeOf(LEVELS[0])); app.world = new World(0, { silent: true });
   if (to === 'sMy') { renderMy(); app.show('sMy'); } else app.menu();
 }
 // the first change to a sample level makes it your own copy
@@ -377,6 +381,7 @@ function edOverlay(t) {
   for (let y = 0; y < ED_R; y++) for (let x = x0; x < x1; x++) {
     const c = G[y][x];
     if (ED_MARK[c]) { ctx.globalAlpha = .85; ctx.fillText(ED_MARK[c], x * T + T * .72, y * T + T * .3); }
+    else if (aiTrapOf(c)) { ctx.globalAlpha = .9; ctx.fillStyle = 'rgba(197,155,255,.35)'; ctx.fillRect(x * T + 2, y * T + 2, T - 4, T - 4); ctx.fillStyle = '#fff'; ctx.fillText(aiTrapOf(c).icon, x * T + T / 2, y * T + T / 2); }
     else if (c === 'K' && x <= (edFind(G, 'P')[0] || [2])[0]) { ctx.globalAlpha = .6; ctx.fillText('🚩', x * T + T / 2, y * T + T / 2); }
   }
   ctx.globalAlpha = 1;
@@ -394,13 +399,14 @@ function edOverlay(t) {
 const ED_ACTS = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 0, 1], [0, 1, 1], [0, 0, 1]].map(a => ({ left: !!a[0], right: !!a[1], jump: !!a[2] }));
 let edBotJob = null, edBotLast = null;
 function edBotStop() { if (edBotJob) { edBotJob.stop = true; edBotJob = null; } $('edBot').classList.remove('on'); }
-function edBotStart() {
-  if (!edReady()) return;
-  edBotStop();
-  const def = edDef(ED.lv), diff = app.diff, w = new World(def, { silent: true, diff }), nSec = def.secs.length;
+// The robot: Go-Explore over the game's own simulation, room by room (each room continues from where the last one was
+// finished, so the whole run replays in one go), then checked once more on a fresh world. Runs in small slices so the
+// page stays responsive. Used by the editor and the trap lab. Returns {job, promise}; job.stop = true cancels.
+function solveDef(def, diff, opt = {}) {
+  const w = new World(def, { silent: true, diff }), nSec = def.secs.length;
   const dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); });
   const STEPS = 8, dtS = w.D.speed / 120;
-  const job = edBotJob = edBotLast = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
+  const job = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
   let rs = 12345; const Rn = () => { rs = (rs * 1664525 + 1013904223) % 4294967296; return rs / 4294967296; };
   const doorOf = () => w.lv.ents.find(e => e.type === 'door' && !e.fake && !e.gone);
   const goalX = s => s < nSec - 1 ? (def.secs[s + 1].x0 + .45) * T : null;
@@ -408,8 +414,8 @@ function edBotStart() {
   const done = s => s < nSec - 1 ? w.ck > s && w.p.onGround && w.state === 'play' : w.state === 'win';
   const key = () => {
     const p = w.p; let fs = ''; for (const t of w.lv.trigs) fs += t.fired ? '1' : '0';
-    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + e.patrol.i + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
-    return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + fs + mq;
+    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol || e.orbit) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + (e.patrol ? e.patrol.i : '') + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
+    return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + (w.rev ? 'r' : '') + fs + mq;
   };
   const score = s => { const p = w.p, gx = goalX(s); if (gx != null) return -Math.abs(gx - p.x) - .15 * Math.abs(p.y - 560); const d = doorOf(); return d ? -(Math.abs(p.x - d.x) + .8 * Math.abs(p.y - d.y)) : 0; };
   const snap = () => w.save(dynIdx), load = sn => w.load(sn, dynIdx);
@@ -417,61 +423,73 @@ function edBotStart() {
   let arch, list, root;
   const begin = () => { root = { snap: snap(), parent: null, acts: [], depth: 0, visits: 0, score: score(job.sec) }; arch = new Map([[key(), root]]); list = [root]; job.secT0 = performance.now(); };
   begin();
-  $('edBot').classList.add('on'); $('edBotTxt').textContent = '🤖 ربات داره راه رد شدن رو پیدا می‌کنه…'; $('edBotGo').hidden = true; $('edBotBar').style.transform = 'scaleX(0)';
-  // a room gets a share of the minute (at least 9 s); the archive of reached places is capped so phones keep enough memory
-  const TOTAL_MS = 60000, SEC_MS = clamp(TOTAL_MS / nSec, 9000, 30000), CAP = 7000;
-  const slice = () => {
-    if (job.stop) return;
-    const until = performance.now() + 22; let found = null;
-    while (!found && performance.now() < until) {
-      job.iters++;
-      let e; if (Rn() < .5) { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 6; k++) { const c = list[(Rn() * list.length) | 0]; if (c.visits < e.visits) e = c; } }
-      else { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 8; k++) { const c = list[(Rn() * list.length) | 0]; if (c.score > e.score) e = c; } }
-      e.visits++; load(e.snap);
-      let parent = e, a = (Rn() * 6) | 0; const len = 2 + ((Rn() * 14) | 0); let seq = [];
-      for (let i = 0; i < len; i++) {
-        if (Rn() < .3) a = (Rn() * 6) | 0;
-        run(a); seq.push(a);
-        if (w.state === 'dead') break;
-        if (done(job.sec)) { found = { parent, seq: seq.slice() }; break; }
-        if (w.state !== 'play') break;
-        const k = key(), cur = arch.get(k), depth = parent.depth + seq.length;
-        if (!cur || depth < cur.depth) {
-          const ent = { snap: snap(), parent, acts: seq.slice(), depth, visits: cur ? cur.visits : 0, score: score(job.sec) };
-          arch.set(k, ent); if (!cur) list.push(ent); else list[list.indexOf(cur)] = ent;
-          parent = ent; seq = [];
-        }
-        if (list.length > CAP) break;
+  // a room gets a share of the time (at least 9 s); the archive of reached places is capped so phones keep enough memory
+  const TOTAL_MS = opt.totalMs || 60000, SEC_MS = clamp(TOTAL_MS / nSec, Math.min(9000, TOTAL_MS), 30000), CAP = 7000;
+  const promise = new Promise(resolve => {
+    const finish = (ok, best) => {
+      if (ok) {
+        // check the whole run once more on a fresh world, exactly as it will be replayed
+        const v = new World(def, { silent: true, diff }), dv = v.D.speed / 120;
+        for (let i = 0; i < job.acts.length && v.state === 'play'; i++) for (let j = 0; j < 8; j++) { v.step(dv, ED_ACTS[job.acts[i]]); if (v.state !== 'play') break; }
+        ok = v.state === 'win';
       }
-    }
-    const el = performance.now() - job.secT0;
-    $('edBotBar').style.transform = `scaleX(${clamp((job.sec + Math.min(1, el / SEC_MS)) / nSec, 0, 1).toFixed(3)})`;
-    if (found) {
-      const chain = [found.seq]; for (let n = found.parent; n && n.parent; n = n.parent) chain.push(n.acts);
-      job.acts.push(...chain.reverse().flat()); job.sec++; job.marks.push({ n: job.acts.length, x: w.p.x, y: w.p.y, ck: w.ck, t: w.time });
-      if (job.sec >= nSec) return edBotDone(job, true);
-      // the next room starts from where this one was finished (so the whole run can be replayed in one go)
-      begin(); $('edBotTxt').textContent = `🤖 اتاق ${faNum(job.sec)} از ${faNum(nSec)} رد شد…`;
-    } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > CAP) {
-      let bx = list[0]; for (const x of list) if (x.score > bx.score) bx = x;
-      return edBotDone(job, false, { x: bx.snap.p.x + PW / 2, y: bx.snap.p.y });
-    }
+      resolve({ ok, acts: ok ? job.acts.join('') : null, best: ok ? null : best || null, stopped: job.stop, ms: Math.round(performance.now() - job.t0) });
+    };
+    const slice = () => {
+      if (job.stop) return finish(false);
+      const until = performance.now() + (opt.sliceMs || 22); let found = null;
+      while (!found && performance.now() < until) {
+        job.iters++;
+        let e; if (Rn() < .5) { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 6; k++) { const c = list[(Rn() * list.length) | 0]; if (c.visits < e.visits) e = c; } }
+        else { e = list[(Rn() * list.length) | 0]; for (let k = 0; k < 8; k++) { const c = list[(Rn() * list.length) | 0]; if (c.score > e.score) e = c; } }
+        e.visits++; load(e.snap);
+        let parent = e, a = (Rn() * 6) | 0; const len = 2 + ((Rn() * 14) | 0); let seq = [];
+        for (let i = 0; i < len; i++) {
+          if (Rn() < .3) a = (Rn() * 6) | 0;
+          run(a); seq.push(a);
+          if (w.state === 'dead') break;
+          if (done(job.sec)) { found = { parent, seq: seq.slice() }; break; }
+          if (w.state !== 'play') break;
+          const k = key(), cur = arch.get(k), depth = parent.depth + seq.length;
+          if (!cur || depth < cur.depth) {
+            const ent = { snap: snap(), parent, acts: seq.slice(), depth, visits: cur ? cur.visits : 0, score: score(job.sec) };
+            arch.set(k, ent); if (!cur) list.push(ent); else list[list.indexOf(cur)] = ent;
+            parent = ent; seq = [];
+          }
+          if (list.length > CAP) break;
+        }
+      }
+      const el = performance.now() - job.secT0;
+      if (opt.onProgress) opt.onProgress(clamp((job.sec + Math.min(1, el / SEC_MS)) / nSec, 0, 1), job.sec, nSec);
+      if (found) {
+        const chain = [found.seq]; for (let n = found.parent; n && n.parent; n = n.parent) chain.push(n.acts);
+        job.acts.push(...chain.reverse().flat()); job.sec++; job.marks.push({ n: job.acts.length, x: w.p.x, y: w.p.y, ck: w.ck, t: w.time });
+        if (job.sec >= nSec) return finish(true);
+        begin();
+      } else if (el > SEC_MS || performance.now() - job.t0 > TOTAL_MS || list.length > CAP) {
+        let bx = list[0]; for (const x of list) if (x.score > bx.score) bx = x;
+        return finish(false, { x: bx.snap.p.x + PW / 2, y: bx.snap.p.y });
+      }
+      requestAnimationFrame(slice);
+    };
     requestAnimationFrame(slice);
-  };
-  requestAnimationFrame(slice);
+  });
+  return { job, promise };
 }
-function edBotDone(job, ok, best) {
+function edBotStart() {
+  if (!edReady()) return;
+  edBotStop();
+  $('edBot').classList.add('on'); $('edBotTxt').textContent = '🤖 ربات داره راه رد شدن رو پیدا می‌کنه…'; $('edBotGo').hidden = true; $('edBotBar').style.transform = 'scaleX(0)';
+  const S = solveDef(edDef(ED.lv), app.diff, { onProgress: (k, sec, n) => { $('edBotBar').style.transform = `scaleX(${k.toFixed(3)})`; if (sec > 0 && sec < n) $('edBotTxt').textContent = `🤖 اتاق ${faNum(sec)} از ${faNum(n)} رد شد…`; } });
+  const job = edBotJob = edBotLast = S.job;
+  S.promise.then(r => { if (job.acts) job.result = r; edBotDone(job, r.ok, r.best, r.acts); });
+}
+function edBotDone(job, ok, best, acts) {
   if (job !== edBotJob) return;
   $('edBotBar').style.transform = 'scaleX(1)';
   if (ok) {
-    // check the whole run once more on a fresh world, exactly as it will be replayed
-    const v = new World(edDef(ED.lv), { silent: true, diff: app.diff }), dtS = v.D.speed / 120;
-    for (let i = 0; i < job.acts.length && v.state === 'play'; i++) for (let j = 0; j < 8; j++) { v.step(dtS, ED_ACTS[job.acts[i]]); if (v.state !== 'play') break; }
-    ok = v.state === 'win';
-  }
-  if (ok) {
-    ED.lv.bot = true; ED.botActs = job.acts.join(''); ED.botDiff = app.diff; if (!ED.lv.sample) Ed.put(ED.lv);
-    $('edBotTxt').textContent = `✅ ربات ردش کرد! (${faNum((job.acts.length * 8 / 120).toFixed(1))} ثانیه)`; $('edBotGo').hidden = false; Sound.play('win'); unlockAch('robot');
+    ED.lv.bot = true; ED.botActs = acts; ED.botDiff = app.diff; if (!ED.lv.sample) Ed.put(ED.lv);
+    $('edBotTxt').textContent = `✅ ربات ردش کرد! (${faNum((acts.length * 8 / 120).toFixed(1))} ثانیه)`; $('edBotGo').hidden = false; Sound.play('win'); unlockAch('robot');
   } else {
     ED.botBest = best || null; app.dirty = true;
     $('edBotTxt').textContent = '😵 ربات نتونست ردش کنه. جایی که گیر کرد رو با 🤖 نشون دادم؛ شاید راهی نداره یا خیلی سخته.'; Sound.play('die');
@@ -505,6 +523,7 @@ function edTest(demo, here) {
 /* ---------- "my levels" screen ---------- */
 function edStats(lv) { let n = 0, gem = 0; for (const r of lv.g) for (const c of r) { if (ED_HAZ.has(c)) n++; if (c === 'e') gem++; } return { screens: lv.g[0].length / ED_SW, n, gem, rooms: edDef(lv).secs.length }; }
 function renderMy() {
+  $('bLab2').hidden = !AIX.traps.length;
   const L = Ed.list(), all = L.concat(ED_SAMPLES.map((_, i) => edSample(i)));
   $('myList').innerHTML = all.length ? all.map(lv => { const s = edStats(lv);
     return `<div class="myLv${lv.sample ? ' smp' : ''}"><div class="mt"><b>${esc(lv.name)}</b><small>${faNum(s.screens)} صفحه · ${faNum(s.rooms)} اتاق · ${faNum(s.n)} تله${s.gem ? ` · 💎${faNum(s.gem)}` : ''}${lv.mine ? '' : lv.sample ? ' · نمونه' : ' · از یه دوست'}</small>

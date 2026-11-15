@@ -48,6 +48,7 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/67_extras.js` | challenge modifiers (darkness, upside-down screen, mirrored world, turbo) with bonus rewards, and the daily lucky wheel |
 | `src/68_duo.js` | two players on one device: split-screen race (each half has its own copy of the level, camera and static-tile cache), countdown, keyboard and touch controls per player, results and score |
 | `src/69_road.js` | reward road: gems for every player level and shop items that only unlock at a level |
+| `src/74_ai.js` | the in-game AI (only inside a claude.ai artifact view, through the page's `sample` capability): a Persian chat whose page tools change level looks (colours, scenery, block style, 3D theme, music, weather), create new traps from a small parts-and-triggers description (validated, then tried by the robot; they live in the Trap Lab and become editor tools, and level codes carry them), create editor levels and new body colours; everything it makes is kept in localStorage |
 | `src/72_photo.js` | photo mode from the pause menu (frozen game, camera slide, filters, caption), in-game album in IndexedDB, saving to the phone's gallery / sharing through the Android bridge |
 | `src/60_app.js`, `src/65_ui.js` | app flow, records, achievements, gem shop, endless/daily runs with lives, ghost of the best run, settings, mode, and records screens |
 

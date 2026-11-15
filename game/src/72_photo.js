@@ -89,7 +89,7 @@ function albumView(i) {
   const p = albumCache[i]; if (!p) return;
   // inside an embedded page (an iframe) downloads are usually blocked, so the save button is only offered where it works
   let framed = false; try { framed = window.self !== window.top; } catch (e) { framed = true; }
-  const canSave = !!(window.TelezarApp && TelezarApp.saveImage) || !framed;
+  const canSave = !!(window.TelezarApp && TelezarApp.saveImage) || !!phDL || !framed;
   $('albumBig').innerHTML = `<img src="${p.d}" alt=""><div class="row">${canSave ? '<button class="btn primary" data-av="save">📥 ذخیره در گالری</button>' : ''}${window.TelezarApp || (navigator.canShare) ? '<button class="btn" data-av="share">📤 فرستادن</button>' : ''}<button class="btn" data-av="del">🗑</button><button class="btn" data-av="x">بستن</button></div>`;
   $('albumBig').dataset.i = i; $('albumBig').classList.add('on');
 }
@@ -101,6 +101,11 @@ $('albumBig').addEventListener('click', async e => {
   else if (a === 'del') { await Album.del(p.id); $('albumBig').classList.remove('on'); renderAlbum(); }
   else if (a === 'save') {
     if (window.TelezarApp && TelezarApp.saveImage) { const r = String(TelezarApp.saveImage(b64)); app.taunt(r === 'ok' ? '✅ توی گالری (پوشه‌ی Pictures/Telezar) ذخیره شد' : r.startsWith('file:') ? '✅ ذخیره شد: ' + r.slice(5) : '❌ ذخیره نشد', r === 'err' ? '#ff9a8a' : '#9be05a'); }
+    else if (phDL) {
+      // inside claude.ai: the viewer confirms the save
+      try { const blob = await (await fetch(p.d)).blob(); await phDL.save({ filename: `telezar-${p.t}.jpg`, data: blob }); app.taunt('✅ عکس ذخیره شد', '#9be05a'); }
+      catch (e) { if (e && (e.code === 'unavailable' || e.code === 'not_granted' || e.code === 'capability_disabled' || e.code === 'capability_removed')) { phDL = null; b.remove(); } else if (e && e.code === 'rate_limited') app.taunt('یه لحظه صبر کن و دوباره بزن', '#ffd36e'); }
+    }
     else { const l = document.createElement('a'); l.href = p.d; l.download = `telezar-${p.t}.jpg`; document.body.appendChild(l); l.click(); l.remove(); }
   }
   else if (a === 'share') {
@@ -110,4 +115,7 @@ $('albumBig').addEventListener('click', async e => {
     } catch (e) {}
   }
 });
+// claude.ai offers saving through its own confirmation (the downloads capability); elsewhere a normal download
+let phDL = null;
+(async () => { try { if (window.claude && typeof window.claude.use === 'function') phDL = await window.claude.use('downloads'); } catch (e) { phDL = null; } })();
 $('bAlbum').onclick = () => { Sound.init(); Sound.play('click'); renderAlbum(); app.open('sAlbum'); };
