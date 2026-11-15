@@ -120,6 +120,26 @@ export class Photo {
     }
     g.sky.mesh.position.copy(cam.position);
   }
+  /** claude.ai: offer the photo through the viewer's save prompt */
+  async saveViaViewer(canvas, name) {
+    const g = this.g;
+    let dl = null;
+    try {
+      dl = await window.claude.use('downloads');
+    } catch (e) {
+      dl = null;
+    }
+    if (!dl) return g.ui.toast('ذخیره فایل اینجا ممکن نیست؛ انگشتت رو روی عکس نگه دار 👆', 'warn');
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        await dl.save({ filename: name, data: blob });
+        g.ui.toast('📸 عکس ذخیره شد', 'good');
+      } catch (e) {
+        if (e && e.code !== 'declined') g.ui.toast('عکس ذخیره نشد؛ انگشتت رو روی عکس نگه دار 👆', 'warn');
+      }
+    }, 'image/png');
+  }
   capture(opts = {}) {
     const g = this.g;
     // render and read back in the same task (no preserveDrawingBuffer needed)
@@ -155,16 +175,25 @@ export class Photo {
     g.audio.burst(0.06, 3000, 'highpass', 0.4);
     g.audio.burst(0.1, 900, 'lowpass', 0.3);
     const name = `taxi-city-${Date.now()}.png`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // inside claude.ai the page can't download by itself: the ⬇️ button asks the viewer instead
+    const viewer = !!(window.claude && typeof window.claude.use === 'function');
+    if (!viewer) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
     // also show it, so phones can long-press to save
     $('phImg').src = url;
-    $('phDl').href = url;
-    $('phDl').download = name;
+    const dl = $('phDl');
+    dl.href = url;
+    dl.download = name;
+    dl.onclick = viewer ? (e) => {
+      e.preventDefault();
+      this.saveViaViewer(c, name);
+    } : null;
     $('phView').classList.remove('hidden');
     g.stats.photos = (g.stats.photos || 0) + 1;
     if (g.hunt && g.state === 'photo') g.hunt.check();

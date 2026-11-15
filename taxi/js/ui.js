@@ -1407,6 +1407,7 @@ export class UI {
       <div class="menu">
         <button data-a="resume" class="big">▶ ادامه بازی</button>
         <label>کیفیت گرافیک <select data-s="quality"><option value="low">پایین</option><option value="medium">متوسط</option><option value="high">بالا</option><option value="ultra">خیلی بالا ✨ (افکت‌های سینمایی)</option></select></label>
+        <button data-a="reload" class="hidden">🔄 بارگذاری دوباره برای اعمال کیفیت جدید</button>
         <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option><option value="bumper">دوربین سپر</option><option value="tv">🎬 دوربین تلویزیونی</option><option value="dash">📹 دوربین داشبورد</option></select></label>
         <label>گیربکس <select data-s="auto"><option value="0">دستی</option><option value="1">خودکار</option></select></label>
         <label>حساسیت فرمان <input type="range" min="0.5" max="2" step="0.1" data-s="sens"></label>
@@ -1445,8 +1446,21 @@ export class UI {
         this.toast(g.chat.cfg.key ? '🤖 کلید جمنای ذخیره شد' : 'کلید پاک شد؛ چت آفلاین فعاله', 'good');
       };
       codeIn.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') submit(); };
-      el.querySelector('[data-a=reset]').onclick = () => {
-        if (confirm('همه پیشرفتت پاک میشه. مطمئنی؟')) g.resetSave();
+      // confirmations live in the page (browser dialogs are blocked in some embeds)
+      const rs = el.querySelector('[data-a=reset]');
+      rs.onclick = () => {
+        if (rs.dataset.armed) return g.resetSave();
+        rs.dataset.armed = '1';
+        const old = rs.textContent;
+        rs.textContent = '⚠️ همه پیشرفتت پاک میشه! برای تأیید دوباره بزن';
+        setTimeout(() => {
+          delete rs.dataset.armed;
+          rs.textContent = old;
+        }, 4000);
+      };
+      el.querySelector('[data-a=reload]').onclick = () => {
+        g.save();
+        location.reload();
       };
       el.querySelectorAll('[data-s]').forEach((inp) => {
         const k = inp.dataset.s;
@@ -1463,10 +1477,8 @@ export class UI {
           if (k === 'voice') g.audio.voice = !!v;
           if (k === 'quality') {
             g.saveSettings();
-            if (confirm('برای اعمال کیفیت جدید بازی دوباره بارگذاری میشه. باشه؟')) {
-              g.save();
-              location.reload();
-            }
+            el.querySelector('[data-a=reload]').classList.remove('hidden');
+            this.toast('🔄 کیفیت جدید بعد از بارگذاری دوباره اعمال میشه (دکمه زیرش)', 'info');
           }
           if (k === 'steer') {
             this.applySteerMode();
