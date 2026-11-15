@@ -21,6 +21,8 @@
 <div id="hud">
   <button class="hbtn" id="bPause" aria-label="توقف"><svg viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
   <button class="hbtn" id="bCam" aria-label="دوربین سه‌بعدی" title="دوربین: کنار / سوم شخص (کلید C)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button>
+  <button class="hbtn" id="bEmote" aria-label="شکلک" title="شکلک (کلیدهای ۱ تا ۶)">😜</button>
+  <div id="emoteBar"></div>
   <button class="hbtn" id="bRestart" aria-label="شروع دوباره"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/></svg></button>
   <div id="lvlTag" class="fa"></div>
   <div id="pprog"><i></i></div>
@@ -37,6 +39,7 @@
   <div id="danger"></div>
 </div>
 <div id="toast" class="fa"></div>
+<div id="stamp" class="fa"></div>
 
 <div class="screen on fa" id="sTitle">
   <div class="panel">
@@ -66,6 +69,7 @@
   <div class="panel">
     <h2>انتخاب مرحله</h2>
     <div class="diffbox"><div class="diffs" data-diffs></div></div>
+    <div class="boostBar" id="boostBar"></div>
     <div class="grid" id="lvGrid"></div>
     <div id="realmBox" hidden><div class="lbl realmLbl">🌀 ابعاد پنهان</div><div class="grid realm" id="rmGrid"></div></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
@@ -81,6 +85,7 @@
       <button class="btn" id="bRestart2">↻ شروع دوباره</button>
       <button class="btn" id="bRestartAll">⏮ کل مرحله از اول</button>
       <button class="btn" id="bEdBack" hidden>✏️ برگرد به سازنده</button>
+      <button class="btn" id="bPhoto">📸 حالت عکس</button>
       <button class="btn" id="bMode2">🎮 حالت بازی</button>
       <button class="btn" id="bSet2">⚙️ تنظیمات</button>
       <button class="btn" id="bSound2">🔊 صدا: روشن</button>
@@ -122,7 +127,7 @@
     <h2>رکوردها و دستاوردها</h2>
     <div class="tabs" id="statTabs"></div>
     <div class="setBody" id="statsBody"></div>
-    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bAlbum">🖼️ آلبوم عکس‌ها</button><button class="btn" data-back>بازگشت</button></div>
   </div>
 </div>
 
@@ -205,6 +210,29 @@
     <div class="setBody" id="roadList"></div>
     <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bRoadShop">🛒 فروشگاه</button><button class="btn" data-back>بازگشت</button></div>
   </div>
+</div>
+<div class="screen fa" id="sRevive">
+  <div class="panel">
+    <div style="font-size:46px;line-height:1">💔</div>
+    <h2>جون‌هات تموم شد!</h2>
+    <p class="sub" id="revTxt"></p>
+    <div class="bar" style="max-width:320px;margin:0 auto 16px"><i id="revBar" style="transition:transform .1s linear"></i></div>
+    <div class="btns"><button class="btn primary" id="bRevive"></button><button class="btn" id="bNoRevive">نه، تمومش کن</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sAlbum">
+  <div class="panel tall">
+    <h2>🖼️ آلبوم عکس‌ها</h2>
+    <div class="setBody"><div class="phGrid" id="albumGrid"></div></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div id="albumBig" class="fa"></div>
+<div id="photoUI" class="fa">
+  <div id="phHint"></div>
+  <div class="phBar"><div class="chips" id="phFilters"></div>
+    <div class="phBtns"><button class="btn" data-ph="album" id="phCount">🖼️</button><button class="phShot" data-ph="shot" aria-label="عکس بگیر"></button><button class="btn" data-ph="close">✖ برگرد</button></div></div>
+  <div id="phFlash"></div>
 </div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">

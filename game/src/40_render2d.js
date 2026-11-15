@@ -899,6 +899,7 @@ function drawDynamic(world, t, dt, depth) {
   if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
   drawPlayer(world, t);
+  if (world.emote) drawEmote(world);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
 }

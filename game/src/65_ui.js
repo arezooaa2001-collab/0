@@ -127,8 +127,9 @@ let statTab = 'rec';
 function renderStats(tab) {
   if (tab) statTab = tab;
   const nc = TRAPS.filter(t => (ST.dc || {})[t[0]]).length;
-  $('statTabs').innerHTML = [['rec', '🏆 رکوردها'], ['traps', `📖 دانشنامه‌ی تله‌ها (${faNum(nc)}/${faNum(TRAPS.length)})`]].map(([k, n]) => `<button class="tab${k === statTab ? ' on' : ''}" data-sttab="${k}">${n}</button>`).join('');
+  $('statTabs').innerHTML = [['rec', '🏆 رکوردها'], ['traps', `📖 دانشنامه‌ی تله‌ها (${faNum(nc)}/${faNum(TRAPS.length)})`], ['titles', '🏷️ لقب‌ها']].map(([k, n]) => `<button class="tab${k === statTab ? ' on' : ''}" data-sttab="${k}">${n}</button>`).join('');
   if (statTab === 'traps') { $('statsBody').innerHTML = renderTraps(); return; }
+  if (statTab === 'titles') { $('statsBody').innerHTML = renderTitles(); return; }
   const pr = progOf(app.diff), stars = pr.stars || {}, best = pr.best || {};
   const won = Object.keys(stars).length, got = ACH.filter(a => ST.ach[a[0]]).length;
   let h = `<div class="kv"><div><b>${faNum(won)}/${faNum(LEVELS.length)}</b><span>مرحله‌ی برده‌شده</span></div><div><b>${faNum(totalStars(app.diff))}</b><span>ستاره (${DIFFS[app.diff].name})</span></div>

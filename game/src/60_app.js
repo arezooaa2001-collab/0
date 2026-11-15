@@ -113,6 +113,9 @@ const ACH = [
   ['duo', '👥', 'رفیق بازی', 'یه دور مسابقه‌ی دو نفره رو ببر'],
   ['duo5', '🤼', 'قهرمان دو نفره', 'توی مسابقه‌ی دو نفره ۵ دور ببر'],
   ['near50', '😅', 'مو به مو', '۵۰ بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)'],
+  ['gradeS', '🅢', 'رتبه‌ی S', 'یه مرحله رو با رتبه‌ی S تموم کن'],
+  ['gradeS10', '💫', 'افسانه', 'ده مرحله رو با رتبه‌ی S تموم کن'],
+  ['photo', '📸', 'عکاس', 'توی «حالت عکس» (از منوی توقف) یه عکس بگیر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -218,10 +221,10 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad', 'sRevive', 'sAlbum']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); $('albumBig').classList.remove('on'); },
   open(id) { this.show(id); },
   goBack() {
-    Sound.play('click'); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
+    Sound.play('click'); if (this.state === 'revive') return this.reviveAnswer(false); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
     const b = this.state === 'pause' ? 'sPause' : this.state === 'end' ? 'sEnd' : 'sTitle';
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
@@ -239,6 +242,7 @@ const app = {
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
     if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
+    if (!opt.keep) boostApply();
   },
   startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.startDef(REALM[r], opt); },
   // boss rush: the four boss arenas one after another, against the clock
@@ -303,7 +307,7 @@ const app = {
     const seed = daily ? dayKey() : (Math.random() * 1e6) | 0, def = makeEndless(seed);
     this.custom = null; this.demo = null; this.rush = null; this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
     this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, daily, best: daily ? dailyBest() : (ST.endBest || {})[this.diff] || 0 };
-    this.startDef(def, {});
+    this.startDef(def, {}); boostApply();
     setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
   },
   endlessCheck(i) {
@@ -318,6 +322,22 @@ const app = {
       E.zone = z; const b = endlessZoneBiome(d, i);
       this.swapBiome(b, `منطقه‌ی ${faNum(z + 1)}`, b && BIOMES[b] ? BIOMES[b].n || 'منطقه‌ی جدید' : '');
     }
+  },
+  // endless: one second chance per run for a few gems (6 seconds to decide)
+  offerRevive(E) {
+    this.state = 'revive'; ptrs.clear(); refreshTouch();
+    $('revTxt').textContent = `${faNum(E.dist)} متر اومدی. با ${faNum(REVIVE_GEMS)} جواهر یه جون دیگه بگیر و از همین‌جا ادامه بده (فقط یه بار).`;
+    $('bRevive').textContent = `❤️ ادامه بده (💎 ${faNum(REVIVE_GEMS)} از ${faNum(gemBalance())})`;
+    this.show('sRevive'); const t0 = performance.now(), R = this.revT = {};
+    const tick = () => { if (this.revT !== R || this.state !== 'revive') return; const k = 1 - (performance.now() - t0) / 6000; $('revBar').style.transform = `scaleX(${Math.max(0, k).toFixed(3)})`; if (k <= 0) return this.reviveAnswer(false); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  },
+  reviveAnswer(yes) {
+    const E = this.endless; if (this.state !== 'revive' || !E) return; this.revT = null;
+    if (yes && gemBalance() >= REVIVE_GEMS) {
+      ST.spent = (ST.spent || 0) + REVIVE_GEMS; E.revived = true; E.lives = 1; writeSave();
+      this.state = 'play'; this.show(null); this.world.deadT = .25; this.updTag(); Sound.play('win'); setTimeout(() => this.taunt('❤️ یه شانس دیگه! این دفعه حواست باشه', '#ff7ab8'), 500);
+    } else { this.state = 'play'; this.endlessOver(); }
   },
   endlessOver() {
     const E = this.endless; if (!E) return;
@@ -343,7 +363,8 @@ const app = {
     this.view = v;
     if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
-    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; } mutApply(true);
+    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; } mutApply(true);
+    $('bEmote').hidden = this.kind === 'run' || def.kind === '3d' || (CFG.mode === '3d' && !def.noRun && !def.endless); $('emoteBar').classList.remove('on');
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
     tLayer.classList.toggle('vert', v === 'r2');
     if (v === 'r2') setTimeout(() => this.taunt(isTouch ? '▲ ▼ = جابه‌جایی بالا و پایین جاده' : '← → = جابه‌جایی بالا و پایین جاده', '#9ef9ff'), 2300);
@@ -361,7 +382,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { if (def.custom) return; ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
-      w.onNear = () => { ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
+      w.onNear = () => { this.levelNear = (this.levelNear || 0) + 1; ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = (c, e) => this.onDeath(c, e); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
@@ -412,7 +433,7 @@ const app = {
     Missions.ev('death'); trapSeen(c, src);
     if (this.endless && this.kind === 'plat') {
       const E = this.endless; if (E.lives <= 0) return; E.lives--; this.updTag();
-      if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') this.endlessOver(); else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
+      if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') { if (!E.revived && gemBalance() >= REVIVE_GEMS) this.offerRevive(E); else this.endlessOver(); } else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
       else this.taunt(E.lives === 1 ? '⚠️ آخرین جون!' : `${'❤️'.repeat(E.lives)} مونده`, '#ff7ab8');
     }
     this.deaths++; this.levelDeaths++; ST.deaths++; this.updDeaths(); $('deaths').classList.remove('bump'); void $('deaths').offsetWidth; $('deaths').classList.add('bump');
@@ -495,16 +516,25 @@ const app = {
     if (WX.kind === 'storm') unlockAch('storm');
     if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
-    this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
+    const starLine = `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`;
+    if (this.realmIdx >= 0) this.taunt(starLine, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
     const nm = mutCount(); if (nm) { Missions.ev('mut'); ST.gems += nm * 5; setTimeout(() => this.taunt(`🎭 جایزه‌ی چالش: +${faNum(nm * 5)} 💎`, '#ff8a4c'), 2300); }
     Missions.ev('win'); XP.add((40 + (d === 0 ? 20 : 0) + this.diff * 10) * (1 + nm * .5)); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
-    if (race) { const pl = race.fin + 1; if (pl === 1) { unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
+    if (race) { const pl = race.fin + 1; if (pl === 1) { this.raceFirst = true; unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
-    if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {
-      const dd = this.world.winDoor; startTrans('close', .5, next, dd.x + dd.w / 2, dd.y + dd.h / 2);
-    } else { $('fade').classList.add('on'); setTimeout(next, 480); }
+    const go = () => {
+      if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {
+        const dd = this.world.winDoor; startTrans('close', .5, next, dd.x + dd.w / 2, dd.y + dd.h / 2);
+      } else { $('fade').classList.add('on'); setTimeout(next, 480); }
+    };
+    // the main levels get a grade stamp first; the next level waits for it (and for the end of a pause)
+    if (this.realmIdx < 0) {
+      gradeLevel(this, t, d, nr, starLine); writeSave();
+      const D0 = this.def, wait = () => { if (this.def !== D0 || this.state === 'title' || this.state === 'end') return; if (this.state === 'pause') return setTimeout(wait, 300); go(); };
+      setTimeout(wait, 1500);
+    } else go();
   },
   rushWin() {
     const t = this.levelT, R = ST.rush || (ST.rush = {}), best = R[this.diff], rec = !best || t < best, W = ST.rushWon || (ST.rushWon = {});
@@ -577,7 +607,7 @@ const app = {
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
       const sc = savedCk(this.diff, i);
-      b.innerHTML = faNum(i + 1) + (RIVAL_LV.has(i) ? '<span class="rv" title="مسابقه">🏁</span>' : L.rest ? '<span class="rv">🌿</span>' : '') + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚪${faNum(sc + 1)}</span>` : '');
+      b.innerHTML = faNum(i + 1) + (RIVAL_LV.has(i) ? '<span class="rv" title="مسابقه">🏁</span>' : L.rest ? '<span class="rv">🌿</span>' : '') + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚪${faNum(sc + 1)}</span>` : '') + ((pr.grade || {})[i] ? `<span class="gr" style="color:${GRADE_COL[pr.grade[i]]}">${pr.grade[i]}</span>` : '');
       b.title = L.name + (sc > 0 ? ` — ادامه از اتاق ${faNum(sc + 1)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);
@@ -598,7 +628,9 @@ function goFull() {
   try { const r = (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); if (r && r.then) r.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
 }
 $('bPlay').onclick = () => { Sound.init(); Sound.play('click'); if (isTouch && !document.fullscreenElement) goFull(); app.runStart = performance.now(); app.deaths = 0; app.startLevel(app.completed >= LEVELS.length ? 0 : app.unlocked - 1); };
-$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); app.open('sLevels'); };
+$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); renderBoost(); app.open('sLevels'); };
+$('bRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(true); };
+$('bNoRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(false); };
 $('bMode').onclick = $('bMode2').onclick = () => { Sound.init(); Sound.play('click'); renderModes(); app.open('sMode'); };
 $('bSet').onclick = $('bSet2').onclick = () => { Sound.init(); Sound.play('click'); renderSettings(); app.open('sSet'); };
 $('bStats').onclick = () => { Sound.init(); Sound.play('click'); renderStats(); app.open('sStats'); };

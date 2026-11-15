@@ -53,6 +53,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none
 #bRestart{left:calc(env(safe-area-inset-left) + 66px)}
 #bCam{left:calc(env(safe-area-inset-left) + 122px);display:none}
 #bCam.on{display:grid}
+#bEmote{left:calc(env(safe-area-inset-left) + 122px)}#bCam.on~#bEmote{display:none}
 #lvlTag{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:50%;transform:translateX(-50%);
   padding:6px 16px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-weight:700;font-size:15px;
   white-space:nowrap;background:rgba(22,16,52,.78)}
@@ -355,6 +356,47 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
 .road .rr{flex:1;display:flex;gap:10px;flex-wrap:wrap;font-size:13.5px}.road .ri{color:#c59bff}.road .ri small{color:var(--muted);font-weight:600}
 .road .rs{font-size:16px}
 .shopit.road{border-style:dashed}
+
+/* level grade stamp */
+#stamp{position:fixed;top:52%;left:50%;z-index:46;transform:translate(-50%,-50%) scale(2.6) rotate(-18deg);opacity:0;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;transition:none}
+#stamp.on{animation:stampIn 2.3s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes stampIn{0%{opacity:0;transform:translate(-50%,-50%) scale(2.6) rotate(-18deg)}14%{opacity:1;transform:translate(-50%,-50%) scale(.92) rotate(-8deg)}22%{transform:translate(-50%,-50%) scale(1) rotate(-8deg)}82%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-8deg)}100%{opacity:0;transform:translate(-50%,-50%) scale(.9) rotate(-8deg)}}
+#stamp .sg{width:clamp(96px,22vh,150px);height:clamp(96px,22vh,150px);border-radius:50%;display:grid;place-items:center;font:900 clamp(60px,15vh,104px)/1 Vazirmatn,Tahoma,sans-serif;
+  color:var(--gc);border:6px solid var(--gc);background:radial-gradient(circle,rgba(20,12,40,.92) 55%,rgba(20,12,40,.75));box-shadow:0 0 40px color-mix(in srgb,var(--gc) 60%,transparent),inset 0 0 18px color-mix(in srgb,var(--gc) 40%,transparent);text-shadow:0 0 18px var(--gc)}
+#stamp b{font-size:clamp(18px,4.5vh,26px);font-weight:900;color:#ffd36e;text-shadow:0 2px 8px rgba(0,0,0,.6);white-space:nowrap}
+#stamp small{font-size:12px;font-weight:800;background:rgba(10,6,24,.7);padding:3px 10px;border-radius:99px;color:#fff}
+#stamp em{font-style:normal;font-size:13px;font-weight:900;color:var(--gc);background:rgba(10,6,24,.75);padding:3px 12px;border-radius:99px}
+#stamp.gS{--gc:#ffd36e}#stamp.gA{--gc:#6ff3c4}#stamp.gB{--gc:#7af7ff}#stamp.gC{--gc:#ffb36b}#stamp.gD{--gc:#b9b0d9}
+.lv .gr{position:absolute;top:2px;left:4px;font-size:10px;font-weight:900}
+/* boosters */
+.boostBar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;margin:-4px auto 12px;max-width:640px}
+.boostBar .bl{font-size:12px;color:var(--muted);font-weight:700}.boostBar .chip small{font-size:11px;opacity:.85}
+/* emotes */
+#bEmote{font-size:20px;line-height:1}
+#emoteBar{position:absolute;top:calc(env(safe-area-inset-top) + 64px);left:calc(env(safe-area-inset-left) + 12px);display:none;gap:4px;padding:6px;border-radius:14px;background:rgba(14,10,34,.85);pointer-events:auto}
+#emoteBar.on{display:flex}#emoteBar button{font-size:24px;padding:4px 6px;border-radius:10px}#emoteBar button:active{background:rgba(255,255,255,.15)}
+body.duo #bEmote,body.duo #emoteBar{display:none!important}
+.titles .chip.locked{opacity:.45}
+#xpBox .ttl{font-style:normal;font-size:12px;font-weight:800;color:#c59bff;margin-right:6px}
+
+/* photo mode */
+#photoUI{position:fixed;inset:0;z-index:28;display:none;pointer-events:none}
+#photoUI.on{display:block}
+#phHint{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:rgba(10,6,24,.6);font-size:13px;font-weight:700;white-space:nowrap}
+.phBar{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 10px);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto}
+.phBar .chips{justify-content:center;background:rgba(10,6,24,.6);padding:6px;border-radius:14px}
+.phBtns{display:flex;gap:14px;align-items:center}.phBtns .btn{padding:9px 14px;font-size:15px;background:rgba(10,6,24,.7)}
+.phShot{width:64px;height:64px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.45);box-shadow:0 0 0 4px rgba(10,6,24,.6),0 6px 20px rgba(0,0,0,.4)}
+.phShot:active{transform:scale(.9)}
+#phFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+#phFlash.on{animation:phF .45s ease-out}@keyframes phF{0%{opacity:.85}100%{opacity:0}}
+.phGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.phThumb{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;padding:0}
+.phThumb img{width:100%;height:100%;object-fit:cover;display:block}.phThumb small{position:absolute;bottom:0;left:0;right:0;font-size:10px;background:rgba(10,6,24,.6);padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#albumBig{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;background:rgba(6,4,20,.92)}
+#albumBig.on{display:flex}#albumBig img{max-width:100%;max-height:calc(100vh - 110px);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+#albumBig .row{flex-wrap:wrap;justify-content:center}
+#albumBig .btn{padding:8px 14px;font-size:15px}
 </style>
 </head>
 <body>
@@ -381,6 +423,8 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
 <div id="hud">
   <button class="hbtn" id="bPause" aria-label="توقف"><svg viewBox="0 0 24 24" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
   <button class="hbtn" id="bCam" aria-label="دوربین سه‌بعدی" title="دوربین: کنار / سوم شخص (کلید C)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></button>
+  <button class="hbtn" id="bEmote" aria-label="شکلک" title="شکلک (کلیدهای ۱ تا ۶)">😜</button>
+  <div id="emoteBar"></div>
   <button class="hbtn" id="bRestart" aria-label="شروع دوباره"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/></svg></button>
   <div id="lvlTag" class="fa"></div>
   <div id="pprog"><i></i></div>
@@ -397,6 +441,7 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
   <div id="danger"></div>
 </div>
 <div id="toast" class="fa"></div>
+<div id="stamp" class="fa"></div>
 
 <div class="screen on fa" id="sTitle">
   <div class="panel">
@@ -426,6 +471,7 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
   <div class="panel">
     <h2>انتخاب مرحله</h2>
     <div class="diffbox"><div class="diffs" data-diffs></div></div>
+    <div class="boostBar" id="boostBar"></div>
     <div class="grid" id="lvGrid"></div>
     <div id="realmBox" hidden><div class="lbl realmLbl">🌀 ابعاد پنهان</div><div class="grid realm" id="rmGrid"></div></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
@@ -441,6 +487,7 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
       <button class="btn" id="bRestart2">↻ شروع دوباره</button>
       <button class="btn" id="bRestartAll">⏮ کل مرحله از اول</button>
       <button class="btn" id="bEdBack" hidden>✏️ برگرد به سازنده</button>
+      <button class="btn" id="bPhoto">📸 حالت عکس</button>
       <button class="btn" id="bMode2">🎮 حالت بازی</button>
       <button class="btn" id="bSet2">⚙️ تنظیمات</button>
       <button class="btn" id="bSound2">🔊 صدا: روشن</button>
@@ -482,7 +529,7 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
     <h2>رکوردها و دستاوردها</h2>
     <div class="tabs" id="statTabs"></div>
     <div class="setBody" id="statsBody"></div>
-    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bAlbum">🖼️ آلبوم عکس‌ها</button><button class="btn" data-back>بازگشت</button></div>
   </div>
 </div>
 
@@ -565,6 +612,29 @@ body.duo #deaths,body.duo #hudSub,body.duo #pprog,body.duo #bRestart,body.duo #b
     <div class="setBody" id="roadList"></div>
     <div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="bRoadShop">🛒 فروشگاه</button><button class="btn" data-back>بازگشت</button></div>
   </div>
+</div>
+<div class="screen fa" id="sRevive">
+  <div class="panel">
+    <div style="font-size:46px;line-height:1">💔</div>
+    <h2>جون‌هات تموم شد!</h2>
+    <p class="sub" id="revTxt"></p>
+    <div class="bar" style="max-width:320px;margin:0 auto 16px"><i id="revBar" style="transition:transform .1s linear"></i></div>
+    <div class="btns"><button class="btn primary" id="bRevive"></button><button class="btn" id="bNoRevive">نه، تمومش کن</button></div>
+  </div>
+</div>
+<div class="screen fa" id="sAlbum">
+  <div class="panel tall">
+    <h2>🖼️ آلبوم عکس‌ها</h2>
+    <div class="setBody"><div class="phGrid" id="albumGrid"></div></div>
+    <div class="btns"><button class="btn" data-back>بازگشت</button></div>
+  </div>
+</div>
+<div id="albumBig" class="fa"></div>
+<div id="photoUI" class="fa">
+  <div id="phHint"></div>
+  <div class="phBar"><div class="chips" id="phFilters"></div>
+    <div class="phBtns"><button class="btn" data-ph="album" id="phCount">🖼️</button><button class="phShot" data-ph="shot" aria-label="عکس بگیر"></button><button class="btn" data-ph="close">✖ برگرد</button></div></div>
+  <div id="phFlash"></div>
 </div>
 <div class="screen fa" id="sEndless">
   <div class="panel tall">
@@ -4105,6 +4175,7 @@ function drawDynamic(world, t, dt, depth) {
   if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
   drawPlayer(world, t);
+  if (world.emote) drawEmote(world);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
 }
@@ -6330,6 +6401,9 @@ const ACH = [
   ['duo', '👥', 'رفیق بازی', 'یه دور مسابقه‌ی دو نفره رو ببر'],
   ['duo5', '🤼', 'قهرمان دو نفره', 'توی مسابقه‌ی دو نفره ۵ دور ببر'],
   ['near50', '😅', 'مو به مو', '۵۰ بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)'],
+  ['gradeS', '🅢', 'رتبه‌ی S', 'یه مرحله رو با رتبه‌ی S تموم کن'],
+  ['gradeS10', '💫', 'افسانه', 'ده مرحله رو با رتبه‌ی S تموم کن'],
+  ['photo', '📸', 'عکاس', 'توی «حالت عکس» (از منوی توقف) یه عکس بگیر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -6435,10 +6509,10 @@ const Ghost = {
 const app = {
   state: 'title', screen: 'sTitle', kind: 'plat', view: 'p2', def: null, run: null, world: null, p3: null, idx: 0, realmIdx: -1,
   deaths: 0, unlocked: 1, completed: 0, diff: 1, prog: {}, runStart: 0, bannerT: null, levelT: 0, levelDeaths: 0, back: 'sTitle', dirty: true,
-  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); },
+  show(id) { for (const s of ['sTitle', 'sLevels', 'sPause', 'sEnd', 'sSet', 'sMode', 'sStats', 'sShop', 'sOver', 'sEndless', 'sMissions', 'sMy', 'sDuo', 'sDuoEnd', 'sRoad', 'sRevive', 'sAlbum']) $(s).classList.toggle('on', s === id); this.screen = id; $('edCode').classList.remove('on'); $('albumBig').classList.remove('on'); },
   open(id) { this.show(id); },
   goBack() {
-    Sound.play('click'); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
+    Sound.play('click'); if (this.state === 'revive') return this.reviveAnswer(false); if (this.state === 'over' || this.state === 'duoEnd') return this.menu();
     const b = this.state === 'pause' ? 'sPause' : this.state === 'end' ? 'sEnd' : 'sTitle';
     this.show(b); if (b !== 'sEnd') renderDiffs();
   },
@@ -6456,6 +6530,7 @@ const app = {
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
     if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
+    if (!opt.keep) boostApply();
   },
   startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.startDef(REALM[r], opt); },
   // boss rush: the four boss arenas one after another, against the clock
@@ -6520,7 +6595,7 @@ const app = {
     const seed = daily ? dayKey() : (Math.random() * 1e6) | 0, def = makeEndless(seed);
     this.custom = null; this.demo = null; this.rush = null; this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
     this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, daily, best: daily ? dailyBest() : (ST.endBest || {})[this.diff] || 0 };
-    this.startDef(def, {});
+    this.startDef(def, {}); boostApply();
     setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
   },
   endlessCheck(i) {
@@ -6535,6 +6610,22 @@ const app = {
       E.zone = z; const b = endlessZoneBiome(d, i);
       this.swapBiome(b, `منطقه‌ی ${faNum(z + 1)}`, b && BIOMES[b] ? BIOMES[b].n || 'منطقه‌ی جدید' : '');
     }
+  },
+  // endless: one second chance per run for a few gems (6 seconds to decide)
+  offerRevive(E) {
+    this.state = 'revive'; ptrs.clear(); refreshTouch();
+    $('revTxt').textContent = `${faNum(E.dist)} متر اومدی. با ${faNum(REVIVE_GEMS)} جواهر یه جون دیگه بگیر و از همین‌جا ادامه بده (فقط یه بار).`;
+    $('bRevive').textContent = `❤️ ادامه بده (💎 ${faNum(REVIVE_GEMS)} از ${faNum(gemBalance())})`;
+    this.show('sRevive'); const t0 = performance.now(), R = this.revT = {};
+    const tick = () => { if (this.revT !== R || this.state !== 'revive') return; const k = 1 - (performance.now() - t0) / 6000; $('revBar').style.transform = `scaleX(${Math.max(0, k).toFixed(3)})`; if (k <= 0) return this.reviveAnswer(false); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  },
+  reviveAnswer(yes) {
+    const E = this.endless; if (this.state !== 'revive' || !E) return; this.revT = null;
+    if (yes && gemBalance() >= REVIVE_GEMS) {
+      ST.spent = (ST.spent || 0) + REVIVE_GEMS; E.revived = true; E.lives = 1; writeSave();
+      this.state = 'play'; this.show(null); this.world.deadT = .25; this.updTag(); Sound.play('win'); setTimeout(() => this.taunt('❤️ یه شانس دیگه! این دفعه حواست باشه', '#ff7ab8'), 500);
+    } else { this.state = 'play'; this.endlessOver(); }
   },
   endlessOver() {
     const E = this.endless; if (!E) return;
@@ -6560,7 +6651,8 @@ const app = {
     this.view = v;
     if (this.kind === 'plat') { setBiome(def.biome); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
-    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; } mutApply(true);
+    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; } mutApply(true);
+    $('bEmote').hidden = this.kind === 'run' || def.kind === '3d' || (CFG.mode === '3d' && !def.noRun && !def.endless); $('emoteBar').classList.remove('on');
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
     tLayer.classList.toggle('vert', v === 'r2');
     if (v === 'r2') setTimeout(() => this.taunt(isTouch ? '▲ ▼ = جابه‌جایی بالا و پایین جاده' : '← → = جابه‌جایی بالا و پایین جاده', '#9ef9ff'), 2300);
@@ -6578,7 +6670,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { if (def.custom) return; ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
-      w.onNear = () => { ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
+      w.onNear = () => { this.levelNear = (this.levelNear || 0) + 1; ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = (c, e) => this.onDeath(c, e); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
       if (v === 'p3') this.p3 = new P3D(w);
@@ -6629,7 +6721,7 @@ const app = {
     Missions.ev('death'); trapSeen(c, src);
     if (this.endless && this.kind === 'plat') {
       const E = this.endless; if (E.lives <= 0) return; E.lives--; this.updTag();
-      if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') this.endlessOver(); else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
+      if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') { if (!E.revived && gemBalance() >= REVIVE_GEMS) this.offerRevive(E); else this.endlessOver(); } else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
       else this.taunt(E.lives === 1 ? '⚠️ آخرین جون!' : `${'❤️'.repeat(E.lives)} مونده`, '#ff7ab8');
     }
     this.deaths++; this.levelDeaths++; ST.deaths++; this.updDeaths(); $('deaths').classList.remove('bump'); void $('deaths').offsetWidth; $('deaths').classList.add('bump');
@@ -6712,16 +6804,25 @@ const app = {
     if (WX.kind === 'storm') unlockAch('storm');
     if (d === 0) unlockAch('clean'); if (this.kind === 'run') unlockAch('run3d'); if (this.diff === 4) unlockAch('insane'); if (this.kind === 'plat' && !this.resumed && t < parTime(this.def)) unlockAch('speed');
     writeSave();
-    this.taunt(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`, '#ffd36e');
+    const starLine = `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`;
+    if (this.realmIdx >= 0) this.taunt(starLine, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
     const nm = mutCount(); if (nm) { Missions.ev('mut'); ST.gems += nm * 5; setTimeout(() => this.taunt(`🎭 جایزه‌ی چالش: +${faNum(nm * 5)} 💎`, '#ff8a4c'), 2300); }
     Missions.ev('win'); XP.add((40 + (d === 0 ? 20 : 0) + this.diff * 10) * (1 + nm * .5)); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
-    if (race) { const pl = race.fin + 1; if (pl === 1) { unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
+    if (race) { const pl = race.fin + 1; if (pl === 1) { this.raceFirst = true; unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
     const flat = v => v === 'p2' || v === 'p25';
     const nextDef = this.realmIdx >= 0 ? (this.realmIdx + 1 < REALM.length ? REALM[this.realmIdx + 1] : LEVELS[PORTAL_LEVEL + 1]) : LEVELS[this.idx + 1];
-    if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {
-      const dd = this.world.winDoor; startTrans('close', .5, next, dd.x + dd.w / 2, dd.y + dd.h / 2);
-    } else { $('fade').classList.add('on'); setTimeout(next, 480); }
+    const go = () => {
+      if (flat(this.view) && nextDef && flat(viewOf(nextDef)) && this.world && this.world.winDoor) {
+        const dd = this.world.winDoor; startTrans('close', .5, next, dd.x + dd.w / 2, dd.y + dd.h / 2);
+      } else { $('fade').classList.add('on'); setTimeout(next, 480); }
+    };
+    // the main levels get a grade stamp first; the next level waits for it (and for the end of a pause)
+    if (this.realmIdx < 0) {
+      gradeLevel(this, t, d, nr, starLine); writeSave();
+      const D0 = this.def, wait = () => { if (this.def !== D0 || this.state === 'title' || this.state === 'end') return; if (this.state === 'pause') return setTimeout(wait, 300); go(); };
+      setTimeout(wait, 1500);
+    } else go();
   },
   rushWin() {
     const t = this.levelT, R = ST.rush || (ST.rush = {}), best = R[this.diff], rec = !best || t < best, W = ST.rushWon || (ST.rushWon = {});
@@ -6794,7 +6895,7 @@ const app = {
     LEVELS.forEach((L, i) => {
       const b = document.createElement('button'); b.className = 'lv' + (i < (this.completed || 0) ? ' done' : '') + (L.kind === '3d' ? ' l3' : '');
       const sc = savedCk(this.diff, i);
-      b.innerHTML = faNum(i + 1) + (RIVAL_LV.has(i) ? '<span class="rv" title="مسابقه">🏁</span>' : L.rest ? '<span class="rv">🌿</span>' : '') + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚪${faNum(sc + 1)}</span>` : '');
+      b.innerHTML = faNum(i + 1) + (RIVAL_LV.has(i) ? '<span class="rv" title="مسابقه">🏁</span>' : L.rest ? '<span class="rv">🌿</span>' : '') + (stars[i] ? `<span class="st">${'★'.repeat(stars[i])}</span>` : '') + (sc > 0 ? `<span class="rs">🚪${faNum(sc + 1)}</span>` : '') + ((pr.grade || {})[i] ? `<span class="gr" style="color:${GRADE_COL[pr.grade[i]]}">${pr.grade[i]}</span>` : '');
       b.title = L.name + (sc > 0 ? ` — ادامه از اتاق ${faNum(sc + 1)}` : ''); b.disabled = i >= this.unlocked;
       b.onclick = () => { Sound.play('click'); this.runStart = performance.now(); this.deaths = 0; this.startLevel(i); };
       g.appendChild(b);
@@ -6815,7 +6916,9 @@ function goFull() {
   try { const r = (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); if (r && r.then) r.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
 }
 $('bPlay').onclick = () => { Sound.init(); Sound.play('click'); if (isTouch && !document.fullscreenElement) goFull(); app.runStart = performance.now(); app.deaths = 0; app.startLevel(app.completed >= LEVELS.length ? 0 : app.unlocked - 1); };
-$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); app.open('sLevels'); };
+$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); renderBoost(); app.open('sLevels'); };
+$('bRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(true); };
+$('bNoRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(false); };
 $('bMode').onclick = $('bMode2').onclick = () => { Sound.init(); Sound.play('click'); renderModes(); app.open('sMode'); };
 $('bSet').onclick = $('bSet2').onclick = () => { Sound.init(); Sound.play('click'); renderSettings(); app.open('sSet'); };
 $('bStats').onclick = () => { Sound.init(); Sound.play('click'); renderStats(); app.open('sStats'); };
@@ -7444,6 +7547,123 @@ $('edUI').addEventListener('click', e => {
 $('edBotX').onclick = () => { Sound.play('click'); edBotStop(); };
 $('edBotGo').onclick = () => { Sound.play('click'); $('edBot').classList.remove('on'); edTest(true); };
 $('bEditor').onclick = () => { Sound.init(); Sound.play('click'); renderMy(); app.open('sMy'); };
+/* ============================ LEVEL GRADES (S / A / B / C / D) ============================ */
+// Every won level gets a grade from deaths, time, gems and style (near misses, first place in races).
+// The grade is stamped on the screen before the next level starts; the best grade per level is kept.
+const GRADES = ['D', 'C', 'B', 'A', 'S'], GRADE_COL = { S: '#ffd36e', A: '#6ff3c4', B: '#7af7ff', C: '#ffb36b', D: '#b9b0d9' };
+const gradeRank = g => GRADES.indexOf(g);
+function gradeOf(I) {
+  // deaths (40): compared with the number of rooms on 2D levels
+  let pd;
+  if (I.kind === 'run') pd = I.d === 0 ? 40 : I.d <= 1 ? 30 : I.d <= 3 ? 20 : 8;
+  else pd = I.d === 0 ? 40 : I.d <= I.nr * .5 ? 32 : I.d <= I.nr ? 24 : I.d <= I.nr * 2 ? 14 : 6;
+  // time (35): against the level's golden time; a run continued from a checkpoint gets a middle score
+  let pt = 28;
+  if (I.kind !== 'run') { const r = I.t / I.par; pt = I.resumed ? 15 : r <= .8 ? 35 : r <= 1 ? 29 : r <= 1.3 ? 21 : r <= 1.8 ? 12 : 5; }
+  // gems (15) and style (10)
+  const pg = I.gemTotal ? 15 * clamp(I.gems / I.gemTotal, 0, 1) : 10;
+  const ps = Math.min(10, (I.near || 0) * 2.5 + (I.race1 ? 5 : 0) + (I.kind === 'run' && I.d === 0 ? 5 : 0));
+  const pts = Math.round(pd + pt + pg + ps);
+  return { g: pts >= 90 ? 'S' : pts >= 75 ? 'A' : pts >= 58 ? 'B' : pts >= 40 ? 'C' : 'D', pts, pd, pt, pg: Math.round(pg), ps: Math.round(ps) };
+}
+function showStamp(G, isNew, gems, line) {
+  const el = $('stamp'); el.className = 'fa g' + G.g;
+  el.innerHTML = `<div class="sg">${G.g}</div>${line ? `<b>${line}</b>` : ''}<small>💀 ${faNum(G.pd)} · ⏱ ${faNum(G.pt)} · 💎 ${faNum(G.pg)} · 😅 ${faNum(G.ps)} = ${faNum(G.pts)}</small>${isNew ? `<em>بهترین رتبه‌ی جدید!${gems ? ` +${faNum(gems)} 💎` : ''}</em>` : ''}`;
+  void el.offsetWidth; el.classList.add('on');
+  Sound.play(G.g === 'S' ? 'win' : 'spawn'); if (G.g === 'S' && CFG.vib && navigator.vibrate) navigator.vibrate([30, 40, 60]);
+  clearTimeout(showStamp.t); showStamp.t = setTimeout(() => el.classList.remove('on'), 2300);
+}
+// called from onWin for the main levels: records the grade, pays for new A/S grades
+function gradeLevel(app_, t, d, nr, line) {
+  const w = app_.world, run = app_.run, plat = app_.kind === 'plat';
+  const I = { kind: app_.kind, t, d, nr, par: parTime(app_.def), resumed: app_.resumed, near: app_.levelNear || 0,
+    gems: plat ? (w ? w.got.size : 0) : (run ? run.gems : 0), gemTotal: plat ? (w ? w.gemTotal : 0) : (run ? run.picks.filter(k => k.k === 'gem').length : 0),
+    race1: app_.raceFirst };
+  const G = gradeOf(I), pr = progOf(app_.diff), GR = pr.grade || (pr.grade = {}), old = GR[app_.idx];
+  const isNew = !old || gradeRank(G.g) > gradeRank(old); let gems = 0;
+  if (isNew) { GR[app_.idx] = G.g; if (G.g === 'S' && (!old || old !== 'S')) gems = 15; else if (G.g === 'A' && (!old || gradeRank(old) < 3)) gems = 5; ST.gems += gems; }
+  if (G.g === 'S') { unlockAch('gradeS'); let n = 0; for (const d in app_.prog) n += Object.values(app_.prog[d].grade || {}).filter(x => x === 'S').length; if (n >= 10) unlockAch('gradeS10'); Missions.ev('gradeS'); }
+  showStamp(G, isNew, gems, line);
+  return G;
+}
+
+/* ============================ START BOOSTERS ============================ */
+// Bought with gems before a level (one level at a time): they work like the power-ups found in the levels.
+const REVIVE_GEMS = 30;
+const BOOSTS = [['shield', 20, 'یه بار از مرگ نجاتت می‌ده'], ['magnet', 15, 'جواهرها میان سمتت'], ['slow', 15, 'تله‌ها آهسته‌تر'], ['star', 25, 'چند ثانیه شکست‌ناپذیر']];
+let boostSel = {};
+function renderBoost() {
+  const el = $('boostBar'); if (!el) return; const tot = BOOSTS.reduce((a, b) => a + (boostSel[b[0]] ? b[1] : 0), 0);
+  el.innerHTML = `<span class="bl">🎒 بوستر برای مرحله‌ی بعد:</span>${BOOSTS.map(([k, c, d]) => `<button class="chip${boostSel[k] ? ' on' : ''}" data-boost="${k}" title="${d}" style="--cc:${POWS[k].col}">${POWS[k].i} ${POWS[k].n} <small>💎${faNum(c)}</small></button>`).join('')}
+    <span class="bl">${tot ? `جمع: 💎 ${faNum(tot)} از ${faNum(gemBalance())}` : 'سه‌بعدی‌ها فقط سپر رو می‌گیرن'}</span>`;
+}
+$('boostBar').addEventListener('click', e => {
+  const b = e.target.closest('[data-boost]'); if (!b) return; Sound.play('click'); const k = b.dataset.boost;
+  if (!boostSel[k]) { const tot = BOOSTS.reduce((a, x) => a + (boostSel[x[0]] ? x[1] : 0), 0) + BOOSTS.find(x => x[0] === k)[1]; if (tot > gemBalance()) { app.taunt('💎 جواهرت کافی نیست', '#ff9a8a'); return; } }
+  boostSel[k] = !boostSel[k]; renderBoost();
+});
+function boostApply() {
+  const ks = BOOSTS.filter(b => boostSel[b[0]]); if (!ks.length) return;
+  const w = app.kind === 'plat' ? app.world : null, run = app.kind === 'run' ? app.run : null, used = [];
+  let cost = 0;
+  for (const [k, c] of ks) {
+    if (run && k !== 'shield') continue;
+    if (cost + c > gemBalance()) break;
+    cost += c; used.push(POWS[k].i);
+    if (w) { if (k === 'shield') w.p.shield = true; else w.p[POWS[k].t] = POWS[k].dur + 3; }
+    else if (run) run.p.shield = true;
+  }
+  boostSel = {};
+  if (!cost) return;
+  ST.spent = (ST.spent || 0) + cost; writeSave();
+  setTimeout(() => app.taunt(`🎒 بوستر فعال شد: ${used.join(' ')}`, '#9ef9ff'), 2300);
+}
+
+/* ============================ EMOTES ============================ */
+// A speech bubble over the hero (keys 1–4; in two-player mode the right player uses 7–0). Just for fun.
+const EMOTES = ['😂', '😎', '😡', '👋', '🤡', '😱'];
+function emote(world, i) {
+  if (!world || world.silent || world.state === 'dead') return;
+  world.emote = { i: EMOTES[i % EMOTES.length], t0: world.time }; Sound.play('click');
+}
+function drawEmote(world) {
+  const E = world.emote; if (!E) return; const a = world.time - E.t0; if (a > 1.9 || a < 0) { if (a > 1.9) world.emote = null; return; }
+  const p = world.p, k = Math.min(1, a * 6), out = a > 1.6 ? 1 - (a - 1.6) / .3 : 1, s = (.6 + .4 * k) * (1 + Math.sin(a * 9) * .03);
+  const x = p.x + PW / 2, y = p.g > 0 ? p.y - 30 : p.y + PHT + 30;
+  ctx.save(); ctx.globalAlpha = out; ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-24, -26, 48, 40, 14) : ctx.rect(-24, -26, 48, 40); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-6, 13); ctx.lineTo(0, 22); ctx.lineTo(6, 13); ctx.fill();
+  ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(E.i, 0, -5);
+  ctx.restore();
+}
+addEventListener('keydown', e => {
+  if (app.state !== 'play' || e.repeat) return;
+  const d = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 }[e.code], d2 = { Digit7: 0, Digit8: 1, Digit9: 2, Digit0: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[e.code];
+  if (app.duo) { if (d != null) emote(app.duo.w[0], d); else if (d2 != null) emote(app.duo.w[1], d2); }
+  else if (d != null && app.kind === 'plat') emote(app.world, d);
+});
+$('bEmote').onclick = () => { Sound.init(); $('emoteBar').classList.toggle('on'); };
+$('emoteBar').innerHTML = EMOTES.map((e, i) => `<button data-emo="${i}">${e}</button>`).join('');
+$('emoteBar').addEventListener('click', e => { const b = e.target.closest('[data-emo]'); if (!b) return; emote(app.kind === 'plat' ? app.world : null, +b.dataset.emo); $('emoteBar').classList.remove('on'); });
+
+/* ============================ TITLES ============================ */
+// Achievements unlock titles; the chosen one is shown under your level on the title screen.
+const TITLES = { first: 'تازه‌کار', ten: 'ماجراجو', twenty: 'کهنه‌کار', all: 'فاتح تله‌زار', clean: 'بی‌خطا', insane: 'دیوانه', boss: 'غول‌کُش', bossAll: 'پادشاه غول‌ها',
+  rush: 'قهرمان میدان', d500: 'خستگی‌ناپذیر', maker: 'سازنده', robot: 'ربات‌باز', duo: 'رفیق‌باز', cards: 'دانشنامه‌نویس', near50: 'مو به مو', gradeS: 'ستاره‌ی S',
+  gradeS10: 'افسانه', champ: 'قهرمان مسابقه', endless: 'ماراتن‌باز', speed: 'برق‌آسا', portal: 'کاشف', realm: 'ارباب ابعاد', lvl10: 'استاد' };
+const titleOf = () => ST.title && ST.ach[ST.title] && TITLES[ST.title] ? TITLES[ST.title] : '';
+function renderTitles() {
+  const got = Object.keys(TITLES).filter(k => ST.ach[k]);
+  return `<p class="sub small">هر دستاورد یه لقب بهت می‌ده. لقبی که انتخاب کنی زیر سطحت توی منوی اصلی نشون داده می‌شه.</p>
+    <div class="chips titles">${Object.keys(TITLES).map(k => { const a = ACH.find(x => x[0] === k), on = ST.title === k, has = !!ST.ach[k];
+      return `<button class="chip${on ? ' on' : ''}${has ? '' : ' locked'}" data-title="${k}" title="${a ? a[3] : ''}">${has ? (a ? a[1] : '🏷️') : '🔒'} ${TITLES[k]}</button>`; }).join('')}</div>
+    <p class="sub small">${faNum(got.length)} از ${faNum(Object.keys(TITLES).length)} لقب باز شده.</p>`;
+}
+$('statsBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-title]'); if (!b) return; const k = b.dataset.title;
+  if (!ST.ach[k]) { Sound.play('click'); const a = ACH.find(x => x[0] === k); app.taunt(`🔒 برای این لقب: ${a ? a[3] : ''}`, '#ffd36e'); return; }
+  Sound.play('spawn'); ST.title = ST.title === k ? null : k; writeSave(); renderStats('titles'); XP.ui();
+});
 /* ============================ DAILY MISSIONS + DAILY CHEST ============================ */
 // Three missions a day (picked from the pool by the date), each paying gems. A chest can be opened once a day;
 // coming back on consecutive days grows the reward (7-day streak).
@@ -7462,6 +7682,7 @@ const MISSION_POOL = [
   { id: 'shop', t: () => 'یه چیز از فروشگاه بخر', n: [1], r: 20 },
   { id: 'make', t: () => 'توی «سازنده‌ی مرحله» یه مرحله بساز و خودت ردش کن', n: [1], r: 35 },
   { id: 'near', t: n => `${faNum(n)} بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)`, n: [8, 15, 25], r: 25 },
+  { id: 'gradeS', t: () => 'یه مرحله رو با رتبه‌ی S تموم کن', n: [1], r: 45 },
   { id: 'mut', t: () => 'یه مرحله رو با یکی از «چالش‌های ویژه» ببر', n: [1], r: 35 },
 ];
 const CHEST_GEMS = [10, 15, 20, 30, 40, 55, 80];
@@ -7529,7 +7750,7 @@ const XP = {
   },
   ui() {
     const el = document.getElementById('xpBox'); if (!el) return; const l = this.lvl(ST.xp), a = this.need(l), b = this.need(l + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
-    el.title = 'جاده‌ی جایزه'; el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small><em>جاده‌ی جایزه ›</em>`;
+    el.title = 'جاده‌ی جایزه'; el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small><em>جاده‌ی جایزه ›</em>${typeof titleOf === 'function' && titleOf() ? `<i class="ttl">🏷️ ${titleOf()}</i>` : ''}`;
   },
 };
 /* ============================ SETTINGS / MODE / RECORDS SCREENS ============================ */
@@ -7661,8 +7882,9 @@ let statTab = 'rec';
 function renderStats(tab) {
   if (tab) statTab = tab;
   const nc = TRAPS.filter(t => (ST.dc || {})[t[0]]).length;
-  $('statTabs').innerHTML = [['rec', '🏆 رکوردها'], ['traps', `📖 دانشنامه‌ی تله‌ها (${faNum(nc)}/${faNum(TRAPS.length)})`]].map(([k, n]) => `<button class="tab${k === statTab ? ' on' : ''}" data-sttab="${k}">${n}</button>`).join('');
+  $('statTabs').innerHTML = [['rec', '🏆 رکوردها'], ['traps', `📖 دانشنامه‌ی تله‌ها (${faNum(nc)}/${faNum(TRAPS.length)})`], ['titles', '🏷️ لقب‌ها']].map(([k, n]) => `<button class="tab${k === statTab ? ' on' : ''}" data-sttab="${k}">${n}</button>`).join('');
   if (statTab === 'traps') { $('statsBody').innerHTML = renderTraps(); return; }
+  if (statTab === 'titles') { $('statsBody').innerHTML = renderTitles(); return; }
   const pr = progOf(app.diff), stars = pr.stars || {}, best = pr.best || {};
   const won = Object.keys(stars).length, got = ACH.filter(a => ST.ach[a[0]]).length;
   let h = `<div class="kv"><div><b>${faNum(won)}/${faNum(LEVELS.length)}</b><span>مرحله‌ی برده‌شده</span></div><div><b>${faNum(totalStars(app.diff))}</b><span>ستاره (${DIFFS[app.diff].name})</span></div>
@@ -8147,6 +8369,119 @@ function demoInput(d) {
   return ED_ACTS[a] || ED_ACTS[0];
 }
 requestAnimationFrame(frame);
+/* ============================ PHOTO MODE ============================ */
+// From the pause menu: the game freezes, the HUD hides, you can slide the camera (2D views), pick a filter and
+// take a picture. Pictures go to an in-game album (IndexedDB); from there they can be saved to the phone or shared.
+const PH_FILTERS = [
+  ['none', 'عادی', 'none'], ['bw', 'سیاه‌وسفید', 'grayscale(1) contrast(1.18)'], ['old', 'قدیمی', 'sepia(.85) contrast(1.05) brightness(1.06)'],
+  ['neon', 'نئون', 'saturate(1.9) contrast(1.15) hue-rotate(-12deg)'], ['dream', 'رؤیایی', 'saturate(1.35) brightness(1.12) blur(.6px)'], ['night', 'شب', 'brightness(.72) hue-rotate(190deg) saturate(1.5)'],
+];
+const Photo = { on: false, f: 'none', cam0: 0, drag: null, back: 'sPause' };
+const phCanvas = () => isGL(app.view) ? $('c3') : cv;
+const phPan = () => !isGL(app.view) && app.view !== 'duo' && app.kind === 'plat' && app.world;
+function photoOpen() {
+  if (app.state !== 'pause') return;
+  Photo.on = true; Photo.f = 'none'; app.state = 'photo'; app.show(null);
+  $('hud').classList.remove('on'); tLayer.classList.remove('on'); t2Layer.classList.remove('on');
+  if (app.world) Photo.cam0 = app.world.camX;
+  $('photoUI').classList.add('on'); renderPhotoUI();
+  $('phHint').textContent = phPan() ? '👆 بکش تا دوربین جابه‌جا شه، فیلتر انتخاب کن و عکس بگیر' : 'فیلتر انتخاب کن و عکس بگیر';
+}
+function photoClose() {
+  if (!Photo.on) return;
+  Photo.on = false; cv.style.filter = $('c3').style.filter = ''; $('photoUI').classList.remove('on');
+  app.state = 'pause'; $('hud').classList.add('on'); app.show('sPause'); app.dirty = true;
+  if (isTouch && !app.duo) tLayer.classList.add('on'); if (isTouch && app.duo) t2Layer.classList.add('on');
+}
+function renderPhotoUI() {
+  $('phFilters').innerHTML = PH_FILTERS.map(([k, n]) => `<button class="chip${k === Photo.f ? ' on' : ''}" data-phf="${k}">${n}</button>`).join('');
+  const css = PH_FILTERS.find(x => x[0] === Photo.f)[2]; cv.style.filter = $('c3').style.filter = css === 'none' ? '' : css;
+}
+// the picture: the frame drawn again right now (so the 3D canvas still holds it), filtered, with a small caption
+function photoShot() {
+  try { drawView(0); } catch (e) {}
+  const src = phCanvas(), sw = src.width, sh = src.height, k = Math.min(1, 1280 / sw), w = Math.round(sw * k), h = Math.round(sh * k);
+  const c = mkC(w, h), g = c.getContext('2d'), css = PH_FILTERS.find(x => x[0] === Photo.f)[2];
+  if (css !== 'none' && 'filter' in g) g.filter = css;
+  g.drawImage(src, 0, 0, w, h); g.filter = 'none';
+  // caption
+  const f = Math.max(12, Math.round(h / 34)), txt = `تله‌زار 😈 · ${app.label().replace(/<[^>]*>/g, '')}`;
+  g.font = `800 ${f}px Vazirmatn, Tahoma, sans-serif`; g.direction = 'rtl'; g.textAlign = 'right'; g.textBaseline = 'bottom';
+  const tw = g.measureText(txt).width; g.fillStyle = 'rgba(10,6,24,.55)'; g.fillRect(w - tw - f * 1.6, h - f * 2.2, tw + f * 1.2, f * 1.7);
+  g.fillStyle = '#ffd36e'; g.fillText(txt, w - f, h - f * .7);
+  let url; try { url = c.toDataURL('image/jpeg', .86); } catch (e) { app.taunt('❌ گرفتن عکس توی این مرورگر ممکن نشد', '#ff9a8a'); return; }
+  // flash and click
+  const fl = $('phFlash'); fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on'); Sound.play('click');
+  Album.add({ d: url, t: Date.now(), lv: app.label().replace(/<[^>]*>/g, '') }).then(() => { $('phCount').textContent = `🖼️ ${faNum(Album.n)}`; });
+  unlockAch('photo');
+}
+$('photoUI').addEventListener('click', e => {
+  const b = e.target.closest('[data-phf],[data-ph]'); if (!b) return; Sound.play('click');
+  if (b.dataset.phf) { Photo.f = b.dataset.phf; renderPhotoUI(); }
+  else if (b.dataset.ph === 'shot') photoShot();
+  else if (b.dataset.ph === 'close') photoClose();
+  else if (b.dataset.ph === 'album') { photoClose(); app.state = 'pause'; renderAlbum(); app.show('sAlbum'); }
+});
+$('bPhoto').onclick = () => { Sound.play('click'); photoOpen(); };
+// sliding the camera
+const phDown = e => { if (!Photo.on || !phPan()) return; Photo.drag = { x: e.clientX, cam: app.world.camX }; };
+const phMove = e => { if (!Photo.on || !Photo.drag || !phPan()) return; const w = app.world; w.camX = clamp(Photo.drag.cam - (e.clientX - Photo.drag.x) * dpr / S, w.minX || 0, Math.max(w.minX || 0, w.lw - W)); app.dirty = true; };
+cv.addEventListener('pointerdown', phDown); addEventListener('pointermove', phMove); addEventListener('pointerup', () => { Photo.drag = null; });
+addEventListener('keydown', e => { if (!Photo.on) return; if (e.code === 'Escape') photoClose(); else if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); photoShot(); } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { const w = app.world; if (phPan()) w.camX = clamp(w.camX + (e.code === 'ArrowLeft' ? -60 : 60), w.minX || 0, Math.max(w.minX || 0, w.lw - W)); } });
+
+/* ---------- the album (IndexedDB, newest first, at most 30 pictures) ---------- */
+const Album = {
+  db: null, n: 0, mem: [],
+  open() {
+    if (this.db || !window.indexedDB) return Promise.resolve(this.db);
+    return new Promise(res => { try { const r = indexedDB.open('telezar_album', 1); r.onupgradeneeded = () => r.result.createObjectStore('ph', { keyPath: 'id', autoIncrement: true }); r.onsuccess = () => { this.db = r.result; res(this.db); }; r.onerror = () => res(null); } catch (e) { res(null); } });
+  },
+  async all() {
+    const db = await this.open(); if (!db) return this.mem.slice().reverse();
+    return new Promise(res => { try { const q = db.transaction('ph').objectStore('ph').getAll(); q.onsuccess = () => { const a = q.result || []; this.n = a.length; res(a.reverse()); }; q.onerror = () => res([]); } catch (e) { res([]); } });
+  },
+  async add(p) {
+    const db = await this.open(); if (!db) { p.id = Date.now(); this.mem.push(p); this.n = this.mem.length; return; }
+    await new Promise(res => { try { const tx = db.transaction('ph', 'readwrite'); tx.objectStore('ph').add(p); tx.oncomplete = res; tx.onerror = res; } catch (e) { res(); } });
+    const a = await this.all(); for (const old of a.slice(30)) await this.del(old.id);
+  },
+  async del(id) {
+    const db = await this.open(); if (!db) { this.mem = this.mem.filter(x => x.id !== id); return; }
+    await new Promise(res => { try { const tx = db.transaction('ph', 'readwrite'); tx.objectStore('ph').delete(id); tx.oncomplete = res; tx.onerror = res; } catch (e) { res(); } });
+  },
+};
+let albumCache = [];
+async function renderAlbum() {
+  albumCache = await Album.all();
+  $('albumGrid').innerHTML = albumCache.length ? albumCache.map((p, i) => `<button class="phThumb" data-ai="${i}"><img src="${p.d}" alt=""><small>${esc(p.lv || '')}</small></button>`).join('')
+    : '<p class="sub small">هنوز عکسی نگرفتی. وسط بازی دکمه‌ی توقف ⏸ رو بزن و «📸 حالت عکس» رو انتخاب کن.</p>';
+}
+function albumView(i) {
+  const p = albumCache[i]; if (!p) return;
+  // inside an embedded page (an iframe) downloads are usually blocked, so the save button is only offered where it works
+  let framed = false; try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  const canSave = !!(window.TelezarApp && TelezarApp.saveImage) || !framed;
+  $('albumBig').innerHTML = `<img src="${p.d}" alt=""><div class="row">${canSave ? '<button class="btn primary" data-av="save">📥 ذخیره در گالری</button>' : ''}${window.TelezarApp || (navigator.canShare) ? '<button class="btn" data-av="share">📤 فرستادن</button>' : ''}<button class="btn" data-av="del">🗑</button><button class="btn" data-av="x">بستن</button></div>`;
+  $('albumBig').dataset.i = i; $('albumBig').classList.add('on');
+}
+$('albumGrid').addEventListener('click', e => { const b = e.target.closest('[data-ai]'); if (b) { Sound.play('click'); albumView(+b.dataset.ai); } });
+$('albumBig').addEventListener('click', async e => {
+  const b = e.target.closest('[data-av]'); if (!b) return; Sound.play('click');
+  const p = albumCache[+$('albumBig').dataset.i]; if (!p) return; const a = b.dataset.av, b64 = p.d.split(',')[1];
+  if (a === 'x') $('albumBig').classList.remove('on');
+  else if (a === 'del') { await Album.del(p.id); $('albumBig').classList.remove('on'); renderAlbum(); }
+  else if (a === 'save') {
+    if (window.TelezarApp && TelezarApp.saveImage) { const r = String(TelezarApp.saveImage(b64)); app.taunt(r === 'ok' ? '✅ توی گالری (پوشه‌ی Pictures/Telezar) ذخیره شد' : r.startsWith('file:') ? '✅ ذخیره شد: ' + r.slice(5) : '❌ ذخیره نشد', r === 'err' ? '#ff9a8a' : '#9be05a'); }
+    else { const l = document.createElement('a'); l.href = p.d; l.download = `telezar-${p.t}.jpg`; document.body.appendChild(l); l.click(); l.remove(); }
+  }
+  else if (a === 'share') {
+    try {
+      if (window.TelezarApp && TelezarApp.shareImage) TelezarApp.shareImage(b64);
+      else { const blob = await (await fetch(p.d)).blob(), file = new File([blob], `telezar-${p.t}.jpg`, { type: 'image/jpeg' }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], text: 'تله‌زار 😈' }); }
+    } catch (e) {}
+  }
+});
+$('bAlbum').onclick = () => { Sound.init(); Sound.play('click'); renderAlbum(); app.open('sAlbum'); };
 /* ============================ TEST HOOK ============================ */
 // Deterministic headless simulation used for verifying each level is beatable.
 window.TRAPLAND = {

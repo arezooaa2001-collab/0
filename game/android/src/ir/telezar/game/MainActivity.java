@@ -2,6 +2,13 @@ package ir.telezar.game;
 
 import android.app.Activity;
 import android.content.ClipData;
+import android.content.ContentValues;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.graphics.Color;
@@ -69,12 +76,48 @@ public class MainActivity extends Activity {
                 } catch (Exception ignored) { }
             } });
         }
+        /** Saves a JPEG (base64) from the photo album: Pictures/Telezar on Android 10+, the app's own picture folder before. */
+        @JavascriptInterface
+        public String saveImage(String b64) {
+            try {
+                byte[] data = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                String name = "telezar_" + System.currentTimeMillis() + ".jpg";
+                if (Build.VERSION.SDK_INT >= 29) return insertPhoto(data, name) != null ? "ok" : "err";
+                File dir = getExternalFilesDir(Environment.DIRECTORY_PICTURES); if (dir == null) return "err"; dir.mkdirs();
+                File f = new File(dir, name); FileOutputStream o = new FileOutputStream(f); o.write(data); o.close();
+                return "file:" + f.getAbsolutePath();
+            } catch (Exception e) { return "err"; }
+        }
+        /** Shares a picture with another app (Android 10+: through the media store, so no file provider is needed). */
+        @JavascriptInterface
+        public void shareImage(final String b64) {
+            runOnUiThread(new Runnable() { @Override public void run() {
+                try {
+                    if (Build.VERSION.SDK_INT < 29) { saveImage(b64); return; }
+                    byte[] data = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                    Uri uri = insertPhoto(data, "telezar_" + System.currentTimeMillis() + ".jpg"); if (uri == null) return;
+                    Intent i = new Intent(Intent.ACTION_SEND); i.setType("image/jpeg"); i.putExtra(Intent.EXTRA_STREAM, uri); i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(i, "\u0641\u0631\u0633\u062a\u0627\u062f\u0646"));
+                } catch (Exception ignored) { }
+            } });
+        }
         @JavascriptInterface
         public void copy(final String text) {
             runOnUiThread(new Runnable() { @Override public void run() {
                 try { ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("telezar", text)); } catch (Exception ignored) { }
             } });
         }
+    }
+
+    private Uri insertPhoto(byte[] data, String name) throws Exception {
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        v.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
+        v.put("relative_path", "Pictures/Telezar");   // MediaStore.MediaColumns.RELATIVE_PATH (Android 10), by name so the old SDK compiles
+        Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
+        if (uri == null) return null;
+        OutputStream o = getContentResolver().openOutputStream(uri); o.write(data); o.close();
+        return uri;
     }
 
     private void hideBars() {

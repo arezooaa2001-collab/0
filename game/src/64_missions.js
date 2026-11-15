@@ -16,6 +16,7 @@ const MISSION_POOL = [
   { id: 'shop', t: () => 'یه چیز از فروشگاه بخر', n: [1], r: 20 },
   { id: 'make', t: () => 'توی «سازنده‌ی مرحله» یه مرحله بساز و خودت ردش کن', n: [1], r: 35 },
   { id: 'near', t: n => `${faNum(n)} بار از یه میلی‌متری تله‌ها رد شو (نزدیک بود!)`, n: [8, 15, 25], r: 25 },
+  { id: 'gradeS', t: () => 'یه مرحله رو با رتبه‌ی S تموم کن', n: [1], r: 45 },
   { id: 'mut', t: () => 'یه مرحله رو با یکی از «چالش‌های ویژه» ببر', n: [1], r: 35 },
 ];
 const CHEST_GEMS = [10, 15, 20, 30, 40, 55, 80];
@@ -83,6 +84,6 @@ const XP = {
   },
   ui() {
     const el = document.getElementById('xpBox'); if (!el) return; const l = this.lvl(ST.xp), a = this.need(l), b = this.need(l + 1), k = clamp(((ST.xp || 0) - a) / (b - a), 0, 1);
-    el.title = 'جاده‌ی جایزه'; el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small><em>جاده‌ی جایزه ›</em>`;
+    el.title = 'جاده‌ی جایزه'; el.innerHTML = `<b>⭐ سطح ${faNum(l)}</b><span class="xpbar"><i style="transform:scaleX(${k.toFixed(3)})"></i></span><small>${faNum((ST.xp || 0) - a)} / ${faNum(b - a)}</small><em>جاده‌ی جایزه ›</em>${typeof titleOf === 'function' && titleOf() ? `<i class="ttl">🏷️ ${titleOf()}</i>` : ''}`;
   },
 };
