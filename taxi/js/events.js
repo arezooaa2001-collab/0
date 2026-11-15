@@ -326,7 +326,7 @@ export class RoadEvents {
     const g = this.g;
     if (this.job) return false;
     if (g.rides.ride) return g.ui.toast('اول مسافرت رو برسون 🧳', 'warn'), false;
-    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.bounty.state !== 'idle' || g.soccer.state !== 'idle') return g.ui.toast('اول مسابقه‌ت رو تموم کن 🏁', 'warn'), false;
+    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.bounty.state !== 'idle' || g.soccer.state !== 'idle' || g.zombie.active) return g.ui.toast('اول مسابقه‌ت رو تموم کن 🏁', 'warn'), false;
     if (g.onfoot.active || g.onfoot.busy) return g.ui.toast('اول سوار ماشین شو 🚗', 'warn'), false;
     if (g.rides.state === 'offer') g.rides.decline();
     this.job = { o, state: 'toShop', left: o.limit, q: 1, crashT: 0 };
@@ -420,7 +420,7 @@ export class RoadEvents {
     this.t -= dt;
     if (this.t > 0) return;
     this.t = 8;
-    const busy = g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.bounty.state !== 'idle' || g.soccer.state !== 'idle' || g.police.state !== 'none' || g.onfoot.active;
+    const busy = g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.bounty.state !== 'idle' || g.soccer.state !== 'idle' || g.zombie.active || g.police.state !== 'none' || g.onfoot.active;
     if (busy) return;
     const p = g.player, city = regionAt(p.pos.x, p.pos.z) === 'city';
     const r = Math.random();

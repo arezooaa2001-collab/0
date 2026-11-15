@@ -279,6 +279,8 @@ export class Rides {
         r.complaints++;
         this.say('دیر شد! گفتم که عجله دارم!');
       }
+      if (g.zombie) g.zombie.rideTick(dt, r);
+      if (!this.ride) return;
       if (!r.o.kind && !r.follow) {
         this.updateErrand(dt, sp);
         if (r.errand && r.errand.state !== 'done') return;

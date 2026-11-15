@@ -68,7 +68,7 @@ export class Tornado {
     const g = this.g, f = g.focus();
     const reg = regionAt(f.pos.x, f.pos.z);
     if (reg !== 'desert' && reg !== 'farm') return false;
-    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.drag.state !== 'idle' || g.parking.state !== 'idle') return false;
+    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.drag.state !== 'idle' || g.parking.state !== 'idle' || (g.zombie && g.zombie.active)) return false;
     return true;
   }
   spawn(force = false) {

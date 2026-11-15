@@ -41,7 +41,7 @@ export class Bounty {
     const g = this.g;
     if (this.state !== 'idle') return false;
     if (g.rides.ride) return g.ui.toast('اول مسافرت رو برسون 🧳', 'warn'), false;
-    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.soccer.state !== 'idle') return g.ui.toast('اول کار فعلیت رو تموم کن', 'warn'), false;
+    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.soccer.state !== 'idle' || g.zombie.active) return g.ui.toast('اول کار فعلیت رو تموم کن', 'warn'), false;
     if (g.police.state !== 'none') return g.ui.toast('خودت تحت تعقیبی! 🚨', 'warn'), false;
     if (g.onfoot.active || g.onfoot.busy || g.player.burning || g.player.health <= 10) return g.ui.toast('ماشینت آماده نیست', 'warn'), false;
     if (g.time < (this.nextT || 0)) return g.ui.toast(`🎯 پرونده بعدی ${fa(Math.ceil(this.nextT - g.time))} ثانیه دیگه آماده میشه`, 'warn'), false;

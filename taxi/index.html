@@ -18,6 +18,9 @@
 <canvas id="gl"></canvas>
 <div id="glare"></div>
 
+<div id="zfrost"></div>
+<div id="zblack"><span>⬛ شیشه‌ها کاملاً سیاهه — نه تو بیرون رو می‌بینی نه کسی تو رو</span></div>
+<div id="zpulse"></div>
 <div id="hud" class="off">
   <div id="cracks" class="hidden"></div>
   <div id="drops" class="hidden"></div>
@@ -43,7 +46,7 @@
     <div class="pill coins hidden" id="coinPill">🪙 <b id="coins">۰</b><small>سکه</small></div>
     <div class="meter fuel"><span>⛽</span><div class="track"><i id="fuelBar"></i><i id="superBar" class="super"></i></div><em id="fuelText"></em></div>
     <div class="meter health"><span>🔧</span><div class="track"><i id="healthBar"></i></div></div>
-    <div class="pill small" id="infoPill"><span id="clock">۰۸:۰۰</span>·روز <b id="day">۱</b>·<span id="stars">★ ۵</span>·<span id="lvl" title="سطح راننده">🎖️۱</span><i id="xpBar"></i></div>
+    <div class="pill small" id="infoPill"><span id="clock">۰۸:۰۰</span>·روز <b id="day">۱</b>·<span id="stars">★ ۵</span>·<span id="lvl" title="سطح راننده">🎖️۱</span><span id="zbadge" class="hidden" title="اثر زامبی توی وجودت مونده">🧟</span><i id="xpBar"></i></div>
     <div id="wanted" class="hidden">🚨 تحت تعقیب پلیس <span id="wantedStars">⭐</span>
       <div class="wrow"><small>دستگیری</small><div class="wbar"><i id="arrestBar"></i></div></div>
       <div class="wrow"><small>فرار</small><div class="wbar esc"><i id="escapeBar"></i></div></div>
@@ -52,6 +55,8 @@
   </div>
   <div id="jobHud" class="hidden"></div>
   <div id="dashcam"></div>
+  <div id="zinfo"></div>
+  <div id="zbar"><button id="zLock">🔒 قفل</button><button id="zTint">🕶️ دودی</button><button id="zLeave">🚪 خروج از حالت</button></div>
   <div id="bountyHud" class="hidden"></div>
   <div id="soccerHud" class="hidden"></div>
   <div id="dragHud" class="hidden"><div id="dragInfo"></div><div id="dragMsg"></div></div>
@@ -152,6 +157,7 @@
   <div class="phbar"><button id="phFilter">🎨 عادی</button><button id="phShot" class="shot">📸</button><button id="phExit">✕ خروج</button></div>
   <div class="phhint">بکش تا دوربین بچرخه • با دو انگشت (یا اسکرول) زوم کن</div>
 </div>
+<div id="zdead" class="hidden"><div class="zdbox"><div class="zdicon">🥶⛄</div><b id="zdeadWhy"></b><p>🚑 آمبولانس داره میاد... برسه می‌برتت بیمارستان</p><div id="zdeadClock">۱۰:۰۰</div><button id="zSkip">⏩ پرداخت ۲۰ سکه و رسیدن سریع‌تر</button></div></div>
 <div id="replay" class="hidden">
   <div class="rptop"><b>🎬 ریپلی</b><span id="rpTime"></span></div>
   <div class="rpbot"><div id="rpBar"><i id="rpFill"></i></div>

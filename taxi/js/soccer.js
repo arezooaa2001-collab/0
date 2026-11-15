@@ -185,7 +185,7 @@ export class Soccer {
   canStart() {
     const g = this.g;
     if (this.state !== 'idle') return false;
-    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle') return false;
+    if (g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle' || g.zombie.active) return false;
     if (g.rides.ride) return g.ui.toast('اول مسافرت رو برسون 🧳', 'warn'), false;
     if (g.police.state !== 'none') return g.ui.toast('با پلیس پشت سرت؟! 🚨', 'warn'), false;
     if (g.player.burning || g.onfoot.active || g.onfoot.busy) return false;

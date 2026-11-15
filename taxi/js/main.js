@@ -41,6 +41,7 @@ import { Extras } from './extras.js';
 import { Tornado } from './tornado.js';
 import { Soccer } from './soccer.js';
 import { PhotoHunt } from './photohunt.js';
+import { ZombieNight } from './zombie.js';
 import { Phone } from './phone.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
@@ -183,6 +184,7 @@ class Game {
     this.tornado = new Tornado(this);
     this.soccer = new Soccer(this);
     this.hunt = new PhotoHunt(this);
+    this.zombie = new ZombieNight(this);
     this.ambient = new Ambient(this);
     this.carLights = new CarLights(this);
     this.nature = new Nature(this);
@@ -233,9 +235,11 @@ class Game {
   save() {
     if (this.resetting) return;
     const p = this.player;
+    // during the frozen night the real clock, calendar and window tint are parked
+    const zs = this.zombie && this.zombie.active ? this.zombie.saved : null;
     const d = {
-      money: Math.round(this.money), coins: this.coins, day: this.day, hour: this.hour, stats: this.stats,
-      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat, flatCars: p.flatCars || {}, otherTank: p.otherTank || null,
+      money: Math.round(this.money), coins: this.coins, day: zs ? zs.day : this.day, hour: zs ? zs.hour : this.hour, stats: this.stats,
+      fuel: p.fuel, superFuel: p.superFuel, tank: p.tank, health: p.burning ? 100 : p.health, engine: p.engineLevel, paint: p.paintHex ?? null, nitro: p.nitro, model: p.model, owned: p.owned, neon: p.neon || null, paints: p.paints, mods: { tint: zs ? zs.tint : p.tint || 0, rim: p.rim || 'silver', plate: p.plateText || '', spoiler: !!p.spoiler, exhaust: !!p.sportExhaust, livery: p.livery || '', owned: p.modsOwned || [] }, dirt: +(p.dirt || 0).toFixed(2), horn: p.horn, horns: p.horns, perf: p.perf || [], flat: !!p.flat, flatCars: p.flatCars || {}, otherTank: p.otherTank || null,
       x: p.pos.x, z: p.pos.z, h: p.heading,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { /* storage may be blocked */ }
@@ -357,6 +361,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV12) {
+        this.stats.seenV12 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 🌙❄️ حالت «شب یخ‌زده» با زامبی‌های بامزه! از توی گوشی (🧟) واردش شو؛ درها رو قفل نگه دار و به هیچکی اعتماد نکن 🔒', 'info'), 45000);
+      }
       if (!this.stats.seenV11) {
         this.stats.seenV11 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 🌪️ گردباد توی کویر، ⚽ فوتبال ماشینی، 💥 آسیب واقعی بدنه، 📹 دوربین داشبورد، 🖼️ شکار عکس روزانه و 📈 درصد پیشرفت بازی!', 'info'), 40000);
@@ -400,6 +408,7 @@ class Game {
     this.stats.seenV9 = true;
     this.stats.seenV10 = true;
     this.stats.seenV11 = true;
+    this.stats.seenV12 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -847,7 +856,7 @@ class Game {
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
-    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job && this.bounty.state === 'idle' && this.soccer.state === 'idle';
+    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job && this.bounty.state === 'idle' && this.soccer.state === 'idle' && !this.zombie.active;
     for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot, this.parking.spot, this.drag.spot, this.soccer.spot] : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
@@ -1119,6 +1128,11 @@ class Game {
       this.post.render(this.scene, this.camera);
       return;
     }
+    if (st === 'zdead') {
+      this.zombie.deadUpdate(Math.min(0.05, dt));
+      this.post.render(this.scene, this.camera);
+      return;
+    }
     if (st === 'replay') {
       this.replay.update(Math.min(0.05, dt));
       this.post.render(this.scene, this.camera);
@@ -1128,9 +1142,13 @@ class Game {
     this.hour += (dt * 24) / DAY_SECONDS;
     if (this.hour >= 24) {
       this.hour -= 24;
-      this.day++;
-      this.ui.toast(`🌅 روز ${fa(this.day)} شروع شد`, 'info');
-      this.newDay();
+      // the frozen night has no calendar: the normal days stand still
+      if (this.zombie && this.zombie.active) this.zombie.midnight();
+      else {
+        this.day++;
+        this.ui.toast(`🌅 روز ${fa(this.day)} شروع شد`, 'info');
+        this.newDay();
+      }
     }
     this.updateEnv(dt);
     this.weather.update(dt);
@@ -1171,6 +1189,7 @@ class Game {
     this.extras.update(dt);
     this.tornado.update(dt);
     this.soccer.update(dt);
+    this.zombie.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);

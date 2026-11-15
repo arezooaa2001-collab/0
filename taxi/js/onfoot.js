@@ -28,6 +28,7 @@ export class OnFoot {
     return Math.hypot(this.walker.pos.x - d.x, this.walker.pos.z - d.z) < 3.2;
   }
   toggle() {
+    if (!this.active && !this.busy && this.g.zombie && this.g.zombie.active) return this.g.zombie.tryExit();
     if (this.active) this.enter();
     else this.exit();
   }

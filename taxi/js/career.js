@@ -91,7 +91,7 @@ export class Career {
     this.badge();
   }
   badge() {
-    const n = this.inbox().filter((m) => !m.read).length;
+    const n = this.inbox().filter((m) => !m.read).length + (this.g.zombie ? this.g.zombie.unread() : 0);
     const b = $('phoneBadge');
     if (b) {
       b.textContent = n ? fa(n) : '';

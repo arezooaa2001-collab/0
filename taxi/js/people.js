@@ -148,6 +148,14 @@ export class Pedestrians {
       this.umbrellas = wet;
       for (const w of this.list) w.umbrella.visible = wet;
     }
+    // nobody is out walking on the frozen night
+    if (g.zombie && g.zombie.active) {
+      for (const w of this.list) if (w.active) {
+        w.active = false;
+        w.root.visible = false;
+      }
+      return;
+    }
     const inCity = Math.abs(p.x) < 520 && Math.abs(p.z) < 520;
     for (const w of this.list) {
       if (!w.active) {

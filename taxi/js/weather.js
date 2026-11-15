@@ -95,14 +95,14 @@ export class Weather {
     this.rain = damp(this.rain, this.target.rain, 0.3, dt);
     // up in the mountains the clouds bring snow instead of rain
     const f = g.focus();
-    const cold = regionAt(f.pos.x, f.pos.z) === 'lake' && this.target.rain > 0;
+    const cold = (this.forceSnow || regionAt(f.pos.x, f.pos.z) === 'lake') && this.target.rain > 0;
     this.snow = damp(this.snow, cold ? 1 : 0, 0.4, dt);
     if (cold && !this.snowSaid && this.snow > 0.3 && g.state === 'play') {
       this.snowSaid = true;
       g.ui.toast('❄️ داره برف میاد! جاده لیز شده، آروم برون', 'info');
     } else if (!cold && this.snow < 0.05) this.snowSaid = false;
     // ...and in the desert they whip up a sandstorm
-    const dusty = regionAt(f.pos.x, f.pos.z) === 'desert' && this.target.cloud >= 0.85;
+    const dusty = !this.forceSnow && regionAt(f.pos.x, f.pos.z) === 'desert' && this.target.cloud >= 0.85;
     this.sand = damp(this.sand, dusty ? 1 : 0, 0.35, dt);
     if (dusty && !this.sandSaid && this.sand > 0.3 && g.state === 'play') {
       this.sandSaid = true;

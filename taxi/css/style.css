@@ -753,3 +753,46 @@ body.photomode.dashcam::after, body.replaymode.dashcam::after { display: none; }
 }
 body.steer-wheel #btnShift { bottom: calc(150px + var(--safe-b)); }
 @media (max-height: 480px) { body.steer-wheel #btnShift { bottom: calc(140px + var(--safe-b)); } }
+
+/* ---------- frozen night ---------- */
+#zinfo, #zbar { display: none; }
+body.znight #zinfo { display: block; position: absolute; left: 50%; transform: translateX(-50%); top: calc(19% - 4px); background: rgba(20,40,80,.75); border: 1px solid rgba(180,220,255,.6); color: #e3f2fd; border-radius: 14px; padding: 4px 14px; font-size: 13px; font-weight: 800; white-space: nowrap; pointer-events: none; direction: rtl; }
+body.znight #zbar { display: flex; position: absolute; left: calc(14px + var(--safe-l)); bottom: calc(124px + var(--safe-b)); gap: 6px; pointer-events: auto; direction: rtl; }
+#zbar button { background: rgba(20,40,80,.85); border: 2px solid rgba(180,220,255,.7); color: #fff; border-radius: 12px; padding: 7px 10px; font-weight: 800; font-size: 13px; }
+#zbar #zLock.open { background: #c62828; border-color: #ffcdd2; animation: czpulse .5s infinite alternate; }
+@media (max-height: 480px) { body.znight #zbar { bottom: calc(100px + var(--safe-b)); } #zbar button { padding: 5px 8px; font-size: 12px; } body.znight #zinfo { top: calc(16% - 4px); font-size: 11px; } }
+#zfrost { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at center, rgba(255,255,255,0) 58%, rgba(210,235,255,.32) 82%, rgba(235,248,255,.6) 100%); }
+body.znight #zfrost { display: block; }
+#zblack { display: none; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: rgba(4,6,10,.96); align-items: center; justify-content: center; }
+#zblack span { color: #90a4ae; font-size: 13px; font-weight: 700; direction: rtl; }
+body.znight.zblack #zblack { display: flex; }
+body.photomode #zblack, body.replaymode #zblack, body.photomode #zfrost, body.replaymode #zfrost { display: none !important; }
+#zpulse { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(120,255,120,0) 40%, rgba(80,220,90,.45) 100%); }
+#zpulse.on { animation: zpulse 2.4s ease; }
+@keyframes zpulse { 0% { opacity: 0; } 20% { opacity: 1; } 45% { opacity: .3; } 65% { opacity: .9; } 100% { opacity: 0; } }
+#zbadge { margin-right: 4px; animation: czpulse .8s infinite alternate; }
+#zdead { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, rgba(200,230,255,.92), rgba(120,170,220,.92)); }
+#zdead.hidden { display: none; }
+.zdbox { background: rgba(255,255,255,.9); color: #123; border-radius: 22px; padding: 18px 22px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; max-width: min(92vw, 420px); box-shadow: 0 20px 60px rgba(0,0,0,.25); direction: rtl; }
+.zdicon { font-size: 48px; }
+.zdbox b { font-size: 16px; }
+.zdbox p { margin: 0; font-size: 13px; }
+#zdeadClock { font-size: 44px; font-weight: 900; color: #1565c0; }
+#zSkip { background: #1565c0; color: #fff; border-radius: 12px; padding: 8px 14px; font-weight: 800; }
+#zSkip:disabled { opacity: .45; }
+.zmode .zhero { font-size: 44px; text-align: center; }
+.zmode p, .zmode li { font-size: 13px; line-height: 1.8; }
+.zmode ul { margin: 0; padding-right: 18px; }
+.zlist { display: flex; flex-direction: column; gap: 5px; }
+.zlist button { display: grid; grid-template-columns: 34px 1fr auto; grid-template-rows: auto auto; align-items: center; gap: 0 8px; text-align: right; background: var(--glass2); border-radius: 12px; padding: 7px 10px; }
+.zlist button span { grid-row: span 2; font-size: 24px; }
+.zlist button b { font-size: 13px; }
+.zlist button small { grid-column: 2; font-size: 11px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zlist button em { grid-row: 1 / span 2; grid-column: 3; background: #ef4444; color: #fff; border-radius: 9px; min-width: 18px; font-style: normal; font-size: 11px; font-weight: 800; padding: 0 5px; text-align: center; }
+.zthread { display: flex; flex-direction: column; gap: 5px; max-height: 42vh; overflow: auto; padding: 4px 0; }
+.zthread p { margin: 0; align-self: flex-start; max-width: 82%; background: var(--glass2); border-radius: 14px 14px 14px 4px; padding: 6px 10px; font-size: 13px; line-height: 1.6; }
+.zthread p.me { align-self: flex-end; background: #1e88e5; border-radius: 14px 14px 4px 14px; }
+.zsend { display: flex; gap: 6px; }
+.zsend input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: #fff; padding: 8px 10px; font: inherit; font-size: 13px; }
+.zsend button { border-radius: 12px; padding: 8px 12px; font-weight: 800; background: #1e88e5; color: #fff; }
+@media (max-height: 480px) { body.znight #zinfo { left: calc(50vw - 90px); max-width: calc(100vw - 446px); white-space: normal; text-align: center; } }

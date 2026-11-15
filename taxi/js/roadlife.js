@@ -227,7 +227,7 @@ export class RoadLife {
     if (!live) {
       this.convoyT -= dt;
       const h = g.hour;
-      if (this.convoyT <= 0 && g.state === 'play' && h > 9 && h < 21 && regionAt(p.pos.x, p.pos.z) === 'city') {
+      if (this.convoyT <= 0 && g.state === 'play' && h > 9 && h < 21 && regionAt(p.pos.x, p.pos.z) === 'city' && !g.zombie.active) {
         this.convoyT = 120 + Math.random() * 120;
         if (Math.random() < 0.6) this.spawnConvoy();
       }

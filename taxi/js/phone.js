@@ -9,6 +9,8 @@ export class Phone {
     this.app = null;
     // other modules can add their own apps: { id, icon, name, open(phone) | html(phone), bind?(el, phone), badge?() }
     this.apps = [
+      { id: 'zmode', icon: '🧟', name: 'شب یخ‌زده', html: () => game.zombie.modeHtml(), bind: (el) => game.zombie.bindMode(el) },
+      { id: 'zchat', icon: '📨', name: 'پیام‌رسان', html: () => game.zombie.chatHtml(), bind: (el) => game.zombie.bindChat(el), badge: () => game.zombie.unread() },
       { id: 'story', icon: '📖', name: 'داستان', html: () => game.career.storyHtml() },
       { id: 'msg', icon: '💬', name: 'پیام‌ها', html: () => this.inboxHtml(), badge: () => game.career.inbox().filter((m) => !m.read).length },
       { id: 'lb', icon: '📊', name: 'رتبه‌بندی', html: () => game.career.boardHtml() },
