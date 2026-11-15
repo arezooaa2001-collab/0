@@ -552,7 +552,7 @@ export function buildCar(opts = {}) {
     }
   }
 
-  const out = { root, body, wheels, doors, P, type, paint, wipers, wsN };
+  const out = { root, body, wheels, doors, P, type, paint, wipers, wsN, rh, hood: { z0: P.wsZ, z1: half, y: topFn((P.wsZ + half) / 2) } };
 
   // --- type specific roof equipment
   if (isTaxi || (interior && type !== 'sport' && type !== 'limo')) {

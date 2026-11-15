@@ -98,6 +98,7 @@ export class Replay {
     g.audio.setSkid(0);
     g.audio.setWind(0, false);
     g.audio.siren(false);
+    g.audio.setStorm(0);
     g.ui.toggleBigMap(false);
     $('replayChip').classList.add('hidden');
     this.chipT = 0;

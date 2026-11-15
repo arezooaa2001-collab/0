@@ -38,6 +38,9 @@ import { RoadEvents } from './events.js';
 import { Replay } from './replay.js';
 import { Bounty } from './bounty.js';
 import { Extras } from './extras.js';
+import { Tornado } from './tornado.js';
+import { Soccer } from './soccer.js';
+import { PhotoHunt } from './photohunt.js';
 import { Phone } from './phone.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
@@ -177,6 +180,9 @@ class Game {
     this.replay = new Replay(this);
     this.bounty = new Bounty(this);
     this.extras = new Extras(this);
+    this.tornado = new Tornado(this);
+    this.soccer = new Soccer(this);
+    this.hunt = new PhotoHunt(this);
     this.ambient = new Ambient(this);
     this.carLights = new CarLights(this);
     this.nature = new Nature(this);
@@ -349,6 +355,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV11) {
+        this.stats.seenV11 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 🌪️ گردباد توی کویر، ⚽ فوتبال ماشینی، 💥 آسیب واقعی بدنه، 📹 دوربین داشبورد، 🖼️ شکار عکس روزانه و 📈 درصد پیشرفت بازی!', 'info'), 40000);
+      }
       if (!this.stats.seenV10) {
         this.stats.seenV10 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 🎬 ریپلی سینمایی، 🎯 شکار مجرم‌های فراری، 🚧 میخ پلیس، 🌀 چرخش ۳۶۰ توی هوا، 📻 خبر رادیو، 🎆 جشن شب جمعه، 🌈 رنگین‌کمان و 🔥 برچسب بدنه!', 'info'), 35000);
@@ -387,6 +397,7 @@ class Game {
     this.stats.seenV8 = true;
     this.stats.seenV9 = true;
     this.stats.seenV10 = true;
+    this.stats.seenV11 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
@@ -408,6 +419,7 @@ class Game {
       this.audio.setWater(0);
       this.audio.setWind(0, false);
       this.audio.setHeli(0);
+      this.audio.setStorm(0);
     } else if (!on && this.state === 'pause') {
       this.state = 'play';
       if (this.ui.panelOpen) {
@@ -431,6 +443,7 @@ class Game {
     this.audio.setWater(0);
     this.audio.setWind(0, false);
     this.audio.setHeli(0);
+      this.audio.setStorm(0);
     this.audio.setEngine(0, 0, false);
     this.fade(0, 0.8);
   }
@@ -459,15 +472,16 @@ class Game {
 
   /* ---------------- camera ---------------- */
   cycleCamera() {
-    const order = ['third', 'first', 'far', 'bumper', 'tv'];
+    const order = ['third', 'first', 'far', 'bumper', 'tv', 'dash'];
     this.setCamera(order[(order.indexOf(this.camMode) + 1) % order.length]);
   }
   setCamera(mode, silent) {
     this.camMode = mode;
     this.lookYaw = 0;
     this.lookPitch = 0;
-    const fp = mode === 'first';
+    const fp = mode === 'first' || mode === 'dash';
     this.camera.near = fp ? 0.03 : 0.15;
+    document.body.classList.toggle('dashcam', mode === 'dash');
     this.camera.updateProjectionMatrix();
 
     // where the guide arrow floats: dashboard in first person, ahead of the bonnet for the bumper cam, above the roof otherwise
@@ -477,7 +491,7 @@ class Game {
     this.arrow.group.scale.setScalar(fp ? 0.075 : bump ? 0.35 : 0.85);
     this.camInit = true;
     this.tvCam = null;
-    if (!silent) this.ui.toast(fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : mode === 'bumper' ? '🎥 دوربین سپر — خیلی نزدیک به جاده!' : mode === 'tv' ? '🎬 دوربین تلویزیونی — مثل پخش زنده مسابقه!' : '🎥 دید سوم شخص', 'info');
+    if (!silent) this.ui.toast(mode === 'dash' ? '📹 دوربین داشبورد — داره ضبط می‌کنه!' : fp ? '👁️ دید اول شخص — داخل ماشین' : mode === 'far' ? '🎥 دید دور' : mode === 'bumper' ? '🎥 دوربین سپر — خیلی نزدیک به جاده!' : mode === 'tv' ? '🎬 دوربین تلویزیونی — مثل پخش زنده مسابقه!' : '🎥 دید سوم شخص', 'info');
     this.saveSettings();
   }
   /** total buying power: cash plus coins (1 coin = 10,000 tomans) */
@@ -597,6 +611,22 @@ class Game {
       T.e.set(-0.04 + this.lookPitch, Math.PI + this.lookYaw, 0, 'YXZ');
       cam.quaternion.copy(p.group.quaternion).multiply(T.q.setFromEuler(T.e));
       cam.fov = damp(cam.fov, 72 + spd * 0.3 + (p.nitroOn ? 14 : 0), 3, dt);
+    } else if (this.camMode === 'dash') {
+      // a dashcam stuck behind the mirror: wide lens and every bump of the road
+      const T = this._camTmp || (this._camTmp = { v: new THREE.Vector3(), q: new THREE.Quaternion(), e: new THREE.Euler(0, 0, 0, 'YXZ') });
+      const P = p.car.P;
+      cam.position.copy(T.v.set(0.02, P.roof - 0.11, P.roofF - 0.04).applyQuaternion(p.group.quaternion).add(p.group.position));
+      const jig = Math.min(0.012, spd * 0.0004) * Math.sin(this.time * 31);
+      T.e.set(-0.07 + jig + this.lookPitch, Math.PI + this.lookYaw, 0, 'YXZ');
+      cam.quaternion.copy(p.group.quaternion).multiply(T.q.setFromEuler(T.e));
+      cam.fov = damp(cam.fov, 92, 3, dt);
+      const d = document.getElementById('dashcam');
+      if (d) {
+        const hh = Math.floor(this.hour), mm = Math.floor((this.hour % 1) * 60), ss = Math.floor((this.hour * 3600) % 60);
+        const pad = (n) => String(n).padStart(2, '0');
+        const t = `● REC  D${pad(this.day)} ${pad(hh)}:${pad(mm)}:${pad(ss)}  ${String(Math.round(spd * 3.6)).padStart(3, '0')}KM/H`;
+        if (t !== this.dashText) d.textContent = this.dashText = t;
+      }
     } else if (this.camMode === 'tv') {
       this.updateTvCamera(dt);
     } else if (this.camMode === 'first') {
@@ -774,6 +804,7 @@ class Game {
     else if (z.kind === 'crazy') this.crazy.offer();
     else if (z.kind === 'parking') this.parking.offer();
     else if (z.kind === 'drag') this.drag.offer();
+    else if (z.kind === 'soccer') this.soccer.offer();
     else if (z.kind === 'help') this.events.help();
     else if (z.kind === 'helping') return;
     else if (z.kind === 'fuelHelp') {
@@ -814,8 +845,8 @@ class Game {
       this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
       return;
     }
-    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job && this.bounty.state === 'idle';
-    for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot, this.parking.spot, this.drag.spot] : [])]) {
+    const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job && this.bounty.state === 'idle' && this.soccer.state === 'idle';
+    for (const s of [...w.stations, ...w.garages, w.police, ...(free ? [...this.race.spots, this.crazy.spot, this.parking.spot, this.drag.spot, this.soccer.spot] : [])]) {
       if (Math.hypot(p.pos.x - s.padX, p.pos.z - s.padZ) < 12) zone = s;
     }
     if (!zone) zone = this.events.zone();
@@ -825,7 +856,7 @@ class Game {
     else if (zone?.kind !== 'garage' && p.health <= 0) zone = { kind: 'tow' };
     this.currentZone = zone;
     if (zone && !this.ui.panelOpen) {
-      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'parking' ? '🅿️ چالش پارک • شروع کن!' : zone.kind === 'drag' ? '🚦 درگ ۴۰۰ متری • مسابقه بده!' : zone.kind === 'help' ? `🆘 کمک به راننده: ${this.events.strand.prob[3]}` : zone.kind === 'helping' ? zone.text : zone.kind === 'fuelHelp' ? (p.spec.ev ? '🔋 باتری تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)') : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
+      const txt = zone.kind === 'gas' ? '⛽ بزن تا بنزین بزنی' : zone.kind === 'garage' ? '🔧 تعمیر و ارتقای ماشین' : zone.kind === 'police' ? '🚓 کلانتری' : zone.kind === 'race' ? `🏁 ${zone.name} • مسابقه بده!` : zone.kind === 'crazy' ? '🔥 تاکسی دیوانه • شروع کن!' : zone.kind === 'parking' ? '🅿️ چالش پارک • شروع کن!' : zone.kind === 'drag' ? '🚦 درگ ۴۰۰ متری • مسابقه بده!' : zone.kind === 'soccer' ? '⚽ فوتبال ماشینی • بازی کن!' : zone.kind === 'help' ? `🆘 کمک به راننده: ${this.events.strand.prob[3]}` : zone.kind === 'helping' ? zone.text : zone.kind === 'fuelHelp' ? (p.spec.ev ? '🔋 باتری تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)' : '⛽ بنزین تموم شد! زنگ بزن امداد خودرو (۸۰٬۰۰۰)') : '🛻 ماشین خراب شد! یدک‌کش تا تعمیرگاه (۱۵۰٬۰۰۰)';
       this.ui.zone(txt);
       this.stopT = sp < 0.6 && !this.ui.controlsHeld() ? (this.stopT || 0) + dt : 0;
       if (this.stopT > 0.5 && this.zoneAuto !== zone && (zone.kind === 'gas' || zone.kind === 'garage')) {
@@ -1136,6 +1167,8 @@ class Game {
     this.events.update(dt);
     this.bounty.update(dt);
     this.extras.update(dt);
+    this.tornado.update(dt);
+    this.soccer.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);

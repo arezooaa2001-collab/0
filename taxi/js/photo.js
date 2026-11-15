@@ -79,6 +79,7 @@ export class Photo {
     g.audio.setRain(0);
     g.audio.setWind(0, false);
     g.audio.setHeli(0);
+    g.audio.setStorm(0);
     g.ui.toggleBigMap(false);
     g.audio.siren(false);
     document.body.classList.add('photomode');
@@ -166,5 +167,6 @@ export class Photo {
     $('phDl').download = name;
     $('phView').classList.remove('hidden');
     g.stats.photos = (g.stats.photos || 0) + 1;
+    if (g.hunt && g.state === 'photo') g.hunt.check();
   }
 }

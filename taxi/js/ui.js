@@ -306,7 +306,7 @@ export class UI {
   /** custom waypoint (the phone's apps use it): the guide arrow shows the way */
   navTo(x, z, label, addr = '') {
     const g = this.g;
-    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle') {
+    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle' || g.soccer.state !== 'idle') {
       this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
       return false;
     }
@@ -320,7 +320,7 @@ export class UI {
     const g = this.g;
     const c = $('bigmapCanvas'), r = c.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width) * HALF * 2 - HALF, z = ((e.clientY - r.top) / r.height) * HALF * 2 - HALF;
-    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle') {
+    if (g.rides.ride || g.race.state !== 'idle' || g.crazy.state !== 'idle' || g.parking.state !== 'idle' || g.drag.state !== 'idle' || g.events.job || g.bounty.state !== 'idle' || g.soccer.state !== 'idle') {
       this.toast('الان مسیرت معلومه؛ اول کارت رو تموم کن', 'warn');
       return;
     }
@@ -480,7 +480,7 @@ export class UI {
   update(dt) {
     const g = this.g, p = g.player;
     // cracked windshield inside the car when the taxi is badly damaged
-    const crack = g.camMode === 'first' && !g.onfoot.active && p.health < 50 ? Math.round(Math.min(0.9, (50 - p.health) / 40) * 20) / 20 : 0;
+    const crack = (g.camMode === 'first' || g.camMode === 'dash') && !g.onfoot.active && p.health < 50 ? Math.round(Math.min(0.9, (50 - p.health) / 40) * 20) / 20 : 0;
     if (crack !== this.crackShown) {
       if (crack && !this.cracksReady) this.makeCracks();
       this.crackShown = crack;
@@ -490,7 +490,7 @@ export class UI {
     this.drawGauge(p);
     // raindrops on the windshield from the driver's seat
     const W = g.weather;
-    const drops = g.camMode === 'first' && !g.onfoot.active && g.state === 'play' && W ? Math.round(Math.min(1, ((W.wet ?? W.rain) + W.snow * 0.6) * 1.3) * 10) / 10 : 0;
+    const drops = (g.camMode === 'first' || g.camMode === 'dash') && !g.onfoot.active && g.state === 'play' && W ? Math.round(Math.min(1, ((W.wet ?? W.rain) + W.snow * 0.6) * 1.3) * 10) / 10 : 0;
     if (drops !== this.dropsShown) {
       if (drops && !this.dropsReady) this.makeDrops();
       this.dropsShown = drops;
@@ -672,10 +672,14 @@ export class UI {
       if (g.crazy.state === 'idle' && g.parking.state === 'idle' && g.drag.state === 'idle') {
         for (const s of race.spots) icon(s.padX, s.padZ, '#8e24aa', 11, '🏁');
         icon(g.drag.spot.padX, g.drag.spot.padZ, '#c62828', 11, '🚦');
+        icon(g.soccer.spot.padX, g.soccer.spot.padZ, '#2e7d32', 11, '⚽');
       }
       for (const ic of g.events.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
       const bi = g.bounty.mapIcon();
       if (bi) icon(bi.x, bi.z, bi.col, 12, bi.txt);
+      const ti = g.tornado.mapIcon();
+      if (ti) icon(ti.x, ti.z, ti.col, 12, ti.txt);
+      for (const ic of g.hunt.mapIcons()) icon(ic.x, ic.z, ic.col, 9, ic.txt);
     }
     else {
       for (let i = race.cp; i < race.cps.length; i++) icon(race.cps[i].x, race.cps[i].z, i === race.cp ? '#ffb020' : '#8a6a20', i === race.cp ? 9 : 6);
@@ -785,9 +789,13 @@ export class UI {
     dot(g.crazy.spot.padX, g.crazy.spot.padZ, '#ff6a00', '🔥');
     dot(g.parking.spot.padX, g.parking.spot.padZ, '#1565c0', '🅿️');
     dot(g.drag.spot.padX, g.drag.spot.padZ, '#c62828', '🚦');
+    dot(g.soccer.spot.padX, g.soccer.spot.padZ, '#2e7d32', '⚽');
     for (const ic of g.events.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     const bi = g.bounty.mapIcon();
     if (bi) dot(bi.x, bi.z, bi.col, bi.txt);
+    const ti = g.tornado.mapIcon();
+    if (ti) dot(ti.x, ti.z, ti.col, ti.txt);
+    for (const ic of g.hunt.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     {
       const sp = w.stuntPark;
       dot(sp.x, sp.z, '#e65100', '🚀', 10);
@@ -1390,7 +1398,7 @@ export class UI {
       <div class="menu">
         <button data-a="resume" class="big">▶ ادامه بازی</button>
         <label>کیفیت گرافیک <select data-s="quality"><option value="low">پایین</option><option value="medium">متوسط</option><option value="high">بالا</option><option value="ultra">خیلی بالا ✨ (افکت‌های سینمایی)</option></select></label>
-        <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option><option value="bumper">دوربین سپر</option><option value="tv">🎬 دوربین تلویزیونی</option></select></label>
+        <label>دید دوربین <select data-s="cam"><option value="third">سوم شخص</option><option value="first">اول شخص (داخل ماشین)</option><option value="far">دور</option><option value="bumper">دوربین سپر</option><option value="tv">🎬 دوربین تلویزیونی</option><option value="dash">📹 دوربین داشبورد</option></select></label>
         <label>گیربکس <select data-s="auto"><option value="0">دستی</option><option value="1">خودکار</option></select></label>
         <label>حساسیت فرمان <input type="range" min="0.5" max="2" step="0.1" data-s="sens"></label>
         <label>نوع فرمون <select data-s="steer"><option value="buttons">دکمه‌های ◀ ▶ (پیشنهادی)</option><option value="wheel">کشیدن فرمون</option><option value="tilt">شیب گوشی</option></select></label>

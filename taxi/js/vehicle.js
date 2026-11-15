@@ -118,6 +118,45 @@ function liveryTexture(id) {
   t.anisotropy = 4;
   return (liveryTex[id] = t);
 }
+let damageTex = null;
+/** scratches, dents and bare metal, drawn once and faded in as the car gets hurt */
+function damageTexture() {
+  if (damageTex) return damageTex;
+  const cv = document.createElement('canvas');
+  cv.width = 512;
+  cv.height = 128;
+  const c = cv.getContext('2d');
+  for (let i = 0; i < 9; i++) {
+    const x = 30 + Math.random() * 450, y = 25 + Math.random() * 80, r = 14 + Math.random() * 26;
+    const grd = c.createRadialGradient(x, y, 2, x, y, r);
+    grd.addColorStop(0, 'rgba(20,20,20,0.55)');
+    grd.addColorStop(0.6, 'rgba(60,60,60,0.25)');
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = grd;
+    c.beginPath();
+    c.ellipse(x, y, r * 1.3, r * 0.8, Math.random(), 0, Math.PI * 2);
+    c.fill();
+  }
+  c.lineCap = 'round';
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * 512, y = 10 + Math.random() * 108, l = 10 + Math.random() * 70, a = (Math.random() - 0.5) * 0.5;
+    c.strokeStyle = Math.random() < 0.6 ? 'rgba(235,235,235,0.75)' : 'rgba(120,120,120,0.7)';
+    c.lineWidth = 0.8 + Math.random() * 1.8;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+    c.stroke();
+  }
+  for (let i = 0; i < 6; i++) {
+    c.fillStyle = 'rgba(150,80,30,0.55)';
+    c.beginPath();
+    c.arc(Math.random() * 512, 40 + Math.random() * 70, 3 + Math.random() * 7, 0, Math.PI * 2);
+    c.fill();
+  }
+  damageTex = new THREE.CanvasTexture(cv);
+  damageTex.colorSpace = THREE.SRGBColorSpace;
+  return damageTex;
+}
 /** performance parts (fit every car): id, icon, name, description, price */
 export const PERF = [
   ['turbo', '🌀', 'توربو', 'شتاب ۱۵٪ و سرعت ۵٪ بیشتر + صدای فیس توربو', 900000],
@@ -227,6 +266,7 @@ export class PlayerCar {
     this.buildNeon();
     this.applyMods();
     this.applyPerf();
+    this.applyDamage();
     game.audio.electric = !!M.ev;
     if (old) {
       if (game.arrow) this.group.add(game.arrow.group);
@@ -234,6 +274,51 @@ export class PlayerCar {
       this.updateLever();
       this.syncTransform(0);
     }
+  }
+  /** dents and scratches, a hanging bumper and a popped bonnet as the health drops */
+  applyDamage() {
+    const c = this.car;
+    if (!c) return;
+    const lv = Math.max(0, Math.min(1, (100 - this.health) / 100));
+    this.damageShown = this.health;
+    if (!this.damage || this.damage.car !== c) {
+      const P = c.P, grp = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ map: damageTexture(), transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5, opacity: 0 });
+      const y = ((c.rh || 0.3) + P.belt) / 2;
+      for (const side of [1, -1]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(P.len * 0.86, (P.belt - (c.rh || 0.3)) * 0.95), mat);
+        m.rotation.y = (side * Math.PI) / 2;
+        if (side < 0) m.scale.x = -1;
+        m.position.set(side * (P.W + 0.018), y, 0);
+        grp.add(m);
+      }
+      // the front bumper hanging off one side
+      const bm = new THREE.Mesh(new THREE.BoxGeometry(P.W * 2 + 0.02, 0.16, 0.14), new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.7 }));
+      bm.geometry.translate(-P.W, 0, 0);
+      bm.position.set(P.W, (c.rh || 0.3) + 0.08, P.len / 2 + 0.05);
+      bm.rotation.set(0.15, 0.08, -0.16);
+      grp.add(bm);
+      // a bonnet that won't close any more
+      const H = c.hood, hl = Math.max(0.4, H.z1 - H.z0 - 0.12);
+      const hood = new THREE.Mesh(new THREE.BoxGeometry(P.W * 2 - 0.12, 0.035, hl), c.paint);
+      // hinged at the windscreen, the crumpled front edge sticks up
+      hood.geometry.translate(0, 0, hl / 2);
+      hood.position.set(0, H.y + 0.04, H.z0 + 0.06);
+      hood.rotation.x = -0.24;
+      grp.add(hood);
+      c.body.add(grp);
+      if (this.damage) {
+        this.damage.grp.removeFromParent();
+        this.damage.grp.traverse((o) => o.isMesh && o.geometry.dispose());
+        this.damage.mat.dispose();
+      }
+      this.damage = { car: c, grp, mat, bumper: bm, hood };
+    }
+    const D = this.damage;
+    D.mat.opacity = Math.min(1, lv * 1.5);
+    D.grp.children[0].visible = D.grp.children[1].visible = lv > 0.08;
+    D.bumper.visible = this.health < 45;
+    D.hood.visible = this.health < 22;
   }
   /** visible side of the performance parts: lowered body */
   applyPerf() {
@@ -849,7 +934,7 @@ export class PlayerCar {
     if (worst > 1.2) {
       this.events.push({ type: 'crash', impact: worst, other: worstObj });
       // ramming a fugitive is the job, so the taxi takes much less from it
-      const dmg = Math.max(0, worst - 2.5) * 2.3 * (worstObj && worstObj.isPolice ? 0.5 : worstObj && worstObj.isFugitive ? 0.3 : 1);
+      const dmg = Math.max(0, worst - 2.5) * 2.3 * (worstObj && worstObj.isPolice ? 0.5 : worstObj && (worstObj.isFugitive || worstObj.isKeeper) ? 0.3 : 1);
       this.health = Math.max(0, this.health - dmg);
     }
   }
@@ -967,6 +1052,7 @@ export class PlayerCar {
       w.spin.rotation.x += (this.speed / 0.33) * dt;
       if (w.front) w.steer.rotation.y = -this.steer;
     }
+    if (Math.abs(this.health - (this.damageShown ?? 100)) > 2.5) this.applyDamage();
     // the air freshener swings like a pendulum when you brake, accelerate and corner
     if (c.charm && dt > 0) {
       const S = this.sw || (this.sw = { x: 0, z: 0, vx: 0, vz: 0 });
@@ -1045,5 +1131,6 @@ export class PlayerCar {
   repair() {
     this.health = 100;
     this.flat = false;
+    this.applyDamage();
   }
 }

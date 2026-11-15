@@ -58,6 +58,18 @@ export class AudioSys {
     this.windGain.gain.value = 0;
     wn.connect(this.windFilter).connect(this.windGain).connect(this.master);
     wn.start();
+    // tornado roar: deep rumbling noise
+    const tn = ctx.createBufferSource();
+    tn.buffer = buf;
+    tn.loop = true;
+    tn.playbackRate.value = 0.5;
+    this.stormFilter = ctx.createBiquadFilter();
+    this.stormFilter.type = 'lowpass';
+    this.stormFilter.frequency.value = 260;
+    this.stormGain = ctx.createGain();
+    this.stormGain.gain.value = 0;
+    tn.connect(this.stormFilter).connect(this.stormGain).connect(this.master);
+    tn.start();
     // tyre squeal: narrow band noise with a wobbling pitch
     const sk = ctx.createBufferSource();
     sk.buffer = buf;
@@ -165,6 +177,12 @@ export class AudioSys {
     const t = this.ctx.currentTime;
     this.skidGain.gain.setTargetAtTime(Math.min(0.5, level) * 0.6, t, 0.06);
     this.skidFilter.frequency.setTargetAtTime(1500 + Math.sin(t * 13) * 180 + level * 300, t, 0.05);
+  }
+  setStorm(level) {
+    if (!this.ctx || !this.stormGain) return;
+    const t = this.ctx.currentTime;
+    this.stormGain.gain.setTargetAtTime(Math.min(1, level) * 0.75, t, 0.3);
+    this.stormFilter.frequency.setTargetAtTime(180 + level * 420 + Math.sin(t * 2.3) * 40, t, 0.2);
   }
   setHeli(level) {
     if (!this.ctx) return;

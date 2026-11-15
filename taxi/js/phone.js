@@ -21,6 +21,8 @@ export class Phone {
         if (game.ui.navTo(sp.padX, sp.padZ, '🚦 پیست درگ کویر', 'کویر، شرق پارک پرش')) game.ui.toast('🚦 فلش راهنما تو رو به پیست درگ کویر می‌بره', 'good');
       } },
       { id: 'weather', icon: '🌦️', name: 'هواشناسی', html: () => this.weatherHtml() },
+      { id: 'hunt', icon: '🖼️', name: 'شکار عکس', html: () => game.hunt.html(), bind: (el) => game.hunt.bind(el), badge: () => game.hunt.targets().filter((t) => !t.done).length },
+      { id: 'prog', icon: '📈', name: 'پیشرفت', html: () => game.hunt.completionHtml() },
       { id: 'ach', icon: '🏆', name: 'افتخارات', open: () => game.ui.openAchievements() },
       { id: 'fleet', icon: '💼', name: 'شرکت', open: () => game.fleet.open() },
       { id: 'radio', icon: '📻', name: 'رادیو', html: () => this.radioHtml(), bind: (el) => this.bindRadio(el) },
@@ -105,7 +107,8 @@ export class Phone {
     const now = N[w.kind] || N.clear, next = N[w.next] || now;
     const foggyTomorrow = ((g.day + 1) * 7) % 3 === 0;
     const fri = 7 - (g.day % 7);
-    return `<div class="wx"><div class="wnow"><span>${now[0]}</span><b>${now[1]}</b><small>${w.snow > 0.3 ? '❄️ توی کوهستان برف میاد' : w.sand > 0.3 ? '🌪️ طوفان شن توی کویر' : ''}</small></div>
+    const tw = g.tornado.warning();
+    return `${tw ? `<p class="twarn">${tw}</p>` : ''}<div class="wx"><div class="wnow"><span>${now[0]}</span><b>${now[1]}</b><small>${w.snow > 0.3 ? '❄️ توی کوهستان برف میاد' : w.sand > 0.3 ? '🌪️ طوفان شن توی کویر' : ''}</small></div>
       <div class="statgrid">${[
         ['⏭️', 'بعدش', `${next[0]} ${next[1]}`],
         ['🌫️', 'صبح فردا', foggyTomorrow ? 'مه‌آلود' : 'صاف'],

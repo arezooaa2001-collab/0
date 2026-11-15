@@ -300,6 +300,8 @@ export class Traffic {
     }
     const ev = this.game.events;
     if (ev && ev.ambCar.active) obs.push(ev.ambCar);
+    const sc = this.game.soccer;
+    if (sc && sc.keeper.active) obs.push(sc.keeper);
     const bt = this.game.bounty;
     if (bt && bt.fug && bt.fug.active) obs.push(bt.fug);
     const limit = this.limit ?? this.cars.length;
