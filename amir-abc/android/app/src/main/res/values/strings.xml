@@ -10,4 +10,5 @@
     <string name="ig_reload">بارگذاری دوباره</string>
     <string name="ig_error">پیج اینستاگرام باز نشد. اتصال اینترنت را بررسی کنید و دوباره امتحان کنید.</string>
     <string name="ig_retry">تلاش دوباره</string>
+    <string name="no_mail_app">هیچ برنامه‌ی ایمیلی روی گوشی پیدا نشد. متن تیکت را کپی کنید و به arezoo.aa2001@gmail.com بفرستید.</string>
 </resources>

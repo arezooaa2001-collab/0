@@ -76,6 +76,20 @@ img{max-width:100%;display:block}
     radial-gradient(120% 80% at 50% 0%,rgba(0,0,0,0) 0%,rgba(0,0,0,.18) 70%),
     linear-gradient(180deg,rgba(0,0,0,.10),rgba(0,0,0,.28));
 }
+.bg .spin{
+  display:none;
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:150vmax;
+  height:150vmax;
+  margin:-75vmax 0 0 -75vmax;
+  will-change:transform;
+  animation:spin 26s linear infinite;
+}
+html.bg-spin .bg .spin{display:block}
+html.still .bg .spin{animation:none}
+@keyframes spin{to{transform:rotate(360deg)}}
 .blob{
   position:absolute;
   width:80vmax;
@@ -720,7 +734,10 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
   position:relative;
   display:block;
   width:100%;
-  aspect-ratio:9/16;
+  aspect-ratio:4/5;
+  text-decoration:none;
+  border-radius:16px;
+  overflow:hidden;
   max-height:72vh;
   padding:0;
   border:0;
@@ -730,7 +747,7 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
   cursor:pointer;
   touch-action:manipulation;
 }
-.vid-poster{position:absolute;inset:8% 6% auto;width:88%;height:auto;aspect-ratio:1/1;object-fit:contain;opacity:.55;filter:blur(.3px)}
+.vid-poster{position:absolute;inset:5% 10% auto;width:80%;height:auto;aspect-ratio:1/1;object-fit:contain;opacity:.55;filter:blur(.3px)}
 .play-ic{
   position:absolute;
   left:50%;
@@ -750,8 +767,7 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
 .vid-play:hover .play-ic{transform:scale(1.07)}
 .vid-play:active .play-ic{transform:scale(.94)}
 .vid-play:focus-visible{outline:3px solid #fff;outline-offset:-3px}
-.play-tx{position:absolute;left:0;right:0;bottom:12%;font-weight:800;font-size:17px;text-shadow:0 2px 8px #000}
-.vid-frame{display:block;width:100%;aspect-ratio:10/22;max-height:86vh;border:0;background:#fff}
+.play-tx{position:absolute;left:0;right:0;bottom:7%;font-weight:800;font-size:17px;text-shadow:0 2px 8px #000}
 .vid-loading{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;z-index:-1}
 .vid-error{padding:28px 16px;text-align:center;line-height:1.9;color:#ffe28a}
 .vid-ig{
@@ -775,6 +791,8 @@ html:not(.logo-amir) .logo-badge{bottom:-4px}
 .full-card{max-width:560px;margin:0 auto}
 .app-only{display:none}
 html.in-app .app-only{display:block}
+.app-only-inline{display:none}
+html.in-app .app-only-inline{display:inline}
 html.in-app #fullToggle .chev{display:none}
 .vid-note{margin:16px 0 0;font-size:14px;line-height:1.8;color:rgba(255,255,255,.9);text-shadow:0 1px 6px rgba(0,0,0,.4)}
 
@@ -782,11 +800,73 @@ html.in-app #fullToggle .chev{display:none}
 .logos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .logo-opt .sample{height:auto;aspect-ratio:16/10;background:#05030a center/contain no-repeat}
 
+/* ---------- Ticket button + ticket page ---------- */
+.ticket-btn{
+  position:absolute;
+  z-index:5;
+  left:0;
+  top:0;
+  transform:translateY(calc(-100% - 12px));
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:44px;
+  padding:8px 16px;
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:99px;
+  background:linear-gradient(115deg,#962fbf,#d62976 55%,#fa7e1e);
+  color:#fff;
+  font:inherit;
+  font-size:15px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation;
+  box-shadow:0 8px 22px -8px rgba(150,47,191,.9),0 0 14px rgba(255,255,255,.25);
+  animation:heroIn .8s .3s cubic-bezier(.2,.75,.25,1) both;
+}
+.ticket-btn:active{transform:translateY(calc(-100% - 12px)) scale(.96)}
+.ticket-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.topics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field-label{display:block;margin:14px 0 8px;font-weight:700;font-size:15px}
+.field-label:first-child{margin-top:0}
+.opt-tag{font-weight:400;font-size:13px;color:rgba(255,255,255,.75)}
+.field{
+  display:block;
+  width:100%;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1.5px solid rgba(255,255,255,.3);
+  background:rgba(0,0,0,.35);
+  color:#fff;
+  font:inherit;
+  font-size:16px;
+  line-height:1.8;
+}
+textarea.field{resize:vertical;min-height:160px}
+.field::placeholder{color:rgba(255,255,255,.55)}
+.field:focus{outline:none;border-color:#ffd56a;box-shadow:0 0 0 3px rgba(255,213,106,.3)}
+.field-count{margin-top:6px;font-size:13px;color:rgba(255,255,255,.75);text-align:left}
+.tp-done:disabled{opacity:.6;cursor:wait}
+.tk-status{
+  margin-top:12px;
+  padding:14px 16px;
+  border-radius:16px;
+  line-height:1.9;
+  font-weight:600;
+  background:rgba(16,7,4,.78);
+  border:1.5px solid rgba(255,255,255,.25);
+}
+.tk-status.ok{border-color:#3ddc84;box-shadow:0 0 0 3px rgba(61,220,132,.2)}
+.tk-status.err{border-color:#ff6b6b;box-shadow:0 0 0 3px rgba(255,107,107,.2)}
+.tk-status.info{border-color:#ffd56a}
+.tk-fallback{margin-top:10px}
+.tk-privacy{margin-top:18px;font-size:13px}
+
 /* Respect "reduce motion" */
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
-  .blob,.bg .light,.ig-btn::after,.scroll-hint svg,.logo-glow,.shine::before,.title,.loader-title,.spark{animation:none!important}
+  .blob,.bg .light,.ig-btn::after,.scroll-hint svg,.logo-glow,.shine::before,.title,.loader-title,.spark,.bg .spin{animation:none!important}
   .spark{opacity:.95;transform:none}
   .js .reveal{opacity:1;transform:none}
 }
@@ -796,8 +876,8 @@ html.in-app #fullToggle .chev{display:none}
 (function () {
   "use strict";
   var KEY = "amirabc-theme-v1";
-  var STYLES = ["diagonal", "vertical", "horizontal", "radial", "conic", "stripes"];
-  var DEFAULT = { mode: "rainbow", style: "diagonal", colors: ["#c5170f", "#f47b0c", "#0f8f45"], solid: "#c5170f", motion: true, logo: "crown" };
+  var STYLES = ["spin", "diagonal", "vertical", "horizontal", "radial", "conic", "stripes"];
+  var DEFAULT = { mode: "rainbow", style: "spin", colors: ["#ff1f3d", "#ff8a00", "#ffe600", "#22d36b", "#00c2ff", "#3a5bff", "#b03aff"], solid: "#7b2cbf", motion: true, logo: "crown", sound: "on" };
   var HEX = /^#[0-9a-f]{6}$/i;
   var OK = false;
   try { OK = !!(window.CSS && CSS.supports && CSS.supports("background-image", "linear-gradient(90deg in oklch, red, blue)")); } catch (e) {}
@@ -805,7 +885,8 @@ html.in-app #fullToggle .chev{display:none}
   function clone(t) { return JSON.parse(JSON.stringify(t)); }
   function valid(t) {
     if (t && typeof t === "object" && t.logo === undefined) t.logo = "crown";   /* older saves */
-    return !!t && (t.logo === "crown" || t.logo === "amir") && (t.mode === "rainbow" || t.mode === "solid") && STYLES.indexOf(t.style) >= 0 &&
+    if (t && typeof t === "object" && t.sound === undefined) t.sound = "on";
+    return !!t && (t.logo === "crown" || t.logo === "amir") && (t.sound === "on" || t.sound === "off") && (t.mode === "rainbow" || t.mode === "solid") && STYLES.indexOf(t.style) >= 0 &&
       Array.isArray(t.colors) && t.colors.length >= 2 && t.colors.length <= 7 &&
       t.colors.every(function (c) { return HEX.test(c); }) && HEX.test(t.solid) && typeof t.motion === "boolean";
   }
@@ -844,6 +925,7 @@ html.in-app #fullToggle .chev{display:none}
         return "linear-gradient(160deg," + cols.map(function (c, i) {
           return c + " " + (i / n * 100).toFixed(2) + "% " + ((i + 1) / n * 100).toFixed(2) + "%";
         }).join(",") + ")";
+      case "spin": return "conic-gradient(from 0deg at 50% 50%" + sp + "," + cols.join(",") + "," + cols[0] + ")";
       default: return "linear-gradient(160deg" + sp + "," + stops(cols) + ")";
     }
   }
@@ -857,13 +939,41 @@ html.in-app #fullToggle .chev{display:none}
     s.setProperty("--b1", rgba(cols[0], 0.85)); s.setProperty("--b1z", rgba(cols[0], 0));
     s.setProperty("--b2", rgba(mid, 0.8));     s.setProperty("--b2z", rgba(mid, 0));
     s.setProperty("--b3", rgba(cols[n - 1], 0.8)); s.setProperty("--b3z", rgba(cols[n - 1], 0));
-    s.setProperty("--blob-op", t.mode === "rainbow" && (t.style === "stripes" || t.style === "conic") ? "0.3" : "0.75");
+    var spin = t.mode === "rainbow" && t.style === "spin";
+    s.setProperty("--blob-op", t.mode === "rainbow" && (t.style === "stripes" || t.style === "conic" || spin) ? "0.3" : "0.75");
+    d.classList.toggle("bg-spin", spin);
+    if (spin) drawSpin(cols);
+    d.setAttribute("data-sound", t.sound);
     s.setProperty("--rainbow", "linear-gradient(120deg," + stops(cols) + ")");
     s.setProperty("--frame-grad", "linear-gradient(120deg," + stops(cols.concat([cols[0]])) + ")");
     d.classList.toggle("still", !t.motion);
     d.classList.toggle("logo-amir", t.logo === "amir");
     var m = document.querySelector('meta[name="theme-color"]');
     if (m) m.setAttribute("content", cols[0]);
+  }
+  /* Animated rainbow: a small conic image on a canvas; the GPU scales and rotates it (cheap). */
+  var lastSpin = "";
+  function drawSpin(cols) {
+    var cv = document.querySelector(".bg .spin");
+    if (!cv || !cv.getContext) return;
+    var key = cols.join(",");
+    if (key === lastSpin) return;
+    var N = cv.width, ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), px = img.data;
+    var rgbs = cols.map(rgb), n = rgbs.length, c = (N - 1) / 2;
+    for (var y = 0; y < N; y++) {
+      for (var x = 0; x < N; x++) {
+        var a = Math.atan2(y - c, x - c) / (2 * Math.PI); if (a < 0) a += 1;
+        var seg = a * n, i = Math.floor(seg) % n, f = seg - Math.floor(seg), j = (i + 1) % n;
+        f = f * f * (3 - 2 * f);
+        var o = (y * N + x) * 4;
+        px[o] = rgbs[i][0] + (rgbs[j][0] - rgbs[i][0]) * f;
+        px[o + 1] = rgbs[i][1] + (rgbs[j][1] - rgbs[i][1]) * f;
+        px[o + 2] = rgbs[i][2] + (rgbs[j][2] - rgbs[i][2]) * f;
+        px[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    lastSpin = key;
   }
   window.AmirTheme = { DEFAULT: DEFAULT, STYLES: STYLES, clone: clone, load: load, save: save, apply: apply, gradient: gradient, hex: hex, rgb: rgb };
   apply(load());
@@ -884,7 +994,8 @@ html.in-app #fullToggle .chev{display:none}
     </symbol>
   </defs>
 </svg>
-<div class="bg" aria-hidden="true"><div class="blob r"></div><div class="blob o"></div><div class="blob g"></div><div class="light"></div></div>
+<div class="bg" aria-hidden="true"><canvas class="spin" width="160" height="160"></canvas><div class="blob r"></div><div class="blob o"></div><div class="blob g"></div><div class="light"></div></div>
+<script>window.AmirTheme && AmirTheme.apply(AmirTheme.load());</script>
 
 <div class="loader" id="loader" aria-hidden="true">
   <div class="loader-inner">
@@ -897,14 +1008,15 @@ html.in-app #fullToggle .chev{display:none}
   <!-- Section 1: main image -->
   <section class="hero" aria-label="تصویر اصلی">
     <div class="logo-wrap">
+    <button type="button" class="ticket-btn" id="ticketBtn" data-sfx="open">🎫 تیکت به ما</button>
     <div class="logo-glow" aria-hidden="true"></div>
     <figure class="frame">
-      <a class="logo-link" id="logoLink" href="#theme" aria-label="تغییر رنگ سایت (با زدن روی لوگو، صفحه انتخاب رنگ باز می‌شود)">
+      <a class="logo-link" id="logoLink" href="#theme" aria-label="تنظیمات رنگ، تم و صدای سایت (با زدن روی لوگو باز می‌شود)" data-sfx="open">
       <img class="logo-crown-img" src="data:image/webp;base64,{{CROWN}}" width="1024" height="1024" decoding="async" fetchpriority="high"
            alt="لوگوی AMIR ABC: نوشته‌ی براق و نورانی AMIR و زیر آن ABC، با تاج، کوه‌ها، رعد و برق، ماه و دریای درخشان، داخل قاب نئونی رنگین‌کمانی">
       <img class="logo-amir-img" src="data:image/webp;base64,{{IMG}}" width="2048" height="1280" decoding="async"
            alt="لوگوی AMIR BAKHTIARI ABC: نوشته‌ی نقره‌ای AMIR و آبی BAKHTIARI همراه با یک کتاب باز و حروف ABC، داخل یک دایره‌ی نئونی آبی روی زمینه‌ی مشکی">
-      <span class="logo-badge" aria-hidden="true">🎨 برای تغییر رنگ سایت، روی لوگو بزنید</span>
+      <span class="logo-badge" aria-hidden="true">🎨 رنگ، تم و صدا: روی لوگو بزنید</span>
       </a>
     <span class="shine" aria-hidden="true"></span>
     </figure>
@@ -962,29 +1074,20 @@ html.in-app #fullToggle .chev{display:none}
       <div class="vid-panel" id="vidPanel" hidden>
         <h2 class="vid-title">ویدیوهای محبوب <bdi dir="ltr">AMIR ABC</bdi></h2>
         <div class="vid-list">
-        <article class="vid-card" data-code="DccBr_ZurHG" data-n="1">
+        <article class="vid-card">
           <div class="vid-head"><span class="vid-num">۱</span>ویدیوی محبوب اول</div>
-          <div class="vid-stage">
-            <button type="button" class="vid-play" aria-label="پخش ویدیوی اول داخل برنامه"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">پخش ویدیو</span></button>
-          </div>
-          <a class="vid-ig" href="https://www.instagram.com/reel/DccBr_ZurHG/?srtk=cDljaWhnaTdzdWtq" target="_blank" rel="noopener noreferrer">📸 دیدن این ویدیو در اینستاگرام</a>
+          <a class="vid-play ig-inapp" href="https://www.instagram.com/reel/DccBr_ZurHG/?srtk=cDljaWhnaTdzdWtq" target="_blank" rel="noopener noreferrer" aria-label="دیدن ویدیوی اول در پیج اینستاگرام AMIR ABC"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">دیدن در پیج <bdi dir="ltr">AMIR ABC</bdi></span></a>
         </article>
-        <article class="vid-card" data-code="DfpwZdHOYEM" data-n="2">
+        <article class="vid-card">
           <div class="vid-head"><span class="vid-num">۲</span>ویدیوی محبوب دوم</div>
-          <div class="vid-stage">
-            <button type="button" class="vid-play" aria-label="پخش ویدیوی دوم داخل برنامه"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">پخش ویدیو</span></button>
-          </div>
-          <a class="vid-ig" href="https://www.instagram.com/reel/DfpwZdHOYEM/?mdxt=Y2wyeWZ2N2M4dnR3" target="_blank" rel="noopener noreferrer">📸 دیدن این ویدیو در اینستاگرام</a>
+          <a class="vid-play ig-inapp" href="https://www.instagram.com/reel/DfpwZdHOYEM/?mdxt=Y2wyeWZ2N2M4dnR3" target="_blank" rel="noopener noreferrer" aria-label="دیدن ویدیوی دوم در پیج اینستاگرام AMIR ABC"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">دیدن در پیج <bdi dir="ltr">AMIR ABC</bdi></span></a>
         </article>
-        <article class="vid-card" data-code="DfmMQqjuK5k" data-n="3">
+        <article class="vid-card">
           <div class="vid-head"><span class="vid-num">۳</span>ویدیوی محبوب سوم</div>
-          <div class="vid-stage">
-            <button type="button" class="vid-play" aria-label="پخش ویدیوی سوم داخل برنامه"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">پخش ویدیو</span></button>
-          </div>
-          <a class="vid-ig" href="https://www.instagram.com/reel/DfmMQqjuK5k/?dlrf=Y3BmMDloYzNtemFx" target="_blank" rel="noopener noreferrer">📸 دیدن این ویدیو در اینستاگرام</a>
+          <a class="vid-play ig-inapp" href="https://www.instagram.com/reel/DfmMQqjuK5k/?dlrf=Y3BmMDloYzNtemFx" target="_blank" rel="noopener noreferrer" aria-label="دیدن ویدیوی سوم در پیج اینستاگرام AMIR ABC"><img class="vid-poster" alt=""><span class="play-ic" aria-hidden="true">▶</span><span class="play-tx">دیدن در پیج <bdi dir="ltr">AMIR ABC</bdi></span></a>
         </article>
         </div>
-        <p class="vid-note">ویدیوها با پخش‌کننده‌ی رسمی اینستاگرام پخش می‌شوند و برای دیدنشان اتصال اینترنت لازم است.</p>
+        <p class="vid-note">با زدن روی هر ویدیو، مستقیم وارد پیج <bdi dir="ltr">AMIR ABC</bdi> در اینستاگرام می‌شوید و ویدیو را همان‌جا می‌بینید<span class="app-only-inline"> (داخل خود برنامه)</span>. برای دیدن ویدیوها اتصال اینترنت لازم است.</p>
       </div>
     </div>
 
@@ -1011,9 +1114,9 @@ html.in-app #fullToggle .chev{display:none}
 <section class="theme-page" id="themePage" hidden aria-labelledby="tpTitle">
   <header class="tp-head">
     <button type="button" class="tp-back" id="tpBack">→ بازگشت</button>
-    <h1 class="tp-title" id="tpTitle" tabindex="-1">🎨 رنگ سایت</h1>
+    <h1 class="tp-title" id="tpTitle" tabindex="-1">🎨 رنگ، تم و صدا</h1>
   </header>
-  <p class="tp-intro">رنگ سایت را همان‌طور که دوست دارید بسازید. تغییرات همان لحظه روی سایت دیده می‌شوند و روی همین دستگاه ذخیره می‌شوند.</p>
+  <p class="tp-intro">ظاهر و صدای سایت را همان‌طور که دوست دارید بسازید. تغییرات همان لحظه روی سایت دیده می‌شوند و روی همین دستگاه ذخیره می‌شوند.</p>
 
   <div class="tp-preview" aria-hidden="true"><span>پیش‌نمایش رنگ سایت</span></div>
 
@@ -1023,6 +1126,16 @@ html.in-app #fullToggle .chev{display:none}
       <button type="button" class="opt logo-opt" data-logo="crown"><span class="sample"></span>لوگوی جدید <bdi dir="ltr">AMIR ABC</bdi></button>
       <button type="button" class="opt logo-opt" data-logo="amir"><span class="sample"></span>لوگوی قبلی <bdi dir="ltr">AMIR BAKHTIARI</bdi></button>
     </div>
+  </div>
+
+  <div class="tp-card" role="group" aria-labelledby="tpSoundT">
+    <h2 id="tpSoundT">صدای برنامه</h2>
+    <div class="seg">
+      <button type="button" class="opt" data-sound-opt="on">🔊 صدای پیش‌فرض برنامه</button>
+      <button type="button" class="opt" data-sound-opt="off">🔇 بدون صدا</button>
+    </div>
+    <div class="tp-tools"><button type="button" class="tool" id="tpSoundTest" data-nosfx>▶ شنیدن نمونه‌ی صداها</button></div>
+    <p class="tp-hint" style="margin:12px 0 0">صدای کوتاه هنگام لمس دکمه‌ها، باز شدن صفحه‌ها و ارسال تیکت.</p>
   </div>
 
   <div class="tp-card" role="group" aria-labelledby="tpModeT">
@@ -1068,8 +1181,50 @@ html.in-app #fullToggle .chev{display:none}
 
   <div class="tp-actions">
     <button type="button" class="tp-done" id="tpDone">✔ تأیید و بازگشت به سایت</button>
-    <button type="button" class="tool tp-reset" id="tpReset">↺ رنگ پیش‌فرض (قرمز، نارنجی، سبز)</button>
+    <button type="button" class="tool tp-reset" id="tpReset">↺ تم پیش‌فرض (رنگین‌کمان متحرک)</button>
   </div>
+</section>
+
+<!-- Ticket page (opens from the "تیکت به ما" button next to the logo) -->
+<section class="theme-page" id="ticketPage" hidden aria-labelledby="tkTitle">
+  <header class="tp-head">
+    <button type="button" class="tp-back" id="tkBack">→ بازگشت</button>
+    <h1 class="tp-title" id="tkTitle" tabindex="-1">🎫 تیکت به ما</h1>
+  </header>
+  <p class="tp-intro">پیشنهاد ویدیو برای پیج، قابلیت تازه برای برنامه، گزارش باگ یا هر حرف دیگری دارید، اینجا بنویسید. تیکت شما به ایمیل <bdi dir="ltr">AMIR ABC</bdi> فرستاده می‌شود.</p>
+
+  <div class="tp-card" role="group" aria-labelledby="tkTopicT">
+    <h2 id="tkTopicT">موضوع تیکت</h2>
+    <div class="topics" id="tkTopics">
+      <button type="button" class="opt" data-topic="پیشنهاد ویدیو برای پیج">🎬 پیشنهاد ویدیو</button>
+      <button type="button" class="opt" data-topic="قابلیت تازه برای برنامه">✨ قابلیت تازه</button>
+      <button type="button" class="opt" data-topic="گزارش باگ">🐞 گزارش باگ</button>
+      <button type="button" class="opt" data-topic="سایر">💬 سایر</button>
+    </div>
+  </div>
+
+  <div class="tp-card">
+    <label class="field-label" for="tkMsg">پیام شما</label>
+    <textarea class="field" id="tkMsg" rows="7" maxlength="3000" required placeholder="هر حرفی دارید اینجا بنویسید… مثلاً: دوست دارم درباره‌ی ویتامین‌های انار ویدیو بسازید."></textarea>
+    <div class="field-count" id="tkCount" aria-live="off">۰ / ۳۰۰۰</div>
+    <label class="field-label" for="tkName">نام شما <span class="opt-tag">(اختیاری)</span></label>
+    <input class="field" id="tkName" type="text" maxlength="60" autocomplete="name">
+    <label class="field-label" for="tkContact">ایمیل یا آیدی اینستاگرام برای پاسخ <span class="opt-tag">(اختیاری)</span></label>
+    <input class="field" id="tkContact" type="text" maxlength="100" dir="ltr" autocomplete="email" inputmode="email">
+  </div>
+
+  <div class="tp-actions">
+    <button type="button" class="tp-done" id="tkSend" data-nosfx>📨 ارسال تیکت به ما</button>
+  </div>
+  <div class="tk-status" id="tkStatus" role="status" aria-live="polite" hidden></div>
+  <div class="tk-fallback" id="tkFallback" hidden>
+    <div class="tp-tools">
+      <button type="button" class="tool" id="tkMailAgain">📧 باز کردن برنامه‌ی ایمیل</button>
+      <button type="button" class="tool" id="tkCopy">📋 کپی متن تیکت</button>
+    </div>
+    <p class="tp-hint" style="margin:10px 0 0">اگر برنامه‌ی ایمیل باز نشد، متن تیکت را کپی کنید و به <bdi dir="ltr">arezoo.aa2001@gmail.com</bdi> بفرستید.</p>
+  </div>
+  <p class="tp-hint tk-privacy">این برنامه متن تیکت را جایی ذخیره نمی‌کند و فقط برای ارسال به ایمیل <bdi dir="ltr">AMIR ABC</bdi> از آن استفاده می‌کند.</p>
 </section>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1111,7 +1266,9 @@ html.in-app #fullToggle .chev{display:none}
     catch (e) { target.scrollIntoView(true); }
   });
 
-  // ---- Popular videos (Instagram's official embedded player, loaded only on demand) ----
+  // ---- Popular videos: each one opens directly on the AMIR ABC Instagram page ----
+  var inApp = /AmirAbcApp\//.test(navigator.userAgent || "");
+  if (inApp) doc.classList.add("in-app");
   var vidToggle = document.getElementById("vidToggle"), vidPanel = document.getElementById("vidPanel");
   if (vidToggle && vidPanel) {
     var logoImg = document.querySelector(".logo-crown-img");
@@ -1120,59 +1277,25 @@ html.in-app #fullToggle .chev{display:none}
       var open = vidPanel.hidden;
       vidPanel.hidden = !open;
       vidToggle.setAttribute("aria-expanded", String(open));
-      if (open) {
-        try { vidPanel.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) {}
-      } else {
-        [].forEach.call(vidPanel.querySelectorAll(".vid-card"), resetCard);   // stop playback when closing
-      }
-    });
-    var resetCard = function (card) {
-      var stage = card.querySelector(".vid-stage");
-      if (!stage.querySelector("iframe") && !stage.querySelector(".vid-error")) return;
-      stage.textContent = "";
-      stage.appendChild(card._poster);
-    };
-    [].forEach.call(vidPanel.querySelectorAll(".vid-card"), function (card) {
-      var code = card.getAttribute("data-code");
-      var btn = card.querySelector(".vid-play");
-      card._poster = btn;
-      btn.addEventListener("click", function () {
-        if (!/^[A-Za-z0-9_-]+$/.test(code)) return;
-        if (navigator.onLine === false) {
-          showToast("برای پخش ویدیو، اینترنت را روشن کنید و دوباره امتحان کنید.");
-          return;
-        }
-        // only one video at a time
-        [].forEach.call(vidPanel.querySelectorAll(".vid-card"), function (c) { if (c !== card) resetCard(c); });
-        var stage = card.querySelector(".vid-stage");
-        var f = document.createElement("iframe");
-        f.className = "vid-frame";
-        f.title = "ویدیوی " + card.getAttribute("data-n") + " از AMIR ABC در اینستاگرام";
-        f.src = "https://www.instagram.com/reel/" + code + "/embed/";
-        f.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
-        f.setAttribute("allowfullscreen", "");
-        f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-        var loading = document.createElement("div");
-        loading.className = "vid-loading"; loading.textContent = "در حال بارگذاری ویدیو…";
-        stage.textContent = "";
-        stage.appendChild(loading); stage.appendChild(f);
-        var loaded = false;
-        f.addEventListener("load", function () { loaded = true; });
-        setTimeout(function () {
-          if (loaded || !f.parentNode) return;
-          stage.textContent = "";
-          var err = document.createElement("div");
-          err.className = "vid-error";
-          err.textContent = "ویدیو باز نشد. اتصال اینترنت را بررسی کنید یا از دکمه‌ی «دیدن این ویدیو در اینستاگرام» استفاده کنید.";
-          stage.appendChild(err);
-        }, 15000);
-      });
+      if (open) { try { vidPanel.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); } catch (e) {} }
     });
   }
+  // Links marked .ig-inapp: in the Android app they open in the app's own Instagram screen.
+  [].forEach.call(document.querySelectorAll("a.ig-inapp"), function (a) {
+    a.addEventListener("click", function (ev) {
+      if (navigator.onLine === false) {
+        ev.preventDefault();
+        showToast("برای دیدن ویدیو، اینترنت را روشن کنید و دوباره امتحان کنید.");
+        return;
+      }
+      if (inApp) {
+        ev.preventDefault();
+        location.href = "amirabc://instagram?u=" + encodeURIComponent(a.href);
+      }
+    });
+  });
 
   // ---- Whole Instagram page ----
-  var inApp = /AmirAbcApp\//.test(navigator.userAgent || "");
-  if (inApp) doc.classList.add("in-app");
   var fullToggle = document.getElementById("fullToggle"), fullPanel = document.getElementById("fullPanel");
   if (fullToggle && fullPanel) {
     fullToggle.addEventListener("click", function () {
@@ -1212,6 +1335,53 @@ html.in-app #fullToggle .chev{display:none}
     });
   }
 
+  // ---- App sounds (made by the app with the Web Audio API; on/off in the settings page) ----
+  var Sfx = (function () {
+    var ac = null;
+    var NOTES = {
+      tap: [[1175, 0, 0.06, "sine", 0.05], [1760, 0.005, 0.04, "sine", 0.018]],
+      open: [[659, 0, 0.16, "triangle", 0.07], [988, 0.08, 0.24, "triangle", 0.06]],
+      success: [[523, 0, 0.16, "sine", 0.08], [659, 0.1, 0.16, "sine", 0.08], [784, 0.2, 0.18, "sine", 0.08], [1047, 0.3, 0.4, "sine", 0.07]],
+      error: [[392, 0, 0.16, "triangle", 0.09], [262, 0.15, 0.3, "triangle", 0.09]]
+    };
+    function on() { return doc.getAttribute("data-sound") !== "off"; }
+    function ctx() {
+      if (!ac) {
+        var C = window.AudioContext || window.webkitAudioContext;
+        if (!C) return null;
+        try { ac = new C(); } catch (e) { return null; }
+      }
+      if (ac.state === "suspended") { try { ac.resume(); } catch (e) {} }
+      return ac;
+    }
+    function play(name) {
+      if (!on()) return;
+      var c = ctx(), seq = NOTES[name];
+      if (!c || !seq) return;
+      var t0 = c.currentTime + 0.01;
+      seq.forEach(function (n) {
+        var o = c.createOscillator(), g = c.createGain(), t = t0 + n[1];
+        o.type = n[3];
+        o.frequency.setValueAtTime(n[0], t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(n[4], t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + n[2]);
+        o.connect(g); g.connect(c.destination);
+        o.start(t); o.stop(t + n[2] + 0.03);
+      });
+    }
+    function demo() {
+      ["tap", "open", "success"].forEach(function (k, i) { setTimeout(function () { play(k); }, i * 650); });
+    }
+    // a soft tap on every button/link, unless the element asks for a different (or no) sound
+    document.addEventListener("click", function (ev) {
+      var el = ev.target && ev.target.closest ? ev.target.closest("button, a") : null;
+      if (!el || el.hasAttribute("data-nosfx") || el.disabled) return;
+      play(el.getAttribute("data-sfx") || "tap");
+    }, true);
+    return { play: play, demo: demo };
+  })();
+
   // ---- Toast ----
   var toast = document.getElementById("toast");
   var toastTimer;
@@ -1248,6 +1418,159 @@ html.in-app #fullToggle .chev{display:none}
     }
   });
 
+  // ---- Sub pages (settings + ticket): opened inside the page, so they work everywhere ----
+  var Sub = (function () {
+    var cur = null, savedY = 0, pushed = false, returnFocus = null, topLevel = false;
+    try { topLevel = window.top === window.self; } catch (e) {}
+    function jump(y) {
+      var old = doc.style.scrollBehavior;
+      doc.style.scrollBehavior = "auto"; window.scrollTo(0, y); doc.style.scrollBehavior = old;
+    }
+    function open(el, titleId, opener) {
+      if (cur === el) return;
+      if (cur) close(false, true);
+      savedY = window.scrollY || 0;
+      returnFocus = opener || null;
+      cur = el; el.hidden = false; document.body.classList.add("theme-open");
+      jump(0);
+      var t = document.getElementById(titleId);
+      try { t.focus({ preventScroll: true }); } catch (e) { try { t.focus(); } catch (e2) {} }
+      if (!pushed && topLevel && window.history && history.pushState) {
+        try { history.pushState({ amirSub: 1 }, ""); pushed = true; } catch (e) { pushed = false; }
+      }
+    }
+    function close(fromPopstate, keepHistory) {
+      if (!cur) return false;
+      cur.hidden = true; cur = null;
+      document.body.classList.remove("theme-open");
+      jump(savedY);
+      if (returnFocus) { try { returnFocus.focus({ preventScroll: true }); } catch (e) {} }
+      if (pushed && !fromPopstate && !keepHistory) {
+        pushed = false;
+        try { if (history.state && history.state.amirSub) history.back(); } catch (e) {}
+      }
+      if (!keepHistory) pushed = false;
+      return true;
+    }
+    window.addEventListener("popstate", function () { close(true); });
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") close(false); });
+    // Used by the Android app's back button: returns true when it closed a sub page.
+    window.amirAbcBack = function () { return close(false); };
+    return { open: open, close: close };
+  })();
+
+  // ---- Ticket ("تیکت به ما") ----
+  (function () {
+    var page = document.getElementById("ticketPage"), btn = document.getElementById("ticketBtn");
+    if (!page || !btn) return;
+    var TO = "arezoo.aa2001@gmail.com";
+    // Automatic sending: put a free Web3Forms access key here (made for arezoo.aa2001@gmail.com at web3forms.com).
+    // While it is empty, tickets are sent with the person's own email app (a real email, they press Send).
+    var WEB3FORMS_KEY = "";
+    var $ = function (id) { return document.getElementById(id); };
+    var FA = "۰۱۲۳۴۵۶۷۸۹";
+    var fa = function (n) { return String(n).replace(/\d/g, function (d) { return FA[d]; }); };
+    var topic = "سایر", last = null;
+
+    var topics = page.querySelectorAll("[data-topic]");
+    var markTopic = function () {
+      [].forEach.call(topics, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-topic") === topic)); });
+    };
+    [].forEach.call(topics, function (b) {
+      b.addEventListener("click", function () { topic = b.getAttribute("data-topic"); markTopic(); });
+    });
+    markTopic();
+    var count = function () { $("tkCount").textContent = fa($("tkMsg").value.length) + " / ۳۰۰۰"; };
+    $("tkMsg").addEventListener("input", count);
+
+    var status = function (kind, text) {
+      var el = $("tkStatus");
+      el.className = "tk-status " + kind; el.textContent = text; el.hidden = false;
+    };
+    var compose = function () {
+      var name = $("tkName").value.trim(), contact = $("tkContact").value.trim(), msg = $("tkMsg").value.trim();
+      var subject = "تیکت AMIR ABC - " + topic;
+      var body = "موضوع: " + topic + "\n" +
+        "نام: " + (name || "-") + "\n" +
+        "راه تماس برای پاسخ: " + (contact || "-") + "\n\n" +
+        msg + "\n\n— فرستاده‌شده از " + (inApp ? "اپ اندروید" : "سایت") + " AMIR ABC";
+      return { subject: subject, body: body, name: name, contact: contact, msg: msg };
+    };
+    var openMail = function (t) {
+      location.href = "mailto:" + TO + "?subject=" + encodeURIComponent(t.subject) + "&body=" + encodeURIComponent(t.body);
+    };
+    var copyText = function (text) {
+      var done = function () { showToast("متن تیکت کپی شد ✓"); };
+      var legacy = function () {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        if (ok) done(); else showToast("کپی نشد؛ متن را خودتان انتخاب و کپی کنید.");
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, legacy);
+      else legacy();
+    };
+    var resetForm = function () { $("tkMsg").value = ""; $("tkName").value = ""; $("tkContact").value = ""; count(); };
+
+    btn.addEventListener("click", function () {
+      $("tkStatus").hidden = true; $("tkFallback").hidden = true;
+      Sub.open(page, "tkTitle", btn);
+    });
+    $("tkBack").addEventListener("click", function () { Sub.close(false); });
+    $("tkMailAgain").addEventListener("click", function () { if (last) openMail(last); });
+    $("tkCopy").addEventListener("click", function () {
+      if (last) copyText("به: " + TO + "\n" + last.subject + "\n\n" + last.body);
+    });
+
+    $("tkSend").addEventListener("click", function () {
+      var t = compose();
+      $("tkFallback").hidden = true;
+      if (t.msg.length < 2) {
+        Sfx.play("error");
+        status("err", "لطفاً اول متن تیکت را بنویسید.");
+        $("tkMsg").focus();
+        return;
+      }
+      last = t;
+      if (WEB3FORMS_KEY) {
+        if (navigator.onLine === false) {
+          Sfx.play("error");
+          status("err", "اینترنت وصل نیست. اینترنت را روشن کنید و دوباره «ارسال تیکت به ما» را بزنید.");
+          return;
+        }
+        var send = $("tkSend");
+        send.disabled = true;
+        status("info", "در حال ارسال تیکت…");
+        fetch("https://api.web3forms.com/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            access_key: WEB3FORMS_KEY, subject: t.subject, from_name: "AMIR ABC",
+            name: t.name || "-", replyto: t.contact.indexOf("@") > 0 ? t.contact : undefined,
+            message: t.body
+          })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!j || j.success !== true) throw new Error("not sent");
+          Sfx.play("success");
+          status("ok", "✅ تیکت شما با موفقیت به ایمیل AMIR ABC ارسال شد. ممنون از پیامتان!");
+          resetForm();
+        }).catch(function () {
+          Sfx.play("error");
+          status("err", "ارسال خودکار انجام نشد. می‌توانید همین تیکت را با برنامه‌ی ایمیل خودتان بفرستید:");
+          $("tkFallback").hidden = false;
+        }).then(function () { send.disabled = false; });
+        return;
+      }
+      // No sending service configured: the person's own email app sends a real email.
+      Sfx.play("open");
+      openMail(t);
+      status("info", "📧 برنامه‌ی ایمیل شما با متن تیکت باز شد. برای اینکه تیکت واقعاً ارسال شود، در همان برنامه دکمه‌ی «ارسال» (Send) را بزنید.");
+      $("tkFallback").hidden = false;
+    });
+  })();
+
   // ---- Colour settings page ----
   var T = window.AmirTheme;
   var page = document.getElementById("themePage");
@@ -1256,10 +1579,10 @@ html.in-app #fullToggle .chev{display:none}
     var theme = T.load(), sel = 0, fromSite = false, savedY = 0;
     var FA = "۰۱۲۳۴۵۶۷۸۹";
     var fa = function (n) { return String(n).replace(/\d/g, function (d) { return FA[d]; }); };
-    var STYLE_NAMES = { diagonal: "مورب", vertical: "عمودی", horizontal: "افقی", radial: "دایره‌ای", conic: "چرخشی", stripes: "نواری" };
+    var STYLE_NAMES = { spin: "✨ متحرک", diagonal: "مورب", vertical: "عمودی", horizontal: "افقی", radial: "دایره‌ای", conic: "چرخشی", stripes: "نواری" };
     var PRESETS = [
-      ["پیش‌فرض", ["#c5170f", "#f47b0c", "#0f8f45"]],
-      ["رنگین‌کمان کامل", ["#e8261c", "#ff8a00", "#ffd60a", "#18b84a", "#00b4d8", "#3a86ff", "#7b2cbf"]],
+      ["رنگین‌کمان (پیش‌فرض)", ["#ff1f3d", "#ff8a00", "#ffe600", "#22d36b", "#00c2ff", "#3a5bff", "#b03aff"]],
+      ["قرمز، نارنجی، سبز", ["#c5170f", "#f47b0c", "#0f8f45"]],
       ["غروب", ["#5a189a", "#d6246e", "#ff8a00", "#ffd60a"]],
       ["اقیانوس", ["#023e8a", "#0077b6", "#00b4d8", "#48cae4"]],
       ["جنگل", ["#0f5132", "#18b84a", "#a7c957"]],
@@ -1316,7 +1639,22 @@ html.in-app #fullToggle .chev{display:none}
       b.addEventListener("click", function () { theme.logo = b.getAttribute("data-logo"); commit(); });
     });
 
+    [].forEach.call(page.querySelectorAll("[data-sound-opt]"), function (b) {
+      b.setAttribute("data-nosfx", "");
+      b.addEventListener("click", function () {
+        theme.sound = b.getAttribute("data-sound-opt"); commit();
+        if (theme.sound === "on") Sfx.play("success");
+      });
+    });
+    $("tpSoundTest").addEventListener("click", function () {
+      if (theme.sound !== "on") { showToast("صدا خاموش است. اول «صدای پیش‌فرض برنامه» را انتخاب کنید."); return; }
+      Sfx.demo();
+    });
+
     function render(keepSliders) {
+      [].forEach.call(page.querySelectorAll("[data-sound-opt]"), function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-sound-opt") === theme.sound));
+      });
       [].forEach.call(page.querySelectorAll("[data-logo]"), function (b) {
         b.setAttribute("aria-pressed", String(b.getAttribute("data-logo") === theme.logo));
       });
@@ -1384,54 +1722,20 @@ html.in-app #fullToggle .chev{display:none}
       theme.colors.splice(sel, 1); sel = Math.max(0, sel - 1); commit();
     });
     $("tpMotion").addEventListener("change", function () { theme.motion = this.checked; commit(); });
-    $("tpReset").addEventListener("click", function () { var lg = theme.logo; theme = T.clone(T.DEFAULT); theme.logo = lg; sel = 0; commit(); showToast("رنگ پیش‌فرض برگشت."); });
+    $("tpReset").addEventListener("click", function () { var lg = theme.logo, sd = theme.sound; theme = T.clone(T.DEFAULT); theme.logo = lg; theme.sound = sd; sel = 0; commit(); showToast("تم پیش‌فرض برگشت."); });
 
-    var jump = function (y) {
-      var de = document.documentElement, old = de.style.scrollBehavior;
-      de.style.scrollBehavior = "auto"; window.scrollTo(0, y); de.style.scrollBehavior = old;
-    };
-    // History is only an extra (for the phone/browser back button) and only in a normal tab,
-    // never inside a file viewer/iframe, where it can break the page.
-    var topLevel = false;
-    try { topLevel = window.top === window.self; } catch (e) {}
-    var pushed = false;
-
+    var logo = document.getElementById("logoLink");
     var openTheme = function () {
-      if (!page.hidden) return;
-      savedY = window.scrollY || 0;
       theme = T.load(); sel = 0; render();
-      page.hidden = false; document.body.classList.add("theme-open");
-      jump(0);
-      try { $("tpTitle").focus({ preventScroll: true }); } catch (e) { try { $("tpTitle").focus(); } catch (e2) {} }
-      if (topLevel && window.history && history.pushState) {
-        try { history.pushState({ amirTheme: 1 }, ""); pushed = true; } catch (e) { pushed = false; }
-      }
+      Sub.open(page, "tpTitle", logo);
     };
-    var closeTheme = function (fromPopstate) {
-      if (page.hidden) return false;
-      page.hidden = true; document.body.classList.remove("theme-open");
-      jump(savedY);
-      try { $("logoLink").focus({ preventScroll: true }); } catch (e) {}
-      if (pushed && !fromPopstate) {
-        pushed = false;
-        try { if (history.state && history.state.amirTheme) history.back(); } catch (e) {}
-      }
-      pushed = false;
-      return true;
-    };
-    window.addEventListener("popstate", function () { closeTheme(true); });
-    // Used by the Android app's back button: returns true when it closed the colour page.
-    window.amirAbcBack = function () { return closeTheme(false); };
-
-    $("tpBack").addEventListener("click", function () { closeTheme(false); });
+    $("tpBack").addEventListener("click", function () { Sub.close(false); });
     $("tpDone").addEventListener("click", function () {
       T.save(theme);
-      closeTheme(false);
-      showToast("رنگ سایت اعمال شد ✓");
+      Sub.close(false);
+      showToast("تنظیمات اعمال شد ✓");
     });
-    var logo = document.getElementById("logoLink");
     if (logo) logo.addEventListener("click", function (ev) { ev.preventDefault(); openTheme(); });
-    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") closeTheme(false); });
   }
 })();
 </script>

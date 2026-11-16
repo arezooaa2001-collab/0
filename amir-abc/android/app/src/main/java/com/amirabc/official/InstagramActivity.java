@@ -30,6 +30,7 @@ import android.widget.Toast;
  */
 public class InstagramActivity extends Activity {
 
+    static final String EXTRA_URL = "com.amirabc.official.URL";
     static final String PROFILE_URL = "https://www.instagram.com/amir_khan_2020b?mdxt=cHBpemQ1am9rZDA5";
 
     private WebView web;
@@ -109,7 +110,10 @@ public class InstagramActivity extends Activity {
         web.setWebViewClient(new Client());
 
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) {
-            web.loadUrl(PROFILE_URL);
+            String start = getIntent().getStringExtra(EXTRA_URL);
+            Uri su = start == null ? null : Uri.parse(start);
+            boolean ok = su != null && "https".equalsIgnoreCase(su.getScheme()) && isInstagramOrLogin(su.getHost());
+            web.loadUrl(ok ? start : PROFILE_URL);
         }
     }
 

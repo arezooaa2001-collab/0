@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
+import android.net.MailTo;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
@@ -28,6 +29,7 @@ public class MainActivity extends Activity {
 
     private static final String HOME = "file:///android_asset/AMIR_ABC.html";
     private static final String INSTAGRAM_PACKAGE = "com.instagram.android";
+    private static final String TICKET_EMAIL = "arezoo.aa2001@gmail.com";
 
     private WebView web;
     private FrameLayout root;
@@ -91,7 +93,11 @@ public class MainActivity extends Activity {
         Uri uri = Uri.parse(url);
         String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
         if (scheme.equals("amirabc") && "instagram".equals(uri.getHost())) {
-            openInstagramInApp();
+            openInstagramInApp(uri.getQueryParameter("u"));
+            return true;
+        }
+        if (scheme.equals("mailto")) {
+            sendTicketEmail(url);
             return true;
         }
         if (scheme.equals("http") || scheme.equals("https")) {
@@ -101,13 +107,40 @@ public class MainActivity extends Activity {
         return true;
     }
 
-    /** Opens the AMIR ABC page in the app's own Instagram screen. */
-    private void openInstagramInApp() {
+    /** Opens the AMIR ABC page (or one of its Instagram links) in the app's own Instagram screen. */
+    private void openInstagramInApp(String target) {
         if (!isOnline()) {
             notifyUser(getString(R.string.no_internet));
             return;
         }
-        startActivity(new Intent(this, InstagramActivity.class));
+        Intent i = new Intent(this, InstagramActivity.class);
+        if (target != null) {
+            Uri t = Uri.parse(target);
+            if ("https".equalsIgnoreCase(t.getScheme()) && InstagramActivity.isInstagramOrLogin(t.getHost())) {
+                i.putExtra(InstagramActivity.EXTRA_URL, target);
+            }
+        }
+        startActivity(i);
+    }
+
+    /** Ticket: opens the person's email app with the ticket filled in. Only the ticket address is allowed. */
+    private void sendTicketEmail(String mailto) {
+        MailTo m;
+        try {
+            m = MailTo.parse(mailto);
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (m.getTo() == null || !TICKET_EMAIL.equalsIgnoreCase(m.getTo().trim())) return;
+        Intent i = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + TICKET_EMAIL));
+        i.putExtra(Intent.EXTRA_EMAIL, new String[] {TICKET_EMAIL});
+        if (m.getSubject() != null) i.putExtra(Intent.EXTRA_SUBJECT, m.getSubject());
+        if (m.getBody() != null) i.putExtra(Intent.EXTRA_TEXT, m.getBody());
+        try {
+            startActivity(i);
+        } catch (ActivityNotFoundException e) {
+            notifyUser(getString(R.string.no_mail_app));
+        }
     }
 
     private void openExternal(Uri uri) {
