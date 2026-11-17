@@ -19,6 +19,6 @@ if [ ! -f "$KS" ]; then
     -storepass rangin123 -keypass rangin123 -dname "CN=Rangin Hesab" >/dev/null 2>&1
 fi
 apksigner sign --ks "$KS" --ks-key-alias rangin --ks-pass pass:rangin123 --key-pass pass:rangin123 \
-  --min-sdk-version 21 --out ../rangin-hesab.apk "$OUT/aligned.apk"
+  --min-sdk-version 21 --v4-signing-enabled false --out ../rangin-hesab.apk "$OUT/aligned.apk"
 apksigner verify --print-certs ../rangin-hesab.apk | head -2
 echo "Built $(cd .. && pwd)/rangin-hesab.apk"
