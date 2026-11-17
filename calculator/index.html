@@ -1,0 +1,1488 @@
+<!doctype html>
+<html lang="fa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>رنگین‌حساب</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap">
+<style>
+/* Layout: one floating glass calculator over a living rainbow field; settings & history slide up as sheets over it. */
+:root{
+  color-scheme: dark;
+  --ink:#ffffff;
+  --ink-soft:rgba(255,255,255,.74);
+  --ink-faint:rgba(255,255,255,.48);
+  --ground:#160b2e;
+  --panel-rgb:18 10 40;
+  --glass:.42;
+  --sheet:#1d1240;
+  --accent:#ff4fd8;
+  --accent-2:#7c5cff;
+  --ok:#62ffb6;
+  --warn:#ffd45e;
+  --bad:#ff6f91;
+  --rep:#ffe36e;
+  --key:rgba(255,255,255,.09);
+  --key-fn:rgba(255,255,255,.17);
+  --line:rgba(255,255,255,.16);
+  --radius-btn:20px;
+  --ds:1;
+  --bg-speed:14s;
+  --hue-span:360deg;
+  --c1:#ff3b3b;--c2:#ff9f1c;--c3:#ffe14d;--c4:#3bff8a;--c5:#2ec5ff;--c6:#6a5cff;--c7:#d84dff;
+  --font-ui:"Vazirmatn","Tahoma","Segoe UI",system-ui,sans-serif;
+  --font-num:"JetBrains Mono","Vazirmatn",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--font-ui);overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--rep);outline-offset:2px}
+
+/* ---------- living background ---------- */
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:var(--ground)}
+.bg-grad{position:absolute;inset:-25%;
+  background:linear-gradient(115deg,var(--c1),var(--c2),var(--c3),var(--c4),var(--c5),var(--c6),var(--c7),var(--c1));
+  background-size:300% 300%;
+  animation:flow var(--bg-speed) ease-in-out infinite alternate, hue calc(var(--bg-speed)*1.6) linear infinite;}
+@keyframes flow{0%{background-position:0% 30%}100%{background-position:100% 70%}}
+@keyframes hue{to{filter:hue-rotate(var(--hue-span))}}
+.blob{position:absolute;width:55vmax;height:55vmax;border-radius:50%;filter:blur(60px);opacity:.55;mix-blend-mode:screen;animation:drift calc(var(--bg-speed)*1.8) ease-in-out infinite alternate}
+.blob.b1{background:radial-gradient(circle,var(--c5),transparent 65%);top:-20vmax;left:-15vmax}
+.blob.b2{background:radial-gradient(circle,var(--c7),transparent 65%);bottom:-25vmax;right:-15vmax;animation-delay:-4s}
+.blob.b3{background:radial-gradient(circle,var(--c3),transparent 65%);top:30%;left:40%;width:35vmax;height:35vmax;animation-delay:-8s}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(8vmax,6vmax) scale(1.15)}100%{transform:translate(-6vmax,10vmax) scale(.9)}}
+.bg-veil{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,rgba(10,4,30,.15),rgba(10,4,30,.55))}
+.bg-pulse{position:absolute;inset:0;background:radial-gradient(circle at var(--px,50%) var(--py,50%),rgba(255,255,255,.35),transparent 45%);opacity:0;pointer-events:none}
+.bg-pulse.go{animation:pulse .5s ease-out}
+@keyframes pulse{0%{opacity:.9}100%{opacity:0}}
+body.still .bg-grad,body.still .blob{animation-play-state:paused}
+
+/* ---------- shell ---------- */
+.wrap{position:relative;z-index:1;min-height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  padding-block:18px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.shell{position:relative;width:100%;max-width:440px}
+@property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+.glow{position:absolute;inset:-6px;border-radius:38px;background:conic-gradient(from var(--ang),#ff3b3b,#ffb31c,#fff04d,#3bff8a,#2ec5ff,#7a5cff,#ff4dd8,#ff3b3b);filter:blur(22px);opacity:.55;animation:spin 7s linear infinite;pointer-events:none}
+.calc{position:relative;border-radius:32px;padding:14px;display:flex;flex-direction:column;gap:12px;
+  background:rgb(var(--panel-rgb) / var(--glass));backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:0 30px 80px rgba(8,2,30,.55),inset 0 1px 0 rgba(255,255,255,.25)}
+.calc::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;pointer-events:none;
+  background:conic-gradient(from var(--ang),#ff3b3b,#ffb31c,#fff04d,#3bff8a,#2ec5ff,#7a5cff,#ff4dd8,#ff3b3b);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin 7s linear infinite}
+@keyframes spin{to{--ang:360deg}}
+.shell.charging .glow,.shell.charging .calc::before{animation-duration:.55s}
+.shell.charging .glow{opacity:.95;filter:blur(30px)}
+.shell.shake{animation:shake .5s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shake{10%,90%{transform:translate(-2px,1px) rotate(-.4deg)}20%,80%{transform:translate(4px,-2px) rotate(.6deg)}30%,50%,70%{transform:translate(-6px,2px) rotate(-.8deg)}40%,60%{transform:translate(6px,-1px) rotate(.8deg)}}
+.shell.sad{animation:wobble .6s ease}
+@keyframes wobble{20%{transform:translateX(-10px) rotate(-2deg)}40%{transform:translateX(9px) rotate(2deg)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+
+/* ---------- top bar & mascot ---------- */
+.top{display:flex;align-items:center;gap:10px;min-height:56px}
+.buddy{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.mascot{width:52px;height:52px;flex:none;overflow:visible;cursor:pointer;animation:float 3s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-3px)}}
+.mascot .m-body{animation:bodyhue 6s linear infinite}
+@keyframes bodyhue{to{filter:hue-rotate(360deg)}}
+.mascot .lid{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+.mascot .m-happy,.mascot .m-sad,.mascot .m-think,.mascot .mo-happy,.mascot .mo-sad,.mascot .mo-think{display:none}
+.mascot[data-mood="happy"] .lid,.mascot[data-mood="sad"] .lid{display:none}
+.mascot[data-mood="happy"] .m-happy,.mascot[data-mood="happy"] .mo-happy{display:inline}
+.mascot[data-mood="happy"] .mo-idle,.mascot[data-mood="sad"] .mo-idle,.mascot[data-mood="think"] .mo-idle{display:none}
+.mascot[data-mood="sad"] .m-sad,.mascot[data-mood="sad"] .mo-sad{display:inline}
+.mascot[data-mood="think"] .mo-think{display:inline}
+.mascot[data-mood="happy"]{animation:jump .7s cubic-bezier(.3,1.6,.5,1) 2}
+@keyframes jump{0%{transform:translateY(0) scale(1)}30%{transform:translateY(-14px) scale(1.12) rotate(-8deg)}60%{transform:translateY(0) scale(.95,1.05)}100%{transform:translateY(0) rotate(0)}}
+.mascot[data-mood="think"]{animation:think 1s ease-in-out infinite}
+@keyframes think{50%{transform:rotate(-12deg) translateY(-2px)}}
+.mascot[data-mood="sad"]{animation:droop 1.2s ease}
+@keyframes droop{30%{transform:translateY(4px) rotate(6deg)}60%{transform:translateY(3px) rotate(-6deg)}}
+.bubble{position:relative;background:rgba(255,255,255,.94);color:#2a1450;font-weight:800;font-size:.86rem;padding:7px 12px;border-radius:16px;line-height:1.5;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.bubble::before{content:"";position:absolute;right:-6px;top:50%;margin-top:-6px;border:6px solid transparent;border-left-color:rgba(255,255,255,.94);border-right:0}
+.bubble.pop{animation:bubblepop .45s cubic-bezier(.3,1.7,.5,1)}
+@keyframes bubblepop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+.brand{font-weight:900;font-size:.72rem;letter-spacing:.02em;color:var(--ink-faint);white-space:nowrap}
+.tools{display:flex;gap:6px;flex:none}
+.tbtn{width:40px;height:40px;border-radius:14px;border:1px solid var(--line);background:var(--key);display:grid;place-items:center;cursor:pointer;transition:transform .15s,background .2s}
+.tbtn:hover{background:var(--key-fn);transform:translateY(-2px)}
+.tbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- screen ---------- */
+.screen{position:relative;direction:ltr;text-align:right;background:rgba(6,2,20,.58);border-radius:24px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:6px;min-height:178px;overflow:hidden;
+  box-shadow:inset 0 2px 14px rgba(0,0,0,.45)}
+.screen.flash::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#ff3b3b,#ffe14d,#3bff8a,#2ec5ff,#d84dff);mix-blend-mode:screen;animation:flash .6s ease-out forwards;pointer-events:none}
+@keyframes flash{0%{opacity:.9}100%{opacity:0}}
+.expr,.result,.hist .he,.hist .hr{direction:ltr;unicode-bidi:bidi-override}
+.expr{font-family:var(--font-num);font-weight:500;color:var(--ink-soft);font-size:calc(1.25rem*var(--ds));line-height:1.45;min-height:1.45em;max-height:22vh;overflow-y:auto;overflow-wrap:anywhere;word-break:break-all;scrollbar-width:thin}
+.expr.s2{font-size:calc(1.05rem*var(--ds))}.expr.s3{font-size:calc(.9rem*var(--ds))}
+.expr .op{color:var(--rep);padding:0 .18em;font-weight:700}
+.expr .sym{color:#9ee8ff;font-weight:700}
+.expr .ans{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;border-radius:7px;padding:0 .3em;font-size:.85em;font-weight:700}
+.expr .ph{opacity:.35}
+.expr .eqs{color:var(--ink-faint)}
+.expr .pop{display:inline-block;animation:charpop .38s cubic-bezier(.25,1.8,.45,1)}
+@keyframes charpop{0%{transform:translateY(-.7em) scale(2.1) rotate(-20deg);opacity:0;color:var(--rep);text-shadow:0 0 14px var(--rep)}60%{opacity:1}100%{transform:none;opacity:1}}
+.expr.fly{animation:fly .45s ease-in forwards}
+@keyframes fly{0%{transform:none}40%{transform:translateY(4px)}100%{transform:translateY(-26px) scale(.9);opacity:0}}
+.result{font-family:var(--font-num);font-weight:800;font-size:calc(var(--rs,2.9rem)*var(--ds));line-height:1.18;overflow-wrap:anywhere;word-break:break-all;max-height:34vh;overflow-y:auto;min-height:1.2em;scrollbar-width:thin;
+  text-shadow:0 2px 18px rgba(255,255,255,.18)}
+.result.preview{opacity:.5;font-weight:700;font-size:calc(1.15rem*var(--ds))}
+.result.reveal{animation:reveal .6s cubic-bezier(.2,1.5,.4,1)}
+@keyframes reveal{0%{transform:scale(1.35);filter:blur(6px);opacity:.2}60%{filter:blur(0)}100%{transform:none;opacity:1}}
+.result.scramble{color:var(--rep);text-shadow:0 0 16px var(--rep)}
+.result.err{color:var(--bad);font-family:var(--font-ui);direction:rtl;unicode-bidi:isolate;text-align:right;font-size:calc(1.25rem*var(--ds));font-weight:800}
+.result .rep{text-decoration:overline;text-decoration-thickness:.09em;text-decoration-color:var(--rep);color:var(--rep)}
+.result .dsep{color:var(--accent)}
+.result .dots{color:var(--ink-faint)}
+.result .neg{color:var(--bad)}
+.result .approx{color:var(--warn);margin-right:.15em}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;max-width:100%}
+.frac > span{display:block;max-width:100%;padding:0 .2em}
+.frac .fd{border-top:.08em solid currentColor;margin-top:.08em;padding-top:.06em}
+.meta{direction:rtl;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:26px}
+.chip{font-size:.74rem;font-weight:600;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.1);color:var(--ink-soft);white-space:nowrap}
+.chip.ok{background:rgba(98,255,182,.16);color:var(--ok)}
+.chip.warn{background:rgba(255,212,94,.16);color:var(--warn)}
+.chip.rep{background:rgba(255,227,110,.14);color:var(--rep)}
+.meta .spacer{flex:1}
+.mini{border:1px solid var(--line);background:rgba(255,255,255,.08);border-radius:10px;font-size:.74rem;font-weight:700;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.mini:hover{background:rgba(255,255,255,.18)}
+
+/* ---------- keypad ---------- */
+.keys{direction:ltr;display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.key{position:relative;overflow:hidden;height:clamp(48px,7.4vh,64px);border-radius:var(--radius-btn);border:1px solid var(--line);background:var(--key);
+  font-family:var(--font-num);font-weight:700;font-size:1.35rem;cursor:pointer;user-select:none;touch-action:manipulation;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 6px 14px rgba(0,0,0,.22);transition:transform .12s,background .2s,box-shadow .2s}
+.key:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 10px 20px rgba(0,0,0,.3)}
+.key.fn{background:var(--key-fn);font-size:1.05rem}
+.key.fn.ac{color:#ffd0dc}
+.key.op{background:linear-gradient(150deg,var(--accent),var(--accent-2));font-size:1.55rem;border-color:rgba(255,255,255,.3)}
+.key.eq{background:linear-gradient(120deg,#ff3b6b,#ffb31c,#3bff8a,#2ec5ff,#b14dff,#ff3b6b);background-size:300% 100%;animation:eqflow 4s linear infinite;font-size:1.7rem;text-shadow:0 2px 6px rgba(0,0,0,.35)}
+@keyframes eqflow{to{background-position:300% 0}}
+.rainbow-keys .key.op{background:linear-gradient(120deg,#ff3b6b,#ffb31c,#3bff8a,#2ec5ff,#b14dff,#ff3b6b);background-size:300% 100%;animation:eqflow 5s linear infinite}
+.key.pressed{animation:squish .3s cubic-bezier(.3,1.6,.5,1)}
+@keyframes squish{0%{transform:scale(1)}30%{transform:scale(.86,.78)}65%{transform:scale(1.07,1.1)}100%{transform:scale(1)}}
+.key.nope{animation:nope .3s}
+@keyframes nope{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.ripple{position:absolute;border-radius:50%;width:12px;height:12px;margin:-6px 0 0 -6px;background:rgba(255,255,255,.6);transform:scale(0);animation:ripple .55s ease-out forwards;pointer-events:none}
+@keyframes ripple{to{transform:scale(14);opacity:0}}
+.key sup{font-size:.6em}
+
+.hint{position:relative;z-index:1;font-size:.78rem;color:rgba(255,255,255,.85);text-align:center;max-width:440px;line-height:1.7;text-shadow:0 1px 6px rgba(0,0,0,.4)}
+.hint kbd{font-family:var(--font-num);background:rgba(0,0,0,.3);border-radius:6px;padding:1px 6px;font-size:.92em}
+
+/* ---------- FX canvas ---------- */
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:40}
+
+/* ---------- sheets ---------- */
+.sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,3,22,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.sheet-card{width:100%;max-width:540px;max-height:86vh;overflow-y:auto;box-sizing:border-box;background:var(--sheet);border-radius:28px 28px 0 0;border:1px solid var(--line);border-bottom:0;
+  padding-block:16px calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));
+  animation:slideup .35s cubic-bezier(.2,1.2,.4,1);box-shadow:0 -20px 60px rgba(0,0,0,.4)}
+@keyframes slideup{from{transform:translateY(60%);opacity:0}}
+.sheet-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sheet-head h2{margin:0;font-size:1.15rem;font-weight:900;flex:1}
+.sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.sec h3{margin:0 0 10px;font-size:.8rem;font-weight:800;letter-spacing:.04em;color:var(--rep)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:7px 0}
+.row > label{font-weight:600;font-size:.92rem}
+.seg{display:flex;flex-wrap:wrap;gap:5px}
+.seg button{border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:11px;padding:6px 11px;font-size:.82rem;font-weight:700;cursor:pointer}
+.seg button[aria-pressed="true"]{background:linear-gradient(140deg,var(--accent),var(--accent-2));border-color:transparent}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.3);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+.rng{display:flex;align-items:center;gap:8px}
+.rng input{width:150px;accent-color:var(--accent)}
+.rng output{font-family:var(--font-num);font-size:.8rem;min-width:2.5em;text-align:center;color:var(--ink-soft)}
+.switch{appearance:none;-webkit-appearance:none;width:48px;height:28px;border-radius:99px;background:rgba(255,255,255,.18);position:relative;cursor:pointer;transition:background .2s;margin:0}
+.switch::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
+.switch:checked{background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.switch:checked::after{transform:translateX(-20px)}
+select.sel{background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:6px 10px;font-family:inherit;font-size:.85rem}
+select.sel option{background:var(--sheet)}
+.wide-btn{width:100%;margin-top:14px;border:1px solid var(--line);background:rgba(255,255,255,.08);border-radius:14px;padding:11px;font-weight:800;cursor:pointer}
+.wide-btn.primary{background:linear-gradient(140deg,var(--accent),var(--accent-2));border-color:transparent}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hist li button{width:100%;text-align:left;direction:ltr;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:14px;padding:10px 12px;cursor:pointer;font-family:var(--font-num);display:flex;flex-direction:column;gap:3px}
+.hist li button:hover{background:rgba(255,255,255,.13)}
+.hist .he{color:var(--ink-soft);font-size:.82rem;overflow-wrap:anywhere;word-break:break-all}
+.hist .hr{font-weight:800;font-size:1rem;overflow-wrap:anywhere;word-break:break-all}
+.empty{color:var(--ink-faint);text-align:center;padding:20px 0}
+textarea.paste{width:100%;box-sizing:border-box;min-height:140px;direction:ltr;text-align:left;font-family:var(--font-num);font-size:.95rem;background:rgba(0,0,0,.3);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:10px;resize:vertical}
+.note{font-size:.82rem;color:var(--ink-soft);line-height:1.8;margin:6px 0}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:rgba(255,255,255,.95);color:#2a1450;font-weight:800;padding:9px 18px;border-radius:99px;box-shadow:0 10px 30px rgba(0,0,0,.3);animation:toast 2.2s ease forwards;pointer-events:none;white-space:nowrap}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,20px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,10px)}}
+
+@media (max-width:380px){.keys{gap:7px}.key{font-size:1.15rem}.key.op{font-size:1.35rem}.calc{padding:11px}.brand{display:none}}
+@media (prefers-reduced-motion:reduce){.glow,.calc::before{animation-duration:30s}}
+</style>
+</head>
+<body>
+<div id="app" dir="rtl" lang="fa">
+  <div class="bg" aria-hidden="true">
+    <div class="bg-grad"></div>
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+    <div class="bg-veil"></div>
+    <div class="bg-pulse" id="bgPulse"></div>
+  </div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <div class="wrap">
+    <div class="shell" id="shell">
+      <div class="glow"></div>
+      <main class="calc" id="calc">
+        <div class="top">
+          <div class="buddy" id="buddy">
+            <svg class="mascot" id="mascot" viewBox="0 0 64 64" data-mood="idle" role="img" aria-label="رنگینو، دستیار بامزه">
+              <defs>
+                <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#ff7ad9"/><stop offset=".5" stop-color="#ffd36e"/><stop offset="1" stop-color="#6ee7ff"/>
+                </linearGradient>
+              </defs>
+              <path class="m-body" d="M32 5C50 5 60 19 60 35C60 51 48 60 32 60C16 60 4 51 4 35C4 19 14 5 32 5Z" fill="url(#mg)" stroke="#fff" stroke-width="2"/>
+              <path d="M24 6C22 1 27 -1 30 4" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <g class="lid">
+                <ellipse cx="22" cy="31" rx="7" ry="8" fill="#fff"/><ellipse cx="42" cy="31" rx="7" ry="8" fill="#fff"/>
+                <g id="pupils"><circle cx="22" cy="32" r="3.8" fill="#1b1030"/><circle cx="42" cy="32" r="3.8" fill="#1b1030"/>
+                <circle cx="23.4" cy="30.4" r="1.3" fill="#fff"/><circle cx="43.4" cy="30.4" r="1.3" fill="#fff"/></g>
+              </g>
+              <g class="m-happy" fill="none" stroke="#1b1030" stroke-width="3" stroke-linecap="round"><path d="M15 33Q22 24 29 33"/><path d="M35 33Q42 24 49 33"/></g>
+              <g class="m-sad" fill="none" stroke="#1b1030" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 27L27 32L16 37"/><path d="M48 27L37 32L48 37"/></g>
+              <ellipse cx="13" cy="42" rx="5" ry="3" fill="#ff4f9a" opacity=".55"/><ellipse cx="51" cy="42" rx="5" ry="3" fill="#ff4f9a" opacity=".55"/>
+              <path class="mo-idle" d="M27 43Q32 48 37 43" fill="none" stroke="#1b1030" stroke-width="2.6" stroke-linecap="round"/>
+              <path class="mo-happy" d="M23 41Q32 56 41 41Z" fill="#7a1840" stroke="#1b1030" stroke-width="2" stroke-linejoin="round"/>
+              <ellipse class="mo-think" cx="36" cy="45" rx="3" ry="2.6" fill="#1b1030"/>
+              <path class="mo-sad" d="M26 48Q32 42 38 48" fill="none" stroke="#1b1030" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span class="brand">رنگین‌حساب · محاسبهٔ کاملاً دقیق</span>
+              <div class="bubble" id="bubble">سلام! یه عدد بزن 👋</div>
+            </div>
+          </div>
+          <div class="tools">
+            <button class="tbtn" id="btnPaste" aria-label="وارد کردن عدد بلند" title="وارد کردن یا چسباندن عدد بلند">
+              <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/></svg>
+            </button>
+            <button class="tbtn" id="btnHist" aria-label="تاریخچه" title="تاریخچه">
+              <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
+            </button>
+            <button class="tbtn" id="btnSet" aria-label="تنظیمات" title="تنظیمات">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <section class="screen" id="screen" aria-live="polite">
+          <div class="expr" id="expr"><span class="ph">0</span></div>
+          <div class="result" id="result"></div>
+          <div class="meta" id="meta"></div>
+        </section>
+
+        <div class="keys" id="keys"></div>
+      </main>
+    </div>
+    <p class="hint">کیبورد هم کار می‌کند: <kbd>Enter</kbd> جواب، <kbd>Esc</kbd> پاک کردن، <kbd>Ctrl+V</kbd> چسباندن عددهای خیلی بلند. همهٔ محاسبه‌ها با کسرهای دقیق انجام می‌شوند، بدون گرد کردن.</p>
+  </div>
+
+  <!-- settings -->
+  <div class="sheet" id="sheetSet" hidden>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+      <div class="sheet-head"><h2 id="setTitle">شخصی‌سازی</h2><button class="tbtn" data-close aria-label="بستن"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div id="setBody"></div>
+      <button class="wide-btn" id="resetSet">بازگرداندن تنظیمات پیش‌فرض</button>
+    </div>
+  </div>
+
+  <!-- history -->
+  <div class="sheet" id="sheetHist" hidden>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="histTitle">
+      <div class="sheet-head"><h2 id="histTitle">تاریخچه</h2><button class="tbtn" data-close aria-label="بستن"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <p class="note">روی هر مورد بزن تا جوابش (به شکل کسر دقیق) به محاسبهٔ فعلی اضافه شود.</p>
+      <ul class="hist" id="histList"></ul>
+      <button class="wide-btn" id="clearHist">پاک کردن تاریخچه</button>
+    </div>
+  </div>
+
+  <!-- paste / long number input -->
+  <div class="sheet" id="sheetPaste" hidden>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="pasteTitle">
+      <div class="sheet-head"><h2 id="pasteTitle">وارد کردن عدد یا عبارت بلند</h2><button class="tbtn" data-close aria-label="بستن"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <p class="note">هر چقدر رقم خواستی بنویس یا بچسبان (ارقام فارسی، ویرگول و فاصله خودکار درست می‌شوند). می‌توانی عبارت کامل هم بنویسی، مثلاً <span dir="ltr">123456789^20 / 7</span></p>
+      <textarea class="paste" id="pasteArea" spellcheck="false" placeholder="98765432109876543210..."></textarea>
+      <p class="note" id="pasteCount"></p>
+      <button class="wide-btn primary" id="pasteGo">اضافه کن</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   EXACT RATIONAL ENGINE — every number is a fraction of two BigInts.
+   No floating point anywhere, so + − × ÷ are always exact.
+   ===================================================================== */
+const Engine = (() => {
+  class CalcError extends Error {}
+  const MAX_DIGITS = 100000;
+  const BIG = 10n ** BigInt(MAX_DIGITS);
+  const abs = x => (x < 0n ? -x : x);
+  const gcd = (a, b) => { a = abs(a); b = abs(b); while (b) { const t = a % b; a = b; b = t; } return a; };
+  const pow10 = k => 10n ** BigInt(k);
+  const digLen = x => { x = abs(x); return x === 0n ? 1 : x.toString(16).length * 1.2042; }; // upper estimate of decimal digits
+
+  function Q(n, d = 1n, approx = false) {
+    if (d === 0n) throw new CalcError('تقسیم بر صفر تعریف نشده! 🙈');
+    if (d < 0n) { n = -n; d = -d; }
+    if (d !== 1n) { const g = gcd(n, d); if (g > 1n) { n /= g; d /= g; } }
+    if (n > BIG || n < -BIG || d > BIG) throw new CalcError('این عدد از ۱۰۰٬۰۰۰ رقم هم بیشتر شد! 🤯');
+    return { n, d, approx };
+  }
+  const neg = a => ({ n: -a.n, d: a.d, approx: a.approx, pct: a.pct });
+  const add = (a, b) => a.d === b.d ? Q(a.n + b.n, a.d, a.approx || b.approx) : Q(a.n * b.d + b.n * a.d, a.d * b.d, a.approx || b.approx);
+  const sub = (a, b) => add(a, neg(b));
+  const mul = (a, b) => {
+    // cross-cancel first to keep the numbers small
+    const g1 = a.d === 1n || b.n === 0n ? 1n : gcd(b.n, a.d), g2 = b.d === 1n || a.n === 0n ? 1n : gcd(a.n, b.d);
+    return Q((a.n / g2) * (b.n / g1), (a.d / g1) * (b.d / g2), a.approx || b.approx);
+  };
+  const div = (a, b) => {
+    if (b.n === 0n) throw new CalcError('تقسیم بر صفر تعریف نشده! 🙈');
+    const inv = b.n < 0n ? { n: -b.d, d: -b.n, approx: b.approx } : { n: b.d, d: b.n, approx: b.approx };
+    return mul(a, inv);
+  };
+
+  // floor of k-th root of non-negative BigInt (Newton from above)
+  function iroot(x, k) {
+    if (x < 2n) return x;
+    const kb = BigInt(k), k1 = kb - 1n;
+    const bits = x.toString(2).length;
+    let y = 1n << BigInt(Math.ceil(bits / k));
+    for (;;) {
+      const t = (k1 * y + x / (y ** k1)) / kb;
+      if (t >= y) return y;
+      y = t;
+    }
+  }
+  // k-th root: exact when possible, otherwise truncated to P decimal places (flagged approx)
+  function root(a, k, P) {
+    if (k > 100000) throw new CalcError('ریشه خیلی بزرگه');
+    if (a.n < 0n) {
+      if (k % 2 === 0) throw new CalcError('ریشهٔ زوجِ عدد منفی، عدد حقیقی نیست 🤷');
+      return neg(root(neg(a), k, P));
+    }
+    const kb = BigInt(k);
+    const rn = iroot(a.n, k), rd = iroot(a.d, k);
+    if (rn ** kb === a.n && rd ** kb === a.d) return Q(rn, rd, a.approx);
+    const r = iroot((a.n * pow10(P * k)) / a.d, k); // floor(10^P * (n/d)^(1/k))
+    return Q(r, pow10(P), true);
+  }
+  function ipow(a, e) {
+    if (e === 0n) {
+      if (a.n === 0n) return Q(1n); // 0^0 = 1 (convention)
+      return Q(1n, 1n, a.approx);
+    }
+    if (a.n === 0n) {
+      if (e < 0n) throw new CalcError('صفر به توان منفی یعنی تقسیم بر صفر! 🙈');
+      return Q(0n);
+    }
+    const ae = abs(e);
+    if (abs(a.n) === 1n && a.d === 1n) {
+      const n = a.n < 0n && ae % 2n === 1n ? -1n : 1n;
+      return Q(n, 1n, a.approx);
+    }
+    const est = Number(ae) * Math.max(digLen(a.n), digLen(a.d));
+    if (!(est <= MAX_DIGITS * 1.25)) throw new CalcError('جواب این توان از ۱۰۰٬۰۰۰ رقم بیشتر می‌شود! 🤯');
+    const n = a.n ** ae, d = a.d ** ae;
+    return e < 0n ? Q(d, n, a.approx) : Q(n, d, a.approx);
+  }
+  function pow(a, b, P) {
+    if (b.d === 1n) return ipow(a, b.n);
+    if (b.d > 1000n) throw new CalcError('مخرجِ کسرِ توان حداکثر می‌تواند ۱۰۰۰ باشد');
+    return root(ipow(a, b.n), Number(b.d), P);
+  }
+  function prodRange(lo, hi) {
+    if (lo > hi) return 1n;
+    if (hi - lo < 24n) { let p = 1n; for (let i = lo; i <= hi; i++) p *= i; return p; }
+    const mid = (lo + hi) >> 1n;
+    return prodRange(lo, mid) * prodRange(mid + 1n, hi);
+  }
+  function fact(a) {
+    if (a.d !== 1n || a.n < 0n) throw new CalcError('فاکتوریل فقط برای عددهای صحیحِ نامنفی است 🙂');
+    if (a.n > 20000n) throw new CalcError('فاکتوریل تا ۲۰٬۰۰۰ پشتیبانی می‌شود');
+    return Q(prodRange(1n, a.n), 1n, a.approx);
+  }
+  function parseNum(s) {
+    if (s === '.') throw new CalcError('یک نقطهٔ تنها عدد نیست 🙂');
+    const [i, f = ''] = s.split('.');
+    return Q(BigInt((i || '0') + f), pow10(f.length));
+  }
+
+  function tokenize(s) {
+    const t = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if ((c >= '0' && c <= '9') || c === '.') {
+        let j = i;
+        while (j < s.length && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')) j++;
+        const num = s.slice(i, j);
+        if (num.indexOf('.') !== num.lastIndexOf('.')) throw new CalcError('یک عدد دو تا ممیز دارد!');
+        t.push({ type: 'num', v: num });
+        i = j; continue;
+      }
+      if (c === 'A') { t.push({ type: 'ans' }); i++; continue; }
+      if ('+−×÷^%!√()'.includes(c)) { t.push({ type: 'op', v: c }); i++; continue; }
+      throw new CalcError('نویسهٔ ناشناخته: ' + c);
+    }
+    return t;
+  }
+
+  function evaluate(src, opt = {}) {
+    const P = opt.P ?? 100;
+    const ansV = opt.ans || Q(0n);
+    const toks = tokenize(src);
+    if (!toks.length) throw new CalcError('اول یه چیزی بنویس ✍️');
+    let pos = 0;
+    const peek = () => toks[pos];
+    const isOp = (t, v) => t && t.type === 'op' && t.v === v;
+    const startsPrimary = t => t && (t.type === 'num' || t.type === 'ans' || isOp(t, '(') || isOp(t, '√'));
+
+    function expr() {
+      let l = term();
+      while (isOp(peek(), '+') || isOp(peek(), '−')) {
+        const o = toks[pos++].v;
+        let r = term();
+        if (r.pct) r = mul(l, r); // 200 + 10% = 220
+        l = o === '+' ? add(l, r) : sub(l, r);
+      }
+      return l;
+    }
+    function term() {
+      let l = unary();
+      for (;;) {
+        const t = peek();
+        if (isOp(t, '×') || isOp(t, '÷')) { pos++; const r = unary(); l = t.v === '×' ? mul(l, r) : div(l, r); }
+        else if (startsPrimary(t)) { const r = unary(); l = mul(l, r); } // implicit ×, e.g. 2(3) or 2√9
+        else break;
+      }
+      return l;
+    }
+    function unary() {
+      if (isOp(peek(), '−')) { pos++; return neg(unary()); }
+      if (isOp(peek(), '+')) { pos++; return unary(); }
+      return power();
+    }
+    function power() {
+      const b = postfix();
+      if (isOp(peek(), '^')) { pos++; const e = unary(); return pow(b, e, P); }
+      return b;
+    }
+    function postfix() {
+      let v = primary();
+      for (;;) {
+        if (isOp(peek(), '!')) { pos++; v = fact(v); }
+        else if (isOp(peek(), '%')) { pos++; v = div(v, Q(100n)); v.pct = true; }
+        else break;
+      }
+      return v;
+    }
+    function rootOperand() {
+      if (isOp(peek(), '−')) { pos++; return neg(rootOperand()); }
+      if (isOp(peek(), '+')) { pos++; return rootOperand(); }
+      return postfix();
+    }
+    function primary() {
+      const t = toks[pos];
+      if (!t) throw new CalcError('عبارت ناقص است، یه عدد کم دارد ✍️');
+      if (t.type === 'num') { pos++; return parseNum(t.v); }
+      if (t.type === 'ans') { pos++; return { ...ansV, pct: false }; }
+      if (isOp(t, '(')) {
+        pos++;
+        if (isOp(peek(), ')')) throw new CalcError('داخل پرانتز خالی است 🙂');
+        const v = expr();
+        if (isOp(peek(), ')')) pos++;
+        else if (peek()) throw new CalcError('پرانتز درست بسته نشده');
+        return { ...v, pct: false };
+      }
+      if (isOp(t, '√')) { pos++; return root(rootOperand(), 2, P); }
+      throw new CalcError('«' + t.v + '» این‌جا جا ندارد 🤔');
+    }
+    const v = expr();
+    if (pos < toks.length) {
+      if (isOp(peek(), ')')) throw new CalcError('یک پرانتز بسته اضافه است');
+      throw new CalcError('عبارت نامعتبر است 🤔');
+    }
+    return { n: v.n, d: v.d, approx: v.approx };
+  }
+
+  /* exact decimal expansion: integer part, non-repeating part, repeating part */
+  function expand(q, maxRep = 2000, maxTerm = 120000) {
+    let n = q.n; const d = q.d;
+    const negv = n < 0n; if (negv) n = -n;
+    const ip = n / d;
+    let r = n % d;
+    if (r === 0n) return { neg: negv, ip, pre: '', rep: '', cut: false };
+    let m = d, a = 0, b = 0;
+    while ((m & 1n) === 0n) { m >>= 1n; a++; }
+    while (m % 5n === 0n) { m /= 5n; b++; }
+    const k = Math.max(a, b);
+    let pre = '';
+    if (k > 0) {
+      const kk = Math.min(k, maxTerm);
+      const x = r * pow10(kk);
+      pre = (x / d).toString().padStart(kk, '0');
+      r = x % d;
+      if (kk < k) return { neg: negv, ip, pre, rep: '', cut: true };
+    }
+    if (r === 0n) return { neg: negv, ip, pre, rep: '', cut: false };
+    // purely periodic from here: long division until the remainder comes back
+    const r0 = r; const out = [];
+    for (let i = 0; i < maxRep; i++) {
+      r *= 10n;
+      const dg = r / d; r -= dg * d;
+      out.push(dg);
+      if (r === r0) return { neg: negv, ip, pre, rep: out.join(''), cut: false };
+    }
+    return { neg: negv, ip, pre, rep: out.join(''), cut: true };
+  }
+  function toPlain(q, maxRep = 2000) {
+    const e = expand(q, maxRep);
+    let s = (e.neg ? '-' : '') + e.ip.toString();
+    if (e.pre || e.rep) s += '.' + e.pre + (e.rep ? (e.cut ? e.rep : '(' + e.rep + ')') : '');
+    if (e.cut) s += '…';
+    return s;
+  }
+  return { evaluate, expand, toPlain, Q, CalcError };
+})();
+window.CalcEngine = Engine;
+
+/* =====================================================================
+   SETTINGS
+   ===================================================================== */
+const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DEFAULTS = {
+  theme: 'rainbow', bgSpeed: 5, bgMotion: !reduce, accent: 'candy', shape: 'soft', glass: 45, scale: 100,
+  faDigits: true, sep: true, mode: 'dec', maxRep: 2000, precision: 100, preview: true,
+  sound: true, soundType: 'piano', volume: 60,
+  fx: 'random', intensity: reduce ? 3 : 7, mascot: true, vibrate: true
+};
+const STORE_KEY = 'rangin-hesab-settings-v1';
+let settings = { ...DEFAULTS };
+try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') settings = { ...DEFAULTS, ...s }; } catch (e) {}
+const saveSettings = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) {} };
+
+const THEMES = {
+  rainbow: { c: ['#ff3b3b', '#ff9f1c', '#ffe14d', '#3bff8a', '#2ec5ff', '#6a5cff', '#d84dff'], span: '360deg', ground: '#1a0b33' },
+  neon:    { c: ['#ff00c8', '#00f0ff', '#7a00ff', '#00ff9d', '#ff2e63', '#3d5afe', '#f5ff00'], span: '120deg', ground: '#0a0420' },
+  pastel:  { c: ['#ffb3c7', '#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#a0c4ff', '#bdb2ff'], span: '60deg', ground: '#3a2c5a' },
+  sunset:  { c: ['#ff5e62', '#ff9966', '#ffcc70', '#ff6fb5', '#8e44ad', '#ff7e5f', '#feb47b'], span: '25deg', ground: '#2a0f2e' },
+  galaxy:  { c: ['#0b0033', '#3a0ca3', '#7209b7', '#f72585', '#4361ee', '#4cc9f0', '#240046'], span: '40deg', ground: '#06001a' },
+  candy:   { c: ['#ff6fd8', '#3813c2', '#ff9a8b', '#ff6a88', '#99e2d0', '#fbc2eb', '#a6c1ee'], span: '90deg', ground: '#2b1446' }
+};
+const ACCENTS = {
+  candy: ['#ff4fd8', '#7c5cff'], ocean: ['#22d3ee', '#3b5bff'], fire: ['#ff9f1c', '#ff3b6b'],
+  mint: ['#2ee6a6', '#118ab2'], gold: ['#ffd23f', '#ff7a00'], grape: ['#b14dff', '#4c1d95'], rainbow: null
+};
+
+/* =====================================================================
+   SOUND — synthesized with Web Audio, no files
+   ===================================================================== */
+const Sound = {
+  ctx: null, master: null,
+  ensure() {
+    if (!settings.sound) return null;
+    try {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.connect(this.ctx.destination);
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.master.gain.value = (settings.volume / 100) * 0.9;
+      return this.ctx;
+    } catch (e) { return null; }
+  },
+  tone(f, dur, o = {}) {
+    const ctx = this.ensure(); if (!ctx) return;
+    const t = ctx.currentTime + (o.at || 0);
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(f, t);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+    if (o.vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = o.vib; lg.gain.value = f * 0.03; l.connect(lg).connect(osc.frequency); l.start(t); l.stop(t + dur + .05); }
+    const v = o.v ?? .25;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + (o.a || .005));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + dur + .05);
+  },
+  noise(dur, o = {}) {
+    const ctx = this.ensure(); if (!ctx) return;
+    const t = ctx.currentTime + (o.at || 0);
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = o.ftype || 'lowpass'; f.Q.value = o.q || 1;
+    f.frequency.setValueAtTime(o.f1 || 2000, t);
+    f.frequency.exponentialRampToValueAtTime(o.f2 || 200, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(o.v || .2, t + (o.a || .01));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t); src.stop(t + dur + .05);
+  },
+  NOTES: [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0],
+  key(k) {
+    if (!settings.sound) return;
+    const isDigit = /^[0-9]$/.test(k);
+    const idx = isDigit ? +k : ('+−×÷^'.indexOf(k) + 2);
+    const note = this.NOTES[Math.max(0, Math.min(9, idx))];
+    const type = settings.soundType;
+    if (k === 'AC') { this.noise(.35, { f1: 5000, f2: 250, v: .22, ftype: 'bandpass', q: .8 }); this.tone(600, .3, { to: 150, v: .1, type: 'triangle' }); return; }
+    if (k === 'BS') { this.tone(340, .09, { to: 180, v: .2, type: 'triangle' }); return; }
+    const opish = !isDigit;
+    if (type === 'piano') {
+      const f = opish ? note / 2 : note;
+      this.tone(f, opish ? .3 : .55, { type: 'triangle', v: .28 });
+      this.tone(f * 2, .3, { type: 'sine', v: .07 });
+      if (opish) this.tone(f * 1.5, .3, { type: 'triangle', v: .12 });
+    } else if (type === 'retro') {
+      this.tone(note * (opish ? .5 : 1), .09, { type: 'square', v: .1 });
+      this.tone(note * (opish ? 1 : 2), .06, { type: 'square', v: .06, at: .05 });
+    } else if (type === 'bubble') {
+      this.tone(note * .55, .16, { type: 'sine', to: note * 1.7, v: .32 });
+    } else { // pop
+      const f = 380 + idx * 38;
+      this.tone(f * 2.2, .1, { type: 'sine', to: f * (opish ? .5 : .8), v: .35 });
+      this.noise(.03, { f1: 3000, f2: 1500, v: .06, ftype: 'highpass' });
+    }
+  },
+  nope() { if (settings.sound) this.tone(110, .12, { type: 'square', v: .07, to: 90 }); },
+  charge() {
+    if (!settings.sound) return;
+    this.tone(160, .42, { type: 'sawtooth', to: 1100, v: .06 });
+    this.noise(.42, { f1: 300, f2: 6000, v: .07, ftype: 'bandpass', q: 2 });
+  },
+  tick() { if (settings.sound) this.tone(1600 + Math.random() * 900, .025, { type: 'square', v: .025 }); },
+  fanfare() {
+    if (!settings.sound) return;
+    const seq = [523.25, 659.25, 783.99, 1046.5];
+    seq.forEach((f, i) => this.tone(f, .22, { type: 'triangle', v: .22, at: i * .07 }));
+    [523.25, 659.25, 783.99, 1046.5].forEach(f => this.tone(f, .9, { type: 'sine', v: .07, at: .3, a: .02 }));
+    this.tone(150, .4, { to: 40, v: .5 });
+    this.noise(.4, { f1: 4000, f2: 120, v: .22 });
+    [2093, 2637, 3136, 4186].forEach((f, i) => this.tone(f, .18, { v: .04, at: .32 + i * .06 }));
+  },
+  sad() {
+    if (!settings.sound) return;
+    [392, 370, 349].forEach((f, i) => this.tone(f, .26, { type: 'triangle', v: .22, at: i * .27 }));
+    this.tone(330, .8, { type: 'triangle', v: .22, at: .81, to: 280, vib: 6 });
+  },
+  whoosh() { if (settings.sound) this.noise(.25, { f1: 800, f2: 4000, v: .08, ftype: 'bandpass', q: 1.5 }); }
+};
+
+/* =====================================================================
+   PARTICLES
+   ===================================================================== */
+const FX = (() => {
+  const cv = document.getElementById('fx');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1, parts = [], running = false;
+  const resize = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize(); window.addEventListener('resize', resize);
+  const R = (a, b) => a + Math.random() * (b - a);
+  const RAINBOW = () => `hsl(${Math.floor(Math.random() * 360)} 100% ${R(58, 70).toFixed(0)}%)`;
+  const lvl = () => settings.intensity / 7;
+  function add(p) {
+    if (parts.length > 1400) return;
+    parts.push(Object.assign({ life: 0, max: 60, g: 0, drag: .98, rot: 0, vr: 0, size: 4, kind: 'dot', color: '#fff', alpha: 1 }, p));
+    if (!running) { running = true; requestAnimationFrame(loop); }
+  }
+  function star(x, y, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, rr = i % 2 ? r * .35 : r;
+      ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+  function loop() {
+    ctx.clearRect(0, 0, W, H);
+    const next = [];
+    for (const p of parts) {
+      p.life++;
+      p.vx *= p.drag; p.vy = p.vy * p.drag + p.g;
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if (p.kind === 'rocket') {
+        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 7); ctx.fill();
+        if (p.life % 2 === 0) add({ x: p.x, y: p.y, vx: R(-.4, .4), vy: R(.5, 1.5), max: 22, size: 2, color: '#ffe9a8' });
+        if (p.vy > -1.2) { explode(p.x, p.y, p.hue); continue; }
+        next.push(p); continue;
+      }
+      const t = p.life / p.max;
+      if (t >= 1 || p.y > H + 60) continue;
+      ctx.globalAlpha = Math.max(0, p.alpha * (1 - t * t));
+      ctx.fillStyle = p.color; ctx.strokeStyle = p.color;
+      if (p.kind === 'dot') { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 - t * .5), 0, 7); ctx.fill(); }
+      else if (p.kind === 'rect') {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, Math.cos(p.life * .2 + p.size));
+        ctx.fillRect(-p.size, -p.size * .6, p.size * 2, p.size * 1.2); ctx.restore();
+      }
+      else if (p.kind === 'spark') {
+        ctx.lineWidth = p.size; ctx.lineCap = 'round'; ctx.beginPath();
+        ctx.moveTo(p.x - p.vx * 3, p.y - p.vy * 3); ctx.lineTo(p.x, p.y); ctx.stroke();
+      }
+      else if (p.kind === 'star') { star(p.x, p.y, p.size * (1 + Math.sin(p.life * .3) * .3)); }
+      else if (p.kind === 'ring') {
+        ctx.lineWidth = Math.max(.5, p.size * (1 - t)); ctx.beginPath(); ctx.arc(p.x, p.y, p.r0 + p.grow * p.life, 0, 7); ctx.stroke();
+      }
+      else if (p.kind === 'emoji') {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.text, 0, 0); ctx.restore();
+      }
+      else if (p.kind === 'text') {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.font = `800 ${p.size}px "JetBrains Mono",monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(p.text, 0, 0); ctx.restore();
+      }
+      next.push(p);
+    }
+    ctx.globalAlpha = 1;
+    parts = next;
+    if (parts.length) requestAnimationFrame(loop); else { running = false; ctx.clearRect(0, 0, W, H); }
+  }
+  function explode(x, y, hue) {
+    const n = Math.round(46 * Math.max(.4, lvl()));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, s = R(2, 6.5);
+      add({ kind: 'spark', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: .07, drag: .965, max: R(40, 70), size: R(1.5, 3), color: `hsl(${hue + R(-30, 30)} 100% ${R(60, 75)}%)` });
+    }
+    add({ kind: 'ring', x, y, vx: 0, vy: 0, r0: 4, grow: 3.2, max: 26, size: 3, color: `hsl(${hue} 100% 80%)`, drag: 1 });
+  }
+  const EMOJI = ['🎉', '✨', '🌈', '🦄', '🍭', '⭐', '💖', '🎊', '🥳', '🍩', '🚀', '💯'];
+  return {
+    burst(x, y, txt) {
+      if (settings.intensity === 0) return;
+      const n = Math.round(9 * lvl()) + 3;
+      for (let i = 0; i < n; i++) {
+        const a = R(0, Math.PI * 2), s = R(1.5, 4.5);
+        add({ kind: Math.random() < .3 ? 'star' : 'dot', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1, g: .08, max: R(24, 40), size: R(2, 4.5), color: RAINBOW() });
+      }
+      if (txt && settings.intensity >= 4) add({ kind: 'text', text: txt, x, y: y - 10, vx: R(-.6, .6), vy: -2.6, g: .06, max: 34, size: 20, color: '#fff', vr: R(-.04, .04) });
+    },
+    blast(x, y) {
+      const k = Math.max(.3, lvl());
+      for (let j = 0; j < 3; j++) add({ kind: 'ring', x, y, vx: 0, vy: 0, r0: 10 + j * 8, grow: 6 + j * 2.5, max: 40 + j * 6, size: 6 - j, color: ['#fff', '#ffe14d', '#ff4fd8'][j], drag: 1 });
+      const n = Math.round(150 * k);
+      for (let i = 0; i < n; i++) {
+        const a = R(0, Math.PI * 2), s = R(3, 14) * (.8 + k * .2);
+        add({ kind: ['dot', 'star', 'spark'][i % 3], x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: .12, drag: .955, max: R(50, 95), size: R(2.5, 6), color: `hsl(${(a * 57.3 + R(-15, 15)) | 0} 100% 64%)` });
+      }
+    },
+    confetti(x, y) {
+      const n = Math.round(170 * Math.max(.3, lvl()));
+      for (let i = 0; i < n; i++) {
+        const a = R(-Math.PI * .95, -Math.PI * .05), s = R(6, 17);
+        add({ kind: 'rect', x: x + R(-30, 30), y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: .28, drag: .97, max: R(110, 170), size: R(4, 8), rot: R(0, 6), vr: R(-.3, .3), color: RAINBOW() });
+      }
+    },
+    fireworks() {
+      const n = Math.max(2, Math.round(6 * lvl()));
+      for (let i = 0; i < n; i++) {
+        setTimeout(() => add({ kind: 'rocket', x: R(W * .15, W * .85), y: H + 10, vx: R(-1.2, 1.2), vy: -R(Math.sqrt(H) * .55, Math.sqrt(H) * .75), g: .16, drag: .995, max: 400, color: '#fff', hue: R(0, 360) }), i * 170);
+      }
+    },
+    emojiRain() {
+      const n = Math.round(55 * Math.max(.3, lvl()));
+      for (let i = 0; i < n; i++) {
+        add({ kind: 'emoji', text: EMOJI[i % EMOJI.length], x: R(0, W), y: R(-H * .6, -20), vx: R(-1, 1), vy: R(2, 5), g: .12, drag: .99, max: R(110, 160), size: R(22, 42), rot: R(-.5, .5), vr: R(-.06, .06), alpha: 1 });
+      }
+    },
+    sadRain(x, y) {
+      for (let i = 0; i < 10; i++) add({ kind: 'emoji', text: ['💧', '😵', '🙈'][i % 3], x: x + R(-80, 80), y: y + R(-20, 10), vx: R(-.6, .6), vy: R(-3, -1), g: .18, max: 70, size: R(18, 28), rot: 0, vr: R(-.05, .05) });
+    }
+  };
+})();
+
+/* =====================================================================
+   UI STATE + RENDERING
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const exprEl = $('expr'), resEl = $('result'), metaEl = $('meta'), shell = $('shell'), screenEl = $('screen');
+const S = { expr: '', lastExpr: '', ans: null, result: null, justEvaluated: false, busy: false, history: [] };
+const HIST_KEY = 'rangin-hesab-history-v1';
+try {
+  const h = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+  if (Array.isArray(h)) S.history = h.filter(x => x && typeof x.n === 'string' && typeof x.d === 'string').slice(0, 60);
+} catch (e) {}
+const saveHist = () => {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(S.history.filter(h => h.n.length + h.d.length < 6000).slice(0, 60))); } catch (e) {}
+};
+
+const FA = '۰۱۲۳۴۵۶۷۸۹';
+const D = s => settings.faDigits ? s.replace(/[0-9]/g, c => FA[c]) : s;
+const SEP = () => settings.faDigits ? '٬' : ',';
+const DEC = () => settings.faDigits ? '٫' : '.';
+function group(s) {
+  if (!settings.sep || s.length <= 3) return s;
+  const out = []; let i = s.length % 3;
+  if (i) out.push(s.slice(0, i));
+  for (; i < s.length; i += 3) out.push(s.slice(i, i + 3));
+  return out.join(SEP());
+}
+function fmtNum(raw) {
+  const k = raw.indexOf('.');
+  if (k < 0) return D(group(raw));
+  return D(group(raw.slice(0, k))) + DEC() + D(raw.slice(k + 1));
+}
+
+function exprHTML(s, pop) {
+  const segs = [];
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if ((c >= '0' && c <= '9') || c === '.') {
+      let j = i; while (j < s.length && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')) j++;
+      segs.push({ t: fmtNum(s.slice(i, j)), c: 'n' }); i = j; continue;
+    }
+    if (c === 'A') { segs.push({ t: 'Ans', c: 'ans', whole: true }); i++; continue; }
+    segs.push({ t: c, c: '+−×÷^'.includes(c) ? 'op' : 'sym' }); i++;
+  }
+  let html = '';
+  segs.forEach((sg, idx) => {
+    const last = pop && idx === segs.length - 1;
+    if (last && !sg.whole && sg.t.length > 1) {
+      html += `<span class="${sg.c}">${sg.t.slice(0, -1)}<span class="pop">${sg.t.slice(-1)}</span></span>`;
+    } else {
+      html += `<span class="${sg.c}${last ? ' pop' : ''}">${sg.t}</span>`;
+    }
+  });
+  return html;
+}
+
+function sizeFor(len) {
+  if (len <= 9) return '2.9rem';
+  if (len <= 13) return '2.35rem';
+  if (len <= 18) return '1.9rem';
+  if (len <= 28) return '1.5rem';
+  if (len <= 60) return '1.2rem';
+  return '1.02rem';
+}
+
+function buildView(q) {
+  const e = Engine.expand(q, settings.maxRep);
+  const ipStr = e.ip.toString();
+  const negHTML = e.neg ? '<span class="neg">−</span>' : '';
+  const approxHTML = q.approx ? '<span class="approx">≈</span>' : '';
+  let dec = approxHTML + negHTML + D(group(ipStr));
+  let plain = (e.neg ? '-' : '') + ipStr;
+  if (e.pre || e.rep) {
+    dec += `<span class="dsep">${DEC()}</span>` + D(e.pre);
+    plain += '.' + e.pre;
+    if (e.rep) {
+      if (e.cut) { dec += D(e.rep); plain += e.rep; }
+      else { dec += `<span class="rep" title="این رقم‌ها تا بی‌نهایت تکرار می‌شوند">${D(e.rep)}</span>`; plain += '(' + e.rep + ')'; }
+    }
+  }
+  if (e.cut) { dec += '<span class="dots">…</span>'; plain += '…'; }
+  const absN = (q.n < 0n ? -q.n : q.n).toString(), dStr = q.d.toString();
+  const frac = q.d === 1n
+    ? approxHTML + negHTML + D(group(absN))
+    : `${approxHTML}${negHTML}<span class="frac"><span class="fn">${D(group(absN))}</span><span class="fd">${D(group(dStr))}</span></span>`;
+  const fracPlain = (q.n < 0n ? '-' : '') + absN + (q.d === 1n ? '' : '/' + dStr);
+  const chips = [];
+  if (q.approx) chips.push(['warn', `≈ ریشهٔ گنگ: ${D(String(settings.precision))} رقم اعشارِ درست (بدون گرد کردن)`]);
+  else if (e.rep && !e.cut) chips.push(['ok', '✓ کاملاً دقیق'], ['rep', `↻ اعشار متناوب · دوره ${D(String(e.rep.length))} رقمی`]);
+  else if (e.cut) chips.push(['warn', `دورهٔ تکرار بیش از ${D(String(settings.maxRep))} رقم است، نمای کسری کاملاً دقیق است`]);
+  else chips.push(['ok', '✓ کاملاً دقیق']);
+  const digits = (ipStr === '0' ? 0 : ipStr.length);
+  if (digits > 3) chips.push(['', `${D(String(digits))} رقم صحیح`]);
+  const visLen = (settings.mode === 'frac' && q.d !== 1n) ? Math.max(absN.length, dStr.length) : plain.length;
+  return { dec, plain, frac, fracPlain, chips, visLen, e };
+}
+
+function renderMeta(view) {
+  metaEl.innerHTML = '';
+  if (!view) return;
+  for (const [cls, txt] of view.chips) {
+    const s = document.createElement('span'); s.className = 'chip ' + cls; s.textContent = txt; metaEl.appendChild(s);
+  }
+  const sp = document.createElement('span'); sp.className = 'spacer'; metaEl.appendChild(sp);
+  if (S.result.d !== 1n) {
+    const m = document.createElement('button'); m.className = 'mini'; m.type = 'button';
+    m.textContent = settings.mode === 'frac' ? '۰٫۵ اعشاری' : '½ کسری';
+    m.onclick = () => { settings.mode = settings.mode === 'frac' ? 'dec' : 'frac'; saveSettings(); renderResult(true); syncSettingsUI(); };
+    metaEl.appendChild(m);
+  }
+  const c = document.createElement('button'); c.className = 'mini'; c.type = 'button'; c.textContent = 'کپی';
+  c.onclick = () => copyText(settings.mode === 'frac' ? view.fracPlain : view.plain);
+  metaEl.appendChild(c);
+}
+
+function renderResult(animate) {
+  if (!S.result) return;
+  const view = buildView(S.result);
+  resEl.className = 'result';
+  resEl.style.setProperty('--rs', sizeFor(view.visLen));
+  resEl.innerHTML = settings.mode === 'frac' ? view.frac : view.dec;
+  if (animate) { void resEl.offsetWidth; resEl.classList.add('reveal'); }
+  renderMeta(view);
+  return view;
+}
+
+let previewTimer = 0;
+function renderExpr(pop) {
+  exprEl.classList.remove('fly');
+  const src = S.justEvaluated ? S.lastExpr : S.expr;
+  exprEl.classList.toggle('s2', src.length > 24 && src.length <= 60);
+  exprEl.classList.toggle('s3', src.length > 60);
+  if (S.justEvaluated) exprEl.innerHTML = exprHTML(S.lastExpr, false) + '<span class="eqs"> =</span>';
+  else exprEl.innerHTML = S.expr ? exprHTML(S.expr, pop) : `<span class="ph">${D('0')}</span>`;
+  exprEl.scrollTop = exprEl.scrollHeight;
+  if (!S.justEvaluated) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreview, S.expr.length > 300 ? 180 : 40);
+  }
+}
+function renderPreview() {
+  if (S.justEvaluated || S.busy) return;
+  resEl.className = 'result preview'; metaEl.innerHTML = '';
+  resEl.textContent = '';
+  if (!settings.preview || !/[+−×÷^%!√A]/.test(S.expr)) return;
+  try {
+    const q = Engine.evaluate(S.expr, { ans: S.ans, P: Math.min(settings.precision, 30) });
+    const plain = Engine.toPlain(q, 60);
+    const short = plain.length > 48 ? plain.slice(0, 46) + '…' : plain;
+    const vis = short.replace(/[()]/g, '').replace('-', '−').replace(/^(−?)(\d+)/, (m, s, d) => s + group(d)).replace('.', DEC());
+    resEl.textContent = '= ' + (q.approx ? '≈' : '') + D(vis);
+  } catch (e) { /* incomplete expression: show nothing */ }
+}
+
+/* ---------- mascot ---------- */
+const mascotEl = $('mascot'), bubbleEl = $('bubble');
+let moodTimer = 0;
+function mood(m, text, hold = 2600) {
+  mascotEl.dataset.mood = m;
+  if (text) { bubbleEl.textContent = text; bubbleEl.classList.remove('pop'); void bubbleEl.offsetWidth; bubbleEl.classList.add('pop'); }
+  clearTimeout(moodTimer);
+  if (m !== 'idle' && m !== 'think') moodTimer = setTimeout(() => { mascotEl.dataset.mood = 'idle'; }, hold);
+}
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const HAPPY = ['بفرما! 😎', 'حله! ✨', 'آسون بود 🤓', 'تقدیم با عشق 💖', 'دقیقِ دقیق 🎯', 'بوم! 💥', 'ریاضی؟ عاشقشم 🌈', 'اینم جواب، قربونت 🍭', 'یه رقمش هم جا نیفتاد 😌', 'تحویل بگیر! 🚀'];
+const THINK = ['هوم... 🤔', 'دارم حساب می‌کنم...', 'یه لحظه... 🧠', 'کسرها رو ساده می‌کنم... ✏️'];
+const IDLE_TALK = ['یه عدد بزن 👋', 'هر چقدر رقم خواستی 😏', 'من گرد نمی‌کنم! 🎯', 'قلقلکم نده 😆', 'رنگین‌کمون دوست داری؟ 🌈'];
+let lastLook = 0;
+window.addEventListener('pointermove', e => {
+  const now = performance.now(); if (now - lastLook < 30) return; lastLook = now;
+  const r = mascotEl.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 200) * 2.6;
+  $('pupils').setAttribute('transform', `translate(${(dx / d * k).toFixed(2)} ${(dy / d * k).toFixed(2)})`);
+});
+mascotEl.addEventListener('click', () => { mood('happy', pick(IDLE_TALK), 1500); Sound.tone(880, .12, { to: 1320, v: .2 }); FX.burst(...centerOf(mascotEl), '♥'); });
+
+/* ---------- helpers ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const centerOf = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  $('app').appendChild(t); setTimeout(() => t.remove(), 2300);
+}
+function copyText(txt) {
+  const done = () => toast('کپی شد ✓');
+  const fallback = () => {
+    try {
+      const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove();
+      if (ok) done(); else selectResult();
+    } catch (e) { selectResult(); }
+  };
+  try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
+}
+function selectResult() {
+  const r = document.createRange(); r.selectNodeContents(resEl);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('متن انتخاب شد، کپی کن');
+}
+function vib(p) { if (settings.vibrate) try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+function bgPulse(x, y) {
+  const p = $('bgPulse');
+  p.style.setProperty('--px', x + 'px'); p.style.setProperty('--py', y + 'px');
+  p.classList.remove('go'); void p.offsetWidth; p.classList.add('go');
+}
+
+/* =====================================================================
+   INPUT LOGIC
+   ===================================================================== */
+const OPS = '+−×÷^';
+const trailingNum = () => (S.expr.match(/[0-9.]*$/) || [''])[0];
+const endsOperand = c => /[0-9.)A!%]/.test(c);
+function freshFromResult(keepAns) {
+  if (!S.justEvaluated) return;
+  S.justEvaluated = false;
+  S.expr = keepAns && S.ans ? 'A' : '';
+}
+function apply(k) {
+  if (/^[0-9]$/.test(k)) {
+    freshFromResult(false);
+    if (trailingNum() === '0') S.expr = S.expr.slice(0, -1);
+    S.expr += k; return true;
+  }
+  switch (k) {
+    case '.': {
+      freshFromResult(false);
+      const tn = trailingNum();
+      if (tn.includes('.')) return false;
+      S.expr += tn === '' ? '0.' : '.'; return true;
+    }
+    case '+': case '−': case '×': case '÷': case '^': {
+      freshFromResult(true);
+      if (!S.expr) {
+        if (k === '−') { S.expr = '−'; return true; }
+        if (S.ans) { S.expr = 'A' + k; return true; }
+        return false;
+      }
+      const lc = S.expr.slice(-1);
+      if (lc === '(' || lc === '√') { if (k === '−') { S.expr += '−'; return true; } return false; }
+      if (OPS.includes(lc)) {
+        if (k === '−' && '×÷^'.includes(lc)) { S.expr += '−'; return true; }
+        const stripped = S.expr.replace(/[+−×÷^]+$/, '');
+        if (!stripped || /[(√]$/.test(stripped)) return false;
+        S.expr = stripped + k; return true;
+      }
+      S.expr += k; return true;
+    }
+    case '%': case '!': {
+      freshFromResult(true);
+      if (!S.expr || !endsOperand(S.expr.slice(-1))) return false;
+      S.expr += k; return true;
+    }
+    case '√': case '(': {
+      freshFromResult(false);
+      S.expr += k; return true;
+    }
+    case ')': {
+      const open = (S.expr.match(/\(/g) || []).length - (S.expr.match(/\)/g) || []).length;
+      if (S.justEvaluated || open <= 0 || !endsOperand(S.expr.slice(-1))) return false;
+      S.expr += ')'; return true;
+    }
+    case '±': {
+      freshFromResult(true);
+      const m = S.expr.match(/([0-9.]+|A)$/);
+      if (!m) {
+        const lc = S.expr.slice(-1);
+        if (!S.expr || '×÷^(√'.includes(lc)) { S.expr += '−'; return true; }
+        if (lc === '−' && (S.expr.length === 1 || /[+−×÷^(√]/.test(S.expr.slice(-2, -1)))) { S.expr = S.expr.slice(0, -1); return true; }
+        return false;
+      }
+      const st = S.expr.length - m[0].length;
+      const before = S.expr[st - 1];
+      if (before === '−' && (st - 1 === 0 || /[+−×÷^(√]/.test(S.expr[st - 2]))) S.expr = S.expr.slice(0, st - 1) + S.expr.slice(st);
+      else S.expr = S.expr.slice(0, st) + '−' + S.expr.slice(st);
+      return true;
+    }
+    case 'BS': {
+      if (S.justEvaluated) { S.justEvaluated = false; S.expr = S.lastExpr; }
+      if (!S.expr) return false;
+      S.expr = S.expr.slice(0, -1); return true;
+    }
+    case 'AC': {
+      const had = S.expr || S.justEvaluated;
+      S.expr = ''; S.justEvaluated = false; S.result = null;
+      resEl.textContent = ''; resEl.className = 'result'; metaEl.innerHTML = '';
+      return had;
+    }
+  }
+  return false;
+}
+
+function insertText(raw) {
+  let s = String(raw)
+    .replace(/[۰-۹]/g, c => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
+    .replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+    .replace(/sqrt/gi, '√').replace(/ans/gi, 'A')
+    .replace(/[٫]/g, '.').replace(/[,،٬_\s'’]/g, '')
+    .replace(/[*xX✕✖·]/g, '×').replace(/[/:∕➗]/g, '÷').replace(/[-–—−]/g, '−').replace(/\*\*/g, '^')
+    .replace(/[\[{]/g, '(').replace(/[\]}]/g, ')');
+  s = s.replace(/[^0-9.+−×÷^%!√()A]/g, '');
+  if (!s) return 0;
+  if (S.justEvaluated) { S.justEvaluated = false; S.expr = /^[+−×÷^%!]/.test(s) && S.ans ? 'A' : ''; }
+  S.expr += s;
+  return s.length;
+}
+
+/* ---------- key presses ---------- */
+const KEYS = [
+  ['AC', 'AC', 'fn ac'], ['BS', '⌫', 'fn'], ['(', '(', 'fn'], [')', ')', 'fn'], ['÷', '÷', 'op'],
+  ['√', '√', 'fn'], ['7', '7', 'num'], ['8', '8', 'num'], ['9', '9', 'num'], ['×', '×', 'op'],
+  ['^', 'x<sup>y</sup>', 'fn'], ['4', '4', 'num'], ['5', '5', 'num'], ['6', '6', 'num'], ['−', '−', 'op'],
+  ['!', 'n!', 'fn'], ['1', '1', 'num'], ['2', '2', 'num'], ['3', '3', 'num'], ['+', '+', 'op'],
+  ['%', '%', 'fn'], ['±', '±', 'fn'], ['0', '0', 'num'], ['.', '.', 'num'], ['=', '=', 'eq']
+];
+const KEY_NAMES = { 'AC': 'پاک کردن همه', 'BS': 'پاک کردن آخرین', '√': 'رادیکال', '^': 'توان', '!': 'فاکتوریل', '%': 'درصد', '±': 'تغییر علامت', '÷': 'تقسیم', '×': 'ضرب', '−': 'منها', '+': 'جمع', '=': 'مساوی', '.': 'ممیز' };
+const keysEl = $('keys');
+const keyBtn = {};
+for (const [k, label, cls] of KEYS) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'key ' + cls; b.dataset.k = k; b.dataset.label = label;
+  b.innerHTML = label;
+  if (KEY_NAMES[k]) b.setAttribute('aria-label', KEY_NAMES[k]);
+  keysEl.appendChild(b); keyBtn[k] = b;
+}
+function labelKeys() {
+  for (const k in keyBtn) {
+    const b = keyBtn[k];
+    if (/^[0-9]$/.test(k)) b.textContent = D(k);
+    else if (k === '.') b.textContent = DEC();
+  }
+}
+function animateKey(b, x, y) {
+  if (!b) return;
+  b.classList.remove('pressed', 'nope'); void b.offsetWidth; b.classList.add('pressed');
+  const r = b.getBoundingClientRect();
+  const rp = document.createElement('span'); rp.className = 'ripple';
+  rp.style.left = ((x ?? r.left + r.width / 2) - r.left) + 'px'; rp.style.top = ((y ?? r.top + r.height / 2) - r.top) + 'px';
+  b.appendChild(rp); setTimeout(() => rp.remove(), 600);
+}
+function press(k, x, y) {
+  const b = keyBtn[k];
+  if (S.busy) return;
+  if (k === '=') { animateKey(b, x, y); equals(); return; }
+  const ok = apply(k);
+  if (!ok) {
+    if (b) { b.classList.remove('pressed', 'nope'); void b.offsetWidth; b.classList.add('nope'); }
+    Sound.nope(); return;
+  }
+  animateKey(b, x, y);
+  Sound.key(k); vib(8);
+  const [cx, cy] = b ? centerOf(b) : centerOf(screenEl);
+  const label = /^[0-9]$/.test(k) ? D(k) : (k.length === 1 ? k : '');
+  FX.burst(cx, cy, label);
+  bgPulse(cx, cy);
+  if (k === 'AC') { mood('happy', 'پاک شد! ✨', 1200); FX.burst(...centerOf(screenEl)); }
+  else if (mascotEl.dataset.mood !== 'idle' && Math.random() < .3) mood('idle');
+  renderExpr(k !== 'AC' && k !== 'BS');
+}
+keysEl.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.key'); if (!b) return;
+  e.preventDefault();
+  Sound.ensure();
+  press(b.dataset.k, e.clientX, e.clientY);
+});
+keysEl.addEventListener('click', e => { // keyboard activation (Enter/Space on a focused key)
+  if (e.detail !== 0) return;
+  const b = e.target.closest('.key'); if (b) press(b.dataset.k);
+});
+
+/* ---------- equals: the big show ---------- */
+async function equals() {
+  if (!S.expr) {
+    if (S.justEvaluated && S.result) { celebrate(); return; }
+    Sound.nope(); return;
+  }
+  let q;
+  const auto = S.expr + ')'.repeat(Math.max(0, (S.expr.match(/\(/g) || []).length - (S.expr.match(/\)/g) || []).length));
+  try { q = Engine.evaluate(S.expr, { ans: S.ans, P: settings.precision }); }
+  catch (err) { return showError(err); }
+  S.busy = true;
+  const fast = settings.intensity === 0;
+  if (!fast) {
+    if (settings.mascot) mood('think', pick(THINK));
+    shell.classList.add('charging'); Sound.charge(); vib(15);
+    resEl.className = 'result'; resEl.textContent = ''; metaEl.innerHTML = '';
+    await sleep(420);
+    shell.classList.remove('charging');
+    exprEl.classList.add('fly'); Sound.whoosh();
+  }
+  S.lastExpr = auto; S.expr = ''; S.justEvaluated = true;
+  S.result = q; S.ans = q;
+  const view = buildView(q);
+  if (!fast) await scramble(view);
+  renderExpr(false);
+  renderResult(!fast);
+  pushHistory(auto, q);
+  S.busy = false;
+  celebrate(view);
+}
+function celebrate(view) {
+  const [x, y] = centerOf(screenEl);
+  const style = settings.fx === 'random' ? pick(['blast', 'fireworks', 'emoji', 'confetti']) : settings.fx;
+  if (settings.intensity > 0) {
+    if (style === 'blast') FX.blast(x, y);
+    else if (style === 'fireworks') { FX.fireworks(); FX.burst(x, y); }
+    else if (style === 'emoji') { FX.emojiRain(); FX.burst(x, y); }
+    else FX.confetti(x, y + 30);
+    shell.classList.remove('shake'); void shell.offsetWidth; shell.classList.add('shake');
+    screenEl.classList.remove('flash'); void screenEl.offsetWidth; screenEl.classList.add('flash');
+  }
+  Sound.fanfare(); vib([20, 40, 30]);
+  const digits = view ? view.e.ip.toString().length : 0;
+  if (settings.mascot) mood('happy', digits > 40 ? `وای! ${D(String(digits))} رقم 😱` : pick(HAPPY), 2600);
+}
+function scramble(view) {
+  return new Promise(res => {
+    const target = (settings.mode === 'frac' && S.result.d !== 1n) ? view.fracPlain : view.plain;
+    const text = target.length > 120 ? target.slice(0, 120) : target;
+    const dur = 560, t0 = performance.now();
+    resEl.className = 'result scramble';
+    resEl.style.setProperty('--rs', sizeFor(Math.min(view.visLen, text.length)));
+    let frame = 0;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      const settled = Math.floor(p * text.length);
+      let s = '';
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        s += (i < settled || !/[0-9]/.test(ch)) ? ch : String(Math.floor(Math.random() * 10));
+      }
+      resEl.textContent = D(s.replace(/-/g, '−').replace(/\//g, ' / '));
+      if (frame++ % 3 === 0) Sound.tick();
+      if (p < 1) requestAnimationFrame(step); else res();
+    };
+    requestAnimationFrame(step);
+  });
+}
+function showError(err) {
+  const msg = err instanceof Engine.CalcError ? err.message : 'یه چیزی درست نبود 😵 ' + (err && err.message ? '(' + err.message + ')' : '');
+  resEl.className = 'result err'; resEl.textContent = msg; metaEl.innerHTML = '';
+  shell.classList.remove('sad'); void shell.offsetWidth; shell.classList.add('sad');
+  Sound.sad(); vib([60, 40, 60]);
+  if (settings.mascot) mood('sad', pick(['اوه اوه! 🙈', 'ای وای 😵', 'این یکی نشد 😅']), 2600);
+  if (settings.intensity > 0) FX.sadRain(...centerOf(screenEl));
+}
+function pushHistory(expr, q) {
+  S.history.unshift({ e: expr, n: q.n.toString(), d: q.d.toString(), a: !!q.approx });
+  S.history = S.history.slice(0, 60); saveHist();
+}
+
+/* ---------- physical keyboard ---------- */
+const KEYMAP = { '*': '×', 'x': '×', 'X': '×', '/': '÷', '-': '−', '+': '+', '^': '^', '%': '%', '!': '!', '(': '(', ')': ')', '.': '.', ',': '.', '٫': '.', 'r': '√', 'R': '√', 's': '√', 'Enter': '=', '=': '=', 'Backspace': 'BS', 'Escape': 'AC', 'Delete': 'AC' };
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (document.querySelector('.sheet:not([hidden])')) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
+  let k = e.key;
+  const fa = '۰۱۲۳۴۵۶۷۸۹'.indexOf(k); if (fa >= 0) k = String(fa);
+  if (!/^[0-9]$/.test(k)) k = KEYMAP[k];
+  if (!k) return;
+  if (k === '=' && tag === 'button' && e.key === 'Enter') return; // let focused buttons work
+  e.preventDefault();
+  Sound.ensure();
+  press(k);
+});
+document.addEventListener('paste', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'textarea' || tag === 'input') return;
+  const txt = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  e.preventDefault();
+  const n = insertText(txt);
+  if (n) { renderExpr(true); Sound.key('5'); toast(`${D(String(n))} نویسه اضافه شد`); mood('happy', 'چه عدد گنده‌ای! 😍', 1600); }
+  else { Sound.nope(); toast('عددی برای چسباندن پیدا نشد'); }
+});
+
+/* =====================================================================
+   SHEETS: settings, history, paste
+   ===================================================================== */
+function openSheet(id) { const s = $(id); s.hidden = false; const f = s.querySelector('textarea,button'); f && f.focus(); Sound.whoosh(); }
+function closeSheets() { document.querySelectorAll('.sheet').forEach(s => s.hidden = true); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+document.querySelectorAll('.sheet').forEach(s => {
+  s.addEventListener('click', e => { if (e.target === s || e.target.closest('[data-close]')) closeSheets(); });
+  s.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
+});
+$('btnSet').onclick = () => openSheet('sheetSet');
+$('btnHist').onclick = () => { renderHistory(); openSheet('sheetHist'); };
+$('btnPaste').onclick = () => { openSheet('sheetPaste'); updatePasteCount(); };
+const pasteArea = $('pasteArea');
+function updatePasteCount() {
+  const digits = (pasteArea.value.match(/[0-9۰-۹٠-٩]/g) || []).length;
+  $('pasteCount').textContent = digits ? `${D(String(digits))} رقم` : '';
+}
+pasteArea.addEventListener('input', updatePasteCount);
+$('pasteGo').onclick = () => {
+  const n = insertText(pasteArea.value);
+  if (!n) { toast('عددی پیدا نشد'); return; }
+  pasteArea.value = ''; closeSheets(); renderExpr(true); Sound.key('7');
+  mood('happy', 'چه عدد گنده‌ای! 😍', 1600);
+};
+
+function renderHistory() {
+  const ul = $('histList'); ul.innerHTML = '';
+  if (!S.history.length) { ul.innerHTML = '<li class="empty">هنوز حسابی نکردی 🙂</li>'; return; }
+  for (const h of S.history) {
+    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button';
+    let shortRes = '';
+    try {
+      const q = { n: BigInt(h.n), d: BigInt(h.d), approx: h.a };
+      const p = Engine.toPlain(q, 80);
+      shortRes = p.length > 70 ? p.slice(0, 68) + '…' : p;
+    } catch (e) { shortRes = '?'; }
+    const e = h.e.length > 140 ? h.e.slice(0, 138) + '…' : h.e;
+    b.innerHTML = `<span class="he">${exprHTML(e, false)}</span><span class="hr">= ${h.a ? '≈' : ''}${D(shortRes.replace('-', '−'))}</span>`;
+    b.onclick = () => {
+      const neg = h.n.startsWith('-'); const n = neg ? h.n.slice(1) : h.n;
+      const piece = h.d === '1' ? (neg ? '(−' + n + ')' : n) : `(${neg ? '−' : ''}${n}÷${h.d})`;
+      freshFromResult(false);
+      const lc = S.expr.slice(-1);
+      if (S.expr && endsOperand(lc)) S.expr += '×';
+      S.expr += piece; closeSheets(); renderExpr(true); Sound.key('3');
+    };
+    li.appendChild(b); ul.appendChild(li);
+  }
+}
+$('clearHist').onclick = () => { S.history = []; saveHist(); renderHistory(); toast('تاریخچه پاک شد'); };
+
+const SCHEMA = [
+  { sec: 'ظاهر', items: [
+    { k: 'theme', label: 'تم پس‌زمینه', type: 'seg', opts: [['rainbow', 'رنگین‌کمان'], ['neon', 'نئون'], ['pastel', 'پاستیلی'], ['sunset', 'غروب'], ['galaxy', 'کهکشان'], ['candy', 'آبنباتی']] },
+    { k: 'bgMotion', label: 'پس‌زمینهٔ متحرک', type: 'toggle' },
+    { k: 'bgSpeed', label: 'سرعت چرخش رنگ‌ها', type: 'range', min: 1, max: 10, step: 1 },
+    { k: 'accent', label: 'رنگ دکمه‌های عملگر', type: 'swatch' },
+    { k: 'shape', label: 'شکل دکمه‌ها', type: 'seg', opts: [['pill', 'کپسولی'], ['soft', 'نرم'], ['square', 'مربعی']] },
+    { k: 'glass', label: 'تیرگی شیشه', type: 'range', min: 10, max: 90, step: 5, unit: '٪' },
+    { k: 'scale', label: 'اندازهٔ نوشتهٔ نمایشگر', type: 'range', min: 80, max: 140, step: 5, unit: '٪' }
+  ] },
+  { sec: 'عددها و دقت', items: [
+    { k: 'faDigits', label: 'ارقام فارسی (۱۲۳)', type: 'toggle' },
+    { k: 'sep', label: 'جداکنندهٔ سه‌رقمی', type: 'toggle' },
+    { k: 'mode', label: 'نمایش جواب', type: 'seg', opts: [['dec', 'اعشاری'], ['frac', 'کسری']] },
+    { k: 'maxRep', label: 'سقف پیدا کردن دورهٔ اعشار متناوب', type: 'select', opts: [[500, '۵۰۰ رقم'], [2000, '۲٬۰۰۰ رقم'], [10000, '۱۰٬۰۰۰ رقم'], [50000, '۵۰٬۰۰۰ رقم']] },
+    { k: 'precision', label: 'رقم‌های اعشار برای ریشه‌های گنگ', type: 'select', opts: [[20, '۲۰'], [50, '۵۰'], [100, '۱۰۰'], [500, '۵۰۰'], [1000, '۱٬۰۰۰'], [5000, '۵٬۰۰۰']] },
+    { k: 'preview', label: 'پیش‌نمایش زندهٔ جواب', type: 'toggle' }
+  ] },
+  { sec: 'صدا', items: [
+    { k: 'sound', label: 'صدای دکمه‌ها و جواب', type: 'toggle' },
+    { k: 'soundType', label: 'نوع صدا', type: 'seg', opts: [['piano', 'پیانو 🎹'], ['pop', 'پاپ 🫧'], ['retro', 'رترو 👾'], ['bubble', 'حباب 💧']] },
+    { k: 'volume', label: 'بلندی صدا', type: 'range', min: 0, max: 100, step: 5, unit: '٪' }
+  ] },
+  { sec: 'انیمیشن و شخصیت', items: [
+    { k: 'fx', label: 'افکت جواب', type: 'seg', opts: [['random', 'شانسی 🎲'], ['blast', 'انفجار رنگین‌کمانی 💥'], ['fireworks', 'آتش‌بازی 🎆'], ['emoji', 'باران ایموجی 🦄'], ['confetti', 'کاغذ رنگی 🎊']] },
+    { k: 'intensity', label: 'شدت افکت‌ها', type: 'range', min: 0, max: 10, step: 1 },
+    { k: 'mascot', label: 'رنگینو (شخصیت بامزه)', type: 'toggle' },
+    { k: 'vibrate', label: 'لرزش گوشی', type: 'toggle' }
+  ] }
+];
+function buildSettings() {
+  const body = $('setBody'); body.innerHTML = '';
+  for (const sec of SCHEMA) {
+    const s = document.createElement('div'); s.className = 'sec';
+    s.innerHTML = `<h3>${sec.sec}</h3>`;
+    for (const it of sec.items) {
+      const row = document.createElement('div'); row.className = 'row';
+      const id = 'set-' + it.k;
+      const lab = document.createElement('label'); lab.textContent = it.label; lab.htmlFor = id; lab.id = id + '-l';
+      row.appendChild(lab);
+      let ctl;
+      if (it.type === 'toggle') {
+        ctl = document.createElement('input'); ctl.type = 'checkbox'; ctl.className = 'switch'; ctl.id = id; ctl.setAttribute('role', 'switch');
+        ctl.onchange = () => set(it.k, ctl.checked);
+      } else if (it.type === 'seg' || it.type === 'swatch') {
+        ctl = document.createElement('div'); ctl.className = 'seg'; ctl.id = id; ctl.setAttribute('role', 'group'); ctl.setAttribute('aria-labelledby', id + '-l');
+        const opts = it.type === 'swatch' ? Object.keys(ACCENTS).map(k => [k, k]) : it.opts;
+        for (const [v, t] of opts) {
+          const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v;
+          if (it.type === 'swatch') {
+            b.className = 'sw'; b.setAttribute('aria-label', { candy: 'آبنباتی', ocean: 'اقیانوسی', fire: 'آتشین', mint: 'نعنایی', gold: 'طلایی', grape: 'انگوری', rainbow: 'رنگین‌کمانی' }[v]);
+            b.style.background = ACCENTS[v] ? `linear-gradient(140deg,${ACCENTS[v][0]},${ACCENTS[v][1]})` : 'conic-gradient(#ff3b3b,#ffe14d,#3bff8a,#2ec5ff,#d84dff,#ff3b3b)';
+          } else b.textContent = t;
+          b.onclick = () => set(it.k, v);
+          ctl.appendChild(b);
+        }
+      } else if (it.type === 'range') {
+        ctl = document.createElement('div'); ctl.className = 'rng';
+        const r = document.createElement('input'); r.type = 'range'; r.id = id; r.min = it.min; r.max = it.max; r.step = it.step;
+        const o = document.createElement('output'); o.id = id + '-o';
+        r.oninput = () => { set(it.k, +r.value, true); o.textContent = D(String(r.value)) + (it.unit || ''); };
+        r.onchange = () => saveSettings();
+        ctl.append(r, o);
+      } else if (it.type === 'select') {
+        ctl = document.createElement('select'); ctl.className = 'sel'; ctl.id = id;
+        for (const [v, t] of it.opts) { const o = document.createElement('option'); o.value = v; o.textContent = t; ctl.appendChild(o); }
+        ctl.onchange = () => set(it.k, +ctl.value);
+      }
+      row.appendChild(ctl); s.appendChild(row);
+    }
+    body.appendChild(s);
+  }
+  syncSettingsUI();
+}
+function syncSettingsUI() {
+  for (const sec of SCHEMA) for (const it of sec.items) {
+    const el = $('set-' + it.k); if (!el) continue;
+    const v = settings[it.k];
+    if (it.type === 'toggle') el.checked = !!v;
+    else if (it.type === 'seg' || it.type === 'swatch') el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v))));
+    else if (it.type === 'range') { el.value = v; $('set-' + it.k + '-o').textContent = D(String(v)) + (it.unit || ''); }
+    else if (it.type === 'select') el.value = String(v);
+  }
+}
+function set(k, v, noSave) {
+  settings[k] = v;
+  if (!noSave) saveSettings();
+  applySettings();
+  if (!noSave) syncSettingsUI();
+  if (k === 'sound' && v) Sound.key('5');
+  if (k === 'soundType' || k === 'volume') Sound.key(String(Math.floor(Math.random() * 10)));
+  if (k === 'fx' || k === 'intensity') { if (!noSave || k === 'fx') celebratePreview(); }
+}
+let fxPrevTimer = 0;
+function celebratePreview() {
+  clearTimeout(fxPrevTimer);
+  fxPrevTimer = setTimeout(() => {
+    const [x, y] = [innerWidth / 2, innerHeight * .35];
+    const st = settings.fx === 'random' ? pick(['blast', 'fireworks', 'emoji', 'confetti']) : settings.fx;
+    if (settings.intensity === 0) return;
+    if (st === 'blast') FX.blast(x, y); else if (st === 'fireworks') FX.fireworks(); else if (st === 'emoji') FX.emojiRain(); else FX.confetti(x, y);
+  }, 250);
+}
+$('resetSet').onclick = () => { settings = { ...DEFAULTS }; saveSettings(); applySettings(); syncSettingsUI(); toast('تنظیمات برگشت به حالت اول'); };
+
+function applySettings() {
+  const root = document.documentElement.style;
+  const th = THEMES[settings.theme] || THEMES.rainbow;
+  th.c.forEach((c, i) => root.setProperty('--c' + (i + 1), c));
+  root.setProperty('--hue-span', th.span);
+  root.setProperty('--ground', th.ground);
+  root.setProperty('--bg-speed', (34 - settings.bgSpeed * 3) + 's');
+  document.body.classList.toggle('still', !settings.bgMotion);
+  const ac = ACCENTS[settings.accent];
+  document.body.classList.toggle('rainbow-keys', !ac);
+  root.setProperty('--accent', ac ? ac[0] : '#ff4fd8');
+  root.setProperty('--accent-2', ac ? ac[1] : '#7c5cff');
+  root.setProperty('--radius-btn', { pill: '999px', soft: '20px', square: '8px' }[settings.shape] || '20px');
+  root.setProperty('--glass', String(settings.glass / 100));
+  root.setProperty('--ds', String(settings.scale / 100));
+  $('buddy').style.visibility = settings.mascot ? 'visible' : 'hidden';
+  labelKeys();
+  renderExpr(false);
+  if (S.justEvaluated && S.result) renderResult(false);
+}
+
+/* ---------- boot ---------- */
+buildSettings();
+applySettings();
+setTimeout(() => mood('happy', 'سلام! من رنگینو‌ام، یه عدد بزن 👋', 2200), 400);
+})();
+</script>
+</body>
+</html>
