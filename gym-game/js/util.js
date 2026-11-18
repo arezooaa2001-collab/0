@@ -207,6 +207,24 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 /** Soft radial blob texture used for fake shadows and particles. */
+/**
+ * Free the GPU side of everything under root that is not shared (the common materials and
+ * geometries stay). Anything freed by mistake is simply uploaded again if it is drawn later.
+ */
+function disposeDeep(root) {
+  const keep = new Set([typeof MATTE_MAT !== 'undefined' && MATTE_MAT, typeof CHAR_MAT !== 'undefined' && CHAR_MAT,
+    typeof PROP_MAT !== 'undefined' && PROP_MAT, typeof SHADOW_MAT !== 'undefined' && SHADOW_MAT, typeof SHADOW_GEO !== 'undefined' && SHADOW_GEO]);
+  root.traverse((o) => {
+    if (o.geometry && !keep.has(o.geometry) && !o.geometry.userData.shared) o.geometry.dispose();
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const m of mats) {
+      if (keep.has(m) || m.userData.shared) continue;
+      for (const k of ['map', 'emissiveMap', 'alphaMap']) if (m[k] && !m[k].userData.shared) m[k].dispose();
+      m.dispose();
+    }
+  });
+}
+
 function radialTexture(inner, outer, size = 64) {
   return makeCanvasTexture(size, size, (ctx, w) => {
     const g = ctx.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);

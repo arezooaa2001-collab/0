@@ -55,6 +55,13 @@ const Game = {
     for (const k of ['powers', 'maxKnock', 'armWins', 'chests', 'gems', 'emotes', 'jackpots', 'picked']) v.stats[k] = Math.max(0, Number(v.stats[k]) || 0);
     v.fun = Object.assign({ wheelDay: '', lastDay: '', streak: 0 }, obj(v.fun));
     v.challenges = obj(v.challenges);
+    // each challenge record: a medal tier 0..3 and a finite best score
+    for (const k of Object.keys(v.challenges)) {
+      const c = obj(v.challenges[k]);
+      c.tier = clamp(Math.floor(Number(c.tier) || 0), 0, 3);
+      if (c.best != null && !Number.isFinite(Number(c.best))) delete c.best;
+      v.challenges[k] = c;
+    }
     v.records = obj(v.records);
     v.secretFootball = !!v.secretFootball;
     v.temp = (Array.isArray(v.temp) ? v.temp : []).filter((t) => t && t.n > 0 && t.until > Date.now() && t.until < Date.now() + 400000)

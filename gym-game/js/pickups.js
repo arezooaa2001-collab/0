@@ -225,6 +225,7 @@ class Pickups {
           c.g.scale.setScalar(s);
           if (s <= 0) {
             this.world.scene.remove(c.g);
+            disposeDeep(c.g);
             this.chest = null;
           }
         }

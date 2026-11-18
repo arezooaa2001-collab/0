@@ -123,7 +123,9 @@ Object.assign(Game, {
     if (id !== 'dash' && !ch.grounded) return;
     const p = ch.root.position;
     if (id === 'superjump') {
-      const v = Math.min(13.5, Math.sqrt(40 * Math.max(1.5, (w.ceiling || 30) - 2.8)));
+      // as high as the room allows: under a roof or an umbrella the jump stops short of it
+      const top = Math.min(w.ceiling || 30, w.headroom ? w.headroom(p.x, p.z, p.y || 0) - (p.y || 0) : Infinity);
+      const v = Math.min(13.5, Math.sqrt(40 * Math.max(1.5, top - 2.8)));
       ch.jump(v);
       ch.airFlip = { t: 0, dur: (v / 10) * 0.95, turns: 1, dir: 1 };
       this.powerAir = { id, slam: false };

@@ -401,6 +401,17 @@ Object.assign(WorldBase.prototype, {
     return h;
   },
 
+  /** The lowest underside of anything right overhead at (x, z) above height y (Infinity if open). */
+  headroom(x, z, y = 0) {
+    this.ensureSolids();
+    let h = Infinity;
+    for (const s of this.solidsNear(x, z)) {
+      if (s.step || s.bottom <= y + 0.5 || s.bottom >= h) continue;
+      if (pushOut(s, x, z, 0)) h = s.bottom;
+    }
+    return h;
+  },
+
   /** Push one circle (x, z, r) at height y out of every solid it overlaps. */
   pushCircle(pos, ox, oz, r, y, head = SOLID.high) {
     let moved = false;
@@ -410,6 +421,8 @@ Object.assign(WorldBase.prototype, {
     for (let k = 0; k < near.length + this.activeColliders.length; k++) {
       const s = k < near.length ? near[k] : this.activeColliders[k - near.length];
       if (s.step || s.bottom > y + head || s.top < y + SOLID.low) continue;
+      // a roof or umbrella only the head reaches: never shove the body sideways out from under it
+      if (s.bottom > y + 0.5 && pushOut(s, pos.x + ox, pos.z + oz, 0)) continue;
       const p = pushOut(s, pos.x + ox, pos.z + oz, r);
       if (p) { pos.x += p[0]; pos.z += p[1]; moved = true; }
     }
@@ -445,7 +458,8 @@ Object.assign(WorldBase.prototype, {
 
   /** Move by (dx, dz) in steps no longer than a hand's width, so speed never skips through anything. */
   moveBody(pos, dx, dz, yaw, air = 0, size = 1) {
-    const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12));
+    // a tiny body is thinner: smaller steps, so it can't slip through a thin wall either
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (0.12 * Math.min(1, size))));
     for (let k = 0; k < n; k++) {
       pos.x += dx / n;
       pos.z += dz / n;
@@ -519,13 +533,19 @@ Object.assign(WorldBase.prototype, {
             const s = k < list.length ? list[k] : this.activeColliders[k - list.length];
             if (s.step && s.top <= pos.y + 0.01) continue;
             const p = pointPush(s, x + 0, y, z);
-            if (p && Math.hypot(p[0], p[1]) < 0.6) { ox += p[0]; oz += p[1]; moved = true; break; }
+            // only pushes back towards the body: a hand through a thin wall must not pull you through it
+            if (p && Math.hypot(p[0], p[1]) < 0.6 && p[0] * (x - pos.x - ox) + p[1] * (z - pos.z - oz) <= 0) { ox += p[0]; oz += p[1]; moved = true; break; }
           }
         }
       }
       if (!moved) break;
     }
-    if (ox || oz) { pos.x += ox; pos.z += oz; }
+    if (ox || oz) {
+      const L = Math.hypot(ox, oz);
+      if (L > 0.6) { ox *= 0.6 / L; oz *= 0.6 / L; }
+      // slide out the way a body moves, so the slide itself can't cross a wall
+      this.moveBody(pos, ox, oz, ch.root.rotation.y, ch.airY, ch.root.scale.x);
+    }
   },
 
   /** Where feet go on a machine: its own height, or the top of the mat or platform under it. */

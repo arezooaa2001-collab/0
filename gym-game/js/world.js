@@ -164,9 +164,12 @@ class WorldBase {
   spawnNpcs(names, saved, levelRange = [1, 9]) {
     for (let i = 0; i < names.length; i++) {
       const s = saved && saved[i];
-      const level = s ? s.l : randi(levelRange[0], levelRange[1]);
+      // saved people are checked: a broken entry gets a fresh level instead of NaN
+      const sl = s && Math.floor(+s.l);
+      const level = sl >= 1 && sl < 1e7 ? sl : randi(levelRange[0], levelRange[1]);
+      const sx = s && +s.x;
       const n = {
-        name: names[i], level, xp: s ? s.x : rand(0, xpNeed(level) * 0.8), rate: rand(0.35, 0.7),
+        name: names[i], level, xp: Number.isFinite(sx) && sx >= 0 && sl === level ? sx : rand(0, xpNeed(level) * 0.8), rate: rand(0.35, 0.7),
         ch: new Character(Object.assign(randomOutfit(), { muscle: muscleFor(level) })),
         state: 'idle', timer: rand(0, 3), target: null, station: null, reps: 0,
         vel: new THREE.Vector2(), walk: rand(1.3, 2.0), stuckT: 0, lastPos: new THREE.Vector2(),
@@ -438,7 +441,7 @@ class WorldBase {
         const moved = Math.hypot(pos.x - n.lastPos.x, pos.z - n.lastPos.y);
         n.stuckT = 0;
         n.lastPos.set(pos.x, pos.z);
-        if (moved < 0.3) { pos.x += rand(-1, 1); pos.z += rand(-1, 1); }
+        if (moved < 0.3) this.moveBody(pos, rand(-1, 1), rand(-1, 1), ch.root.rotation.y, ch.airY, ch.root.scale.x);
       }
     } else if (n.state === 'chat') {
       const c = n.chat;

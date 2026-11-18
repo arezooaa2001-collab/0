@@ -140,6 +140,7 @@ class IslandWorld extends WorldBase {
     for (const ch of [...this.created.children]) {
       this.created.remove(ch);
       ch.traverse((o) => { if (o.isSprite && o.material.map) o.material.map.dispose(); });
+      disposeDeep(ch);
     }
     this.colliders.length = this.baseColliders;
     // the new equipment is solid, the removed is not any more

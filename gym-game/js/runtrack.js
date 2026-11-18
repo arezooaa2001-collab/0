@@ -510,6 +510,8 @@ Object.assign(Game, {
     }
     const R = this.runState();
     w.recenter(this);
+    // a menu, the camera room or photo mode stops the clock and the ghost runner
+    if (R.state === 'running' && (this.modals.size || this.watch || this.photo)) return;
     const e = this.energy();
     const max = energyMax(e.level);
     const pos = P.ch.root.position;

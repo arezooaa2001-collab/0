@@ -347,6 +347,9 @@ Object.assign(Game, {
     this.envs.delete('gym2');
     // the old building's big merged geometry is freed, not left behind in memory
     old.scene.traverse((o) => { if (o.userData.batch || (o.isMesh && o.userData.placedPart)) o.geometry.dispose(); });
+    disposeDeep(old.scene);
+    if (this.wall && this.wall.world === old) this.wall.world = null;
+    if (this.watchWorld === old) this.watchWorld = null;
     const w = this.getEnv('gym2');
     w.enter(P, { x: pos.x, z: pos.z, yaw, camYaw: old.cam.yaw });
     this.world = w;
