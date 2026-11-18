@@ -566,12 +566,21 @@ function buildCharGeometry(o, m) {
   add('head', cyl, 0, 0.02, 0, o.skin, 0, 0, 0, 0.062 * (1 + 0.3 * m), 0.12, 0.062 * (1 + 0.3 * m));
   add('head', sph, 0, 0.17, 0.01, o.skin, 0, 0, 0, 0.118, 0.135, 0.125);
   add('head', HAIR_GEO, 0, 0.18, -0.008, o.hair, -0.35, 0, 0, 0.128, 0.13, 0.135);
-  add('head', sph, 0.043, 0.185, 0.113, '#141414', 0, 0, 0, 0.017, 0.019, 0.012);
-  add('head', sph, -0.043, 0.185, 0.113, '#141414', 0, 0, 0, 0.017, 0.019, 0.012);
-  add('head', box, 0.045, 0.214, 0.115, o.hair, 0, 0, 0.08, 0.05, 0.012, 0.012);
-  add('head', box, -0.045, 0.214, 0.115, o.hair, 0, 0, -0.08, 0.05, 0.012, 0.012);
+  const sphS = UnitGeo.sphere(8, 6);
+  // eyes: whites, dark pupils with a glint (the lids that blink are separate, see polish.js)
+  for (const ex of [0.043, -0.043]) {
+    add('head', sphS, ex, 0.186, 0.112, '#f6f6f2', 0, 0, 0, 0.027, 0.026, 0.016);
+    add('head', sphS, ex * 0.97, 0.185, 0.118, o.eyes || '#2a1a10', 0, 0, 0, 0.016, 0.018, 0.012);
+    add('head', sphS, ex * 0.97, 0.185, 0.121, '#0b0b0b', 0, 0, 0, 0.009, 0.011, 0.011);
+    add('head', sphS, ex * 0.97 + 0.006, 0.192, 0.129, '#ffffff', 0, 0, 0, 0.0045, 0.0045, 0.004);
+  }
+  add('head', box, 0.045, 0.219, 0.118, o.hair, 0, 0, -0.12, 0.05, 0.012, 0.014);
+  add('head', box, -0.045, 0.219, 0.118, o.hair, 0, 0, 0.12, 0.05, 0.012, 0.014);
   add('head', sph, 0, 0.16, 0.128, o.skin, 0, 0, 0, 0.02, 0.026, 0.02);
-  add('head', box, 0, 0.12, 0.115, '#8a3b3b', 0, 0, 0, 0.042, 0.009, 0.01);
+  // a small smile that sits on the face (it used to hide inside the head)
+  add('head', box, 0, 0.117, 0.123, '#7a2b2b', 0, 0, 0, 0.034, 0.008, 0.01);
+  for (const sx of [-1, 1]) add('head', box, sx * 0.02, 0.121, 0.121, '#7a2b2b', 0, 0, sx * 0.6, 0.012, 0.007, 0.01);
+  for (const sx of [-1, 1]) add('head', sphS, sx * 0.068, 0.14, 0.103, '#e88a7a', 0, 0, 0, 0.018, 0.012, 0.01);
   add('head', sph, 0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   add('head', sph, -0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   if (o.band) add('head', UnitGeo.torus(1, 0.13, 6, 24), 0, 0.225, 0, o.band, Math.PI / 2, 0, 0, 0.124, 0.124, 0.124);

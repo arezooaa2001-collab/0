@@ -1203,6 +1203,7 @@ const Game = {
       if (e.code === 'Digit9' || e.code === 'Numpad9') this.usePower('moon');
       if (e.code === 'Digit0' || e.code === 'Numpad0') this.usePower('freeze');
       if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.usePower('tornado');
+      if (e.code === 'Equal' || e.code === 'NumpadAdd') this.usePower('clone');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1335,6 +1336,8 @@ const Game = {
       this.tickFun5(dt);
       this.tickFun6(dt);
       this.tickFun7(dt);
+      this.tickFun8(dt);
+      this.tickPolish(dt);
       if (this.arm && !this.modals.size) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());

@@ -1137,3 +1137,35 @@ kbd {
 @media (max-height: 480px) and (orientation: landscape) {
   .build-bar { left: auto; right: max(12px, var(--safe-r)); transform: none; width: min(560px, calc(100% - 190px)); bottom: calc(var(--safe-b) + 10px); }
 }
+
+/* round 14: a soft vignette over the 3D view (not on the light preset) */
+.vignette { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 0.6s;
+  background: radial-gradient(ellipse at 50% 46%, rgba(0, 0, 0, 0) 58%, rgba(6, 8, 20, 0.38) 100%); }
+body.polish .vignette { opacity: 1; }
+
+/* round 14: the rhythm pad and the mechanical bull */
+.rhythm-panel { border-color: rgba(255, 77, 166, 0.8); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 22px rgba(255, 77, 166, 0.4); width: min(340px, calc(100vw - 24px)); min-width: 0; }
+.rhythm-panel .spin-head { color: #ffc2e0; font-size: 16px; }
+.rhy-stage { position: relative; height: 170px; border-radius: 12px; overflow: hidden; background: linear-gradient(180deg, rgba(10, 12, 30, 0.2), rgba(10, 12, 30, 0.75)); direction: ltr; }
+.rhy-lanes { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+.rhy-lane { position: relative; border-left: 1px solid rgba(255, 255, 255, 0.08); background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 18%, transparent)); }
+.rhy-note { position: absolute; left: 50%; width: 38px; height: 30px; margin: -15px 0 0 -19px; display: grid; place-items: center; font-style: normal; font-size: 20px;
+  border-radius: 10px; background: color-mix(in srgb, var(--c) 55%, #10142a); box-shadow: 0 0 10px var(--c); }
+.rhy-note.done { transform: scale(1.5); opacity: 0; transition: transform 0.15s, opacity 0.15s; }
+.rhy-line { position: absolute; left: 4px; right: 4px; top: 85%; height: 4px; margin-top: -2px; border-radius: 2px; background: #ffffff; box-shadow: 0 0 10px #ffffff; }
+.rhy-judge { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: 400 22px/1 var(--display); color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); direction: rtl; pointer-events: none; }
+.rhy-judge.j0 { color: #ffe26b; } .rhy-judge.j1 { color: #7bed9f; } .rhy-judge.j2 { color: #9fd3ff; } .rhy-judge.j3 { color: #ff8a8a; }
+.rhy-judge.pop { animation: pop 0.25s ease-out; }
+.rhy-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; direction: ltr; }
+.rhy-btns button { height: 46px; border: 2px solid var(--c); border-radius: 12px; background: color-mix(in srgb, var(--c) 22%, #10142a); font-size: 22px; touch-action: none; }
+.rhy-btns button.hit { animation: pop 0.2s ease-out; background: color-mix(in srgb, var(--c) 60%, #10142a); }
+.bull-panel { border-color: rgba(255, 211, 77, 0.8); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(255, 211, 77, 0.35); }
+.bull-panel .spin-head { color: #ffe09a; font-size: 17px; }
+.bull-row { display: flex; align-items: center; gap: 8px; direction: ltr; }
+.bull-meter { flex: 1; background: linear-gradient(90deg, #e63946 0%, #ff7b00 18%, #2ecc71 40%, #2ecc71 60%, #ff7b00 82%, #e63946 100%); cursor: default; }
+.bull-btn { width: 54px; height: 46px; border: 0; border-radius: 12px; background: linear-gradient(180deg, #ffc23d, #ff8a00); color: #2b1d00; font-size: 22px; touch-action: none; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .rhy-stage { height: 112px; }
+  .rhy-btns button { height: 38px; font-size: 18px; }
+  .rhy-note { width: 32px; height: 24px; margin: -12px 0 0 -16px; font-size: 16px; }
+}

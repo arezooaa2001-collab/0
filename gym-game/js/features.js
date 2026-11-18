@@ -530,6 +530,7 @@ Object.assign(Game, {
     else if (a === 'danceoff') this.startDanceOff();
     else if (a === 'arcade') this.goArcade();
     else if (a === 'south') this.goSouth();
+    else if (a === 'fun8') this.goFun8();
     else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }

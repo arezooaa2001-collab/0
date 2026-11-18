@@ -127,6 +127,10 @@ const Sfx = (() => {
     chest() { tone(330, 0.15, { type: 'triangle', vol: 0.15 }); [659, 880, 1108, 1318, 1760].forEach((f, i) => tone(f, 0.25, { type: 'sine', vol: 0.13, delay: 0.15 + i * 0.07 })); },
     spin() { tone(1800, 0.03, { type: 'square', vol: 0.05 }); },
     jackpot() { [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => tone(f, 0.3, { type: 'triangle', vol: 0.15, delay: i * 0.08 })); },
+    kick() { tone(150, 0.16, { type: 'sine', vol: 0.5, to: 45 }); },
+    snare() { noise(0.12, { vol: 0.22, freq: 1800, q: 0.8, type: 'bandpass' }); tone(220, 0.06, { type: 'triangle', vol: 0.08 }); },
+    hat() { noise(0.04, { vol: 0.08, freq: 8000, type: 'highpass' }); },
+    perfect() { tone(1568, 0.09, { type: 'triangle', vol: 0.1 }); tone(2093, 0.12, { type: 'sine', vol: 0.08, delay: 0.04 }); },
     boost() { tone(220, 0.8, { type: 'sawtooth', vol: 0.12, to: 1760 }); noise(0.8, { vol: 0.15, freq: 400, to: 6000, type: 'bandpass' }); },
   };
 
@@ -199,6 +203,8 @@ const Sfx = (() => {
     music(on) { try { if (on) { init(); startMusic(); } else stopMusic(); } catch (e) { /* ignore */ } },
     init,
     play(name) { try { if (sounds[name]) sounds[name](); } catch (e) { /* ignore audio failures */ } },
+    /** A single note for game music (the rhythm pad). */
+    note(f, d, opts) { try { if (ok()) tone(f, d, opts); } catch (e) { /* ignore */ } },
     setMuted(m) {
       muted = m;
       if (master) master.gain.value = m ? 0 : 0.55 * vol;
