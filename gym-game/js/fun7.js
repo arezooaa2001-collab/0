@@ -521,7 +521,8 @@ Object.assign(Game, {
     P.vel.set(0, 0);
     B.phase = 'aim';
     B.ball = null;
-    this.gym.cam.yaw = -Math.PI / 2;
+    this.follow(null, 5.2, -Math.PI / 2, 0.2);
+    this.camFollow = null;
     this.startAim('bowl', 0.85 + 0.08 * B.frames.length, 0.5);
     this.showBowlBall(true);
   },
@@ -1004,7 +1005,8 @@ Object.assign(Game, {
     const sides = [0, -1, 1, -1, 1].sort(() => Math.random() - 0.5);
     for (let i = 0; i < 5; i++) {
       const x = 88 + i * 7.2 + rand(-1, 1);
-      const m = new THREE.Mesh(this.balloonGeo || (this.balloonGeo = new THREE.SphereGeometry(0.28, 16, 12).scale(1, 1.2, 1)), new THREE.MeshStandardMaterial({ color: DISCO_COLORS[i % DISCO_COLORS.length], roughness: 0.3, emissive: DISCO_COLORS[i % DISCO_COLORS.length], emissiveIntensity: 0.25 }));
+      if (!this.balloonMats) this.balloonMats = DISCO_COLORS.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, emissive: c, emissiveIntensity: 0.25 }));
+      const m = new THREE.Mesh(this.balloonGeo || (this.balloonGeo = new THREE.SphereGeometry(0.28, 16, 12).scale(1, 1.2, 1)), this.balloonMats[i % this.balloonMats.length]);
       m.position.set(x, zipY(x) - 1.35, ZIP.z + sides[i] * 0.95);
       m.userData.noSolid = true;
       m.userData.side = sides[i];
@@ -1012,6 +1014,9 @@ Object.assign(Game, {
       g.zipBalloons.push(m);
     }
     this.zip = { phase: 'climb', t: 0, x: ZIP.x0, v: 0, lean: 0, popped: 0 };
+    // ride with the camera behind you, so left and right on screen are left and right on the cable
+    this.follow(null, 6.5, -Math.PI / 2, 0.3);
+    this.camFollow = null;
     Sfx.play('click');
     this.toast('🚡 با چپ و راست خم شو و بادکنک‌ها رو بترکون؛ «ول کن!» یعنی پریدن پایین.', 'gold');
   },
@@ -1028,7 +1033,7 @@ Object.assign(Game, {
     copyPose(pose, STAND);
     P.vel.set(0, 0);
     if (this.modals.size || this.watch || this.photo) {
-      if (Z.phase !== 'climb') { ch.airY = Z.y; ch.vy = 0; ch.grounded = false; }
+      if (Z.y != null) { ch.airY = Z.y; ch.vy = 0; ch.grounded = false; }
       return;
     }
     Z.t += dt;
@@ -1113,8 +1118,10 @@ Object.assign(Game, {
     const g = this.gym;
     setTimeout(() => { if (g.trolley && !this.zip) this.parkTrolley(g); }, 1500);
     for (const m of g.zipBalloons) m.removeFromParent();
+    this.unfollow(true);
     const st = this.save.stats;
-    st.zipRides = (st.zipRides || 0) + 1;
+    // the ride counts (and the medal) only all the way to the pad
+    if (atEnd) st.zipRides = (st.zipRides || 0) + 1;
     if (Z.popped === 5) {
       st.zipAll = (st.zipAll || 0) + 1;
       this.addCoins(40, true);
@@ -1124,7 +1131,8 @@ Object.assign(Game, {
     } else {
       this.floatText(atEnd ? `🚡 وووی! ${fa(Z.popped)} بادکنک` : '🪂 پریدم!', atEnd ? 'fl-combo' : '');
     }
-    this.gainXp(Math.round((30 + Z.popped * 10) * this.mult()));
+    const done = clamp((Z.x - ZIP.x0) / (ZIP.x1 - ZIP.x0), 0, 1);
+    this.gainXp(Math.round((30 * done + Z.popped * 10) * this.mult()));
     this.checkAchievements();
     this.persist();
   },
@@ -1139,11 +1147,13 @@ Object.assign(Game, {
     const g = this.gym;
     if (g && g.zipBalloons) for (const m of g.zipBalloons) m.removeFromParent();
     if (g && g.trolley) this.parkTrolley(g);
+    this.unfollow(true);
     if (P && this.world === g && Z.phase !== 'ride') {
       // still on the ladder or the platform: back down to the floor
       P.ch.root.position.set(ZIP.towerX + 1.3, 0, ZIP.z);
-      P.ch.airY = 0; P.ch.vy = 0; P.ch.grounded = true;
     }
+    // gone somewhere else (or climbed down): standing on the floor, not hanging in the air
+    if (P && (this.world !== g || Z.phase !== 'ride')) { P.ch.airY = 0; P.ch.vy = 0; P.ch.grounded = true; }
   },
 
   /* ---------- the tornado power ---------- */
@@ -1152,7 +1162,7 @@ Object.assign(Game, {
     const pw = POWER_BY_ID.tornado;
     if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
     if (!this.powerUnlocked(pw)) { Sfx.play('error'); this.toast(`🔒 قدرت «${pw.name}» در سطح ${fa(pw.level)} باز می‌شه.`, 'warn'); return; }
-    if (this.powerCd.tornado > 0 || this.tornado) return;
+    if (this.powerCd.tornado > 0 || this.tornado || this.cannon || this.meter || this.lockMove) return;
     const P = this.player;
     if (P.ch.busy || P.anchor || !P.ch.grounded) return;
     Sfx.init();
@@ -1288,7 +1298,7 @@ Object.assign(Game, {
       else q.anchored = false;
     }
     T.g.removeFromParent();
-    T.g.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    T.g.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== T.mat) o.material.dispose(); });
     T.mat.dispose();
     const n = T.total;
     if (n) this.floatText(`🌪️ ${fa(n)} نفر چرخیدن!`, 'fl-combo');
@@ -1301,7 +1311,7 @@ Object.assign(Game, {
     this.closeModal('menuModal');
     if (this.world !== this.gym) { this.toast('بولینگ، کمان و زیپ‌لاین ته باشگاه اوله (جنوب پیست نینجا)؛ اول برگرد باشگاه.', 'warn'); return; }
     this.quickTravel(92, 22);
-    if (this.world === this.gym && !this.race && !this.arm && !this.build && !this.photo) this.toast('🎳 بولینگ سمت چپته، 🏹 میدان تیر سمت راست، 🚡 برج زیپ‌لاین هم پشت سرت.', 'gold');
+    if (this.world === this.gym && Math.hypot(this.player.ch.root.position.x - 92, this.player.ch.root.position.z - 22) < 4) this.toast('🎳 بولینگ سمت چپته، 🏹 میدان تیر سمت راست، 🚡 برج زیپ‌لاین هم پشت سرت.', 'gold');
   },
 
   /* ---------- every frame ---------- */

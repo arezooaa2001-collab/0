@@ -597,7 +597,7 @@ Object.assign(Game, {
     const pw = POWER_BY_ID.clone;
     if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
     if (!this.powerUnlocked(pw)) { Sfx.play('error'); this.toast(`🔒 قدرت «${pw.name}» در سطح ${fa(pw.level)} باز می‌شه.`, 'warn'); return; }
-    if (this.powerCd.clone > 0 || this.clones) return;
+    if (this.powerCd.clone > 0 || this.clones || this.cannon || this.meter || this.lockMove) return;
     const P = this.player;
     if (P.anchor) return;
     Sfx.init();
@@ -689,7 +689,7 @@ Object.assign(Game, {
     this.closeModal('menuModal');
     if (this.world !== this.gym) { this.toast('رقص ریتمی و گاو مکانیکی توی باشگاه اوله (کنار بخش کاردیو)؛ اول برگرد باشگاه.', 'warn'); return; }
     this.quickTravel(59, -1.5);
-    if (this.world === this.gym && !this.race && !this.arm && !this.build && !this.photo) this.toast('🎵 سکوی رقص ریتمی سمت چپته و 🐂 گاو مکانیکی سمت راست.', 'gold');
+    if (this.world === this.gym && Math.hypot(this.player.ch.root.position.x - 59, this.player.ch.root.position.z + 1.5) < 4) this.toast('🎵 سکوی رقص ریتمی سمت چپته و 🐂 گاو مکانیکی سمت راست.', 'gold');
   },
 
   /* ---------- every frame ---------- */
@@ -784,3 +784,16 @@ for (const [id, v] of [['bullLeft', 1], ['bullRight', -1]]) {
   b.addEventListener('pointercancel', set(false));
 }
 $('bullCancel').addEventListener('click', () => Game.endBull(true, false));
+
+/* a new look mid-game builds a new body: give it back its pose control and its bow */
+const _rebuildPlayer8 = Game.rebuildPlayer;
+Game.rebuildPlayer = function (...args) {
+  const r = _rebuildPlayer8.apply(this, args);
+  const ch = this.player && this.player.ch;
+  if (ch) {
+    if (this.archery) { ch.showProp('bow', true); ch.manual = true; }
+    if (this.zip || this.rhythm || this.bullRide || this.cannon) { ch.manual = true; ch.manualSnap = false; }
+    if ((this.zip && this.zip.phase !== 'climb') || this.bullRide || this.cannon) ch.grounded = false;
+  }
+  return r;
+};

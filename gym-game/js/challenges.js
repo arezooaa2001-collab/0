@@ -78,6 +78,7 @@ Object.assign(Game, {
     const c = CHALLENGE_BY_ID[id];
     this.closeModal('chalModal');
     if (!c || this.chal || this.race || this.arm || this.mode !== 'play') return;
+    if (this.miniBusy && this.miniBusy()) { this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
     Sfx.init();
     Sfx.play('whistle');
     const ch = { c, t: c.dur || 0, score: 0, count: 3, run: 0, startT: 0, rings: [], ring: 0, round: 0, target: null, roundT: 0 };

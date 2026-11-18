@@ -49,6 +49,7 @@ Object.assign(Game, {
     if (this.build) { this.exitBuild(); return; }
     const key = this.buildKey();
     if (!key || this.mode !== 'play' || this.race || this.arm || this.photo) return;
+    if (this.miniBusy && this.miniBusy()) { this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
     this.cancelChallenge();
     if (!this.world.placed) this.world.placed = new Map();
     this.build = { key, world: this.world, mode: 'browse', ghost: null, item: null, sel: null };

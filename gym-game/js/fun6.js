@@ -160,7 +160,7 @@ Object.assign(Game, {
     const list = this.frozen || (this.frozen = []);
     let n = 0;
     for (const q of w.npcs) {
-      if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'frozen', 'dcoach'].includes(q.state)) continue;
+      if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'frozen', 'dcoach', 'twister', 'flung'].includes(q.state)) continue;
       const qp = q.ch.root.position;
       if (Math.hypot(qp.x - p.x, qp.z - p.z) > 14) continue;
       this.freezeNpc(q, w);
@@ -818,7 +818,7 @@ Object.assign(Game, {
     this.closeModal('menuModal');
     const w = this.world;
     const P = this.player;
-    if (this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.danceOff || this.inFootball() || w.allowTurbo || this.cannon || this.meter) {
+    if (this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.lava || this.hunt || this.danceOff || this.inFootball() || w.allowTurbo || this.cannon || this.meter || (this.miniBusy && this.miniBusy())) {
       this.toast('رقص با مربی وقتی کار دیگه‌ای نمی‌کنی شروع می‌شه.', 'warn');
       return;
     }
@@ -1004,7 +1004,7 @@ Object.assign(Game, {
     this.closeModal('menuModal');
     if (this.world !== this.gym) { this.toast('بسکتبال و توپ انسانی ته پیست نینجای باشگاه اوله؛ اول برگرد باشگاه.', 'warn'); return; }
     this.quickTravel(106, -6);
-    if (this.world === this.gym && !this.race && !this.arm && !this.build && !this.photo) this.toast('🏀 برو جلوی حلقه و «پرتاب» رو بزن؛ 💥 توپ انسانی هم پشت سرته (سمت غرب).', 'gold');
+    if (this.world === this.gym && Math.hypot(this.player.ch.root.position.x - 106, this.player.ch.root.position.z + 6) < 4) this.toast('🏀 برو جلوی حلقه و «پرتاب» رو بزن؛ 💥 توپ انسانی هم پشت سرته (سمت غرب).', 'gold');
   },
 
   /* ---------- every frame ---------- */

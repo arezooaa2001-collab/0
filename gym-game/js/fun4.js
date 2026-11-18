@@ -237,7 +237,7 @@ Object.assign(Game, {
       // everyone in its path falls over
       let n = 0;
       for (const q of w.npcs) {
-        if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge'].includes(q.state) || q.anchored) continue;
+        if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'twister', 'flung', 'frozen', 'dcoach'].includes(q.state) || q.anchored) continue;
         const dx = q.ch.root.position.x - p.x;
         const dz = q.ch.root.position.z - p.z;
         const along = dx * Math.sin(yaw) + dz * Math.cos(yaw);
