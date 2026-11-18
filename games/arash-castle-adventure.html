@@ -350,6 +350,20 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 #arashHealthText{display:block;white-space:pre-wrap;font:600 12px/1.85 var(--body);direction:rtl;background:#0e1619;padding:10px;border-radius:10px;user-select:text;overflow-wrap:anywhere;color:#dbf2e4}
 #arashHealthClose,#arashHealthRun{font:700 13px var(--body);padding:9px 13px;background:#425b56;color:#fff;border:1px solid #9ed0bc;border-radius:11px;min-height:44px;margin:8px 4px 0;touch-action:manipulation}
 #arashHealthStart{background:#203f3ddd;color:#d8fdeb;border:1px solid #78a79b;min-height:42px;padding:7px 16px;border-radius:12px;font:700 13px var(--body);margin-top:6px}
+/* photo mode */
+body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-mode #joy,body.photo-mode #joyHint,body.photo-mode #prompt,body.photo-mode #hsMission,body.photo-mode #hsNoise,body.photo-mode #frAction,body.photo-mode #hsAlarm{visibility:hidden!important}
+#photoUI{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:20;display:flex;flex-direction:column;align-items:center;gap:8px;direction:rtl;pointer-events:none}
+#photoUI .row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;pointer-events:auto;background:rgba(10,8,6,.55);padding:6px 8px;border-radius:16px}
+#photoUI button{font:700 13px var(--body,inherit);color:#fff2d8;background:rgba(255,255,255,.12);border:1px solid rgba(255,230,180,.4);border-radius:12px;padding:6px 10px;cursor:pointer}
+#photoUI button.on{background:#c98a2c;border-color:#ffe0a0}
+#photoShoot{width:70px;height:70px;border-radius:50%!important;font-size:30px!important;background:radial-gradient(#fff,#e9e2d4)!important;color:#222!important;border:5px solid rgba(255,255,255,.55)!important;pointer-events:auto;box-shadow:0 4px 18px #0008}
+#photoFlash{position:fixed;inset:0;background:#fff;z-index:21;pointer-events:none;opacity:0;transition:opacity .5s}
+#photoPrev{position:fixed;inset:0;z-index:22;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;direction:rtl;padding:14px}
+#photoPrev img{max-width:94vw;max-height:72vh;border-radius:10px;border:4px solid #f4ead5;box-shadow:0 10px 40px #000;transform:rotate(-1deg)}
+#photoPrev .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#photoPrev button{font:800 15px var(--body,inherit);padding:10px 16px;border-radius:14px;border:1px solid #ffdca0;background:#3a2a16;color:#fff1d6;cursor:pointer}
+#photoPrev button.main{background:linear-gradient(140deg,#d8952f,#8a531a)}
+#wxChip{pointer-events:none}
 </style>
 </head>
 <body>
@@ -407,7 +421,7 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 
 <div id="hud" class="ui" hidden>
   <div class="chip"><b id="lvl">مرحلهٔ ۱</b><span class="tod" id="tod">بامداد</span></div>
-  <div class="hl"><button class="chip vbtn" id="viewBtn" aria-label="تغییر زاویهٔ دید">👁 سوم‌شخص</button><div class="chip"><span class="t" id="timer">۰:۰۰</span></div><button class="chip vbtn" id="bagBtn" aria-label="کوله">🎒</button><button class="chip vbtn" id="setBtn" aria-label="تنظیمات">⚙</button><button class="chip vbtn" id="crBtn" aria-label="سازنده: هر چیزی بخواهی بساز">✨</button><button class="chip vbtn" id="chatBtn" aria-label="گفت‌وگو با آرش">💬<i id="chatUnread" hidden></i></button></div>
+  <div class="hl"><button class="chip vbtn" id="viewBtn" aria-label="تغییر زاویهٔ دید">👁 سوم‌شخص</button><div class="chip"><span class="t" id="timer">۰:۰۰</span></div><button class="chip vbtn" id="bagBtn" aria-label="کوله">🎒</button><button class="chip vbtn" id="setBtn" aria-label="تنظیمات">⚙</button><button class="chip vbtn" id="crBtn" aria-label="سازنده: هر چیزی بخواهی بساز">✨</button><button class="chip vbtn" id="photoBtn" aria-label="حالت عکاسی">📸</button><button class="chip vbtn" id="chatBtn" aria-label="گفت‌وگو با آرش">💬<i id="chatUnread" hidden></i></button></div>
 </div>
 <div id="fade"></div>
 <div id="altChip" class="chip ui" hidden></div>
@@ -428,7 +442,10 @@ body.hsedit-on #hsKit,body.hsedit-on #hsMission,body.arcade-playing #hsKit,body.
 <div id="hospitalBar" hidden><span id="hospitalInfo">🏥 بیمارستان</span><button id="hospitalLeave">بازگشت به بازی</button></div>
 <div id="miniBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 72px);left:50%;transform:translateX(-50%);z-index:8;align-items:center;gap:9px;max-width:96vw;background:rgba(18,28,31,.91);border:1px solid #c4bc84;border-radius:14px;padding:9px 13px;direction:rtl"><span id="miniInfo">🎮 ماجراجویی</span><button id="miniLeave" class="rb ghost" style="white-space:nowrap">بازگشت</button></div>
 <div id="mazeBar" hidden class="ui" style="top:calc(env(safe-area-inset-top,0px) + 68px);left:50%;transform:translateX(-50%);z-index:7;align-items:center;gap:10px;max-width:94vw;background:rgba(18,10,5,.88);border:1px solid #d7a45c;border-radius:18px;padding:9px 12px;box-shadow:0 5px 20px #0008;direction:rtl"><span id="mazeInfo">🔥 هزارتوی مشعل‌ها</span><button id="mazeLeave" class="rb ghost" style="white-space:nowrap">خروج از هزارتو</button></div>
-<div id="hsAlarm" aria-hidden="true"></div><div id="hsInvis" aria-hidden="true"></div><div id="hsAch" role="status" aria-live="polite"><i></i><div><b></b><small></small></div></div><canvas id="hsConfetti" hidden aria-hidden="true"></canvas><div id="hsDarkTip" aria-live="polite"></div><div id="hsBreath" hidden role="alertdialog" aria-live="assertive"><b>🤐 آرش داره مخفیگاهت رو باز می‌کنه!</b><span>تند تند بزن (یا کلید H) تا نفست رو حبس کنی!</span><div id="hsBreathTrack"><i id="hsBreathFill"></i></div><div id="hsBreathTime"><i></i></div><button type="button" id="hsBreathBtn">🫁 نفست رو نگه دار!</button></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
+<div id="hsAlarm" aria-hidden="true"></div>
+<div id="photoUI" hidden><div class="row" id="photoFilters"></div><button type="button" id="photoShoot" aria-label="گرفتن عکس">📸</button><div class="row"><button type="button" id="photoHideFr">🙈 بدون آرش</button><button type="button" id="photoClose">✖ بستن عکاسی</button></div></div>
+<div id="photoFlash"></div>
+<div id="photoPrev" hidden><img id="photoImg" alt="عکس گرفته‌شده از بازی"><div class="row"><button type="button" class="main" id="photoSave">💾 ذخیره در گالری</button><button type="button" id="photoAgain">📸 یکی دیگه</button><button type="button" id="photoDone">✅ تموم</button></div></div><div id="hsInvis" aria-hidden="true"></div><div id="hsAch" role="status" aria-live="polite"><i></i><div><b></b><small></small></div></div><canvas id="hsConfetti" hidden aria-hidden="true"></canvas><div id="hsDarkTip" aria-live="polite"></div><div id="hsBreath" hidden role="alertdialog" aria-live="assertive"><b>🤐 آرش داره مخفیگاهت رو باز می‌کنه!</b><span>تند تند بزن (یا کلید H) تا نفست رو حبس کنی!</span><div id="hsBreathTrack"><i id="hsBreathFill"></i></div><div id="hsBreathTime"><i></i></div><button type="button" id="hsBreathBtn">🫁 نفست رو نگه دار!</button></div><div id="hsEyes" hidden><div></div></div><div id="hsPeek" hidden></div>
 <div id="crBox" hidden><div class="chead"><b>✨ سازنده</b><span id="crStatus"></span><button id="crClose" aria-label="بستن سازنده">✕</button></div>
 <div class="crbody"><p id="crLog" class="note">بنویس چه چیزی به دنیا اضافه شود؛ ده ثانیه بعد جلویت ساخته می‌شود. می‌توانی عکس هم بفرستی.</p>
 <div class="crex"><button type="button" data-crex="سه تا درخت کاج">سه تا درخت کاج</button><button type="button" data-crex="یه ماشین قرمز">یه ماشین قرمز</button><button type="button" data-crex="یه آدم برفی بزرگ">آدم برفی بزرگ</button><button type="button" data-crex="یه تابلو که روش بنویسه «خانهٔ من»">تابلو با نوشته</button><button type="button" data-crex="یه رنگین کمان">رنگین‌کمان</button><button type="button" data-crex="یه قلعهٔ سنگی">قلعه</button></div>
@@ -1402,6 +1419,13 @@ const SFX={ctx:null,ok:false};
   SFX.zg=function(on){if(!SFX.ok)return;const t=C.currentTime;const o=C.createOscillator();o.type='sine';o.frequency.setValueAtTime(on?180:900,t);o.frequency.exponentialRampToValueAtTime(on?900:120,t+1.4);const g=C.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+.2);g.gain.exponentialRampToValueAtTime(.0001,t+1.5);o.connect(g);out(g,1,.6);o.start(t);o.stop(t+1.6);};
   SFX.mute=function(m){if(!SFX.ok)return;master.gain.setTargetAtTime(m?0:.85,C.currentTime,.05);};
   SFX.frStep=function(a,run){if(!SFX.ok||a<=.03)return;const t=C.currentTime;a=Math.min(1,a)*(run?1.2:1);tone(t,rand(70,92),.08,.22*a,'sine',.8,.3,50);burst(t,.03,rand(1500,2600),1.4,.17*a,'bandpass',.9,.25);};
+  SFX.thunder=function(near){if(!SFX.ok)return;const t=C.currentTime,a=near?1:.55;burst(t,2.6,110,.6,.55*a,'lowpass',1,.6);burst(t+.05,.6,420,.8,.25*a,'lowpass',1,.5);tone(t,46,2.2,.35*a,'sine',1,.5,30);};
+  SFX.meow=function(v){if(!SFX.ok)return;const t=C.currentTime;v=v||1;tone(t,560,.42,.05*v,'sawtooth',.9,.3,760);tone(t+.08,760,.36,.04*v,'triangle',.9,.3,480);};
+  SFX.purr=function(){if(!SFX.ok)return;const t=C.currentTime;for(let i=0;i<14;i++)burst(t+i*.13,.09,170,1.4,.12,'lowpass',1,.2);};
+  SFX.shutter=function(){if(!SFX.ok)return;const t=C.currentTime;burst(t,.03,3800,2,.3,'bandpass',1,.1);burst(t+.07,.05,1600,1.4,.25,'bandpass',1,.1);};
+  SFX.rainLevel=function(v){if(!SFX.ok)return;if(!SFX._rain){const src=C.createBufferSource();src.buffer=pinkB;src.loop=true;const f=C.createBiquadFilter();f.type='bandpass';f.frequency.value=2600;f.Q.value=.45;
+      const f2=C.createBiquadFilter();f2.type='lowpass';f2.frequency.value=6500;const g=C.createGain();g.gain.value=0;src.connect(f);f.connect(f2);f2.connect(g);g.connect(master);src.start();SFX._rain={g,f};}
+    SFX._rain.g.gain.setTargetAtTime(v*.16,C.currentTime,.6);};
   SFX.sneeze=function(pan,v){if(!SFX.ok)return;const t=C.currentTime;tone(t,300,.38,.06*v,'sawtooth',1,.3,560,pan);burst(t+.42,.2,2600,.9,.4*v,'bandpass',1,.35,pan);burst(t+.42,.14,900,.7,.25*v,'lowpass',1,.35,pan);};
   SFX.heart=function(a){if(!SFX.ok)return;const t=C.currentTime;a=Math.min(1,a);tone(t,58,.12,.4*a,'sine',1,.1,42);tone(t+.19,52,.14,.3*a,'sine',1,.1,40);};
   SFX.alert=function(seen){if(!SFX.ok)return;const t=C.currentTime;if(seen){tone(t,880,.12,.07,'triangle',1,.3,1320);tone(t+.1,1320,.2,.06,'triangle',1,.3);}else tone(t,520,.18,.05,'sine',1,.3,700);};
@@ -2846,6 +2870,17 @@ function makeHuman(o){o=o||{};const CL=o.cloth||M.cloth,SK=o.skin||M.skin;
   const hr=mm(new THREE.SphereGeometry(1,20,16,0,Math.PI*2,0,Math.PI*.56),hair);hr.scale.set(.098,.118,.11);hr.position.set(0,.112,-.006);hr.rotation.x=-.3;head.add(hr);
   const no=mm(new THREE.ConeGeometry(.015,.04,8),SK);no.rotation.x=Math.PI/2;no.position.set(0,.09,.115);head.add(no);
   for(const s of [-1,1]){const e=mm(new THREE.SphereGeometry(1,8,6),SK);e.scale.set(.014,.028,.02);e.position.set(s*.09,.1,0);head.add(e);}
+  // a real face: eyes that blink, pupils, eyebrows and a mouth that moves when talking
+  if(!FACE_MAT.white){FACE_MAT.white=new THREE.MeshStandardMaterial({color:0xf7f3ec,roughness:.25});FACE_MAT.pupil=new THREE.MeshStandardMaterial({color:0x1c120a,roughness:.15,metalness:.1});
+    FACE_MAT.shine=new THREE.MeshBasicMaterial({color:0xffffff});FACE_MAT.mouth=new THREE.MeshStandardMaterial({color:0x7c3a2d,roughness:.6});}
+  const eyes=[];
+  for(const s of [-1,1]){const eg=new THREE.Group();eg.position.set(s*.036,.127,.093);head.add(eg);
+    const w=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),FACE_MAT.white);w.scale.set(.019,.021,.012);eg.add(w);
+    const pu=new THREE.Mesh(new THREE.SphereGeometry(1,12,8),FACE_MAT.pupil);pu.scale.set(.0105,.0125,.006);pu.position.z=.009;eg.add(pu);
+    const sh=new THREE.Mesh(new THREE.SphereGeometry(1,6,4),FACE_MAT.shine);sh.scale.setScalar(.0032);sh.position.set(s*.003+.003,.004,.0145);eg.add(sh);
+    const br=new THREE.Mesh(new THREE.BoxGeometry(.032,.0065,.008),hair);br.position.set(s*.037,.153,.097);br.rotation.z=-s*.12;head.add(br);
+    eyes.push(eg);}
+  const mouth=new THREE.Mesh(new THREE.CapsuleGeometry(.004,.026,2,8),FACE_MAT.mouth);mouth.rotation.z=Math.PI/2;mouth.position.set(0,.058,.104);head.add(mouth);
   const arms=[],legs=[];
   for(const s of [-1,1]){
     const sh=new THREE.Group();sh.position.set(s*.205,.45,0);spine.add(sh);sh.add(cap(.047,.24,CL));
@@ -2854,7 +2889,16 @@ function makeHuman(o){o=o||{};const CL=o.cloth||M.cloth,SK=o.skin||M.skin;
     const hp=new THREE.Group();hp.position.set(s*.095,-.03,0);hips.add(hp);hp.add(cap(.07,.35,pants));
     const kn=new THREE.Group();kn.position.y=-.43;hp.add(kn);kn.add(cap(.056,.33,pants));
     const an=new THREE.Group();an.position.y=-.41;kn.add(an);const ft=mm(new THREE.BoxGeometry(.1,.07,.25),shoe);ft.position.set(0,-.035,.06);an.add(ft);legs.push({hp,kn,an});}
-  const R={g,hips,spine,neck,head,arms,legs};g.visible=false;scene.add(g);return R;
+  const R={g,hips,spine,neck,head,arms,legs,eyes,mouth,blinkT:1+Math.random()*3};g.visible=false;scene.add(g);return R;
+}
+const FACE_MAT={};
+/* eyes blink every few seconds, the mouth moves while Arash talks, heads look around */
+function faceAnim(R,dt,talk){
+  if(!R||!R.eyes)return;
+  R.blinkT-=dt;let e=1;if(R.blinkT<.13){e=Math.abs(R.blinkT-.065)/.065;if(R.blinkT<=0)R.blinkT=2.2+Math.random()*3.5;}
+  if(R.sleepy)e=Math.min(e,.15);
+  for(const g of R.eyes)g.scale.y=Math.max(.08,e);
+  R.mouth.scale.y=talk?1+Math.abs(Math.sin(G.t*17))*2.6:1;
 }
 function buildPlayer(){Object.assign(PL,makeHuman({}));}
 /* Player-lookalike decoy statues. Non-solid on purpose: no invisible walls or stale colliders.
@@ -3206,6 +3250,7 @@ function updateWorld(dt,t){
   LIGHTS.amb.intensity=lerp(.25,.03,zf);scene.fog.color.copy(TODC.fogI).lerp(TODC.fogO,zf);scene.fog.density=lerp(.026,QUAL.fog,zf);
   renderer.toneMappingExposure=lerp(T.expI,T.expO,zf);UNI.intB.value=.55;
   if(HS.on&&HS.darkK>0)hsDarkApply();
+  wxApply();
   const env=zf>.5?ENV.out:ENV.in;if(scene.environment!==env&&env)scene.environment=env;
   if(CITY.road)CITY.road.position.set(Math.round(cam.x/48)*48,-.015,Math.round(cam.z/48)*48);
   _sph.center.set(0,.5,0);_sph.radius=PILE.R+2.2;PILE.group.visible=_fr.intersectsSphere(_sph)&&(camIn||DOOR.open>.05);
@@ -3638,6 +3683,7 @@ function updateFloats(dt){updateWorldFloat(dt);for(const c of CARS.list)if(!c.de
 const ACTS={pile:'✋ دستت را در گندم فرو کن',open:'🚪 در را باز کن',close:'🚪 در را ببند',car:'🚗 سوار شو',shop:'🛒 خرید از فروشنده'};
 function scanActions(){let best=null,bd=1e9;const cand=(type,d,data,label)=>{if(d<bd){bd=d;best={type,data,label};}};
   if(HS.on){hsScan(cand);return best;}
+  if(CAT.g&&CAT.g.visible&&G.pose==='stand'){const d=Math.hypot(CAT.x-G.pos.x,CAT.z-G.pos.z);if(d<1.5)cand('petcat',d*.9,null,'🐱 نوازش پیشی');}
   if(!G.out){const d=Math.hypot(G.pos.x,G.pos.z);const toC=_a.set(-G.pos.x,0,-G.pos.z).normalize();const fwd=_t.set(-Math.sin(G.yaw),0,-Math.cos(G.yaw));
     if(d<PILE.R+1.0&&G.feet<.3&&(G.view==='tp'||toC.dot(fwd)>.35))cand('pile',.5,null,ACTS.pile);}
   if(Math.abs(G.pos.x)<2.4&&Math.abs(G.pos.z-(HALL.zMax+.5))<2.2)cand(DOOR.target>.5?'close':'open',1.2,null,DOOR.target>.5?ACTS.close:ACTS.open);
@@ -3650,6 +3696,7 @@ function scanActions(){let best=null,bd=1e9;const cand=(type,d,data,label)=>{if(
   return best;}
 function prompts(){const a=G.pose==='stand'?scanActions():(G.pose==='hide'?{type:'unhide',label:'🚶 بیا بیرون'}:null);G.actObj=a;const key=a?a.type+(a.label):'';if(key!==G.actKey){G.actKey=key;if(a)$('#actLabel').textContent=a.label;}ui.prompt.hidden=!a;G.act=a?a.type:null;}
 function doAct(){if(G.mode==='drive'){exitCar();return;}if(G.mode!=='walk'||!G.actObj)return;const a=G.actObj;
+  if(a.type==='petcat'){catPet();return;}
   if(a.type==='hshide')hsEnter(a.data);else if(a.type==='hspeek')hsPeek(a.data);else if(a.type==='unhide')hsLeave();
   else if(a.type==='pile')enterSearch();
   else if(a.type==='open'||a.type==='close'){const open=a.type==='open';DOOR.target=open?1:0;SFX.creak(open);if(open&&!G.toldCity){G.toldCity=true;setTimeout(()=>toast('شهر بیدار است؛ مراقب ماشین‌ها باش و از خط عابر رد شو.',3400),900);}}
@@ -3685,6 +3732,9 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
     <div class="wdseg" role="group" aria-label="سختی قایم‌موشک" style="margin-top:.55rem">${[['easy','😊 آسان'],['normal','🙂 معمولی'],['hard','😈 سخت']].map(([m,label])=>`<button type="button" data-hs-diff="${m}" class="${HS.diff===m?'on':''}" aria-pressed="${HS.diff===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div style="width:100%"><b>🧱 آرش و دیوارها / وسایل</b><small>آرش برای دیدن پشت دیوارها و وسایلی که ساختی بلندشون کنه، یا فقط دورشون بزنه و از کنارشون نگاه کنه؟ انتخاب ذخیره می‌شه.</small>
     <div class="wdseg" role="group" aria-label="بلند کردن دیوار و وسایل توسط آرش" style="margin-top:.55rem">${[['all','🏋️ دیوار و وسایل رو بلند کنه'],['walls','🧱 فقط دیوارها'],['none','🚫 بلند نکنه؛ دور بزنه']].map(([m,label])=>`<button type="button" data-hs-lift="${m}" class="${HS.lift===m?'on':''}" aria-pressed="${HS.lift===m}">${label}</button>`).join('')}</div></div></div>
+  <div class="setrow"><div style="width:100%"><b>🌦️ آب‌وهوای شهر</b><small>الان: ${WX_NAMES[WX.kind]||'☀️ صاف'}. در حالت خودکار هر چند دقیقه هوا عوض می‌شه؛ بارون با رعدوبرق، یا برف.</small>
+    <div class="wdseg" role="group" aria-label="آب‌وهوا" style="margin-top:.55rem">${[['auto','🔄 خودکار'],['clear','☀️ صاف'],['rain','🌧️ بارون'],['storm','⛈️ طوفان'],['snow','❄️ برف']].map(([m,label])=>`<button type="button" data-wx="${m}" class="${WX.mode===m?'on':''}" aria-pressed="${WX.mode===m}">${label}</button>`).join('')}</div></div></div>
+  <div class="setrow"><div><b>🐱 پیشی همراه</b><small>یه گربهٔ نارنجی که همه‌جا دنبالت میاد. کنارش وایسا و دکمهٔ «نوازش» رو بزن تا خرخر کنه.</small></div><button class="rb" id="catToggle">${CAT.on?'خاموش کن':'روشن کن'}</button></div>
   <div class="setrow"><div><b>🏥 بیمارستان آرش</b><small>${ARASH.phase==='care'?'آرش نیاز به مراقبت داره. با ورود به بیمارستان، ۱۸ ثانیه منتظر بمون تا کمکش کنن.':HOSP.on?'الان داخل بیمارستانی.':'بخش بیمارستان جداگانه برای مراقبت و آشتی؛ صدای بازی و تالار اصلی باقی می‌مونن.'}</small></div><button class="rb" id="hospitalBtn">${HOSP.on?'بازگشت به بازی':'ورود به بیمارستان'}</button></div>
   <div class="setrow"><div><b>🔥 هزارتوی مشعل‌ها (فقط اول‌شخص)</b><small>${MAZE.on?'الان داخل هزارتو هستی. راه خروج را پیدا کن.':'یک تالار ۴۰×۴۰ متریِ ستون‌دار با هزارتوی مرحله‌ای، مشعل‌های روشن، برخورد واقعی دیوارها و ذخیرهٔ مرحله.'}</small></div><button class="rb" id="mazeBtn">${MAZE.on?'بازگشت به تالار':'ورود به هزارتو'}</button></div>
   <div class="setrow"><div style="width:100%"><b>💾 وضعیت ذخیره</b><small id="saveStatus">${saveStatusText()}</small></div><button class="rb" id="saveNowBtn">ذخیره الان</button></div>
@@ -3702,6 +3752,8 @@ function panelClick(e){const t=e.target.closest('button');if(!t)return;
   else if(t.dataset.artStyle){arashArtSet(t.dataset.artStyle);openSettings();}
   else if(t.id==='decoySettingsBtn'){closePanel();decoyStartPlacement();}
   else if(t.dataset.hsMode){HS.turnMode=t.dataset.hsMode;try{localStorage.setItem('needle-hs-role-mode',HS.turnMode);}catch(e){}openSettings();}
+  else if(t.dataset.wx){wxSetMode(t.dataset.wx);openSettings();}
+  else if(t.id==='catToggle'){catSet(!CAT.on);openSettings();}
   else if(t.dataset.hsLift){HS.lift=t.dataset.hsLift;try{localStorage.setItem('needle-hs-lift',HS.lift);}catch(e){}openSettings();}
   else if(t.dataset.hsDiff){HS.diff=t.dataset.hsDiff;try{localStorage.setItem('needle-hs-diff',HS.diff);}catch(e){}openSettings();}
   else if(t.dataset.hsTimer){HS.timerMode=t.dataset.hsTimer;try{localStorage.setItem('needle-hs-timer-mode',HS.timerMode);}catch(e){}HS.uiKey='';openSettings();}
@@ -3805,6 +3857,170 @@ function saveStatusText(){
   if(window.__lastSave)t+=' · آخرین ذخیرهٔ خودکار: '+fa(Math.max(0,Math.round((Date.now()-window.__lastSave)/1000)))+' ثانیه پیش';
   return t;
 }
+/* ===================== WEATHER: rain, thunderstorm, snow ===================== */
+const WX={mode:'auto',kind:'clear',target:'clear',k:0,next:0,rain:null,snow:null,flash:0,bolt:0,thunder:0,mist:null};
+const WX_NAMES={clear:'☀️ صاف',rain:'🌧️ بارونی',storm:'⛈️ طوفانی',snow:'❄️ برفی'};
+try{const w=localStorage.getItem('needle-weather');if(['auto','clear','rain','storm','snow'].includes(w))WX.mode=w;}catch(e){}
+function wxOutdoor(){return !HS.on&&!MAZE.on&&!HOSP.on&&!EXTRA.on&&!INT.cur&&(G.mode==='walk'||G.mode==='drive');}
+function wxSetMode(m){WX.mode=m;try{localStorage.setItem('needle-weather',m);}catch(e){}if(m!=='auto')wxTarget(m,true);else WX.next=G.t+2;}
+function wxTarget(kind,say){if(WX.target===kind)return;WX.target=kind;if(say&&wxOutdoor()&&G.zf>.5)toast({clear:'☀️ هوا داره صاف می‌شه.',rain:'🌧️ داره بارون میاد!',storm:'⛈️ طوفان! مواظب رعدوبرق باش.',snow:'❄️ داره برف میاد!'}[kind],2600);}
+function wxShader(points){
+  return new THREE.ShaderMaterial({transparent:true,depthWrite:false,fog:false,
+    uniforms:{uCam:{value:new V3()},uT:{value:0},uBox:{value:new V3(22,14,22)},uK:{value:0},uSpd:{value:points?1.3:17},uScale:{value:innerHeight*.5}},
+    vertexShader:`${points?'':'attribute float aEnd;'}uniform vec3 uCam,uBox;uniform float uT,uSpd,uScale;varying float vA;varying float vE;
+      void main(){vec3 p=position*uBox;float fall=uT*uSpd*(0.75+0.5*position.x);
+        vec3 q;q.x=uCam.x+mod(p.x-uCam.x+uBox.x*.5,uBox.x)-uBox.x*.5;q.z=uCam.z+mod(p.z-uCam.z+uBox.z*.5,uBox.z)-uBox.z*.5;
+        q.y=uCam.y+mod(p.y-fall-uCam.y+uBox.y*.5,uBox.y)-uBox.y*.5;
+        ${points?'q.x+=sin(uT*1.1+position.z*40.0)*.45;q.z+=cos(uT*.9+position.x*35.0)*.35;vE=1.0;':'q.y+=aEnd*.75;q.x+=aEnd*.10;q.z+=aEnd*.04;vE=aEnd;'}
+        float d=length(q.xz-uCam.xz);vA=(1.0-smoothstep(6.5,11.0,d))*step(0.02,q.y);
+        vec4 mv=viewMatrix*vec4(q,1.0);gl_Position=projectionMatrix*mv;
+        ${points?'gl_PointSize=clamp(uScale*.13/max(.5,-mv.z),2.0,26.0);':''}}`,
+    fragmentShader:`uniform float uK;varying float vA;varying float vE;void main(){
+      ${points?'vec2 c=gl_PointCoord-.5;float r=length(c);if(r>.5)discard;gl_FragColor=vec4(1.0,1.0,1.0,(1.0-r*2.0)*.95*vA*uK);':'gl_FragColor=vec4(.8,.86,.96,(.2+.6*vE)*vA*uK);'}}`});
+}
+function wxBuild(){
+  const N=LOW?1500:3000,M=LOW?1200:2600;
+  { const pos=new Float32Array(N*6),end=new Float32Array(N*2);
+    for(let i=0;i<N;i++){const x=Math.random(),y=Math.random(),z=Math.random();pos.set([x,y,z,x,y,z],i*6);end[i*2]=0;end[i*2+1]=1;}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('aEnd',new THREE.BufferAttribute(end,1));
+    WX.rain=new THREE.LineSegments(g,wxShader(false));WX.rain.frustumCulled=false;WX.rain.renderOrder=8;WX.rain.visible=false;scene.add(WX.rain);}
+  { const pos=new Float32Array(M*3);for(let i=0;i<M*3;i++)pos[i]=Math.random();
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    WX.snow=new THREE.Points(g,wxShader(true));WX.snow.frustumCulled=false;WX.snow.renderOrder=8;WX.snow.visible=false;scene.add(WX.snow);}
+}
+function wxUpdate(dt){
+  if(!WX.rain)wxBuild();
+  if(WX.mode==='auto'&&G.t>=WX.next){const r=Math.random();WX.next=G.t+150+Math.random()*170;wxTarget(r<.55?'clear':r<.75?'rain':r<.88?'storm':'snow',WX.next>0&&G.t>5);}
+  else if(WX.mode!=='auto'&&WX.target!==WX.mode)wxTarget(WX.mode,false);
+  // fade the old weather out, then the new one in
+  if(WX.kind!==WX.target){WX.k=Math.max(0,WX.k-dt/3);if(WX.k<=0)WX.kind=WX.target;}else WX.k=Math.min(WX.kind==='clear'?0:1,WX.k+dt/5);
+  const out=wxOutdoor(),vis=out?G.zf:0,k=WX.k*vis,cam=camera.position;
+  for(const [m,on] of [[WX.rain,WX.kind==='rain'||WX.kind==='storm'],[WX.snow,WX.kind==='snow']]){
+    m.visible=on&&k>.01;if(!m.visible)continue;const u=m.material.uniforms;u.uCam.value.copy(cam);u.uT.value=G.t;u.uK.value=k*(WX.kind==='storm'?1:.85);u.uScale.value=innerHeight*.5;}
+  // lightning
+  if(WX.kind==='storm'&&WX.k>.6){
+    if(!WX.bolt)WX.bolt=G.t+4+Math.random()*6;
+    if(G.t>=WX.bolt){WX.bolt=G.t+6+Math.random()*12;WX.flashT=G.t;WX.thunder=G.t+.5+Math.random()*1.8;WX.thNear=Math.random()<.5;}
+  }
+  const ft=G.t-(WX.flashT||-9);WX.flash=ft<.09?1:ft<.16?0:ft<.28?.7:Math.max(0,.35-(ft-.28)*1.6);
+  if(WX.thunder&&G.t>=WX.thunder){WX.thunder=0;SFX.thunder&&SFX.thunder(WX.thNear);if(out&&navigator.vibrate&&WX.thNear)try{navigator.vibrate([30,40,60]);}catch(e){}}
+  SFX.rainLevel&&SFX.rainLevel((WX.kind==='rain'||WX.kind==='storm')?WX.k*(out?(.35+.65*G.zf):.12)*(WX.kind==='storm'?1.25:1):0);
+}
+function wxApply(){
+  const out=wxOutdoor(),k=WX.k*(out?G.zf:0);
+  if(k>.001){const snow=WX.kind==='snow';
+    renderer.toneMappingExposure*=1-(snow?.05:.3)*k;LIGHTS.hemi.intensity*=1-(snow?0:.35)*k;
+    scene.fog.density+=k*(snow?.012:.007);scene.fog.color.lerp(_wxFog.setRGB(snow?.82:.36,snow?.86:.39,snow?.9:.44),k*.55);
+    if(LIGHTS.sun&&!snow)LIGHTS.sun.intensity*=1-.55*k;}
+  if(WX.flash>0&&out){renderer.toneMappingExposure*=1+2.4*WX.flash*G.zf;LIGHTS.hemi.intensity+=2.8*WX.flash*G.zf;}
+}
+const _wxFog=new THREE.Color();
+
+/* ===================== PET CAT that follows you ===================== */
+const CAT={on:true,g:null,P:null,x:0,z:0,y:0,yaw:0,ph:0,trail:[],ti:0,idle:0,sit:0,meowAt:0,petT:0,area:'',hearts:[]};
+try{if(localStorage.getItem('needle-cat')==='0')CAT.on=false;}catch(e){}
+function catSet(on){CAT.on=on;try{localStorage.setItem('needle-cat',on?'1':'0');}catch(e){}if(CAT.g)CAT.g.visible=false;CAT.area='';toast(on?'🐱 پیشی اومد پیشت!':'🐱 پیشی رفت خونه.',1800);}
+function catBuild(){
+  const fur=new THREE.MeshStandardMaterial({color:0xdc8a35,roughness:.85}),stripe=new THREE.MeshStandardMaterial({color:0x9a5520,roughness:.9}),
+        white=new THREE.MeshStandardMaterial({color:0xf6efe4,roughness:.9}),pink=new THREE.MeshStandardMaterial({color:0xef9aa3,roughness:.6}),
+        eyeM=new THREE.MeshStandardMaterial({color:0x9fe36b,emissive:0x3a7a14,emissiveIntensity:.45,roughness:.2}),pupM=new THREE.MeshBasicMaterial({color:0x101010});
+  const mm=(geo,m,cast=true)=>{const x=new THREE.Mesh(geo,m);x.castShadow=cast;return x;},sph=()=>new THREE.SphereGeometry(1,16,12);
+  const g=new THREE.Group(),body=new THREE.Group();body.position.y=.21;g.add(body);
+  const torso=mm(sph(),fur);torso.scale.set(.105,.098,.2);body.add(torso);
+  const chest=mm(sph(),white);chest.scale.set(.078,.07,.08);chest.position.set(0,-.025,.135);body.add(chest);
+  for(let i=0;i<3;i++){const st=mm(new THREE.TorusGeometry(.098,.012,6,18,Math.PI),stripe,false);st.rotation.set(0,Math.PI/2,0);st.position.z=-.1+i*.08;st.scale.set(1,1.02,1);body.add(st);}
+  const head=new THREE.Group();head.position.set(0,.085,.2);body.add(head);
+  const hm=mm(sph(),fur);hm.scale.set(.088,.078,.078);head.add(hm);
+  const mz=mm(sph(),white);mz.scale.set(.048,.03,.036);mz.position.set(0,-.028,.06);head.add(mz);
+  const nose=mm(sph(),pink,false);nose.scale.set(.012,.009,.008);nose.position.set(0,-.012,.093);head.add(nose);
+  const eyes=[];for(const s of [-1,1]){const eg=new THREE.Group();eg.position.set(s*.035,.014,.062);head.add(eg);
+    const e=mm(sph(),eyeM,false);e.scale.set(.019,.021,.012);eg.add(e);const pu=mm(new THREE.BoxGeometry(.006,.026,.004),pupM,false);pu.position.z=.011;eg.add(pu);eyes.push(eg);
+    const ear=mm(new THREE.ConeGeometry(.034,.07,4),fur);ear.position.set(s*.048,.075,-.01);ear.rotation.set(-.15,s*.3,-s*.32);head.add(ear);
+    const ie=mm(new THREE.ConeGeometry(.02,.045,4),pink,false);ie.position.set(s*.046,.07,.0);ie.rotation.copy(ear.rotation);head.add(ie);
+    for(let w=0;w<2;w++){const wh=mm(new THREE.CylinderGeometry(.0012,.0012,.09,3),white,false);wh.rotation.set(0,0,Math.PI/2+s*(.08+w*.12));wh.position.set(s*.05,-.022-w*.008,.07);head.add(wh);}}
+  const legs=[];for(const [x,z] of [[-.055,.13],[.055,.13],[-.055,-.12],[.055,-.12]]){const lg=new THREE.Group();lg.position.set(x,-.03,z);body.add(lg);
+    const l=mm(new THREE.CylinderGeometry(.021,.019,.17,8),fur);l.position.y=-.085;lg.add(l);const pw=mm(sph(),white);pw.scale.set(.026,.018,.032);pw.position.set(0,-.17,.008);lg.add(pw);legs.push(lg);}
+  const tail=[];let parent=body,tp=[0,.04,-.19];
+  for(let i=0;i<5;i++){const t=new THREE.Group();t.position.set(...tp);parent.add(t);const seg=mm(new THREE.CylinderGeometry(.019-.002*i,.021-.002*i,.075,8),i===4?stripe:fur);seg.position.y=.035;t.add(seg);tail.push(t);parent=t;tp=[0,.07,0];}
+  g.traverse(o=>{if(o.isMesh)o.receiveShadow=true;});scene.add(g);CAT.g=g;CAT.P={body,head,eyes,legs,tail,blinkT:2};
+}
+function catArea(){return (HS.on?'hs':MAZE.on?'maze':HOSP.on?'hosp':EXTRA.on?'mini':INT.cur?'int':'world')+'|'+(G.mode==='drive'?'car':'');}
+function catPlaceAtPlayer(){const b=-1.1;const fx=-Math.sin(G.yaw),fz=-Math.cos(G.yaw);CAT.x=G.pos.x+fx*b*.3;CAT.z=G.pos.z+fz*b*.3;CAT.y=G.feet;CAT.trail=[{x:G.pos.x,z:G.pos.z,y:G.feet}];CAT.ti=0;}
+function catPet(){CAT.petT=2.6;CAT.idle=5;SFX.purr&&SFX.purr();SFX.meow&&SFX.meow(.6);
+  for(let i=0;i<5;i++){const h=hsEmojiSprite(i%2?'💖':'💕','rgba(255,120,160,.0)',.28);h.position.set(CAT.x+(Math.random()-.5)*.3,CAT.y+.45,CAT.z+(Math.random()-.5)*.3);scene.add(h);CAT.hearts.push({s:h,t:0,d:.2*i,vx:(Math.random()-.5)*.25});}
+  toast('😻 پیشی داره خرخر می‌کنه!',1600);}
+function catUpdate(dt){
+  for(let i=CAT.hearts.length-1;i>=0;i--){const h=CAT.hearts[i];h.t+=dt;if(h.t<h.d){h.s.visible=false;continue;}h.s.visible=true;const k=h.t-h.d;h.s.position.y+=dt*.55;h.s.position.x+=h.vx*dt;h.s.material.opacity=Math.max(0,1-k/1.4);if(k>1.4){scene.remove(h.s);CAT.hearts.splice(i,1);}}
+  const active=CAT.on&&G.mode==='walk'&&!MAZE.on&&!ARC.on&&!HS_EDITOR.active&&!G.zeroG;
+  if(!active){if(CAT.g)CAT.g.visible=false;CAT.area='';return;}
+  if(!CAT.g)catBuild();
+  const area=catArea();
+  if(area!==CAT.area||Math.hypot(CAT.x-G.pos.x,CAT.z-G.pos.z)>20){CAT.area=area;catPlaceAtPlayer();}
+  CAT.g.visible=true;
+  // the cat walks the path you walked, so it never goes through a wall
+  const hiding=HS.on&&(HS.mySpot||G.pose==='eyes');
+  if(!hiding&&G.pose==='stand'){const L=CAT.trail[CAT.trail.length-1];if(!L||Math.hypot(L.x-G.pos.x,L.z-G.pos.z)>.25){CAT.trail.push({x:G.pos.x,z:G.pos.z,y:G.feet});if(CAT.trail.length>400){CAT.trail.shift();CAT.ti=Math.max(0,CAT.ti-1);}}}
+  let allow=CAT.trail.length-1,acc=0;for(let i=CAT.trail.length-1;i>0;i--){acc+=Math.hypot(CAT.trail[i].x-CAT.trail[i-1].x,CAT.trail[i].z-CAT.trail[i-1].z);allow=i-1;if(acc>1.3)break;}
+  const dP=Math.hypot(CAT.x-G.pos.x,CAT.z-G.pos.z);let speed=0;
+  if(CAT.ti<=allow&&CAT.petT<=0&&dP>1.2){const T=CAT.trail[CAT.ti];const dx=T.x-CAT.x,dz=T.z-CAT.z,d=Math.hypot(dx,dz);
+    speed=clamp((dP-1.1)*2.4,.6,5.6);const st=Math.min(d,speed*dt);if(d>1e-4){CAT.x+=dx/d*st;CAT.z+=dz/d*st;CAT.yaw=lerpAngle(CAT.yaw,Math.atan2(dx,dz),1-Math.exp(-dt*10));}
+    CAT.y+=(T.y-CAT.y)*(1-Math.exp(-dt*8));if(d<.12)CAT.ti++;}
+  else{const fy=Math.atan2(G.pos.x-CAT.x,G.pos.z-CAT.z);CAT.yaw=lerpAngle(CAT.yaw,fy,1-Math.exp(-dt*2.5));}
+  if(speed>.1)CAT.idle=0;else CAT.idle+=dt;
+  CAT.petT=Math.max(0,CAT.petT-dt);
+  const P=CAT.P,t=G.t,mv=Math.min(1,speed/1.5);CAT.ph+=dt*speed*11;
+  CAT.sit+=((CAT.idle>2.2||CAT.petT>0?1:0)-CAT.sit)*(1-Math.exp(-dt*4));const S=CAT.sit;
+  CAT.g.position.set(CAT.x,CAT.y,CAT.z);CAT.g.rotation.y=CAT.yaw;
+  P.body.rotation.x=-.42*S+Math.sin(CAT.ph*2)*.03*mv;P.body.position.y=.21-.055*S+Math.abs(Math.sin(CAT.ph))*.012*mv;
+  const sw=Math.sin(CAT.ph)*.75*mv;P.legs[0].rotation.x=sw+.42*S;P.legs[1].rotation.x=-sw+.42*S;P.legs[2].rotation.x=-sw-1.25*S;P.legs[3].rotation.x=sw-1.25*S;
+  for(let i=0;i<P.tail.length;i++){P.tail[i].rotation.x=(i===0?-.9+.5*S:.22+.08*S)+Math.sin(t*(CAT.petT>0?6:2.2)+i*.7)*(.08+.05*i)*(1-mv*.5);P.tail[i].rotation.z=Math.sin(t*1.6+i*.9)*.12;}
+  const dx=G.pos.x-CAT.x,dz=G.pos.z-CAT.z,rel=((Math.atan2(dx,dz)-CAT.yaw+Math.PI*3)%(Math.PI*2))-Math.PI;
+  P.head.rotation.y+=(clamp(rel,-1,1)*(1-mv)-P.head.rotation.y)*(1-Math.exp(-dt*5));P.head.rotation.x=.2*S-.15*(1-S)*(1-mv)+Math.sin(t*1.7)*.03;
+  P.blinkT-=dt;let e=1;if(P.blinkT<.14){e=Math.abs(P.blinkT-.07)/.07;if(P.blinkT<=0)P.blinkT=2+Math.random()*4;}if(CAT.petT>0)e=.12;
+  for(const eg of P.eyes)eg.scale.y=Math.max(.08,e);
+  if(CAT.idle>6&&G.t>CAT.meowAt&&dP<9&&!(HS.on&&HS.role==='hide'&&HS.phase==='play')){CAT.meowAt=G.t+18+Math.random()*25;SFX.meow&&SFX.meow(Math.max(.25,1-dP/9));}
+}
+
+/* ===================== PHOTO MODE ===================== */
+const PH={on:false,f:0,data:null,hideFr:false};
+const PH_FILTERS=[['عادی','none'],['🎞️ قدیمی','sepia(.7) contrast(1.08) brightness(.96)'],['⚫ سیاه‌سفید','grayscale(1) contrast(1.25)'],['🌅 گرم','saturate(1.35) sepia(.22) brightness(1.06)'],['🌌 رؤیایی','saturate(1.6) hue-rotate(28deg) brightness(1.08)'],['🧊 سرد','saturate(.9) hue-rotate(-18deg) brightness(1.04) contrast(1.05)']];
+function photoOpen(){if(G.mode!=='walk'&&G.mode!=='drive'){toast('عکس فقط وقتی داری بازی می‌کنی.',1600);return;}PH.on=true;document.body.classList.add('photo-mode');$('#photoUI').hidden=false;photoFilters();toast('📸 حالت عکاسی: صحنه رو بچرخون، فیلتر انتخاب کن و دکمهٔ گرد رو بزن.',2600);}
+function photoClose(){PH.on=false;document.body.classList.remove('photo-mode');$('#photoUI').hidden=true;$('#photoPrev').hidden=true;renderer.domElement.style.filter='';if(PH.hideFr){PH.hideFr=false;}}
+function photoFilters(){const r=$('#photoFilters');r.innerHTML=PH_FILTERS.map((f,i)=>`<button type="button" data-ph="${i}" class="${i===PH.f?'on':''}">${f[0]}</button>`).join('');renderer.domElement.style.filter=PH_FILTERS[PH.f][1]==='none'?'':PH_FILTERS[PH.f][1];}
+function photoShoot(){
+  const frVis=FR.rig&&FR.rig.g.visible;if(PH.hideFr&&FR.rig)FR.rig.g.visible=false;
+  let src=null;try{renderWorld();src=renderer.domElement.toDataURL('image/jpeg',.93);}catch(e){}
+  if(FR.rig)FR.rig.g.visible=frVis;
+  if(!src){toast('عکس گرفته نشد.',1800);return;}
+  SFX.shutter&&SFX.shutter();const fl=$('#photoFlash');fl.style.transition='none';fl.style.opacity='1';requestAnimationFrame(()=>{fl.style.transition='opacity .5s';fl.style.opacity='0';});
+  const img=new Image();img.onload=()=>{const W=img.width,H=img.height,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+    x.filter=PH_FILTERS[PH.f][1];x.drawImage(img,0,0);x.filter='none';
+    const vg=x.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.7);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.35)');x.fillStyle=vg;x.fillRect(0,0,W,H);
+    const fs=Math.max(14,Math.round(H*.034));x.font=`800 ${fs}px Vazirmatn, sans-serif`;x.direction='rtl';x.textAlign='right';x.fillStyle='rgba(0,0,0,.45)';
+    const d=new Date(),label='📸 قلعهٔ آرش · مرحلهٔ '+fa(G.level)+' · '+fa(d.getFullYear())+'/'+fa(d.getMonth()+1)+'/'+fa(d.getDate());
+    x.fillText(label,W-fs*.8+2,H-fs*.8+2);x.fillStyle='rgba(255,241,210,.95)';x.fillText(label,W-fs*.8,H-fs*.8);
+    PH.data=c.toDataURL('image/jpeg',.92);$('#photoImg').src=PH.data;$('#photoPrev').hidden=false;};img.src=src;
+}
+function photoSave(){if(!PH.data)return;const a=document.createElement('a');a.href=PH.data;a.download='Arash_Photo_'+Date.now()+'.jpg';document.body.appendChild(a);a.click();a.remove();toast('💾 عکس ذخیره شد!',1800);}
+{const on=(id,fn)=>{const b=document.getElementById(id);if(b)b.addEventListener('click',e=>{e.stopPropagation();fn(e);});};
+ on('photoBtn',()=>PH.on?photoClose():photoOpen());on('photoClose',photoClose);on('photoShoot',photoShoot);on('photoSave',photoSave);
+ on('photoAgain',()=>{$('#photoPrev').hidden=true;});on('photoDone',photoClose);
+ on('photoHideFr',e=>{PH.hideFr=!PH.hideFr;e.target.classList.toggle('on',PH.hideFr);});
+ const fr=document.getElementById('photoFilters');if(fr)fr.addEventListener('click',e=>{const b=e.target.closest('[data-ph]');if(!b)return;e.stopPropagation();PH.f=+b.dataset.ph;photoFilters();});}
+
+/* ===================== per frame: faces, cat, weather ===================== */
+function extrasUpdate(dt,t){
+  wxUpdate(dt);catUpdate(dt);
+  if(FR.rig&&FR.rig.g.visible){const R=FR.rig;faceAnim(R,dt,FR.bubbleT>0&&!FR.hsIn);
+    // Arash turns his head to look at you (not while you are hiding from him)
+    const can=FR.pose==='stand'&&!FR.hsIn&&!(HS.on&&HS.role==='hide'&&HS.phase==='play');
+    const dx=G.pos.x-FR.x,dz=G.pos.z-FR.z,d=Math.hypot(dx,dz),rel=((Math.atan2(dx,dz)-FR.yaw+Math.PI*3)%(Math.PI*2))-Math.PI;
+    const want=can&&d<7&&Math.abs(rel)<2.2&&Math.hypot(FR.vx,FR.vz)<2.5?clamp(rel,-.95,.95):0;
+    FR.lookY=(FR.lookY||0)+(want-(FR.lookY||0))*(1-Math.exp(-dt*5));R.head.rotation.y+=FR.lookY;
+    if(can&&d<7)R.head.rotation.x+=clamp((G.feet+1.5-(FR.feet+1.6))/Math.max(1,d),-.4,.4)*-.6;}
+  if(PL&&PL.eyes&&PL.g.visible){faceAnim(PL,dt,false);if(G.view==='tp')PL.head.rotation.x+=clamp(-G.pitch*.45,-.4,.4);}
+}
+
 /* Something changed (an object placed, moved, deleted, a stage won...): save shortly after. */
 let SAVE_SOON=0;
 function arashSaveSoon(){if(SAVE_SOON)clearTimeout(SAVE_SOON);SAVE_SOON=setTimeout(()=>{SAVE_SOON=0;arashAutoSave();},1200);}
@@ -9202,6 +9418,7 @@ function update(dt){
   if(G.mode!=='search'&&!HS.on&&!EXTRA.on&&PILE.active){const d=relaxStep(2);if(d){writeMesh(d[0],d[1]);updateStrawRows(Math.max(0,d[0]-2),Math.min(PILE.N-1,d[1]+2));}}
   if(!HS.on&&!EXTRA.on)pileLOD();
   updateWorld(dt,t);
+  try{extrasUpdate(dt,t);}catch(e){if(!G.extrasErr){G.extrasErr=1;console.warn('extras',e);}}
   if(ARASH_ART.mode==='cartoon')arashArtRefresh(false);
   if(QUAL.lvl===7)arashUltraTextures();
   {const a=$('#frAction');const show=arashReady();if(a.hidden===show)a.hidden=!show;
