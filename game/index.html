@@ -411,6 +411,23 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
 .aiRow{display:flex;gap:8px;align-items:stretch}
 .aiRow textarea{flex:1;min-width:0;border-radius:12px;border:1px solid var(--line);background:#0c0820;color:var(--ink);font:14px/1.5 Vazirmatn,Tahoma,sans-serif;padding:8px 10px;resize:none;user-select:text;-webkit-user-select:text;direction:rtl}
 .aiRow .btn{padding:10px 16px;font-size:15px}
+
+/* living title logo */
+.logo{background-size:220% 100%;animation:logoShine 6s ease-in-out infinite,logoFloat 4.5s ease-in-out infinite}
+@keyframes logoShine{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes logoFloat{0%,100%{transform:translateY(0) rotate(-.6deg)}50%{transform:translateY(-5px) rotate(.6deg)}}
+#sTitle .logo{background-image:linear-gradient(100deg,#fff6d8 10%,#ffc56b 30%,#ff5d8a 50%,#ffc56b 70%,#fff6d8 90%)}
+
+/* world map */
+#sLevels .panel{width:min(860px,100%)}
+.lvViews{margin:-4px 0 8px}
+#lvMapBox{margin-bottom:12px}
+#mapCv{width:100%;height:clamp(170px,44vh,330px);display:block;border-radius:16px;border:1px solid var(--line);touch-action:none;cursor:grab;background:#140d2c}
+.mapBar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:8px}
+#mapInfo{font-size:13.5px;text-align:right;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapBar .btn{padding:9px 18px;font-size:16px}
+[hidden]{display:none!important}
+@media (max-height:430px){#sLevels h2{margin:0 0 6px;font-size:18px}#sLevels .panel{padding:12px 14px}#mapCv{height:clamp(150px,50vh,240px)}}
 </style>
 </head>
 <body>
@@ -486,8 +503,10 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
   <div class="panel">
     <h2>انتخاب مرحله</h2>
     <div class="diffbox"><div class="diffs" data-diffs></div></div>
-    <div class="boostBar" id="boostBar"></div>
+    <div class="tabs lvViews"><button class="tab" data-lvview="map">🗺️ نقشه</button><button class="tab" data-lvview="grid">🔢 جدول</button></div>
+    <div id="lvMapBox"><canvas id="mapCv"></canvas><div class="mapBar"><div id="mapInfo"></div><button class="btn primary" id="mapPlay">▶ بازی</button></div></div>
     <div class="grid" id="lvGrid"></div>
+    <div class="boostBar" id="boostBar"></div>
     <div id="realmBox" hidden><div class="lbl realmLbl">🌀 ابعاد پنهان</div><div class="grid realm" id="rmGrid"></div></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>
@@ -947,6 +966,12 @@ const SKINS = {
     { id: 'dragon', n: 'اژدها', i: '🐲', p: 200, c: '#6ff3a4' },
     { id: 'phoenix', n: 'ققنوس', i: '🔥', p: 0, lvl: 10, c: '#ff8a3a' }, { id: 'ufo', n: 'بشقاب‌پرنده', i: '🛸', p: 0, lvl: 20, c: '#9ef9ff' },
   ],
+  // on the face (2D views)
+  face: [
+    { id: 'none', n: 'هیچی', i: '🙂', p: 0 }, { id: 'glasses', n: 'عینک', i: '👓', p: 50 }, { id: 'shades', n: 'عینک آفتابی', i: '🕶️', p: 90 },
+    { id: 'monocle', n: 'تک‌عینکی', i: '🧐', p: 100 }, { id: 'stache', n: 'سبیل', i: '🥸', p: 70 }, { id: 'mask', n: 'نقاب قهرمان', i: '🦹', p: 120 },
+    { id: 'stars', n: 'چشم ستاره‌ای', i: '🤩', p: 150 }, { id: 'visor', n: 'عینک لیزری', i: '🥽', p: 0, lvl: 14 },
+  ],
   // what happens when you die
   boom: [
     { id: 'classic', n: 'کلاسیک', i: '💥', p: 0 }, { id: 'confetti', n: 'کاغذ رنگی', i: '🎉', p: 60 }, { id: 'hearts', n: 'قلب‌ها', i: '💕', p: 70 },
@@ -1027,6 +1052,22 @@ function heroCols(t) {
   if (!c.c) return [PAL.bodyTop, PAL.bodyBot];
   const base = c.anim === 'aurora' ? hslHex(150 + Math.sin(t * 1.3) * 70, .8, .7) : c.anim ? hslHex((t * 60) % 360, .75, .72) : c.c;
   return [mixHex(base, '#ffffff', .45), mixHex(base, '#000000', .12)];
+}
+// face accessory drawn over the 2D hero's eyes (ex = eye offset for the facing; px/py = pupil offset)
+function drawFace(t, f, ex, px, py, blink) {
+  const id = skinOf('face').id; if (id === 'none' || HERO_OVR) return;
+  const g = ctx; g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  if (id === 'glasses') { g.strokeStyle = '#2a2547'; g.lineWidth = 1.8; g.beginPath(); g.arc(-5 + ex, -25, 5.6, 0, 7); g.moveTo(10.6 + ex, -25); g.arc(5 + ex, -25, 5.6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(-.6 + ex, -25.5); g.lineTo(.6 + ex, -25.5); g.stroke(); g.fillStyle = 'rgba(200,240,255,.18)'; g.beginPath(); g.arc(-5 + ex, -25, 5, 0, 7); g.arc(5 + ex, -25, 5, 0, 7); g.fill(); }
+  else if (id === 'shades') { g.fillStyle = '#141020'; for (const s of [-1, 1]) { g.beginPath(); g.roundRect ? g.roundRect(s * 5 + ex - 5.2, -29, 10.4, 7.5, 3) : g.rect(s * 5 + ex - 5.2, -29, 10.4, 7.5); g.fill(); } g.fillRect(-1 + ex, -27.5, 2, 1.5); g.strokeStyle = '#141020'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(-10 + ex, -27); g.lineTo(-14 + ex * 0, -26); g.stroke(); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(-8 + ex, -28, 3, 1.4); g.fillRect(2 + ex, -28, 3, 1.4); }
+  else if (id === 'monocle') { const mx = 5 * f + ex; g.strokeStyle = '#ffc94a'; g.lineWidth = 1.8; g.beginPath(); g.arc(mx, -25, 5.8, 0, 7); g.stroke(); g.lineWidth = 1; g.beginPath(); g.moveTo(mx + f * 4, -20.5); g.quadraticCurveTo(mx + f * 7, -14, mx + f * 3, -9); g.stroke(); }
+  else if (id === 'stache') { g.fillStyle = '#3a2418'; g.beginPath(); const mx = ex + f * .8; g.moveTo(mx, -21.5); g.bezierCurveTo(mx - 3, -23.5, mx - 8, -22, mx - 9, -19); g.bezierCurveTo(mx - 6, -20, mx - 3, -20, mx, -20.6); g.bezierCurveTo(mx + 3, -20, mx + 6, -20, mx + 9, -19); g.bezierCurveTo(mx + 8, -22, mx + 3, -23.5, mx, -21.5); g.fill(); }
+  else if (id === 'mask') {
+    g.fillStyle = '#c0283c'; g.beginPath(); g.moveTo(-12 + ex, -30); g.lineTo(12 + ex, -30); g.lineTo(12 + ex, -20); g.lineTo(-12 + ex, -20); g.closePath(); g.moveTo(-5 + ex + 3.6, -25); g.ellipse(-5 + ex, -25, 3.6, 3.6 * blink, 0, 0, 7, true); g.moveTo(5 + ex + 3.6, -25); g.ellipse(5 + ex, -25, 3.6, 3.6 * blink, 0, 0, 7, true); g.fill('evenodd');
+    g.strokeStyle = '#c0283c'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(-12 + ex, -26); g.quadraticCurveTo(-18 - f * 2, -24 + Math.sin(t * 9) * 2, -21 - f * 3, -21 + Math.sin(t * 9) * 3); g.stroke(); }
+  else if (id === 'stars' && blink > .5) { g.fillStyle = '#ffd36e'; for (const s of [-5, 5]) { const cx = s + px, cy = -25 + py, r = 3.4 + Math.sin(t * 6) * .4; g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * .45 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.closePath(); g.fill(); } }
+  else if (id === 'visor') { const gr = g.createLinearGradient(-12 + ex, 0, 12 + ex, 0); gr.addColorStop(0, '#ff3d71'); gr.addColorStop(.5, '#ffd36e'); gr.addColorStop(1, '#7af7ff'); g.fillStyle = gr; g.globalAlpha = .85; g.beginPath(); g.roundRect ? g.roundRect(-12.5 + ex, -29, 25, 7.5, 3.5) : g.rect(-12.5 + ex, -29, 25, 7.5); g.fill(); g.globalAlpha = 1;
+    if (glowK() > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = .4 + Math.sin(t * 8) * .2; g.drawImage(TEX.gRose, -20 + ex, -36, 40, 22); } g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(-10 + ex, -28, 20, 1.2); }
+  g.restore();
 }
 // hat drawn on top of the 2D hero (origin at the feet, f = facing, body top at y = -34)
 function drawHat(t, f) {
@@ -2989,7 +3030,7 @@ class World {
   // shield or star: hazards don't kill. Falls and crushes still do (the shield even rescues from a fall)
   saved(cause) {
     const p = this.p;
-    if (cause === 'crush') return false;
+    if (cause === 'crush' || cause === 'time') return false;
     if ((p.starT > 0 || p.inv > 0) && cause !== 'fall') return true;
     if (!p.shield || cause === 'fall' && !p.safe) return false;
     p.shield = false; p.inv = 1.5; this.shake(8); this.sfx('orb'); this.flash = .5;
@@ -3896,7 +3937,17 @@ function drawGate(e, t, world, col, glowTex, scale) {
   ctx.restore();
   if (world && !world.silent && Math.random() < .25 * GFX.fx * Perf.fxK) world.parts.push({ x: cx + rand(-18, 18), y: cy + rand(-20, 30), vx: rand(-10, 10), vy: rand(-50, -20) * (e.flip ? -1 : 1), life: 1, max: 1, size: rand(1.2, 2.4), col: mixHex(col, '#ffffff', .5), g: 0, drag: 0, add: true });
 }
-function drawDoor(e, t, world) { if (e.fake && hints) { ctx.save(); ctx.globalAlpha = .55; drawGate(e, t, null, '#ff5d8a', TEX.gRose, 1); ctx.restore(); return; } drawGate(e, t, world, PAL.door, TEX.gDoor, 1); }
+function drawDoor(e, t, world) {
+  if (e.fake && hints) { ctx.save(); ctx.globalAlpha = .55; drawGate(e, t, null, '#ff5d8a', TEX.gRose, 1); ctx.restore(); return; }
+  drawGate(e, t, world, PAL.door, TEX.gDoor, 1);
+  // sparks circling the way out
+  if (glowK() > 0 && !e.fake) {
+    const cx = e.x + e.w / 2, cy = e.y + e.h * .45; ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) { const a = t * (1.2 + i * .13) + i * 2.4, r = 30 + Math.sin(t * 2 + i) * 8, x = cx + Math.cos(a) * r * .8, y = cy + Math.sin(a) * r * 1.1, k = .5 + Math.sin(t * 5 + i) * .5;
+      ctx.globalAlpha = .35 + k * .5; ctx.drawImage(TEX.gGold, x - 7, y - 7, 14, 14); ctx.fillStyle = '#fff6d8'; ctx.fillRect(x - 1, y - 1, 2, 2); }
+    ctx.restore();
+  }
+}
 function drawPortal(e, t, world) {
   if (e.open <= 0) {
     if (hints) { ctx.save(); ctx.globalAlpha = .25 + Math.sin(t * 4) * .1; ctx.strokeStyle = '#c59bff'; ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.w, e.h); ctx.restore(); }
@@ -4001,6 +4052,8 @@ function drawPlayer(world, t) {
 }
 /* the character itself, drawn at the origin (feet at 0,0). Also used by the 2D chase views. */
 function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
+  const fx = HERO_FX, mood = fx && fx.mood;
+  if (mood === 'teeter') ctx.rotate(Math.sin(t * 12) * .14 * f);
   const air = !onGround, run = onGround && Math.abs(vx) > 40;
   const speed = clamp(Math.abs(vx) / PH.run, 0, 1), vyN = clamp(vyUp / 800, -1, 1);
   ctx.strokeStyle = PAL.scarf; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -4029,11 +4082,27 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
   ctx.fillStyle = PAL.scarf; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14.5, -17, 29, 6, 3) : ctx.rect(-14.5, -17, 29, 6); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-12, -16, 24, 1.5);
   ctx.fillStyle = 'rgba(255,110,120,.45)'; ctx.beginPath(); ctx.ellipse(-8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.ellipse(8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.fill();
-  const blink = blinkT < 0 ? .15 : 1, ex = f * 3.5, look = clamp(vyUp / 900, -1, 1) * 1.6;
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-5 + ex, -25, 4.3, 5.2 * blink, 0, 0, 7); ctx.ellipse(5 + ex, -25, 4.3, 5.2 * blink, 0, 0, 7); ctx.fill();
-  if (blink > .5) {
-    ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.ellipse(-5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.ellipse(5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.arc(6 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.fill();
+  const sleep = mood === 'sleep', scared = mood === 'scared' || mood === 'teeter';
+  const blink = sleep ? 0 : blinkT < 0 ? .15 : 1, ex = f * 3.5, look = clamp(vyUp / 900, -1, 1) * 1.6 + (fx ? fx.ly * 1.5 : 0), lk = fx && (fx.lx || fx.ly) ? fx.lx * 1.6 - f * 1.4 : 0;
+  const ew = scared ? 4.9 : 4.3, eh = scared ? 6 : 5.2;
+  if (sleep) { ctx.strokeStyle = '#231536'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-8.5 + ex, -24.5); ctx.quadraticCurveTo(-5 + ex, -22.5, -1.5 + ex, -24.5); ctx.moveTo(1.5 + ex, -24.5); ctx.quadraticCurveTo(5 + ex, -22.5, 8.5 + ex, -24.5); ctx.stroke(); }
+  else {
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-5 + ex, -25, ew, eh * blink, 0, 0, 7); ctx.ellipse(5 + ex, -25, ew, eh * blink, 0, 0, 7); ctx.fill();
+    if (blink > .5) {
+      const px = ex + f * 1.4 + lk, pw = scared ? 1.9 : 2.4, phh = scared ? 2.5 : 3.1;
+      ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.ellipse(-5 + px, -25 + look, pw, phh, 0, 0, 7); ctx.ellipse(5 + px, -25 + look, pw, phh, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4 + px, -26.5 + look, .9, 0, 7); ctx.arc(6 + px, -26.5 + look, .9, 0, 7); ctx.fill();
+    }
+  }
+  drawFace(t, f, ex, ex + f * 1.4 + lk, look, blink);
+  // mouth and brows show the mood
+  if (fx) {
+    ctx.strokeStyle = '#231536'; ctx.fillStyle = '#231536'; ctx.lineWidth = 1.4; const mx = ex + f * .8;
+    if (mood === 'happy') { ctx.beginPath(); ctx.arc(mx, -20.6, 2.8, 0, Math.PI); ctx.fill(); ctx.fillStyle = '#ff7a8a'; ctx.beginPath(); ctx.arc(mx, -19.3, 1.3, 0, Math.PI); ctx.fill(); }
+    else if (scared) { ctx.beginPath(); ctx.ellipse(mx, -19.6, 1.5, 1.9 + Math.sin(t * 20) * .2, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-8.5 + ex, -31.5); ctx.lineTo(-2.5 + ex, -33); ctx.moveTo(8.5 + ex, -31.5); ctx.lineTo(2.5 + ex, -33); ctx.stroke(); }
+    else if (sleep) { ctx.beginPath(); ctx.ellipse(mx, -19.8, 1.2, 1.4 + Math.sin(t * 2) * .4, 0, 0, 7); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(mx, -21, 2.1, .2 * Math.PI, .8 * Math.PI); ctx.stroke(); }
   }
   if (hat) { drawHat(t, f); if (djReady) { ctx.fillStyle = '#9ef9ff'; ctx.beginPath(); ctx.arc(0, -40, 3, 0, 7); ctx.fill(); } }
 }
@@ -4058,6 +4127,7 @@ function drawParticles(world) {
 
 function drawMotes(t, dt) {
   const n = Math.min(motes.length, Math.round(GFX.motes * Perf.fxK)); if (!n) return;
+  if (ambKind() !== 'motes') return drawAmbient(t, dt, Math.min(120, Math.round(n * 1.4)));
   // screen-space dust that drifts slower than the camera (parallax)
   ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
   const span = W + EXT.l + EXT.r + 40, off = CAMX * .35;
@@ -4131,6 +4201,10 @@ function drawGem(e, t) {
   ctx.fillStyle = '#7af7ff'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .8, 0); ctx.lineTo(0, s); ctx.lineTo(-s * .8, 0); ctx.closePath(); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .35, -1); ctx.lineTo(0, 2); ctx.lineTo(-s * .35, -1); ctx.closePath(); ctx.fill();
   ctx.restore();
+  // a quick twinkle now and then
+  const gl = (t * .55 + e.ph * .37) % 1;
+  if (gl < .14) { const k = Math.sin(gl / .14 * Math.PI), r = 9 * k, gx = e.x + 5, gy = y - 7; ctx.save(); ctx.globalAlpha = k; ctx.fillStyle = '#ffffff'; ctx.beginPath();
+    ctx.moveTo(gx, gy - r); ctx.lineTo(gx + r * .18, gy - r * .18); ctx.lineTo(gx + r, gy); ctx.lineTo(gx + r * .18, gy + r * .18); ctx.lineTo(gx, gy + r); ctx.lineTo(gx - r * .18, gy + r * .18); ctx.lineTo(gx - r, gy); ctx.lineTo(gx - r * .18, gy - r * .18); ctx.closePath(); ctx.fill(); ctx.restore(); }
 }
 /* power-ups: a glossy bubble with the power's icon (drawn once per kind, reused by the 3D view as a texture) */
 const POW_IMG = {}, POW_GLOW = { shield: 'gCyan', star: 'gGold', slow: 'gViolet', magnet: 'gRose', jump: 'gMint' };
@@ -4215,7 +4289,8 @@ function drawDynamic(world, t, dt, depth) {
   drawGhost(world, t);
   if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
-  drawPlayer(world, t);
+  if (!world.silent) { drawHeroShadow(world); HERO_FX = heroMood(world, t); if (world === app.world && (app.streak || 0) >= 3 && !app.custom && !app.duo) drawHotAura(world, t); }
+  drawPlayer(world, t); HERO_FX = null;
   if (world.emote) drawEmote(world);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
@@ -4252,6 +4327,7 @@ function render(world, t, dt) {
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
   CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
   drawBack(world, sx, sy);
+  drawRays(t);
   drawCaves(world, sx, sy, t);
   drawStatics(world, sx, sy);
   worldTransform(sx, sy);
@@ -4273,6 +4349,7 @@ function render25(world, t, dt) {
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
   const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
   drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
+  drawRays(t);
   drawCaves(world, sx, sy, t);
   worldTransform(sx, sy);
   drawMotes(t, dt);
@@ -4356,6 +4433,118 @@ function drawTransition() {
   const maxR = Math.hypot(Math.max(cx, cw - cx), Math.max(cy, ch - cy));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#07051a'; ctx.beginPath(); ctx.rect(0, 0, cw, ch); ctx.arc(cx, cy, Math.max(0.01, e * maxR), 0, Math.PI * 2, true); ctx.fill();
+}
+/* ============================ ATMOSPHERE & HERO LIFE (2D views) ============================ */
+// Ambient particles that fit the level's look (embers, snow, fireflies, petals, leaves, bubbles, spores, sand, sparks,
+// crystal glints), soft light shafts, a shadow under the hero, and the hero's face: the eyes watch the nearest trap,
+// it gets scared next to one, smiles at gems, wobbles at ledges and falls asleep when you leave it alone.
+const AMB = { kind: null, ps: [] };
+function ambKind() {
+  const b = BIOME; if (!b || realmMode) return 'motes';
+  if (b.top === 'embers' || b.scen === 'volcano') return 'embers';
+  if (b.top === 'snow' || b.bs === 'iceblock') return 'snow';
+  if (b.top === 'petals' || b.scen === 'sakura') return 'petals';
+  if (b.top === 'leaves') return 'leaves';
+  if (b.scen === 'waves') return 'bubbles';
+  if (b.top === 'slime' || b.scen === 'mushrooms' || b.scen === 'swamp') return 'spores';
+  if (b.scen === 'dunes' || b.scen === 'pyramids') return 'sand';
+  if (b.scen === 'factory' || b.scen === 'city' || b.scen === 'domes' || b.top === 'neon' || b.top === 'hazard') return 'sparks';
+  if (b.scen === 'crystals' || b.top === 'crystal') return 'glints';
+  if (b.scen === 'forest' || b.scen === 'jungle' || b.scen === 'hills') return 'fireflies';
+  return 'motes';
+}
+function ambReset(kind) {
+  AMB.kind = kind; AMB.ps = Array.from({ length: 120 }, (_, i) => ambNew(kind, true, i));
+}
+function ambNew(k, any, i) {
+  const r = Math.random, span = W + 400;
+  const q = { x: r() * span - 200, y: any ? r() * H : (k === 'embers' || k === 'bubbles' || k === 'spores' ? H + 20 : -20), ph: r() * 7, s: .6 + r() * .9, rot: r() * 7, i };
+  if (k === 'embers') { q.vy = -(30 + r() * 50); q.vx = (r() - .5) * 20; q.col = r() < .5 ? '#ff8a3d' : '#ffd36e'; }
+  else if (k === 'snow') { q.vy = 18 + r() * 34; q.vx = -6 + r() * 12; }
+  else if (k === 'petals') { q.vy = 22 + r() * 26; q.vx = 10 + r() * 20; q.col = r() < .5 ? '#ffb0d8' : '#ffd6ea'; }
+  else if (k === 'leaves') { q.vy = 30 + r() * 30; q.vx = 6 + r() * 26; q.col = ['#ff9a3a', '#e8642a', '#ffc44a', '#b8552a'][(r() * 4) | 0]; }
+  else if (k === 'bubbles') { q.vy = -(18 + r() * 36); q.vx = 0; }
+  else if (k === 'spores') { q.vy = -(4 + r() * 10); q.vx = (r() - .5) * 8; q.col = r() < .6 ? '#c6ff3a' : '#7af7c8'; }
+  else if (k === 'sand') { q.vx = 90 + r() * 120; q.vy = (r() - .5) * 10; }
+  else if (k === 'sparks') { q.vy = 140 + r() * 160; q.vx = (r() - .5) * 60; q.col = r() < .5 ? '#ffd36e' : '#7af7ff'; q.life = r() * 1.5; }
+  else if (k === 'fireflies') { q.vx = 0; q.vy = 0; q.cx = q.x; q.cy = H * (.25 + r() * .5); }
+  return q;
+}
+// replaces the plain drifting dust for most looks
+function drawAmbient(t, dt, n) {
+  const k = ambKind(); if (k !== AMB.kind) ambReset(k);
+  const span = W + 400, par = k === 'sand' ? .9 : k === 'fireflies' ? .55 : .4, off = CAMX * par, gk = glowK() > 0;
+  ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY);
+  for (let j = 0; j < n && j < AMB.ps.length; j++) {
+    const q = AMB.ps[j];
+    q.ph += dt;
+    if (k === 'fireflies') { q.x = q.cx + Math.sin(q.ph * .7 + q.i) * 60; q.y = q.cy + Math.sin(q.ph * 1.1 + q.i * 2) * 40; }
+    else { q.x += (q.vx + (k === 'snow' || k === 'petals' || k === 'leaves' ? Math.sin(q.ph * 1.6 + q.i) * 22 : 0)) * dt; q.y += q.vy * dt; q.rot += dt * (k === 'leaves' ? 2.4 : 1.4); }
+    if (k === 'sparks') { q.life -= dt; if (q.life <= 0 || q.y > H + 20) Object.assign(q, ambNew(k, false, q.i), { y: Math.random() * H * .4, life: .4 + Math.random() * .9 }); }
+    else if (q.y < -30 || q.y > H + 30) Object.assign(q, ambNew(k, false, q.i));
+    const x = ((q.x - off) % span + span) % span - 200, y = q.y; if (x < -EXT.l - 20 || x > W + EXT.r + 20) continue;
+    if (k === 'embers') { const f = .6 + Math.sin(q.ph * 9 + q.i) * .4; ctx.globalAlpha = f; if (gk) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(TEX.gGold, x - 8 * q.s, y - 8 * q.s, 16 * q.s, 16 * q.s); ctx.globalCompositeOperation = 'source-over'; } ctx.fillStyle = q.col; ctx.fillRect(x - 1.2 * q.s, y - 1.2 * q.s, 2.4 * q.s, 2.4 * q.s); }
+    else if (k === 'snow') { ctx.globalAlpha = .85; ctx.fillStyle = '#f4fbff'; ctx.beginPath(); ctx.arc(x, y, 1.6 * q.s + .6, 0, 7); ctx.fill(); }
+    else if (k === 'petals' || k === 'leaves') { ctx.globalAlpha = .9; ctx.fillStyle = q.col; ctx.save(); ctx.translate(x, y); ctx.rotate(q.rot); ctx.scale(1, Math.abs(Math.sin(q.rot * .7)) * .7 + .3); ctx.beginPath(); ctx.ellipse(0, 0, (k === 'leaves' ? 5 : 4) * q.s, (k === 'leaves' ? 2.6 : 2.2) * q.s, 0, 0, 7); ctx.fill(); if (k === 'leaves') { ctx.strokeStyle = 'rgba(60,20,10,.5)'; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(-5 * q.s, 0); ctx.lineTo(5 * q.s, 0); ctx.stroke(); } ctx.restore(); }
+    else if (k === 'bubbles') { ctx.globalAlpha = .55; ctx.strokeStyle = '#bff8ff'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x + Math.sin(q.ph * 2 + q.i) * 3, y, 2 + 3 * q.s, 0, 7); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(x - 1, y - 2 * q.s, 1.5, 1.5); }
+    else if (k === 'spores') { ctx.globalAlpha = .5 + Math.sin(q.ph * 2 + q.i) * .3; if (gk) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(TEX.gMint, x - 7, y - 7, 14, 14); ctx.globalCompositeOperation = 'source-over'; } ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(x, y, 1.4 * q.s, 0, 7); ctx.fill(); }
+    else if (k === 'sand') { ctx.globalAlpha = .35; ctx.fillStyle = '#ffe0a0'; ctx.fillRect(x, y, 3 * q.s, 1); }
+    else if (k === 'sparks') { ctx.globalAlpha = Math.min(1, q.life * 2); ctx.strokeStyle = q.col; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - q.vx * .03, y - q.vy * .03); ctx.stroke(); }
+    else if (k === 'fireflies') { const b = Math.max(0, Math.sin(q.ph * 2.2 + q.i * 1.7)); ctx.globalAlpha = b; if (gk) { ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(TEX.gMint, x - 12, y - 12, 24, 24); ctx.globalCompositeOperation = 'source-over'; } ctx.fillStyle = '#e8ff8a'; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, 7); ctx.fill(); }
+    else if (k === 'glints') { const b = Math.max(0, Math.sin(q.ph * 1.5 + q.i * 2.3)) ** 3; if (b < .05) continue; ctx.globalAlpha = b; ctx.fillStyle = '#e8d8ff'; const s = 5 * q.s * b; ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s * .25, y - s * .25); ctx.lineTo(x + s, y); ctx.lineTo(x + s * .25, y + s * .25); ctx.lineTo(x, y + s); ctx.lineTo(x - s * .25, y + s * .25); ctx.lineTo(x - s, y); ctx.lineTo(x - s * .25, y - s * .25); ctx.closePath(); ctx.fill(); }
+  }
+  ctx.restore();
+}
+// soft slanted light shafts from the sky (sunny and leafy looks)
+function drawRays(t) {
+  const b = BIOME; if (!b || glowK() <= 0 || realmMode || !(b.cel === 'sun' || ['forest', 'jungle', 'waves', 'sakura', 'hills', 'islands'].includes(b.scen))) return;
+  ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
+  const col = b.scen === 'waves' ? '160,240,255' : '255,240,200', off = -CAMX * .08;
+  for (let i = 0; i < 4; i++) {
+    const x = ((i * 380 + off) % (W + 600) + W + 600) % (W + 600) - 300 + Math.sin(t * .2 + i) * 40, w = 90 + i * 25, a = .05 + Math.sin(t * .5 + i * 1.7) * .025;
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `rgba(${col},${(a * 1.6).toFixed(3)})`); g.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, -EXT.t); ctx.lineTo(x + w, -EXT.t); ctx.lineTo(x + w + 260, H); ctx.lineTo(x + 260, H); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+// a soft shadow on the floor under the hero (or on the ceiling when gravity is flipped)
+function drawHeroShadow(world) {
+  const p = world.p; if (world.state === 'dead' || world.state === 'win') return;
+  const cx = p.x + PW / 2, g = p.g, foot = g > 0 ? p.y + PHT : p.y; let best = null;
+  for (const e of VIEW_ENTS) {
+    if (e.type !== 'block' || e.hidden || e.gone || e.ghost || e.lava || e.off) continue;
+    if (cx < e.x || cx > e.x + e.w) continue;
+    const top = g > 0 ? e.y : e.y + e.h, d = g > 0 ? top - foot : foot - top;
+    if (d >= -2 && d < 320 && (best == null || d < best.d)) best = { d, top };
+  }
+  if (!best) return;
+  const k = 1 - best.d / 320; ctx.save(); ctx.globalAlpha = .32 * k; ctx.fillStyle = '#05030e';
+  ctx.beginPath(); ctx.ellipse(cx, best.top + (g > 0 ? 1 : -1), 15 * (.45 + .55 * k), 4 * (.5 + .5 * k), 0, 0, 7); ctx.fill(); ctx.restore();
+}
+// the hero's mood and where it looks (set just before the player is drawn, read by drawHero)
+let HERO_FX = null;
+const HFX = { still: 0, lastT: 0, zT: 0 };
+function heroMood(world, t) {
+  const p = world.p, cx = p.x + PW / 2, cy = p.y + PHT / 2; let near = null, nd = 1e9;
+  for (const e of VIEW_ENTS) {
+    if (e.gone || e.hidden) continue;
+    let x, y;
+    if (e.type === 'saw') { x = e.x; y = e.y; }
+    else if ((e.type === 'spike' && e.pop > .6 && !e.fake && !e.off) || (e.type === 'laser' && e.act) || e.type === 'boss' || (e.type === 'block' && e.lava)) { x = clamp(cx, e.x, e.x + e.w); y = clamp(cy, e.y, e.y + e.h); }
+    else continue;
+    const d = Math.hypot(x - cx, y - cy); if (d < nd) { nd = d; near = [x, y]; }
+  }
+  const dt = Math.min(.1, Math.max(0, t - HFX.lastT)); HFX.lastT = t;
+  const moving = Math.abs(p.vx) > 20 || !p.onGround; HFX.still = moving || world.state !== 'play' ? 0 : HFX.still + dt;
+  const fx = { lx: 0, ly: 0, mood: null };
+  if (near && nd < 180) { fx.lx = clamp((near[0] - cx) / Math.max(1, nd), -1, 1); fx.ly = clamp((near[1] - cy) / Math.max(1, nd), -1, 1) * p.g; if (nd < 95) fx.mood = 'scared'; }
+  if (world.combo && world.time - world.combo.t < .6) fx.mood = 'happy';
+  // standing right at the edge of a ledge
+  const gr = p.ground;
+  if (!fx.mood && p.onGround && gr && Math.abs(p.vx) < 30 && p.g > 0) { const tip = cx + p.face * 13; if (tip < gr.x - 2 || tip > gr.x + gr.w + 2) fx.mood = 'teeter'; }
+  if (!fx.mood && HFX.still > 7) { fx.mood = 'sleep'; HFX.zT -= dt; if (HFX.zT <= 0 && !world.silent) { HFX.zT = 1.1; world.parts.push({ x: cx + 8, y: p.y - 6, vx: 14, vy: -26, life: 1.4, max: 1.4, size: 0, col: '#cfd8ff', g: 0, drag: 0, txt: 'z' }); } }
+  if (p.starT > 0) fx.mood = 'happy';
+  return fx;
 }
 /* ============================ WEATHER ============================ */
 // Rain, snow, flood and storm in every view (2D, 2.5D, 3D platformer, 3D chase), plus rain and wind sounds.
@@ -6436,7 +6625,9 @@ const ACH = [
   ['share', '📤', 'تله‌گذار', 'کد یکی از مرحله‌هات رو برای دوستات بفرست'],
   ['import', '📥', 'مهمون', 'مرحله‌ی یه نفر دیگه رو بازی کن'],
   ['friend', '🤝', 'رفیق نیمه‌راه نیست', 'مرحله‌ی ساخت یه نفر دیگه رو ببر'],
-  ['cards', '📖', 'دانشنامه‌ی کامل', 'با همه‌ی ۱۶ نوع تله بمیر (همه‌ی کارت‌ها)'],
+  ['cards', '📖', 'دانشنامه‌ی کامل', 'همه‌ی کارت‌های دانشنامه‌ی تله‌ها رو باز کن'],
+  ['hot', '☄️', 'آتیشی', 'شش اتاق پشت سر هم بدون مرگ رد شو'],
+  ['clock', '⏳', 'مسابقه با ساعت', 'یه مرحله رو با چالش «ساعت شنی» ببر'],
   ['rush', '🏟️', 'قهرمان میدان', 'توی «نبرد غول‌ها» هر چهار غول رو پشت سر هم شکست بده'],
   ['rushInsane', '💀', 'غول‌کش دیوانه', 'نبرد غول‌ها رو روی سختی دیوانه‌وار ببر'],
   ['duo', '👥', 'رفیق بازی', 'یه دور مسابقه‌ی دو نفره رو ببر'],
@@ -6498,7 +6689,7 @@ hud3.last = -1;
 let hudLast = '';
 function hudTick() {
   let s = '';
-  const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
+  const lim = hourLimit(), tm = lim ? `⏳ ${faNum(Math.max(0, Math.ceil(lim - app.roomT)))}` : CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
   const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : app.endless && app.world ? `💎 ${faNum(app.world.got.size)}` : app.kind === 'plat' && app.world && app.world.gemTotal && app.state !== 'title' ? `💎 ${faNum(app.world.got.size)}/${faNum(app.world.gemTotal)}` : '';
   let pw = '';
   if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
@@ -6507,6 +6698,7 @@ function hudTick() {
   }
   if (app.endless && app.world && app.state === 'play') { const m = Math.max(0, Math.floor(app.world.p.x / T)); if (m > app.endless.dist) { app.endless.dist = m; app.updTag(); if (m === app.endless.best + 1 && app.endless.best > 0) app.taunt('🏆 رکورد شکسته شد!', '#ffd36e'); } }
   if (app.kind === 'plat' && app.world && app.state !== 'title') { const p = app.world.p; if (p.shield) pw += '🛡️'; for (const k of ['star', 'slow', 'magnet', 'jump']) { const v = p[POWS[k].t]; if (v > 0) pw += ' ' + POWS[k].i + faNum(Math.ceil(v)); } }
+  if ((app.streak || 0) >= 3 && app.state !== 'title' && !app.custom && !app.duo) pw += (app.streak >= 6 ? ' ☄️×۳' : ' 🔥×۲');
   if (app.kind === 'plat' && app.rivals2 && app.world && app.state !== 'title') pw += ` 🏁 نفر ${faNum(app.rivals2.rank(app.world.p.x))} از ${faNum(app.rivals2.list.length + 1)}`;
   if (app.kind === 'run' && app.run && app.run.rivals) pw += ` 🏁 نفر ${faNum(app.run.rank())} از ${faNum(app.run.rivals.length + 1)}`;
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
@@ -6694,7 +6886,7 @@ const app = {
     this.view = v;
     if (this.kind === 'plat') { setBiome(biomeOf(def)); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
-    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; } mutApply(true);
+    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; this.streak = 0; } this.roomT = 0; mutApply(true);
     $('bEmote').hidden = this.kind === 'run' || def.kind === '3d' || (CFG.mode === '3d' && !def.noRun && !def.endless); $('emoteBar').classList.remove('on');
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
     tLayer.classList.toggle('vert', v === 'r2');
@@ -6711,7 +6903,7 @@ const app = {
         R.onDone = r => this.taunt(`${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col);
         R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
-      w.onGem = (e, bonus = 0) => { if (def.custom) return; ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
+      w.onGem = (e, bonus = 0) => { if (def.custom) return; bonus += hotBonus(); ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
       w.onNear = () => { this.levelNear = (this.levelNear || 0) + 1; ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
@@ -6728,7 +6920,7 @@ const app = {
       run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); XP.add(4); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); XP.add(4); hotRoom(); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir || mutScr()); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -6761,7 +6953,7 @@ const app = {
   },
   onDeath(c, src) {
     if (this.demo) { this.demo = null; setTimeout(() => this.taunt('🤖 ای وای، ربات اشتباه کرد! حالا خودت ادامه بده', '#9ef9ff'), 400); }
-    Missions.ev('death'); trapSeen(c, src);
+    Missions.ev('death'); trapSeen(c, src); hotLost(); this.roomT = 0;
     if (this.endless && this.kind === 'plat') {
       const E = this.endless; if (E.lives <= 0) return; E.lives--; this.updTag();
       if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') { if (!E.revived && gemBalance() >= REVIVE_GEMS) this.offerRevive(E); else this.endlessOver(); } else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
@@ -6774,7 +6966,7 @@ const app = {
     if (ST.deaths % 5 === 0) writeSave();
   },
   onPick(k) {
-    if (k === 'gem') { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); return; }
+    if (k === 'gem') { ST.gems += 1 + hotBonus(); if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); return; }
     if (k === 'shield' || k === 'boost' || k === 'freeze' || k.startsWith('pow:')) Missions.ev('pow');
     if (k === 'shieldUsed') { unlockAch('shield'); this.taunt('سپر نجاتت داد! 🛡️', '#8fd3ff'); return; }
     if (k.startsWith('pow:')) { const P = POWS[k.slice(4)]; ST.pows = (ST.pows || 0) + 1; if (ST.pows >= 25) unlockAch('pow25'); this.taunt(`${P.i} ${P.n}! ${P.d}`, P.col); if (CFG.vib && navigator.vibrate) navigator.vibrate(25); return; }
@@ -6795,7 +6987,7 @@ const app = {
       return;
     }
     if (this.custom) { this.updTag(); const n = this.world.secs.length - 1; this.taunt(i === n ? '🚪 اتاق آخر!' : `🚩 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`, '#9ef9dc'); return; }
-    Missions.ev('room'); XP.add(4);
+    Missions.ev('room'); XP.add(4); hotRoom(); this.roomT = 0;
     if (this.endless) { this.endlessCheck(i); this.updTag(); this.taunt(`🚩 چک‌پوینت ${faNum(i)}`, '#9ef9dc'); return; }
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
@@ -6850,6 +7042,7 @@ const app = {
     const starLine = `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`;
     if (this.realmIdx >= 0) this.taunt(starLine, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
+    if (mutOn('clock') && this.kind === 'plat') unlockAch('clock');
     const nm = mutCount(); if (nm) { Missions.ev('mut'); ST.gems += nm * 5; setTimeout(() => this.taunt(`🎭 جایزه‌ی چالش: +${faNum(nm * 5)} 💎`, '#ff8a4c'), 2300); }
     Missions.ev('win'); XP.add((40 + (d === 0 ? 20 : 0) + this.diff * 10) * (1 + nm * .5)); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
     if (race) { const pl = race.fin + 1; if (pl === 1) { this.raceFirst = true; unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
@@ -6959,7 +7152,7 @@ function goFull() {
   try { const r = (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); if (r && r.then) r.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
 }
 $('bPlay').onclick = () => { Sound.init(); Sound.play('click'); if (isTouch && !document.fullscreenElement) goFull(); app.runStart = performance.now(); app.deaths = 0; app.startLevel(app.completed >= LEVELS.length ? 0 : app.unlocked - 1); };
-$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); renderBoost(); app.open('sLevels'); };
+$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); renderBoost(); app.open('sLevels'); MAP.on = false; mapShow(); };
 $('bRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(true); };
 $('bNoRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(false); };
 $('bMode').onclick = $('bMode2').onclick = () => { Sound.init(); Sound.play('click'); renderModes(); app.open('sMode'); };
@@ -7397,7 +7590,8 @@ function edBotStop() { if (edBotJob) { edBotJob.stop = true; edBotJob = null; } 
 // page stays responsive. Used by the editor and the trap lab. Returns {job, promise}; job.stop = true cancels.
 function solveDef(def, diff, opt = {}) {
   const w = new World(def, { silent: true, diff }), nSec = def.secs.length;
-  const dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); });
+  // editor levels mark everything that can change (e.dyn), so their snapshots can leave the rest out; other levels keep everything
+  let dynIdx = null; if (def.custom) { dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); }); }
   const STEPS = 8, dtS = w.D.speed / 120;
   const job = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
   let rs = 12345; const Rn = () => { rs = (rs * 1664525 + 1013904223) % 4294967296; return rs / 4294967296; };
@@ -7966,7 +8160,7 @@ function renderShop(tab) {
   if (tab) shopTab = tab;
   const bal = gemBalance(), cur = skinOf(shopTab).id;
   $('shopBal').textContent = '💎 ' + faNum(bal);
-  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
+  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['face', '😎 صورت'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
   $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
     const lk = lockedLv(it), own = !lk && (it.p === 0 || ST.owned[shopTab + ':' + it.id]), on = cur === it.id;
     return `<button class="shopit${on ? ' on' : ''}${lk || (!own && bal < it.p) ? ' poor' : ''}${it.lvl ? ' road' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : lk ? `🔒 سطح ${faNum(it.lvl)}` : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;
@@ -8048,6 +8242,7 @@ const TRAPS = [
   ['boss', '🗿', 'غول آخر مرحله', 'نزدیکش نشو! دکمه‌های قرمز رو بزن.'],
   ['caught', '👹', 'غول تعقیب‌گر', 'گفتم بدو! (مرحله‌های سه‌بعدی)'],
   ['fall3', '🌌', 'پرت شدن از جاده', 'جاده تموم شد، تو هنوز داشتی می‌دویدی.'],
+  ['time', '⏳', 'وقت تموم شد', 'ساعت شنی خالی شد و تو هنوز اونجا بودی!'],
 ];
 const TRAP_GEMS = 5;
 function trapKind(cause, e) {
@@ -8091,7 +8286,37 @@ const MUTS = [
   ['flip', '🙃', 'دنیای وارونه', 'کل صفحه سر و ته می‌شه؛ کنترل‌ها همون‌طور می‌مونن 😵'],
   ['mirror', '🪞', 'آینه', 'دنیا برعکس می‌شه: مرحله‌ها از راست به چپ (دکمه‌ها هم برعکس)'],
   ['fast', '⚡', 'توربو', 'همه‌چیز ۲۵٪ تندتر'],
+  ['clock', '⏳', 'ساعت شنی', 'هر اتاق یه زمان محدود داره؛ تموم بشه، می‌میری! (مرحله‌های دوبعدی)'],
 ];
+/* ---------- hot streak: rooms passed one after another without dying ---------- */
+// 3 rooms: gems count double; 6 rooms: triple, and the hero is on fire. A death puts it out.
+const hotBonus = () => app.custom || app.duo ? 0 : (app.streak || 0) >= 6 ? 2 : (app.streak || 0) >= 3 ? 1 : 0;
+function hotRoom() {
+  if (app.custom || app.duo) return;
+  app.streak = (app.streak || 0) + 1;
+  if (app.streak === 3) setTimeout(() => app.taunt('🔥 داغ شدی! جواهرها دو برابر', '#ff9a3a'), 900);
+  if (app.streak === 6) { setTimeout(() => app.taunt('☄️ آتیشی شدی! جواهرها سه برابر', '#ffd36e'), 900); unlockAch('hot'); Sound.play('win'); }
+}
+function hotLost() { if ((app.streak || 0) >= 3) setTimeout(() => app.taunt('💨 آتیشت خاموش شد…', '#b9b0d9'), 700); app.streak = 0; }
+// flames around the hero while the streak lasts
+function drawHotAura(world, t) {
+  const k = app.streak >= 6 ? 1 : .55, p = world.p, cx = p.x + PW / 2, cy = p.y + PHT / 2;
+  if (world.state !== 'play') return;
+  if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45 * k + Math.sin(t * 13) * .08; ctx.drawImage(TEX.gGold, cx - 46, cy - 52, 92, 92); ctx.restore(); }
+  if (Math.random() < .5 * k * GFX.fx) world.parts.push({ x: cx + (Math.random() - .5) * 20, y: cy + 8, vx: (Math.random() - .5) * 30 - p.vx * .1, vy: -60 - Math.random() * 70, life: .45, max: .45, size: 2.5 + Math.random() * 2.5, col: Math.random() < .5 ? '#ff7a2a' : '#ffd36e', g: -40, drag: 1.5, add: true });
+}
+/* ---------- hourglass: a time limit for every room of a 2D level ---------- */
+function hourLimit() {
+  if (!mutOn('clock') || app.state !== 'play' && app.state !== 'pause' || app.kind !== 'plat' || app.duo || !app.world || !app.world.secs) return 0;
+  const sec = app.world.secs[app.world.ck]; return sec ? clamp(Math.round(sec.w * .85), 20, 90) : 0;
+}
+function hourTick(dt) {
+  const lim = hourLimit(); if (!lim) return; const w = app.world;
+  if (w.state !== 'play') return;
+  const before = lim - app.roomT; app.roomT += dt;
+  if (before > 5 && lim - app.roomT <= 5) { Sound.play('click'); app.taunt('⏳ ۵ ثانیه مونده!', '#ff9a8a'); }
+  if (app.roomT >= lim) { app.roomT = 0; w.die('time'); }
+}
 const mutOn = k => !!(ST.mut && ST.mut[k]);
 // the rear-view mirror of the 3D runs is drawn into the canvas under an HTML frame: left out while the screen is flipped
 const mutScr = () => document.body.classList.contains('mFlip') || document.body.classList.contains('mMirror');
@@ -8339,7 +8564,7 @@ function duoTouchOff() { t2Ptrs.clear(); t2Refresh(); t2Layer.classList.remove('
 /* ============================ REWARD ROAD ============================ */
 // Every player level pays gems; some levels also unlock a shop item that cannot be bought (it.lvl in SKINS).
 const ROAD_MAX = 25;
-const SLOT_N = { color: 'رنگ', hat: 'کلاه', trail: 'رد پا', pet: 'همراه', boom: 'افکت مرگ' };
+const SLOT_N = { color: 'رنگ', hat: 'کلاه', trail: 'رد پا', pet: 'همراه', face: 'صورت', boom: 'افکت مرگ' };
 const roadItems = lv => { const out = []; for (const slot in SKINS) for (const it of SKINS[slot]) if (it.lvl === lv) out.push({ slot, it }); return out; };
 const lockedLv = it => !!it.lvl && XP.lvl(ST.xp) < it.lvl;
 function renderRoad() {
@@ -8420,9 +8645,11 @@ function simFrame(dt) {
     }
     if (n >= 14) acc = 0;
     app.levelT += dt * (mutOn('fast') ? 1.25 : 1); ST.time += dt;
-    if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);
+    if (app.kind === 'plat' && app.world) { Ghost.tick(app.world, app.levelT); hourTick(dt * (mutOn('fast') ? 1.25 : 1)); }
   } else if (app.state === 'title' && app.world) {
-    app.world.step(dt, { left: false, right: false, jump: false });
+    // the title demo replays the robot's run with the game's fixed steps
+    if (ATTRACT.acts && CFG.demo !== false) { acc += dt; let n = 0; while (acc >= STEP && n < 14) { const w = app.world; w.step(STEP * w.D.speed, attractInput(w)); acc -= STEP; n++; } if (n >= 14) acc = 0; }
+    else app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;
 }
 function demoInput(d) {
@@ -8431,6 +8658,133 @@ function demoInput(d) {
   return ED_ACTS[a] || ED_ACTS[0];
 }
 requestAnimationFrame(frame);
+/* ============================ WORLD MAP (level select) ============================ */
+// The 42 levels as stops on a winding road through their own landscapes. Drag (or wheel) to scroll, tap a stop to
+// play. Stars, grades, 3D/race/boss/rest marks are shown on the stops; the hero waits on the next level to play.
+const MAP = { on: false, x: 0, vx: 0, drag: null, t0: 0, sel: -1, raf: 0, view: (() => { try { return localStorage.getItem('telezar_lvview') || 'map'; } catch (e) { return 'map'; } })() };
+const MAP_STEP = 150, MAP_H = 300;
+const mapNode = i => ({ x: 110 + i * MAP_STEP, y: 150 + Math.sin(i * .8) * 62 + Math.cos(i * .33) * 18 });
+const MAP_DECO = { mountains: '🏔️', forest: '🌲', dunes: '🌵', crystals: '💎', volcano: '🌋', mushrooms: '🍄', waves: '🌊', candy: '🍭', ruins: '🏛️', spires: '🗼', hills: '⛰️', city: '🏙️',
+  sakura: '🌸', jungle: '🌴', factory: '🏭', islands: '🏝️', pyramids: '🐪', swamp: '🐸', domes: '🛰️' };
+function mapBiome(i) { const d = LEVELS[i], b = BIOMES[biomeOf(d)] || BIOMES[d.biome]; if (b) return b; const t = THEMES3[d.theme] || THEMES3.dusk; return { sky: '#' + (t.sky ? t.sky[1] : 0x3a1c5e).toString(16).padStart(6, '0'), block: '#2f2858', moss: '#7af7ff', scen: 'hills' }; }
+function mapCurrent() { return clamp(app.completed >= LEVELS.length ? 0 : app.unlocked - 1, 0, LEVELS.length - 1); }
+function mapDraw(t) {
+  const c = $('mapCv'); if (!c) return; const r = c.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1), cw2 = Math.round(r.width * d), ch2 = Math.round(r.height * d);
+  if (c.width !== cw2 || c.height !== ch2) { c.width = cw2; c.height = ch2; }
+  const g = c.getContext('2d'), k = ch2 / MAP_H, vw = cw2 / k, total = mapNode(LEVELS.length - 1).x + 120;
+  MAP.x = clamp(MAP.x, 0, Math.max(0, total - vw));
+  g.setTransform(k, 0, 0, k, -MAP.x * k, 0);
+  // sky: the colours of every level's look, side by side
+  const x0 = MAP.x - 20, x1 = MAP.x + vw + 20, sky = g.createLinearGradient(0, 0, total, 0);
+  LEVELS.forEach((_, i) => { const n = mapNode(i); sky.addColorStop(clamp(n.x / total, 0, 1), mixHex(mapBiome(i).sky, '#000000', .25)); });
+  g.fillStyle = sky; g.fillRect(x0, 0, x1 - x0, MAP_H);
+  const shade = g.createLinearGradient(0, 0, 0, MAP_H); shade.addColorStop(0, 'rgba(8,4,24,.55)'); shade.addColorStop(.55, 'rgba(8,4,24,0)'); shade.addColorStop(1, 'rgba(8,4,24,.35)'); g.fillStyle = shade; g.fillRect(x0, 0, x1 - x0, MAP_H);
+  // drifting clouds and far hills
+  g.fillStyle = 'rgba(255,255,255,.07)';
+  for (let i = 0; i < 18; i++) { const cx = ((i * 431 + t * 9) % (total + 200)) - 100, cy = 30 + (i * 37) % 70; if (cx < x0 - 80 || cx > x1 + 80) continue; g.beginPath(); g.ellipse(cx, cy, 46, 12, 0, 0, 7); g.ellipse(cx + 26, cy - 6, 30, 10, 0, 0, 7); g.fill(); }
+  const hills = g.createLinearGradient(0, 0, total, 0); LEVELS.forEach((_, i) => hills.addColorStop(clamp(mapNode(i).x / total, 0, 1), mapBiome(i).block));
+  g.fillStyle = hills; g.beginPath(); g.moveTo(x0, MAP_H);
+  for (let x = x0; x <= x1; x += 20) g.lineTo(x, 236 + Math.sin(x * .011) * 16 + Math.sin(x * .031) * 7);
+  g.lineTo(x1, MAP_H); g.closePath(); g.fill();
+  // the road
+  const cur = mapCurrent(), done = app.completed || 0;
+  for (let i = 0; i < LEVELS.length - 1; i++) {
+    const a = mapNode(i), b = mapNode(i + 1); if (b.x < x0 - 40 || a.x > x1 + 40) continue;
+    g.lineCap = 'round'; g.strokeStyle = 'rgba(10,6,24,.55)'; g.lineWidth = 12; g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo((a.x + b.x) / 2, (a.y + b.y) / 2 + 26, b.x, b.y); g.stroke();
+    g.strokeStyle = i < done ? '#ffd36e' : 'rgba(255,255,255,.35)'; g.lineWidth = 4; g.setLineDash(i < done ? [] : [8, 10]); g.stroke(); g.setLineDash([]);
+  }
+  // landscape marks
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  LEVELS.forEach((_, i) => { const n = mapNode(i); if (n.x < x0 - 60 || n.x > x1 + 60) return; const e = MAP_DECO[mapBiome(i).scen] || '✨';
+    g.globalAlpha = .75; g.font = '26px sans-serif'; g.fillText(e, n.x + 52, n.y > 150 ? n.y - 58 : n.y + 62); g.font = '18px sans-serif'; g.globalAlpha = .5; g.fillText(e, n.x - 48, n.y > 150 ? n.y + 46 : n.y - 50); g.globalAlpha = 1; });
+  // the stops
+  const pr = progOf(app.diff), stars = pr.stars || {}, grade = pr.grade || {};
+  LEVELS.forEach((L, i) => {
+    const n = mapNode(i); if (n.x < x0 - 50 || n.x > x1 + 50) return;
+    const open = i < app.unlocked, b = mapBiome(i), R = L.kind === '3d' ? 27 : 25, sel = i === MAP.sel;
+    if (i === cur) { const pul = 1 + Math.sin(t * 4) * .12; g.strokeStyle = 'rgba(255,211,110,.8)'; g.lineWidth = 3; g.beginPath(); g.arc(n.x, n.y, R * 1.35 * pul, 0, 7); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(n.x, n.y + R * .9, R * .9, R * .3, 0, 0, 7); g.fill();
+    const gr = g.createRadialGradient(n.x - R * .35, n.y - R * .4, 2, n.x, n.y, R); gr.addColorStop(0, open ? mixHex(b.moss, '#ffffff', .45) : '#6a6488'); gr.addColorStop(1, open ? mixHex(b.moss, '#000000', .35) : '#2a2640');
+    g.fillStyle = gr; g.beginPath();
+    if (L.kind === '3d') { for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; g.lineTo(n.x + Math.cos(a) * R, n.y + Math.sin(a) * R); } g.closePath(); } else g.arc(n.x, n.y, R, 0, 7);
+    g.fill(); g.lineWidth = sel ? 4 : 2.5; g.strokeStyle = sel ? '#fff' : stars[i] ? '#ffd36e' : 'rgba(255,255,255,.55)'; g.stroke();
+    g.fillStyle = open ? '#140c26' : '#b9b0d9'; g.font = '900 20px Vazirmatn, Tahoma, sans-serif'; g.fillText(open ? faNum(i + 1) : '🔒', n.x, n.y + 1);
+    if (stars[i]) { g.font = '12px sans-serif'; g.fillStyle = '#ffd36e'; g.fillText('★'.repeat(stars[i]), n.x, n.y + R + 11); }
+    if (grade[i]) { g.font = '900 13px Vazirmatn, sans-serif'; g.fillStyle = 'rgba(10,6,24,.75)'; g.beginPath(); g.arc(n.x - R * .8, n.y - R * .8, 9, 0, 7); g.fill(); g.fillStyle = GRADE_COL[grade[i]]; g.fillText(grade[i], n.x - R * .8, n.y - R * .8 + 1); }
+    const tag = L.rest ? '🌿' : L.final ? '🏔️' : BOSS_LV[i] ? '🗿' : RIVAL_LV.has(i) ? '🏁' : i === PORTAL_LEVEL ? '🌀' : L.kind === '3d' ? '🏃' : '';
+    if (tag) { g.font = '16px sans-serif'; g.fillText(tag, n.x + R * .85, n.y - R * .8); }
+  });
+  // the hero waits on the next stop
+  { const n = mapNode(cur), hop = Math.abs(Math.sin(t * 3)) * 10, main = ctx; ctx = g;
+    try { g.save(); g.translate(n.x, n.y - 30 - hop); g.scale(1.1, 1.1); drawHero(t, 1, hop < 2, 0, hop > 2 ? 200 : 0, t * 6, Math.sin(t * 1.7) > .97 ? -1 : 1, false); g.restore(); } catch (e) {} finally { ctx = main; } }
+  // the selected stop's name
+  const s = MAP.sel >= 0 ? MAP.sel : cur, L = LEVELS[s];
+  $('mapInfo').innerHTML = `<b>${faNum(s + 1)}. ${esc(L.name)}</b> · ${L.kind === '3d' ? '🏃 فرار سه‌بعدی' : `🚪 ${faNum(L.rooms || 1)} اتاق`}${stars[s] ? ' · <span style="color:var(--gold)">' + '★'.repeat(stars[s]) + '</span>' : ''}${grade[s] ? ` · رتبه <b style="color:${GRADE_COL[grade[s]]}">${grade[s]}</b>` : ''}${s >= app.unlocked ? ' · 🔒 هنوز قفله' : ''}`;
+}
+function mapLoop() {
+  if (!MAP.on || app.screen !== 'sLevels') { MAP.on = false; return; }
+  const t = performance.now() / 1000;
+  if (!MAP.drag && Math.abs(MAP.vx) > .1) { MAP.x -= MAP.vx; MAP.vx *= .92; }
+  mapDraw(t); MAP.raf = requestAnimationFrame(mapLoop);
+}
+function mapShow() {
+  const map = MAP.view === 'map';
+  $('lvMapBox').hidden = !map; $('lvGrid').hidden = map;
+  for (const b of document.querySelectorAll('[data-lvview]')) b.classList.toggle('on', b.dataset.lvview === MAP.view);
+  if (map && !MAP.on) {
+    MAP.on = true; MAP.sel = -1;
+    const c = $('mapCv'), k = c.getBoundingClientRect().height / MAP_H || 1; MAP.x = mapNode(mapCurrent()).x - (c.getBoundingClientRect().width / k) / 2;
+    MAP.raf = requestAnimationFrame(mapLoop);
+  }
+}
+function mapPick(ev) {
+  const c = $('mapCv'), r = c.getBoundingClientRect(), k = r.height / MAP_H, x = (ev.clientX - r.left) / k + MAP.x, y = (ev.clientY - r.top) / k;
+  let best = -1, bd = 40; LEVELS.forEach((_, i) => { const n = mapNode(i), d = Math.hypot(n.x - x, n.y - y); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+$('mapCv').addEventListener('pointerdown', e => { MAP.drag = { x: e.clientX, mx: MAP.x, moved: 0, last: e.clientX }; MAP.vx = 0; try { $('mapCv').setPointerCapture(e.pointerId); } catch (_) {} });
+$('mapCv').addEventListener('pointermove', e => {
+  if (!MAP.drag) { const i = mapPick(e); $('mapCv').style.cursor = i >= 0 ? 'pointer' : 'grab'; return; }
+  const k = $('mapCv').getBoundingClientRect().height / MAP_H, dx = e.clientX - MAP.drag.x; MAP.drag.moved = Math.max(MAP.drag.moved, Math.abs(dx));
+  MAP.x = MAP.drag.mx - dx / k; MAP.vx = (e.clientX - MAP.drag.last) / k; MAP.drag.last = e.clientX;
+});
+$('mapCv').addEventListener('pointerup', e => {
+  const D = MAP.drag; MAP.drag = null; if (!D || D.moved > 8) return;
+  const i = mapPick(e); if (i < 0) return; Sound.init();
+  if (MAP.sel !== i) { MAP.sel = i; Sound.play('click'); if (i >= app.unlocked) return; return; }
+  if (i >= app.unlocked) { Sound.play('die'); return; }
+  Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(i);
+});
+$('mapCv').addEventListener('wheel', e => { e.preventDefault(); MAP.x += (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * .8; }, { passive: false });
+$('mapPlay').onclick = () => { const i = MAP.sel >= 0 ? MAP.sel : mapCurrent(); if (i >= app.unlocked) { Sound.play('die'); return; } Sound.play('click'); app.runStart = performance.now(); app.deaths = 0; app.startLevel(i); };
+document.querySelectorAll('[data-lvview]').forEach(b => b.onclick = () => { Sound.play('click'); MAP.view = b.dataset.lvview; try { localStorage.setItem('telezar_lvview', MAP.view); } catch (e) {} MAP.on = false; mapShow(); });
+
+/* ============================ TITLE DEMO ============================ */
+// Behind the menus the robot plays level 1 (its run is searched once in the background while you are on the title
+// screen and kept, so later visits replay it straight away).
+const ATTRACT = { acts: null, i: 0, n: 0, job: null, started: false, w: null, endT: 0 };
+const attractSig = () => 'v1:' + LEVELS[0].secs.map(s => (s.keys || []).join(',') + '|' + (s.seed || 0)).join(';');
+// level 1's run, found by the robot ahead of time (used while the level stays the same; otherwise searched again here)
+const ATTRACT_RUN = { sig: "v1:dropFloor,kickGap,lavaPit,trampGap,plateDoor|100;acidPool,wallSpring,onewayStairs,springLeap,hiddenLanding|101;sawFloor,movingBridge,togDoor,hiddenPop,gapDown|102;dropLanding,stairsDown,togBridge,pillarHop,islands|103;|0",
+  acts: '44444422444440000044222314400022212244222222221444444452255332200114444444454222002223444444444444522244444411122222512222444444554203333444222222222222442443300000004444440555524444455322522245222222440044444223000024442211144422200100444444244422222244000000000022222225222044444444444055552221441444555002244433444440444444002202222225222222144444424422234340005552200000533330444555555524400005110222344442222111500503222222444445444444444444003222222242222255444444403442222002254444444441111154402222252222222222225544500022444522000004432242222444400440000000022222555544444400052222200054444440000000422222242400444444400034224440444230442554222244444551111444442222322222444444212222111022222222224444555222444455234444244444400044455522200002222222233334444444444444' };
+if (ATTRACT_RUN.sig === attractSig()) ATTRACT.acts = ATTRACT_RUN.acts;
+try { const v = JSON.parse(localStorage.getItem('telezar_attract') || 'null'); if (!ATTRACT.acts && v && v.sig === attractSig() && typeof v.acts === 'string') ATTRACT.acts = v.acts; } catch (e) {}
+function attractStart() {
+  if (ATTRACT.acts || ATTRACT.started || app.state !== 'title') return;
+  ATTRACT.started = true;
+  const S = solveDef(LEVELS[0], 1, { totalMs: 30000, sliceMs: 6 }); ATTRACT.job = S.job;
+  S.promise.then(r => { ATTRACT.job = null; if (r.ok) { ATTRACT.acts = r.acts; try { localStorage.setItem('telezar_attract', JSON.stringify({ sig: attractSig(), acts: r.acts })); } catch (e) {} } else ATTRACT.started = false; });
+}
+// the search only runs while the title screen is open
+setInterval(() => { if (ATTRACT.job && app.state !== 'title') { ATTRACT.job.stop = true; ATTRACT.job = null; ATTRACT.started = false; } else if (app.state === 'title' && !ATTRACT.acts && !ATTRACT.started) attractStart(); }, 1500);
+// one input per robot step; a finished (or broken) run starts over on a fresh copy of the level
+function attractInput(w) {
+  const A = ATTRACT; if (!A.acts || CFG.demo === false) return ED_ACTS[0];
+  if (A.w !== w) { A.w = w; A.i = 0; A.n = 0; A.endT = 0; }
+  if (w.state !== 'play' || A.i >= A.acts.length) { A.endT += STEP; if (A.endT > 2.2) { app.world = new World(0, { silent: true }); A.w = app.world; A.i = 0; A.n = 0; A.endT = 0; } return ED_ACTS[0]; }
+  const a = A.acts.charCodeAt(A.i) - 48; if (++A.n >= 8) { A.n = 0; A.i++; }
+  return ED_ACTS[a] || ED_ACTS[0];
+}
 /* ============================ PHOTO MODE ============================ */
 // From the pause menu: the game freezes, the HUD hides, you can slide the camera (2D views), pick a filter and
 // take a picture. Pictures go to an in-game album (IndexedDB); from there they can be saved to the phone or shared.

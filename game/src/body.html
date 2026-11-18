@@ -70,8 +70,10 @@
   <div class="panel">
     <h2>انتخاب مرحله</h2>
     <div class="diffbox"><div class="diffs" data-diffs></div></div>
-    <div class="boostBar" id="boostBar"></div>
+    <div class="tabs lvViews"><button class="tab" data-lvview="map">🗺️ نقشه</button><button class="tab" data-lvview="grid">🔢 جدول</button></div>
+    <div id="lvMapBox"><canvas id="mapCv"></canvas><div class="mapBar"><div id="mapInfo"></div><button class="btn primary" id="mapPlay">▶ بازی</button></div></div>
     <div class="grid" id="lvGrid"></div>
+    <div class="boostBar" id="boostBar"></div>
     <div id="realmBox" hidden><div class="lbl realmLbl">🌀 ابعاد پنهان</div><div class="grid realm" id="rmGrid"></div></div>
     <div class="btns"><button class="btn" data-back>بازگشت</button></div>
   </div>

@@ -25,6 +25,12 @@ const SKINS = {
     { id: 'dragon', n: 'اژدها', i: '🐲', p: 200, c: '#6ff3a4' },
     { id: 'phoenix', n: 'ققنوس', i: '🔥', p: 0, lvl: 10, c: '#ff8a3a' }, { id: 'ufo', n: 'بشقاب‌پرنده', i: '🛸', p: 0, lvl: 20, c: '#9ef9ff' },
   ],
+  // on the face (2D views)
+  face: [
+    { id: 'none', n: 'هیچی', i: '🙂', p: 0 }, { id: 'glasses', n: 'عینک', i: '👓', p: 50 }, { id: 'shades', n: 'عینک آفتابی', i: '🕶️', p: 90 },
+    { id: 'monocle', n: 'تک‌عینکی', i: '🧐', p: 100 }, { id: 'stache', n: 'سبیل', i: '🥸', p: 70 }, { id: 'mask', n: 'نقاب قهرمان', i: '🦹', p: 120 },
+    { id: 'stars', n: 'چشم ستاره‌ای', i: '🤩', p: 150 }, { id: 'visor', n: 'عینک لیزری', i: '🥽', p: 0, lvl: 14 },
+  ],
   // what happens when you die
   boom: [
     { id: 'classic', n: 'کلاسیک', i: '💥', p: 0 }, { id: 'confetti', n: 'کاغذ رنگی', i: '🎉', p: 60 }, { id: 'hearts', n: 'قلب‌ها', i: '💕', p: 70 },
@@ -105,6 +111,22 @@ function heroCols(t) {
   if (!c.c) return [PAL.bodyTop, PAL.bodyBot];
   const base = c.anim === 'aurora' ? hslHex(150 + Math.sin(t * 1.3) * 70, .8, .7) : c.anim ? hslHex((t * 60) % 360, .75, .72) : c.c;
   return [mixHex(base, '#ffffff', .45), mixHex(base, '#000000', .12)];
+}
+// face accessory drawn over the 2D hero's eyes (ex = eye offset for the facing; px/py = pupil offset)
+function drawFace(t, f, ex, px, py, blink) {
+  const id = skinOf('face').id; if (id === 'none' || HERO_OVR) return;
+  const g = ctx; g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  if (id === 'glasses') { g.strokeStyle = '#2a2547'; g.lineWidth = 1.8; g.beginPath(); g.arc(-5 + ex, -25, 5.6, 0, 7); g.moveTo(10.6 + ex, -25); g.arc(5 + ex, -25, 5.6, 0, 7); g.stroke(); g.beginPath(); g.moveTo(-.6 + ex, -25.5); g.lineTo(.6 + ex, -25.5); g.stroke(); g.fillStyle = 'rgba(200,240,255,.18)'; g.beginPath(); g.arc(-5 + ex, -25, 5, 0, 7); g.arc(5 + ex, -25, 5, 0, 7); g.fill(); }
+  else if (id === 'shades') { g.fillStyle = '#141020'; for (const s of [-1, 1]) { g.beginPath(); g.roundRect ? g.roundRect(s * 5 + ex - 5.2, -29, 10.4, 7.5, 3) : g.rect(s * 5 + ex - 5.2, -29, 10.4, 7.5); g.fill(); } g.fillRect(-1 + ex, -27.5, 2, 1.5); g.strokeStyle = '#141020'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(-10 + ex, -27); g.lineTo(-14 + ex * 0, -26); g.stroke(); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(-8 + ex, -28, 3, 1.4); g.fillRect(2 + ex, -28, 3, 1.4); }
+  else if (id === 'monocle') { const mx = 5 * f + ex; g.strokeStyle = '#ffc94a'; g.lineWidth = 1.8; g.beginPath(); g.arc(mx, -25, 5.8, 0, 7); g.stroke(); g.lineWidth = 1; g.beginPath(); g.moveTo(mx + f * 4, -20.5); g.quadraticCurveTo(mx + f * 7, -14, mx + f * 3, -9); g.stroke(); }
+  else if (id === 'stache') { g.fillStyle = '#3a2418'; g.beginPath(); const mx = ex + f * .8; g.moveTo(mx, -21.5); g.bezierCurveTo(mx - 3, -23.5, mx - 8, -22, mx - 9, -19); g.bezierCurveTo(mx - 6, -20, mx - 3, -20, mx, -20.6); g.bezierCurveTo(mx + 3, -20, mx + 6, -20, mx + 9, -19); g.bezierCurveTo(mx + 8, -22, mx + 3, -23.5, mx, -21.5); g.fill(); }
+  else if (id === 'mask') {
+    g.fillStyle = '#c0283c'; g.beginPath(); g.moveTo(-12 + ex, -30); g.lineTo(12 + ex, -30); g.lineTo(12 + ex, -20); g.lineTo(-12 + ex, -20); g.closePath(); g.moveTo(-5 + ex + 3.6, -25); g.ellipse(-5 + ex, -25, 3.6, 3.6 * blink, 0, 0, 7, true); g.moveTo(5 + ex + 3.6, -25); g.ellipse(5 + ex, -25, 3.6, 3.6 * blink, 0, 0, 7, true); g.fill('evenodd');
+    g.strokeStyle = '#c0283c'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(-12 + ex, -26); g.quadraticCurveTo(-18 - f * 2, -24 + Math.sin(t * 9) * 2, -21 - f * 3, -21 + Math.sin(t * 9) * 3); g.stroke(); }
+  else if (id === 'stars' && blink > .5) { g.fillStyle = '#ffd36e'; for (const s of [-5, 5]) { const cx = s + px, cy = -25 + py, r = 3.4 + Math.sin(t * 6) * .4; g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * .45 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.closePath(); g.fill(); } }
+  else if (id === 'visor') { const gr = g.createLinearGradient(-12 + ex, 0, 12 + ex, 0); gr.addColorStop(0, '#ff3d71'); gr.addColorStop(.5, '#ffd36e'); gr.addColorStop(1, '#7af7ff'); g.fillStyle = gr; g.globalAlpha = .85; g.beginPath(); g.roundRect ? g.roundRect(-12.5 + ex, -29, 25, 7.5, 3.5) : g.rect(-12.5 + ex, -29, 25, 7.5); g.fill(); g.globalAlpha = 1;
+    if (glowK() > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = .4 + Math.sin(t * 8) * .2; g.drawImage(TEX.gRose, -20 + ex, -36, 40, 22); } g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(-10 + ex, -28, 20, 1.2); }
+  g.restore();
 }
 // hat drawn on top of the 2D hero (origin at the feet, f = facing, body top at y = -34)
 function drawHat(t, f) {

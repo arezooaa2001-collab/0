@@ -35,6 +35,7 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/22_boss.js` | boss arenas (golem, spider, dragon, trap king) that close levels 13, 23, 33 and 39: attacks, red buttons that drop weights, drawing; the boss rush (all four arenas in a row, each in its own scenery) |
 | `src/20_world.js` | 2D platformer simulation (traps, physics, save/load snapshots that also keep the window of simulated entities, so a search replays exactly), near misses: trampolines, wind/updraft zones, low gravity, teleporters, blinking blocks, orbit/pendulum platforms, one-way planks, dash pads, lava/acid, fake spikes, gems, power-up effects, death slow-motion; long levels built section by section (`secBuilder`), camera, checkpoints, update window around the player |
 | `src/40_render2d.js` | 2D canvas renderer: classic view and the 2.5D extruded view, scrolling camera, static blocks cached in 640 px tiles, per-biome block textures and parallax scenery (mountains, cities, forests, dunes, crystals, islands, ruins, …), caves, high-tier sky effects (mist, moon rays, meteors) |
+| `src/41_fx.js` | atmosphere for the 2D views: ambient particles that match the level's look (embers, snow, fireflies, petals, leaves, bubbles, spores, sand, sparks, crystal glints), light shafts, a shadow under the hero, and the hero's moods (eyes follow the nearest trap; scared, happy, wobbling at a ledge, asleep) |
 | `src/42_weather.js` | weather (rain, snow, flood, storm, automatic) for the 2D views and both three.js views, rain/wind sounds |
 | `src/45_views.js` | chase levels drawn in 2D (side view) and pseudo-3D (road) |
 | `src/50_run3d.js` | chase-level simulation (dense obstacle courses up to 9 km, windowed collision checks) and its three.js view (static scenery split into 400 m chunks that are culled by distance) |
@@ -45,10 +46,11 @@ The build script creates a signing key `android/telezar.keystore` on first use (
 | `src/63_grade.js` | level grades (S–D from deaths, time, gems and style, stamped before the next level), start boosters bought with gems, emote bubbles, titles from achievements |
 | `src/64_missions.js` | daily missions, the daily chest with a 7-day streak, player level (XP) |
 | `src/66_traps.js` | trap encyclopedia: a card for every kind of trap you have died to, death counts per trap and per level |
-| `src/67_extras.js` | challenge modifiers (darkness, upside-down screen, mirrored world, turbo) with bonus rewards, and the daily lucky wheel |
+| `src/67_extras.js` | challenge modifiers (darkness, upside-down screen, mirrored world, turbo, hourglass time limit per room) with bonus rewards, the hot streak (rooms without dying multiply gems), and the daily lucky wheel |
 | `src/68_duo.js` | two players on one device: split-screen race (each half has its own copy of the level, camera and static-tile cache), countdown, keyboard and touch controls per player, results and score |
 | `src/69_road.js` | reward road: gems for every player level and shop items that only unlock at a level |
 | `src/74_ai.js` | the in-game AI (only inside a claude.ai artifact view, through the page's `sample` capability): a Persian chat whose page tools change level looks (colours, scenery, block style, 3D theme, music, weather), create new traps from a small parts-and-triggers description (validated, then tried by the robot; they live in the Trap Lab and become editor tools, and level codes carry them), create editor levels and new body colours; everything it makes is kept in localStorage |
+| `src/71_map.js` | world map for picking levels (a winding road through each level's landscape with stars, grades and level marks; drag to scroll) and the title-screen demo (the robot's run of level 1, found ahead of time, replayed behind the menus) |
 | `src/72_photo.js` | photo mode from the pause menu (frozen game, camera slide, filters, caption), in-game album in IndexedDB, saving to the phone's gallery / sharing through the Android bridge |
 | `src/60_app.js`, `src/65_ui.js` | app flow, records, achievements, gem shop, endless/daily runs with lives, ghost of the best run, settings, mode, and records screens |
 

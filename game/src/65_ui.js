@@ -149,7 +149,7 @@ function renderShop(tab) {
   if (tab) shopTab = tab;
   const bal = gemBalance(), cur = skinOf(shopTab).id;
   $('shopBal').textContent = '💎 ' + faNum(bal);
-  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
+  $('shopTabs').innerHTML = [['color', '🎨 رنگ'], ['hat', '🎩 کلاه'], ['trail', '✨ رد پا'], ['pet', '🐾 همراه'], ['face', '😎 صورت'], ['boom', '💥 افکت مرگ']].map(([k, n]) => `<button class="tab${k === shopTab ? ' on' : ''}" data-stab="${k}">${n}</button>`).join('');
   $('shopGrid').innerHTML = SKINS[shopTab].map(it => {
     const lk = lockedLv(it), own = !lk && (it.p === 0 || ST.owned[shopTab + ':' + it.id]), on = cur === it.id;
     return `<button class="shopit${on ? ' on' : ''}${lk || (!own && bal < it.p) ? ' poor' : ''}${it.lvl ? ' road' : ''}" data-item="${it.id}"><i>${it.i}</i><b>${it.n}</b><small>${on ? '✔ پوشیده' : lk ? `🔒 سطح ${faNum(it.lvl)}` : own ? 'پوشیدن' : '💎 ' + faNum(it.p)}</small></button>`;

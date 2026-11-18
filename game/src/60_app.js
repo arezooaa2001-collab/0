@@ -107,7 +107,9 @@ const ACH = [
   ['share', '📤', 'تله‌گذار', 'کد یکی از مرحله‌هات رو برای دوستات بفرست'],
   ['import', '📥', 'مهمون', 'مرحله‌ی یه نفر دیگه رو بازی کن'],
   ['friend', '🤝', 'رفیق نیمه‌راه نیست', 'مرحله‌ی ساخت یه نفر دیگه رو ببر'],
-  ['cards', '📖', 'دانشنامه‌ی کامل', 'با همه‌ی ۱۶ نوع تله بمیر (همه‌ی کارت‌ها)'],
+  ['cards', '📖', 'دانشنامه‌ی کامل', 'همه‌ی کارت‌های دانشنامه‌ی تله‌ها رو باز کن'],
+  ['hot', '☄️', 'آتیشی', 'شش اتاق پشت سر هم بدون مرگ رد شو'],
+  ['clock', '⏳', 'مسابقه با ساعت', 'یه مرحله رو با چالش «ساعت شنی» ببر'],
   ['rush', '🏟️', 'قهرمان میدان', 'توی «نبرد غول‌ها» هر چهار غول رو پشت سر هم شکست بده'],
   ['rushInsane', '💀', 'غول‌کش دیوانه', 'نبرد غول‌ها رو روی سختی دیوانه‌وار ببر'],
   ['duo', '👥', 'رفیق بازی', 'یه دور مسابقه‌ی دو نفره رو ببر'],
@@ -169,7 +171,7 @@ hud3.last = -1;
 let hudLast = '';
 function hudTick() {
   let s = '';
-  const tm = CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
+  const lim = hourLimit(), tm = lim ? `⏳ ${faNum(Math.max(0, Math.ceil(lim - app.roomT)))}` : CFG.timer && app.state === 'play' ? '⏱ ' + fmtT(app.levelT) : '';
   const gm = app.kind === 'run' && app.run ? '💎 ' + faNum(app.run.gems) : app.endless && app.world ? `💎 ${faNum(app.world.got.size)}` : app.kind === 'plat' && app.world && app.world.gemTotal && app.state !== 'title' ? `💎 ${faNum(app.world.got.size)}/${faNum(app.world.gemTotal)}` : '';
   let pw = '';
   if (app.kind === 'plat' && app.world && app.world.lw > W && app.state !== 'title') {
@@ -178,6 +180,7 @@ function hudTick() {
   }
   if (app.endless && app.world && app.state === 'play') { const m = Math.max(0, Math.floor(app.world.p.x / T)); if (m > app.endless.dist) { app.endless.dist = m; app.updTag(); if (m === app.endless.best + 1 && app.endless.best > 0) app.taunt('🏆 رکورد شکسته شد!', '#ffd36e'); } }
   if (app.kind === 'plat' && app.world && app.state !== 'title') { const p = app.world.p; if (p.shield) pw += '🛡️'; for (const k of ['star', 'slow', 'magnet', 'jump']) { const v = p[POWS[k].t]; if (v > 0) pw += ' ' + POWS[k].i + faNum(Math.ceil(v)); } }
+  if ((app.streak || 0) >= 3 && app.state !== 'title' && !app.custom && !app.duo) pw += (app.streak >= 6 ? ' ☄️×۳' : ' 🔥×۲');
   if (app.kind === 'plat' && app.rivals2 && app.world && app.state !== 'title') pw += ` 🏁 نفر ${faNum(app.rivals2.rank(app.world.p.x))} از ${faNum(app.rivals2.list.length + 1)}`;
   if (app.kind === 'run' && app.run && app.run.rivals) pw += ` 🏁 نفر ${faNum(app.run.rank())} از ${faNum(app.run.rivals.length + 1)}`;
   if (app.kind === 'run' && app.run) { const p = app.run.p; if (p.shield) pw += '🛡️'; if (p.boostT > 0) pw += '⚡' + faNum(Math.ceil(p.boostT)); if (app.run.freezeT > 0) pw += ' ❄️' + faNum(Math.ceil(app.run.freezeT)); }
@@ -365,7 +368,7 @@ const app = {
     this.view = v;
     if (this.kind === 'plat') { setBiome(biomeOf(def)); refreshCaves(); if (def.rest) Sound.setMusic('rest'); }
     cv.style.display = isGL(v) ? 'none' : 'block'; $('c3').style.display = isGL(v) ? 'block' : 'none';
-    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; } mutApply(true);
+    this.state = 'play'; this.show(null); if (!opt.keep) { this.levelT = 0; this.levelDeaths = 0; this.levelNear = 0; this.raceFirst = false; this.streak = 0; } this.roomT = 0; mutApply(true);
     $('bEmote').hidden = this.kind === 'run' || def.kind === '3d' || (CFG.mode === '3d' && !def.noRun && !def.endless); $('emoteBar').classList.remove('on');
     $('hud').classList.add('on'); tLayer.classList.toggle('on', isTouch); $('revBadge').classList.remove('on'); $('danger').style.boxShadow = 'none';
     tLayer.classList.toggle('vert', v === 'r2');
@@ -382,7 +385,7 @@ const app = {
         R.onDone = r => this.taunt(`${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col);
         R.onTrip = r => { const now = performance.now(); if (now - (this.rivT || 0) > 2500 && Math.abs(r.w.p.x - w.p.x) < W) { this.rivT = now; this.taunt(`${r.name} خورد زمین! 😵`, r.col); } }; }
       w.onCheckpoint = i => this.onCheckpoint(i);
-      w.onGem = (e, bonus = 0) => { if (def.custom) return; ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
+      w.onGem = (e, bonus = 0) => { if (def.custom) return; bonus += hotBonus(); ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
       w.onNear = () => { this.levelNear = (this.levelNear || 0) + 1; ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
@@ -399,7 +402,7 @@ const app = {
       run.onPick = k => this.onPick(k); run.onJump = () => Missions.ev('jump');
       run.onRival = (r, what) => { const now = performance.now(); if (now - (this.rivT || 0) < 1800 && what !== 'done') return; this.rivT = now;
         this.taunt(what === 'caught' ? `${r.name} گیر غول افتاد! 😱` : what === 'fall' ? `${r.name} افتاد پایین! 🕳️` : `${r.name} رسید! نفر ${faNum(r.place)} 🏁`, r.col); };
-      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); XP.add(4); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
+      run.onRoom = (rm, ck) => { this.updTag(); Missions.ev('room'); XP.add(4); hotRoom(); const sp = this.split(rm - 1); if (ck && this.realmIdx < 0 && !this.endless && this.idx >= 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = rm - 1; writeSave(); } this.taunt((rm === run.rooms ? `🚪 اتاق آخر! ${faNum(rm)} از ${faNum(run.rooms)}` : `🚪 اتاق ${faNum(rm)} از ${faNum(run.rooms)}${ck ? ' ✓' : ''}`) + (sp ? sp.txt : ''), sp ? sp.col : '#9ef9dc'); };
       $('r3hud').classList.add('on'); $('mirror').classList.toggle('hide', v !== 'x3' || !GFX.mir || mutScr()); hud3.last = -1;
     }
     resize3(); updCamBtn();
@@ -432,7 +435,7 @@ const app = {
   },
   onDeath(c, src) {
     if (this.demo) { this.demo = null; setTimeout(() => this.taunt('🤖 ای وای، ربات اشتباه کرد! حالا خودت ادامه بده', '#9ef9ff'), 400); }
-    Missions.ev('death'); trapSeen(c, src);
+    Missions.ev('death'); trapSeen(c, src); hotLost(); this.roomT = 0;
     if (this.endless && this.kind === 'plat') {
       const E = this.endless; if (E.lives <= 0) return; E.lives--; this.updTag();
       if (E.lives <= 0) { this.world.deadT = 1e9; const fin = () => { if (this.endless !== E) return; if (this.state === 'play') { if (!E.revived && gemBalance() >= REVIVE_GEMS) this.offerRevive(E); else this.endlessOver(); } else setTimeout(fin, 300); }; setTimeout(fin, 1100); }
@@ -445,7 +448,7 @@ const app = {
     if (ST.deaths % 5 === 0) writeSave();
   },
   onPick(k) {
-    if (k === 'gem') { ST.gems++; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); return; }
+    if (k === 'gem') { ST.gems += 1 + hotBonus(); if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem'); return; }
     if (k === 'shield' || k === 'boost' || k === 'freeze' || k.startsWith('pow:')) Missions.ev('pow');
     if (k === 'shieldUsed') { unlockAch('shield'); this.taunt('سپر نجاتت داد! 🛡️', '#8fd3ff'); return; }
     if (k.startsWith('pow:')) { const P = POWS[k.slice(4)]; ST.pows = (ST.pows || 0) + 1; if (ST.pows >= 25) unlockAch('pow25'); this.taunt(`${P.i} ${P.n}! ${P.d}`, P.col); if (CFG.vib && navigator.vibrate) navigator.vibrate(25); return; }
@@ -466,7 +469,7 @@ const app = {
       return;
     }
     if (this.custom) { this.updTag(); const n = this.world.secs.length - 1; this.taunt(i === n ? '🚪 اتاق آخر!' : `🚩 اتاق ${faNum(i + 1)} از ${faNum(n + 1)}`, '#9ef9dc'); return; }
-    Missions.ev('room'); XP.add(4);
+    Missions.ev('room'); XP.add(4); hotRoom(); this.roomT = 0;
     if (this.endless) { this.endlessCheck(i); this.updTag(); this.taunt(`🚩 چک‌پوینت ${faNum(i)}`, '#9ef9dc'); return; }
     const w = this.world, n = w.secs.length - 1;
     if (this.realmIdx < 0) { const pr = progOf(this.diff); (pr.ck || (pr.ck = {}))[this.idx] = i; writeSave(); }
@@ -521,6 +524,7 @@ const app = {
     const starLine = `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}  ${fmtT(t)} ثانیه`;
     if (this.realmIdx >= 0) this.taunt(starLine, '#ffd36e');
     const race = this.kind === 'run' ? this.run && this.run.rivals && { fin: this.run.finishCount, n: this.run.rivals.length } : this.rivals2 && { fin: this.rivals2.fin, n: this.rivals2.list.length };
+    if (mutOn('clock') && this.kind === 'plat') unlockAch('clock');
     const nm = mutCount(); if (nm) { Missions.ev('mut'); ST.gems += nm * 5; setTimeout(() => this.taunt(`🎭 جایزه‌ی چالش: +${faNum(nm * 5)} 💎`, '#ff8a4c'), 2300); }
     Missions.ev('win'); XP.add((40 + (d === 0 ? 20 : 0) + this.diff * 10) * (1 + nm * .5)); if (d === 0) Missions.ev('clean'); if (this.kind === 'run') Missions.ev('win3d');
     if (race) { const pl = race.fin + 1; if (pl === 1) { this.raceFirst = true; unlockAch('champ'); Missions.ev('race1'); } setTimeout(() => this.taunt(pl === 1 ? '🏆 نفر اول شدی! از همه جلو زدی' : `🏁 نفر ${faNum(pl)} از ${faNum(race.n + 1)} شدی`, pl === 1 ? '#ffd36e' : '#9ef9ff'), 1100); }
@@ -630,7 +634,7 @@ function goFull() {
   try { const r = (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); if (r && r.then) r.then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
 }
 $('bPlay').onclick = () => { Sound.init(); Sound.play('click'); if (isTouch && !document.fullscreenElement) goFull(); app.runStart = performance.now(); app.deaths = 0; app.startLevel(app.completed >= LEVELS.length ? 0 : app.unlocked - 1); };
-$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); renderBoost(); app.open('sLevels'); };
+$('bLevels').onclick = () => { Sound.init(); Sound.play('click'); app.buildGrid(); renderBoost(); app.open('sLevels'); MAP.on = false; mapShow(); };
 $('bRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(true); };
 $('bNoRevive').onclick = () => { Sound.play('click'); app.reviveAnswer(false); };
 $('bMode').onclick = $('bMode2').onclick = () => { Sound.init(); Sound.play('click'); renderModes(); app.open('sMode'); };

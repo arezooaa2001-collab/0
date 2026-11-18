@@ -6,7 +6,37 @@ const MUTS = [
   ['flip', '🙃', 'دنیای وارونه', 'کل صفحه سر و ته می‌شه؛ کنترل‌ها همون‌طور می‌مونن 😵'],
   ['mirror', '🪞', 'آینه', 'دنیا برعکس می‌شه: مرحله‌ها از راست به چپ (دکمه‌ها هم برعکس)'],
   ['fast', '⚡', 'توربو', 'همه‌چیز ۲۵٪ تندتر'],
+  ['clock', '⏳', 'ساعت شنی', 'هر اتاق یه زمان محدود داره؛ تموم بشه، می‌میری! (مرحله‌های دوبعدی)'],
 ];
+/* ---------- hot streak: rooms passed one after another without dying ---------- */
+// 3 rooms: gems count double; 6 rooms: triple, and the hero is on fire. A death puts it out.
+const hotBonus = () => app.custom || app.duo ? 0 : (app.streak || 0) >= 6 ? 2 : (app.streak || 0) >= 3 ? 1 : 0;
+function hotRoom() {
+  if (app.custom || app.duo) return;
+  app.streak = (app.streak || 0) + 1;
+  if (app.streak === 3) setTimeout(() => app.taunt('🔥 داغ شدی! جواهرها دو برابر', '#ff9a3a'), 900);
+  if (app.streak === 6) { setTimeout(() => app.taunt('☄️ آتیشی شدی! جواهرها سه برابر', '#ffd36e'), 900); unlockAch('hot'); Sound.play('win'); }
+}
+function hotLost() { if ((app.streak || 0) >= 3) setTimeout(() => app.taunt('💨 آتیشت خاموش شد…', '#b9b0d9'), 700); app.streak = 0; }
+// flames around the hero while the streak lasts
+function drawHotAura(world, t) {
+  const k = app.streak >= 6 ? 1 : .55, p = world.p, cx = p.x + PW / 2, cy = p.y + PHT / 2;
+  if (world.state !== 'play') return;
+  if (glowK() > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45 * k + Math.sin(t * 13) * .08; ctx.drawImage(TEX.gGold, cx - 46, cy - 52, 92, 92); ctx.restore(); }
+  if (Math.random() < .5 * k * GFX.fx) world.parts.push({ x: cx + (Math.random() - .5) * 20, y: cy + 8, vx: (Math.random() - .5) * 30 - p.vx * .1, vy: -60 - Math.random() * 70, life: .45, max: .45, size: 2.5 + Math.random() * 2.5, col: Math.random() < .5 ? '#ff7a2a' : '#ffd36e', g: -40, drag: 1.5, add: true });
+}
+/* ---------- hourglass: a time limit for every room of a 2D level ---------- */
+function hourLimit() {
+  if (!mutOn('clock') || app.state !== 'play' && app.state !== 'pause' || app.kind !== 'plat' || app.duo || !app.world || !app.world.secs) return 0;
+  const sec = app.world.secs[app.world.ck]; return sec ? clamp(Math.round(sec.w * .85), 20, 90) : 0;
+}
+function hourTick(dt) {
+  const lim = hourLimit(); if (!lim) return; const w = app.world;
+  if (w.state !== 'play') return;
+  const before = lim - app.roomT; app.roomT += dt;
+  if (before > 5 && lim - app.roomT <= 5) { Sound.play('click'); app.taunt('⏳ ۵ ثانیه مونده!', '#ff9a8a'); }
+  if (app.roomT >= lim) { app.roomT = 0; w.die('time'); }
+}
 const mutOn = k => !!(ST.mut && ST.mut[k]);
 // the rear-view mirror of the 3D runs is drawn into the canvas under an HTML frame: left out while the screen is flipped
 const mutScr = () => document.body.classList.contains('mFlip') || document.body.classList.contains('mMirror');

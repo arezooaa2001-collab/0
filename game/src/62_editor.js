@@ -404,7 +404,8 @@ function edBotStop() { if (edBotJob) { edBotJob.stop = true; edBotJob = null; } 
 // page stays responsive. Used by the editor and the trap lab. Returns {job, promise}; job.stop = true cancels.
 function solveDef(def, diff, opt = {}) {
   const w = new World(def, { silent: true, diff }), nSec = def.secs.length;
-  const dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); });
+  // editor levels mark everything that can change (e.dyn), so their snapshots can leave the rest out; other levels keep everything
+  let dynIdx = null; if (def.custom) { dynIdx = []; w.lv.ents.forEach((e, i) => { if (e.dyn || !(e.type === 'block' || e.type === 'spike')) dynIdx.push(i); }); }
   const STEPS = 8, dtS = w.D.speed / 120;
   const job = { stop: false, acts: [], sec: 0, t0: performance.now(), secT0: performance.now(), iters: 0, marks: [] };
   let rs = 12345; const Rn = () => { rs = (rs * 1664525 + 1013904223) % 4294967296; return rs / 4294967296; };

@@ -579,7 +579,17 @@ function drawGate(e, t, world, col, glowTex, scale) {
   ctx.restore();
   if (world && !world.silent && Math.random() < .25 * GFX.fx * Perf.fxK) world.parts.push({ x: cx + rand(-18, 18), y: cy + rand(-20, 30), vx: rand(-10, 10), vy: rand(-50, -20) * (e.flip ? -1 : 1), life: 1, max: 1, size: rand(1.2, 2.4), col: mixHex(col, '#ffffff', .5), g: 0, drag: 0, add: true });
 }
-function drawDoor(e, t, world) { if (e.fake && hints) { ctx.save(); ctx.globalAlpha = .55; drawGate(e, t, null, '#ff5d8a', TEX.gRose, 1); ctx.restore(); return; } drawGate(e, t, world, PAL.door, TEX.gDoor, 1); }
+function drawDoor(e, t, world) {
+  if (e.fake && hints) { ctx.save(); ctx.globalAlpha = .55; drawGate(e, t, null, '#ff5d8a', TEX.gRose, 1); ctx.restore(); return; }
+  drawGate(e, t, world, PAL.door, TEX.gDoor, 1);
+  // sparks circling the way out
+  if (glowK() > 0 && !e.fake) {
+    const cx = e.x + e.w / 2, cy = e.y + e.h * .45; ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) { const a = t * (1.2 + i * .13) + i * 2.4, r = 30 + Math.sin(t * 2 + i) * 8, x = cx + Math.cos(a) * r * .8, y = cy + Math.sin(a) * r * 1.1, k = .5 + Math.sin(t * 5 + i) * .5;
+      ctx.globalAlpha = .35 + k * .5; ctx.drawImage(TEX.gGold, x - 7, y - 7, 14, 14); ctx.fillStyle = '#fff6d8'; ctx.fillRect(x - 1, y - 1, 2, 2); }
+    ctx.restore();
+  }
+}
 function drawPortal(e, t, world) {
   if (e.open <= 0) {
     if (hints) { ctx.save(); ctx.globalAlpha = .25 + Math.sin(t * 4) * .1; ctx.strokeStyle = '#c59bff'; ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.w, e.h); ctx.restore(); }
@@ -684,6 +694,8 @@ function drawPlayer(world, t) {
 }
 /* the character itself, drawn at the origin (feet at 0,0). Also used by the 2D chase views. */
 function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
+  const fx = HERO_FX, mood = fx && fx.mood;
+  if (mood === 'teeter') ctx.rotate(Math.sin(t * 12) * .14 * f);
   const air = !onGround, run = onGround && Math.abs(vx) > 40;
   const speed = clamp(Math.abs(vx) / PH.run, 0, 1), vyN = clamp(vyUp / 800, -1, 1);
   ctx.strokeStyle = PAL.scarf; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -712,11 +724,27 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
   ctx.fillStyle = PAL.scarf; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14.5, -17, 29, 6, 3) : ctx.rect(-14.5, -17, 29, 6); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-12, -16, 24, 1.5);
   ctx.fillStyle = 'rgba(255,110,120,.45)'; ctx.beginPath(); ctx.ellipse(-8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.ellipse(8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.fill();
-  const blink = blinkT < 0 ? .15 : 1, ex = f * 3.5, look = clamp(vyUp / 900, -1, 1) * 1.6;
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-5 + ex, -25, 4.3, 5.2 * blink, 0, 0, 7); ctx.ellipse(5 + ex, -25, 4.3, 5.2 * blink, 0, 0, 7); ctx.fill();
-  if (blink > .5) {
-    ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.ellipse(-5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.ellipse(5 + ex + f * 1.4, -25 + look, 2.4, 3.1, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.arc(6 + ex + f * 1.4, -26.5 + look, .9, 0, 7); ctx.fill();
+  const sleep = mood === 'sleep', scared = mood === 'scared' || mood === 'teeter';
+  const blink = sleep ? 0 : blinkT < 0 ? .15 : 1, ex = f * 3.5, look = clamp(vyUp / 900, -1, 1) * 1.6 + (fx ? fx.ly * 1.5 : 0), lk = fx && (fx.lx || fx.ly) ? fx.lx * 1.6 - f * 1.4 : 0;
+  const ew = scared ? 4.9 : 4.3, eh = scared ? 6 : 5.2;
+  if (sleep) { ctx.strokeStyle = '#231536'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-8.5 + ex, -24.5); ctx.quadraticCurveTo(-5 + ex, -22.5, -1.5 + ex, -24.5); ctx.moveTo(1.5 + ex, -24.5); ctx.quadraticCurveTo(5 + ex, -22.5, 8.5 + ex, -24.5); ctx.stroke(); }
+  else {
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-5 + ex, -25, ew, eh * blink, 0, 0, 7); ctx.ellipse(5 + ex, -25, ew, eh * blink, 0, 0, 7); ctx.fill();
+    if (blink > .5) {
+      const px = ex + f * 1.4 + lk, pw = scared ? 1.9 : 2.4, phh = scared ? 2.5 : 3.1;
+      ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.ellipse(-5 + px, -25 + look, pw, phh, 0, 0, 7); ctx.ellipse(5 + px, -25 + look, pw, phh, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-4 + px, -26.5 + look, .9, 0, 7); ctx.arc(6 + px, -26.5 + look, .9, 0, 7); ctx.fill();
+    }
+  }
+  drawFace(t, f, ex, ex + f * 1.4 + lk, look, blink);
+  // mouth and brows show the mood
+  if (fx) {
+    ctx.strokeStyle = '#231536'; ctx.fillStyle = '#231536'; ctx.lineWidth = 1.4; const mx = ex + f * .8;
+    if (mood === 'happy') { ctx.beginPath(); ctx.arc(mx, -20.6, 2.8, 0, Math.PI); ctx.fill(); ctx.fillStyle = '#ff7a8a'; ctx.beginPath(); ctx.arc(mx, -19.3, 1.3, 0, Math.PI); ctx.fill(); }
+    else if (scared) { ctx.beginPath(); ctx.ellipse(mx, -19.6, 1.5, 1.9 + Math.sin(t * 20) * .2, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-8.5 + ex, -31.5); ctx.lineTo(-2.5 + ex, -33); ctx.moveTo(8.5 + ex, -31.5); ctx.lineTo(2.5 + ex, -33); ctx.stroke(); }
+    else if (sleep) { ctx.beginPath(); ctx.ellipse(mx, -19.8, 1.2, 1.4 + Math.sin(t * 2) * .4, 0, 0, 7); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(mx, -21, 2.1, .2 * Math.PI, .8 * Math.PI); ctx.stroke(); }
   }
   if (hat) { drawHat(t, f); if (djReady) { ctx.fillStyle = '#9ef9ff'; ctx.beginPath(); ctx.arc(0, -40, 3, 0, 7); ctx.fill(); } }
 }
@@ -741,6 +769,7 @@ function drawParticles(world) {
 
 function drawMotes(t, dt) {
   const n = Math.min(motes.length, Math.round(GFX.motes * Perf.fxK)); if (!n) return;
+  if (ambKind() !== 'motes') return drawAmbient(t, dt, Math.min(120, Math.round(n * 1.4)));
   // screen-space dust that drifts slower than the camera (parallax)
   ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY); ctx.globalCompositeOperation = 'lighter';
   const span = W + EXT.l + EXT.r + 40, off = CAMX * .35;
@@ -814,6 +843,10 @@ function drawGem(e, t) {
   ctx.fillStyle = '#7af7ff'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .8, 0); ctx.lineTo(0, s); ctx.lineTo(-s * .8, 0); ctx.closePath(); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * .35, -1); ctx.lineTo(0, 2); ctx.lineTo(-s * .35, -1); ctx.closePath(); ctx.fill();
   ctx.restore();
+  // a quick twinkle now and then
+  const gl = (t * .55 + e.ph * .37) % 1;
+  if (gl < .14) { const k = Math.sin(gl / .14 * Math.PI), r = 9 * k, gx = e.x + 5, gy = y - 7; ctx.save(); ctx.globalAlpha = k; ctx.fillStyle = '#ffffff'; ctx.beginPath();
+    ctx.moveTo(gx, gy - r); ctx.lineTo(gx + r * .18, gy - r * .18); ctx.lineTo(gx + r, gy); ctx.lineTo(gx + r * .18, gy + r * .18); ctx.lineTo(gx, gy + r); ctx.lineTo(gx - r * .18, gy + r * .18); ctx.lineTo(gx - r, gy); ctx.lineTo(gx - r * .18, gy - r * .18); ctx.closePath(); ctx.fill(); ctx.restore(); }
 }
 /* power-ups: a glossy bubble with the power's icon (drawn once per kind, reused by the 3D view as a texture) */
 const POW_IMG = {}, POW_GLOW = { shield: 'gCyan', star: 'gGold', slow: 'gViolet', magnet: 'gRose', jump: 'gMint' };
@@ -898,7 +931,8 @@ function drawDynamic(world, t, dt, depth) {
   drawGhost(world, t);
   if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
-  drawPlayer(world, t);
+  if (!world.silent) { drawHeroShadow(world); HERO_FX = heroMood(world, t); if (world === app.world && (app.streak || 0) >= 3 && !app.custom && !app.duo) drawHotAura(world, t); }
+  drawPlayer(world, t); HERO_FX = null;
   if (world.emote) drawEmote(world);
   drawParticles(world);
   if (world.dark || world.shade || world.cave) drawDark(world, t);
@@ -935,6 +969,7 @@ function render(world, t, dt) {
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
   CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
   drawBack(world, sx, sy);
+  drawRays(t);
   drawCaves(world, sx, sy, t);
   drawStatics(world, sx, sy);
   worldTransform(sx, sy);
@@ -956,6 +991,7 @@ function render25(world, t, dt) {
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
   const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
   drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
+  drawRays(t);
   drawCaves(world, sx, sy, t);
   worldTransform(sx, sy);
   drawMotes(t, dt);

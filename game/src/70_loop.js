@@ -61,9 +61,11 @@ function simFrame(dt) {
     }
     if (n >= 14) acc = 0;
     app.levelT += dt * (mutOn('fast') ? 1.25 : 1); ST.time += dt;
-    if (app.kind === 'plat' && app.world) Ghost.tick(app.world, app.levelT);
+    if (app.kind === 'plat' && app.world) { Ghost.tick(app.world, app.levelT); hourTick(dt * (mutOn('fast') ? 1.25 : 1)); }
   } else if (app.state === 'title' && app.world) {
-    app.world.step(dt, { left: false, right: false, jump: false });
+    // the title demo replays the robot's run with the game's fixed steps
+    if (ATTRACT.acts && CFG.demo !== false) { acc += dt; let n = 0; while (acc >= STEP && n < 14) { const w = app.world; w.step(STEP * w.D.speed, attractInput(w)); acc -= STEP; n++; } if (n >= 14) acc = 0; }
+    else app.world.step(dt, { left: false, right: false, jump: false });
   } else acc = 0;
 }
 function demoInput(d) {

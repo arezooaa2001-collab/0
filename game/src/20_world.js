@@ -552,7 +552,7 @@ class World {
   // shield or star: hazards don't kill. Falls and crushes still do (the shield even rescues from a fall)
   saved(cause) {
     const p = this.p;
-    if (cause === 'crush') return false;
+    if (cause === 'crush' || cause === 'time') return false;
     if ((p.starT > 0 || p.inv > 0) && cause !== 'fall') return true;
     if (!p.shield || cause === 'fall' && !p.safe) return false;
     p.shield = false; p.inv = 1.5; this.shake(8); this.sfx('orb'); this.flash = .5;

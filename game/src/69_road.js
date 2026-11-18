@@ -1,7 +1,7 @@
 /* ============================ REWARD ROAD ============================ */
 // Every player level pays gems; some levels also unlock a shop item that cannot be bought (it.lvl in SKINS).
 const ROAD_MAX = 25;
-const SLOT_N = { color: 'رنگ', hat: 'کلاه', trail: 'رد پا', pet: 'همراه', boom: 'افکت مرگ' };
+const SLOT_N = { color: 'رنگ', hat: 'کلاه', trail: 'رد پا', pet: 'همراه', face: 'صورت', boom: 'افکت مرگ' };
 const roadItems = lv => { const out = []; for (const slot in SKINS) for (const it of SKINS[slot]) if (it.lvl === lv) out.push({ slot, it }); return out; };
 const lockedLv = it => !!it.lvl && XP.lvl(ST.xp) < it.lvl;
 function renderRoad() {
