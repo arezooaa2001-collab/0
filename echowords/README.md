@@ -24,6 +24,15 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
 - **Logo:** the family's hand-drawn sketch (panels C, B, A) redrawn with straight lines, a rainbow outline and equal-size letters, on a night-sky background. `scripts/make-logo.cjs` draws it and renders the launcher icons, `public/logo.png`, `docs/logo.png` and `src/brand/mark.svg`.
 - **First launch:** «تبریک! به برنامه AMIR ABC گنجینه صدای من، خوش آمدید» (Congratulations! Welcome to AMIR ABC, My Sound Treasure). It fades away after 3 seconds; «رد کردن» (Skip) appears after 1 second. It is shown only once.
 
+## «ℹ️ توضیحات» (About and guide)
+
+A button in the top bar's corner opens a full-screen page:
+1. «AMIR ABC» and «گنجینه صدای من» fade in from faint to bright (a tap skips this).
+2. A guide to the whole app follows: recording and typing, «کلمه‌ها و جمله‌هایم» and folders, pronunciation, the tutor (conversation, «متن / زبان» translation, «/ABC», «/Prompt Code»), Settings, and where the words are kept. The text is in `src/lib/guide.ts`.
+3. At the end, the logo with its name fades in, with «منتظر برنامه‌های دیگر ما باشید...» and «بازگشت به برنامه».
+
+«✖ بستن» or Esc closes it at any time.
+
 ## Google account (Google Drive copy)
 
 In the Android app, Settings → «حساب گوگل» (Google account) → «اتصال به گوگل درایو» (Connect to Google Drive) opens Android's «save to» screen. Choose **Drive**, which is the family's own Google account.

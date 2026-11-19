@@ -136,7 +136,27 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   let { ctx, page } = await open(process.env.SPEECH_WAV);
   await page.getByText('یک کلمه یا جمله تازه').waitFor();
   check('opens from a file with no login or setup', true);
-  check('version number is shown', /نسخه ۲۲/.test(await page.textContent('.topbar')));
+  check('version number is shown', /نسخه ۲۳/.test(await page.textContent('.topbar')));
+  // «ℹ️ توضیحات» in the corner: AMIR ABC fades in (faint → bright), then the guide, then the logo + «منتظر برنامه‌های دیگر ما باشید...»
+  await page.getByRole('button', { name: /توضیحات/ }).click();
+  await page.locator('.about-intro-amir').waitFor({ timeout: 3000 });
+  const op0 = Number(await page.locator('.about-intro-amir').evaluate((e) => getComputedStyle(e).opacity));
+  await page.waitForTimeout(2700);
+  const op1 = Number(await page.locator('.about-intro-amir').evaluate((e) => getComputedStyle(e).opacity));
+  check('«توضیحات»: «AMIR ABC» starts faint and becomes bright', op0 < 0.5 && op1 > 0.9, `${op0.toFixed(2)} → ${op1.toFixed(2)}`);
+  await page.locator('.about-guide').waitFor({ timeout: 5000 });
+  const guideText = await page.locator('.about-guide').innerText();
+  check('then the guide explains the whole app (record, library, tutor, settings, storage)', ['ضبط', 'کلمه‌ها و جمله‌هایم', 'معلم مهربان', 'تنظیمات', '/ABC', 'سلام دوست من / انگلیسی', 'گوگل درایو'].every((w) => guideText.includes(w)) && (await page.locator('.about-card').count()) === 5);
+  await page.locator('.about-outro').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => document.querySelector('.about-outro')?.classList.contains('seen'), null, { timeout: 5000 });
+  check('at the end: the logo with its name and «منتظر برنامه‌های دیگر ما باشید...»', (await page.locator('.about-outro .logo-mark svg').count()) === 1 && (await page.locator('.about-outro').getByText('منتظر برنامه‌های دیگر ما باشید...').isVisible()));
+  await page.getByRole('button', { name: /بازگشت به برنامه/ }).click();
+  check('«بازگشت به برنامه» closes it', (await page.locator('.about').count()) === 0);
+  await page.getByRole('button', { name: /توضیحات/ }).click();
+  await page.locator('.about-intro').click(); // a tap skips the intro
+  await page.locator('.about-guide').waitFor({ timeout: 2000 });
+  await page.keyboard.press('Escape');
+  check('a tap skips the intro; «بستن» / Esc closes', (await page.locator('.about').count()) === 0);
   await page.screenshot({ path: `${OUT}/01-record.png` });
 
   // 0. Type a word → «تایید و ذخیره» → it is in «کلمه‌ها و جمله‌هایم» (no recording needed)
@@ -697,7 +717,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   check('a server that never answers: clear message instead of endless «thinking»', fastReqs.length === 2, `${Math.round((Date.now() - t0b) / 1000)}s, ${fastReqs.length} tries`);
   await page.locator('.bubble.assistant.error').last().getByRole('button', { name: /کپی گزارش/ }).click();
   const reportText = await page.locator('.report-text').last().innerText();
-  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v22/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
+  check('«📋 کپی گزارش» gives the full step-by-step report (without the key)', /v23/.test(reportText) && /timeout/.test(reportText) && !/"k"|key: k/.test(reportText), reportText.split('\n').slice(0, 3).join(' | '));
   fastReqs.length = 0;
   fastReqs.length = 0;
   await page.locator('.tutor-input textarea').fill('«سیب» را به «انگلیسی» ترجمه کن');
@@ -1056,7 +1076,7 @@ const resultCard = (page) => page.locator('.word-card-result .word-text, .word-c
   await page.waitForFunction(() => !document.querySelector('.bubble .spinner'), null, { timeout: 15000 });
   check('app: if Android\'s networking fails, the WebView\'s own network is tried and the answer comes', (await page.locator('.bubble.assistant .answer-box').count()) === 5);
   await page.evaluate(() => { window.__nativeHttpFails = false; });
-  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۲').first().isVisible());
+  check('app: the version is shown on the tutor screen', await page.getByText('نسخه ۲۳').first().isVisible());
   check('app: the new logo is shown in the top bar', (await page.locator('.topbar .brand-logo svg').count()) === 1);
   await page.screenshot({ path: `${OUT}/16-tutor-app.png` });
 

@@ -17,6 +17,13 @@ export const t = {
   tabLibrary: 'کلمه‌ها و جمله‌هایم',
   tabSettings: 'تنظیمات',
   tabTutor: 'معلم',
+  aboutButton: 'توضیحات',
+  aboutTitle: 'راهنما و توضیحات برنامه',
+  aboutClose: 'بستن',
+  aboutSkipIntro: 'رفتن به توضیحات',
+  aboutVersion: (v: string) => `نسخه ${v}`,
+  aboutSoon: 'منتظر برنامه‌های دیگر ما باشید...',
+  aboutBack: 'بازگشت به برنامه',
 
   // Record screen
   recordTitle: 'یک کلمه یا جمله تازه 🎤',

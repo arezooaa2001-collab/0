@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AboutScreen } from './components/AboutScreen';
 import { AmirAbc, LogoMark, WelcomeSplash } from './components/Brand';
 import { LibraryScreen } from './components/LibraryScreen';
 import { RecordScreen } from './components/RecordScreen';
@@ -26,6 +27,7 @@ export default function App() {
   /** Word picked in the library to add a recording to; bumps `recordKey` to open a fresh recorder. */
   const [voiceFor, setVoiceFor] = useState<Word | null>(null);
   const [recordKey, setRecordKey] = useState(0);
+  const [about, setAbout] = useState(false);
 
   const go = (next: Tab) => {
     stopPlayback();
@@ -36,6 +38,7 @@ export default function App() {
   return (
     <div className="app">
       <WelcomeSplash />
+      {about && <AboutScreen onClose={() => setAbout(false)} />}
       <header className="topbar">
         <span className="brand">
           <LogoMark size={40} className="brand-logo" />
@@ -44,7 +47,10 @@ export default function App() {
             <span>{t.appName}</span>
           </span>
         </span>
-        <span className="version">نسخه {fa(APP_VERSION)}</span>
+        <span className="topbar-end">
+          <button className="about-btn" onClick={() => setAbout(true)} aria-haspopup="dialog">ℹ️ {t.aboutButton}</button>
+          <span className="version">نسخه {fa(APP_VERSION)}</span>
+        </span>
       </header>
       <main className="content">
         {lib.health?.mode === 'memory' && (

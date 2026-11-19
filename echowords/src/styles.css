@@ -417,3 +417,63 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .game-wrap.full .game-frame { height: 100%; min-height: 0; border-radius: 8px; }
 .games-list { display: grid; gap: 10px; }
 .game-card { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+/* «ℹ️ توضیحات»: intro → guide → closing logo */
+.topbar-end { display: inline-flex; align-items: center; gap: 8px; }
+.about-btn {
+  border: 2px solid rgba(255,255,255,.55); background: rgba(255,255,255,.14); color: #fff;
+  font: inherit; font-weight: 800; font-size: 14px; border-radius: 999px; padding: 6px 12px; min-height: 40px; cursor: pointer;
+}
+.about-btn:hover, .about-btn:focus-visible { background: rgba(255,255,255,.28); }
+.about {
+  position: fixed; inset: 0; z-index: 90; color: #fff; overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255,120,220,.35) 0, rgba(255,120,220,0) 42%),
+    radial-gradient(circle at 15% 10%, rgba(90,184,255,.45) 0, rgba(90,184,255,0) 32%),
+    radial-gradient(circle at 88% 92%, rgba(255,184,0,.3) 0, rgba(255,184,0,0) 34%),
+    linear-gradient(160deg, #190a4a 0%, #3b0f78 45%, #7a1ea1 75%, #c2185b 100%);
+}
+.about-head {
+  position: absolute; inset: 0 0 auto 0; z-index: 3; height: calc(72px + env(safe-area-inset-top));
+  background: linear-gradient(180deg, rgba(25,10,74,.97) 0%, rgba(25,10,74,.92) 80%, rgba(25,10,74,0) 100%);
+  pointer-events: none;
+}
+.about-close { pointer-events: auto; top: max(12px, env(safe-area-inset-top)); }
+.about-intro {
+  position: absolute; inset: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+}
+.about-intro-amir { font-size: clamp(46px, 13vw, 96px); animation: about-fade-in 2.6s ease-in forwards; opacity: .06; }
+.about-intro-fa { font-size: clamp(22px, 6vw, 36px); font-weight: 900; color: #5ec2f7; text-shadow: 0 0 14px rgba(94,194,247,.8); opacity: 0; animation: about-fade-in 1.4s 1.4s ease-in forwards; }
+@keyframes about-fade-in { from { opacity: .06; filter: blur(2px); } to { opacity: 1; filter: none; } }
+.about-scroll { position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(78px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); }
+.about-guide { max-width: 720px; margin: 0 auto; display: grid; gap: 14px; animation: rise .8s ease both; }
+.about-title { margin: 0; text-align: center; font-size: clamp(26px, 6vw, 36px); font-weight: 900; color: #ffd60a; text-shadow: 0 0 14px rgba(255,214,10,.6); }
+.about-lead { margin: 0; font-size: 18px; line-height: 1.9; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 18px; padding: 14px 16px; }
+.about-card { background: rgba(255,255,255,.95); color: var(--ink, #1e1442); border-radius: 18px; padding: 14px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.about-card h2 { margin: 0 0 8px; font-size: 21px; color: #4b1fa8; }
+.about-card ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 8px; }
+.about-card li { font-size: 17px; line-height: 1.85; }
+.about-version { margin: 0; text-align: center; opacity: .8; font-size: 14px; }
+.about-outro {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  padding: 40px 0 24px; min-height: 70vh; justify-content: center;
+  opacity: .06; transition: opacity 2.4s ease-in;
+}
+.about-outro.seen { opacity: 1; }
+.about-outro-logo { width: min(55vw, 220px) !important; height: min(55vw, 220px) !important; filter: drop-shadow(0 0 18px rgba(255,255,255,.45)); }
+.about-outro-amir { font-size: clamp(40px, 11vw, 72px); }
+.about-outro-fa { font-size: clamp(22px, 6vw, 34px); }
+.about-soon { margin: 6px 0 10px; font-size: clamp(20px, 5vw, 28px); font-weight: 800; color: #ffd60a; text-shadow: 0 0 12px rgba(255,214,10,.6); }
+
+.version, .brand-names > span { white-space: nowrap; }
+@media (max-width: 420px) {
+  .topbar { padding-inline: 10px; gap: 6px; }
+  .brand { gap: 6px; font-size: 16px; }
+  .brand-names > span:last-child { font-size: 15px; }
+  .brand-amir { font-size: 13px; }
+  .brand-logo { width: 34px !important; height: 34px !important; }
+  .about-btn { font-size: 13px; padding: 4px 9px; min-height: 36px; }
+  .version { font-size: 11px; padding: 2px 7px; }
+  .topbar-end { gap: 5px; }
+}
