@@ -1,0 +1,24 @@
+// Translation packs bundled into the single HTML file (English is the base in en.js).
+import enGB from './en-GB.json';
+import fa from './fa.json';
+import ar from './ar.json';
+import tr from './tr.json';
+import az from './az.json';
+import ur from './ur.json';
+import hi from './hi.json';
+import de from './de.json';
+import fr from './fr.json';
+import es from './es.json';
+import it from './it.json';
+import pt from './pt.json';
+import ru from './ru.json';
+import uk from './uk.json';
+import pl from './pl.json';
+import nl from './nl.json';
+import sv from './sv.json';
+import zh from './zh.json';
+import ja from './ja.json';
+import ko from './ko.json';
+import id from './id.json';
+import vi from './vi.json';
+export const PACKS = { 'en-GB': enGB, fa, ar, tr, az, ur, hi, de, fr, es, it, pt, ru, uk, pl, nl, sv, zh, ja, ko, id, vi };
