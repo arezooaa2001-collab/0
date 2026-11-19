@@ -27,11 +27,13 @@ Open `release/echowords.html` in Chrome. It is the whole app in one file. On an 
 ## «ℹ️ توضیحات» (About and guide)
 
 A button in the top bar's corner opens a full-screen page:
-1. «AMIR ABC» and «گنجینه صدای من» fade in from faint to bright (a tap skips this).
+1. «AMIR ABC» and «گنجینه صدای من» fade in from faint to bright (a tap skips this), with the app's own intro music. The guide appears on the music's drop, 4 seconds in. «🔊 موسیقی» turns it off (remembered) or on again.
 2. A guide to the whole app follows: recording and typing, «کلمه‌ها و جمله‌هایم» and folders, pronunciation, the tutor (conversation, «متن / زبان» translation, «/ABC», «/Prompt Code»), Settings, and where the words are kept. The text is in `src/lib/guide.ts`.
 3. At the end, the logo with its name fades in, with «منتظر برنامه‌های دیگر ما باشید...» and «بازگشت به برنامه».
 
 «✖ بستن» or Esc closes it at any time.
+
+**Intro music.** An original 16-second electronic track (120 BPM, A minor: a build-up with an opening arpeggio, a rising sweep and a snare roll; a drop with kick, clap, pumping pad, bass and a lead hook over Am – F – C – G; an ending on A minor). The score is Web Audio code in `src/brand/introMusicScore.ts`. `scripts/make-music.cjs` renders it once, offline in Chromium, to `src/brand/intro-music.mp3` (128 kbit/s, about 260 KB), which is built into the app. Playing a finished file costs almost no processor time, so it never crackles on a slower tablet. `docs/intro-music.mp3` is a copy to listen to.
 
 ## Google account (Google Drive copy)
 

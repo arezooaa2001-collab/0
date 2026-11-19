@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { APP_VERSION } from '../lib/config';
+import { MUSIC_DROP_S, type MusicHandle, musicEnabled, playIntroMusic, setMusicEnabled } from '../lib/introMusic';
 import { GUIDE, GUIDE_INTRO } from '../lib/guide';
 import { fa, t } from '../lib/strings';
 import { AmirAbc, LogoMark } from './Brand';
 
-/** How long «AMIR ABC» takes to go from faint to bright, and when the guide follows. */
-const INTRO_MS = 3200;
+/** When the guide follows the intro (without music; with music, at the music's drop). */
+const INTRO_MS = 4000;
 
 /**
  * «ℹ️ توضیحات»: «AMIR ABC» fades in from faint to bright, then the guide to the whole app,
@@ -14,14 +15,48 @@ const INTRO_MS = 3200;
 export function AboutScreen({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<'intro' | 'guide'>('intro');
   const [outroSeen, setOutroSeen] = useState(false);
+  const [musicOn, setMusicOn] = useState(musicEnabled);
   const outroRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const music = useRef<MusicHandle | null>(null);
+  const introTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
 
+  const toGuideIn = (ms: number) => {
+    clearTimeout(introTimer.current);
+    introTimer.current = setTimeout(() => setPhase('guide'), ms);
+  };
+  const startMusic = (syncDrop: boolean) => {
+    music.current?.stop(0.1);
+    // the guide appears exactly at the music's drop
+    music.current = playIntroMusic(() => {
+      if (syncDrop && phaseRef.current === 'intro') toGuideIn(MUSIC_DROP_S * 1000);
+    });
+  };
+
+  // The intro: «AMIR ABC» fades in with the music; the guide follows at the drop.
   useEffect(() => {
-    if (phase !== 'intro') return;
-    const id = setTimeout(() => setPhase('guide'), INTRO_MS);
-    return () => clearTimeout(id);
-  }, [phase]);
+    toGuideIn(INTRO_MS);
+    if (musicEnabled()) startMusic(true);
+    return () => {
+      clearTimeout(introTimer.current);
+      music.current?.stop();
+      music.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleMusic = () => {
+    const on = !musicOn;
+    setMusicOn(on);
+    setMusicEnabled(on);
+    if (on) startMusic(false);
+    else {
+      music.current?.stop();
+      music.current = null;
+    }
+  };
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -51,6 +86,9 @@ export function AboutScreen({ onClose }: { onClose: () => void }) {
       <div className="welcome-stars" aria-hidden />
       <div className="about-head">
         <button ref={closeRef} className="welcome-skip about-close" onClick={onClose}>✖ {t.aboutClose}</button>
+        <button className="welcome-skip about-music" onClick={toggleMusic} aria-pressed={musicOn} aria-label={musicOn ? t.aboutMusicOff : t.aboutMusicOn}>
+          {musicOn ? '🔊' : '🔇'} {t.aboutMusic}
+        </button>
       </div>
 
       {phase === 'intro' ? (

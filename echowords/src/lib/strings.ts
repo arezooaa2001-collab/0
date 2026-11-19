@@ -24,6 +24,9 @@ export const t = {
   aboutVersion: (v: string) => `نسخه ${v}`,
   aboutSoon: 'منتظر برنامه‌های دیگر ما باشید...',
   aboutBack: 'بازگشت به برنامه',
+  aboutMusic: 'موسیقی',
+  aboutMusicOff: 'خاموش کردن موسیقی',
+  aboutMusicOn: 'روشن کردن موسیقی',
 
   // Record screen
   recordTitle: 'یک کلمه یا جمله تازه 🎤',
