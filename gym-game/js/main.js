@@ -1212,6 +1212,7 @@ const Game = {
       if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.usePower('tornado');
       if (e.code === 'Equal' || e.code === 'NumpadAdd') this.usePower('clone');
       if (e.code === 'BracketRight' || e.code === 'NumpadMultiply') this.usePower('storm');
+      if (e.code === 'BracketLeft' || e.code === 'NumpadDivide') this.usePower('portal');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1346,8 +1347,10 @@ const Game = {
       this.tickFun7(dt);
       this.tickFun8(dt);
       this.tickFun9(dt);
+      this.tickFun10(dt);
       this.tickPolish(dt);
       this.tickPolish2(dt);
+      this.tickCape(dt);
       if (this.arm && !this.modals.size) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());

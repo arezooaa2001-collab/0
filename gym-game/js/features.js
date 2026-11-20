@@ -296,10 +296,10 @@ Object.assign(Game, {
     const g = $('shopGrid');
     g.innerHTML = '';
     const sh = this.save.shop;
-    const cats = { boost: 'نوشیدنی', gear: 'وسیله', pet: 'حیوون', aura: 'هاله', shirt: 'لباس', band: 'هدبند', trail: 'رد پا', hat: 'کلاه' };
+    const cats = { boost: 'نوشیدنی', gear: 'وسیله', pet: 'حیوون', aura: 'هاله', shirt: 'لباس', band: 'هدبند', trail: 'رد پا', hat: 'کلاه', cape: 'شنل' };
     for (const it of SHOP) {
       const owned = it.once && this.owns(it.id);
-      const equipped = ['shirt', 'band', 'aura', 'pet', 'trail', 'hat'].includes(it.cat) && sh[it.cat] === it.id;
+      const equipped = ['shirt', 'band', 'aura', 'pet', 'trail', 'hat', 'cape'].includes(it.cat) && sh[it.cat] === it.id;
       const card = document.createElement('div');
       card.className = 'shop-card' + (equipped ? ' on' : '');
       const ic = document.createElement('div');
@@ -313,7 +313,7 @@ Object.assign(Game, {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'shop-btn';
-      const equipable = ['shirt', 'band', 'aura', 'pet', 'trail', 'hat'].includes(it.cat);
+      const equipable = ['shirt', 'band', 'aura', 'pet', 'trail', 'hat', 'cape'].includes(it.cat);
       if (owned && equipable) {
         btn.textContent = equipped ? 'برش دار' : 'بپوش / استفاده کن';
         btn.addEventListener('click', () => this.equipItem(it, !equipped));
@@ -344,7 +344,7 @@ Object.assign(Game, {
       this.toast('🥛 +۲ سطح زور برای ۵ دقیقه!', 'gold');
     } else if (it.id === 'shoes') this.toast('👟 کفش سرعت رو پوشیدی! سریع‌تر می‌دوی.', 'gold');
     else if (it.id === 'magnet') this.toast('👛 از این به بعد سکه‌ها دوبرابرن!', 'gold');
-    if (['shirt', 'band', 'aura', 'pet', 'trail', 'hat'].includes(it.cat)) this.equipItem(it, true);
+    if (['shirt', 'band', 'aura', 'pet', 'trail', 'hat', 'cape'].includes(it.cat)) this.equipItem(it, true);
     this.checkAchievements();
     this.persist();
     this.refreshHud(true);
@@ -533,6 +533,7 @@ Object.assign(Game, {
     else if (a === 'south') this.goSouth();
     else if (a === 'fun8') this.goFun8();
     else if (a === 'kart') this.goKart();
+    else if (a === 'chickens') this.goChickens();
     else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }
