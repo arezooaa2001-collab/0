@@ -300,7 +300,7 @@ Object.assign(Game, {
       K.g.position.set(p.x, 0, p.z);
       K.g.rotation.y = 0;
       g.scene.add(K.g);
-      return { K, ch, x: p.x, z: p.z, h: 0, v: 0, steer: 0, lane, prog: trackAt(p.x, p.z).th, lastTh: trackAt(p.x, p.z).th, lap: 0, boost: 0, done: false, finishT: 0, skill: rand(0.97, 1.04), wob: rand(0, TAU), spin: 0 };
+      return { K, ch, x: p.x, z: p.z, h: 0, v: 0, steer: 0, lane, prog: trackAt(p.x, p.z).th, lastTh: trackAt(p.x, p.z).th, lap: 0, boost: 0, done: false, finishT: 0, skill: rand(1.02, 1.1), wob: rand(0, TAU), spin: 0 };
     };
     const me = make(0, P.ch);
     const ai = [1, 2, 3].map((i) => {
@@ -311,6 +311,8 @@ Object.assign(Game, {
       g.scene.add(ch.root);
       return make(i, ch);
     });
+    // each driver keeps to a lane of their own (side by side they would only bump each other)
+    ai.forEach((R, i) => { R.aiLane = [1.95, 0.45, 1.2][i]; });
     // the start line is at angle 0: begin with negative progress so the first crossing isn't a lap
     for (const R of [me, ...ai]) { R.prog = R.lastTh = trackAt(R.x, R.z).th; R.start = R.prog; }
     P.ch.manual = true;
@@ -385,11 +387,11 @@ Object.assign(Game, {
       if (R.done) { throttle = 0; steer = 0; }
     } else if (going) {
       // drivers aim a little way ahead on their own lane, with some rubber band to keep it close
-      const ahead = trackPoint(at.th + 0.32, R.lane + Math.sin(K.time * 0.7 + R.wob) * 0.4);
+      const ahead = trackPoint(at.th + 0.32, (R.aiLane ?? R.lane) + Math.sin(K.time * 0.7 + R.wob) * 0.35);
       const want = Math.atan2(ahead.x - R.x, ahead.z - R.z);
       steer = clamp(-wrapAngle(want - R.h) * 2.2, -1, 1);
       const gap = (K.me.prog - K.me.start) - (R.prog - R.start);
-      R.target = KART.vmax * R.skill * clamp(1 + gap * 0.07, 0.88, 1.22);
+      R.target = KART.vmax * R.skill * clamp(1 + gap * 0.09, 0.9, 1.3);
       if (R.done) throttle = 0.2;
     }
     // speed: throttle, grass, boosts
@@ -487,7 +489,7 @@ Object.assign(Game, {
           const push = (1.15 - d) * 0.5;
           a.x -= (dx / d) * push; a.z -= (dz / d) * push;
           b.x += (dx / d) * push; b.z += (dz / d) * push;
-          a.v *= 0.97; b.v *= 0.97;
+          a.v *= 0.993; b.v *= 0.993;
           if (a === this.kart.me || b === this.kart.me) { if (!this.kartBumpT || this.clock - this.kartBumpT > 0.4) { this.kartBumpT = this.clock; Sfx.play('punch'); } }
         }
       }
