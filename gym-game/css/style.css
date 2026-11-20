@@ -1170,12 +1170,7 @@ body.polish .vignette { opacity: 1; }
   .rhy-note { width: 32px; height: 24px; margin: -12px 0 0 -16px; font-size: 16px; }
 }
 
-/* round 15: speed lines at high speed, hair style buttons */
-.speed-lines { position: fixed; inset: -10%; pointer-events: none; z-index: 0; opacity: 0;
-  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0) 0deg 4deg, rgba(255, 255, 255, 0.5) 4.4deg, rgba(255, 255, 255, 0) 5deg 9deg);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, transparent 38%, #000 78%); mask-image: radial-gradient(ellipse at 50% 50%, transparent 38%, #000 78%);
-  animation: speedSpin 0.35s linear infinite; }
-@keyframes speedSpin { from { transform: rotate(0deg) scale(1); } 50% { transform: rotate(2.5deg) scale(1.03); } to { transform: rotate(5deg) scale(1); } }
+/* round 15: hair style buttons */
 .swatch.hair-sw { display: grid; place-items: center; font-size: 20px; background: rgba(255, 255, 255, 0.08); }
 
 /* round 15: kart and claw panels, the lightning flash */
@@ -1202,3 +1197,13 @@ body.polish .vignette { opacity: 1; }
 .chick-panel { border-color: rgba(255, 211, 77, 0.8); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(255, 211, 77, 0.35); }
 .chick-panel .spin-head { color: #ffe09a; font-size: 17px; }
 @media (max-height: 480px) and (orientation: landscape) { .chick-panel .spin-info { display: none; } }
+/* the kart and the claw: no moves panel or powers in the way, toasts below the panel, a drift button */
+.hud:has(#kartPanel:not([hidden])) .panel, .hud:has(#kartPanel:not([hidden])) .powers,
+.hud:has(#clawPanel:not([hidden])) .panel, .hud:has(#clawPanel:not([hidden])) .powers { display: none !important; }
+.hud:has(#kartPanel:not([hidden])) .toasts, .hud:has(#clawPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 210px); }
+@media (max-width: 720px) { .hud:has(#kartPanel:not([hidden])) .toasts, .hud:has(#clawPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 320px); } }
+@media (max-height: 480px) and (orientation: landscape) { .hud:has(#kartPanel:not([hidden])) .toasts, .hud:has(#clawPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 150px); } }
+.kart-row { display: flex; align-items: center; gap: 8px; }
+.kart-row .kart-lights { flex: 1; }
+.kart-drift { min-width: 112px; height: 52px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #7fe0ff, #2f9bff); color: #0b1530; font: 400 18px/1 var(--display); touch-action: none; user-select: none; -webkit-user-select: none; }
+@media (pointer: fine) and (min-width: 721px) { .kart-drift { display: none; } }

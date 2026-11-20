@@ -458,6 +458,9 @@ Object.assign(Game, {
       for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; b.add(UnitGeo.cone(4), Math.cos(a) * 0.12, 0.45, Math.sin(a) * 0.12, col, 0, 0, 0, 0.04, 0.09, 0.04); b.sphere(0.022, Math.cos(a) * 0.15, 0.36, Math.sin(a) * 0.15, i % 2 ? '#e63946' : '#2f6fed'); }
     }
     P.hatMesh = new THREE.Mesh(mergeParts(b.parts, false), METAL_MAT);
+    // big hair needs a bigger hat
+    const hs = (P.ch.o && P.ch.o.hairStyle) || 'crop';
+    if (hs === 'afro' || hs === 'bun') { P.hatMesh.scale.setScalar(hs === 'afro' ? 1.18 : 1.08); P.hatMesh.position.y = hs === 'afro' ? -0.035 : 0; }
     P.ch.B.head.add(P.hatMesh);
   },
 

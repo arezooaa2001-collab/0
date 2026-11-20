@@ -100,7 +100,7 @@ Object.assign(Game, {
   /** Speed lines and a wider view when you go really fast. */
   tickSpeedFx(dt) {
     const P = this.player;
-    const sp = P && this.mode === 'play' ? P.vel.length() : 0;
+    const sp = P && this.mode === 'play' ? Math.max(P.vel.length(), (this.polishOn && this.fxSpeed) || 0) : 0;
     const k = clamp((sp - 10) / 18, 0, 1);
     this.speedK = (this.speedK || 0) + (k - (this.speedK || 0)) * damp(5, dt);
     const el = $('speedFx');

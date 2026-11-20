@@ -79,7 +79,7 @@ Object.assign(Game, {
 
   /* ---------- going fast: speed lines, a wider view, a ribbon of light ---------- */
 
-  tickSpeedFx(dt) {
+  tickTrailFx(dt) {
     const P = this.player;
     const on = this.polishOn && this.mode === 'play' && P && this.world;
     const ch = P && P.ch;
@@ -93,13 +93,6 @@ Object.assign(Game, {
       sp = dt > 0 && d < 1.5 ? d / dt : 0; // a teleport is not speed
     }
     this.fxSpeed = (this.fxSpeed || 0) + (sp - (this.fxSpeed || 0)) * damp(6, dt);
-    const fast = clamp((this.fxSpeed - 8.5) / 8, 0, 1);
-    const cam = this.camera;
-    const base = this.baseFov || (this.baseFov = cam.fov);
-    const want = base + 12 * fast;
-    if (Math.abs(cam.fov - want) > 0.05) { cam.fov += (want - cam.fov) * damp(4, dt); cam.updateProjectionMatrix(); }
-    const lines = $('speedLines');
-    if (lines) lines.style.opacity = (fast * 0.85).toFixed(2);
     // the ribbon behind you
     if (!on) { if (this.trail) this.trail.mesh.visible = false; return; }
     const T = this.trail || (this.trail = new Trail(26, '#7fe0ff'));
@@ -141,7 +134,7 @@ Object.assign(Game, {
     const g = this.gym;
     if (this.polishOn && g && !g.halosBuilt) this.buildHalos(g);
     if (g && g.halos) g.halos.visible = this.polishOn;
-    this.tickSpeedFx(dt);
+    this.tickTrailFx(dt);
   },
 });
 

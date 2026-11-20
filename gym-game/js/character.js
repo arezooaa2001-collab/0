@@ -599,7 +599,8 @@ function buildCharGeometry(o, m) {
   for (const sx of [-1, 1]) add('head', sphS, sx * 0.068, 0.14, 0.103, '#e88a7a', 0, 0, 0, 0.018, 0.012, 0.01);
   add('head', sph, 0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   add('head', sph, -0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
-  if (o.band) add('head', UnitGeo.torus(1, 0.13, 6, 24), 0, 0.225, 0, o.band, Math.PI / 2, 0, 0, 0.124, 0.124, 0.124);
+  // a headband sits on the hair: wider round an afro
+  if (o.band) { const br = hs === 'afro' ? 0.172 : 0.124; add('head', UnitGeo.torus(1, 0.13, 6, 24), 0, hs === 'afro' ? 0.2 : 0.225, -0.01, o.band, Math.PI / 2, 0, 0, br, br, br); }
   if (o.belt) {
     // championship belt: leather strap with a big metal buckle
     const metal = o.belt === 'gold' ? '#ffcf3d' : '#d5dce6';

@@ -289,6 +289,9 @@ Object.assign(Game, {
     const P = this.player;
     if (P.board) this.endBoard();
     if (P.jet) this.endJet();
+    // a giant (or tiny) body and shadow clones don't fit in a kart or at the claw: back to normal first
+    if (this.clones) this.endClones();
+    if (this.morph) { this.morph = null; P.ch.root.scale.setScalar(1); }
     P.ch.stopAction();
     const g = this.gym;
     for (const K of g.kartIdle) K.g.visible = false;
@@ -358,7 +361,7 @@ Object.assign(Game, {
         if (K.t <= 0.2) { K.state = 'go'; }
       } else K.time += dt;
       const inp = this.kartIn || { x: 0, y: 0 };
-      const drifting = (this.keys.has('Space') || !!this.jumpHeld) && K.state === 'go';
+      const drifting = (this.keys.has('Space') || !!this.jumpHeld || !!this.kartDriftBtn) && K.state === 'go';
       for (const R of K.all) this.driveKart(R, R === K.me ? inp : null, drifting && R === K.me, dt);
       this.bumpKarts(dt);
     }
@@ -577,6 +580,9 @@ Object.assign(Game, {
     const P = this.player;
     if (P.board) this.endBoard();
     if (P.jet) this.endJet();
+    // a giant (or tiny) body and shadow clones don't fit in a kart or at the claw: back to normal first
+    if (this.clones) this.endClones();
+    if (this.morph) { this.morph = null; P.ch.root.scale.setScalar(1); }
     this.save.coins -= 15;
     this.refreshHud && this.refreshHud(true);
     P.ch.stopAction();
@@ -603,6 +609,8 @@ Object.assign(Game, {
   tickClaw(dt) {
     const G = this.clawGame;
     const g = this.gym;
+    // the golden star returns to a machine some minutes after it was won
+    if (g && g.claws) for (const M of g.claws) if (M.goldBackT && this.clock > M.goldBackT && !M.prizes.some((q) => q.gold)) { M.goldBackT = 0; const n = this.newPrize(g, M.C, true); n.ly = 1.1; M.prizes.push(n); }
     // prizes that were let go fall back into the pile
     if (g && g.claws) for (const M of g.claws) for (const P of M.prizes) {
       if (P.held || P.ly <= 0.0001 && P.vy === 0) continue;
@@ -642,7 +650,7 @@ Object.assign(Game, {
         let best = null, bd = 1;
         for (const P of M.prizes) { const d = Math.hypot(P.lx - M.x, P.lz - M.z); if (d < bd) { bd = d; best = P; } }
         const chance = bd < 0.1 ? 0.72 : bd < 0.2 ? 0.3 : 0;
-        if (best && Math.random() < chance * (best.gold ? 0.75 : 1)) { G.prize = best; best.held = true; G.slip = Math.random() < 0.2; }
+        if (best && Math.random() < chance * (best.gold ? 0.18 : 1)) { G.prize = best; best.held = true; G.slip = Math.random() < 0.2; }
         G.phase = 'up';
         Sfx.play('charge');
       }
@@ -689,11 +697,13 @@ Object.assign(Game, {
     if (P.gold) P.m.material.dispose();
     P.m.geometry.dispose();
     M.prizes.splice(M.prizes.indexOf(P), 1);
-    const n = this.newPrize(this.gym, M.C, P.gold);
+    // a won star comes back only after a while; a plush takes its place
+    const n = this.newPrize(this.gym, M.C, false);
+    if (P.gold) M.goldBackT = this.clock + 180;
     n.ly = 1.1; n.vy = 0;
     M.prizes.push(n);
     st.clawPrizes = (st.clawPrizes || 0) + 1;
-    const coins = P.gold ? 250 : randi(15, 45);
+    const coins = P.gold ? 250 : randi(6, 22);
     if (P.gold) st.clawGold = (st.clawGold || 0) + 1;
     this.addCoins(coins, true);
     this.gainXp(Math.round((P.gold ? 200 : 40) * this.mult()));
@@ -719,7 +729,7 @@ Object.assign(Game, {
     this.placeClaw(M);
     const P = this.player;
     if (P && !P.board) P.ch.manual = false;
-    if (P && P.ch.label) P.ch.label.visible = true;
+    if (P && P.ch.label) P.ch.label.visible = !WorldBase.hideNames;
   },
 
   /* ---------- the lightning storm ---------- */
@@ -856,7 +866,10 @@ Game.usePower = function (id) {
 
 const _quickTravel9 = Game.quickTravel;
 Game.quickTravel = function (x, z, special) {
-  if (this.kart && this.kart.state !== 'done') { this.closeModal('qtModal'); this.toast('وسط مسابقه‌ی کارتینگ نمی‌شه جابه‌جا شد! 🏎️ (✕ رو بزن تا بیای بیرون)', 'warn'); return; }
+  if (this.kart) {
+    if (this.kart.state !== 'done') { this.closeModal('qtModal'); this.toast('وسط مسابقه‌ی کارتینگ نمی‌شه جابه‌جا شد! 🏎️ (✕ رو بزن تا بیای بیرون)', 'warn'); return; }
+    this.endKart(true);
+  }
   if (this.world === this.gym && this.mode === 'play' && !this.race && !this.arm && !this.build && !this.photo) this.endClaw();
   _quickTravel9.call(this, x, z, special);
 };
@@ -896,11 +909,18 @@ const _rebuildPlayer9 = Game.rebuildPlayer;
 Game.rebuildPlayer = function (...args) {
   const r = _rebuildPlayer9.apply(this, args);
   if (this.player && (this.kart || this.clawGame)) { this.player.ch.manual = true; this.player.ch.manualSnap = !!this.kart; }
+  if (this.player && this.clawGame && this.player.ch.label) this.player.ch.label.visible = false;
   if (this.kart && this.player) this.kart.me.ch = this.player.ch;
   return r;
 };
 
 /* the panels' own buttons */
+{
+  // the drift button: held with one thumb while the other steers (it keeps the press even if the thumb slides off)
+  const b = $('kartDrift');
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) { /* old browsers */ } Game.kartDriftBtn = true; });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => { Game.kartDriftBtn = false; });
+}
 $('kartCancel').addEventListener('click', () => { if (Game.kart) { Game.endKart(null); Game.toast('🏎️ از مسابقه اومدی بیرون.'); } });
 $('clawCancel').addEventListener('click', () => { if (Game.clawGame) Game.endClaw(); });
 $('clawDrop').addEventListener('pointerdown', (e) => { e.preventDefault(); Game.dropClaw(); });
