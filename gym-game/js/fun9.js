@@ -444,6 +444,22 @@ Object.assign(Game, {
         if (inp) { Sfx.play('boost'); this.floatText('⚡ صفحه‌ی توربو!', 'fl-combo'); }
       }
     }
+    // a driver stuck against something for a while is put back on its lane, facing the right way
+    if (!inp && going && !R.done) {
+      R.stuckT = R.v < 1.5 ? (R.stuckT || 0) + dt : 0;
+      if (R.stuckT > 1.2) {
+        const at3 = trackAt(R.x, R.z);
+        const back = trackPoint(at3.th + 0.05, R.aiLane ?? R.lane);
+        if (this.gym.spotFree(back.x, back.z, 0.5)) {
+          R.x = back.x; R.z = back.z;
+          const ahead = trackPoint(at3.th + 0.2, R.aiLane ?? R.lane);
+          R.h = Math.atan2(ahead.x - R.x, ahead.z - R.z);
+          R.v = 4;
+          this.world.fx.burst({ x: R.x, y: 0.5, z: R.z }, { count: 20, colors: ['#ffffff', '#cfd6e3'], speed: 2, up: 1, life: 0.5 });
+        }
+        R.stuckT = 0;
+      }
+    }
     // progress round the oval
     const th = trackAt(R.x, R.z).th;
     R.prog += wrapAngle(th - R.lastTh);
