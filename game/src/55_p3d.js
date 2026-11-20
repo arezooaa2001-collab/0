@@ -1,7 +1,7 @@
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
-  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem', 'pow', 'boss']);
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem', 'pow', 'boss', 'mob']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -137,6 +137,13 @@ class P3D {
         const eye = new THREE.Mesh(C('bossEye', () => new THREE.SphereGeometry(.28, 10, 8)), C('bossEyeM' + e.kind, () => new THREE.MeshBasicMaterial({ color: hexNum(B.eye) }))); eye.position.set(s * w * .17, h * .7, 1.12); g.add(eye); }
       return { o: g, kind: 'boss', body, cx: w / 2 };
     }
+    if (e.type === 'mob') {
+      const g = new THREE.Group(), fly = e.kind === 'fly', col = fly ? 0x5a3a8a : 0x9a5ae0;
+      const body = new THREE.Mesh(C('mobG', () => new THREE.SphereGeometry(.42, 14, 10)), C('mobM' + col, () => new THREE.MeshLambertMaterial({ color: col }))); body.scale.set(1, fly ? .9 : .8, .9); body.position.y = .32; g.add(body);
+      for (const s of [-1, 1]) { const eye = new THREE.Mesh(C('mobEye', () => new THREE.SphereGeometry(.11, 8, 6)), C('mobEyeM' + fly, () => new THREE.MeshBasicMaterial({ color: fly ? 0xff3d71 : 0xffffff }))); eye.position.set(s * .15, .4, .36); g.add(eye); }
+      const wings = []; if (fly) for (const s of [-1, 1]) { const wg = new THREE.Mesh(this.unit, C('mobW', () => new THREE.MeshLambertMaterial({ color: 0x3a1f5e }))); wg.scale.set(.5, .06, .3); wg.position.set(s * .5, .4, 0); g.add(wg); wings.push(wg); }
+      return { o: g, kind: 'mob', body, wings };
+    }
     if (e.type === 'pow') {
       const g = new THREE.Group(), tex = C('powT' + e.kind, () => new THREE.CanvasTexture(powImg(e.kind)));
       const s = new THREE.Sprite(C('powM' + e.kind, () => new THREE.SpriteMaterial({ map: tex, transparent: true }))); s.scale.set(.95, .95, 1); g.add(s);
@@ -263,6 +270,8 @@ class P3D {
       if (m.kind === 'zone') { o.visible = !!m.m && e.act; if (m.m) { o.position.set(this.X(e.x) + m.cx, this.Y(e.y) + m.cy, 0); m.m.material.opacity = .1 + Math.sin(t * 4) * .04; } continue; }
       if (m.kind === 'boss') { const die = e.hp <= 0 ? Math.min(1, e.dead / 1.2) : 0; o.visible = !e.gone; o.position.set(this.X(e.x) + m.cx + (e.stun > 0 || die ? Math.sin(t * 60) * .08 : 0), this.Y(e.y + e.h), 0); o.scale.set(1 + die * .15, Math.max(.05, 1 - die * .5), 1);
         m.body.material.emissive && m.body.material.emissive.setScalar(e.hurt * .8); continue; }
+      if (m.kind === 'mob') { const d = e.dead > 0 ? Math.min(1, e.dead / .5) : 0; o.visible = !e.gone; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h), 0); o.scale.set(1 + d * .5, Math.max(.05, 1 - d * .8), 1); o.rotation.y = e.vx >= 0 ? .5 : -.5;
+        m.wings.forEach((wg, i) => { wg.rotation.z = (i ? -1 : 1) * Math.sin(t * 18) * .6; }); continue; }
       if (m.kind === 'pow') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .12, .4); continue; }
       if (m.kind === 'gem') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .1, .3); m.m.rotation.y = t * 2 + e.ph; continue; }
       if (m.kind === 'tele') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), .2); m.ring.rotation.z = t * (e.to ? 3 : -3); continue; }

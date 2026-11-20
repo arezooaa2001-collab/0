@@ -30,6 +30,8 @@ const EDT = [
   ['T', '🎯', 'تله‌پورت خروجی', 'جایی که از تله‌پورت ورودی سر در میاری'],
   ['u', '🌬️', 'باد رو به بالا', 'یه ستون باد که تو رو بالا می‌بره'],
   ['a', '🏹', 'تیرانداز', 'پشت سر هم به سمت چپ تیر می‌زنه'],
+  ['&', '👾', 'هیولای راه‌رو', 'راه می‌ره و لب پرتگاه برمی‌گرده؛ روی سرش بپری له می‌شه، از بغل بخوری می‌میری'],
+  ['%', '🦇', 'هیولای پرنده', 'توی هوا میاد و می‌ره؛ روی سرش بپر'],
   ['o', '🌀', 'گوی جاذبه', 'جاذبه رو برعکس می‌کنه'],
   ['e', '💎', 'جواهر', 'برای جمع کردن (جواهرهای مرحله‌های ساختنی به حساب فروشگاه نمی‌رن)'],
   ['P', '🙂', 'شروع', 'جای شروع بازیکن (فقط یکی)'],
@@ -40,7 +42,7 @@ const EDT = [
 ];
 const EDC = new Set(EDT.map(t => t[0]));
 const edTool = c => EDT.find(t => t[0] === c);
-const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c', 'a', 'q', 'Q']);
+const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c', 'a', 'q', 'Q', '&', '%']);
 const ED_SOLID = 'gibq<>dQcmpa';   // cells you can stand on (for "test from here" and arrow walls)
 
 /* ---------- grid -> level ---------- */
@@ -97,6 +99,7 @@ function edBuild(P, G, ox) {
     else if (c === 'o') dyn(P.orb(id(), lx + .5, y + .5));
     else if (c === 'e') P.gem(lx + .5, y + .5);
     else if (c === 'D') dyn(P.door(lx - .2, y - 1));
+    else if (c === '&' || c === '%') mobAdd(P, id(), lx, y, c === '%');
     else if (aiTrapOf(c)) aiBuildTrap(P, aiTrapOf(c), lx, y, 'a' + x + '_' + y + '_');
     else if (c === 'F') { const k = id(); dyn(P.spikes(k + 's', lx - 1, y, 3, 'up', { hidden: true })); dyn(P.add(k, { type: 'door', fake: k + 's', x: (lx - .2) * T, y: (y - 1) * T, w: 1.4 * T, h: 2 * T })); }
   }
@@ -263,6 +266,7 @@ function edIcon(code) {
       else if (e.type === 'door') drawDoor(e, 0, null);
       else if (e.type === 'laser') { e.act = true; drawLaser(e, 0); }
       else if (e.type === 'tele') drawTele(e, 0);
+      else if (e.type === 'mob') { e.lt = 0; drawMob(e, 0); }
       else if (e.type === 'zone' && e.kind === 'wind') { ctx.save(); ctx.fillStyle = 'rgba(158,249,255,.25)'; ctx.fillRect(e.x, e.y + e.h - 1.6 * T, e.w, 1.6 * T); ctx.restore(); }
     }
     if (code === 'K') drawFlag({ x: 1.4 * T, y: 1.1 * T, h: 2.4 * T, on: true, wave: 0 }, 0);
@@ -415,7 +419,7 @@ function solveDef(def, diff, opt = {}) {
   const done = s => s < nSec - 1 ? w.ck > s && w.p.onGround && w.state === 'play' : w.state === 'win';
   const key = () => {
     const p = w.p; let fs = ''; for (const t of w.lv.trigs) fs += t.fired ? '1' : '0';
-    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol || e.orbit) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + (e.patrol ? e.patrol.i : '') + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
+    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol || e.orbit) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + (e.patrol ? e.patrol.i : '') + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; if (e.type === 'mob') mq += ((e.x / 40) | 0) + (e.vx > 0 ? 'r' : 'l') + (e.dead > 0 ? 'd' : '') + ';'; }
     return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + (w.rev ? 'r' : '') + fs + mq;
   };
   const score = s => { const p = w.p, gx = goalX(s); if (gx != null) return -Math.abs(gx - p.x) - .15 * Math.abs(p.y - 560); const d = doorOf(); return d ? -(Math.abs(p.x - d.x) + .8 * Math.abs(p.y - d.y)) : 0; };

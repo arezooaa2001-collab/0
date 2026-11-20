@@ -30,3 +30,15 @@ function makeEndless(seed) {
 }
 // biome of the zone that starts at checkpoint i
 const endlessZoneBiome = (def, i) => def.secs[Math.floor(i / ENDLESS_ZONE) * ENDLESS_ZONE].biome;
+
+/* ---------- level of the day: six checked chunks (easy to hard) chosen by the date, then a door ---------- */
+function makeDayLevel(day) {
+  const E = { pool: endlessPool(), used: new Set(), n: 0, r: srand(day * 31 + 7) }, secs = [];
+  for (let i = 0; i < 6; i++) { E.n = i * 5; secs.push(endlessNext(E)); }
+  secs.push({ hand: true, w: 14, t0: TOP_MAX, spawn: [1, TOP_MAX - 1], build: P => { P.block(null, 0, 15, 14, 3); P.door(9, 13); P.trig(1.5, 0, .5, 18, () => P.say('آخرشه! 🚪')); } });
+  const def = { dayLv: true, noRun: true, name: 'مرحله‌ی روز', biome: BIOME_ORDER[day % BIOME_ORDER.length], secs, spawn: secs[0].spawn,
+    nObs: secs.reduce((a, s) => a + (s.keys ? s.keys.length : 0), 0), rooms: secs.length };
+  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
+  def.relayout();
+  return def;
+}

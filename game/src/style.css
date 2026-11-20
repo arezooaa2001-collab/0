@@ -299,9 +299,9 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .card span{position:absolute;top:6px;left:8px;font-size:11px;font-weight:800;color:#ff9ab8}
 
 /* challenge modifiers (screen effects while playing) */
-body.mFlip #c,body.mFlip #c3{transform:scaleY(-1)}
-body.mMirror #c,body.mMirror #c3{transform:scaleX(-1)}
-body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
+body.mFlip #c,body.mFlip #c3{transform:scale(var(--pz,1)) scaleY(-1)}
+body.mMirror #c,body.mMirror #c3{transform:scale(var(--pz,1)) scaleX(-1)}
+body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(var(--pz,1)) scale(-1,-1)}
 .muts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .mut{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:right;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.05);border:2px solid var(--line)}
 .mut.on{border-color:#ff8a4c;background:rgba(255,138,76,.14);box-shadow:0 0 16px rgba(255,138,76,.3)}
@@ -413,3 +413,5 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
 .mapBar .btn{padding:9px 18px;font-size:16px}
 [hidden]{display:none!important}
 @media (max-height:430px){#sLevels h2{margin:0 0 6px;font-size:18px}#sLevels .panel{padding:12px 14px}#mapCv{height:clamp(150px,50vh,240px)}}
+
+#c,#c3{transform:scale(var(--pz,1));transition:transform .24s ease-out}

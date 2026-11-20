@@ -110,3 +110,53 @@ function heroMood(world, t) {
   if (p.starT > 0) fx.mood = 'happy';
   return fx;
 }
+
+/* ---------- grass that sways and bends away when the hero walks through it ---------- */
+const GRASS_TOP = new Set(['grass', 'vines', 'leaves', 'petals']);
+function drawGrass(world, t) {
+  if (!BIOME || realmMode || !GRASS_TOP.has(BIOME.top) || GFX.fx < .8 || Perf.fxK < .7) return;
+  const p = world.p, px = p.x + PW / 2, pf = p.y + PHT, x0 = CAMX - EXT.l - 20, x1 = CAMX + W + EXT.r + 20;
+  ctx.save(); ctx.strokeStyle = BIOME.top === 'petals' ? mixHex(PAL.moss, '#5fbf6a', .6) : mixHex(PAL.moss, '#ffffff', .1); ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.beginPath();
+  for (const e of VIEW_ENTS) {
+    if (e.type !== 'block' || e.hidden || e.ghost || e.lava || e.oneway || e.ceil || e.rock || e.tog != null || e.off || e.conv || e.bounce || e.ice || e.appear < 1 || e.y < 40 || e.w < 20 || e.falling) continue;
+    const a = Math.max(e.x + 4, x0), b = Math.min(e.x + e.w - 4, x1), top = e.y + 1;
+    for (let x = Math.ceil(a / 13) * 13; x < b; x += 13) {
+      const hsh = Math.abs(Math.sin(x * 12.9898)) , h = 6 + hsh * 6;
+      let bend = Math.sin(t * 2.2 + x * .07) * .22;
+      const dx = x - px; if (Math.abs(dx) < 28 && Math.abs(pf - e.y) < 14) bend += Math.sign(dx || 1) * (1 - Math.abs(dx) / 28) * 1.1;
+      for (const o of [-2, 2]) { const bb = bend + o * .08; ctx.moveTo(x + o, top); ctx.quadraticCurveTo(x + o + Math.sin(bb) * h * .5, top - h * .6, x + o + Math.sin(bb) * h, top - Math.cos(bb) * h); }
+    }
+  }
+  ctx.stroke(); ctx.restore();
+}
+/* ---------- slow clouds in the sky ---------- */
+function drawClouds(t) {
+  const b = BIOME; if (!b || realmMode || GFX.fx < .6) return;
+  ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY);
+  const span = W + 600, off = CAMX * .06, col = mixHex(b.sky, '#ffffff', .55);
+  ctx.fillStyle = col;
+  for (let i = 0; i < 6; i++) {
+    const x = ((i * 397 + t * (6 + i * 1.5) - off) % span + span) % span - 300, y = 60 + ((i * 61) % 170), s = .7 + (i % 3) * .3;
+    ctx.globalAlpha = .07 + (i % 2) * .04;
+    ctx.beginPath(); ctx.ellipse(x, y, 70 * s, 16 * s, 0, 0, 7); ctx.ellipse(x + 40 * s, y - 10 * s, 46 * s, 14 * s, 0, 0, 7); ctx.ellipse(x - 38 * s, y - 4 * s, 40 * s, 12 * s, 0, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+/* ---------- the hero breaks into pieces (the classic death) ---------- */
+function heroPieces(world, cx, cy) {
+  const [top, bot] = heroCols(world.time || 0), R = (a, b) => a + Math.random() * (b - a);
+  const add = (piece, o) => world.parts.push(Object.assign({ x: cx, y: cy, vx: R(-220, 220), vy: R(-520, -260), life: 1.3, max: 1.3, size: 0, col: top, g: 1500, drag: .6, piece, vr: R(-9, 9), top, bot }, o));
+  add('half', { vx: R(-260, -120), side: -1 }); add('half', { vx: R(120, 260), side: 1 });
+  add('eye', { vx: R(-160, -40) }); add('eye', { vx: R(40, 160) }); add('leaf', { vy: R(-640, -420), col: PAL.moss });
+}
+function drawPiece(q) {
+  if (q.piece === 'half') { const g = ctx.createLinearGradient(0, -12, 0, 12); g.addColorStop(0, q.top); g.addColorStop(1, q.bot); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 13, q.side < 0 ? Math.PI * .5 : -Math.PI * .5, q.side < 0 ? Math.PI * 1.5 : Math.PI * .5); ctx.closePath(); ctx.fill(); ctx.fillStyle = PAL.scarf; ctx.fillRect(q.side < 0 ? -13 : 0, 2, 13, 4); }
+  else if (q.piece === 'eye') { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, 0, 4.3, 5.2, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.arc(1, 0, 2.3, 0, 7); ctx.fill(); }
+  else if (q.piece === 'leaf') { ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(0, 0, 5, 2.6, 0, 0, 7); ctx.fill(); ctx.strokeStyle = q.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-11, 3); ctx.stroke(); }
+}
+/* ---------- a short zoom on big hits (the canvas is scaled by CSS, nothing has to be redrawn) ---------- */
+let punchT = 0;
+function punch(k) {
+  if (CFG.shake === 0) return; const r = document.documentElement.style; r.setProperty('--pz', k.toFixed(3));
+  clearTimeout(punchT); punchT = setTimeout(() => r.setProperty('--pz', '1'), 70);
+}

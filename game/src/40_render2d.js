@@ -723,6 +723,20 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
   }
   ctx.fillStyle = PAL.scarf; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14.5, -17, 29, 6, 3) : ctx.rect(-14.5, -17, 29, 6); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-12, -16, 24, 1.5);
+  // arms: swing while running, go up in a jump, flail when scared, wave when happy
+  ctx.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    let a;
+    if (mood === 'scared' || mood === 'teeter') a = 2.3 + Math.sin(t * 22 + s * 2) * .35;
+    else if (mood === 'happy') a = 2.6 + Math.sin(t * 11 + s * 1.5) * .3;
+    else if (mood === 'sleep') a = .12;
+    else if (air) a = vyN > .1 ? 2.55 + Math.sin(t * 9 + s) * .1 : 1.1 + Math.sin(t * 20 + s) * .45;
+    else if (run) a = .45 + s * f * Math.sin(ph) * .75;
+    else a = .32 + Math.sin(t * 2.2 + s) * .05;
+    const shx = s * 12.5, shy = -17, hx = shx + s * Math.sin(a) * 9, hy = shy + Math.cos(a) * 9;
+    ctx.strokeStyle = cBot; ctx.lineWidth = 3.6; ctx.beginPath(); ctx.moveTo(shx, shy); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.fillStyle = cTop; ctx.beginPath(); ctx.arc(hx, hy, 3.2, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(90,40,50,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  }
   ctx.fillStyle = 'rgba(255,110,120,.45)'; ctx.beginPath(); ctx.ellipse(-8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.ellipse(8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.fill();
   const sleep = mood === 'sleep', scared = mood === 'scared' || mood === 'teeter';
   const blink = sleep ? 0 : blinkT < 0 ? .15 : 1, ex = f * 3.5, look = clamp(vyUp / 900, -1, 1) * 1.6 + (fx ? fx.ly * 1.5 : 0), lk = fx && (fx.lx || fx.ly) ? fx.lx * 1.6 - f * 1.4 : 0;
@@ -757,6 +771,7 @@ function drawParticles(world) {
     if (q.heart) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = q.col; const s = q.size * .5; ctx.beginPath(); ctx.arc(q.x - s, q.y, s, 0, 7); ctx.arc(q.x + s, q.y, s, 0, 7); ctx.moveTo(q.x - s * 2, q.y + s * .4); ctx.lineTo(q.x, q.y + s * 2.4); ctx.lineTo(q.x + s * 2, q.y + s * .4); ctx.fill(); ctx.restore(); continue; }
     if (q.soul) { ctx.save(); ctx.globalAlpha = a * .9; ctx.fillStyle = q.col; const s = q.size, wob = Math.sin(q.life * 14) * 3; ctx.beginPath(); ctx.arc(q.x, q.y - s * .2, s * .7, Math.PI, 0); ctx.lineTo(q.x + s * .7 + wob, q.y + s); ctx.lineTo(q.x - s * .7 + wob, q.y + s); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(q.x - 3, q.y - s * .2, 1.6, 0, 7); ctx.arc(q.x + 3, q.y - s * .2, 1.6, 0, 7); ctx.fill(); ctx.strokeStyle = '#ffd36e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(q.x, q.y - s * 1.1, s * .5, s * .15, 0, 0, 7); ctx.stroke(); ctx.restore(); continue; }
+    if (q.piece) { ctx.save(); ctx.globalAlpha = Math.min(1, a * 2); ctx.translate(q.x, q.y); ctx.rotate(q.vr * (q.max - q.life)); drawPiece(q); ctx.restore(); continue; }
     if (q.ring2) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1.4 - a * .4), 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring) { const r = (1 - a) * 90; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col === '#fff' ? '#ffd9b0' : q.col; ctx.lineWidth = 4 * a + 1; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     ctx.globalAlpha = Math.min(1, a * 1.5);
@@ -910,6 +925,7 @@ function drawFlag(e, t) {
 }
 function drawDynamic(world, t, dt, depth) {
   const ents = VIEW_ENTS = viewEnts(world);
+  drawGrass(world, t);
   for (const e of ents) if (e.type === 'zone') drawZone(e, t);
   for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   for (const e of ents) if (e.type === 'dash') drawDash(e, t);
@@ -928,6 +944,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'boss') drawBoss(e, t, world);
+  for (const e of ents) if (!e.gone && e.type === 'mob') drawMob(e, t);
   drawGhost(world, t);
   if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
@@ -969,6 +986,7 @@ function render(world, t, dt) {
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
   CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
   drawBack(world, sx, sy);
+  drawClouds(t);
   drawRays(t);
   drawCaves(world, sx, sy, t);
   drawStatics(world, sx, sy);
@@ -991,6 +1009,7 @@ function render25(world, t, dt) {
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
   const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
   drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
+  drawClouds(t);
   drawRays(t);
   drawCaves(world, sx, sy, t);
   worldTransform(sx, sy);

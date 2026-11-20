@@ -58,12 +58,14 @@ function aiCleanTrap(inp) {
   const ids = new Set(), P = [];
   for (const [i, q] of parts.entries()) {
     if (!q || typeof q !== 'object') { err.push(`part ${i} شیء نیست`); continue; }
-    const k = String(q.kind || q.k || ''); if (!['block', 'spike', 'saw', 'laser', 'spring', 'orb', 'gem', 'wind', 'lava'].includes(k)) { err.push(`part ${i}: kind «${k}» ناشناخته`); continue; }
+    const k = String(q.kind || q.k || ''); if (!['block', 'spike', 'saw', 'laser', 'spring', 'orb', 'gem', 'wind', 'lava', 'monster'].includes(k)) { err.push(`part ${i}: kind «${k}» ناشناخته`); continue; }
+    if (k === 'monster' && P.filter(p => p.k === 'monster').length >= 4) { err.push('at most 4 monsters'); continue; }
     const o = { k, x: num(q.x, -8, 8, 0), y: num(q.y, -13, 3, 0) }, id = idOk(q.id); if (id) { if (ids.has(id)) err.push(`id تکراری ${id}`); ids.add(id); o.id = id; }
     if (k === 'block' || k === 'wind' || k === 'lava') { o.w = num(q.w, .2, 10, 1); o.h = num(q.h, .2, 10, 1); }
     if (k === 'block') { for (const f of ['hidden', 'ghost', 'crumble', 'ice', 'bounce']) if (q[f]) o[f] = true; if (q.conveyor) o.conv = num(q.conveyor, -4, 4, 0); }
     if (k === 'spike') { o.n = Math.round(num(q.n, 1, 10, 1)); o.dir = ['up', 'down', 'left', 'right'].includes(q.dir) ? q.dir : 'up'; if (q.hidden) o.hidden = true; if (q.arrow) o.arrow = true; }
     if (k === 'saw') o.r = num(q.r, .3, 1.4, .6);
+    if (k === 'monster' && q.fly) o.fly = true;
     if (k === 'laser') { o.len = num(q.len, 1, 14, 4); o.dir = q.dir === 'h' ? 'h' : 'v'; o.on = num(q.on, .3, 4, 1.1); o.off = num(q.off, .3, 4, 1.4); }
     if (k === 'wind') { o.fx = num(q.fx, -25, 25, 0); o.fy = num(q.fy, -25, 25, 0); }
     if (Array.isArray(q.path) && q.path.length && ['block', 'spike', 'saw', 'laser'].includes(k)) { o.path = q.path.slice(0, 6).map(p => [num(p && p[0], -12, 12, 0), num(p && p[1], -12, 12, 0)]); o.speed = num(q.speed, .5, 14, 3); }
@@ -110,6 +112,7 @@ function aiBuildTrap(P, t, lx, y, inst) {
     else if (q.k === 'spring') mk(P.spring(id(q.id), ax, ay));
     else if (q.k === 'orb') mk(P.orb(id(q.id), ax, ay));
     else if (q.k === 'gem') P.gem(ax, ay);
+    else if (q.k === 'monster') mobAdd(P, id(q.id) || inst + 'mob' + t.parts.indexOf(q), ax, ay, q.fly);
     else if (q.k === 'wind') mk(P.zone(id(q.id), 'wind', ax, ay, q.w, q.h, { fx: q.fx, fy: q.fy }));
   }
   for (const g of t.trigs) {
@@ -273,6 +276,7 @@ parts: [{kind, id?, x, y, ...}] kinds:
 - saw {r (0.3-1.4), x,y = centre, path?, speed?, orbit? {radius, speed (rad/s)}}
 - laser {len, dir: v|h, on, off (seconds)}  (vertical from y down)
 - spring, orb (flips gravity), gem, lava {w,h}, wind {w,h, fx, fy (tiles/s; fy -18 lifts)}
+- monster {fly?} (x,y = its cell; a walker walks and turns at walls and ledges, a flyer sways ±2.5 tiles; the hero squashes it by landing on its head, touching it from the side kills)
 path = list of [dx,dy] offsets from the part's start, visited in a loop; speed in tiles/s.
 follow: the id of an earlier block — the part then moves and falls together with that block (e.g. spikes under a crushing ceiling).
 triggers: [{x,y,w,h, when: touch|ground (player standing inside)|head (player jumping up into it), actions:[{do: pop (show a hidden part)|fall (part drops)|move {dx,dy,speed}|say {text, Persian}|shake|sound {name: rumble|crack|whoosh|thud|pop|orb|spring|roar}|reverse (controls flipped 3 s), id?, delay? (s)}]}]
@@ -283,7 +287,7 @@ triggers [{x:-2,y:-6,w:1,h:7,when:"touch",actions:[{do:"sound",name:"rumble"},{d
 (moves on the same id queue one after another; delay is the wait before that move starts)
 
 LEVEL GRID (create_level): 18 rows, 32-160 columns, one char per tile; the bottom rows are usually ground.
-codes: ' ' empty, g ground, p plank (jump through), i ice, m moving platform, c crumbling, f fake ground, d falling ground, n invisible block, S spike up, V spike down, h hidden spike, r falling spike, w saw, W moving saw, z laser, L lava, j spring, b bounce pad, < > conveyors, q pink switch block (solid first), Q blue switch block, t teleporter in, T teleporter out, u updraft, a arrow shooter, o gravity orb, e gem, P start (one), D door (one), F fake door, K checkpoint${AIX.traps.length ? ', AI traps: ' + AIX.traps.map(t => `${t.code}=${t.name}`).join(', ') : ''}.
+codes: ' ' empty, g ground, p plank (jump through), i ice, m moving platform, c crumbling, f fake ground, d falling ground, n invisible block, S spike up, V spike down, h hidden spike, r falling spike, w saw, W moving saw, z laser, L lava, j spring, b bounce pad, < > conveyors, q pink switch block (solid first), Q blue switch block, t teleporter in, T teleporter out, u updraft, a arrow shooter, & walking monster, % flying monster, o gravity orb, e gem, P start (one), D door (one), F fake door, K checkpoint${AIX.traps.length ? ', AI traps: ' + AIX.traps.map(t => `${t.code}=${t.name}`).join(', ') : ''}.
 Hero needs 2 empty tiles of headroom. Keep jumps under 3 tiles up and 4 tiles across.`;
 }
 

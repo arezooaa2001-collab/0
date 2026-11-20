@@ -314,9 +314,9 @@ h2{margin:0 0 14px;font-size:28px;font-weight:900}
 .card span{position:absolute;top:6px;left:8px;font-size:11px;font-weight:800;color:#ff9ab8}
 
 /* challenge modifiers (screen effects while playing) */
-body.mFlip #c,body.mFlip #c3{transform:scaleY(-1)}
-body.mMirror #c,body.mMirror #c3{transform:scaleX(-1)}
-body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(-1,-1)}
+body.mFlip #c,body.mFlip #c3{transform:scale(var(--pz,1)) scaleY(-1)}
+body.mMirror #c,body.mMirror #c3{transform:scale(var(--pz,1)) scaleX(-1)}
+body.mFlip.mMirror #c,body.mFlip.mMirror #c3{transform:scale(var(--pz,1)) scale(-1,-1)}
 .muts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .mut{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:right;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.05);border:2px solid var(--line)}
 .mut.on{border-color:#ff8a4c;background:rgba(255,138,76,.14);box-shadow:0 0 16px rgba(255,138,76,.3)}
@@ -428,6 +428,8 @@ body.duo #bEmote,body.duo #emoteBar{display:none!important}
 .mapBar .btn{padding:9px 18px;font-size:16px}
 [hidden]{display:none!important}
 @media (max-height:430px){#sLevels h2{margin:0 0 6px;font-size:18px}#sLevels .panel{padding:12px 14px}#mapCv{height:clamp(150px,50vh,240px)}}
+
+#c,#c3{transform:scale(var(--pz,1));transition:transform .24s ease-out}
 </style>
 </head>
 <body>
@@ -2476,6 +2478,18 @@ function makeEndless(seed) {
 }
 // biome of the zone that starts at checkpoint i
 const endlessZoneBiome = (def, i) => def.secs[Math.floor(i / ENDLESS_ZONE) * ENDLESS_ZONE].biome;
+
+/* ---------- level of the day: six checked chunks (easy to hard) chosen by the date, then a door ---------- */
+function makeDayLevel(day) {
+  const E = { pool: endlessPool(), used: new Set(), n: 0, r: srand(day * 31 + 7) }, secs = [];
+  for (let i = 0; i < 6; i++) { E.n = i * 5; secs.push(endlessNext(E)); }
+  secs.push({ hand: true, w: 14, t0: TOP_MAX, spawn: [1, TOP_MAX - 1], build: P => { P.block(null, 0, 15, 14, 3); P.door(9, 13); P.trig(1.5, 0, .5, 18, () => P.say('آخرشه! 🚪')); } });
+  const def = { dayLv: true, noRun: true, name: 'مرحله‌ی روز', biome: BIOME_ORDER[day % BIOME_ORDER.length], secs, spawn: secs[0].spawn,
+    nObs: secs.reduce((a, s) => a + (s.keys ? s.keys.length : 0), 0), rooms: secs.length };
+  def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
+  def.relayout();
+  return def;
+}
 /* ============================ LEVEL RUNTIME ============================ */
 class Level {
   constructor(def, world, only) {
@@ -2673,7 +2687,7 @@ class World {
   }
   // switch blocks: every jump swaps which colour is solid
   flipTog() { this.tog ^= 1; if (!this.silent && this.act.some(e => e.tog != null && !e.gone)) Sound.play('tog'); }
-  shake(a) { if (!this.silent) this.shakeA = Math.max(this.shakeA, a); }
+  shake(a) { if (!this.silent) { this.shakeA = Math.max(this.shakeA, a); if (a >= 10) punch(1 + Math.min(16, a) * .0028); } }
   say(t) { if (!this.silent && this.onSay) this.onSay(t); }
   isSolid(e) { return e.type === 'block' && !e.hidden && !e.gone && !e.ghost && !e.off; }
   solids() { return this.act.filter(e => this.isSolid(e)); }
@@ -2726,6 +2740,7 @@ class World {
 
   updEnt(e, dt) {
     if (e.type === 'boss') return this.updBoss(e, dt);
+    if (e.type === 'mob') return this.updMob(e, dt);
     if (e.tog != null) { const want = e.tog === this.tog; if (!want) e.off = true; else if (e.off && !(this.state === 'play' && hit(this.p, e))) e.off = false; }
     if (e.type === 'spike' && !e.hidden && e.pop < 1) e.pop = Math.min(1, e.pop + dt / 0.07);
     if (e.type === 'block' && !e.hidden && e.appear < 1) e.appear = Math.min(1, e.appear + dt / 0.25);
@@ -2935,6 +2950,7 @@ class World {
       }
       else if (e.type === 'zone' && e.kind === 'plate') { if (!e.down && p.onGround && hit(p, { x: e.x, y: e.y - 4, w: e.w, h: e.h + 4 })) { e.down = true; this.sfx('click'); } }
       else if (e.type === 'dash') { if (p.onGround && hit(p, e)) { if (!(p.dashT > 0)) this.sfx('whoosh'); p.dashT = .6; p.vx = PH.run * 1.9 * (e.dir || 1); } }
+      else if (e.type === 'mob') { if (!(e.dead > 0) && this.mobHit(e)) return this.die('mob', e); }
       else if (e.type === 'boss') { if (e.hp > 0 && hit(p, { x: e.x + 14, y: e.y + 18, w: e.w - 28, h: e.h - 18 })) return this.die('boss', e); }
       else if (e.type === 'saw') { if (circRect(e.x, e.y, e.r * this.D.saw, p.x, p.y, PW, PHT)) return this.die('saw', e); if (!this.silent && circRect(e.x, e.y, e.r * this.D.saw + 16, p.x, p.y, PW, PHT)) this.nearChk(e); }
       else if (e.type === 'laser') { if (e.act && hit(p, { x: e.x + (e.dir === 'h' ? 0 : -1), y: e.y + (e.dir === 'h' ? -1 : 0), w: e.w + (e.dir === 'h' ? 0 : 2), h: e.h + (e.dir === 'h' ? 2 : 0) })) return this.die('laser', e); }
@@ -2979,7 +2995,7 @@ class World {
   /* In-place snapshot of all gameplay state. Closures in triggers/timers stay valid because the same Level object is reused. */
   // sub: optional list of entity indexes to keep (things that never change can be left out by a search)
   save(sub) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead', 'vx', 'lt', 'onG'];
     const lv = this.lv, ents = lv.ents;
     // which entities are simulated (the window around the player) is part of the state: it decides when far traps start moving
     let actI = null;
@@ -2993,7 +3009,7 @@ class World {
     };
   }
   load(sn, sub) {
-    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead'];
+    const K = ['x', 'y', 'dx', 'dy', 'hidden', 'gone', 'falling', 'fallDelay', 'vy', 'pop', 'appear', 'shake', 'anim', 'cd', 'rot', 'landed', 'open', 'opening', 'lt', 'a', 'act', 'warn', 'on', 'pt', 'off', 'sinking', 'down', 'hp', 'bt', 'bp', 'stun', 'awake', 'hurt', 'dead', 'vx', 'lt', 'onG'];
     const lv = this.lv, ents = lv.ents;
     this.ck = sn.ck; this.camX = sn.camX; this.look = sn.look;
     if (sn.actX != null) { this.actX = sn.actX; this.act = sn.actI ? sn.actI.map(i => ents[i]) : ents; } else this.actX = -1e9;
@@ -3044,6 +3060,7 @@ class World {
     if (this.state !== 'play' || this.saved(cause)) return;
     const p = this.p; this.state = 'dead'; this.deadT = 0.85; this.nmC = null; this.flash = 1; if (!this.silent && CFG.slowmo !== false) this.slowmo = .32;
     const cx = p.x + PW / 2, cy = p.y + PHT / 2;
+    if (!this.silent && skinOf('boom').id === 'classic') heroPieces(this, cx, cy);
     if (this.silent || !deathFx(this, cx, cy)) {
       this.burst(cx, cy, 26, { col: '#ffe9c4', sp: 420, life: .9, size: 4.5, g: 900, drag: 1.2, sq: true });
       this.burst(cx, cy, 14, { col: '#ff7a45', sp: 380, life: .8, size: 4, g: 900, drag: 1.2, sq: true });
@@ -3167,6 +3184,72 @@ function bossRushDef() {
   def.relayout = () => { let x = 0; for (const s of def.secs) { s.x0 = x; x += s.w; } def.width = x; };
   def.relayout(); def.rooms = def.secs.length;
   return def;
+}
+/* ============================ MONSTERS ============================ */
+// Little walkers and flyers. Jump on their heads to squash them (you bounce up); touch them from the side and you die.
+// Walkers fall onto the floor and turn around at walls and at the edge of their floor; flyers sway along a short path.
+// Everything depends only on time and the level, so the robot can plan around them like any other trap.
+function mobSolidAt(w, x, y) { for (const s of w.act) if (w.isSolid(s) && !s.oneway && x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return s; return null; }
+World.prototype.updMob = function (e, dt) {
+  if (e.dead > 0) { e.dead += dt; if (e.dead > .55) e.gone = true; return; }
+  e.lt = (e.lt || 0) + dt;
+  if (e.kind === 'fly') { e.x = e.x0 + Math.sin(e.lt * e.sp) * e.range; e.y = e.y0 + Math.sin(e.lt * 2.6) * 10; e.vx = Math.cos(e.lt * e.sp) >= 0 ? 1 : -1; return; }
+  e.vy = Math.min(900, (e.vy || 0) + 2000 * dt); let ny = e.y + e.vy * dt;
+  const below = mobSolidAt(this, e.x + e.w / 2, ny + e.h);
+  if (below && e.vy >= 0 && e.y + e.h <= below.y + 12) { ny = below.y - e.h; e.vy = 0; e.onG = true; } else e.onG = false;
+  e.y = ny;
+  if (e.onG) {
+    const dir = e.vx >= 0 ? 1 : -1, nx = e.x + dir * e.spd * dt, front = dir > 0 ? nx + e.w : nx;
+    const wall = mobSolidAt(this, front + dir, e.y + e.h * .5), floor = mobSolidAt(this, front + dir * 2, e.y + e.h + 4);
+    if (wall || !floor) e.vx = -dir; else { e.x = nx; e.vx = dir; }
+  }
+  if (e.y > H + 120) e.gone = true;
+};
+// the player against a monster: from above it is squashed, otherwise the player dies
+World.prototype.mobHit = function (e) {
+  const p = this.p, g = p.g, box = { x: e.x + 4, y: e.y + 4, w: e.w - 8, h: e.h - 6 };
+  if (!hit(p, box)) return false;
+  const feet = g > 0 ? p.y + PHT : p.y, top = g > 0 ? e.y : e.y + e.h;
+  if (p.vy * g > 30 && (g > 0 ? feet - top : top - feet) < e.h * .65) {
+    e.dead = .001; p.vy = -PH.jump * .8 * g; p.onGround = false; p.ground = null; p.jumping = true; p.coy = 0;
+    this.sfx('pop'); this.shake(4); this.burst(e.x + e.w / 2, e.y + e.h / 2, 16, { col: e.kind === 'fly' ? '#c59bff' : '#b47cff', sp: 220, life: .5, size: 3.5, g: 600, sq: true });
+    if (!this.silent) this.parts.push({ x: e.x + e.w / 2, y: e.y - 8, vx: 0, vy: -50, life: .8, max: .8, size: 0, col: '#ffd36e', g: 0, drag: 0, txt: 'له شد! 🥾' });
+    if (this.onStomp) this.onStomp(e);
+    return false;
+  }
+  return true;
+};
+// a placed monster (x, y: the cell, in tiles, local to the section builder P)
+function mobAdd(P, id, x, y, fly) {
+  const e = fly ? P.add(id, { type: 'mob', kind: 'fly', x: (x + .1) * T, y: (y + .15) * T, w: .8 * T, h: .62 * T, range: 2.5 * T, sp: 1.3 * P.D.trapV, vx: 1, vy: 0, dead: 0 })
+    : P.add(id, { type: 'mob', kind: 'walk', x: (x + .1) * T, y: (y + .3) * T, w: .8 * T, h: .7 * T, spd: 1.6 * T * P.D.trapV, vx: -1, vy: 0, dead: 0 });
+  e.x0 = e.x; e.y0 = e.y; e.dyn = true; return e;
+}
+/* ---------- drawing (2D views) ---------- */
+function drawMob(e, t) {
+  const d = e.dead > 0 ? Math.min(1, e.dead / .5) : 0, cx = e.x + e.w / 2, by = e.y + e.h, dir = e.vx >= 0 ? 1 : -1;
+  ctx.save(); ctx.globalAlpha = 1 - d * .9; ctx.translate(cx, by); ctx.scale(1 + d * .5, 1 - d * .75);
+  if (e.kind === 'fly') {
+    const fl = Math.sin(t * 18 + e.x * .01) * .7, h = e.h;
+    ctx.fillStyle = '#3a1f5e';
+    for (const s of [-1, 1]) { ctx.save(); ctx.translate(s * 8, -h * .6); ctx.rotate(s * (fl - .2)); ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(s * 14, -10, s * 22, -2); ctx.quadraticCurveTo(s * 16, 0, s * 18, 6); ctx.quadraticCurveTo(s * 10, 3, 0, 4); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    const gr = ctx.createRadialGradient(-3, -h * .7, 2, 0, -h * .55, 13); gr.addColorStop(0, '#a87adf'); gr.addColorStop(1, '#4a2a7a');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(0, -h * .55, 11, 10, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#4a2a7a'; ctx.beginPath(); ctx.moveTo(-7, -h * .9); ctx.lineTo(-4, -h * 1.15); ctx.lineTo(-1, -h * .92); ctx.moveTo(7, -h * .9); ctx.lineTo(4, -h * 1.15); ctx.lineTo(1, -h * .92); ctx.fill();
+    ctx.fillStyle = '#ff3d71'; ctx.beginPath(); ctx.arc(-4 + dir * 1.5, -h * .6, 2.4, 0, 7); ctx.arc(4 + dir * 1.5, -h * .6, 2.4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-3, -h * .38); ctx.lineTo(-1.5, -h * .3); ctx.lineTo(0, -h * .38); ctx.moveTo(0, -h * .38); ctx.lineTo(1.5, -h * .3); ctx.lineTo(3, -h * .38); ctx.fill();
+  } else {
+    const step = e.onG && !d ? Math.sin(e.lt * 14) : 0, h = e.h;
+    ctx.fillStyle = '#2a1640'; ctx.beginPath(); ctx.ellipse(-7 + step * 3, -2, 5, 3, 0, 0, 7); ctx.ellipse(7 - step * 3, -2, 5, 3, 0, 0, 7); ctx.fill();
+    const gr = ctx.createLinearGradient(0, -h, 0, 0); gr.addColorStop(0, '#c08cff'); gr.addColorStop(1, '#6a3aa8');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(-15, -3); ctx.quadraticCurveTo(-16, -h - 2 + Math.abs(step) * 2, 0, -h - 3); ctx.quadraticCurveTo(16, -h - 2 + Math.abs(step) * 2, 15, -3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffd36e'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 5, -h + 1); ctx.lineTo(s * 9, -h - 7); ctx.lineTo(s * 10, -h + 3); ctx.fill(); }
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-5 + dir * 2, -h * .58, 4, 4.6, 0, 0, 7); ctx.ellipse(5 + dir * 2, -h * .58, 4, 4.6, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#1a0f26'; ctx.beginPath(); ctx.arc(-5 + dir * 3.5, -h * .56, 2.1, 0, 7); ctx.arc(5 + dir * 3.5, -h * .56, 2.1, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#1a0f26'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-9 + dir * 2, -h * .8); ctx.lineTo(-2 + dir * 2, -h * .7); ctx.moveTo(9 + dir * 2, -h * .8); ctx.lineTo(2 + dir * 2, -h * .7); ctx.stroke();
+    ctx.fillStyle = '#1a0f26'; ctx.beginPath(); ctx.ellipse(dir * 2, -h * .3, 4, 2 + Math.abs(step), 0, 0, 7); ctx.fill();
+  }
+  ctx.restore();
 }
 /* ============================ SOUND (Web Audio synth) ============================ */
 // music styles: tempo, chord roots (MIDI), melody scale, lead sound and drums (0 none, 1 hats, 2 beat, 3 boss)
@@ -4081,6 +4164,20 @@ function drawHero(t, f, onGround, vx, vyUp, ph, blinkT, djReady) {
   }
   ctx.fillStyle = PAL.scarf; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-14.5, -17, 29, 6, 3) : ctx.rect(-14.5, -17, 29, 6); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-12, -16, 24, 1.5);
+  // arms: swing while running, go up in a jump, flail when scared, wave when happy
+  ctx.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    let a;
+    if (mood === 'scared' || mood === 'teeter') a = 2.3 + Math.sin(t * 22 + s * 2) * .35;
+    else if (mood === 'happy') a = 2.6 + Math.sin(t * 11 + s * 1.5) * .3;
+    else if (mood === 'sleep') a = .12;
+    else if (air) a = vyN > .1 ? 2.55 + Math.sin(t * 9 + s) * .1 : 1.1 + Math.sin(t * 20 + s) * .45;
+    else if (run) a = .45 + s * f * Math.sin(ph) * .75;
+    else a = .32 + Math.sin(t * 2.2 + s) * .05;
+    const shx = s * 12.5, shy = -17, hx = shx + s * Math.sin(a) * 9, hy = shy + Math.cos(a) * 9;
+    ctx.strokeStyle = cBot; ctx.lineWidth = 3.6; ctx.beginPath(); ctx.moveTo(shx, shy); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.fillStyle = cTop; ctx.beginPath(); ctx.arc(hx, hy, 3.2, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(90,40,50,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  }
   ctx.fillStyle = 'rgba(255,110,120,.45)'; ctx.beginPath(); ctx.ellipse(-8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.ellipse(8 + f * 3, -20.5, 3, 1.8, 0, 0, 7); ctx.fill();
   const sleep = mood === 'sleep', scared = mood === 'scared' || mood === 'teeter';
   const blink = sleep ? 0 : blinkT < 0 ? .15 : 1, ex = f * 3.5, look = clamp(vyUp / 900, -1, 1) * 1.6 + (fx ? fx.ly * 1.5 : 0), lk = fx && (fx.lx || fx.ly) ? fx.lx * 1.6 - f * 1.4 : 0;
@@ -4115,6 +4212,7 @@ function drawParticles(world) {
     if (q.heart) { ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = q.col; const s = q.size * .5; ctx.beginPath(); ctx.arc(q.x - s, q.y, s, 0, 7); ctx.arc(q.x + s, q.y, s, 0, 7); ctx.moveTo(q.x - s * 2, q.y + s * .4); ctx.lineTo(q.x, q.y + s * 2.4); ctx.lineTo(q.x + s * 2, q.y + s * .4); ctx.fill(); ctx.restore(); continue; }
     if (q.soul) { ctx.save(); ctx.globalAlpha = a * .9; ctx.fillStyle = q.col; const s = q.size, wob = Math.sin(q.life * 14) * 3; ctx.beginPath(); ctx.arc(q.x, q.y - s * .2, s * .7, Math.PI, 0); ctx.lineTo(q.x + s * .7 + wob, q.y + s); ctx.lineTo(q.x - s * .7 + wob, q.y + s); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#1a1030'; ctx.beginPath(); ctx.arc(q.x - 3, q.y - s * .2, 1.6, 0, 7); ctx.arc(q.x + 3, q.y - s * .2, 1.6, 0, 7); ctx.fill(); ctx.strokeStyle = '#ffd36e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(q.x, q.y - s * 1.1, s * .5, s * .15, 0, 0, 7); ctx.stroke(); ctx.restore(); continue; }
+    if (q.piece) { ctx.save(); ctx.globalAlpha = Math.min(1, a * 2); ctx.translate(q.x, q.y); ctx.rotate(q.vr * (q.max - q.life)); drawPiece(q); ctx.restore(); continue; }
     if (q.ring2) { ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (1.4 - a * .4), 0, 7); ctx.stroke(); ctx.restore(); continue; }
     if (q.ring) { const r = (1 - a) * 90; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = q.col === '#fff' ? '#ffd9b0' : q.col; ctx.lineWidth = 4 * a + 1; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.stroke(); ctx.restore(); continue; }
     ctx.globalAlpha = Math.min(1, a * 1.5);
@@ -4268,6 +4366,7 @@ function drawFlag(e, t) {
 }
 function drawDynamic(world, t, dt, depth) {
   const ents = VIEW_ENTS = viewEnts(world);
+  drawGrass(world, t);
   for (const e of ents) if (e.type === 'zone') drawZone(e, t);
   for (const e of ents) if (e.type === 'flag') drawFlag(e, t);
   for (const e of ents) if (e.type === 'dash') drawDash(e, t);
@@ -4286,6 +4385,7 @@ function drawDynamic(world, t, dt, depth) {
   for (const e of ents) if (!e.gone && e.type === 'door') drawDoor(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'portal') drawPortal(e, t, world);
   for (const e of ents) if (!e.gone && e.type === 'boss') drawBoss(e, t, world);
+  for (const e of ents) if (!e.gone && e.type === 'mob') drawMob(e, t);
   drawGhost(world, t);
   if (!world.silent) drawPet(world, t);
   if (app.rivals2 && world === app.world && app.kind === 'plat') app.rivals2.draw(t);
@@ -4327,6 +4427,7 @@ function render(world, t, dt) {
   hints = !!(world && world.D.hints); realmMode = !!(world && world.def.realm);
   CAMX = world ? world.camX || 0 : 0; LW = world ? world.lw || W : W;
   drawBack(world, sx, sy);
+  drawClouds(t);
   drawRays(t);
   drawCaves(world, sx, sy, t);
   drawStatics(world, sx, sy);
@@ -4349,6 +4450,7 @@ function render25(world, t, dt) {
   cam.x = lerp(cam.x, px, Math.min(1, dt * 3)); cam.y = lerp(cam.y, py, Math.min(1, dt * 3));
   const vp = { x: CAMX + W * .5 + (cam.x - W * .5) * .55, y: H * .3 + (cam.y - H * .5) * .2, k: .885 };
   drawBack(world, sx, sy, (cam.x - W * .5) * .55 * S);
+  drawClouds(t);
   drawRays(t);
   drawCaves(world, sx, sy, t);
   worldTransform(sx, sy);
@@ -4545,6 +4647,56 @@ function heroMood(world, t) {
   if (!fx.mood && HFX.still > 7) { fx.mood = 'sleep'; HFX.zT -= dt; if (HFX.zT <= 0 && !world.silent) { HFX.zT = 1.1; world.parts.push({ x: cx + 8, y: p.y - 6, vx: 14, vy: -26, life: 1.4, max: 1.4, size: 0, col: '#cfd8ff', g: 0, drag: 0, txt: 'z' }); } }
   if (p.starT > 0) fx.mood = 'happy';
   return fx;
+}
+
+/* ---------- grass that sways and bends away when the hero walks through it ---------- */
+const GRASS_TOP = new Set(['grass', 'vines', 'leaves', 'petals']);
+function drawGrass(world, t) {
+  if (!BIOME || realmMode || !GRASS_TOP.has(BIOME.top) || GFX.fx < .8 || Perf.fxK < .7) return;
+  const p = world.p, px = p.x + PW / 2, pf = p.y + PHT, x0 = CAMX - EXT.l - 20, x1 = CAMX + W + EXT.r + 20;
+  ctx.save(); ctx.strokeStyle = BIOME.top === 'petals' ? mixHex(PAL.moss, '#5fbf6a', .6) : mixHex(PAL.moss, '#ffffff', .1); ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.beginPath();
+  for (const e of VIEW_ENTS) {
+    if (e.type !== 'block' || e.hidden || e.ghost || e.lava || e.oneway || e.ceil || e.rock || e.tog != null || e.off || e.conv || e.bounce || e.ice || e.appear < 1 || e.y < 40 || e.w < 20 || e.falling) continue;
+    const a = Math.max(e.x + 4, x0), b = Math.min(e.x + e.w - 4, x1), top = e.y + 1;
+    for (let x = Math.ceil(a / 13) * 13; x < b; x += 13) {
+      const hsh = Math.abs(Math.sin(x * 12.9898)) , h = 6 + hsh * 6;
+      let bend = Math.sin(t * 2.2 + x * .07) * .22;
+      const dx = x - px; if (Math.abs(dx) < 28 && Math.abs(pf - e.y) < 14) bend += Math.sign(dx || 1) * (1 - Math.abs(dx) / 28) * 1.1;
+      for (const o of [-2, 2]) { const bb = bend + o * .08; ctx.moveTo(x + o, top); ctx.quadraticCurveTo(x + o + Math.sin(bb) * h * .5, top - h * .6, x + o + Math.sin(bb) * h, top - Math.cos(bb) * h); }
+    }
+  }
+  ctx.stroke(); ctx.restore();
+}
+/* ---------- slow clouds in the sky ---------- */
+function drawClouds(t) {
+  const b = BIOME; if (!b || realmMode || GFX.fx < .6) return;
+  ctx.save(); ctx.setTransform(S, 0, 0, S, OX, OY);
+  const span = W + 600, off = CAMX * .06, col = mixHex(b.sky, '#ffffff', .55);
+  ctx.fillStyle = col;
+  for (let i = 0; i < 6; i++) {
+    const x = ((i * 397 + t * (6 + i * 1.5) - off) % span + span) % span - 300, y = 60 + ((i * 61) % 170), s = .7 + (i % 3) * .3;
+    ctx.globalAlpha = .07 + (i % 2) * .04;
+    ctx.beginPath(); ctx.ellipse(x, y, 70 * s, 16 * s, 0, 0, 7); ctx.ellipse(x + 40 * s, y - 10 * s, 46 * s, 14 * s, 0, 0, 7); ctx.ellipse(x - 38 * s, y - 4 * s, 40 * s, 12 * s, 0, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+/* ---------- the hero breaks into pieces (the classic death) ---------- */
+function heroPieces(world, cx, cy) {
+  const [top, bot] = heroCols(world.time || 0), R = (a, b) => a + Math.random() * (b - a);
+  const add = (piece, o) => world.parts.push(Object.assign({ x: cx, y: cy, vx: R(-220, 220), vy: R(-520, -260), life: 1.3, max: 1.3, size: 0, col: top, g: 1500, drag: .6, piece, vr: R(-9, 9), top, bot }, o));
+  add('half', { vx: R(-260, -120), side: -1 }); add('half', { vx: R(120, 260), side: 1 });
+  add('eye', { vx: R(-160, -40) }); add('eye', { vx: R(40, 160) }); add('leaf', { vy: R(-640, -420), col: PAL.moss });
+}
+function drawPiece(q) {
+  if (q.piece === 'half') { const g = ctx.createLinearGradient(0, -12, 0, 12); g.addColorStop(0, q.top); g.addColorStop(1, q.bot); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 13, q.side < 0 ? Math.PI * .5 : -Math.PI * .5, q.side < 0 ? Math.PI * 1.5 : Math.PI * .5); ctx.closePath(); ctx.fill(); ctx.fillStyle = PAL.scarf; ctx.fillRect(q.side < 0 ? -13 : 0, 2, 13, 4); }
+  else if (q.piece === 'eye') { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, 0, 4.3, 5.2, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#231536'; ctx.beginPath(); ctx.arc(1, 0, 2.3, 0, 7); ctx.fill(); }
+  else if (q.piece === 'leaf') { ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(0, 0, 5, 2.6, 0, 0, 7); ctx.fill(); ctx.strokeStyle = q.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-11, 3); ctx.stroke(); }
+}
+/* ---------- a short zoom on big hits (the canvas is scaled by CSS, nothing has to be redrawn) ---------- */
+let punchT = 0;
+function punch(k) {
+  if (CFG.shake === 0) return; const r = document.documentElement.style; r.setProperty('--pz', k.toFixed(3));
+  clearTimeout(punchT); punchT = setTimeout(() => r.setProperty('--pz', '1'), 70);
 }
 /* ============================ WEATHER ============================ */
 // Rain, snow, flood and storm in every view (2D, 2.5D, 3D platformer, 3D chase), plus rain and wind sounds.
@@ -6090,7 +6242,7 @@ function runDefOf(def) {
 /* ============================ 3D VIEW FOR PLATFORMER LEVELS ============================ */
 // Renders a 2D World (same physics, same traps) as a real three.js scene. 1 tile = 1 unit, y up, z towards the camera.
 class P3D {
-  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem', 'pow', 'boss']);
+  static MESHED = new Set(['block', 'spike', 'saw', 'door', 'portal', 'spring', 'orb', 'laser', 'flag', 'zone', 'tele', 'dash', 'gem', 'pow', 'boss', 'mob']);
   constructor(world) {
     this.world = world; this.disp = []; this.meshes = new Map(); this.cm = new Map(); this.t = 0;
     const keep = this.keep = o => { this.disp.push(o); return o; };
@@ -6226,6 +6378,13 @@ class P3D {
         const eye = new THREE.Mesh(C('bossEye', () => new THREE.SphereGeometry(.28, 10, 8)), C('bossEyeM' + e.kind, () => new THREE.MeshBasicMaterial({ color: hexNum(B.eye) }))); eye.position.set(s * w * .17, h * .7, 1.12); g.add(eye); }
       return { o: g, kind: 'boss', body, cx: w / 2 };
     }
+    if (e.type === 'mob') {
+      const g = new THREE.Group(), fly = e.kind === 'fly', col = fly ? 0x5a3a8a : 0x9a5ae0;
+      const body = new THREE.Mesh(C('mobG', () => new THREE.SphereGeometry(.42, 14, 10)), C('mobM' + col, () => new THREE.MeshLambertMaterial({ color: col }))); body.scale.set(1, fly ? .9 : .8, .9); body.position.y = .32; g.add(body);
+      for (const s of [-1, 1]) { const eye = new THREE.Mesh(C('mobEye', () => new THREE.SphereGeometry(.11, 8, 6)), C('mobEyeM' + fly, () => new THREE.MeshBasicMaterial({ color: fly ? 0xff3d71 : 0xffffff }))); eye.position.set(s * .15, .4, .36); g.add(eye); }
+      const wings = []; if (fly) for (const s of [-1, 1]) { const wg = new THREE.Mesh(this.unit, C('mobW', () => new THREE.MeshLambertMaterial({ color: 0x3a1f5e }))); wg.scale.set(.5, .06, .3); wg.position.set(s * .5, .4, 0); g.add(wg); wings.push(wg); }
+      return { o: g, kind: 'mob', body, wings };
+    }
     if (e.type === 'pow') {
       const g = new THREE.Group(), tex = C('powT' + e.kind, () => new THREE.CanvasTexture(powImg(e.kind)));
       const s = new THREE.Sprite(C('powM' + e.kind, () => new THREE.SpriteMaterial({ map: tex, transparent: true }))); s.scale.set(.95, .95, 1); g.add(s);
@@ -6352,6 +6511,8 @@ class P3D {
       if (m.kind === 'zone') { o.visible = !!m.m && e.act; if (m.m) { o.position.set(this.X(e.x) + m.cx, this.Y(e.y) + m.cy, 0); m.m.material.opacity = .1 + Math.sin(t * 4) * .04; } continue; }
       if (m.kind === 'boss') { const die = e.hp <= 0 ? Math.min(1, e.dead / 1.2) : 0; o.visible = !e.gone; o.position.set(this.X(e.x) + m.cx + (e.stun > 0 || die ? Math.sin(t * 60) * .08 : 0), this.Y(e.y + e.h), 0); o.scale.set(1 + die * .15, Math.max(.05, 1 - die * .5), 1);
         m.body.material.emissive && m.body.material.emissive.setScalar(e.hurt * .8); continue; }
+      if (m.kind === 'mob') { const d = e.dead > 0 ? Math.min(1, e.dead / .5) : 0; o.visible = !e.gone; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h), 0); o.scale.set(1 + d * .5, Math.max(.05, 1 - d * .8), 1); o.rotation.y = e.vx >= 0 ? .5 : -.5;
+        m.wings.forEach((wg, i) => { wg.rotation.z = (i ? -1 : 1) * Math.sin(t * 18) * .6; }); continue; }
       if (m.kind === 'pow') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .12, .4); continue; }
       if (m.kind === 'gem') { o.visible = !e.gone; o.position.set(this.X(e.x), this.Y(e.y) + Math.sin(t * 3 + e.ph) * .1, .3); m.m.rotation.y = t * 2 + e.ph; continue; }
       if (m.kind === 'tele') { o.visible = true; o.position.set(this.X(e.x + e.w / 2), this.Y(e.y + e.h / 2), .2); m.ring.rotation.z = t * (e.to ? 3 : -3); continue; }
@@ -6637,6 +6798,8 @@ const ACH = [
   ['gradeS10', '💫', 'افسانه', 'ده مرحله رو با رتبه‌ی S تموم کن'],
   ['photo', '📸', 'عکاس', 'توی «حالت عکس» (از منوی توقف) یه عکس بگیر'],
   ['ai', '🤖', 'دوست هوشمند', 'با هوش مصنوعی تله‌زار حرف بزن (فقط توی claude.ai)'],
+  ['stomp', '🥾', 'له‌کن', '۲۰ تا هیولا رو با پریدن روی سرشون له کن'],
+  ['dayLv', '📅', 'هر روز یه تله', '«مرحله‌ی روز» رو ببر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -6758,18 +6921,34 @@ const app = {
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? rm : ck) + (mu ? ' · ' + mu : '');
     $('pprog').classList.toggle('on', !!n);
   },
-  label() { if (this.duo) return '👥 دو نفره · ' + esc(this.duo.src.name); if (this.custom) return `🛠️ ${esc(this.custom.lv.name)}`; if (this.rush) return '🗿 نبرد غول‌ها'; return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
+  label() { if (this.dayLv) return '📅 مرحله‌ی روز'; if (this.duo) return '👥 دو نفره · ' + esc(this.duo.src.name); if (this.custom) return `🛠️ ${esc(this.custom.lv.name)}`; if (this.rush) return '🗿 نبرد غول‌ها'; return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
-    this.realmIdx = -1; this.idx = i; this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    this.realmIdx = -1; this.idx = i; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null;
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
     if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
     if (!opt.keep) boostApply();
   },
-  startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.startDef(REALM[r], opt); },
+  startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null; this.startDef(REALM[r], opt); },
+  // the level of the day: the same six rooms for everyone today; the first win of the day pays
+  startDayLevel() {
+    this.realmIdx = -1; this.idx = -1; this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    const day = dayKey(); this.dayLv = { day }; this.runStart = performance.now(); this.deaths = 0;
+    this.startDef(makeDayLevel(day), {});
+    setTimeout(() => { if (this.dayLv) this.taunt('📅 مرحله‌ی امروز! فردا یه مرحله‌ی دیگه میاد', '#9ef9ff'); }, 2100);
+  },
+  dayWin() {
+    const t = this.levelT, D = ST.dayLv && ST.dayLv.day === this.dayLv.day ? ST.dayLv : (ST.dayLv = { day: this.dayLv.day, best: 0, won: false });
+    const first = !D.won, rec = !D.best || t < D.best; D.won = true; if (rec) D.best = +t.toFixed(2);
+    if (first) { ST.gems += 30; XP.add(60); unlockAch('dayLv'); }
+    Missions.ev('win'); writeSave();
+    this.taunt(`📅 مرحله‌ی روز رو بردی! ⏱ ${fmtT(t)}${rec && !first ? ' — رکورد جدید!' : ''}${first ? ' · +۳۰ 💎' : ''}`, '#ffd36e');
+    const L0 = this.dayLv; $('fade').classList.add('on');
+    setTimeout(() => { if (this.dayLv !== L0) return; this.menu('sEndless'); renderEndless(); }, 2600);
+  },
   // boss rush: the four boss arenas one after another, against the clock
   startRush() {
-    this.realmIdx = -1; this.idx = -1; this.endless = null; this.custom = null; this.demo = null;
+    this.realmIdx = -1; this.idx = -1; this.endless = null; this.custom = null; this.demo = null; this.dayLv = null;
     this.rush = { best: (ST.rush || {})[this.diff] || 0 }; this.runStart = performance.now(); this.deaths = 0;
     this.startDef(bossRushDef(), {});
     setTimeout(() => { if (this.rush) this.taunt('🗿 چهار غول پشت سر هم! دکمه‌های قرمز رو بزن', '#ffd36e'); }, 2100);
@@ -6777,7 +6956,7 @@ const app = {
   // two players on one device: split screen race (see 68_duo.js)
   startDuo(src) {
     mutApply(false); this.teardown(); Ghost.stop();
-    this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
+    this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
     const def = src.def, D = this.duo = { src, def, w: [], cam: [null, null], tiles: [new Map(), new Map()], wx: [0, 0], deaths: [0, 0], won: -1, count: 3.6, time: 0 };
     this.def = def; this.kind = 'plat'; this.view = 'duo';
     if (def.courseOpt) refreshCaves(); setBiome(biomeOf(def));
@@ -6818,7 +6997,7 @@ const app = {
   },
   // a level made in the editor (test: started from the editor, which it goes back to; demo: the robot's run is replayed)
   startCustom(lv, opt = {}) {
-    this.realmIdx = -1; this.idx = -1; this.endless = null; this.rush = null;
+    this.realmIdx = -1; this.idx = -1; this.endless = null; this.rush = null; this.dayLv = null;
     this.custom = { lv, test: !!opt.test, back: opt.back }; this.demo = opt.demo ? { acts: opt.demo, i: 0, n: 0 } : null; this.demoUsed = !!this.demo;
     this.runStart = performance.now(); this.deaths = 0;
     this.startDef(edDef(lv), {});
@@ -6828,7 +7007,7 @@ const app = {
   // endless mode: 3 lives, the course grows ahead, a life every 5 checkpoints, zones change colour
   startEndless(daily = this.endless ? this.endless.daily : false) {
     const seed = daily ? dayKey() : (Math.random() * 1e6) | 0, def = makeEndless(seed);
-    this.custom = null; this.demo = null; this.rush = null; this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
+    this.custom = null; this.demo = null; this.rush = null; this.dayLv = null; this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
     this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, daily, best: daily ? dailyBest() : (ST.endBest || {})[this.diff] || 0 };
     this.startDef(def, {}); boostApply();
     setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
@@ -6905,6 +7084,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { if (def.custom) return; bonus += hotBonus(); ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
+      w.onStomp = () => { ST.stomps = (ST.stomps || 0) + 1; XP.add(2); if (ST.stomps >= 20) unlockAch('stomp'); };
       w.onNear = () => { this.levelNear = (this.levelNear || 0) + 1; ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = (c, e) => this.onDeath(c, e); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
@@ -6980,6 +7160,7 @@ const app = {
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
   onCheckpoint(i) {
+    if (this.dayLv) { this.updTag(); const n = this.world.secs.length - 1; this.taunt(i === n ? '🚪 اتاق آخر!' : `🚩 اتاق ${faNum(i + 1)} از ${faNum(n + 1)} · ⏱ ${fmtT(this.levelT)}`, '#9ef9dc'); return; }
     if (this.rush) {
       this.updTag(); const k = RUSH[i];
       if (k) { this.swapBiome(RUSH_BIOME[k], `غول ${faNum(i + 1)} از ${faNum(RUSH.length)}`, BOSSES[k].n); setTimeout(() => this.taunt(`⏱ ${fmtT(this.levelT)}`, '#9ef9dc'), 1900); }
@@ -7007,6 +7188,7 @@ const app = {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
     if (this.custom) return this.customWin();
     if (this.rush) return this.rushWin();
+    if (this.dayLv) return this.dayWin();
     const t = this.levelT, d = this.levelDeaths;
     const nr = this.kind === 'plat' && this.world && this.world.secs ? this.world.secs.length : 1;
     const stars = this.kind === 'run' ? (d === 0 ? 3 : d <= 2 ? 2 : 1) : (d <= nr ? 3 : d <= nr * 4 ? 2 : 1);
@@ -7099,6 +7281,7 @@ const app = {
     if (!this.def) return;
     if (this.custom) return this.startCustom(this.custom.lv, { test: this.custom.test });
     if (this.rush) return this.startRush();
+    if (this.dayLv) return this.startDayLevel();
     if (this.duo) return this.startDuo(this.duo.src);
     if (this.endless) return this.startEndless();
     if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { ck: 0 });
@@ -7108,7 +7291,7 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); $('bEdBack').hidden = !this.custom; this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu(to = 'sTitle') {
-    mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null;
     if (this.duo) { this.duo = null; document.body.classList.remove('duo'); duoTouchOff(); resize(); } this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(biomeOf(LEVELS[0]));
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); if (to === 'sMy') renderMy(); this.show(to); this.world = new World(0, { silent: true });
@@ -7121,7 +7304,7 @@ const app = {
     writeSave(); renderDiffs();
     if (this.state === 'pause') {
       if (this.realmIdx < 0) { this.unlocked = Math.max(this.unlocked, this.idx + 1); writeSave(); }
-      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else if (this.rush) this.startRush(); else if (this.duo) this.startDuo(this.duo.src); else this.startDef(this.def);
+      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else if (this.dayLv) this.startDayLevel(); else if (this.rush) this.startRush(); else if (this.duo) this.startDuo(this.duo.src); else this.startDef(this.def);
     }
     if ($('sLevels').classList.contains('on')) this.buildGrid();
     if ($('sEndless').classList.contains('on')) renderEndless();
@@ -7216,6 +7399,8 @@ const EDT = [
   ['T', '🎯', 'تله‌پورت خروجی', 'جایی که از تله‌پورت ورودی سر در میاری'],
   ['u', '🌬️', 'باد رو به بالا', 'یه ستون باد که تو رو بالا می‌بره'],
   ['a', '🏹', 'تیرانداز', 'پشت سر هم به سمت چپ تیر می‌زنه'],
+  ['&', '👾', 'هیولای راه‌رو', 'راه می‌ره و لب پرتگاه برمی‌گرده؛ روی سرش بپری له می‌شه، از بغل بخوری می‌میری'],
+  ['%', '🦇', 'هیولای پرنده', 'توی هوا میاد و می‌ره؛ روی سرش بپر'],
   ['o', '🌀', 'گوی جاذبه', 'جاذبه رو برعکس می‌کنه'],
   ['e', '💎', 'جواهر', 'برای جمع کردن (جواهرهای مرحله‌های ساختنی به حساب فروشگاه نمی‌رن)'],
   ['P', '🙂', 'شروع', 'جای شروع بازیکن (فقط یکی)'],
@@ -7226,7 +7411,7 @@ const EDT = [
 ];
 const EDC = new Set(EDT.map(t => t[0]));
 const edTool = c => EDT.find(t => t[0] === c);
-const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c', 'a', 'q', 'Q']);
+const ED_HAZ = new Set(['f', 'd', 'n', 'S', 'V', 'h', 'r', 'w', 'W', 'z', 'L', 'F', 'c', 'a', 'q', 'Q', '&', '%']);
 const ED_SOLID = 'gibq<>dQcmpa';   // cells you can stand on (for "test from here" and arrow walls)
 
 /* ---------- grid -> level ---------- */
@@ -7283,6 +7468,7 @@ function edBuild(P, G, ox) {
     else if (c === 'o') dyn(P.orb(id(), lx + .5, y + .5));
     else if (c === 'e') P.gem(lx + .5, y + .5);
     else if (c === 'D') dyn(P.door(lx - .2, y - 1));
+    else if (c === '&' || c === '%') mobAdd(P, id(), lx, y, c === '%');
     else if (aiTrapOf(c)) aiBuildTrap(P, aiTrapOf(c), lx, y, 'a' + x + '_' + y + '_');
     else if (c === 'F') { const k = id(); dyn(P.spikes(k + 's', lx - 1, y, 3, 'up', { hidden: true })); dyn(P.add(k, { type: 'door', fake: k + 's', x: (lx - .2) * T, y: (y - 1) * T, w: 1.4 * T, h: 2 * T })); }
   }
@@ -7449,6 +7635,7 @@ function edIcon(code) {
       else if (e.type === 'door') drawDoor(e, 0, null);
       else if (e.type === 'laser') { e.act = true; drawLaser(e, 0); }
       else if (e.type === 'tele') drawTele(e, 0);
+      else if (e.type === 'mob') { e.lt = 0; drawMob(e, 0); }
       else if (e.type === 'zone' && e.kind === 'wind') { ctx.save(); ctx.fillStyle = 'rgba(158,249,255,.25)'; ctx.fillRect(e.x, e.y + e.h - 1.6 * T, e.w, 1.6 * T); ctx.restore(); }
     }
     if (code === 'K') drawFlag({ x: 1.4 * T, y: 1.1 * T, h: 2.4 * T, on: true, wave: 0 }, 0);
@@ -7601,7 +7788,7 @@ function solveDef(def, diff, opt = {}) {
   const done = s => s < nSec - 1 ? w.ck > s && w.p.onGround && w.state === 'play' : w.state === 'win';
   const key = () => {
     const p = w.p; let fs = ''; for (const t of w.lv.trigs) fs += t.fired ? '1' : '0';
-    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol || e.orbit) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + (e.patrol ? e.patrol.i : '') + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; }
+    let mq = ''; for (const e of w.act) { if (Math.abs(e.x - p.x) > 280 || e.gone) continue; if (e.patrol || e.orbit) mq += ((e.x / 80) | 0) + '.' + ((e.y / 80) | 0) + (e.patrol ? e.patrol.i : '') + ';'; if (e.type === 'laser') mq += e.act ? 'L' : 'l'; if (e.type === 'mob') mq += ((e.x / 40) | 0) + (e.vx > 0 ? 'r' : 'l') + (e.dead > 0 ? 'd' : '') + ';'; }
     return ((p.x / 24) | 0) + ',' + ((p.y / 24) | 0) + ',' + p.g + (p.onGround ? 'g' : 'a') + (w.tog ? 't' : '') + (w.rev ? 'r' : '') + fs + mq;
   };
   const score = s => { const p = w.p, gx = goalX(s); if (gx != null) return -Math.abs(gx - p.x) - .15 * Math.abs(p.y - 560); const d = doorOf(); return d ? -(Math.abs(p.x - d.x) + .8 * Math.abs(p.y - d.y)) : 0; };
@@ -8199,12 +8386,14 @@ function renderEndless() {
   const best = (ST.endBest || {})[app.diff] || 0, d = dailyBest();
   $('endList').innerHTML = `<button class="mcard" data-end="0"><b>♾️ بی‌پایان آزاد</b><small>هر بار یه مسیر تازه و تصادفی.<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${faNum(best)} متر</b></small></button>
     <button class="mcard" data-end="1"><b>🗓️ چالش امروز</b><small>یه مسیر ثابت برای امروز؛ فردا عوض می‌شه.<br>رکورد امروز: <b style="color:var(--gold)">${faNum(d)} متر</b></small></button>
+    <button class="mcard" data-day="1"><b>📅 مرحله‌ی روز</b><small>هر روز یه مرحله‌ی تازه با شش اتاق، از آسون تا سخت. اولین برد هر روز: ۳۰ جواهر.<br>${ST.dayLv && ST.dayLv.day === dayKey() && ST.dayLv.won ? `✅ امروز ردش کردی · رکورد: <b style="color:var(--gold)">${fmtT(ST.dayLv.best)}</b>` : '⏳ امروز هنوز ردش نکردی'}</small></button>
     <button class="mcard" data-rush="1"><b>🗿 نبرد غول‌ها</b><small>هر چهار غول آخر مرحله پشت سر هم، هر کدوم توی دنیای خودش. با زمان مسابقه بده!<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${(ST.rush || {})[app.diff] ? fmtT(ST.rush[app.diff]) + ' ثانیه' : '—'}</b></small></button>`;
   $('mutBox').innerHTML = renderMuts();
 }
 $('endList').addEventListener('click', e => {
-  const b = e.target.closest('[data-end],[data-rush]'); if (!b) return; Sound.play('click');
-  if (b.dataset.rush) app.startRush(); else app.startEndless(b.dataset.end === '1');
+  const b = e.target.closest('[data-end],[data-rush],[data-day]'); if (!b) return; Sound.play('click');
+  if (b.dataset.day) app.startDayLevel();
+  else if (b.dataset.rush) app.startRush(); else app.startEndless(b.dataset.end === '1');
 });
 $('mutBox').addEventListener('click', e => {
   const b = e.target.closest('[data-mut]'); if (!b) return; Sound.play('click');
@@ -8242,6 +8431,7 @@ const TRAPS = [
   ['boss', '🗿', 'غول آخر مرحله', 'نزدیکش نشو! دکمه‌های قرمز رو بزن.'],
   ['caught', '👹', 'غول تعقیب‌گر', 'گفتم بدو! (مرحله‌های سه‌بعدی)'],
   ['fall3', '🌌', 'پرت شدن از جاده', 'جاده تموم شد، تو هنوز داشتی می‌دویدی.'],
+  ['mob', '👾', 'هیولا', 'از بغل بهش خوردی! باید روی سرش می‌پریدی.'],
   ['time', '⏳', 'وقت تموم شد', 'ساعت شنی خالی شد و تو هنوز اونجا بودی!'],
 ];
 const TRAP_GEMS = 5;
@@ -8966,12 +9156,14 @@ function aiCleanTrap(inp) {
   const ids = new Set(), P = [];
   for (const [i, q] of parts.entries()) {
     if (!q || typeof q !== 'object') { err.push(`part ${i} شیء نیست`); continue; }
-    const k = String(q.kind || q.k || ''); if (!['block', 'spike', 'saw', 'laser', 'spring', 'orb', 'gem', 'wind', 'lava'].includes(k)) { err.push(`part ${i}: kind «${k}» ناشناخته`); continue; }
+    const k = String(q.kind || q.k || ''); if (!['block', 'spike', 'saw', 'laser', 'spring', 'orb', 'gem', 'wind', 'lava', 'monster'].includes(k)) { err.push(`part ${i}: kind «${k}» ناشناخته`); continue; }
+    if (k === 'monster' && P.filter(p => p.k === 'monster').length >= 4) { err.push('at most 4 monsters'); continue; }
     const o = { k, x: num(q.x, -8, 8, 0), y: num(q.y, -13, 3, 0) }, id = idOk(q.id); if (id) { if (ids.has(id)) err.push(`id تکراری ${id}`); ids.add(id); o.id = id; }
     if (k === 'block' || k === 'wind' || k === 'lava') { o.w = num(q.w, .2, 10, 1); o.h = num(q.h, .2, 10, 1); }
     if (k === 'block') { for (const f of ['hidden', 'ghost', 'crumble', 'ice', 'bounce']) if (q[f]) o[f] = true; if (q.conveyor) o.conv = num(q.conveyor, -4, 4, 0); }
     if (k === 'spike') { o.n = Math.round(num(q.n, 1, 10, 1)); o.dir = ['up', 'down', 'left', 'right'].includes(q.dir) ? q.dir : 'up'; if (q.hidden) o.hidden = true; if (q.arrow) o.arrow = true; }
     if (k === 'saw') o.r = num(q.r, .3, 1.4, .6);
+    if (k === 'monster' && q.fly) o.fly = true;
     if (k === 'laser') { o.len = num(q.len, 1, 14, 4); o.dir = q.dir === 'h' ? 'h' : 'v'; o.on = num(q.on, .3, 4, 1.1); o.off = num(q.off, .3, 4, 1.4); }
     if (k === 'wind') { o.fx = num(q.fx, -25, 25, 0); o.fy = num(q.fy, -25, 25, 0); }
     if (Array.isArray(q.path) && q.path.length && ['block', 'spike', 'saw', 'laser'].includes(k)) { o.path = q.path.slice(0, 6).map(p => [num(p && p[0], -12, 12, 0), num(p && p[1], -12, 12, 0)]); o.speed = num(q.speed, .5, 14, 3); }
@@ -9018,6 +9210,7 @@ function aiBuildTrap(P, t, lx, y, inst) {
     else if (q.k === 'spring') mk(P.spring(id(q.id), ax, ay));
     else if (q.k === 'orb') mk(P.orb(id(q.id), ax, ay));
     else if (q.k === 'gem') P.gem(ax, ay);
+    else if (q.k === 'monster') mobAdd(P, id(q.id) || inst + 'mob' + t.parts.indexOf(q), ax, ay, q.fly);
     else if (q.k === 'wind') mk(P.zone(id(q.id), 'wind', ax, ay, q.w, q.h, { fx: q.fx, fy: q.fy }));
   }
   for (const g of t.trigs) {
@@ -9181,6 +9374,7 @@ parts: [{kind, id?, x, y, ...}] kinds:
 - saw {r (0.3-1.4), x,y = centre, path?, speed?, orbit? {radius, speed (rad/s)}}
 - laser {len, dir: v|h, on, off (seconds)}  (vertical from y down)
 - spring, orb (flips gravity), gem, lava {w,h}, wind {w,h, fx, fy (tiles/s; fy -18 lifts)}
+- monster {fly?} (x,y = its cell; a walker walks and turns at walls and ledges, a flyer sways ±2.5 tiles; the hero squashes it by landing on its head, touching it from the side kills)
 path = list of [dx,dy] offsets from the part's start, visited in a loop; speed in tiles/s.
 follow: the id of an earlier block — the part then moves and falls together with that block (e.g. spikes under a crushing ceiling).
 triggers: [{x,y,w,h, when: touch|ground (player standing inside)|head (player jumping up into it), actions:[{do: pop (show a hidden part)|fall (part drops)|move {dx,dy,speed}|say {text, Persian}|shake|sound {name: rumble|crack|whoosh|thud|pop|orb|spring|roar}|reverse (controls flipped 3 s), id?, delay? (s)}]}]
@@ -9191,7 +9385,7 @@ triggers [{x:-2,y:-6,w:1,h:7,when:"touch",actions:[{do:"sound",name:"rumble"},{d
 (moves on the same id queue one after another; delay is the wait before that move starts)
 
 LEVEL GRID (create_level): 18 rows, 32-160 columns, one char per tile; the bottom rows are usually ground.
-codes: ' ' empty, g ground, p plank (jump through), i ice, m moving platform, c crumbling, f fake ground, d falling ground, n invisible block, S spike up, V spike down, h hidden spike, r falling spike, w saw, W moving saw, z laser, L lava, j spring, b bounce pad, < > conveyors, q pink switch block (solid first), Q blue switch block, t teleporter in, T teleporter out, u updraft, a arrow shooter, o gravity orb, e gem, P start (one), D door (one), F fake door, K checkpoint${AIX.traps.length ? ', AI traps: ' + AIX.traps.map(t => `${t.code}=${t.name}`).join(', ') : ''}.
+codes: ' ' empty, g ground, p plank (jump through), i ice, m moving platform, c crumbling, f fake ground, d falling ground, n invisible block, S spike up, V spike down, h hidden spike, r falling spike, w saw, W moving saw, z laser, L lava, j spring, b bounce pad, < > conveyors, q pink switch block (solid first), Q blue switch block, t teleporter in, T teleporter out, u updraft, a arrow shooter, & walking monster, % flying monster, o gravity orb, e gem, P start (one), D door (one), F fake door, K checkpoint${AIX.traps.length ? ', AI traps: ' + AIX.traps.map(t => `${t.code}=${t.name}`).join(', ') : ''}.
 Hero needs 2 empty tiles of headroom. Keep jumps under 3 tiles up and 4 tiles across.`;
 }
 

@@ -119,6 +119,8 @@ const ACH = [
   ['gradeS10', '💫', 'افسانه', 'ده مرحله رو با رتبه‌ی S تموم کن'],
   ['photo', '📸', 'عکاس', 'توی «حالت عکس» (از منوی توقف) یه عکس بگیر'],
   ['ai', '🤖', 'دوست هوشمند', 'با هوش مصنوعی تله‌زار حرف بزن (فقط توی claude.ai)'],
+  ['stomp', '🥾', 'له‌کن', '۲۰ تا هیولا رو با پریدن روی سرشون له کن'],
+  ['dayLv', '📅', 'هر روز یه تله', '«مرحله‌ی روز» رو ببر'],
   ['pow25', '🎁', 'شکارچی قدرت', '۲۵ پاورآپ (سپر، ستاره، زمان کند، آهن‌ربا، کفش فنری) جمع کن'],
 ];
 let toastQ = [], toastBusy = false;
@@ -240,18 +242,34 @@ const app = {
     $('lvlTag').innerHTML = `${this.label()} · <i style="color:${DIFFS[this.diff].col}">${DIFFS[this.diff].name}</i>` + (this.kind === 'run' ? rm : ck) + (mu ? ' · ' + mu : '');
     $('pprog').classList.toggle('on', !!n);
   },
-  label() { if (this.duo) return '👥 دو نفره · ' + esc(this.duo.src.name); if (this.custom) return `🛠️ ${esc(this.custom.lv.name)}`; if (this.rush) return '🗿 نبرد غول‌ها'; return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
+  label() { if (this.dayLv) return '📅 مرحله‌ی روز'; if (this.duo) return '👥 دو نفره · ' + esc(this.duo.src.name); if (this.custom) return `🛠️ ${esc(this.custom.lv.name)}`; if (this.rush) return '🗿 نبرد غول‌ها'; return this.endless ? (this.endless.daily ? '🗓️ چالش روزانه' : '♾️ حالت بی‌پایان') : this.realmIdx >= 0 ? `ابعاد پنهان ${faNum(this.realmIdx + 1)} از ${faNum(REALM.length)}` : `مرحله ${faNum(this.idx + 1)} از ${faNum(LEVELS.length)}`; },
   startLevel(i, opt = {}) {
-    this.realmIdx = -1; this.idx = i; this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    this.realmIdx = -1; this.idx = i; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null;
     // long levels: continue from the checkpoint reached last time (saved per difficulty)
     if (opt.ck == null) { const sc = savedCk(this.diff, i); if (sc > 0) opt = Object.assign({}, opt, { ck: sc, resumed: true }); }
     this.startDef(LEVELS[i], opt);
     if (!opt.keep) boostApply();
   },
-  startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.startDef(REALM[r], opt); },
+  startRealm(r, opt = {}) { this.realmIdx = r; this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null; this.startDef(REALM[r], opt); },
+  // the level of the day: the same six rooms for everyone today; the first win of the day pays
+  startDayLevel() {
+    this.realmIdx = -1; this.idx = -1; this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    const day = dayKey(); this.dayLv = { day }; this.runStart = performance.now(); this.deaths = 0;
+    this.startDef(makeDayLevel(day), {});
+    setTimeout(() => { if (this.dayLv) this.taunt('📅 مرحله‌ی امروز! فردا یه مرحله‌ی دیگه میاد', '#9ef9ff'); }, 2100);
+  },
+  dayWin() {
+    const t = this.levelT, D = ST.dayLv && ST.dayLv.day === this.dayLv.day ? ST.dayLv : (ST.dayLv = { day: this.dayLv.day, best: 0, won: false });
+    const first = !D.won, rec = !D.best || t < D.best; D.won = true; if (rec) D.best = +t.toFixed(2);
+    if (first) { ST.gems += 30; XP.add(60); unlockAch('dayLv'); }
+    Missions.ev('win'); writeSave();
+    this.taunt(`📅 مرحله‌ی روز رو بردی! ⏱ ${fmtT(t)}${rec && !first ? ' — رکورد جدید!' : ''}${first ? ' · +۳۰ 💎' : ''}`, '#ffd36e');
+    const L0 = this.dayLv; $('fade').classList.add('on');
+    setTimeout(() => { if (this.dayLv !== L0) return; this.menu('sEndless'); renderEndless(); }, 2600);
+  },
   // boss rush: the four boss arenas one after another, against the clock
   startRush() {
-    this.realmIdx = -1; this.idx = -1; this.endless = null; this.custom = null; this.demo = null;
+    this.realmIdx = -1; this.idx = -1; this.endless = null; this.custom = null; this.demo = null; this.dayLv = null;
     this.rush = { best: (ST.rush || {})[this.diff] || 0 }; this.runStart = performance.now(); this.deaths = 0;
     this.startDef(bossRushDef(), {});
     setTimeout(() => { if (this.rush) this.taunt('🗿 چهار غول پشت سر هم! دکمه‌های قرمز رو بزن', '#ffd36e'); }, 2100);
@@ -259,7 +277,7 @@ const app = {
   // two players on one device: split screen race (see 68_duo.js)
   startDuo(src) {
     mutApply(false); this.teardown(); Ghost.stop();
-    this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
+    this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null; this.rivals2 = null; this.realmIdx = -1; this.idx = -1;
     const def = src.def, D = this.duo = { src, def, w: [], cam: [null, null], tiles: [new Map(), new Map()], wx: [0, 0], deaths: [0, 0], won: -1, count: 3.6, time: 0 };
     this.def = def; this.kind = 'plat'; this.view = 'duo';
     if (def.courseOpt) refreshCaves(); setBiome(biomeOf(def));
@@ -300,7 +318,7 @@ const app = {
   },
   // a level made in the editor (test: started from the editor, which it goes back to; demo: the robot's run is replayed)
   startCustom(lv, opt = {}) {
-    this.realmIdx = -1; this.idx = -1; this.endless = null; this.rush = null;
+    this.realmIdx = -1; this.idx = -1; this.endless = null; this.rush = null; this.dayLv = null;
     this.custom = { lv, test: !!opt.test, back: opt.back }; this.demo = opt.demo ? { acts: opt.demo, i: 0, n: 0 } : null; this.demoUsed = !!this.demo;
     this.runStart = performance.now(); this.deaths = 0;
     this.startDef(edDef(lv), {});
@@ -310,7 +328,7 @@ const app = {
   // endless mode: 3 lives, the course grows ahead, a life every 5 checkpoints, zones change colour
   startEndless(daily = this.endless ? this.endless.daily : false) {
     const seed = daily ? dayKey() : (Math.random() * 1e6) | 0, def = makeEndless(seed);
-    this.custom = null; this.demo = null; this.rush = null; this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
+    this.custom = null; this.demo = null; this.rush = null; this.dayLv = null; this.realmIdx = -1; this.idx = -1; this.runStart = performance.now(); this.deaths = 0;
     this.endless = { lives: 3, dist: 0, gems: 0, seed, zone: 0, daily, best: daily ? dailyBest() : (ST.endBest || {})[this.diff] || 0 };
     this.startDef(def, {}); boostApply();
     setTimeout(() => this.taunt('♾️ تا جایی که می‌تونی برو! ۳ جون داری', '#9ef9ff'), 2100);
@@ -387,6 +405,7 @@ const app = {
       w.onCheckpoint = i => this.onCheckpoint(i);
       w.onGem = (e, bonus = 0) => { if (def.custom) return; bonus += hotBonus(); ST.gems += 1 + bonus; if (ST.gems >= 100) unlockAch('gems100'); Missions.ev('gem', 1 + bonus); };
       w.onJump = () => { if (!def.custom) Missions.ev('jump'); };
+      w.onStomp = () => { ST.stomps = (ST.stomps || 0) + 1; XP.add(2); if (ST.stomps >= 20) unlockAch('stomp'); };
       w.onNear = () => { this.levelNear = (this.levelNear || 0) + 1; ST.near = (ST.near || 0) + 1; Missions.ev('near'); XP.add(1); if (ST.near >= 50) unlockAch('near50'); if (CFG.vib && navigator.vibrate) navigator.vibrate(12); };
       w.onBoss = b => { XP.add(this.rush ? 60 : 120); const s = ST.bosses || (ST.bosses = {}); s[b.kind] = 1; unlockAch('boss'); if (Object.keys(s).length >= Object.keys(BOSSES).length) unlockAch('bossAll'); if (typeof Missions !== 'undefined') Missions.ev('boss'); writeSave(); };
       w.onPick = k => this.onPick(k); w.onDeath = (c, e) => this.onDeath(c, e); w.onRev = on => $('revBadge').classList.toggle('on', on); w.onWin = () => this.onWin(); w.onSay = t => this.taunt(t, def.realm ? '#c59bff' : '#ffd36e');
@@ -462,6 +481,7 @@ const app = {
     $('fade').classList.add('on'); setTimeout(() => this.startRealm(0), 650);
   },
   onCheckpoint(i) {
+    if (this.dayLv) { this.updTag(); const n = this.world.secs.length - 1; this.taunt(i === n ? '🚪 اتاق آخر!' : `🚩 اتاق ${faNum(i + 1)} از ${faNum(n + 1)} · ⏱ ${fmtT(this.levelT)}`, '#9ef9dc'); return; }
     if (this.rush) {
       this.updTag(); const k = RUSH[i];
       if (k) { this.swapBiome(RUSH_BIOME[k], `غول ${faNum(i + 1)} از ${faNum(RUSH.length)}`, BOSSES[k].n); setTimeout(() => this.taunt(`⏱ ${fmtT(this.levelT)}`, '#9ef9dc'), 1900); }
@@ -489,6 +509,7 @@ const app = {
     if (this.kind === 'plat' && this.world && this.world.winKind === 'portal') return this.enterPortal();
     if (this.custom) return this.customWin();
     if (this.rush) return this.rushWin();
+    if (this.dayLv) return this.dayWin();
     const t = this.levelT, d = this.levelDeaths;
     const nr = this.kind === 'plat' && this.world && this.world.secs ? this.world.secs.length : 1;
     const stars = this.kind === 'run' ? (d === 0 ? 3 : d <= 2 ? 2 : 1) : (d <= nr ? 3 : d <= nr * 4 ? 2 : 1);
@@ -581,6 +602,7 @@ const app = {
     if (!this.def) return;
     if (this.custom) return this.startCustom(this.custom.lv, { test: this.custom.test });
     if (this.rush) return this.startRush();
+    if (this.dayLv) return this.startDayLevel();
     if (this.duo) return this.startDuo(this.duo.src);
     if (this.endless) return this.startEndless();
     if (this.realmIdx >= 0) return this.startRealm(this.realmIdx, { ck: 0 });
@@ -590,7 +612,7 @@ const app = {
   pause() { if (this.state !== 'play') return; this.state = 'pause'; ptrs.clear(); refreshTouch(); renderDiffs(); soundLabel(); $('bEdBack').hidden = !this.custom; this.show('sPause'); },
   resume() { if (this.state !== 'pause') return; this.state = 'play'; this.show(null); Perf.reset(1); },
   menu(to = 'sTitle') {
-    mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null;
+    mutApply(false); this.teardown(); this.endless = null; this.custom = null; this.demo = null; this.rush = null; this.dayLv = null;
     if (this.duo) { this.duo = null; document.body.classList.remove('duo'); duoTouchOff(); resize(); } this.rivals2 = null; Ghost.stop(); this.view = 'p2'; this.kind = 'plat'; this.def = null; cv.style.display = 'block'; $('c3').style.display = 'none'; $('r3hud').classList.remove('on'); $('fade').classList.remove('on');
     setBiome(biomeOf(LEVELS[0]));
     this.state = 'title'; $('bCam').classList.remove('on'); $('hud').classList.remove('on'); $('revBadge').classList.remove('on'); tLayer.classList.remove('on'); renderDiffs(); if (to === 'sMy') renderMy(); this.show(to); this.world = new World(0, { silent: true });
@@ -603,7 +625,7 @@ const app = {
     writeSave(); renderDiffs();
     if (this.state === 'pause') {
       if (this.realmIdx < 0) { this.unlocked = Math.max(this.unlocked, this.idx + 1); writeSave(); }
-      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else if (this.rush) this.startRush(); else if (this.duo) this.startDuo(this.duo.src); else this.startDef(this.def);
+      this.state = 'play'; this.show(null); if (this.endless) this.startEndless(); else if (this.dayLv) this.startDayLevel(); else if (this.rush) this.startRush(); else if (this.duo) this.startDuo(this.duo.src); else this.startDef(this.def);
     }
     if ($('sLevels').classList.contains('on')) this.buildGrid();
     if ($('sEndless').classList.contains('on')) renderEndless();

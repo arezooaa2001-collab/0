@@ -188,12 +188,14 @@ function renderEndless() {
   const best = (ST.endBest || {})[app.diff] || 0, d = dailyBest();
   $('endList').innerHTML = `<button class="mcard" data-end="0"><b>♾️ بی‌پایان آزاد</b><small>هر بار یه مسیر تازه و تصادفی.<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${faNum(best)} متر</b></small></button>
     <button class="mcard" data-end="1"><b>🗓️ چالش امروز</b><small>یه مسیر ثابت برای امروز؛ فردا عوض می‌شه.<br>رکورد امروز: <b style="color:var(--gold)">${faNum(d)} متر</b></small></button>
+    <button class="mcard" data-day="1"><b>📅 مرحله‌ی روز</b><small>هر روز یه مرحله‌ی تازه با شش اتاق، از آسون تا سخت. اولین برد هر روز: ۳۰ جواهر.<br>${ST.dayLv && ST.dayLv.day === dayKey() && ST.dayLv.won ? `✅ امروز ردش کردی · رکورد: <b style="color:var(--gold)">${fmtT(ST.dayLv.best)}</b>` : '⏳ امروز هنوز ردش نکردی'}</small></button>
     <button class="mcard" data-rush="1"><b>🗿 نبرد غول‌ها</b><small>هر چهار غول آخر مرحله پشت سر هم، هر کدوم توی دنیای خودش. با زمان مسابقه بده!<br>رکورد (${DIFFS[app.diff].name}): <b style="color:var(--gold)">${(ST.rush || {})[app.diff] ? fmtT(ST.rush[app.diff]) + ' ثانیه' : '—'}</b></small></button>`;
   $('mutBox').innerHTML = renderMuts();
 }
 $('endList').addEventListener('click', e => {
-  const b = e.target.closest('[data-end],[data-rush]'); if (!b) return; Sound.play('click');
-  if (b.dataset.rush) app.startRush(); else app.startEndless(b.dataset.end === '1');
+  const b = e.target.closest('[data-end],[data-rush],[data-day]'); if (!b) return; Sound.play('click');
+  if (b.dataset.day) app.startDayLevel();
+  else if (b.dataset.rush) app.startRush(); else app.startEndless(b.dataset.end === '1');
 });
 $('mutBox').addEventListener('click', e => {
   const b = e.target.closest('[data-mut]'); if (!b) return; Sound.play('click');
