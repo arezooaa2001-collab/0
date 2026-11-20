@@ -565,7 +565,23 @@ function buildCharGeometry(o, m) {
   // neck & head
   add('head', cyl, 0, 0.02, 0, o.skin, 0, 0, 0, 0.062 * (1 + 0.3 * m), 0.12, 0.062 * (1 + 0.3 * m));
   add('head', sph, 0, 0.17, 0.01, o.skin, 0, 0, 0, 0.118, 0.135, 0.125);
-  add('head', HAIR_GEO, 0, 0.18, -0.008, o.hair, -0.35, 0, 0, 0.128, 0.13, 0.135);
+  // hair: a few styles so a crowd doesn't look like one person
+  const hs = o.hairStyle || 'crop';
+  if (hs !== 'bald' && hs !== 'mohawk' && hs !== 'afro') add('head', HAIR_GEO, 0, 0.18, -0.008, o.hair, -0.35, 0, 0, 0.128, 0.13, 0.135);
+  if (hs === 'spiky') {
+    for (const [x, y, z, rx, rz] of [[0, 0.3, 0.03, -0.2, 0], [0.05, 0.29, 0.0, -0.3, -0.4], [-0.05, 0.29, 0.0, -0.3, 0.4], [0, 0.29, -0.05, -0.8, 0], [0.06, 0.26, -0.06, -0.9, -0.5], [-0.06, 0.26, -0.06, -0.9, 0.5], [0.08, 0.27, 0.04, -0.1, -0.8], [-0.08, 0.27, 0.04, -0.1, 0.8]]) {
+      add('head', UnitGeo.cone(6), x, y, z, o.hair, rx, 0, rz, 0.032, 0.09, 0.032);
+    }
+  } else if (hs === 'bun') {
+    add('head', sph, 0, 0.3, -0.07, o.hair, 0, 0, 0, 0.062, 0.058, 0.062);
+  } else if (hs === 'pony') {
+    add('head', UnitGeo.capsule(0.04, 0.16, 3, 8), 0, 0.15, -0.15, o.hair, 0.35, 0, 0, 1, 1, 1);
+    add('head', cyl, 0, 0.245, -0.12, o.band || '#e63946', 0.9, 0, 0, 0.03, 0.025, 0.03);
+  } else if (hs === 'afro') {
+    add('head', sph, 0, 0.23, -0.025, o.hair, 0, 0, 0, 0.175, 0.15, 0.17);
+  } else if (hs === 'mohawk') {
+    for (let i = 0; i < 6; i++) add('head', box, 0, 0.3 - Math.abs(i - 2.2) * 0.012, 0.07 - i * 0.035, o.hair, -0.25 * (i / 5), 0, 0, 0.026, 0.07, 0.036);
+  }
   const sphS = UnitGeo.sphere(8, 6);
   // eyes: whites, dark pupils with a glint (the lids that blink are separate, see polish.js)
   for (const ex of [0.043, -0.043]) {
@@ -1075,5 +1091,6 @@ function randomOutfit() {
     sleeve: Math.random() < 0.35 ? pick(PALETTE.shirts.filter((c) => c !== shirt)) : null,
     wrist: Math.random() < 0.35 ? pick(['#ffffff', '#111111', '#e63946']) : null,
     number: Math.random() < 0.4,
+    hairStyle: pick(['crop', 'crop', 'crop', 'spiky', 'bun', 'pony', 'afro', 'mohawk', 'bald']),
   };
 }
