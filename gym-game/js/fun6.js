@@ -57,7 +57,7 @@ ACHIEVEMENTS.push(
   { id: 'three', name: 'سه‌امتیازی', icon: '🎯', desc: 'یه پرتاب سه‌امتیازی بزن', test: (s) => (s.stats.hoopThree || 0) >= 1 },
   { id: 'bullseye', name: 'گلوله‌ی انسانی', icon: '💥', desc: 'با توپ انسانی وسط هدف فرود بیا', test: (s) => (s.stats.cannonBull || 0) >= 1 },
   { id: 'pinata', name: 'پینیاتاشکن', icon: '🪅', desc: 'توی مهمونی دیسکو پینیاتا رو بشکن', test: (s) => (s.stats.pinatas || 0) >= 1 },
-  { id: 'dancer', name: 'رقصنده‌ی حرفه‌ای', icon: '🕺', desc: 'هر ۵ دور رقص با مربی رو ببر', test: (s) => (s.stats.danceAll || 0) >= 1 },
+  { id: 'danceall', name: 'رقصنده‌ی حرفه‌ای', icon: '🕺', desc: 'هر ۵ دور رقص با مربی رو ببر', test: (s) => (s.stats.danceAll || 0) >= 1 },
   { id: 'ufo', name: 'دوست فضایی', icon: '🛸', desc: 'بشقاب‌پرنده رو با خودت ببر', test: (s) => s.shop && s.shop.pet === 'ufo' },
 );
 

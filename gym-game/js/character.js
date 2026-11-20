@@ -778,6 +778,9 @@ class Character {
   dispose() {
     if (this.root.parent) this.root.parent.remove(this.root);
     this.mesh.geometry.dispose();
+    // the bone texture and any props made just for this body
+    if (this.mesh.skeleton) this.mesh.skeleton.dispose();
+    if (typeof disposeDeep === 'function') for (const k in this.props) for (const m of this.props[k].meshes) disposeDeep(m);
     if (this.label) { if (this.label.material.map) this.label.material.map.dispose(); this.label.material.dispose(); }
   }
 

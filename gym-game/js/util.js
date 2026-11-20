@@ -14,7 +14,11 @@ const angleLerp = (a, b, t) => a + wrapAngle(b - a) * t;
 const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
 
 const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
-const fa = (v) => String(v).replace(/\d/g, (d) => FA_DIGITS[d]);
+/** Persian digits; a plain decimal number also gets the Persian decimal sign (۳٫۴). */
+const fa = (v) => {
+  const s = String(v);
+  return (/^-?\d+\.\d+$/.test(s) ? s.replace('.', '٫') : s).replace(/\d/g, (d) => FA_DIGITS[d]);
+};
 
 /** Turn Persian/Arabic digits into ASCII and drop everything that is not a digit. */
 function digitsOnly(s) {

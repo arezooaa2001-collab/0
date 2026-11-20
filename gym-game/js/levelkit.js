@@ -80,7 +80,8 @@ Object.assign(Game, {
     const before = s.level;
     s.level = Math.max(1, s.level - n);
     s.xp = Math.min(s.xp, this.need(s.level) - 1);
-    if (this.track !== 'g2') this.save.cheatLv = Math.min(this.save.cheatLv || 0, s.level - 1);
+    // the cut comes out of code levels first, earned levels only after those are gone
+    if (this.track !== 'g2') this.save.cheatLv = Math.min(Math.max(0, (this.save.cheatLv || 0) - (before - s.level)), s.level - 1);
     const lost = before - s.level;
     setPlayerLevelLook(this.player, this.lv());
     this.labelPlayer();

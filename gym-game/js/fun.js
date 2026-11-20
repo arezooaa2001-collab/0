@@ -311,7 +311,8 @@ Object.assign(Game, {
 
   tickEvents(dt) {
     // a surprise event or golden hour does not run out while a menu or the shop is open
-    if (this.modals.size || this.watch || this.photo) return;
+    // (the camera room is not a pause: exercise goes on there, so the event does too)
+    if (this.modals.size || this.photo) return;
     const ev = this.event;
     if (ev) {
       ev.t -= dt;
@@ -518,12 +519,15 @@ Object.assign(Game, {
     let delay = 40;
     let tt = 0;
     while (tt < 4200) { setTimeout(() => Sfx.play('spin'), tt); tt += delay; delay *= 1.12; }
+    // the prize is saved before the wheel stops: closing the page meanwhile doesn't lose it
+    this.save.fun.pendingWheel = idx;
     this.persist();
     setTimeout(() => this.wheelReward(WHEEL[idx]), 4750);
   },
 
   wheelReward(s) {
     this.spinning = false;
+    delete this.save.fun.pendingWheel;
     let text = s.label;
     if (s.id === 'c50') this.addCoins(50);
     else if (s.id === 'c100') this.addCoins(100);
@@ -643,7 +647,7 @@ Object.assign(Game, {
     if (res.win) {
       Sfx.play('win');
       Sfx.play('cheer');
-      const xp = Math.round((25 + opp.level * 2) * xpMult(s.level));
+      const xp = Math.round((25 + Math.min(opp.level, realLv(s) + 5) * 2) * xpMult(realLv(s)));
       msg.textContent = `🏆 بردی! +${fa(xp)} زور • 🪙 ${fa(opp.coins)}`;
       s.stats.armWins++;
       this.addCoins(opp.coins);
@@ -653,7 +657,7 @@ Object.assign(Game, {
       if (opp.champ) this.confetti();
     } else {
       Sfx.play('lose');
-      const xp = Math.round((6 + opp.level * 0.5) * xpMult(s.level));
+      const xp = Math.round((6 + Math.min(opp.level, realLv(s) + 5) * 0.5) * xpMult(realLv(s)));
       msg.textContent = `😓 باختی! ولی +${fa(xp)} زور گرفتی`;
       this.gainXp(xp, 'reward');
       this.showBanner('مچ‌اندازی', 'باختی!');

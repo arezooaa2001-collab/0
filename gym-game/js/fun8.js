@@ -110,6 +110,14 @@ function rhythmChart() {
 const CLONE_MAT = new THREE.MeshStandardMaterial({ color: '#6c3dff', emissive: '#2c0f7a', emissiveIntensity: 0.9, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.55, depthWrite: true });
 
 Object.assign(Game, {
+  /** Write text into an element only when it changed (no layout work every frame). */
+  setText(id, text) {
+    const c = this.textCache || (this.textCache = {});
+    if (c[id] === text) return;
+    c[id] = text;
+    $(id).textContent = text;
+  },
+
   /* ---------- building the corner ---------- */
 
   buildFun8(g) {
@@ -249,7 +257,7 @@ Object.assign(Game, {
     P.ch.root.rotation.y = Math.PI;
     P.vel.set(0, 0);
     const notes = rhythmChart();
-    this.rhythm = { t: -2.2, notes, next: 0, beat: -1, score: 0, combo: 0, best: 0, judged: 0, counts: [0, 0, 0, 0], step: null, stepT: 0, musicWas: !!this.save.music };
+    this.rhythm = { t: -4 * 60 / RHY.bpm - 0.3, notes, next: 0, beat: -1, score: 0, combo: 0, best: 0, judged: 0, counts: [0, 0, 0, 0], step: null, stepT: 0, musicWas: !!this.save.music };
     if (this.save.music) Sfx.music(false);
     // the lanes and their notes are drawn in the panel
     const lanes = $('rhyLanes');
@@ -269,7 +277,7 @@ Object.assign(Game, {
       lanes.children[n.lane].appendChild(el);
       n.el = el;
     }
-    $('rhyHead').textContent = '🎵 آماده… ۳';
+    this.setText('rhyHead', '🎵 آماده…');
     $('rhyJudge').textContent = '';
     $('rhythmPanel').hidden = false;
     this.follow(null, 6.2, 0, 0.32);
@@ -282,13 +290,15 @@ Object.assign(Game, {
     const R = this.rhythm;
     if (!R || R.t < 0 || this.modals.size) return;
     const g = this.gym;
+    // judged at the moment of the press, not at the last frame
+    const now = R.t + clamp((performance.now() - (R.wall || performance.now())) / 1000, 0, 0.06);
     // the nearest note in that lane still waiting
     let best = null, bd = 1e9;
     for (let i = R.next; i < R.notes.length; i++) {
       const n = R.notes[i];
-      if (n.t - R.t > RHY.good + 0.05) break;
+      if (n.t - now > RHY.good + 0.05) break;
       if (n.lane !== lane || n.hit) continue;
-      const d = Math.abs(n.t - R.t);
+      const d = Math.abs(n.t - now);
       if (d < bd) { bd = d; best = n; }
     }
     R.step = lane;
@@ -297,7 +307,14 @@ Object.assign(Game, {
     tile.glow = 1;
     const btn = $('rhyBtns').children[lane];
     if (btn) { btn.classList.remove('hit'); void btn.offsetWidth; btn.classList.add('hit'); }
-    if (!best || bd > RHY.good) { Sfx.play('tap'); return; }
+    if (!best || bd > RHY.good) {
+      // a press with no note there breaks the chain (mashing doesn't pay)
+      Sfx.play('tap');
+      R.stray = (R.stray || 0) + 1;
+      if (R.combo >= 5) this.judge('❌ بی‌موقع!', 3);
+      R.combo = 0;
+      return;
+    }
     const kind = bd <= RHY.perfect ? 0 : bd <= RHY.great ? 1 : 2;
     best.hit = ['perfect', 'great', 'good'][kind];
     R.counts[kind]++;
@@ -336,11 +353,12 @@ Object.assign(Game, {
     P.vel.set(0, 0);
     const paused = this.modals.size || this.watch || this.photo;
     if (!paused) R.t += dt;
+    R.wall = performance.now();
     const spb = 60 / RHY.bpm;
-    // count in, then the beat
-    if (R.t < 0) $('rhyHead').textContent = `🎵 آماده… ${fa(Math.ceil(-R.t / 0.75))}`;
+    // count in on the beat, then the song
+    if (R.t < 0) this.setText('rhyHead', `🎵 آماده… ${fa(Math.min(4, Math.ceil(-R.t / spb)))}`);
     const beat = Math.floor(R.t / spb + 1e-6);
-    if (!paused && beat !== R.beat && R.t > -spb * 0.5) {
+    if (!paused && beat !== R.beat && beat >= -4) {
       R.beat = beat;
       if (beat >= 0 && beat < RHY.beats) {
         Sfx.play('kick');
@@ -381,7 +399,7 @@ Object.assign(Game, {
     }
     while (R.next < R.notes.length && R.notes[R.next].hit) R.next++;
     R.judged = R.counts.reduce((a, b) => a + b, 0);
-    if (R.t >= 0) $('rhyHead').textContent = `🎵 امتیاز ${fa(Math.round(R.score))} · ${R.combo > 1 ? '🔥 ' + fa(R.combo) : ''}`;
+    if (R.t >= 0) this.setText('rhyHead', `🎵 امتیاز ${fa(Math.round(R.score))} · ${R.combo > 1 ? '🔥 ' + fa(R.combo) : ''}`);
     // the dancer: a bounce on the beat, a step onto the tile you pressed
     const pose = ch.manualPose;
     copyPose(pose, STAND);
@@ -420,14 +438,14 @@ Object.assign(Game, {
     if (this.gym && this.gym.padTiles) for (const T of this.gym.padTiles) { T.glow = 0; T.mat.emissiveIntensity = 0.15; }
     if (!done) return;
     const total = R.notes.length;
-    const acc = total ? (R.counts[0] + R.counts[1] * 0.75 + R.counts[2] * 0.4) / total : 0;
+    const acc = total ? Math.max(0, (R.counts[0] + R.counts[1] * 0.75 + R.counts[2] * 0.4 - (R.stray || 0) * 0.5) / total) : 0;
     const grade = acc >= 0.95 ? 5 : acc >= 0.85 ? 4 : acc >= 0.7 ? 3 : acc >= 0.5 ? 2 : 1;
     const name = ['', 'D', 'C', 'B', 'A', 'S'][grade];
     const st = this.save.stats;
     st.rhythmPlays = (st.rhythmPlays || 0) + 1;
     st.rhythmBest = Math.max(st.rhythmBest || 0, Math.round(R.score));
     st.rhythmBestGrade = Math.max(st.rhythmBestGrade || 0, grade);
-    const full = R.counts[3] === 0 && total > 0;
+    const full = R.counts[3] === 0 && !R.stray && total > 0;
     if (full) st.fullCombos = (st.fullCombos || 0) + 1;
     const coins = Math.round(R.score / 150) + (full ? 50 : 0);
     if (coins) this.addCoins(coins, true);
@@ -452,7 +470,7 @@ Object.assign(Game, {
     P.ch.manualSnap = false;
     this.bullRide = { t: 0, b: rand(-0.05, 0.05), vb: 0, yaw: 0, spin: 1, jolt: 0, joltT: rand(1.5, 2.5), countT: 1.4 };
     $('bullPanel').hidden = false;
-    $('bullHead').textContent = '🐂 محکم بشین…';
+    this.setText('bullHead', '🐂 محکم بشین…');
     Sfx.play('click');
     this.follow(null, 6.5, Math.PI, 0.3);
     this.camFollow = null;
@@ -484,7 +502,7 @@ Object.assign(Game, {
         R.joltT -= dt;
         if (R.joltT <= 0) {
           R.joltT = rand(0.9, 2.2) / Math.min(2.2, lvl);
-          R.jolt = rand(0.9, 1.5) * (Math.random() < 0.5 ? -1 : 1) * Math.min(2.4, 0.8 + 0.4 * lvl);
+          R.jolt = rand(0.9, 1.5) * (Math.random() < 0.5 ? -1 : 1) * Math.min(4.5, 0.8 + 0.4 * lvl);
           if (Math.random() < 0.3) R.spin = -R.spin;
           Sfx.play('punch');
         }
@@ -495,7 +513,7 @@ Object.assign(Game, {
         R.vb *= Math.max(0, 1 - 2.2 * dt);
         R.b += R.vb * dt;
         if (Math.abs(R.b) >= 1) { this.throwOffBull(Math.sign(R.b)); return; }
-        $('bullHead').textContent = `🐂 ${fa(R.t.toFixed(1))} ثانیه`;
+        this.setText('bullHead', `🐂 ${fa(R.t.toFixed(1))} ثانیه`);
       }
     }
     const buck = Math.sin(R.t * 7) * (0.12 + Math.min(0.25, R.t * 0.01));
@@ -546,9 +564,11 @@ Object.assign(Game, {
     st.bullRides = (st.bullRides || 0) + 1;
     const best = t > (st.bullBest || 0);
     st.bullBest = Math.max(st.bullBest || 0, Math.floor(t * 10) / 10);
-    const coins = Math.floor(t * 3);
+    // the pay stops growing after a minute (the ride gets wild by then anyway)
+    const paid = Math.min(t, 60);
+    const coins = Math.floor(paid * 3);
     if (coins) this.addCoins(coins, true);
-    this.gainXp(Math.round(t * 6 * this.mult()));
+    this.gainXp(Math.round(paid * 6 * this.mult()));
     this.showBanner(`${fa(coins)} سکه${best ? ' — رکورد تازه!' : ''}`, `🐂 ${fa(t.toFixed(1))} ثانیه روی گاو!`);
     if (t >= 15) { this.confetti(); Sfx.play('cheer'); }
     this.checkAchievements();
@@ -604,8 +624,7 @@ Object.assign(Game, {
     const w = this.world;
     const offs = [[-1.3, -0.5], [1.3, -0.5], [-0.75, -1.6], [0.75, -1.6]];
     const list = offs.map(([ox, oz], i) => {
-      const c = new Character(Object.assign({}, P.ch.o));
-      c.setMuscle(P.ch.mq / 8);
+      const c = new Character(Object.assign({}, P.ch.o, { muscle: P.ch.mq / 8 }));
       c.mesh.material = CLONE_MAT;
       c.noFace = true;
       c.shadow.material = SHADOW_MAT;
@@ -649,6 +668,8 @@ Object.assign(Game, {
       // echoes of you: in formation, copying every move a moment later
       const tx = p.x + K.ox * c + K.oz * s, tz = p.z - K.ox * s + K.oz * c;
       const q = cc.root.position;
+      // after a teleport they appear beside you instead of streaking across the hall
+      if (Math.hypot(tx - q.x, tz - q.z) > 4) q.set(tx, q.y, tz);
       const k = damp(1 / K.lag, dt);
       q.x += (tx - q.x) * k;
       q.z += (tz - q.z) * k;
@@ -742,14 +763,14 @@ Game.contextAction = function () {
 };
 
 /* exercise XP doubles while the shadows train with you */
-const _mult8 = Game.mult;
-Game.mult = function () { return _mult8.call(this) * (this.clones ? 2 : 1); };
 const _exerciseDone8 = Game.exerciseDone;
 Game.exerciseDone = function (m) {
   if (this.clones) {
     const st = this.save.stats;
     st.cloneReps = (st.cloneReps || 0) + 1;
     if (st.cloneReps === 1) this.checkAchievements();
+    // the shadows train with you: the same XP once more (exercise only)
+    if (m && m.xp) this.gainXp(Math.round(m.xp * (1 + (this.combo || 0) * 0.1) * this.mult()));
   }
   return _exerciseDone8.call(this, m);
 };

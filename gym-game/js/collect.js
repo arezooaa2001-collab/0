@@ -19,7 +19,7 @@ const GOLD_SPOTS = [
   { id: 'g12', w: 'lucky', x: 12, z: 12, hint: 'جزیره‌ی خوش‌شانسی' },
 ];
 
-ACHIEVEMENTS.push({ id: 'gold12', name: 'گنج‌یاب', icon: '🏆', desc: 'هر ۱۲ دمبل طلایی رو پیدا کن', test: (s) => (s.goldFound || []).length >= GOLD_SPOTS.length });
+ACHIEVEMENTS.push({ id: 'gold12', name: 'شکارچی دمبل طلایی', icon: '🏆', desc: 'هر ۱۲ دمبل طلایی رو پیدا کن', test: (s) => (s.goldFound || []).length >= GOLD_SPOTS.length });
 
 function goldDumbbellMesh() {
   const b = new Batch();

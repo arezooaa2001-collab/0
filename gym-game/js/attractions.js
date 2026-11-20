@@ -39,7 +39,9 @@ Object.assign(Game, {
       // only a punch at the machine counts (other moves use the same 'smash' event)
       const pp = P.ch.root.position;
       if (Math.hypot(pp.x - (WING.punch.x + 1.25), pp.z - WING.punch.z) > 1.5) return;
-      const lv = this.lv();
+      // one punch per go at the machine (a later slam nearby is not a punch)
+      g.onSmash = null;
+      const lv = Math.min(this.lv(), realLv(this.save));
       const score = Math.min(99999, Math.round(60 + lv * 9 + this.save.runLevel * 2 + rand(0, 25 + lv * 3)));
       const rec = this.save.records;
       const best = score > (rec.punch || 0);

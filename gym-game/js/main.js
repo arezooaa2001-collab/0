@@ -667,10 +667,10 @@ const Game = {
   outfit() {
     const sh = this.save.shop;
     return {
-      shirt: sh.shirt && SHOP_BY_ID[sh.shirt] ? SHOP_BY_ID[sh.shirt].color : PLAYER_COLORS[this.save.color],
-      band: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+      shirt: sh.shirt && this.owns(sh.shirt) && SHOP_BY_ID[sh.shirt] ? SHOP_BY_ID[sh.shirt].color : PLAYER_COLORS[this.save.color],
+      band: sh.band && this.owns(sh.band) && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
       belt: this.save.stage > MAIN_STAGES ? 'gold' : this.save.stage > 5 ? 'silver' : null,
-      stripe: sh.band && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
+      stripe: sh.band && this.owns(sh.band) && SHOP_BY_ID[sh.band] ? SHOP_BY_ID[sh.band].color : '#ffc23d',
       stripe2: '#ffffff',
     };
   },

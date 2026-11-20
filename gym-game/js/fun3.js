@@ -192,7 +192,8 @@ Object.assign(Game, {
           if (r === 0) break;
         }
       }
-      P.ch.stopAction();
+      // let go of any machine first, so the station doesn't pull you back next frame
+      this.releasePlayer();
       P.ch.root.position.set(tx, 0, tz);
       P.vel.set(0, 0);
       g.cam.tx = tx; g.cam.tz = tz;
@@ -441,7 +442,7 @@ Object.assign(Game, {
     const P = this.player;
     if (!P) return;
     const sh = this.save.shop;
-    const want = sh.hat && this.owns(sh.hat) ? sh.hat : (this.save.level >= 1000 ? 'hat_crown' : null);
+    const want = sh.hat && this.owns(sh.hat) ? sh.hat : (realLv(this.save) >= 1000 ? 'hat_crown' : null);
     if (P.hatId === want && P.hatMesh && P.hatMesh.parent === P.ch.B.head) return;
     if (P.hatMesh) { if (P.hatMesh.parent) P.hatMesh.parent.remove(P.hatMesh); P.hatMesh.geometry.dispose(); }
     P.hatMesh = null;

@@ -44,7 +44,16 @@ Object.assign(Game, {
     if (got) {
       this.renderGoalChip();
       this.persist();
-      if (!this.nextGoal() && !s.goals.champion) setTimeout(() => this.championEnding(), 2600 + got * 1200);
+    }
+    // all done but the ending never ran (say the page was closed in those seconds): run it now
+    if (!this.nextGoal() && !s.goals.champion && !this.champPending) {
+      this.champPending = true;
+      const run = () => {
+        if (this.mode !== 'play' || this.modals.size) { setTimeout(run, 2000); return; }
+        this.champPending = false;
+        if (!s.goals.champion && !this.nextGoal()) this.championEnding();
+      };
+      setTimeout(run, 2600 + got * 1200);
     }
   },
 

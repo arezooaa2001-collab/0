@@ -105,7 +105,7 @@ Character.prototype.update = function (dt) {
   _charUpdatePolish.call(this, dt);
   if (!Game.polishOn || !(dt > 0)) { if (this.face) this.hideFace(); return; }
   const near = nearCam(this, 26);
-  if (near && !this.noFace) this.updateFace(dt); else this.hideFace();
+  if (near && !this.noFace && !this.mesh.material.transparent) this.updateFace(dt); else this.hideFace();
   const B = this.B;
   // turning the head to look at someone (set from outside as lookAtP)
   let want = 0, pitch = 0;
@@ -317,6 +317,7 @@ Object.assign(Game, {
     const fm = new THREE.Mesh(mergeParts(frame.parts, false), MATTE_MAT);
     fm.userData.noSolid = true;
     g.scene.add(fm);
+    g.windowMeshes = [fm];
     // the glass shows the same drifting sky as the skylight
     const gGeo = new THREE.PlaneGeometry(W, H);
     const parts = glass.map(([x, z, sz]) => { const q = gGeo.clone(); if (sz > 0) q.rotateY(Math.PI); q.translate(x, Y, z); return q; });
@@ -324,6 +325,7 @@ Object.assign(Game, {
     const gm = new THREE.Mesh(merged, g.cloudMat || new THREE.MeshBasicMaterial({ color: '#bfe3ff' }));
     gm.userData.noSolid = true;
     g.scene.add(gm);
+    g.windowMeshes.push(gm);
     // sunbeams: long soft quads slanting down into the hall
     const rayMat = new THREE.MeshBasicMaterial({
       map: makeCanvasTexture(64, 256, (ctx, w, h) => {
@@ -360,6 +362,7 @@ Object.assign(Game, {
       this.setShine(on);
       document.body.classList.toggle('polish', on);
       if (this.gym && this.gym.sunRays) this.gym.sunRays.visible = on;
+      if (this.gym && this.gym.windowMeshes) for (const m of this.gym.windowMeshes) m.visible = on;
     }
     if (!on || this.mode !== 'play') { this.tickMotes(dt); return; }
     const g = this.gym;

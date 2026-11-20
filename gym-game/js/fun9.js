@@ -810,6 +810,13 @@ Object.assign(Game, {
 
   tickFun9(dt) {
     const g = this.gym;
+    // a wheel prize that was still spinning when the page closed is paid now
+    const pw = this.save && this.save.fun && this.save.fun.pendingWheel;
+    if (pw != null && this.mode === 'play' && !this.spinning && !this.modals.size) {
+      const i = Math.floor(Number(pw));
+      if (WHEEL[i]) this.wheelReward(WHEEL[i]); else delete this.save.fun.pendingWheel;
+      this.persist();
+    }
     if (g && !g.fun9) this.buildFun9(g);
     this.tickKart(dt);
     this.tickClaw(dt);

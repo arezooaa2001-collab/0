@@ -147,7 +147,8 @@ Object.assign(Game, {
   /* ---------------- missions ---------------- */
 
   newMission() {
-    const lv = this.lv();
+    // priced on levels you earned (codes, boosts and temporary levels don't count)
+    const lv = this.track === 'g2' ? this.lv() : Math.min(this.lv(), realLv(this.save));
     const tpl = pick(MISSION_TYPES.filter((t) => {
       if (t.type === 'win') return lv >= opponentFor(this.save.stage).level - 3;
       if (t.type === 'visit') return ENVS.some((e) => !e.secret && lv >= e.level);

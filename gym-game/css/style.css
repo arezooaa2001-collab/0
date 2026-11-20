@@ -1194,3 +1194,6 @@ body.polish .vignette { opacity: 1; }
   .kart-lights { font-size: 19px; min-height: 22px; }
   .claw-drop { height: 38px; font-size: 17px; }
 }
+/* the rhythm pad needs its four buttons free: the moves panel and powers step aside meanwhile */
+.hud:has(#rhythmPanel:not([hidden])) .panel, .hud:has(#rhythmPanel:not([hidden])) .powers { display: none !important; }
+@media (max-width: 720px) { .rhy-stage { height: 130px; } }
