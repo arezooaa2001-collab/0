@@ -7812,6 +7812,8 @@ const ACH = [
   { id: 'escape', n: 'فراری', d: 'از دست پلیس فرار کن', t: () => (store.stats.escapes || 0) >= 1 },
   { id: 'home', n: 'صاحب‌خونه', d: 'یه خونه یا آپارتمان بخر', t: () => store.myHome != null },
   { id: 'tune3', n: 'ماشین مسابقه‌ای', d: 'موتور ماشینت رو تا مرحلهٔ ۳ تیون کن', t: () => cars.some(c => c.tune && c.tune.eng >= 3) },
+  { id: 'quake', n: 'شهاب‌سنگ', d: 'با زور زیاد طوری فرود بیا که زمین ترک برداره', t: () => (store.stats.quakes || 0) >= 1 },
+  { id: 'photomode', n: 'عکاس حرفه‌ای', d: 'با حالت عکاسی (K) یه عکس بگیر', t: () => (store.stats.photoMode || 0) >= 1 },
   { id: 'rich', n: 'پولدار', d: '۲۰۰ میلیون تومان پول داشته باش', t: () => store.money >= 200000000 }
 ];
 let achT = 0;
@@ -8005,6 +8007,156 @@ function tuneCar(what) {
 function tuneStatus() { const P = player, car = P.state === 'car' ? P.car : P.lastCar; if (!car || car.isTow || car.service) return 'ماشینی نداری'; const e = (car.tune && car.tune.eng) || 0; return `موتور: مرحلهٔ ${fa(e)} از ۳${e < 3 ? ` (بعدی ${fmtT(TUNE_COST[e + 1])})` : ''} · اسپویلر: ${car.tune && car.tune.spoiler ? 'دارد' : 'ندارد'}`; }
 
 /* ============================================================
+   More life in the picture: a moon with its glow, shooting stars, leaves drifting down,
+   headlight beams at night, exhaust puffs, and the shockwave of a super-strong landing
+   ============================================================ */
+const sky2 = { moon: null, halo: null, streak: null, st: null, leaves: null, leafD: null, beams: null };
+function buildSkyLife() {
+  // the moon: a cratered disc and a soft halo, kept far out along the moon's direction
+  const mc = mkCanvas(256), g = mc.getContext('2d'), rng = makeRng(77);
+  const gr = g.createRadialGradient(128, 128, 20, 128, 128, 112); gr.addColorStop(0, '#fbf7ea'); gr.addColorStop(0.8, '#e8e2cc'); gr.addColorStop(1, '#cfc7ad');
+  g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 112, 0, 7); g.fill();
+  for (let k = 0; k < 26; k++) { const a = rng() * 6.28, r = Math.sqrt(rng()) * 90, x = 128 + Math.cos(a) * r, y = 128 + Math.sin(a) * r, s = 4 + rng() * 18; g.fillStyle = `rgba(150,140,115,${0.18 + rng() * 0.25})`; g.beginPath(); g.arc(x, y, s, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,245,.18)'; g.beginPath(); g.arc(x - s * 0.25, y - s * 0.25, s * 0.6, 0, 7); g.fill(); }
+  const mt = toTex(mc); mt.colorSpace = THREE.SRGBColorSpace;
+  sky2.moon = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mt, transparent: true, fog: false, depthWrite: false, toneMapped: false }));
+  const hc = mkCanvas(128), hg = hc.getContext('2d'), hr = hg.createRadialGradient(64, 64, 8, 64, 64, 64); hr.addColorStop(0, 'rgba(220,230,255,.55)'); hr.addColorStop(0.35, 'rgba(180,200,255,.18)'); hr.addColorStop(1, 'rgba(160,180,255,0)'); hg.fillStyle = hr; hg.fillRect(0, 0, 128, 128);
+  sky2.halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: toTex(hc), transparent: true, fog: false, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  for (const m of [sky2.halo, sky2.moon]) { m.frustumCulled = false; m.renderOrder = -1; scene.add(m); }
+  // a shooting star: one stretched glowing streak reused
+  const sc = mkCanvas(256, 16), sg = sc.getContext('2d'), sgr = sg.createLinearGradient(0, 0, 256, 0); sgr.addColorStop(0, 'rgba(255,255,255,0)'); sgr.addColorStop(0.85, 'rgba(220,235,255,.8)'); sgr.addColorStop(1, 'rgba(255,255,255,1)'); sg.fillStyle = sgr; sg.fillRect(0, 6, 256, 4);
+  sky2.streak = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: toTex(sc), transparent: true, fog: false, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, opacity: 0 }));
+  sky2.streak.frustumCulled = false; sky2.streak.renderOrder = -1; scene.add(sky2.streak); sky2.st = { t: 99, next: 8 };
+  // drifting leaves around the camera
+  const lc = mkCanvas(32), lg = lc.getContext('2d'); lg.fillStyle = '#fff'; lg.beginPath(); lg.moveTo(16, 2); lg.quadraticCurveTo(30, 12, 16, 30); lg.quadraticCurveTo(2, 12, 16, 2); lg.fill();
+  const N = LOW ? 90 : 180, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), cols = ['#c8642a', '#e0a030', '#b8401e', '#9aa83a', '#d8862a'].map(h => new THREE.Color(h));
+  sky2.leafD = []; for (let i = 0; i < N; i++) { const c = cols[i % cols.length]; col.set([c.r, c.g, c.b], i * 3); sky2.leafD.push({ x: 0, y: -99, z: 0, ph: Math.random() * 6.28, sp: 0.6 + Math.random() * 0.7 }); }
+  const lgeo = new THREE.BufferGeometry(); lgeo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); lgeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  sky2.leaves = new THREE.Points(lgeo, new THREE.PointsMaterial({ size: 0.28, map: toTex(lc), vertexColors: true, transparent: true, alphaTest: 0.35, depthWrite: false }));
+  sky2.leaves.frustumCulled = false; scene.add(sky2.leaves);
+  // headlight beams: soft additive cones, brightest at the lamp
+  const cone = new THREE.ConeGeometry(1.7, 15, 18, 1, true); cone.translate(0, -8, 0); cone.rotateX(-Math.PI / 2);
+  const p = cone.attributes.position, cc = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const k = Math.pow(1 - Math.min(1, p.getZ(i) / 15), 2.4); cc.set([k * 0.9, k * 0.85, k * 0.7], i * 3); }
+  cone.setAttribute('color', new THREE.BufferAttribute(cc, 3));
+  sky2.beams = new THREE.InstancedMesh(cone, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }), 48);
+  sky2.beams.frustumCulled = false; sky2.beams.count = 0; scene.add(sky2.beams);
+  if (LOW) sky2.beams.visible = false;
+}
+const _mv = new V3(), _bmw = new THREE.Matrix4(), _bo = new THREE.Matrix4(), _beu = new THREE.Euler();
+function updateSkyLife(dt) {
+  if (!sky2.moon) return;
+  const P = player, out = !P || P.where === 'out', cp = camera.position, cl = weather.cloud;
+  // moon opposite the sun
+  _mv.set(-sunDir.x, -sunDir.y, sunDir.z * 0.6).normalize();
+  const mo = out ? clamp((_mv.y + 0.02) * 8, 0, 1) * smooth(0.25, 0.8, night) * (1 - smooth(0.5, 1, cl) * 0.9) : 0;
+  for (const [m, d, s] of [[sky2.moon, 850, 46], [sky2.halo, 851, 210]]) { m.visible = mo > 0.01; if (!m.visible) continue; m.position.copy(cp).addScaledVector(_mv, d); m.scale.setScalar(s); m.lookAt(cp); m.material.opacity = mo * (m === sky2.halo ? 0.5 : 1); }
+  // shooting stars on clear nights
+  const S = sky2.st; S.t += dt; S.next -= dt;
+  if (S.next <= 0 && out && night > 0.7 && cl < 0.5) { S.next = 6 + Math.random() * 18; S.t = 0; const a = Math.random() * 6.28, el = 0.35 + Math.random() * 0.4; S.p = new V3(Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el)); S.d = new V3(-Math.sin(a), -0.35 - Math.random() * 0.3, Math.cos(a)).normalize(); S.len = 60 + Math.random() * 70; }
+  const st = sky2.streak; if (S.t < 0.9 && S.p) { const k = S.t / 0.9; st.visible = true; st.material.opacity = Math.sin(k * Math.PI); st.position.copy(cp).addScaledVector(S.p, 800).addScaledVector(S.d, k * 160); _mv.copy(st.position).add(S.d); st.lookAt(cp); st.scale.set(S.len, 3.5, 1); const ang = Math.atan2(S.d.y, Math.hypot(S.d.x, S.d.z)); st.rotateZ(ang); } else st.visible = false;
+  // leaves: autumn-ish drift on dry days near the camera
+  const lv = sky2.leaves, show = out && weather.snow < 0.2 && weather.rain < 0.6 && dayF > 0.2; lv.visible = show;
+  if (show) {
+    const A = lv.geometry.attributes.position.array, wind = 0.6 + cl * 1.4;
+    sky2.leafD.forEach((L, i) => {
+      if (L.y < groundH(L.x, L.z) + 0.05 || Math.abs(L.x - cp.x) > 32 || Math.abs(L.z - cp.z) > 32) { L.x = cp.x + (Math.random() - 0.5) * 60; L.z = cp.z + (Math.random() - 0.5) * 60; L.y = groundH(L.x, L.z) + 3 + Math.random() * 9; }
+      L.ph += dt * 2.2 * L.sp; L.x += (Math.sin(L.ph) * 0.9 + wind) * dt; L.z += Math.cos(L.ph * 0.7) * 0.6 * dt; L.y -= (0.45 + Math.abs(Math.sin(L.ph)) * 0.6) * L.sp * dt;
+      A[i * 3] = L.x; A[i * 3 + 1] = L.y; A[i * 3 + 2] = L.z;
+    });
+    lv.geometry.attributes.position.needsUpdate = true;
+  }
+  // headlight beams and exhaust
+  const B = sky2.beams; let n = 0; const lit = out && (night > 0.35 || weather.rain > 0.5 || weather.snow > 0.5);
+  if (B.visible) { B.material.opacity = lit ? 0.055 * (0.5 + night * 0.5) : 0; }
+  for (const c of cars) {
+    if (!c.group.visible || c.health <= 0) continue; const d = Math.abs(c.x - cp.x) + Math.abs(c.z - cp.z); if (d > 140) continue;
+    const driven = c.player || (c.driverP && c.hasDriver) || c.ai;
+    if (lit && B.visible && driven && n < 47 && !c.thrown && !c.carriedBy) {
+      c.body.updateMatrixWorld(); const t = c.T;
+      for (const sx of [-0.33, 0.33]) { _beu.set(0.1, sx * 0.1, 0); _bo.makeRotationFromEuler(_beu).setPosition(sx * t.wid, t.headY, t.front - 0.05); _bmw.multiplyMatrices(c.body.matrixWorld, _bo); B.setMatrixAt(n++, _bmw); }
+    }
+    if (driven && d < 45 && (c.inThrottle > 0.35 || (weather.snow > 0.3 && Math.random() < 0.3)) && Math.random() < dt * 9) {
+      const s = Math.sin(c.h), co = Math.cos(c.h), r = c.T.rear - 0.1, x = c.x + s * r + co * 0.45, z = c.z + co * r - s * 0.45;
+      FX.emit(x, c.y + 0.3, z, -s * 1.2 + (Math.random() - 0.5) * 0.4, 0.4 + Math.random() * 0.4, -co * 1.2 + (Math.random() - 0.5) * 0.4, 1.1, 0.12, 0.55, weather.snow > 0.3 || night > 0.5 ? 0xd8dce0 : 0x8a8c90, 0.22, 0.05);
+    }
+  }
+  B.count = n; if (n) B.instanceMatrix.needsUpdate = true;
+}
+/* ---------- landing like a meteor: with real strength a hard landing cracks the ground and shoves everything back ---------- */
+const quakes = [];
+function superLanding(x, y, z, imp) {
+  const p = POW(); if (p < 10 || imp < 14) return;
+  const R = Math.min(22, 3 + Math.log10(p) * 3 + imp * 0.12); let hit = 0;
+  cam.shake = Math.max(cam.shake, Math.min(1, 0.2 + imp * 0.02)); Audio.thud(Math.min(30, imp), x, z); Audio.burst(0.45, 90, 1.2, 'lowpass', 1);
+  for (let k = 0; k < 50; k++) { const a = Math.random() * 6.28, sp = 4 + Math.random() * 8; FX.emit(x, y + 0.2, z, Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 1.4, 0.35, 0.9, 0x9a9282, 0.45, 0.6); }
+  for (const n of npcs) { if (n.mode === 'down' || n.inCar) continue; const dx = n.pos.x - x, dz = n.pos.z - z, d = Math.hypot(dx, dz); if (d > R || d < 0.01) continue; const f = (1 - d / R) * 12; knockDown(n, { vx: dx / d * f, vz: dz / d * f, x, z }, Math.max(4, f)); hit++; }
+  for (const c of cars) { if (c.player || c.service) continue; const dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz); if (d > R || d < 0.01) continue; const f = (1 - d / R) * 9; c.vx += dx / d * f; c.vz += dz / d * f; }
+  // a crack in the ground and an expanding ring of dust
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(x, y + 0.08, z); scene.add(ring);
+  const crack = new THREE.Mesh(new THREE.CircleGeometry(Math.min(6, 1.2 + imp * 0.08), 24), new THREE.MeshBasicMaterial({ map: crackTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  crack.rotation.x = -Math.PI / 2; crack.rotation.z = Math.random() * 6.28; crack.position.set(x, y + 0.03, z); scene.add(crack);
+  quakes.push({ ring, crack, t: 0, R });
+  if (hit) addWanted(1, 'با فرودت آدم‌ها رو انداختی');
+  store.stats.quakes = (store.stats.quakes || 0) + 1;
+}
+let crackT = null;
+function crackTex() {
+  if (crackT) return crackT; const c = mkCanvas(256), g = c.getContext('2d'), rng = makeRng(5);
+  const gr = g.createRadialGradient(128, 128, 10, 128, 128, 128); gr.addColorStop(0, 'rgba(20,16,12,.85)'); gr.addColorStop(0.45, 'rgba(30,26,20,.35)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(10,8,6,.9)'; g.lineCap = 'round';
+  for (let k = 0; k < 11; k++) { let x = 128, y = 128, a = k / 11 * 6.28 + rng() * 0.4; g.lineWidth = 4; g.beginPath(); g.moveTo(x, y); for (let s = 0; s < 7; s++) { a += (rng() - 0.5) * 0.9; x += Math.cos(a) * 16; y += Math.sin(a) * 16; g.lineTo(x, y); g.lineWidth = Math.max(1, 4 - s * 0.5); } g.stroke(); }
+  return (crackT = toTex(c));
+}
+function updateQuakes(dt) {
+  for (let i = quakes.length - 1; i >= 0; i--) {
+    const q = quakes[i]; q.t += dt; const k = Math.min(1, q.t / 0.7);
+    q.ring.scale.setScalar(1 + k * q.R); q.ring.material.opacity = 0.8 * (1 - k);
+    q.crack.material.opacity = q.t < 25 ? 1 : Math.max(0, 1 - (q.t - 25) / 5);
+    if (q.t > 30) { for (const m of [q.ring, q.crack]) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); } quakes.splice(i, 1); }
+  }
+}
+/* ============================================================
+   Photo mode: freeze the city, fly the camera around, pick a filter and the time of day, take a picture
+   ============================================================ */
+const photo = { on: false, yaw: 0, pitch: 0.3, dist: 7, tx: 0, ty: 0, tz: 0, filter: 'none', fov: 50, drag: null };
+const PHOTO_FILTERS = { none: ['عادی', ''], cine: ['سینمایی', 'contrast(1.15) saturate(1.15) sepia(.12)'], noir: ['سیاه‌سفید', 'grayscale(1) contrast(1.25)'], warm: ['گرم', 'sepia(.35) saturate(1.3) brightness(1.03)'], cold: ['سرد', 'hue-rotate(-14deg) saturate(.9) brightness(1.02)'], dream: ['رؤیایی', 'saturate(1.4) brightness(1.08) contrast(.92)'], vivid: ['پررنگ', 'saturate(1.7) contrast(1.08)'] };
+function photoStart() {
+  if (photo.on || !started) return; const P = player;
+  photo.on = true; const t = P.state === 'car' || P.state === 'passenger' ? P.car : P.pos;
+  photo.tx = t.x; photo.ty = (t.y || P.pos.y) + 1.2; photo.tz = t.z; photo.yaw = cam.yaw + Math.PI; photo.pitch = 0.25; photo.dist = 7; photo.fov = camera.fov;
+  keys.clear(); document.body.classList.add('photo-on'); $('photo-ui').hidden = false; photoFilter(photo.filter); $('ph-tod').value = Math.round(tod * 10);
+  Audio.shutter();
+}
+function photoEnd() { if (!photo.on) return; photo.on = false; document.body.classList.remove('photo-on'); $('photo-ui').hidden = true; renderer.domElement.style.filter = ''; camera.fov = cam.fov || 60; camera.updateProjectionMatrix(); }
+function photoFilter(f) { photo.filter = f; renderer.domElement.style.filter = PHOTO_FILTERS[f][1]; document.querySelectorAll('#ph-filters button').forEach(b => b.classList.toggle('on', b.dataset.f === f)); }
+function photoFrame(dt) {
+  // move the camera target with the keys, orbit with drag, zoom with wheel/slider
+  const k = c => keys.has(c), sp = (k('ShiftLeft') ? 18 : 6) * dt, fx = Math.sin(photo.yaw + Math.PI), fz = Math.cos(photo.yaw + Math.PI);
+  const mx = (k('KeyD') || k('ArrowRight') ? 1 : 0) - (k('KeyA') || k('ArrowLeft') ? 1 : 0) + input.jx, my = (k('KeyW') || k('ArrowUp') ? 1 : 0) - (k('KeyS') || k('ArrowDown') ? 1 : 0) + input.jy;
+  photo.tx += (fx * my - fz * mx) * sp; photo.tz += (fz * my + fx * mx) * sp; photo.ty += ((k('KeyE') ? 1 : 0) - (k('KeyQ') ? 1 : 0)) * sp;
+  const cpit = Math.cos(photo.pitch);
+  camera.position.set(photo.tx + Math.sin(photo.yaw) * cpit * photo.dist, photo.ty + Math.sin(photo.pitch) * photo.dist, photo.tz + Math.cos(photo.yaw) * cpit * photo.dist);
+  if (player.where === 'out') camera.position.y = Math.max(camera.position.y, groundH(camera.position.x, camera.position.z) + 0.3);
+  camera.fov = photo.fov; camera.updateProjectionMatrix(); camera.lookAt(photo.tx, photo.ty, photo.tz);
+  updateTimeOfDay(); updateSkyLife(0);
+}
+async function photoCapture() {
+  render();
+  const src = renderer.domElement, W = src.width, H = src.height, out = mkCanvas(W, H), g = out.getContext('2d');
+  if ('filter' in g && PHOTO_FILTERS[photo.filter][1]) g.filter = PHOTO_FILTERS[photo.filter][1];
+  g.drawImage(src, 0, 0); g.filter = 'none';
+  g.font = `600 ${Math.round(H * 0.022)}px Vazirmatn, sans-serif`; g.fillStyle = 'rgba(255,255,255,.75)'; g.textAlign = 'right'; g.fillText('شهر آزاد · ' + fa(String(Math.floor(tod)).padStart(2, '0') + ':' + String(Math.floor((tod % 1) * 60)).padStart(2, '0')), W - H * 0.03, H - H * 0.03);
+  $('flash').style.transition = 'none'; $('flash').style.opacity = '0.85'; requestAnimationFrame(() => { $('flash').style.transition = 'opacity .5s'; $('flash').style.opacity = '0'; });
+  Audio.shutter();
+  const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', 0.92)); if (!blob) return;
+  const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `shahr-azad-photo-${Date.now()}.jpg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  // also into the gallery of the phone you have, if any
+  const own = phOwned()[0]; if (own) { const k = PHONE_OF[own]; await PDB.put({ id: 'm' + Date.now().toString(36), k, kind: 'photo', blob, thumb: phThumb(out, W, H), w: W, h: H, size: blob.size, at: Date.now(), gt: tod, lens: 'photo', lensN: 'حالت عکاسی', mp: +(W * H / 1e6).toFixed(1), f: '', zoom: 1, place: $('street').textContent }); }
+  store.stats.photoMode = (store.stats.photoMode || 0) + 1; photos.unshift(url);
+  toast(own ? 'عکس ذخیره شد (دانلود شد و توی گالری گوشیت هم هست)' : 'عکس دانلود شد');
+}
+
+/* ============================================================
    Audio (synthesised)
    ============================================================ */
 const Audio = {
@@ -8096,6 +8248,8 @@ const keys = new Set();
 const typing = () => { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
 addEventListener('keydown', e => {
   if (!started || typing()) return;
+  if (photo.on) { if (e.code === 'Escape' || (e.code === 'KeyK' && !e.repeat)) photoEnd(); else if (e.code === 'Space' && !e.repeat) { e.preventDefault(); photoCapture(); } else keys.add(e.code); return; }
+  if (!e.repeat && e.code === 'KeyK' && !phone.open && !chat.open) { photoStart(); return; }
   if (phone.open && phoneKey(e)) return;
   if (!e.repeat && e.code === 'KeyP' && !chat.open) { phoneOpen(); return; }
   if (e.code === 'Escape' && chat.open) { closeChat(); return; }
@@ -8176,6 +8330,10 @@ const endPtr = e => {
   if (e.pointerId === lookId) lookId = null;
 };
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('pointerdown', e => { if (photo.on && !(e.pointerType !== 'mouse' && e.clientX < innerWidth * 0.45)) photo.drag = [e.clientX, e.clientY, e.pointerId]; });
+cv.addEventListener('pointermove', e => { const d = photo.drag; if (!photo.on || !d || d[2] !== e.pointerId) return; photo.yaw -= (e.clientX - d[0]) * 0.006; photo.pitch = clamp(photo.pitch + (e.clientY - d[1]) * 0.005, -0.6, 1.45); d[0] = e.clientX; d[1] = e.clientY; });
+for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, e => { if (photo.drag && photo.drag[2] === e.pointerId) photo.drag = null; });
+cv.addEventListener('wheel', e => { if (photo.on) { photo.dist = clamp(photo.dist * Math.exp(e.deltaY * 0.0012), 1.2, 120); return; } }, { passive: true });
 cv.addEventListener('wheel', e => { if (rb.build && cam.free) { dolly(-e.deltaY * 0.02); e.preventDefault(); return; } cam.zoom = clamp(cam.zoom * (1 + e.deltaY * 0.001), 0.55, 1.9); e.preventDefault(); }, { passive: false });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 // no browser menus on long press anywhere (copy, search, print, save image...), except in text boxes
@@ -8197,6 +8355,15 @@ holdBtn('b-eject', () => { input.ejectQ = true; });
 holdBtn('b-use', () => { input.useQ = true; });
 $('btn-view').addEventListener('click', () => toggleView());
 $('btn-bag').addEventListener('click', () => toggleBag());
+$('btn-photo').addEventListener('click', () => { $('topbar').classList.remove('open'); photoStart(); });
+$('ph-filters').innerHTML = Object.entries(PHOTO_FILTERS).map(([k, [n]]) => `<button type="button" data-f="${k}">${n}</button>`).join('');
+$('ph-filters').addEventListener('click', e => { const f = e.target.closest('button')?.dataset.f; if (f) photoFilter(f); });
+$('ph-tod').addEventListener('input', e => { tod = e.target.value / 10; envTod = -99; });
+$('ph-fov').addEventListener('input', e => { photo.fov = +e.target.value; });
+$('ph-zin').addEventListener('click', () => { photo.dist = Math.max(1.2, photo.dist / 1.4); }); $('ph-zout').addEventListener('click', () => { photo.dist = Math.min(120, photo.dist * 1.4); });
+$('ph-up').addEventListener('click', () => { photo.ty += 1.5; }); $('ph-down').addEventListener('click', () => { photo.ty -= 1.5; });
+$('ph-shot').addEventListener('click', () => photoCapture());
+$('ph-exit').addEventListener('click', () => photoEnd());
 $('btn-pow').addEventListener('click', () => { $('topbar').classList.remove('open'); openPowPanel(); });
 const powNum = v => +String(v).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٬,\s]/g, '').replace('٫', '.');
 document.querySelectorAll('#pow-panel [data-lv]').forEach(b => b.addEventListener('click', () => { $('pow-lvl').value = b.dataset.lv; }));
@@ -8770,8 +8937,10 @@ function updatePlayer(dt) {
     if (input.jumpQ && P.onGround && P.anim.prep <= 0) { P.anim.prep = 0.09; P.jumpAt = simTime + 0.09; }
     input.jumpQ = false;
     if (P.jumpAt && simTime >= P.jumpAt) { P.jumpAt = 0; if (P.onGround) { P.vel.y = 6.6 * powJump(); P.onGround = false; P.standCar = null; Audio.step(true); } }
+    const vy0 = P.vel.y;
     if (P.hero) { const n = Math.min(12, Math.ceil(Math.hypot(P.vel.x, P.vel.y, P.vel.z) * dt / 0.5) || 1); for (let i = 0; i < n; i++) stepCharacter(P, col, dt / n, outdoor); }
     else stepCharacter(P, col, dt, outdoor);
+    if (outdoor && P.onGround && vy0 < -14) superLanding(P.pos.x, P.pos.y, P.pos.z, -vy0);
     if (outdoor) slideCarry(P, dt);
     if (P.onGround && !P.skate) { const ph = Math.floor(P.anim.phase / Math.PI); if (ph !== P.stepPh) { P.stepPh = ph; if (Math.hypot(P.vel.x, P.vel.z) > 0.8) { Audio.step(running); if (outdoor && weather.wet > 0.4) FX.splash(P.pos.x, P.pos.y, P.pos.z); } } }
     if (chat.open) { input.actQ = false; if (!chat.npc || Math.hypot(chat.npc.pos.x - P.pos.x, chat.npc.pos.z - P.pos.z) > 5 || chat.npc.mode === 'down') closeChat(); return; }
@@ -9365,7 +9534,7 @@ function applyPending() {
 function toast(t) { const el = $('saved'); el.textContent = t; el.hidden = false; el.style.opacity = '1'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.opacity = '0'; el.textContent = 'ذخیره شد'; }, 2600); }
 addEventListener('resize', () => { if (composerAll && composer) { composerAll.setPixelRatio(pixelRatio); composerAll.setSize(innerWidth, innerHeight); } if (composer) { composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); } if (FX.pts) FX.pts.material.uniforms.uScale.value = renderer.domElement.height * 0.5; });
 function updateWorld(dt) {
-  updatePower(dt); updateCoins(dt); updateAch(dt); updatePolice(dt);
+  updatePower(dt); updateCoins(dt); updateAch(dt); updatePolice(dt); updateSkyLife(dt); updateQuakes(dt);
   simTime += dt; windUniform.value = simTime; skyUniforms.uTime.value = simTime;
   tod = (tod + dt * DAY_SPEED) % 24;
   updateWeather(dt); updateSnow(dt);
@@ -9513,6 +9682,7 @@ function frame(now) {
     render(); return;
   }
   applyPending();
+  if (photo.on) { photoFrame(dt); render(); return; }
   frameNo++; if (frameNo % shadowEvery === 0 || player.state === 'fly' || (player.state === 'car' && Math.abs(player.car.vf) > 5) || Math.hypot(player.vel.x, player.vel.z) > 7.5) renderer.shadowMap.needsUpdate = true;
   readKeys(dt);
   updateWorld(dt);
@@ -9551,7 +9721,7 @@ async function boot(data) {
   const sv = loadSave();
   if (sv) { try { restoreFromSave(sv); } catch (e) { console.error(e); } }
   if (!restored) { spawnTraffic(); spawnPeople(); }
-  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); updateBalloons(0); buildFireworks(); buildDog(); buildCoins(); buildPolice();
+  spawnGarageStaff(); buildPigeons(); spawnMallShoppers(); spawnSchoolKids(); spawnServices(); buildBalloons(); updateBalloons(0); buildFireworks(); buildDog(); buildCoins(); buildPolice(); buildSkyLife();
   if (restored) rebuildPlayerLook();
   setView(settings.view === 'first'); updateWalletHUD(); updatePowHud();
   if (restored) { $('play').textContent = 'ادامهٔ بازی'; $('newgame').hidden = false; const d = new Date(sv.time); $('load').textContent = 'بازی ذخیره‌شده پیدا شد: ' + fa(d.toLocaleString('fa-IR')); }
@@ -9578,7 +9748,7 @@ async function boot(data) {
   updateTimeOfDay();
   if (!restored) $('load').textContent = 'شهر آماده است.';
   $('play').disabled = false;
-  window.__city = { homeList, buyHome, myHomeDoor, tuneCar, applyTune, police, addWanted, busted, heroStart, heroEnd, coins, collectCoin, startDeliv, ACH, updateAch, setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
+  window.__city = { sky2, superLanding, quakes, photo, photoStart, photoEnd, photoCapture, photoFilter, homeList, buyHome, myHomeDoor, tuneCar, applyTune, police, addWanted, busted, heroStart, heroEnd, coins, collectCoin, startDeliv, ACH, updateAch, setPower, clearPower, canLift, startLift, throwLift, dropLift, get liftCar() { return liftCar; }, thrown, powSpeed, powJump, ride, rideOrder, leaveRide, boardRide, gramState, gramTick, paintCar, PAINTS, phone, phRingStart, phoneOpen, phoneClose, phLaunch, phFull, phShoot, phInstall, PHONES, PH_STORE, PDB, phPickModel, nitro, mis, startTaxi, startRace, stopMission, RACES, get dog() { return dog; }, adoptDog, jumpFromFlyer, rb, rbCanSee, balloons, fwk, startFireworks, rbX: { rbInLift, rbLiftGo, rbSetFloor, openLift, rbChangeFloor, rbBuildWindow, rbChunk, rbNearestCore, rbPath, toggleTurbo, RB_FH, RB_L, RB_W, RB_FLOORS, get core() { return rbCoreT; } }, rbScene, RB_TYPES, enterRB, leaveRB, rbStartGame, rbHide, rbUnhide, nearestSpot, startBuild, endBuild, placeNew, bdAct, fly, spawnFlyer, boardFlyer, runCode, openFlyPanel, closeFlyPanel, inviteNPC, get test() { return test; }, get amb() { return amb; }, get bus() { return bus; }, hospital, injure, boardBus, leaveBus, knockDown, mall, gas, swings, balls, ITEMS, addToCart, payAt, useHeld, hold, wear, consume, toggleView, setView, get cam() { return cam; }, toggleBag, enterThrough, exitThrough, startFuel, applyQuality, autoQuality, get qLevel() { return qLevel; }, get pigeons() { return pigeons; }, garage, get tow() { return tow; }, get towJob() { return towJob; }, callTow, goGarage, startUse, store, saveGame, loadSave, snapshot, scene, cars, npcs, player, world, camera, renderer, interior, chat, weather, settings, openChat, sendChat, closeChat, setWaypoint, places,
     step(n, dt = 1 / 30) { for (let i = 0; i < n; i++) { readKeys(dt); updateWorld(dt); updateCamera(dt); phoneTick(dt); updateTimeOfDay(); syncVisuals(dt); updateBubbles(dt); updateHUD(dt); } }, render, get tod() { return tod; }, set tod(v) { tod = v; envTod = -99; } };
 }
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('گرافیک گوشی لحظه‌ای قطع شد؛ در حال بازگشت…'); });
