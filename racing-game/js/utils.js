@@ -75,9 +75,8 @@ export function fmtTime(sec) {
 // ادغام هندسه‌ها با ویژگی‌های مشترک (موقعیت، نرمال، uv و ویژگی‌های سفارشی)
 export function mergeGeos(list, attrNames = ['position', 'normal', 'uv']) {
   const geos = list.filter(Boolean).map((g) => {
-    let geo = g;
-    if (!geo.attributes.normal) geo.computeVertexNormals();
-    return geo;
+    if (!g.attributes.normal) g.computeVertexNormals();
+    return g;
   });
   if (!geos.length) return new THREE.BufferGeometry();
   let vCount = 0, iCount = 0;
@@ -91,7 +90,8 @@ export function mergeGeos(list, attrNames = ['position', 'normal', 'uv']) {
     const src = geos.find((g) => g.attributes[name]);
     if (!src) continue;
     const size = src.attributes[name].itemSize;
-    arrays[name] = { size, arr: new Float32Array(vCount * size) };
+    const fill = name === 'color' ? 1 : 0;
+    arrays[name] = { size, arr: new Float32Array(vCount * size).fill(fill) };
   }
   const index = vCount > 65535 ? new Uint32Array(iCount) : new Uint16Array(iCount);
   let vo = 0, io = 0;
@@ -101,7 +101,8 @@ export function mergeGeos(list, attrNames = ['position', 'normal', 'uv']) {
       const { size, arr } = arrays[name];
       const a = g.attributes[name];
       if (a) {
-        for (let i = 0; i < n; i++) for (let k = 0; k < size; k++) arr[(vo + i) * size + k] = a.getComponent(i, k);
+        const sz = Math.min(size, a.itemSize);
+        for (let i = 0; i < n; i++) for (let k = 0; k < sz; k++) arr[(vo + i) * size + k] = a.getComponent(i, k);
       }
     }
     if (g.index) { for (let i = 0; i < g.index.count; i++) index[io++] = g.index.getX(i) + vo; }
@@ -125,38 +126,82 @@ export function fillAttr(geo, name, values) {
   return geo;
 }
 
-// ادغام مش‌های ثابت یک گروه بر اساس متریال برای کاهش draw call
-export function mergeStaticByMaterial(root, { castShadow = true, receiveShadow = true, skip = () => false } = {}) {
+// متریال مشترک «رنگ و زبری در رأس»: ده‌ها قطعه با متریال‌های ساده در یک draw call
+const _vpbr = new Map();
+export function vertexPBRMaterial(side = THREE.FrontSide) {
+  if (_vpbr.has(side)) return _vpbr.get(side);
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, side, roughness: 1, metalness: 1 });
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aMR; varying vec2 vMR;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMR = aMR;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vMR;')
+      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vMR.y;')
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vMR.x;');
+  };
+  m.customProgramCacheKey = () => 'vpbr';
+  m.userData.vpbr = true;
+  _vpbr.set(side, m);
+  return m;
+}
+const _baseOBC = THREE.Material.prototype.onBeforeCompile;
+export function pbrEligible(m) {
+  return m && m.isMeshStandardMaterial && !m.isMeshPhysicalMaterial && !m.map && !m.normalMap && !m.alphaMap && !m.emissiveMap && !m.roughnessMap && !m.metalnessMap &&
+    !m.transparent && !m.vertexColors && !m.userData.noMerge && m.onBeforeCompile === _baseOBC && (m.emissiveIntensity === 0 || (m.emissive.r + m.emissive.g + m.emissive.b) === 0);
+}
+
+// ادغام همه قطعات ثابت یک گروه: متریال‌های ساده در یک متریال مشترک و بقیه بر اساس متریال،
+// با تقسیم‌بندی مکانی (cell) تا حذف خارج از دید دوربین همچنان کار کند
+export function optimizeStatic(root, { cell = 0, skip = () => false } = {}) {
   root.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const buckets = new Map();
   const toRemove = [];
+  const box = new THREE.Box3(), ctr = new THREE.Vector3();
   root.traverse((o) => {
-    if (!o.isMesh || o.isInstancedMesh || o === root) return;
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o === root) return;
     if (o.userData.keep || skip(o)) return;
     let p = o.parent; let dyn = false;
-    while (p && p !== root) { if (p.userData.dynamic) { dyn = true; break; } p = p.parent; }
+    while (p && p !== root) { if (p.userData.dynamic || p.userData.keep) { dyn = true; break; } p = p.parent; }
     if (dyn || o.userData.dynamic) return;
-    const m = o.material;
-    if (Array.isArray(m)) return;
-    const geo = o.geometry.clone();
-    const mat = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
-    geo.applyMatrix4(mat);
-    if (!buckets.has(m)) buckets.set(m, { geos: [], cast: false, recv: false });
-    const b = buckets.get(m);
-    b.geos.push(geo); b.cast = b.cast || o.castShadow; b.recv = b.recv || o.receiveShadow;
+    const m = o.material; if (Array.isArray(m) || !o.visible) return;
+    const pbr = pbrEligible(m);
+    let ck = '';
+    if (cell) {
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      box.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); box.getCenter(ctr);
+      ck = Math.floor(ctr.x / cell) + ':' + Math.floor(ctr.z / cell) + ':';
+    }
+    const key = ck + (pbr ? 'pbr' + m.side : m.uuid);
+    const src = o.geometry;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', src.attributes.position);
+    if (src.attributes.normal) geo.setAttribute('normal', src.attributes.normal);
+    if (src.attributes.uv) geo.setAttribute('uv', src.attributes.uv);
+    if (src.attributes.color) geo.setAttribute('color', src.attributes.color);
+    if (src.index) geo.setIndex(src.index);
+    const g2 = geo.clone();
+    g2.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (pbr) {
+      const c = m.color; fillAttr(g2, 'color', [c.r, c.g, c.b]); fillAttr(g2, 'aMR', [m.metalness, m.roughness]);
+    }
+    if (!buckets.has(key)) buckets.set(key, { pbr, mat: pbr ? vertexPBRMaterial(m.side) : m, geos: [], cast: false, recv: false, order: o.renderOrder });
+    const b = buckets.get(key);
+    b.geos.push(g2); b.cast = b.cast || o.castShadow; b.recv = b.recv || o.receiveShadow;
     toRemove.push(o);
   });
   for (const o of toRemove) o.parent.remove(o);
-  for (const [mat, b] of buckets) {
-    const merged = mergeGeos(b.geos);
-    const mesh = new THREE.Mesh(merged, mat);
-    mesh.castShadow = castShadow && b.cast;
-    mesh.receiveShadow = receiveShadow && b.recv;
-    root.add(mesh);
+  const made = [];
+  for (const [, b] of buckets) {
+    const names = ['position', 'normal', 'uv'];
+    if (b.pbr) names.push('color', 'aMR'); else if (b.mat.vertexColors) names.push('color');
+    const mesh = new THREE.Mesh(mergeGeos(b.geos, names), b.mat);
+    mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.renderOrder = b.order;
+    root.add(mesh); made.push(mesh);
   }
-  return root;
+  return made;
 }
+// سازگاری با کد قدیمی
+export function mergeStaticByMaterial(root, opts = {}) { return optimizeStatic(root, opts); }
 
 export function hsl(h, s, l) { return new THREE.Color().setHSL(h, s, l); }
 

@@ -87,11 +87,13 @@ export class Race {
     this.track.buildPit(); this.track.buildBillboards(); this.track.buildTowers(); this.track.buildBridge(); this.track.buildMarshals();
     progress(0.7, 'کاشت درخت‌ها'); await tick();
     this.track.buildTrees();
+    progress(0.76, 'بهینه‌سازی صحنه'); await tick();
+    this.track.optimize();
     this.scene.add(this.track.group);
     this.outdoor.apply(this.info.time, app.save.data.light);
     this.night = this.info.time === 'night';
     this.track.setNight(this.night);
-    if (this.night) this.addFloodlights();
+    if (this.night && app.engine.q.nightLights > 0) this.addFloodlights(app.engine.q.nightLights);
     progress(0.8, 'آماده‌سازی ماشین‌ها'); await tick();
     this.buildRacers();
     this.effects = new Effects(this.scene);
@@ -132,28 +134,57 @@ export class Race {
       this.placeModel(racer, 0);
     });
     this.player = this.racers.find((r) => r.isPlayer);
+    this.buildWheelBatches();
     // چراغ جلو در شب
     if (this.night) {
       for (const r of this.racers) {
         const beam = new THREE.Mesh(new THREE.ConeGeometry(3.2, 22, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
         beam.rotation.x = -Math.PI / 2; beam.position.set(0, 0.7, r.model.shape.L / 2 + 11); r.model.root.add(beam);
       }
-      const spot = new THREE.SpotLight(0xfff1d0, 120, 120, 0.5, 0.5, 1.4);
-      spot.position.set(0, 0.8, 2); spot.target.position.set(0, 0, 30);
-      this.player.model.root.add(spot, spot.target);
+      if (this.app.engine.q.headlight) {
+        const spot = new THREE.SpotLight(0xfff1d0, 120, 120, 0.5, 0.5, 1.4);
+        spot.position.set(0, 0.8, 2); spot.target.position.set(0, 0, 30);
+        this.player.model.root.add(spot, spot.target);
+      }
     }
   }
 
   // نورافکن‌های شب روی جایگاه اصلی، خط شروع و کنار ساختمان پیت
-  addFloodlights() {
+  addFloodlights(count = 5) {
     const tr = this.track;
-    const spots = [[0, tr.wallL[0] + 9, 1], [-60 / DS, tr.wallL[0] + 9, 1], [60 / DS, tr.wallL[0] + 9, 1], [0, 0, 0], [-40 / DS, -(tr.wallR[0] + 10), 0]];
+    const spots = [[0, tr.wallL[0] + 9, 1], [0, 0, 0], [-60 / DS, tr.wallL[0] + 9, 1], [60 / DS, tr.wallL[0] + 9, 1], [-40 / DS, -(tr.wallR[0] + 10), 0]].slice(0, count);
     for (const [i, d, stand] of spots) {
       const p = tr.wp(Math.round(i), d, 0);
       const l = new THREE.SpotLight(0xfff2d6, stand ? 420 : 300, 90, stand ? 0.8 : 0.7, 0.7, 1.6);
       l.position.set(p.x, p.y + 26, p.z);
       const t = tr.wp(Math.round(i), stand ? d + 4 : d, 0); l.target.position.copy(t);
       this.scene.add(l, l.target);
+    }
+  }
+
+  // همه چرخ‌های همه ماشین‌ها با چند InstancedMesh رسم می‌شوند (به جای ۲۸ مش جدا)
+  buildWheelBatches() {
+    const groups = new Map();
+    for (const r of this.racers) for (const w of r.model.wheels) {
+      const mesh = w.spin.children.find((c) => c.isMesh); if (!mesh) continue;
+      const key = mesh.geometry.uuid;
+      if (!groups.has(key)) groups.set(key, { geo: mesh.geometry, mat: mesh.material, list: [] });
+      w.spin.remove(mesh);
+      const proxy = new THREE.Object3D(); w.spin.add(proxy);
+      groups.get(key).list.push(proxy);
+    }
+    this.wheelBatches = [...groups.values()].map((g) => {
+      const im = new THREE.InstancedMesh(g.geo, g.mat, g.list.length);
+      im.frustumCulled = false; im.castShadow = true; im.receiveShadow = true;
+      this.scene.add(im);
+      return { im, list: g.list };
+    });
+  }
+  updateWheelBatches() {
+    if (!this.wheelBatches) return;
+    for (const b of this.wheelBatches) {
+      for (let i = 0; i < b.list.length; i++) { const p = b.list[i]; p.updateWorldMatrix(true, false); b.im.setMatrixAt(i, p.matrixWorld); }
+      b.im.instanceMatrix.needsUpdate = true;
     }
   }
 
@@ -265,9 +296,11 @@ export class Race {
     if (this.boss) this.updateBoss(dt);
     this.updateCamera(dt);
     if (this.skipDraw) { this.effects.update(dt, 800); return; }
+    this.updateWheelBatches();
     this.outdoor.update(dt, this.player.pos, this.camera);
-    const carsInfo = this.racers.map((r) => ({ pos: r.pos, team: r.team, place: r.place, finished: r.finished }));
-    this.track.update(this.t, carsInfo, this.camera.position, this.player);
+    if (!this._carsInfo) this._carsInfo = this.racers.map((r) => ({ pos: r.pos, team: r.team, place: 0, finished: false }));
+    this.racers.forEach((r, k) => { const c = this._carsInfo[k]; c.place = r.place; c.finished = r.finished; c.pos = r.pos; });
+    this.track.update(this.t, this._carsInfo, this.camera.position, this.player);
     this.effects.update(dt, app.engine.renderer.domElement.height);
     // صداها
     const p = this.player;
@@ -554,7 +587,7 @@ export class Race {
     arr.forEach((r, k) => { r.place = k + 1; });
     this.standings = arr;
     // نمایشگر بزرگ پیست
-    if (!this._scrT || this.t - this._scrT > 0.8) {
+    if ((!this._scrT || this.t - this._scrT > 1.5) && this.track.screenMesh && this.camera.position.distanceToSquared(this.track.screenMesh.getWorldPosition(_v3)) < 600 * 600) {
       this._scrT = this.t;
       const L = this.track.length; const lead = arr[0];
       this.track.drawScreen(arr.map((r) => ({ pos: toFa(r.place), name: r.isPlayer ? 'تو (قهرمان)' : r.name + ' - ' + r.teamName, player: r.isPlayer, info: r.finished ? fmtTime(r.finishTime) : (r === lead ? 'دور ' + toFa(r.lap) : '+' + toFa(Math.max(0, Math.round(lead.P - r.P))) + 'm') })), 'مرحله ' + toFa(this.cfg.level) + ' • ' + this.track.name);
@@ -565,6 +598,7 @@ export class Race {
   placeModel(r, dt) {
     const m = r.model; const root = m.root;
     root.position.copy(r.pos);
+    m.setLOD(r.pos.distanceTo(this.camera.position));
     _e.set(r.pitch, r.heading, 0, 'YXZ'); root.quaternion.setFromEuler(_e);
     const roll = clamp(r.latAcc * 0.011, -0.085, 0.085);
     const pitchB = clamp(-r.longAcc * 0.005, -0.05, 0.05);
@@ -723,7 +757,8 @@ export class Race {
       const eye = _v1.copy(m.eye).add(_v2.set(0, 0.07, 0.04)); m.body.localToWorld(eye);
       cam.position.set(eye.x + sx, eye.y + sy, eye.z);
       const q = m.body.getWorldQuaternion(_q);
-      cam.quaternion.copy(q).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2 + this.lookPitch, Math.PI + this.app.input.look * 1.3, 0, 'YXZ')));
+      this._ce = this._ce || new THREE.Euler(); this._cq = this._cq || new THREE.Quaternion();
+      cam.quaternion.copy(q).multiply(this._cq.setFromEuler(this._ce.set(-0.2 + this.lookPitch, Math.PI + this.app.input.look * 1.3, 0, 'YXZ')));
       cam.fov = 80 + clamp(sp / 8, 0, 6); cam.near = 0.05; cam.updateProjectionMatrix();
       return;
     }
@@ -749,7 +784,7 @@ export class Race {
     }
     if (!this.camPos) this.camPos = desired.clone();
     this.camPos.lerp(desired, Math.min(1, dt * (mode === 'top' ? 12 : 9)));
-    const gy = this.track.locate(this.camPos.x, this.camPos.z, r.hint, {}).y + 0.6;
+    const gy = this.track.locate(this.camPos.x, this.camPos.z, r.hint, this._camLoc || (this._camLoc = {})).y + 0.6;
     if (this.camPos.y < gy) this.camPos.y = gy;
     cam.position.set(this.camPos.x + sx, this.camPos.y + sy, this.camPos.z);
     cam.lookAt(look);
@@ -818,8 +853,11 @@ export class Race {
     if (this.boss) { if (ph >= 2) { this.phase = 'judge'; this.phaseT = 2; } this.updateBoss(dt); this.phase = savedPhase; }
     this.replayCam(target, mode, dt);
     if (this.skipDraw) { this.effects.update(dt * rp.speed, 800); return; }
+    this.updateWheelBatches();
     this.outdoor.update(dt, target.pos, this.camera);
-    this.track.update(this.t, this.racers.map((r) => ({ pos: r.pos, team: r.team, place: r.place, finished: r.finished })), this.camera.position, target);
+    if (!this._carsInfo) this._carsInfo = this.racers.map((r) => ({ pos: r.pos, team: r.team, place: 0, finished: false }));
+    this.racers.forEach((r, k) => { const c = this._carsInfo[k]; c.place = r.place; c.finished = r.finished; c.pos = r.pos; });
+    this.track.update(this.t, this._carsInfo, this.camera.position, target);
     this.effects.update(dt * rp.speed, this.app.engine.renderer.domElement.height);
     const p = target;
     this.app.audio.setEngine({ rpm: 1500 + Math.abs(p.vf) * 60, throttle: 0.6, speed: Math.abs(p.vf) * 3.6, cyl: 8, on: rp.playing });

@@ -1,7 +1,7 @@
 // فهرست ماشین‌ها و سازنده مدل سه‌بعدی ماشین با فضای داخلی کامل
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { clamp, lerp, mergeGeos, mergeStaticByMaterial } from './utils.js';
+import { clamp, lerp, mergeGeos, optimizeStatic, fillAttr, vertexPBRMaterial } from './utils.js';
 import { buildHuman, patternMaterial } from './human.js';
 import * as T from './textures.js';
 
@@ -98,6 +98,10 @@ function shapeFor(style) {
   };
   return { ...base[style], style };
 }
+
+// تعداد تقسیمات جعبه‌های گرد: ماشین بازیکن با جزئیات، رقبا ساده‌تر
+let RB_SEG = 3;
+const RB = (n) => Math.min(n, RB_SEG);
 
 // ---------- متریال‌های مشترک ----------
 const M = {};
@@ -331,10 +335,10 @@ function wheelGeos(s, rimStyle) {
   if (wheelCache.has(key)) return wheelCache.get(key);
   const R = s.wr, W = s.tw, rr = R * 0.66;
   const prof = [[rr, -W / 2], [R - 0.035, -W / 2 - 0.005], [R - 0.008, -W / 2 + 0.02], [R, -W / 2 + 0.05], [R, W / 2 - 0.05], [R - 0.008, W / 2 - 0.02], [R - 0.035, W / 2 + 0.005], [rr, W / 2]];
-  const tire = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 40); tire.rotateZ(Math.PI / 2);
+  const tire = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 28); tire.rotateZ(Math.PI / 2);
   // آج لاستیک
   const tread = [];
-  for (let i = 0; i < 36; i++) { const b = new THREE.BoxGeometry(W * 0.84, 0.012, 0.03); b.translate(0, R + 0.002, 0); b.rotateX((i / 36) * Math.PI * 2); tread.push(b); }
+  for (let i = 0; i < 24; i++) { const b = new THREE.BoxGeometry(W * 0.84, 0.012, 0.04); b.translate(0, R + 0.002, 0); b.rotateX((i / 24) * Math.PI * 2); tread.push(b); }
   const rim = [];
   const barrel = new THREE.CylinderGeometry(rr, rr, W * 0.86, 32, 1, true); barrel.rotateZ(Math.PI / 2); rim.push(barrel);
   const face = (g) => { g.rotateZ(Math.PI / 2); g.translate(W * 0.3, 0, 0); return g; };
@@ -366,42 +370,47 @@ function wheelGeos(s, rimStyle) {
   return res;
 }
 
+// هر چرخ یک مش (لاستیک، دیواره سفید، رینگ، پیچ‌ها و دیسک با رنگ رأسی)
+const wheelMeshCache = new Map();
+function wheelGeometry(s, custom, modern) {
+  const rimStyle = custom.rims ?? 0, rc = custom.rimColor || 0;
+  const key = s.wr + '_' + s.tw + '_' + rimStyle + '_' + rc + '_' + modern;
+  if (wheelMeshCache.has(key)) return wheelMeshCache.get(key);
+  const g = wheelGeos(s, rimStyle);
+  const col = (geo, hex, metal, rough) => { const c = new THREE.Color(hex); const out = geo.clone(); fillAttr(out, 'color', [c.r, c.g, c.b]); fillAttr(out, 'aMR', [metal, rough]); return out; };
+  const parts = [col(g.tire, 0x141416, 0, 0.92), col(g.rim, CUSTOM.rimColor.hex[rc], rc === 3 ? 0.5 : 1, rc === 0 ? 0.08 : 0.28), col(g.nuts, 0xf2f2f6, 1, 0.1)];
+  if (!modern && rimStyle <= 1) parts.push(col(g.ww, 0xf0ede4, 0, 0.7));
+  if (modern) parts.push(col(g.disc, 0x8a8d93, 0.9, 0.38));
+  const geo = mergeGeos(parts, ['position', 'normal', 'uv', 'color', 'aMR']);
+  wheelMeshCache.set(key, geo);
+  return geo;
+}
 function buildWheel(s, custom, side, front, modern) {
-  const m = mats();
-  const g = wheelGeos(s, custom.rims ?? 0);
   const root = new THREE.Group(); root.userData.dynamic = true;
   const spin = new THREE.Group(); root.add(spin);
-  const tire = new THREE.Mesh(g.tire, m.rubber); tire.castShadow = true; spin.add(tire);
-  const rimMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(CUSTOM.rimColor.hex[custom.rimColor || 0]), metalness: (custom.rimColor === 3) ? 0.5 : 1, roughness: custom.rimColor === 0 ? 0.08 : 0.28 });
-  const rim = new THREE.Mesh(g.rim, rimMat); rim.castShadow = true; spin.add(rim);
-  spin.add(new THREE.Mesh(g.nuts, m.chrome));
-  if (!modern && (custom.rims ?? 0) <= 1) { const ww = new THREE.Mesh(g.ww, m.whitewall); spin.add(ww); }
-  if (modern) {
-    const disc = new THREE.Mesh(g.disc, m.disc); spin.add(disc);
-    const cal = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.16, 0.12, 2, 0.02), new THREE.MeshStandardMaterial({ color: 0xd11a1a, roughness: 0.4 }));
-    cal.position.set(-s.tw * 0.02, s.wr * 0.4, front ? -0.1 : 0.1); root.add(cal);
-  }
+  const mesh = new THREE.Mesh(wheelGeometry(s, custom, modern), vertexPBRMaterial(THREE.DoubleSide)); mesh.castShadow = true; spin.add(mesh);
   if (side < 0) root.scale.x = -1;
-  return { root, spin, rimMat };
+  return { root, spin };
 }
 
 // ---------- فضای داخلی: صندلی‌های جلو، فرمان، دنده، پدال، داشبورد ----------
 function seatGeo(style) {
   const parts = [];
-  const cush = new RoundedBoxGeometry(0.5, 0.12, 0.5, 3, 0.05); cush.translate(0, 0.06, 0); parts.push(cush);
-  const back = new RoundedBoxGeometry(0.5, 0.62, 0.12, 3, 0.05); back.translate(0, 0.36, -0.26); back.rotateX(-0.18); parts.push(back);
+  const cush = new RoundedBoxGeometry(0.5, 0.12, 0.5, RB(3), 0.05); cush.translate(0, 0.06, 0); parts.push(cush);
+  const back = new RoundedBoxGeometry(0.5, 0.62, 0.12, RB(3), 0.05); back.translate(0, 0.36, -0.26); back.rotateX(-0.18); parts.push(back);
   if (style !== 'classic') {
     for (const sx of [1, -1]) {
-      const b1 = new RoundedBoxGeometry(0.08, 0.16, 0.46, 2, 0.035); b1.translate(sx * 0.24, 0.12, 0); parts.push(b1);
-      const b2 = new RoundedBoxGeometry(0.08, 0.46, 0.14, 2, 0.035); b2.translate(sx * 0.25, 0.36, -0.24); b2.rotateX(-0.18); parts.push(b2);
+      const b1 = new RoundedBoxGeometry(0.08, 0.16, 0.46, RB(2), 0.035); b1.translate(sx * 0.24, 0.12, 0); parts.push(b1);
+      const b2 = new RoundedBoxGeometry(0.08, 0.46, 0.14, RB(2), 0.035); b2.translate(sx * 0.25, 0.36, -0.24); b2.rotateX(-0.18); parts.push(b2);
     }
   }
-  const head = new RoundedBoxGeometry(style === 'race' ? 0.42 : 0.28, style === 'race' ? 0.3 : 0.2, 0.1, 2, 0.04);
+  const head = new RoundedBoxGeometry(style === 'race' ? 0.42 : 0.28, style === 'race' ? 0.3 : 0.2, 0.1, RB(2), 0.04);
   head.translate(0, style === 'race' ? 0.82 : 0.8, -0.38); head.rotateX(-0.18); parts.push(head);
   return mergeGeos(parts);
 }
 
 function buildInterior(s, cab, custom, isPlayer, team, L) {
+  const anim = isPlayer;
   const m = mats();
   const grp = new THREE.Group();
   const style = s.interior;
@@ -410,7 +419,7 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
   // کف و تونل وسط
   const floor = new THREE.Mesh(new THREE.BoxGeometry(2 * cab.beltW(seatZ) - 0.1, 0.04, cab.zA - cab.zD + 0.3), m.carpet);
   floor.position.set(0, floorY - 0.02, (cab.zA + cab.zD) / 2 + 0.1); grp.add(floor);
-  const tunnel = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.24, 1.4, 2, 0.05), m.dash);
+  const tunnel = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.24, 1.4, RB(2), 0.05), m.dash);
   tunnel.position.set(0, floorY + 0.1, seatZ + 0.45); grp.add(tunnel);
   // دیواره پشت صندلی‌ها (فقط دو صندلی جلو)
   const bulkH = s.belt - floorY + 0.05;
@@ -431,19 +440,19 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
     const bx = Math.min(cab.beltW(dz0), cab.beltW(dz1), cab.beltW(dzm)) - 0.05;
     const dp = new THREE.Mesh(new THREE.BoxGeometry(0.04, s.belt - floorY - 0.02, dz1 - dz0), style === 'classic' ? m.leatherBrown : m.dash);
     dp.position.set(sx * bx, (s.belt + floorY) / 2 - 0.02, dzm); grp.add(dp);
-    const arm = new THREE.Mesh(new RoundedBoxGeometry(0.08, 0.05, 0.4, 2, 0.02), seatMat); arm.position.set(sx * (bx - 0.05), s.belt - 0.14, seatZ + 0.2); grp.add(arm);
+    const arm = new THREE.Mesh(new RoundedBoxGeometry(0.08, 0.05, 0.4, RB(2), 0.02), seatMat); arm.position.set(sx * (bx - 0.05), s.belt - 0.14, seatZ + 0.2); grp.add(arm);
   }
   // داشبورد (باریک تا پدال‌ها هم دیده شوند)
   const dashZ = cab.zA - 0.24;
   const dW = 2 * (cab.beltW(dashZ + 0.15) - 0.06);
-  const dash = new THREE.Mesh(new RoundedBoxGeometry(dW, 0.12, 0.3, 3, 0.05), style === 'classic' ? m.wood : style === 'race' ? m.carbon : m.dash);
+  const dash = new THREE.Mesh(new RoundedBoxGeometry(dW, 0.12, 0.3, RB(3), 0.05), style === 'classic' ? m.wood : style === 'race' ? m.carbon : m.dash);
   dash.position.set(0, s.belt - 0.03, dashZ); grp.add(dash);
-  const dashTop = new THREE.Mesh(new RoundedBoxGeometry(dW - 0.02, 0.05, 0.4, 2, 0.02), m.dash);
+  const dashTop = new THREE.Mesh(new RoundedBoxGeometry(dW - 0.02, 0.05, 0.4, RB(2), 0.02), m.dash);
   dashTop.position.set(0, s.belt + 0.03, dashZ + 0.02); grp.add(dashTop);
-  const hood = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.08, 0.16, 2, 0.03), m.dash);
+  const hood = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.08, 0.16, RB(2), 0.03), m.dash);
   hood.position.set(s.seatX, s.belt + 0.07, dashZ - 0.06); grp.add(hood);
   // کنسول وسط
-  const stack = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.28, 0.1, 2, 0.03), m.dash);
+  const stack = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.28, 0.1, RB(2), 0.03), m.dash);
   stack.position.set(0, s.belt - 0.2, dashZ - 0.08); stack.rotation.x = 0.35; grp.add(stack);
   const radio = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.06), new THREE.MeshStandardMaterial({ color: 0x0a2030, emissive: 0x2a9fff, emissiveIntensity: 0.4 }));
   radio.position.set(0, s.belt - 0.15, dashZ - 0.14); radio.rotation.set(0.35, Math.PI, 0); grp.add(radio);
@@ -452,7 +461,7 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
   const gaugeStyle = style === 'classic' ? 'classic' : 'modern';
   const gaugeR = 0.065;
   const gauges = [];
-  for (const [ox, tex] of [[-0.075, T.gaugeFace(gaugeStyle, 'km/h', Math.ceil(s.vmaxKmh / 20) * 20 + 20)], [0.075, T.gaugeFace(gaugeStyle, 'x1000 rpm', 8)]]) {
+  if (anim) for (const [ox, tex] of [[-0.075, T.gaugeFace(gaugeStyle, 'km/h', Math.ceil(s.vmaxKmh / 20) * 20 + 20)], [0.075, T.gaugeFace(gaugeStyle, 'x1000 rpm', 8)]]) {
     const g = new THREE.Mesh(new THREE.CircleGeometry(gaugeR, 32), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.4, roughness: 0.3 }));
     g.position.set(wheelX + ox, s.belt + 0.03, dashZ - 0.152); g.rotation.set(-0.25, Math.PI, 0); grp.add(g);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(gaugeR + 0.006, 0.007, 6, 32), m.chrome); ring.position.copy(g.position); ring.rotation.copy(g.rotation); grp.add(ring);
@@ -461,8 +470,9 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
     const nm = new THREE.Mesh(new THREE.BoxGeometry(0.004, gaugeR * 0.85, 0.002), new THREE.MeshBasicMaterial({ color: 0xff3010 })); nm.position.y = gaugeR * 0.38; inner.add(nm);
     grp.add(needle); gauges.push(inner);
   }
+  if (!anim) { const dial = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.02), m.black); dial.position.set(wheelX, s.belt + 0.03, dashZ - 0.15); dial.rotation.x = -0.25; grp.add(dial); gauges.push(new THREE.Group(), new THREE.Group()); }
   // فرمان (دقیقاً زیر دست‌های راننده)
-  const steer = new THREE.Group(); steer.userData.dynamic = true;
+  const steer = new THREE.Group(); steer.userData.dynamic = anim;
   const steerInner = new THREE.Group(); steer.add(steerInner);
   const rimMat = style === 'classic' ? m.wood : m.leatherBlack;
   const wR = L.wheelR;
@@ -479,7 +489,7 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
   column.rotation.x = Math.PI / 2; column.position.z = (colLen + 0.1) / 2; steer.add(column);
   steer.position.copy(L.wheelPos); steer.rotation.x = L.wheelTilt; grp.add(steer);
   // دنده
-  const gear = new THREE.Group(); gear.userData.dynamic = true;
+  const gear = new THREE.Group(); gear.userData.dynamic = anim;
   gear.position.set(0, floorY + 0.22, seatZ + 0.5); grp.add(gear);
   const boot = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.08, 12), m.leatherBlack); gear.add(boot);
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.2, 8), m.chrome); stick.position.y = 0.1; gear.add(stick);
@@ -490,10 +500,10 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
   // پدال‌ها: کلاچ، ترمز، گاز (زیر پای راننده)
   const pedals = {};
   for (const [name, ox, w] of [['clutch', 0.11, 0.07], ['brake', 0.0, 0.08], ['gas', -0.12, 0.05]]) {
-    const pg = new THREE.Group(); pg.userData.dynamic = true;
+    const pg = new THREE.Group(); pg.userData.dynamic = anim;
     pg.position.set(wheelX + ox, L.pedalY + 0.2, L.pedalZ);
     const armP = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.2, 0.015), m.pedal); armP.position.y = -0.1; pg.add(armP);
-    const pad = new THREE.Mesh(new RoundedBoxGeometry(w, name === 'gas' ? 0.13 : 0.07, 0.02, 2, 0.006), m.pedal); pad.position.set(0, -0.2, -0.01); pad.rotation.x = 0.45; pg.add(pad);
+    const pad = new THREE.Mesh(new RoundedBoxGeometry(w, name === 'gas' ? 0.13 : 0.07, 0.02, RB(2), 0.006), m.pedal); pad.position.set(0, -0.2, -0.01); pad.rotation.x = 0.45; pg.add(pad);
     grp.add(pg); pedals[name] = pg;
   }
   const fwZ = Math.min(L.pedalZ + 0.12, cab.zA + 0.25);
@@ -501,7 +511,7 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
   const firewall = new THREE.Mesh(new THREE.BoxGeometry(2 * cab.beltW(Math.min(fwZ, cab.zA)) - 0.12, fwTop - floorY, 0.04), m.carpet);
   firewall.position.set(0, (fwTop + floorY) / 2, fwZ); grp.add(firewall);
   // آینه وسط
-  const mir = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.06, 0.03, 2, 0.012), m.black);
+  const mir = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.06, 0.03, RB(2), 0.012), m.black);
   mir.position.set(0, cab.roofY(cab.zB + 0.05) - 0.09, cab.zB + 0.06); grp.add(mir);
   const mirGlass = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.045), m.chrome); mirGlass.position.set(0, mir.position.y, mir.position.z - 0.016); mirGlass.rotation.y = Math.PI; grp.add(mirGlass);
   // رول‌کیج برای ماشین‌های مسابقه‌ای
@@ -516,6 +526,7 @@ function buildInterior(s, cab, custom, isPlayer, team, L) {
 // ---------- ساخت کامل ماشین ----------
 export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, team = 0xffffff, number = 7, driverOpts = {}, lowDetail = false, noDriver = false } = {}) {
   const m = mats();
+  RB_SEG = isPlayer ? 2 : 1;
   const s = shapeFor(car.style);
   s.vmaxKmh = car.top;
   const modern = !['classic', 'roadster', 'muscle'].includes(car.style);
@@ -558,7 +569,7 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
     for (const sx of [1, -1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.035, 0.05), headMat); l.position.set(sx * fW * 0.6, lightY, frontZ - 0.02); body.add(l); }
   } else {
     for (const sx of [1, -1]) {
-      const l = new THREE.Mesh(new RoundedBoxGeometry(s.lights === 'rect' ? 0.32 : 0.38, s.lights === 'rect' ? 0.08 : 0.035, 0.05, 2, 0.015), headMat);
+      const l = new THREE.Mesh(new RoundedBoxGeometry(s.lights === 'rect' ? 0.32 : 0.38, s.lights === 'rect' ? 0.08 : 0.035, 0.05, RB(2), 0.015), headMat);
       l.position.set(sx * fW * 0.62, lightY + 0.02, frontZ - 0.03); l.rotation.z = sx * 0.08; body.add(l);
       const drl = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.02), headMat); drl.position.set(sx * fW * 0.6, lightY - 0.05, frontZ - 0.02); body.add(drl);
     }
@@ -566,7 +577,7 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
   // جلوپنجره
   const gW = s.grille === 'wide' ? fW * 1.1 : s.grille === 'oval' ? fW * 0.55 : fW * 0.7, gH = s.grille === 'slot' ? 0.05 : 0.14;
   const grilleY = lerp(fBot, fy, s.grille === 'slot' ? 0.3 : 0.42);
-  const gbg = new THREE.Mesh(new RoundedBoxGeometry(gW, gH, 0.04, 2, 0.02), m.grilleBg); gbg.position.set(0, grilleY, frontZ - 0.015); body.add(gbg);
+  const gbg = new THREE.Mesh(new RoundedBoxGeometry(gW, gH, 0.04, RB(2), 0.02), m.grilleBg); gbg.position.set(0, grilleY, frontZ - 0.015); body.add(gbg);
   if (s.grille === 'classic' || s.grille === 'wide' || s.grille === 'oval') {
     const bars = [];
     for (let i = 0; i < 9; i++) { const b = new THREE.BoxGeometry(0.012, gH * 0.9, 0.02); b.translate(-gW / 2 + gW * (i + 0.5) / 9, 0, 0); bars.push(b); }
@@ -575,14 +586,14 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
   // سپرها
   if (s.bumper === 'chrome') {
     for (const [z, y, w] of [[frontZ + 0.04, fBot + 0.05, fW * 2.05], [rearZ - 0.04, rBot + 0.05, rW * 2.05]]) {
-      const b = new THREE.Mesh(new RoundedBoxGeometry(w, 0.08, 0.09, 3, 0.035), m.chrome); b.position.set(0, y, z); b.castShadow = true; body.add(b);
+      const b = new THREE.Mesh(new RoundedBoxGeometry(w, 0.08, 0.09, RB(3), 0.035), m.chrome); b.position.set(0, y, z); b.castShadow = true; body.add(b);
     }
   } else {
     const spl = new THREE.Mesh(new THREE.BoxGeometry(fW * 1.9, 0.025, 0.12), m.carbon); spl.position.set(0, s.sill - 0.04, frontZ - 0.05); body.add(spl);
     const diff = new THREE.Mesh(new THREE.BoxGeometry(rW * 1.6, 0.12, 0.25), m.carbon); diff.position.set(0, s.sill - 0.02, rearZ + 0.1); diff.rotation.x = -0.25; body.add(diff);
     for (const sx of [1, -1]) {
       const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, s.wb - 0.9), m.carbon); skirt.position.set(sx * (s.W / 2 - 0.04), s.sill + 0.02, 0); body.add(skirt);
-      const intake = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.1, 0.03, 2, 0.02), m.grilleBg); intake.position.set(sx * fW * 0.62, grilleY - 0.03, frontZ - 0.005); body.add(intake);
+      const intake = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.1, 0.03, RB(2), 0.02), m.grilleBg); intake.position.set(sx * fW * 0.62, grilleY - 0.03, frontZ - 0.005); body.add(intake);
     }
   }
   // چراغ‌های عقب
@@ -591,8 +602,8 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
   if (!modern) {
     for (const sx of [1, -1]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.04, 20), brakeMat); t.rotation.x = Math.PI / 2; t.position.set(sx * rW * 0.68, tailY, rearZ + 0.005); body.add(t); }
   } else {
-    const bar = new THREE.Mesh(new RoundedBoxGeometry(rW * 1.8, 0.04, 0.04, 2, 0.015), brakeMat); bar.position.set(0, tailY, rearZ + 0.01); body.add(bar);
-    for (const sx of [1, -1]) { const t = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.08, 0.04, 2, 0.02), brakeMat); t.position.set(sx * rW * 0.7, tailY, rearZ + 0.012); body.add(t); }
+    const bar = new THREE.Mesh(new RoundedBoxGeometry(rW * 1.8, 0.04, 0.04, RB(2), 0.015), brakeMat); bar.position.set(0, tailY, rearZ + 0.01); body.add(bar);
+    for (const sx of [1, -1]) { const t = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.08, 0.04, RB(2), 0.02), brakeMat); t.position.set(sx * rW * 0.7, tailY, rearZ + 0.012); body.add(t); }
   }
   // پلاک
   const plateMat = new THREE.MeshStandardMaterial({ map: T.plate(isPlayer ? 'قهرمان' : car.en.split(' ')[0].toUpperCase().slice(0, 6)), roughness: 0.5 });
@@ -602,30 +613,31 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
   for (let i = 0; i < n; i++) { const x = n === 1 ? rW * 0.5 : (i - (n - 1) / 2) * (n > 2 ? 0.16 : rW * 1.1); const e = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.2, 14, 1, true), m.chrome); e.rotation.x = Math.PI / 2; e.position.set(x, s.sill + 0.03, rearZ - 0.02); body.add(e); ex.push(e.position.clone()); }
   // آینه‌های بغل
   for (const sx of [1, -1]) {
-    const mm = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.08, 0.13, 2, 0.025), modern ? paint : m.chrome);
+    const mm = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.08, 0.13, RB(2), 0.025), modern ? paint : m.chrome);
     mm.position.set(sx * (cab.beltW(cab.zA - 0.1) + 0.09), s.belt + 0.07, cab.zA - 0.1); body.add(mm);
     const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.03), m.black); stalk.position.set(sx * (cab.beltW(cab.zA - 0.1) + 0.03), s.belt + 0.04, cab.zA - 0.08); body.add(stalk);
   }
   // دستگیره درها و خطوط در
+  let roundelMat = null;
   const doorZ1 = cab.zA - 0.05, doorZ2 = (cab.zB + cab.zC) / 2 - 0.45;
   for (const sx of [1, -1]) {
     const x = sx * (prof.halfW((doorZ1 + doorZ2) / 2) * (1 - s.taper * 0.08) + 0.002);
     for (const dz of [doorZ1, doorZ2]) { const ln = new THREE.Mesh(new THREE.BoxGeometry(0.006, s.belt - s.sill - 0.12, 0.006), m.black); ln.position.set(sx * (prof.halfW(dz) * 0.985 + 0.003), (s.belt + s.sill) / 2 + 0.02, dz); body.add(ln); }
-    const h = new THREE.Mesh(new RoundedBoxGeometry(0.02, 0.025, 0.12, 2, 0.008), m.chrome); h.position.set(x + sx * 0.008, s.belt - 0.08, doorZ2 + 0.12); body.add(h);
+    const h = new THREE.Mesh(new RoundedBoxGeometry(0.02, 0.025, 0.12, RB(2), 0.008), m.chrome); h.position.set(x + sx * 0.008, s.belt - 0.08, doorZ2 + 0.12); body.add(h);
     // شماره مسابقه روی در
-    const rn = new THREE.Mesh(new THREE.CircleGeometry(0.19, 32), new THREE.MeshStandardMaterial({ map: T.roundel(number, '#' + new THREE.Color(team).getHexString()), roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -2 }));
+    const rn = new THREE.Mesh(new THREE.CircleGeometry(0.19, 32), roundelMat || (roundelMat = new THREE.MeshStandardMaterial({ map: T.roundel(number, '#' + new THREE.Color(team).getHexString()), roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -2 })));
     const rz = (doorZ1 + doorZ2) / 2 + 0.05;
     rn.position.set(sx * (prof.halfW(rz) * 0.99 + 0.012), (s.belt + s.sill) / 2 + 0.04, rz); rn.rotation.y = sx * Math.PI / 2; body.add(rn);
   }
   // کاپوت: دریچه هوا برای ماسل و باله برای هایپر
-  if (s.scoop) { const sc = new THREE.Mesh(new RoundedBoxGeometry(0.45, 0.08, 0.6, 2, 0.03), paint); sc.position.set(0, prof.top(cab.zA + 0.6) + 0.02, cab.zA + 0.6); body.add(sc); const sh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.05, 0.02), m.grilleBg); sh.position.set(0, prof.top(cab.zA + 0.6) + 0.03, cab.zA + 0.9); body.add(sh); }
+  if (s.scoop) { const sc = new THREE.Mesh(new RoundedBoxGeometry(0.45, 0.08, 0.6, RB(2), 0.03), paint); sc.position.set(0, prof.top(cab.zA + 0.6) + 0.02, cab.zA + 0.6); body.add(sc); const sh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.05, 0.02), m.grilleBg); sh.position.set(0, prof.top(cab.zA + 0.6) + 0.03, cab.zA + 0.9); body.add(sh); }
   if (s.fin) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 1.2), paint); fin.position.set(0, prof.top(-hz + 0.9) + 0.08, -hz + 0.9); body.add(fin); }
   // اسپویلر
   const spoiler = custom.spoiler || (s.wing ? 3 : 0);
-  if (spoiler === 1) { const d = new THREE.Mesh(new RoundedBoxGeometry(rW * 1.7, 0.05, 0.22, 2, 0.02), paint); d.position.set(0, ry + 0.04, rearZ + 0.18); d.rotation.x = 0.25; body.add(d); }
+  if (spoiler === 1) { const d = new THREE.Mesh(new RoundedBoxGeometry(rW * 1.7, 0.05, 0.22, RB(2), 0.02), paint); d.position.set(0, ry + 0.04, rearZ + 0.18); d.rotation.x = 0.25; body.add(d); }
   else if (spoiler >= 2) {
     const big = spoiler === 3; const wy = ry + (big ? 0.34 : 0.18);
-    const wing = new THREE.Mesh(new RoundedBoxGeometry(rW * (big ? 2.0 : 1.75), 0.035, big ? 0.32 : 0.24, 2, 0.015), big ? m.carbon : paint);
+    const wing = new THREE.Mesh(new RoundedBoxGeometry(rW * (big ? 2.0 : 1.75), 0.035, big ? 0.32 : 0.24, RB(2), 0.015), big ? m.carbon : paint);
     wing.position.set(0, wy, rearZ + 0.22); wing.rotation.x = -0.12; wing.castShadow = true; body.add(wing);
     for (const sx of [1, -1]) {
       const up = new THREE.Mesh(new THREE.BoxGeometry(0.03, wy - ry + 0.02, 0.12), m.black); up.position.set(sx * rW * 0.55, (wy + ry) / 2, rearZ + 0.25); body.add(up);
@@ -655,7 +667,7 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
   const seatZ = (cab.zB + cab.zC) / 2 - 0.1;
   const seatY = floorY + 0.08;
   const suit = CUSTOM.suit.hex[isPlayer ? (custom.suit || 0) : 1];
-  const dOpts = { detail: lowDetail ? 'lo' : 'hi', helmet: isPlayer ? 0xffc21a : team, helmetStripe: isPlayer ? 0xff3a00 : 0xffffff, gloves: 0x151515, longSleeve: true, shoes: 0x111111, ...driverOpts };
+  const dOpts = { detail: isPlayer ? 'hi' : 'mid', helmet: isPlayer ? 0xffc21a : team, helmetStripe: isPlayer ? 0xff3a00 : 0xffffff, gloves: 0x151515, longSleeve: true, shoes: 0x111111, ...driverOpts };
   if (isPlayer && suit === 'fire') { const fm = patternMaterial('fire'); dOpts.shirtMat = fm; dOpts.pantsMat = fm; }
   else { dOpts.shirt = isPlayer ? new THREE.Color(suit).getHex() : team; dOpts.pants = dOpts.shirt; }
   const driver = buildHuman(dOpts);
@@ -685,9 +697,17 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
   };
   const interior = buildInterior(s, cab, custom, isPlayer, team, layout);
   body.add(interior.grp);
-  body.add(driver.root);
-  driver.root.traverse((o) => { o.userData.dynamic = true; });
   driver.root.visible = !noDriver;
+  if (isPlayer) {
+    body.add(driver.root);
+    // بدن راننده ادغام می‌شود؛ فقط بازوها و سر متحرک می‌مانند (کمترین draw call)
+    const dj = driver.j; const live = ['shoulderL', 'shoulderR', 'head'];
+    for (const k of live) dj[k].userData.dynamic = true;
+    optimizeStatic(driver.root);
+    for (const k of live) { dj[k].userData.dynamic = false; optimizeStatic(dj[k]); dj[k].userData.dynamic = true; }
+    driver.root.userData.dynamic = true;
+    for (const g of [interior.steer, interior.gear, ...Object.values(interior.pedals)]) optimizeStatic(g);
+  } else { interior.grp.add(driver.root); }
   driver.recline = recline;
   const eye = driver.j.head.localToWorld(new THREE.Vector3(0, 0.13, 0.06));
   // چرخ‌ها
@@ -698,16 +718,34 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
     w.root.position.set(x, s.wr, z); root.add(w.root);
     wheels.push({ ...w, front, x, z });
   }
-  // ادغام قطعات ثابت بدنه
-  mergeStaticByMaterial(body);
+  // کالیپر ترمز (ثابت روی بدنه)
+  if (modern) {
+    const calMat = new THREE.MeshStandardMaterial({ color: 0xd11a1a, roughness: 0.4 });
+    const calG = new THREE.BoxGeometry(0.06, 0.16, 0.12);
+    for (const w of wheels) { const cal = new THREE.Mesh(calG, calMat); cal.position.set(w.x - Math.sign(w.x) * s.tw * 0.02, s.wr * 1.4, w.z + (w.front ? -0.1 : 0.1)); body.add(cal); }
+  }
+  // ادغام قطعات ثابت: اول فضای داخلی (برای پنهان‌سازی از دور)، بعد بدنه
+  const interiorMeshes = optimizeStatic(interior.grp);
+  for (const im of interiorMeshes) im.castShadow = false;
+  interior.grp.userData.keep = true;
+  const bodyMeshes = optimizeStatic(body);
+  for (const bm of bodyMeshes) if (bm.material !== paint && !bm.material.userData.vpbr) bm.castShadow = false;
   // چراغ ترمز و نور
   const api = {
     root, body, wheels, interior, driver, shape: s, paint, brakeMat, neon, exhaust: ex, eye, car, modern, livery,
-    steerAngle: 0, wheelSpin: 0,
-    setBrake(on) { brakeMat.emissiveIntensity = on ? 3.2 : 0.6; },
+    steerAngle: 0, wheelSpin: 0, lodNear: true,
+    setBrake(on) { const v = on ? 3.2 : 0.6; if (brakeMat.emissiveIntensity !== v) brakeMat.emissiveIntensity = v; },
+    // سطح جزئیات: از دور فضای داخلی و راننده دیده نمی‌شوند
+    setLOD(dist) {
+      if (isPlayer) return;
+      const near = dist < 75;
+      if (near !== this.lodNear) { this.lodNear = near; interior.grp.visible = near; }
+    },
     setVisualState({ steer = 0, spin = 0, gear = 1, throttle = 0, brake = 0, speedKmh = 0, rpm = 0, roll = 0, pitch = 0, bounce = 0 }) {
       for (const w of wheels) { w.spin.rotation.x = spin; if (w.front) w.root.rotation.y = steer * 0.55; }
       body.rotation.z = roll; body.rotation.x = pitch; body.position.y = bounce;
+      this.setBrake(brake > 0.1);
+      if (!isPlayer) return;
       interior.steer.rotation.z = -steer * 2.2;
       const gp = [[0, 0], [-0.04, 0.05], [-0.04, -0.05], [0, 0.05], [0, -0.05], [0.04, 0.05], [0.04, -0.05]][clamp(gear, 0, 6)];
       interior.gear.rotation.z = gp[0] * 4; interior.gear.rotation.x = gp[1] * 4;
@@ -715,7 +753,6 @@ export function buildCar(car, custom = defaultCustom(car), { isPlayer = false, t
       interior.gauges[0].rotation.z = Math.PI * 0.75 - (speedKmh / (Math.ceil(s.vmaxKmh / 20) * 20 + 20)) * Math.PI * 1.5;
       interior.gauges[1].rotation.z = Math.PI * 0.75 - (rpm / 8000) * Math.PI * 1.5;
       if (driver.root.visible) driver.pose('drive', { seatY: 0, steer, recline: driver.recline, gas: throttle });
-      this.setBrake(brake > 0.1);
     }
   };
   root.userData.car = api;

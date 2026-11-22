@@ -49,12 +49,18 @@ export class Particles {
     this.color.set([color.r, color.g, color.b], i * 3);
     this.size[i] = size; this.life[i] = life; this.maxLife[i] = life; this.a0[i] = alpha; this.alpha[i] = alpha;
     this.rot[i] = Math.random() * 6.28; this.spin[i] = (Math.random() - 0.5) * 2;
+    this.alive = Math.max(this.alive || 0, 1); this.hi = Math.max(this.hi || 0, i + 1); if (this.cursor === 0) this.hi = this.max;
   }
   update(dt, viewportH = 800) {
+    // اگر هیچ ذره‌ای زنده نیست، هیچ محاسبه یا ارسال داده‌ای انجام نمی‌شود
+    if (!this.alive) { this.points.visible = false; return; }
+    this.points.visible = true;
     this.mat.uniforms.uScale.value = viewportH * 0.9;
     const k = Math.exp(-this.drag * dt);
-    for (let i = 0; i < this.max; i++) {
+    let alive = 0; const hi = this.hi || this.max;
+    for (let i = 0; i < hi; i++) {
       if (this.life[i] <= 0) { this.alpha[i] = 0; continue; }
+      alive++;
       this.life[i] -= dt;
       const t = 1 - this.life[i] / this.maxLife[i];
       this.vel[i * 3] *= k; this.vel[i * 3 + 1] = this.vel[i * 3 + 1] * k - this.gravity * dt; this.vel[i * 3 + 2] *= k;
@@ -65,8 +71,11 @@ export class Particles {
     }
     const g = this.points.geometry;
     for (const n of ['position', 'aSize', 'aAlpha', 'aColor', 'aRot']) g.attributes[n].needsUpdate = true;
+    g.setDrawRange(0, hi);
+    this.alive = alive;
+    if (!alive) { this.hi = 0; this.cursor = 0; }
   }
-  clear() { this.life.fill(0); this.alpha.fill(0); }
+  clear() { this.life.fill(0); this.alpha.fill(0); this.alive = 0; this.hi = 0; this.cursor = 0; this.points.visible = false; }
 }
 
 // رد لاستیک روی آسفالت
@@ -85,7 +94,7 @@ export class Skidmarks {
       fragmentShader: 'varying float vA; void main(){ gl_FragColor = vec4(0.02,0.02,0.02, vA); }',
       transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
     });
-    this.mesh = new THREE.Mesh(g, mat); this.mesh.frustumCulled = false; scene.add(this.mesh);
+    this.mesh = new THREE.Mesh(g, mat); this.mesh.frustumCulled = false; this.mesh.visible = false; scene.add(this.mesh);
     this.cursor = 0; this.last = new Map();
   }
   add(key, p, side, strength) {
@@ -100,10 +109,13 @@ export class Skidmarks {
     const al = Math.min(0.55, strength);
     this.alphaA.set([al, al, al, al], i * 4);
     prev.p.copy(p); prev.side.copy(side);
-    this.mesh.geometry.attributes.position.needsUpdate = true; this.mesh.geometry.attributes.aA.needsUpdate = true;
+    const pa = this.mesh.geometry.attributes.position, aa = this.mesh.geometry.attributes.aA;
+    pa.clearUpdateRanges(); pa.addUpdateRange(i * 12, 12); pa.needsUpdate = true;
+    aa.clearUpdateRanges(); aa.addUpdateRange(i * 4, 4); aa.needsUpdate = true;
+    this.mesh.visible = true;
   }
   break(key) { this.last.delete(key); }
-  clear() { this.alphaA.fill(0); this.mesh.geometry.attributes.aA.needsUpdate = true; this.last.clear(); }
+  clear() { this.alphaA.fill(0); const aa = this.mesh.geometry.attributes.aA; aa.clearUpdateRanges(); aa.needsUpdate = true; this.last.clear(); this.mesh.visible = false; }
 }
 
 export class Effects {

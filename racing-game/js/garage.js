@@ -21,11 +21,15 @@ export class Garage {
     scene.environment = this.envRT.texture;
     scene.fog = new THREE.Fog(0x07080b, 18, 45);
     // کف انعکاسی
-    const w = Math.max(256, Math.round(window.innerWidth * 0.5)), h = Math.max(256, Math.round(window.innerHeight * 0.5));
-    this.mirror = new Reflector(new THREE.PlaneGeometry(60, 60), { clipBias: 0.003, textureWidth: w, textureHeight: h, color: 0x8a8f99 });
-    this.mirror.rotation.x = -Math.PI / 2; scene.add(this.mirror);
+    // کف آینه‌ای فقط در کیفیت بالا (دوبار رندر صحنه هزینه دارد)
+    const fancy = app.engine.q.post;
+    if (fancy) {
+      const w = Math.max(256, Math.round(window.innerWidth * 0.5)), h = Math.max(256, Math.round(window.innerHeight * 0.5));
+      this.mirror = new Reflector(new THREE.PlaneGeometry(60, 60), { clipBias: 0.003, textureWidth: w, textureHeight: h, color: 0x8a8f99 });
+      this.mirror.rotation.x = -Math.PI / 2; scene.add(this.mirror);
+    }
     const ft = T.garageFloor(); ft.repeat.set(6, 6);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: ft, transparent: true, opacity: 0.8, roughness: 0.4, metalness: 0.1 }));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: ft, transparent: fancy, opacity: fancy ? 0.8 : 1, roughness: fancy ? 0.4 : 0.3, metalness: 0.1 }));
     floor.rotation.x = -Math.PI / 2; floor.position.y = 0.004; floor.receiveShadow = true; scene.add(floor);
     // دیوارها
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x14161b, roughness: 0.8, metalness: 0.2 });
@@ -48,10 +52,12 @@ export class Garage {
     // سقف و چراغ‌ها
     const ceilMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveIntensity: 2.2 });
     for (const [x, z] of [[-3, 0], [3, 0], [0, -3.5], [0, 3.5]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(x ? 0.5 : 6, 0.05, x ? 6 : 0.5), ceilMat); c.position.set(x, 8.9, z); scene.add(c); }
-    const ra1 = new THREE.RectAreaLight(0xffffff, 6, 7, 1.4); ra1.position.set(0, 6, 2.5); ra1.lookAt(0, 0, 0); scene.add(ra1);
-    const ra2 = new THREE.RectAreaLight(0xffe0c0, 4, 7, 1.4); ra2.position.set(0, 6, -2.5); ra2.lookAt(0, 0, 0); scene.add(ra2);
-    const ra3 = new THREE.RectAreaLight(0xff8a40, 3, 1, 4); ra3.position.set(-6, 2, 0); ra3.lookAt(0, 0.8, 0); scene.add(ra3);
-    const spot = new THREE.SpotLight(0xffffff, 260, 30, 0.55, 0.6, 1.6); spot.position.set(4, 9, 5); spot.castShadow = true; spot.shadow.mapSize.set(2048, 2048); spot.shadow.bias = -0.0002; spot.shadow.normalBias = 0.02;
+    if (fancy) {
+      const ra1 = new THREE.RectAreaLight(0xffffff, 6, 7, 1.4); ra1.position.set(0, 6, 2.5); ra1.lookAt(0, 0, 0); scene.add(ra1);
+      const ra2 = new THREE.RectAreaLight(0xffe0c0, 4, 7, 1.4); ra2.position.set(0, 6, -2.5); ra2.lookAt(0, 0, 0); scene.add(ra2);
+      const ra3 = new THREE.RectAreaLight(0xff8a40, 3, 1, 4); ra3.position.set(-6, 2, 0); ra3.lookAt(0, 0.8, 0); scene.add(ra3);
+    } else { const dl = new THREE.DirectionalLight(0xfff2e0, 1.6); dl.position.set(-3, 8, 4); scene.add(dl); }
+    const spot = new THREE.SpotLight(0xffffff, 260, 30, 0.55, 0.6, 1.6); spot.position.set(4, 9, 5); spot.castShadow = app.engine.q.shadowOn; spot.shadow.mapSize.set(fancy ? 2048 : 1024, fancy ? 2048 : 1024); spot.shadow.bias = -0.0002; spot.shadow.normalBias = 0.02;
     scene.add(spot, spot.target);
     scene.add(new THREE.HemisphereLight(0xbcc8ff, 0x201810, 0.35));
     // صفحه چرخان

@@ -21,6 +21,7 @@ export class HUD {
     if (p === 'judge') this.showJudge(race);
     if (p !== 'judge') $('judge').classList.remove('show');
   }
+  setText(id, v) { this._txt = this._txt || {}; if (this._txt[id] !== v) { this._txt[id] = v; $(id).textContent = v; } }
   message(text, dur = 2) { const m = $('hMsg'); m.textContent = text; m.style.opacity = 1; this.msgT = dur; }
   toast(text) { const t = $('toast'); t.textContent = text; t.classList.add('show'); this.toastT = 1.8; }
   countdown(n) {
@@ -31,9 +32,10 @@ export class HUD {
     const p = race.player; const L = race.track.length; const laps = race.info.laps;
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) $('hMsg').style.opacity = 0; }
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) $('toast').classList.remove('show'); }
-    $('hPos').textContent = toFa(p.place); $('hPosOf').textContent = '/' + toFa(race.racers.length);
-    $('hLap').textContent = toFa(Math.min(p.lap, laps)) + '/' + toFa(laps);
-    $('hTime').textContent = fmtTime(race.phase === 'countdown' || race.phase === 'intro' || race.phase === 'boss' ? 0 : (p.finished ? p.finishTime : race.raceTime));
+    this.setText('hPos', toFa(p.place)); this.setText('hPosOf', '/' + toFa(race.racers.length));
+    this.setText('hLap', toFa(Math.min(p.lap, laps)) + '/' + toFa(laps));
+    this.timeT = (this.timeT || 0) - dt;
+    if (this.timeT <= 0) { this.timeT = 0.05; this.setText('hTime', fmtTime(race.phase === 'countdown' || race.phase === 'intro' || race.phase === 'boss' ? 0 : (p.finished ? p.finishTime : race.raceTime))); }
     if (p.wrongT > 1.2) this.message('⚠ مسیر اشتباه! برگرد', 0.3);
     if (!race._lastLapMsg && p.lap === laps && laps > 1 && race.phase === 'race') { race._lastLapMsg = true; this.message('دور آخر!', 2); }
     // جدول رتبه
@@ -43,8 +45,11 @@ export class HUD {
       const lead = race.standings[0];
       $('hBoard').innerHTML = race.standings.map((r) => `<li class="${r.isPlayer ? 'me' : ''}"><b>${toFa(r.place)}</b><i style="background:${teamCss(r.team)}"></i><span>${r.isPlayer ? 'تو' : r.name}</span><span class="gap">${r === lead ? '' : (r.finished ? '✓' : '+' + toFa(Math.round(lead.P - r.P)) + 'م')}</span></li>`).join('');
     }
-    this.drawSpeed(p);
-    this.drawMap(race);
+    // سرعت‌سنج حداکثر ۳۰ بار و نقشه ۱۵ بار در ثانیه بازسازی می‌شوند
+    this.spdT = (this.spdT || 0) - dt; this.mapT = (this.mapT || 0) - dt;
+    const kmh = Math.round(Math.abs(p.vf) * 3.6);
+    if (this.spdT <= 0 && (kmh !== this._lastKmh || p.gear !== this._lastGear || Math.abs(p.rpm - (this._lastRpm || 0)) > 150 || p.nitroOn)) { this.spdT = 1 / 30; this._lastKmh = kmh; this._lastGear = p.gear; this._lastRpm = p.rpm; this.drawSpeed(p); }
+    if (this.mapT <= 0) { this.mapT = 1 / 15; this.drawMap(race); }
     // FPS
     if (this.app.save.data.settings.fps) {
       this.fpsAcc.push(dt); if (this.fpsAcc.length >= 30) { const a = this.fpsAcc.reduce((x, y) => x + y, 0) / this.fpsAcc.length; $('hFps').textContent = 'FPS ' + Math.round(1 / a); this.fpsAcc.length = 0; }

@@ -4,7 +4,7 @@ import { Outdoor } from './engine.js';
 import { buildCar } from './cars.js';
 import { PATTERN_UNIFORMS, createCrowd } from './human.js';
 import * as T from './textures.js';
-import { mulberry32 } from './utils.js';
+import { mulberry32, optimizeStatic } from './utils.js';
 
 export class Showcase {
   constructor(app) {
@@ -23,7 +23,10 @@ export class Showcase {
     for (const x of [-6.6, 6.6]) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 400), lineM); l.rotation.x = -Math.PI / 2; l.position.set(x, 0.03, 0); this.scene.add(l); }
     // کرب قرمز و سفید
     const kg = new THREE.BoxGeometry(1.2, 0.08, 1.5);
-    for (const x of [-7.6, 7.6]) for (let k = -40; k < 40; k++) { const kb = new THREE.Mesh(kg, new THREE.MeshStandardMaterial({ color: k % 2 ? 0xd8141c : 0xf4f4f4, roughness: 0.55 })); kb.position.set(x, 0.04, k * 1.5); kb.receiveShadow = true; this.scene.add(kb); }
+    const kRed = new THREE.MeshStandardMaterial({ color: 0xd8141c, roughness: 0.55 }), kWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.55 });
+    const kerbs = new THREE.Group();
+    for (const x of [-7.6, 7.6]) for (let k = -40; k < 40; k++) { const kb = new THREE.Mesh(kg, k % 2 ? kRed : kWhite); kb.position.set(x, 0.04, k * 1.5); kb.receiveShadow = true; kerbs.add(kb); }
+    this.scene.add(kerbs); optimizeStatic(kerbs);
     // خط شروع
     const chk = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.6), new THREE.MeshStandardMaterial({ map: T.checker(16, 2), roughness: 0.7 }));
     chk.rotation.x = -Math.PI / 2; chk.position.set(0, 0.035, 6); this.scene.add(chk);
@@ -41,11 +44,12 @@ export class Showcase {
     // جایگاه کوچک با طرفداران آتشین
     const stand = new THREE.Group(); const sm = new THREE.MeshStandardMaterial({ map: T.concrete(), color: 0xcfd2d6, roughness: 0.9 });
     const places = [];
-    for (let r = 0; r < 6; r++) { const b = new THREE.Mesh(new THREE.BoxGeometry(30, 1.2 + r * 0.45, 0.85), sm); b.position.set(0, (1.2 + r * 0.45) / 2, -r * 0.85 - 0.42); b.receiveShadow = true; stand.add(b); for (let k = 0; k < 50; k++) if (rng() < 0.75) places.push({ pos: new THREE.Vector3(-14.5 + k * 0.58, 1.2 + r * 0.45, -r * 0.85 - 0.6), yaw: 0 }); }
+    for (let r = 0; r < 6; r++) { const b = new THREE.Mesh(new THREE.BoxGeometry(30, 1.2 + r * 0.45, 0.85), sm); b.userData.stand = true; b.position.set(0, (1.2 + r * 0.45) / 2, -r * 0.85 - 0.42); b.receiveShadow = true; stand.add(b); for (let k = 0; k < 50; k++) if (rng() < 0.75) places.push({ pos: new THREE.Vector3(-14.5 + k * 0.58, 1.2 + r * 0.45, -r * 0.85 - 0.6), yaw: 0 }); }
     stand.position.set(-15, 0, 0); stand.rotation.y = Math.PI / 2; this.scene.add(stand);
     stand.updateMatrixWorld(true);
     const pl = places.map((p) => ({ pos: p.pos.clone().applyMatrix4(stand.matrixWorld), yaw: Math.PI / 2 }));
-    this.crowd = createCrowd(pl, { rng: mulberry32(9), shirtFn: () => '#ff3a1a', patternFn: () => 1, qualityHi: true, lodDist: 60 });
+    this.crowd = createCrowd(pl, { rng: mulberry32(9), shirtFn: () => '#ff3a1a', patternFn: () => 1, qualityHi: true, nearDist: 40 });
+    optimizeStatic(stand);
     this.scene.add(this.crowd.group);
     this.carHolder = new THREE.Group(); this.scene.add(this.carHolder);
     this.t = 0;

@@ -8,11 +8,12 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { TEX } from './textures.js';
 import { clamp, lerp } from './utils.js';
 
+// کیفیت‌ها: در «کم» و «متوسط» رندر مستقیم و سبک (بدون پس‌پردازش)، در «بالا» و «فوق‌العاده» با درخشش و ضدپله
 export const QUALITY = {
-  low: { pr: 0.8, shadow: 1024, shadowOn: true, bloom: false, msaa: 0, fans: 0.18, trees: 0.4, label: 'کم' },
-  medium: { pr: 1.0, shadow: 1536, shadowOn: true, bloom: true, msaa: 2, fans: 0.35, trees: 0.65, label: 'متوسط' },
-  high: { pr: 1.35, shadow: 2048, shadowOn: true, bloom: true, msaa: 4, fans: 0.6, trees: 1, label: 'بالا' },
-  ultra: { pr: 2.0, shadow: 4096, shadowOn: true, bloom: true, msaa: 4, fans: 0.85, trees: 1.3, label: 'فوق‌العاده' }
+  low: { pr: 0.75, shadow: 0, shadowOn: false, post: false, bloom: false, msaa: 0, fans: 0.1, trees: 0.5, nightLights: 0, headlight: false, shadowEvery: 0, label: 'کم' },
+  medium: { pr: 1.0, shadow: 1024, shadowOn: true, post: false, bloom: false, msaa: 0, fans: 0.22, trees: 0.75, nightLights: 1, headlight: false, shadowEvery: 2, label: 'متوسط' },
+  high: { pr: 1.35, shadow: 2048, shadowOn: true, post: true, bloom: true, msaa: 2, fans: 0.4, trees: 1, nightLights: 2, headlight: true, shadowEvery: 1, label: 'بالا' },
+  ultra: { pr: 2.0, shadow: 4096, shadowOn: true, post: true, bloom: true, msaa: 4, fans: 0.6, trees: 1, nightLights: 5, headlight: true, shadowEvery: 1, label: 'فوق‌العاده' }
 };
 
 export const TIMES = {
@@ -63,12 +64,14 @@ const SkyShader = {
         col += vec3(0.9, 0.95, 1.0) * smoothstep(0.9993, 0.9996, dot(d, sunDir)) * 3.0 * starAmt;
       }
       gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
     }`
 };
 
 // پس‌پردازش نهایی: تاری حرکتی شعاعی + وینیت + اشباع
 const FinalShader = {
-  uniforms: { tDiffuse: { value: null }, uSpeed: { value: 0 }, uVig: { value: 0.35 }, uSat: { value: 1.08 }, uFlash: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, uSpeed: { value: 0 }, uVig: { value: 0.0 }, uSat: { value: 1.08 }, uFlash: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
     uniform sampler2D tDiffuse; uniform float uSpeed; uniform float uVig; uniform float uSat; uniform float uFlash; varying vec2 vUv;
@@ -94,18 +97,23 @@ export class Engine {
   constructor(container, settings) {
     this.container = container;
     this.settings = settings;
-    const r = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false });
+    const r = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     r.shadowMap.enabled = true;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.PCFShadowMap;
+    r.shadowMap.autoUpdate = false;
     container.appendChild(r.domElement);
     this.renderer = r;
-    TEX.aniso = Math.min(8, r.capabilities.getMaxAnisotropy());
+    TEX.aniso = Math.min(4, r.capabilities.getMaxAnisotropy());
     this.pmrem = new THREE.PMREMGenerator(r);
     this.dynScale = 1;
     this.frameTimes = [];
+    this.frame = 0;
+    // در حالت رندر مستقیم، یونیفرم‌های پس‌پردازش فقط نگه داشته می‌شوند
+    this.directUniforms = { uSpeed: { value: 0 }, uFlash: { value: 0 }, uVig: { value: 0 }, uSat: { value: 1 } };
+    this.finalPass = { uniforms: this.directUniforms };
     this.applyQuality(settings.quality || 'high');
     window.addEventListener('resize', () => this.resize());
   }
@@ -113,9 +121,11 @@ export class Engine {
   applyQuality(q) {
     this.q = QUALITY[q] || QUALITY.high;
     this.qualityName = q;
+    this.dynScale = 1;
     const r = this.renderer;
     r.shadowMap.enabled = this.q.shadowOn && (this.light?.shadows !== false);
-    this.buildComposer();
+    if (this.q.post) this.buildComposer();
+    else { if (this.composer) { this.composer.dispose?.(); this.composer = null; } this.finalPass = { uniforms: this.directUniforms }; }
     this.resize();
   }
 
@@ -142,26 +152,29 @@ export class Engine {
     const pr = Math.min(window.devicePixelRatio || 1, this.q.pr) * this.dynScale;
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h);
-    this.composer?.setPixelRatio(pr);
-    this.composer?.setSize(w, h);
+    if (this.composer) { this.composer.setPixelRatio(pr); this.composer.setSize(w, h); }
     if (this.camera) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
     this.aspect = w / h;
   }
 
-  // مقیاس پویا برای حفظ روانی
+  // وضوح پویا: اگر فریم‌ها کند شوند، وضوح کم می‌شود تا بازی روان بماند
   trackPerf(dt) {
-    this.frameTimes.push(dt); if (this.frameTimes.length < 90) return;
-    const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length; this.frameTimes.length = 0;
-    const fps = 1 / avg;
-    if (fps < 38 && this.dynScale > 0.55) { this.dynScale = Math.max(0.55, this.dynScale - 0.12); this.resize(); }
-    else if (fps > 58 && this.dynScale < 1) { this.dynScale = Math.min(1, this.dynScale + 0.06); this.resize(); }
+    if (dt > 0.25) return;
+    this.frameTimes.push(dt); if (this.frameTimes.length < 40) return;
+    const sorted = this.frameTimes.slice().sort((a, b) => a - b); this.frameTimes.length = 0;
+    const fps = 1 / sorted[Math.floor(sorted.length * 0.6)];
+    if (fps < 46 && this.dynScale > 0.5) { this.dynScale = Math.max(0.5, this.dynScale - (fps < 30 ? 0.15 : 0.08)); this.resize(); }
+    else if (fps > 57 && this.dynScale < 1) { this.dynScale = Math.min(1, this.dynScale + 0.05); this.resize(); }
   }
 
   render(scene, camera, dt = 0.016) {
     this.camera = camera;
     if (Math.abs(camera.aspect - this.aspect) > 1e-3) { camera.aspect = this.aspect; camera.updateProjectionMatrix(); }
-    this.renderPass.scene = scene; this.renderPass.camera = camera;
-    this.composer.render(dt);
+    this.frame++;
+    const r = this.renderer;
+    if (r.shadowMap.enabled) { const every = this.q.shadowEvery || 1; if (this.frame % every === 0) r.shadowMap.needsUpdate = true; }
+    if (this.composer) { this.renderPass.scene = scene; this.renderPass.camera = camera; this.composer.render(dt); }
+    else r.render(scene, camera);
   }
 }
 
@@ -183,6 +196,7 @@ export class Outdoor {
     this.setShadowSize(engine.q.shadow);
   }
   setShadowSize(size) {
+    size = size || 512;
     const s = this.sun.shadow; s.mapSize.set(size, size);
     const ext = size >= 4096 ? 85 : size >= 2048 ? 70 : 55;
     s.camera.left = -ext; s.camera.right = ext; s.camera.top = ext; s.camera.bottom = -ext; s.camera.near = 10; s.camera.far = 700;

@@ -339,7 +339,7 @@ class App {
   renderSettings() {
     const S = this.save.data.settings;
     this.seg($('sQuality'), Object.entries(QUALITY).map(([k, q]) => [k, q.label]), S.quality, (v) => {
-      S.quality = v; this.save.save(); this.engine.applyQuality(v); this.showcase.outdoor.setShadowSize(this.engine.q.shadow); this.applyLight();
+      S.quality = v; this.save.save(); this.engine.applyQuality(v); this.showcase.outdoor.setShadowSize(this.engine.q.shadow); this.applyLight(); this.garage = null;
     });
     $('sVol').value = S.volume;
     this.seg($('sCam'), [['chase', 'سوم شخص'], ['cockpit', 'اول شخص'], ['top', 'از بالا']], S.camera, (v) => { S.camera = v; this.save.save(); });

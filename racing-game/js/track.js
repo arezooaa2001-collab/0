@@ -1,7 +1,7 @@
 // ساخت پیست مسابقه واقعی و طولانی برای هر مرحله (تولید رویه‌ای با بذر ثابت)
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { mulberry32, makeNoise2D, clamp, lerp, smoothstep, mergeGeos, TAU } from './utils.js';
+import { mulberry32, makeNoise2D, clamp, lerp, smoothstep, mergeGeos, TAU, optimizeStatic, fillAttr } from './utils.js';
 import * as T from './textures.js';
 import { createCrowd, buildHuman, patternMaterial } from './human.js';
 
@@ -612,9 +612,9 @@ export class Track {
     gantry.position.copy(this.wp(0, 0, 0)); gantry.rotation.y = this.heading[0];
     this.group.add(gantry);
     // صفحه نمایش بزرگ
-    const scr = T.makeCanvasTexture(1024, 512);
+    const scr = T.makeCanvasTexture(512, 256);
     this.screen = scr;
-    const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), new THREE.MeshBasicMaterial({ map: scr.tex, toneMapped: false }));
+    const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), new THREE.MeshBasicMaterial({ map: scr.tex, toneMapped: false })); this.screenMesh = screenMesh; this.screenPos = null;
     const frame = new THREE.Mesh(new THREE.BoxGeometry(16.8, 8.8, 0.6), steel);
     const sg = new THREE.Group(); sg.add(frame); screenMesh.position.z = 0.31; sg.add(screenMesh);
     for (const sx of [-5, 5]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.6, 10, 0.6), steel); leg.position.set(sx, -9, 0); sg.add(leg); }
@@ -626,6 +626,7 @@ export class Track {
 
   drawScreen(rows, title = '') {
     const { ctx, tex } = this.screen;
+    ctx.setTransform(0.5, 0, 0, 0.5, 0, 0);
     const g = ctx.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, '#071425'); g.addColorStop(1, '#0d2440');
     ctx.fillStyle = g; ctx.fillRect(0, 0, 1024, 512);
     ctx.fillStyle = '#ffd400'; ctx.font = `900 56px ${T.FONT}`; ctx.textAlign = 'center'; ctx.direction = 'rtl';
@@ -638,6 +639,12 @@ export class Track {
       ctx.textAlign = 'left'; ctx.fillStyle = '#9fd3ff'; ctx.fillText(r.info || '', 90, y);
     });
     tex.needsUpdate = true;
+  }
+
+  // ادغام نهایی همه قطعات ثابت پیست (کاهش شدید draw call)
+  optimize() {
+    const skip = (o) => o === this.screenMesh || o.userData.keep;
+    optimizeStatic(this.group, { cell: 280, skip });
   }
 
   setStartLights(state) { // state: 0..3 قرمز، 4 سبز، -1 خاموش
@@ -690,19 +697,33 @@ export class Track {
     return grp;
   }
 
+  // پرچم با موج در شیدر (بدون هزینه پردازنده)؛ متریال مشترک برای هر تیم
+  flagMaterial(team) {
+    this._flagMats = this._flagMats || {};
+    if (this._flagMats[team]) return this._flagMats[team];
+    const mat = team === 0 ? patternMaterial('fire', { side: THREE.DoubleSide }) : new THREE.MeshStandardMaterial({ color: TEAM_COLORS[team], side: THREE.DoubleSide, roughness: 0.7 });
+    const prev = mat.onBeforeCompile;
+    const u = this.flagTime || (this.flagTime = { value: 0 });
+    mat.onBeforeCompile = (sh, r) => {
+      if (prev) prev.call(mat, sh, r);
+      sh.uniforms.uFlagT = u;
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uFlagT;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          float fx = uv.x * 2.0; float ph = position.x * 0.37 + position.z * 0.23;
+          transformed += normalize(normal) * (sin(fx * 2.4 - uFlagT * 6.0 + ph) * 0.18 * fx + sin(uv.y * 3.6 + uFlagT * 3.0) * 0.04 * fx);`);
+    };
+    mat.customProgramCacheKey = () => 'flag-' + (team === 0 ? 'fire' : 'solid');
+    this._flagMats[team] = mat;
+    return mat;
+  }
+
   addFlag(parent, pos, team) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 4, 6), this._roofMat || new THREE.MeshStandardMaterial({ color: 0xdddddd }));
+    const pole = new THREE.Mesh(this._poleG || (this._poleG = new THREE.CylinderGeometry(0.04, 0.05, 4, 6)), this._roofMat || new THREE.MeshStandardMaterial({ color: 0xdddddd }));
     pole.position.copy(pos).add(new THREE.Vector3(0, 2, 0)); parent.add(pole);
-    const g = new THREE.PlaneGeometry(2.0, 1.2, 16, 6); g.translate(1.0, 0, 0);
-    const tc = TEAM_COLORS[team];
-    let mat;
-    if (team === 0) mat = patternMaterial('fire', { side: THREE.DoubleSide });
-    else mat = new THREE.MeshStandardMaterial({ color: tc, side: THREE.DoubleSide, roughness: 0.7 });
-    const flag = new THREE.Mesh(g, mat);
+    if (!this._flagG) { this._flagG = new THREE.PlaneGeometry(2.0, 1.2, 10, 4); this._flagG.translate(1.0, 0, 0); }
+    const flag = new THREE.Mesh(this._flagG, this.flagMaterial(team));
     flag.position.copy(pos).add(new THREE.Vector3(0.05, 3.4, 0));
-    flag.userData.base = g.attributes.position.array.slice();
-    flag.userData.phase = this.rng() * 10;
-    parent.add(flag); this.flags.push(flag);
+    parent.add(flag);
   }
 
   buildStands() {
@@ -745,7 +766,7 @@ export class Track {
       }
     }
     // ساخت جمعیت برای هر بخش
-    const seatG = mergeGeos([(() => { const g = new RoundedBoxGeometry(0.46, 0.06, 0.42, 2, 0.02); g.translate(0, 0.42, 0); return g; })(), (() => { const g = new RoundedBoxGeometry(0.46, 0.45, 0.05, 2, 0.02); g.translate(0, 0.66, -0.2); g.rotateX(-0.08); return g; })(), (() => { const g = new THREE.BoxGeometry(0.06, 0.42, 0.3); g.translate(0, 0.21, 0); return g; })()]);
+    const seatG = mergeGeos([(() => { const g = new THREE.BoxGeometry(0.46, 0.06, 0.42); g.translate(0, 0.42, 0); return g; })(), (() => { const g = new THREE.BoxGeometry(0.46, 0.45, 0.05); g.translate(0, 0.66, -0.2); g.rotateX(-0.08); return g; })(), (() => { const g = new THREE.BoxGeometry(0.06, 0.42, 0.3); g.translate(0, 0.21, 0); return g; })()]);
     const allSeats = [];
     for (const st of stands) {
       this.group.add(st); st.updateMatrixWorld(true);
@@ -763,11 +784,16 @@ export class Track {
       crowd.team = team; crowd.stand = st;
       this.group.add(crowd.group); this.crowds.push(crowd);
     }
-    // صندلی‌ها (Instanced) با رنگ تیم
-    const seatMesh = new THREE.InstancedMesh(seatG, new THREE.MeshStandardMaterial({ roughness: 0.45 }), allSeats.length);
-    const m4 = new THREE.Matrix4(); const qq = new THREE.Quaternion(); const col = new THREE.Color();
-    allSeats.forEach((s, k) => { qq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), s.yaw); m4.compose(s.p, qq, new THREE.Vector3(1, 1, 1)); seatMesh.setMatrixAt(k, m4); col.set(s.team === 0 ? '#e63312' : TEAM_COLORS[s.team]); seatMesh.setColorAt(k, col); });
-    seatMesh.computeBoundingSphere(); seatMesh.receiveShadow = true; this.group.add(seatMesh);
+    // صندلی‌ها (Instanced) با رنگ تیم، گروه‌بندی مکانی برای حذف خارج از دید
+    const seatMat = new THREE.MeshStandardMaterial({ roughness: 0.45 });
+    const cells = new Map();
+    for (const st of allSeats) { const k = Math.floor(st.p.x / 200) + ':' + Math.floor(st.p.z / 200); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(st); }
+    const m4 = new THREE.Matrix4(); const qq = new THREE.Quaternion(); const col = new THREE.Color(); const one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
+    for (const [, list] of cells) {
+      const seatMesh = new THREE.InstancedMesh(seatG, seatMat, list.length);
+      list.forEach((st, k) => { qq.setFromAxisAngle(up, st.yaw); m4.compose(st.p, qq, one); seatMesh.setMatrixAt(k, m4); col.set(st.team === 0 ? '#e63312' : TEAM_COLORS[st.team]); seatMesh.setColorAt(k, col); });
+      seatMesh.computeBoundingSphere(); this.group.add(seatMesh);
+    }
     if (this.reservedSeat) {
       const rs = this.reservedSeat; rs.world = rs.local.clone().applyMatrix4(rs.group.matrixWorld); rs.yaw = rs.group.rotation.y;
       rs.startWorld = rs.rowStart.clone().applyMatrix4(rs.group.matrixWorld);
@@ -794,7 +820,7 @@ export class Track {
     const lower = new THREE.Mesh(new THREE.BoxGeometry(len, 5, 16), wallMat); lower.position.set(0, 2.5, -8); lower.castShadow = true; lower.receiveShadow = true; bld.add(lower);
     const upper = new THREE.Mesh(new THREE.BoxGeometry(len, 4.2, 14), glassMat); upper.position.set(0, 7.1, -8); upper.castShadow = true; bld.add(upper);
     const roofB = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 0.5, 18), wallMat); roofB.position.set(0, 9.45, -7.5); roofB.castShadow = true; bld.add(roofB);
-    this.windowMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffe3a0, emissiveIntensity: 0.0 });
+    this.windowMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0xffe3a0, emissiveIntensity: 0.0 }); this.windowMat.userData.noMerge = true;
     const strip = new THREE.Mesh(new THREE.BoxGeometry(len - 1, 0.3, 0.05), this.windowMat); strip.position.set(0, 8.6, -0.95); bld.add(strip);
     // درهای گاراژ با رنگ تیم‌ها
     const nGar = Math.floor(len / 13);
@@ -828,8 +854,10 @@ export class Track {
       if (i < this.mainFwd + 20 || i > n - this.mainBack - 20) continue;
       const sd = rng() < 0.5 ? 1 : -1; const wall = sd > 0 ? this.wallL[i] : this.wallR[i];
       const g = new THREE.Group();
-      const board = new THREE.Mesh(new THREE.PlaneGeometry(10, 2.5), new THREE.MeshStandardMaterial({ map: T.billboard(rng.int(0, T.brandCount - 1)), roughness: 0.5, emissive: 0xffffff, emissiveIntensity: 0 }));
-      board.material.emissiveMap = board.material.map; this.lamps.push({ mat: board.material, night: 0.35 });
+      const bi = rng.int(0, T.brandCount - 1);
+      this._bbMats = this._bbMats || {};
+      if (!this._bbMats[bi]) { const bm = new THREE.MeshStandardMaterial({ map: T.billboard(bi), roughness: 0.5, emissive: 0xffffff, emissiveIntensity: 0 }); bm.emissiveMap = bm.map; this._bbMats[bi] = bm; this.lamps.push({ mat: bm, night: 0.35 }); }
+      const board = new THREE.Mesh(this._bbG || (this._bbG = new THREE.PlaneGeometry(10, 2.5)), this._bbMats[bi]);
       board.position.y = 3.6; g.add(board);
       const backB = new THREE.Mesh(new THREE.BoxGeometry(10.2, 2.7, 0.2), postMat); backB.position.set(0, 3.6, -0.12); g.add(backB);
       for (const x of [-3.5, 3.5]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.6, 0.25), postMat); post.position.set(x, 1.8, -0.15); g.add(post); }
@@ -886,13 +914,13 @@ export class Track {
   }
 
   buildTrees() {
-    const count = Math.round(({ low: 700, medium: 1500, high: 2600, ultra: 3800 }[this.opts.quality] || 2000) * this.opts.trees);
+    const count = Math.round(({ low: 450, medium: 900, high: 1700, ultra: 2800 }[this.opts.quality] || 1500) * Math.min(1, this.opts.trees));
     const rng = mulberry32(this.level * 17 + 2); const nz = makeNoise2D(this.level + 99);
     const size = this.terrainSize * 0.85; const b = this.bounds;
     const types = [
-      { trunk: [0.18, 0.28, 3.2], fol: () => { const g = []; for (let k = 0; k < 4; k++) { const c = new THREE.ConeGeometry(2.4 - k * 0.45, 2.8, 9); c.translate(0, 3 + k * 1.5, 0); g.push(c); } return mergeGeos(g); }, color: 0x1f4d2a },
-      { trunk: [0.2, 0.32, 3.0], fol: () => { const g = []; for (const [x, y, z, r] of [[0, 4.6, 0, 2.3], [1.2, 4.0, 0.3, 1.6], [-1.1, 4.1, -0.4, 1.7], [0.2, 5.6, 0.6, 1.5], [-0.3, 4.2, 1.1, 1.4]]) { const s = new THREE.IcosahedronGeometry(r, 1); s.translate(x, y, z); g.push(s); } return mergeGeos(g); }, color: 0x3d7a2c },
-      { trunk: [0.12, 0.2, 2.4], fol: () => { const s = new THREE.SphereGeometry(1.3, 10, 12); s.scale(1, 3.2, 1); s.translate(0, 5.6, 0); return s; }, color: 0x2e6b31 }
+      { trunk: [0.18, 0.28, 3.2], fol: () => { const g = []; for (let k = 0; k < 3; k++) { const c = new THREE.ConeGeometry(2.4 - k * 0.55, 3.2, 7, 1, true); c.translate(0, 3.2 + k * 1.8, 0); g.push(c); } return mergeGeos(g); }, color: 0x1f4d2a },
+      { trunk: [0.2, 0.32, 3.0], fol: () => { const g = []; for (const [x, y, z, r] of [[0, 4.6, 0, 2.3], [1.2, 4.0, 0.3, 1.6], [-1.1, 4.1, -0.4, 1.7], [0.2, 5.6, 0.6, 1.5], [-0.3, 4.2, 1.1, 1.4]]) { const s = new THREE.IcosahedronGeometry(r, 0); s.translate(x, y, z); g.push(s); } return mergeGeos(g); }, color: 0x3d7a2c },
+      { trunk: [0.12, 0.2, 2.4], fol: () => { const s = new THREE.SphereGeometry(1.3, 7, 6); s.scale(1, 3.2, 1); s.translate(0, 5.6, 0); return s; }, color: 0x2e6b31 }
     ];
     const lists = types.map(() => []);
     let tries = 0;
@@ -911,23 +939,30 @@ export class Track {
       const t = rng() < 0.45 ? 0 : rng() < 0.75 ? 1 : 2;
       lists[t].push({ x, y, z, s: rng.range(0.75, 1.45), rot: rng() * TAU, tint: rng() });
     }
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 0.95 });
+    // تنه و شاخ و برگ در یک هندسه با رنگ رأسی؛ هر ناحیه یک InstancedMesh (حذف خارج از دید)
+    const treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+    const shadows = this.opts.quality === 'ultra';
+    const trunkC = new THREE.Color(0x4a3423);
     types.forEach((ty, k) => {
       const list = lists[k]; if (!list.length) return;
-      const tg = new THREE.CylinderGeometry(ty.trunk[0], ty.trunk[1], ty.trunk[2], 6); tg.translate(0, ty.trunk[2] / 2, 0);
-      const fg = ty.fol();
-      const fm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
-      const trunks = new THREE.InstancedMesh(tg, trunkMat, list.length); const fol = new THREE.InstancedMesh(fg, fm, list.length);
-      const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), c = new THREE.Color();
-      list.forEach((t, j) => {
-        qq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.rot); m4.compose(new THREE.Vector3(t.x, t.y - 0.2, t.z), qq, new THREE.Vector3(t.s, t.s * (0.9 + t.tint * 0.3), t.s));
-        trunks.setMatrixAt(j, m4); fol.setMatrixAt(j, m4);
-        c.setHex(ty.color).offsetHSL((t.tint - 0.5) * 0.06, (t.tint - 0.5) * 0.2, (t.tint - 0.5) * 0.12); fol.setColorAt(j, c);
-      });
-      const shadows = this.opts.quality === 'high' || this.opts.quality === 'ultra';
-      trunks.castShadow = fol.castShadow = shadows; fol.receiveShadow = true;
-      trunks.computeBoundingSphere(); fol.computeBoundingSphere();
-      this.group.add(trunks, fol);
+      const tg = new THREE.CylinderGeometry(ty.trunk[0], ty.trunk[1], ty.trunk[2], 5, 1, true); tg.translate(0, ty.trunk[2] / 2, 0);
+      const fg = ty.fol(); const fc = new THREE.Color(ty.color);
+      const tg2 = tg.index ? tg : tg; fillAttr(tg2, 'color', [trunkC.r, trunkC.g, trunkC.b]);
+      const fg2 = new THREE.BufferGeometry(); fg2.setAttribute('position', fg.attributes.position); fg2.setAttribute('normal', fg.attributes.normal); if (fg.index) fg2.setIndex(fg.index);
+      fillAttr(fg2, 'color', [fc.r, fc.g, fc.b]);
+      const geo = mergeGeos([tg2, fg2], ['position', 'normal', 'color']);
+      const cells = new Map();
+      for (const t of list) { const key = Math.floor(t.x / 450) + ':' + Math.floor(t.z / 450); if (!cells.has(key)) cells.set(key, []); cells.get(key).push(t); }
+      const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), c = new THREE.Color(), up = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), sc = new THREE.Vector3();
+      for (const [, cl] of cells) {
+        const im = new THREE.InstancedMesh(geo, treeMat, cl.length);
+        cl.forEach((t, j) => {
+          qq.setFromAxisAngle(up, t.rot); m4.compose(pos.set(t.x, t.y - 0.2, t.z), qq, sc.set(t.s, t.s * (0.9 + t.tint * 0.3), t.s));
+          im.setMatrixAt(j, m4); const v = 0.85 + t.tint * 0.3; c.setRGB(v * (0.95 + t.tint * 0.1), v, v * 0.95); im.setColorAt(j, c);
+        });
+        im.castShadow = shadows; im.receiveShadow = false; im.computeBoundingSphere();
+        this.group.add(im);
+      }
     });
   }
 
@@ -988,6 +1023,7 @@ export class Track {
   update(time, cars, camPos, playerCar) {
     for (const c of this.crowds) {
       // نزدیک‌ترین ماشین به این جایگاه
+      if (camPos.distanceToSquared(c.center) > 450 * 450) { c.update(time, 0, c.center, camPos); continue; }
       let best = null, bd = 1e9;
       for (const car of cars) { const d = car.pos.distanceToSquared(c.center); if (d < bd) { bd = d; best = car; } }
       const dist = Math.sqrt(bd);
@@ -999,13 +1035,6 @@ export class Track {
       c.excite = lerp(c.excite || 0, ex, 0.05);
       c.update(time, c.excite, best ? best.pos : c.center, camPos);
     }
-    for (const f of this.flags) {
-      const pos = f.geometry.attributes.position; const base = f.userData.base; const ph = f.userData.phase;
-      for (let k = 0; k < pos.count; k++) {
-        const x = base[k * 3], y = base[k * 3 + 1];
-        pos.setZ(k, Math.sin(x * 2.4 - time * 6 + ph) * 0.18 * x + Math.sin(y * 3 + time * 3) * 0.04 * x);
-      }
-      pos.needsUpdate = true; f.geometry.computeVertexNormals();
-    }
+    if (this.flagTime) this.flagTime.value = time;
   }
 }

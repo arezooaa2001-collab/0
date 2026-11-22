@@ -1,9 +1,9 @@
 // ساخت انسان واقعی (سر، صورت، چشم، بینی، دهان، گوش، گردن، بدن، شکم، دست، انگشت، پا، کفش)
 // دو حالت: اسکلت مفصل‌دار (راننده، رئیس) و هندسه ادغام‌شده برای تماشاگران Instanced با انیمیشن در شیدر
 import * as THREE from 'three';
-import { mergeGeos, fillAttr, mulberry32 } from './utils.js';
+import { mergeGeos, fillAttr, mulberry32, pbrEligible, vertexPBRMaterial } from './utils.js';
 
-export const PART = { LEGS: 0, TORSO: 1, HEAD: 2, UARM_L: 3, LARM_L: 4, UARM_R: 5, LARM_R: 6 };
+export const PART = { LEGS: 0, TORSO: 1, HEAD: 2, UARM_L: 3, LARM_L: 4, UARM_R: 5, LARM_R: 6, LONGHAIR: 7 };
 const MAT = { SKIN: 0, SHIRT: 1, PANTS: 2, HAIR: 3, FIXED: 4 };
 
 const J = {
@@ -21,15 +21,23 @@ function caps(r, len, x, y, z, seg) { const g = new THREE.CapsuleGeometry(r, len
 function cyl(rt, rb, h, seg, x, y, z) { const g = new THREE.CylinderGeometry(rt, rb, h, seg, 1, true); g.translate(x, y, z); return g; }
 
 // فهرست قطعات بدن: هر قطعه به یک مفصل وصل است
+// سطح جزئیات: hi (راننده و رئیس از نزدیک)، mid (تماشاگر نزدیک)، lo (تماشاگر دور، بسیار سبک)
+const SEG = {
+  hi: { head: [22, 16], small: [10, 8], tiny: [8, 6], torso: 18, limb: 10, cap: 3, ring: 12, fingers: true, face: true, belt: true },
+  mid: { head: [9, 7], small: [5, 4], tiny: [4, 3], torso: 8, limb: 5, cap: 1, ring: 5, fingers: false, face: true, belt: false },
+  lo: { head: [6, 4], small: [4, 3], tiny: [4, 3], torso: 5, limb: 4, cap: 1, ring: 4, fingers: false, face: false, belt: false, boxes: true }
+};
 function bodyParts(o) {
-  const hi = o.detail !== 'lo';
-  const S = hi ? 1 : 0.5;
+  const D = SEG[o.detail] || SEG.hi;
   const parts = [];
   const add = (joint, geo, mat, part, color = null) => parts.push({ joint, geo, mat, part, color });
+  const box = (w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return g; };
+  const capsL = (r, len, x, y, z) => { if (D.boxes) return box(r * 1.8, len + r * 1.6, r * 1.8, x, y, z); const g = new THREE.CapsuleGeometry(r, len, D.cap, D.limb); g.translate(x, y, z); return g; };
+  const blob = (r, ws, hs, sx, sy, sz, x, y, z) => (D.boxes ? box(r * 1.7 * sx, r * 1.7 * sy, r * 1.7 * sz, x, y, z) : sph(r, ws, hs, sx, sy, sz, x, y, z));
 
   // تنه با شکم
-  const prof = [[0.146, -0.03], [0.152, 0.03], [0.158, 0.09], [0.16, 0.15], [0.166, 0.22], [0.176, 0.29], [0.174, 0.345], [0.152, 0.395], [0.105, 0.43], [0.05, 0.45]];
-  const torso = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * (o.build || 1), y)), hi ? 22 : 9);
+  const prof = [[0.146, -0.03], [0.155, 0.06], [0.16, 0.15], [0.17, 0.25], [0.176, 0.31], [0.165, 0.37], [0.13, 0.415], [0.05, 0.45]];
+  const torso = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * (o.build || 1), y)), D.torso);
   const tp = torso.attributes.position;
   for (let i = 0; i < tp.count; i++) {
     const x = tp.getX(i), y = tp.getY(i); let z = tp.getZ(i) * 0.64;
@@ -40,55 +48,61 @@ function bodyParts(o) {
   }
   torso.computeVertexNormals();
   add('spine', torso, MAT.SHIRT, PART.TORSO);
-  add('spine', sph(0.062, 14 * S | 0, 10 * S | 0, 1, 1, 1, J.shoulderL[0], J.shoulderL[1], 0), MAT.SHIRT, PART.TORSO);
-  add('spine', sph(0.062, 14 * S | 0, 10 * S | 0, 1, 1, 1, J.shoulderR[0], J.shoulderR[1], 0), MAT.SHIRT, PART.TORSO);
-  add('neck', cyl(0.045, 0.05, 0.12, hi ? 12 : 6, 0, 0.03, 0), MAT.SKIN, PART.TORSO);
+  if (!D.boxes) {
+    add('spine', sph(0.062, D.small[0], D.small[1], 1, 1, 1, J.shoulderL[0], J.shoulderL[1], 0), MAT.SHIRT, PART.TORSO);
+    add('spine', sph(0.062, D.small[0], D.small[1], 1, 1, 1, J.shoulderR[0], J.shoulderR[1], 0), MAT.SHIRT, PART.TORSO);
+  }
+  add('neck', cyl(0.045, 0.05, 0.12, Math.max(4, D.limb - 2), 0, 0.03, 0), MAT.SKIN, PART.TORSO);
 
   // لگن و کمربند
-  add('pelvis', sph(0.158, hi ? 18 : 8, hi ? 12 : 6, 1, 0.62, 0.68, 0, 0, 0), MAT.PANTS, PART.LEGS);
-  if (hi) {
-    const belt = new THREE.TorusGeometry(0.149, 0.013, 6, 24); belt.rotateX(Math.PI / 2); belt.scale(1, 1, 0.66); belt.translate(0, 0.045, 0);
+  add('pelvis', blob(0.158, D.head[0], Math.max(3, D.head[1] - 3), 1, 0.62, 0.68, 0, 0, 0), MAT.PANTS, PART.LEGS);
+  if (D.belt) {
+    const belt = new THREE.TorusGeometry(0.149, 0.013, 4, 20); belt.rotateX(Math.PI / 2); belt.scale(1, 1, 0.66); belt.translate(0, 0.045, 0);
     add('pelvis', belt, MAT.FIXED, PART.LEGS, 0x2a1d14);
   }
 
   // سر و صورت
   const hc = 0.105;
-  add('head', sph(0.104, hi ? 26 : 10, hi ? 20 : 8, 0.93, 1.1, 1.0, 0, hc, 0), MAT.SKIN, PART.HEAD);
-  add('head', sph(0.074, hi ? 18 : 8, hi ? 12 : 6, 0.95, 0.8, 1.0, 0, hc - 0.05, 0.028), MAT.SKIN, PART.HEAD);
-  add('head', sph(0.026, hi ? 10 : 5, hi ? 8 : 4, 0.45, 1, 0.75, 0.097, hc - 0.005, -0.005), MAT.SKIN, PART.HEAD);
-  add('head', sph(0.026, hi ? 10 : 5, hi ? 8 : 4, 0.45, 1, 0.75, -0.097, hc - 0.005, -0.005), MAT.SKIN, PART.HEAD);
-  // بینی
-  add('head', sph(0.0185, hi ? 10 : 5, hi ? 8 : 4, 0.85, 1.25, 1.15, 0, hc - 0.018, 0.101), MAT.SKIN, PART.HEAD);
-  if (hi) add('head', sph(0.011, 8, 6, 1.6, 0.8, 1, 0, hc - 0.036, 0.1), MAT.SKIN, PART.HEAD);
-  // چشم‌ها: سفیدی، عنبیه، مردمک
-  for (const sx of [1, -1]) {
-    add('head', sph(0.0165, hi ? 12 : 6, hi ? 10 : 5, 1, 1, 0.8, sx * 0.036, hc + 0.012, 0.086), MAT.FIXED, PART.HEAD, 0xf3f0ea);
-    add('head', sph(0.0098, hi ? 10 : 5, hi ? 8 : 4, 1, 1, 0.5, sx * 0.036, hc + 0.012, 0.0985), MAT.FIXED, PART.HEAD, o.eye || 0x4a2c16);
-    if (hi) add('head', sph(0.0048, 8, 6, 1, 1, 0.5, sx * 0.036, hc + 0.012, 0.1035), MAT.FIXED, PART.HEAD, 0x050505);
-    // ابرو
-    const brow = new THREE.BoxGeometry(0.036, 0.0075, 0.012); brow.rotateZ(sx * -0.14); brow.translate(sx * 0.037, hc + 0.039, 0.094);
-    add('head', brow, MAT.HAIR, PART.HEAD);
+  add('head', sph(0.104, D.head[0], D.head[1], 0.93, 1.1, 1.0, 0, hc, 0), MAT.SKIN, PART.HEAD);
+  if (D.face) {
+    add('head', sph(0.074, D.small[0], D.small[1], 0.95, 0.8, 1.0, 0, hc - 0.05, 0.028), MAT.SKIN, PART.HEAD);
+    for (const sx of [1, -1]) add('head', sph(0.026, D.tiny[0], D.tiny[1], 0.45, 1, 0.75, sx * 0.097, hc - 0.005, -0.005), MAT.SKIN, PART.HEAD);
+    // بینی
+    add('head', sph(0.0185, D.tiny[0], D.tiny[1], 0.85, 1.25, 1.15, 0, hc - 0.018, 0.101), MAT.SKIN, PART.HEAD);
+    if (o.detail === 'hi') add('head', sph(0.011, 8, 6, 1.6, 0.8, 1, 0, hc - 0.036, 0.1), MAT.SKIN, PART.HEAD);
+    // چشم‌ها: سفیدی، عنبیه، مردمک
+    for (const sx of [1, -1]) {
+      add('head', sph(0.0165, D.tiny[0], D.tiny[1], 1, 1, 0.8, sx * 0.036, hc + 0.012, 0.086), MAT.FIXED, PART.HEAD, 0xf3f0ea);
+      add('head', sph(0.0098, D.tiny[0], Math.max(3, D.tiny[1] - 1), 1, 1, 0.5, sx * 0.036, hc + 0.012, 0.0985), MAT.FIXED, PART.HEAD, o.eye || 0x4a2c16);
+      if (o.detail === 'hi') add('head', sph(0.0048, 8, 6, 1, 1, 0.5, sx * 0.036, hc + 0.012, 0.1035), MAT.FIXED, PART.HEAD, 0x050505);
+      const brow = new THREE.BoxGeometry(0.036, 0.0075, 0.012); brow.rotateZ(sx * -0.14); brow.translate(sx * 0.037, hc + 0.039, 0.094);
+      add('head', brow, MAT.HAIR, PART.HEAD);
+    }
+    // دهان (لب‌های خندان)
+    const mouth = new THREE.TorusGeometry(0.02, 0.0058, o.detail === 'hi' ? 6 : 3, o.detail === 'hi' ? 16 : 6, Math.PI); mouth.rotateZ(Math.PI); mouth.rotateX(-0.25); mouth.translate(0, hc - 0.046, 0.094);
+    add('head', mouth, MAT.FIXED, PART.HEAD, 0x9a3a36);
+  } else {
+    // از دور فقط دو نقطه تیره برای چشم
+    for (const sx of [1, -1]) { const e = new THREE.BoxGeometry(0.02, 0.014, 0.01); e.translate(sx * 0.036, hc + 0.012, 0.098); add('head', e, MAT.FIXED, PART.HEAD, 0x1a1210); }
   }
-  // دهان (لب‌های خندان)
-  const mouth = new THREE.TorusGeometry(0.02, 0.0058, 6, hi ? 16 : 8, Math.PI); mouth.rotateZ(Math.PI); mouth.rotateX(-0.25); mouth.translate(0, hc - 0.046, 0.094);
-  add('head', mouth, MAT.FIXED, PART.HEAD, 0x9a3a36);
   // مو
   if (o.hairStyle !== 'bald' && !o.helmet) {
-    const hair = new THREE.SphereGeometry(0.111, hi ? 24 : 10, hi ? 14 : 6, 0, Math.PI * 2, 0, Math.PI * 0.56);
+    const hair = new THREE.SphereGeometry(0.111, D.head[0], Math.max(3, Math.round(D.head[1] * 0.6)), 0, Math.PI * 2, 0, Math.PI * 0.56);
     hair.scale(0.95, 1.08, 1.04); hair.rotateX(-0.42); hair.translate(0, hc + 0.008, -0.006);
     add('head', hair, MAT.HAIR, PART.HEAD);
-    if (o.hairStyle === 'long') add('head', sph(0.1, hi ? 16 : 8, hi ? 12 : 6, 1.02, 1.35, 0.55, 0, hc - 0.05, -0.058), MAT.HAIR, PART.HEAD);
+    // موی بلند: در تماشاگران همیشه ساخته می‌شود و در شیدر برای مو کوتاه‌ها پنهان می‌شود
+    if (o.hairStyle === 'long' || o.longHairPart) add('head', blob(0.1, D.small[0], D.small[1], 1.02, 1.35, 0.55, 0, hc - 0.05, -0.058), MAT.HAIR, o.longHairPart ? PART.LONGHAIR : PART.HEAD);
   }
 
   // دست‌ها (بازو، آستین، ساعد، کف دست، انگشتان، شست)
   for (const side of ['L', 'R']) {
     const up = side === 'L' ? PART.UARM_L : PART.UARM_R, lo = side === 'L' ? PART.LARM_L : PART.LARM_R;
     const sgn = side === 'L' ? 1 : -1;
-    add('shoulder' + side, caps(0.045, 0.2, 0, -0.14, 0, hi ? 12 : 6), o.longSleeve ? MAT.SHIRT : MAT.SKIN, up);
-    add('shoulder' + side, cyl(0.059, 0.054, 0.15, hi ? 14 : 7, 0, -0.065, 0), MAT.SHIRT, up);
-    add('elbow' + side, caps(0.038, 0.19, 0, -0.125, 0, hi ? 10 : 6), o.longSleeve ? MAT.SHIRT : MAT.SKIN, lo);
-    add('wrist' + side, sph(0.045, hi ? 12 : 6, hi ? 10 : 5, 0.42, 1.0, 0.85, 0, -0.045, 0), o.gloves ? MAT.FIXED : MAT.SKIN, lo, o.gloves || null);
-    if (hi) {
+    add('shoulder' + side, capsL(0.045, 0.2, 0, -0.14, 0), o.longSleeve ? MAT.SHIRT : MAT.SKIN, up);
+    if (!D.boxes) add('shoulder' + side, cyl(0.059, 0.054, 0.15, D.limb + 1, 0, -0.065, 0), MAT.SHIRT, up);
+    add('elbow' + side, capsL(0.038, 0.19, 0, -0.125, 0), o.longSleeve ? MAT.SHIRT : MAT.SKIN, lo);
+    add('wrist' + side, blob(0.045, D.small[0], D.small[1], 0.42, 1.0, 0.85, 0, -0.045, 0), o.gloves ? MAT.FIXED : MAT.SKIN, lo, o.gloves || null);
+    if (D.fingers) {
       for (const fz of [-0.026, -0.009, 0.009, 0.026]) add('wrist' + side, caps(0.0088, 0.042 + (Math.abs(fz) < 0.01 ? 0.008 : 0), 0, -0.104, fz, 6), o.gloves ? MAT.FIXED : MAT.SKIN, lo, o.gloves || null);
       const th = new THREE.CapsuleGeometry(0.0105, 0.035, 2, 6); th.rotateX(0.75); th.rotateZ(sgn * -0.2); th.translate(sgn * 0.006, -0.05, 0.042);
       add('wrist' + side, th, o.gloves ? MAT.FIXED : MAT.SKIN, lo, o.gloves || null);
@@ -97,25 +111,25 @@ function bodyParts(o) {
 
   // پاها و کفش
   for (const side of ['L', 'R']) {
-    add('hip' + side, caps(0.073, 0.32, 0, -0.215, 0, hi ? 12 : 6), MAT.PANTS, PART.LEGS);
-    add('knee' + side, caps(0.054, 0.33, 0, -0.21, 0, hi ? 10 : 6), MAT.PANTS, PART.LEGS);
-    add('ankle' + side, sph(0.055, hi ? 14 : 6, hi ? 10 : 5, 0.88, 0.6, 1.85, 0, -0.022, 0.045), MAT.FIXED, PART.LEGS, o.shoes || 0x1c1c22);
-    if (hi) { const sole = new THREE.BoxGeometry(0.098, 0.022, 0.22); sole.translate(0, -0.052, 0.045); add('ankle' + side, sole, MAT.FIXED, PART.LEGS, 0xe8e8e8); }
+    add('hip' + side, capsL(0.073, 0.32, 0, -0.215, 0), MAT.PANTS, PART.LEGS);
+    add('knee' + side, capsL(0.054, 0.33, 0, -0.21, 0), MAT.PANTS, PART.LEGS);
+    add('ankle' + side, blob(0.055, D.small[0], D.small[1], 0.88, 0.6, 1.85, 0, -0.022, 0.045), MAT.FIXED, PART.LEGS, o.shoes || 0x1c1c22);
+    if (o.detail === 'hi') { const sole = new THREE.BoxGeometry(0.098, 0.022, 0.22); sole.translate(0, -0.052, 0.045); add('ankle' + side, sole, MAT.FIXED, PART.LEGS, 0xe8e8e8); }
   }
 
   // کلاه ایمنی باز (برای رانندگان) - صورت دیده می‌شود
   if (o.helmet) {
-    const top = new THREE.SphereGeometry(0.128, hi ? 28 : 12, hi ? 10 : 5, 0, Math.PI * 2, 0, Math.PI * 0.36);
+    const hs = o.detail === 'hi' ? 28 : 14;
+    const top = new THREE.SphereGeometry(0.128, hs, o.detail === 'hi' ? 10 : 5, 0, Math.PI * 2, 0, Math.PI * 0.36);
     top.translate(0, hc + 0.012, -0.004);
     add('head', top, MAT.FIXED, PART.HEAD, o.helmet);
     const gap = 1.0;
-    const ring = new THREE.SphereGeometry(0.128, hi ? 28 : 12, hi ? 8 : 4, Math.PI / 2 + gap, Math.PI * 2 - gap * 2, Math.PI * 0.36, Math.PI * 0.27);
+    const ring = new THREE.SphereGeometry(0.128, hs, o.detail === 'hi' ? 8 : 4, Math.PI / 2 + gap, Math.PI * 2 - gap * 2, Math.PI * 0.36, Math.PI * 0.27);
     ring.translate(0, hc + 0.012, -0.004);
     add('head', ring, MAT.FIXED, PART.HEAD, o.helmet);
-    const stripe = new THREE.TorusGeometry(0.129, 0.012, 6, hi ? 32 : 12, Math.PI); stripe.rotateY(Math.PI / 2); stripe.translate(0, hc + 0.015, -0.004);
+    const stripe = new THREE.TorusGeometry(0.129, 0.012, 4, hs, Math.PI); stripe.rotateY(Math.PI / 2); stripe.translate(0, hc + 0.015, -0.004);
     add('head', stripe, MAT.FIXED, PART.HEAD, o.helmetStripe || 0xffffff);
-    // عینک روی کلاه
-    const gg = new THREE.TorusGeometry(0.105, 0.012, 6, hi ? 24 : 10, Math.PI * 0.7); gg.rotateX(Math.PI / 2); gg.rotateY(-Math.PI * 0.15); gg.translate(0, hc + 0.085, 0.02);
+    const gg = new THREE.TorusGeometry(0.105, 0.012, 4, Math.round(hs * 0.8), Math.PI * 0.7); gg.rotateX(Math.PI / 2); gg.rotateY(-Math.PI * 0.15); gg.translate(0, hc + 0.085, 0.02);
     add('head', gg, MAT.FIXED, PART.HEAD, 0x222222);
   }
   if (o.glasses) {
@@ -232,17 +246,20 @@ export function buildHuman(opts = {}) {
     mesh.castShadow = true; mesh.receiveShadow = false;
     j[p.joint].add(mesh);
   }
-  // ادغام قطعات هر مفصل برای کارایی بهتر
+  // ادغام قطعات هر مفصل: متریال‌های ساده در یک متریال مشترک (کمترین draw call)
   for (const k in j) {
     const joint = j[k];
     const byMat = new Map();
     for (const c of [...joint.children]) {
       if (!c.isMesh) continue;
-      if (!byMat.has(c.material)) byMat.set(c.material, []);
+      const pbr = pbrEligible(c.material);
+      const key = pbr ? 'pbr' : c.material;
+      if (!byMat.has(key)) byMat.set(key, { pbr, mat: pbr ? vertexPBRMaterial() : c.material, geos: [] });
       c.updateMatrix(); const g = c.geometry.clone(); g.applyMatrix4(c.matrix);
-      byMat.get(c.material).push(g); joint.remove(c);
+      if (pbr) { const col = c.material.color; fillAttr(g, 'color', [col.r, col.g, col.b]); fillAttr(g, 'aMR', [c.material.metalness, c.material.roughness]); }
+      byMat.get(key).geos.push(g); joint.remove(c);
     }
-    for (const [m, gs] of byMat) { const mesh = new THREE.Mesh(mergeGeos(gs), m); mesh.castShadow = true; joint.add(mesh); }
+    for (const [, b] of byMat) { const mesh = new THREE.Mesh(mergeGeos(b.geos, b.pbr ? ['position', 'normal', 'uv', 'color', 'aMR'] : ['position', 'normal', 'uv']), b.mat); mesh.castShadow = true; joint.add(mesh); }
   }
   const human = {
     root, j, opts: o, walkT: 0,
@@ -279,10 +296,10 @@ export function buildHuman(opts = {}) {
 
 // هندسه ادغام‌شده تماشاگر نشسته/ایستاده برای Instancing
 const fanGeoCache = new Map();
-export function fanGeometry(detail = 'hi', hairStyle = 'short', pose = 'sit') {
-  const key = detail + hairStyle + pose;
+export function fanGeometry(detail = 'mid', pose = 'sit') {
+  const key = detail + pose;
   if (fanGeoCache.has(key)) return fanGeoCache.get(key);
-  const o = { detail, hairStyle, belly: 0.015 };
+  const o = { detail, hairStyle: 'short', longHairPart: true, belly: 0.015 };
   const { root, j } = makeJoints();
   applyPose(j, pose === 'sit' ? 'sitArmsDown' : 'stand');
   // بازوها صاف به پایین برای چرخش در شیدر
@@ -344,17 +361,19 @@ export function fanMaterial(pivots) {
         float aL = mix(0.04, zL, ex), aR = mix(-0.04, zR, ex);
         if (style > 1.5) { fL = mix(fI, -0.9, ex); eL = mix(eI, -1.1, ex); aL = 0.1; }
         mat3 R = mat3(1.0);
-        if (aPart > 2.5 && aPart < 4.5) {
+        float part = aPart;
+        if (part > 6.5) { part = 2.0; if (floor(iAnim.w / 10.0 + 0.01) < 0.5) animPos = uNeck; }
+        if (part > 2.5 && part < 4.5) {
           mat3 Rs = fRZ(aL) * fRX(fL);
           vec3 rel = animPos - uSL;
-          if (aPart > 3.5) { mat3 Re = fRX(eL); rel = Re * (animPos - uEL) + (uEL - uSL); R = Rs * Re; } else { R = Rs; }
+          if (part > 3.5) { mat3 Re = fRX(eL); rel = Re * (animPos - uEL) + (uEL - uSL); R = Rs * Re; } else { R = Rs; }
           animPos = uSL + Rs * rel;
-        } else if (aPart > 4.5) {
+        } else if (part > 4.5) {
           mat3 Rs = fRZ(aR) * fRX(fR);
           vec3 rel = animPos - uSR;
-          if (aPart > 5.5) { mat3 Re = fRX(eR); rel = Re * (animPos - uER) + (uER - uSR); R = Rs * Re; } else { R = Rs; }
+          if (part > 5.5) { mat3 Re = fRX(eR); rel = Re * (animPos - uER) + (uER - uSR); R = Rs * Re; } else { R = Rs; }
           animPos = uSR + Rs * rel;
-        } else if (aPart > 1.5) {
+        } else if (part > 1.5) {
           mat4 im = modelMatrix * instanceMatrix;
           vec3 wp = (im * vec4(uNeck, 1.0)).xyz;
           vec3 dl = transpose(mat3(im)) * (uFocus - wp);
@@ -364,7 +383,7 @@ export function fanMaterial(pivots) {
           animPos = uNeck + Rh * (animPos - uNeck);
           R = Rh;
         }
-        if (aPart > 0.5) {
+        if (part > 0.5) {
           float lean = 0.12 * ex * (0.5 + 0.5 * sin(t * 3.0));
           mat3 Rt = fRX(lean);
           float bounce = ex * 0.045 * abs(sin(t * 7.0));
@@ -377,7 +396,7 @@ export function fanMaterial(pivots) {
       .replace('#include <color_vertex>', `
         vColor = color;
         if (aMat < 0.5) vColor = iSkin; else if (aMat < 1.5) vColor = iShirt; else if (aMat < 2.5) vColor = iPants; else if (aMat < 3.5) vColor = iHair;
-        vFanP = position; vFanPat = iAnim.w; vFanShirt = (aMat > 0.5 && aMat < 1.5) ? 1.0 : 0.0;
+        vFanP = position; vFanPat = mod(iAnim.w, 10.0); vFanShirt = (aMat > 0.5 && aMat < 1.5) ? 1.0 : 0.0;
       `);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFanP; varying float vFanPat; varying float vFanShirt;')
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -391,7 +410,7 @@ export function fanMaterial(pivots) {
           }
         }`);
   };
-  mat.customProgramCacheKey = () => 'fan-v1';
+  mat.customProgramCacheKey = () => 'fan-v2';
   return mat;
 }
 
@@ -399,63 +418,57 @@ const SKINS = [0xf1c9a5, 0xe0ac7e, 0xc68a5e, 0x9b6a45, 0x6e4a2e, 0xf6d5bd, 0xd9a
 const HAIRS = [0x1a120c, 0x2c1b10, 0x5a3a1e, 0x8a5a2b, 0xc9a35a, 0x0d0d0d, 0x7a7a7a, 0xa0391e];
 const PANTS = [0x1d2a44, 0x2b2b30, 0x3a4a6a, 0x5b4a36, 0x15151a, 0x6b6f75, 0x24385e];
 
-// ساخت گروه تماشاگران (دو سطح جزئیات، دو مدل مو)
-export function createCrowd(placements, { shirtFn, patternFn, rng = mulberry32(1), pose = 'sit', lodDist = 70, qualityHi = true }) {
+// ساخت گروه تماشاگران: یک InstancedMesh برای هر سطح جزئیات (مو کوتاه و بلند در شیدر)
+// نزدیک: جزئیات متوسط، دور: بسیار سبک، خیلی دور: پنهان
+export function createCrowd(placements, { shirtFn, patternFn, rng = mulberry32(1), pose = 'sit', nearDist = 45, farDist = 320, qualityHi = true }) {
   const group = new THREE.Group();
-  const hairSplit = [[], []];
-  placements.forEach((p) => hairSplit[rng() < 0.62 ? 0 : 1].push(p));
-  const meshes = [];
-  const geoHi0 = fanGeometry('hi', 'short', pose);
-  const mat = fanMaterial(geoHi0.userData.pivots);
-  hairSplit.forEach((list, hi) => {
-    if (!list.length) return;
-    const style = hi ? 'long' : 'short';
-    const n = list.length;
-    const iSkin = new Float32Array(n * 3), iShirt = new Float32Array(n * 3), iPants = new Float32Array(n * 3), iHair = new Float32Array(n * 3), iAnim = new Float32Array(n * 4);
-    const c = new THREE.Color();
-    list.forEach((p, i) => {
-      c.setHex(SKINS[(rng() * SKINS.length) | 0]).convertSRGBToLinear(); iSkin.set([c.r, c.g, c.b], i * 3);
-      c.set(shirtFn(p, rng)).convertSRGBToLinear(); iShirt.set([c.r, c.g, c.b], i * 3);
-      c.setHex(PANTS[(rng() * PANTS.length) | 0]).convertSRGBToLinear(); iPants.set([c.r, c.g, c.b], i * 3);
-      c.setHex(HAIRS[(rng() * HAIRS.length) | 0]).convertSRGBToLinear(); iHair.set([c.r, c.g, c.b], i * 3);
-      iAnim.set([rng(), rng(), Math.floor(rng() * 3), patternFn ? patternFn(p, rng) : 0], i * 4);
-    });
-    const attrs = {
-      iSkin: new THREE.InstancedBufferAttribute(iSkin, 3), iShirt: new THREE.InstancedBufferAttribute(iShirt, 3),
-      iPants: new THREE.InstancedBufferAttribute(iPants, 3), iHair: new THREE.InstancedBufferAttribute(iHair, 3), iAnim: new THREE.InstancedBufferAttribute(iAnim, 4)
-    };
-    const mk = (detail) => {
-      const g = fanGeometry(detail, style, pose).clone();
-      for (const k in attrs) g.setAttribute(k, attrs[k]);
-      const m = new THREE.InstancedMesh(g, mat, n);
-      m.castShadow = false; m.receiveShadow = true;
-      return m;
-    };
-    const mHi = qualityHi ? mk('hi') : null;
-    const mLo = mk('lo');
-    const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
-    list.forEach((p, i) => {
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw);
-      const s = p.scale ?? (0.92 + rng() * 0.16);
-      sc.set(s, s, s);
-      mtx.compose(p.pos, q, sc);
-      mLo.setMatrixAt(i, mtx);
-    });
-    if (mHi) mHi.instanceMatrix = mLo.instanceMatrix;
-    mLo.computeBoundingSphere();
-    if (mHi) { mHi.boundingSphere = mLo.boundingSphere.clone(); group.add(mHi); }
-    group.add(mLo);
-    meshes.push({ hi: mHi, lo: mLo });
+  const n = placements.length;
+  const geoMid = fanGeometry('mid', pose);
+  const mat = fanMaterial(geoMid.userData.pivots);
+  const iSkin = new Float32Array(n * 3), iShirt = new Float32Array(n * 3), iPants = new Float32Array(n * 3), iHair = new Float32Array(n * 3), iAnim = new Float32Array(n * 4);
+  const c = new THREE.Color();
+  placements.forEach((p, i) => {
+    c.setHex(SKINS[(rng() * SKINS.length) | 0]).convertSRGBToLinear(); iSkin.set([c.r, c.g, c.b], i * 3);
+    c.set(shirtFn(p, rng)).convertSRGBToLinear(); iShirt.set([c.r, c.g, c.b], i * 3);
+    c.setHex(PANTS[(rng() * PANTS.length) | 0]).convertSRGBToLinear(); iPants.set([c.r, c.g, c.b], i * 3);
+    c.setHex(HAIRS[(rng() * HAIRS.length) | 0]).convertSRGBToLinear(); iHair.set([c.r, c.g, c.b], i * 3);
+    const pat = patternFn ? patternFn(p, rng) : 0; const longHair = rng() < 0.38 ? 1 : 0;
+    iAnim.set([rng(), rng(), Math.floor(rng() * 3), pat + longHair * 10], i * 4);
   });
+  const attrs = {
+    iSkin: new THREE.InstancedBufferAttribute(iSkin, 3), iShirt: new THREE.InstancedBufferAttribute(iShirt, 3),
+    iPants: new THREE.InstancedBufferAttribute(iPants, 3), iHair: new THREE.InstancedBufferAttribute(iHair, 3), iAnim: new THREE.InstancedBufferAttribute(iAnim, 4)
+  };
+  const mk = (detail) => {
+    const g = fanGeometry(detail, pose).clone();
+    for (const k in attrs) g.setAttribute(k, attrs[k]);
+    const m = new THREE.InstancedMesh(g, mat, n);
+    m.castShadow = false; m.receiveShadow = false;
+    return m;
+  };
+  const lo = mk('lo');
+  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  placements.forEach((p, i) => {
+    q.setFromAxisAngle(up, p.yaw);
+    const s = p.scale ?? (0.92 + rng() * 0.16);
+    sc.set(s, s, s); mtx.compose(p.pos, q, sc); lo.setMatrixAt(i, mtx);
+  });
+  lo.computeBoundingSphere(); group.add(lo);
+  let mid = null;
+  if (qualityHi) { mid = mk('mid'); mid.instanceMatrix = lo.instanceMatrix; mid.boundingSphere = lo.boundingSphere.clone(); mid.visible = false; group.add(mid); }
   const center = new THREE.Vector3();
-  placements.forEach((p) => center.add(p.pos)); center.divideScalar(Math.max(1, placements.length));
+  placements.forEach((p) => center.add(p.pos)); center.divideScalar(Math.max(1, n));
+  const radius = lo.boundingSphere.radius;
   return {
-    group, mat, meshes, center,
+    group, mat, meshes: [{ hi: mid, lo }], center, count: n,
     update(time, excite, focus, camPos) {
+      const d = camPos.distanceTo(center) - radius;
+      const near = !!mid && d < nearDist, show = d < farDist;
+      if (mid) mid.visible = near;
+      lo.visible = show && !near;
+      if (!show) return;
       const u = mat.userData.uniforms;
       u.uTime.value = time; u.uExcite.value = excite; u.uFocus.value.copy(focus);
-      const near = camPos.distanceTo(center) < lodDist;
-      for (const m of meshes) { if (m.hi) { m.hi.visible = near; m.lo.visible = !near; } }
     }
   };
 }
