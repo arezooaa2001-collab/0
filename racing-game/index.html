@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0d12">
+<title>قهرمان پیست</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="بازی مسابقه‌ای سه‌بعدی فارسی با ۱۰۰۰ مرحله، گاراژ، شخصی‌سازی و رئیس کل پیست">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800;900&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+</head>
+<body>
+<div id="app" dir="rtl" lang="fa">
+  <div id="gl"></div>
+
+  <!-- بارگذاری -->
+  <section id="loading" class="screen show">
+    <div class="load-box">
+      <div class="logo"><span class="logo-a">قهرمان</span><span class="logo-b">پیست</span></div>
+      <div class="bar"><i id="loadBar"></i></div>
+      <p id="loadText">در حال آماده‌سازی…</p>
+    </div>
+  </section>
+
+  <!-- منوی اصلی -->
+  <section id="menu" class="screen">
+    <div class="menu-wrap">
+      <header class="topstats">
+        <div class="chip coin"><b class="coin-ico"></b><span id="mCoins">۰</span></div>
+        <div class="chip"><small>سطح</small><span id="mLevel">۱</span></div>
+        <div class="chip car"><small>ماشین</small><span id="mCar">ستاره ۵۸</span></div>
+      </header>
+      <div class="title">
+        <h1><span class="t1">قهرمان</span> <span class="t2">پیست</span></h1>
+        <p class="sub">۱۰۰۰ مرحله • پیست واقعی • رئیس کل پیست منتظر توست</p>
+      </div>
+      <nav class="menu-btns">
+        <button class="mbtn primary" data-go="stage"><span class="ic">▶</span><span>شروع بازی</span></button>
+        <button class="mbtn" data-go="shop"><span class="ic">🚗</span><span>خرید و دیدن ماشین</span></button>
+        <button class="mbtn" data-go="custom"><span class="ic">🎨</span><span>شخصی‌سازی ماشین</span></button>
+        <button class="mbtn" data-go="settings"><span class="ic">⚙</span><span>تنظیمات</span></button>
+        <button class="mbtn" data-go="light"><span class="ic">☀</span><span>تنظیم نور بازی</span></button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- انتخاب مرحله -->
+  <section id="stage" class="screen">
+    <div class="panel stage-panel">
+      <button class="back" data-go="menu">→ برگشت</button>
+      <h2>انتخاب مرحله</h2>
+      <div class="stage-pick">
+        <button class="arrow" id="stPrev">›</button>
+        <div class="stage-num"><small>مرحله</small><b id="stNum">۱</b><small id="stOf">از ۱۰۰۰</small></div>
+        <button class="arrow" id="stNext">‹</button>
+      </div>
+      <div class="stage-info" id="stInfo"></div>
+      <div class="row-btns">
+        <button class="mbtn primary big" id="stGo"><span class="ic">🏁</span><span>شروع مسابقه</span></button>
+      </div>
+      <p class="hint">نفر اول تا سوم که بشی، مرحله بعد باز می‌شود. سکه‌ها: اول ۱۵۰، دوم ۱۰۰، سوم ۵۰، چهارم ۲۰، پنجم ۱۰، ششم ۵، هفتم ۲</p>
+    </div>
+  </section>
+
+  <!-- HUD مسابقه -->
+  <section id="hud" class="screen hud">
+    <div class="hud-tl">
+      <div class="pos"><b id="hPos">۷</b><span id="hPosOf">/۷</span></div>
+      <div class="lap">دور <b id="hLap">۱/۱</b></div>
+      <div class="time" id="hTime">۰:۰۰.۰۰۰</div>
+      <ol class="board" id="hBoard"></ol>
+    </div>
+    <canvas id="hMap" width="200" height="200"></canvas>
+    <canvas id="hSpeed" width="260" height="260"></canvas>
+    <div class="hud-msg" id="hMsg"></div>
+    <div class="count" id="hCount"></div>
+    <div class="hud-btns">
+      <button id="hCam" title="تغییر دید (C)">🎥</button>
+      <button id="hReset" title="برگشت به پیست (R)">↺</button>
+      <button id="hPause" title="توقف (Esc)">❚❚</button>
+    </div>
+    <div class="skip" id="hSkip">برای رد کردن بزن ⏭</div>
+    <div class="touch" id="touch">
+      <div class="tl">
+        <button data-touch="left" class="tbtn">◀</button>
+        <button data-touch="right" class="tbtn">▶</button>
+      </div>
+      <div class="tr">
+        <button data-touch="hand" class="tbtn small">ترمزدستی</button>
+        <button data-touch="nitro" class="tbtn small nitro">نیترو</button>
+        <button data-touch="brake" class="tbtn">ترمز</button>
+        <button data-touch="gas" class="tbtn gas">گاز</button>
+      </div>
+    </div>
+    <div class="fps" id="hFps"></div>
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <!-- توقف -->
+  <section id="pause" class="screen overlay">
+    <div class="panel small">
+      <h2>توقف</h2>
+      <button class="mbtn primary" id="pResume">ادامه</button>
+      <button class="mbtn" id="pCam">تغییر دید</button>
+      <button class="mbtn" id="pRestart">شروع دوباره</button>
+      <button class="mbtn" id="pExit">منوی اصلی</button>
+      <p class="hint keys">کلیدها: ↑ گاز • ↓ ترمز • ← → فرمان • فاصله ترمزدستی • Shift نیترو • C دوربین • R برگشت • Q/E نگاه به اطراف</p>
+    </div>
+  </section>
+
+  <!-- داوری رئیس کل -->
+  <section id="judge" class="screen overlay clear">
+    <div class="judge-box">
+      <h2 class="rainbow-text">داوری رئیس کل پیست</h2>
+      <p>رئیس کل به قدرت، سرعت و ظاهر ماشین‌ها نگاه می‌کند…</p>
+      <div id="judgeRows"></div>
+    </div>
+  </section>
+
+  <!-- نتایج -->
+  <section id="results" class="screen overlay clear">
+    <div class="panel results">
+      <h2 id="rTitle">نتیجه مسابقه</h2>
+      <div class="r-head" id="rHead"></div>
+      <table class="r-table"><thead><tr><th>رتبه</th><th>راننده</th><th>ماشین</th><th>زمان</th><th>سکه</th></tr></thead><tbody id="rBody"></tbody></table>
+      <div class="row-btns">
+        <button class="mbtn" id="rReplay"><span class="ic">🎬</span><span>دیدن ویدیوی مسابقه (فقط یک بار)</span></button>
+        <button class="mbtn primary" id="rNext"><span>مرحله بعد</span></button>
+        <button class="mbtn" id="rRetry"><span>تکرار مرحله</span></button>
+        <button class="mbtn" id="rMenu"><span>منوی اصلی</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- پخش ویدیو -->
+  <section id="replay" class="screen hud">
+    <div class="rp-top"><span class="rec">● پخش ویدیوی مسابقه</span><span id="rpCamName"></span></div>
+    <div class="rp-bar"><i id="rpProg"></i></div>
+    <div class="rp-btns">
+      <button id="rpPlay">❚❚</button>
+      <button id="rpSpeed">۱×</button>
+      <button id="rpCam">دوربین: خودکار</button>
+      <button id="rpTarget">دنبال: تو</button>
+      <button id="rpExit">پایان ویدیو</button>
+    </div>
+  </section>
+
+  <!-- گاراژ (خرید و دیدن) -->
+  <section id="shop" class="screen garage-ui">
+    <header class="g-head">
+      <button class="back" data-go="menu">→ برگشت</button>
+      <h2>گاراژ مخصوص</h2>
+      <div class="chip coin"><b class="coin-ico"></b><span class="coins-v">۰</span></div>
+    </header>
+    <button class="g-arrow right" id="gPrev">›</button>
+    <button class="g-arrow left" id="gNext">‹</button>
+    <div class="g-card">
+      <div class="g-idx" id="gIdx"></div>
+      <h3 id="gName"></h3>
+      <div class="g-class" id="gClass"></div>
+      <div class="g-stats" id="gStats"></div>
+      <div class="g-status" id="gStatus"></div>
+      <div class="row-btns">
+        <button class="mbtn primary" id="gAction"></button>
+        <button class="mbtn" id="gInside">نمای داخل ماشین</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- شخصی‌سازی -->
+  <section id="custom" class="screen garage-ui">
+    <header class="g-head">
+      <button class="back" data-go="menu">→ برگشت</button>
+      <h2>شخصی‌سازی <span id="cCar"></span></h2>
+      <div class="chip coin"><b class="coin-ico"></b><span class="coins-v">۰</span></div>
+    </header>
+    <aside class="c-panel">
+      <div class="tabs">
+        <button class="tab on" data-tab="look">ظاهر</button>
+        <button class="tab" data-tab="power">قدرت</button>
+      </div>
+      <div id="cBody" class="c-body"></div>
+      <div class="c-score" id="cScore"></div>
+    </aside>
+    <button class="mbtn c-inside" id="cInside">نمای داخل</button>
+  </section>
+
+  <!-- تنظیمات -->
+  <section id="settings" class="screen settings">
+    <div class="set-scroll">
+      <div class="set-panel">
+        <button class="back dark" data-go="menu">→ برگشت</button>
+        <h2>تنظیمات</h2>
+        <div class="set-row"><label>کیفیت گرافیک</label><div class="seg" id="sQuality"></div></div>
+        <div class="set-row"><label for="sVol">بلندی صدا</label><input type="range" id="sVol" min="0" max="1" step="0.05"></div>
+        <div class="set-row"><label>دید پیش‌فرض دوربین</label><div class="seg" id="sCam"></div></div>
+        <div class="set-row"><label>دکمه‌های لمسی</label><div class="seg" id="sTouch"></div></div>
+        <div class="set-row"><label>نمایش FPS</label><div class="seg" id="sFps"></div></div>
+        <div class="set-row"><label>پاک کردن پیشرفت بازی</label><button class="mbtn danger" id="sReset">پاک کردن</button></div>
+        <p class="hint dark">راهنما: با فلش‌ها یا W A S D رانندگی کن. فاصله = ترمزدستی برای دریفت، Shift = نیترو، C = تغییر دید.</p>
+      </div>
+    </div>
+    <button id="secretDot" class="secret-dot" aria-label="نقطه"></button>
+  </section>
+
+  <!-- کد مخفی -->
+  <section id="secret" class="screen overlay">
+    <div class="panel small secret-panel">
+      <h2>بخش کد مخفی</h2>
+      <input id="codeIn" inputmode="numeric" autocomplete="off" placeholder="کد را وارد کن">
+      <div class="keypad" id="keypad"></div>
+      <div class="row-btns"><button class="mbtn primary" id="codeOk">تایید</button><button class="mbtn" id="codeBack">بستن</button></div>
+      <p class="code-msg" id="codeMsg"></p>
+    </div>
+  </section>
+
+  <!-- تنظیم نور -->
+  <section id="light" class="screen light-ui">
+    <aside class="panel light-panel">
+      <button class="back" data-go="menu">→ برگشت</button>
+      <h2>تنظیم نور بازی</h2>
+      <div class="set-row col"><label>زمان روز</label><div class="seg wrap" id="lTime"></div></div>
+      <div class="set-row col"><label for="lExp">روشنایی کلی <output id="oExp"></output></label><input type="range" id="lExp" min="0.4" max="2" step="0.05"></div>
+      <div class="set-row col"><label for="lSun">شدت خورشید <output id="oSun"></output></label><input type="range" id="lSun" min="0" max="2" step="0.05"></div>
+      <div class="set-row col"><label for="lAmb">نور محیط <output id="oAmb"></output></label><input type="range" id="lAmb" min="0.2" max="2" step="0.05"></div>
+      <div class="set-row col"><label for="lBloom">درخشش چراغ‌ها <output id="oBloom"></output></label><input type="range" id="lBloom" min="0" max="1.5" step="0.05"></div>
+      <div class="set-row col"><label for="lFog">مه <output id="oFog"></output></label><input type="range" id="lFog" min="0.3" max="3" step="0.05"></div>
+      <div class="set-row col"><label for="lCloud">ابر <output id="oCloud"></output></label><input type="range" id="lCloud" min="0" max="2" step="0.05"></div>
+      <div class="set-row"><label>سایه‌ها</label><div class="seg" id="lShadow"></div></div>
+      <button class="mbtn" id="lReset">بازگشت به حالت پیش‌فرض</button>
+    </aside>
+  </section>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
