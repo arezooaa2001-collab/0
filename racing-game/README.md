@@ -12,6 +12,35 @@ python3 -m http.server 8080
 
 فایل‌ها باید از طریق یک سرور ساده باز شوند (نه با دوبار کلیک روی فایل)، چون بازی از ماژول‌های جاوااسکریپت استفاده می‌کند. Three.js و فونت وزیرمتن از اینترنت (CDN) بارگذاری می‌شوند.
 
+## فایل HTML تکی (بدون اینترنت)
+
+`dist/ghahreman-pist.html` یک فایل کامل است: Three.js، کد بازی، CSS و فونت وزیرمتن داخل خودش است و با دوبار کلیک در مرورگر (کروم، فایرفاکس، اج، سافاری) بدون اینترنت اجرا می‌شود.
+
+ساخت دوباره:
+
+```bash
+cd racing-game
+npm install
+npm run build:html
+```
+
+## نسخه اندروید (APK)
+
+پوشه `android/` یک برنامه اندروید ساده است که بازی را در یک WebView تمام‌صفحه و افقی اجرا می‌کند (دکمه برگشت گوشی هم کار می‌کند).
+
+ساخت روی کامپیوتر خودت (نیاز به JDK 17 و Android SDK با build-tools و یک platform):
+
+```bash
+cd racing-game
+npm install
+npm run build:html
+ANDROID_HOME=$HOME/Android/Sdk npm run build:apk   # خروجی: dist/ghahreman-pist.apk
+```
+
+یا در گیت‌هاب: تب **Actions** ← **Build Ghahreman Pist APK** ← **Run workflow**. بعد از پایان، فایل APK و HTML در بخش Artifacts همان اجرا قابل دانلود است.
+
+برای اینکه نسخه‌های بعدی روی نسخه قبلی نصب شوند، همیشه با یک کلید ثابت امضا کن (`KEYSTORE_FILE`، `KEYSTORE_PASS`، `KEY_ALIAS`).
+
 ## امکانات
 
 - **منوی اصلی**: شروع بازی، خرید و دیدن ماشین، شخصی‌سازی ماشین، تنظیمات، تنظیم نور بازی

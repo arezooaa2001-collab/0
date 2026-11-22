@@ -66,6 +66,24 @@ class App {
 
   ensureGarage() { if (!this.garage) this.garage = new Garage(this); }
 
+  // وقتی برنامه اندروید به پس‌زمینه می‌رود
+  onAndroidPause() {
+    if (this.race && this.mode === 'race' && !this.race.paused && this.race.phase !== 'results' && this.race.phase !== 'replay') this.togglePause(true);
+    this.audio.silence();
+  }
+
+  // دکمه برگشت گوشی (نسخه اندروید): true یعنی بازی آن را مدیریت کرد
+  handleBack() {
+    if ($('secret').classList.contains('show')) { $('secret').classList.remove('show'); return true; }
+    if (this.mode === 'race' && this.race) {
+      if (this.race.phase === 'replay') { $('rpExit').click(); return true; }
+      if (this.race.phase === 'results') { this.exitRace(); return true; }
+      this.togglePause(); return true;
+    }
+    if (!$('menu').classList.contains('show') && !$('loading').classList.contains('show')) { this.go('menu'); return true; }
+    return false;
+  }
+
   // برای آزمایش خودکار: جلو بردن شبیه‌سازی بدون رندر هر فریم
   advance(sec, step = 1 / 30) {
     const n = Math.max(1, Math.round(sec / step));

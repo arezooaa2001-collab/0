@@ -1,0 +1,17 @@
+{
+  "name": "ghahreman-pist",
+  "version": "1.0.0",
+  "private": true,
+  "description": "قهرمان پیست — بازی مسابقه‌ای سه‌بعدی فارسی",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "build:html": "node tools/build-single-html.mjs",
+    "build:apk": "bash android/build-apk.sh"
+  },
+  "devDependencies": {
+    "esbuild": "0.21.5",
+    "three": "0.160.0",
+    "vazirmatn": "33.0.3"
+  }
+}
