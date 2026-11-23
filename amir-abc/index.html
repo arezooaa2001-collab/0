@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="fa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AMIR ABC Apps</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#090c24">
+<meta name="description" content="برنامه‌های امیر ABC — به زودی خواهند آمد">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Vazirmatn:wght@400;700;900&display=swap">
+<style>
+/* Layout: one centred column on a night sky. Bilingual title (English, Persian under it),
+   then three app logos stepping down 1cm at a time (top centre, lower right, lowest left),
+   three dots, and a bilingual "coming soon" line (English, Persian under it). */
+:root {
+  --night: #090c24;
+  --night-hi: #19215c;
+  --dusk: #1c1245;
+  --star: #e8ecff;
+  --sky: #5ec1f5;
+  --sky-edge: #2f67f0;
+  --sky-glow: rgba(47, 103, 240, 0.75);
+  --sky-glow-soft: rgba(47, 103, 240, 0.4);
+  --gold: #ffc83d;
+  --gold-glow: rgba(255, 200, 61, 0.9);
+  --gold-glow-soft: rgba(255, 200, 61, 0.45);
+  --ink: #f6f7ff;
+  --shadow: rgba(2, 3, 14, 0.6);
+
+  --font-en: "Russo One", "Arial Black", system-ui, sans-serif;
+  --font-fa: "Vazirmatn", Tahoma, "Segoe UI", sans-serif;
+
+  --gap: 1cm;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--font-fa);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 50% -12%, var(--night-hi) 0%, transparent 62%),
+    radial-gradient(90% 50% at 50% 112%, var(--dusk) 0%, transparent 70%),
+    var(--night);
+}
+.sky canvas { display: block; width: 100%; height: 100%; }
+
+.page {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(28px, 6vh, 56px);
+  padding-block: clamp(32px, 7vh, 72px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  text-align: center;
+}
+
+/* ---------- Title ---------- */
+.title {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  font-weight: 400;
+  line-height: 1.05;
+}
+.title .line {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  column-gap: 0.28em;
+  row-gap: 0.1em;
+}
+.title .line.en {
+  font-family: var(--font-en);
+  font-size: clamp(2.3rem, 10.2vw, 5.6rem);
+}
+.title .line.fa {
+  font-size: clamp(1.45rem, 6vw, 3.1rem);
+}
+
+.brand {
+  white-space: nowrap;
+  color: var(--sky);
+  -webkit-text-stroke: 0.1em var(--sky-edge);
+  paint-order: stroke fill;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 0.16em var(--sky-glow), 0 0 0.6em var(--sky-glow-soft);
+}
+.line.fa .brand {
+  font-weight: 900;
+  -webkit-text-stroke-width: 0.085em;
+  letter-spacing: 0;
+}
+
+.glow {
+  color: var(--ink);
+  text-shadow: 0 0 0.18em var(--gold-glow), 0 0 0.55em var(--gold-glow-soft);
+}
+.line.en .glow {
+  font-family: var(--font-fa);
+  font-weight: 400;
+  font-size: 0.5em;
+  letter-spacing: 0.02em;
+}
+.line.fa .glow { font-weight: 400; }
+
+/* ---------- App logos ---------- */
+.apps {
+  --s: clamp(104px, 26vw, 184px);
+  position: relative;
+  width: calc(2 * var(--s) + var(--gap));
+  height: calc(2 * var(--s) + 2 * var(--gap));
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app {
+  position: absolute;
+  width: var(--s);
+  aspect-ratio: 1;
+}
+.app img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 16px 22px var(--shadow));
+  animation: bob 6s ease-in-out infinite;
+}
+/* top centre */
+.app--top   { left: calc(50% - var(--s) / 2); top: 0; }
+/* 1cm lower than the top logo, 1cm gap from the left one */
+.app--right { left: calc(var(--s) + var(--gap)); top: calc(var(--s) + var(--gap)); }
+/* another 1cm lower, on the left */
+.app--left  { left: 0; top: calc(var(--s) + 2 * var(--gap)); }
+.app--right img { animation-delay: -2s; }
+.app--left img  { animation-delay: -4s; }
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* ---------- Dots ---------- */
+.dots {
+  display: flex;
+  gap: 10px;
+  direction: ltr;
+}
+.dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 10px var(--gold-glow);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.dots i:nth-child(2) { animation-delay: 0.2s; }
+.dots i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+
+/* ---------- Coming soon ---------- */
+.soon {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.soon .en {
+  font-family: var(--font-en);
+  font-size: clamp(1.25rem, 5vw, 2rem);
+  letter-spacing: 0.16em;
+  padding-left: 0.16em; /* balances the trailing letter-spacing */
+  text-transform: uppercase;
+  color: var(--ink);
+  text-shadow: 0 0 0.3em var(--sky-glow), 0 0 0.8em var(--sky-glow-soft);
+}
+.soon .fa {
+  font-size: clamp(1.05rem, 4.2vw, 1.6rem);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app img, .dots i { animation: none; }
+  .dots i { opacity: 0.9; }
+}
+</style>
+</head>
+<body>
+<div class="sky" aria-hidden="true"><canvas id="stars"></canvas></div>
+
+<main class="page" lang="fa" dir="rtl">
+  <h1 class="title">
+    <span class="line en" lang="en" dir="ltr">
+      <span class="brand">AMIR ABC</span>
+      <span class="glow">Apps</span>
+    </span>
+    <span class="line fa" lang="fa" dir="rtl">
+      <span class="glow">برنامه‌های</span>
+      <span class="brand">امیر ABC</span>
+    </span>
+  </h1>
+
+  <ul class="apps" aria-label="برنامه‌ها">
+    <li class="app app--top"><img src="assets/gym.png" alt="باشگاه قهرمانان" width="512" height="512"></li>
+    <li class="app app--right"><img src="assets/taxi.png" alt="تاکسی" width="512" height="512"></li>
+    <li class="app app--left"><img src="assets/castle.png" alt="قلعه" width="192" height="192"></li>
+  </ul>
+
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <p class="soon">
+    <span class="en" lang="en" dir="ltr">Coming Soon</span>
+    <span class="fa glow" lang="fa" dir="rtl">به زودی خواهند آمد</span>
+  </p>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById("stars");
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext("2d");
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--star").trim() || "#fff";
+  let frame = 0;
+
+  function draw() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = color;
+    let seed = 20261123;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const count = Math.round((w * h) / 7000);
+    for (let i = 0; i < count; i++) {
+      const x = rnd() * w;
+      const y = Math.pow(rnd(), 1.4) * h; // denser near the top
+      const r = rnd() * 1.1 + 0.3;
+      ctx.globalAlpha = rnd() * 0.55 + 0.15;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  draw();
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(draw);
+  });
+})();
+</script>
+</body>
+</html>
