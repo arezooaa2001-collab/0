@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release signing comes from a properties file kept outside the repository
+// (tools/build_apk.sh creates one on first run).
+def signingFile = file(System.getenv("AMIRABC_SIGNING") ?: "${System.getProperty('user.home')}/.android/amirabc-signing.properties")
+def signing = new Properties()
+if (signingFile.exists()) signingFile.withInputStream { signing.load(it) }
+
+android {
+    namespace 'com.amirabc.apps'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+
+    defaultConfig {
+        applicationId 'com.amirabc.apps'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            if (signing['storeFile']) {
+                storeFile file(signing['storeFile'])
+                storePassword signing['storePassword']
+                keyAlias signing['keyAlias']
+                keyPassword signing['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        noCompress 'mp3', 'woff2', 'png'
+    }
+}

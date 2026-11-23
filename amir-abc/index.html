@@ -7,17 +7,43 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#090c24">
 <meta name="description" content="سه تا از برنامه‌های AMIR ABC — به زودی خواهند آمد">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Vazirmatn:wght@400;700;900&display=swap">
 <style>
+/* fonts:start */
+@font-face {
+  font-family: "Russo One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/russo-one-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/fonts/vazirmatn-arabic.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/fonts/vazirmatn-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* fonts:end */
+
 /* Layout: one centred column on a night sky. Bilingual title (English, Persian under it),
    then three app logos stepping down 1cm at a time (top centre, lower right, lowest left),
-   three dots, and a bilingual "coming soon" line (English, Persian under it). */
+   three dots, and a bilingual "coming soon" line. Tapping a logo opens the AMIR ABC screen
+   with the Instagram button. A music switch floats in the top-left corner. */
 :root {
   --night: #090c24;
   --night-hi: #19215c;
   --dusk: #1c1245;
+  --veil: rgba(7, 9, 28, 0.9);
   --star: #e8ecff;
   --sky: #5ec1f5;
   --sky-edge: #2f67f0;
@@ -27,7 +53,16 @@
   --gold-glow: rgba(255, 200, 61, 0.9);
   --gold-glow-soft: rgba(255, 200, 61, 0.45);
   --ink: #f6f7ff;
+  --ink-dim: rgba(246, 247, 255, 0.72);
+  --chip: rgba(255, 255, 255, 0.08);
+  --chip-line: rgba(255, 255, 255, 0.16);
   --shadow: rgba(2, 3, 14, 0.6);
+  --insta-1: #feda75;
+  --insta-2: #fa7e1e;
+  --insta-3: #d62976;
+  --insta-4: #962fbf;
+  --insta-5: #4f5bd5;
+  --insta-glow: rgba(214, 41, 118, 0.45);
 
   --font-en: "Russo One", "Arial Black", system-ui, sans-serif;
   --font-fa: "Vazirmatn", Tahoma, "Segoe UI", sans-serif;
@@ -36,6 +71,7 @@
   color-scheme: dark;
 }
 
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -43,7 +79,9 @@ body {
   color: var(--ink);
   font-family: var(--font-fa);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
+body.is-locked { overflow: hidden; }
 
 .sky {
   position: fixed;
@@ -67,10 +105,24 @@ body {
   align-items: center;
   justify-content: center;
   gap: clamp(28px, 6vh, 56px);
-  padding-block: clamp(32px, 7vh, 72px);
+  padding-block: clamp(64px, 9vh, 88px) clamp(32px, 7vh, 72px);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   text-align: center;
+}
+
+/* ---------- Shared text treatments ---------- */
+.brand {
+  white-space: nowrap;
+  color: var(--sky);
+  -webkit-text-stroke: 0.1em var(--sky-edge);
+  paint-order: stroke fill;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 0.16em var(--sky-glow), 0 0 0.6em var(--sky-glow-soft);
+}
+.glow {
+  color: var(--ink);
+  text-shadow: 0 0 0.18em var(--gold-glow), 0 0 0.55em var(--gold-glow-soft);
 }
 
 /* ---------- Title ---------- */
@@ -95,27 +147,11 @@ body {
   font-family: var(--font-en);
   font-size: clamp(2.3rem, 10.2vw, 5.6rem);
 }
-.title .line.fa {
-  font-size: clamp(1.45rem, 6vw, 3.1rem);
-}
-
-.brand {
-  white-space: nowrap;
-  color: var(--sky);
-  -webkit-text-stroke: 0.1em var(--sky-edge);
-  paint-order: stroke fill;
-  letter-spacing: 0.03em;
-  text-shadow: 0 0 0.16em var(--sky-glow), 0 0 0.6em var(--sky-glow-soft);
-}
+.title .line.fa { font-size: clamp(1.45rem, 6vw, 3.1rem); }
 .line.fa .brand {
   font-weight: 900;
   -webkit-text-stroke-width: 0.085em;
   letter-spacing: 0;
-}
-
-.glow {
-  color: var(--ink);
-  text-shadow: 0 0 0.18em var(--gold-glow), 0 0 0.55em var(--gold-glow-soft);
 }
 .line.en .glow {
   font-family: var(--font-fa);
@@ -141,21 +177,36 @@ body {
   width: var(--s);
   aspect-ratio: 1;
 }
-.app img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 16px 22px var(--shadow));
-  animation: bob 6s ease-in-out infinite;
-}
 /* top centre */
 .app--top   { left: calc(50% - var(--s) / 2); top: 0; }
 /* 1cm lower than the top logo, 1cm gap from the left one */
 .app--right { left: calc(var(--s) + var(--gap)); top: calc(var(--s) + var(--gap)); }
 /* another 1cm lower, on the left */
 .app--left  { left: 0; top: calc(var(--s) + 2 * var(--gap)); }
-.app--right img { animation-delay: -2s; }
-.app--left img  { animation-delay: -4s; }
+
+.app-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 23%;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.app-btn:hover { transform: translateY(-4px) scale(1.04); }
+.app-btn:active { transform: scale(0.95); }
+.app-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 5px; }
+.app-btn img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 16px 22px var(--shadow));
+  animation: bob 6s ease-in-out infinite;
+}
+.app--right .app-btn img { animation-delay: -2s; }
+.app--left .app-btn img  { animation-delay: -4s; }
 
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
@@ -206,14 +257,176 @@ body {
   font-weight: 700;
 }
 
+/* ---------- Music switch ---------- */
+.music {
+  position: fixed;
+  z-index: 30;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  left: calc(max(16px, env(safe-area-inset-left, 0px)));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--chip-line);
+  border-radius: 999px;
+  background: var(--chip);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--ink);
+  font: 700 0.9rem/1 var(--font-fa);
+  cursor: pointer;
+  direction: rtl;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.music:hover { background: var(--chip-line); }
+.music:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.music svg { width: 20px; height: 20px; flex: none; }
+.music .bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  direction: ltr;
+}
+.music .bars i {
+  width: 3px;
+  height: 40%;
+  border-radius: 2px;
+  background: var(--gold);
+}
+.music.is-playing .bars i { animation: eq 0.9s ease-in-out infinite; }
+.music.is-playing .bars i:nth-child(2) { animation-delay: -0.3s; }
+.music.is-playing .bars i:nth-child(3) { animation-delay: -0.6s; }
+.music[aria-pressed="false"] .bars { display: none; }
+.music .icon-off { display: none; }
+.music[aria-pressed="false"] .icon-on { display: none; }
+.music[aria-pressed="false"] .icon-off { display: block; }
+.music[aria-pressed="false"] { color: var(--ink-dim); }
+
+@keyframes eq {
+  0%, 100% { height: 30%; }
+  50%      { height: 100%; }
+}
+
+/* ---------- AMIR ABC screen ---------- */
+.profile {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 72px) calc(env(safe-area-inset-bottom, 0px) + 40px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--veil);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.profile.is-open { opacity: 1; }
+.profile-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(32px, 7vh, 56px);
+  text-align: center;
+  transform: translateY(18px) scale(0.98);
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.profile.is-open .profile-inner { transform: none; }
+
+.profile-title {
+  margin: 0;
+  font-family: var(--font-en);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 12vw, 5.2rem);
+  line-height: 1;
+  direction: ltr;
+  white-space: nowrap;
+}
+.profile-title .more {
+  display: inline-flex;
+  gap: 0.09em;
+  margin-left: 0.1em;
+}
+.profile-title .more i {
+  display: inline-block;
+  width: 0.15em;
+  height: 0.15em;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0.12em var(--gold-glow), 0 0 0.3em var(--gold-glow-soft);
+  animation: type 1.5s steps(1) infinite;
+}
+.profile-title .more i:nth-child(2) { animation-delay: 0.25s; }
+.profile-title .more i:nth-child(3) { animation-delay: 0.5s; }
+@keyframes type {
+  0%   { opacity: 0.25; }
+  30%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.insta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 56px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: linear-gradient(45deg, var(--insta-1), var(--insta-2) 25%, var(--insta-3) 55%, var(--insta-4) 80%, var(--insta-5));
+  color: var(--ink);
+  font: 700 clamp(1rem, 4.3vw, 1.25rem)/1.4 var(--font-fa);
+  text-decoration: none;
+  box-shadow: 0 10px 30px var(--insta-glow);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.insta-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 36px var(--insta-glow); }
+.insta-btn:active { transform: scale(0.97); }
+.insta-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+.insta-btn svg { width: 26px; height: 26px; flex: none; }
+
+.close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: calc(max(16px, env(safe-area-inset-right, 0px)));
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--chip-line);
+  border-radius: 50%;
+  background: var(--chip);
+  color: var(--ink);
+  cursor: pointer;
+}
+.close:hover { background: var(--chip-line); }
+.close:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.close svg { width: 18px; height: 18px; }
+
 @media (prefers-reduced-motion: reduce) {
-  .app img, .dots i { animation: none; }
+  .app-btn img, .dots i, .music .bars i, 
   .dots i { opacity: 0.9; }
+  .profile, .profile-inner, .app-btn { transition: none; }
 }
 </style>
 </head>
 <body>
 <div class="sky" aria-hidden="true"><canvas id="stars"></canvas></div>
+
+<button class="music" id="music-toggle" type="button" aria-pressed="true">
+  <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+  <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="m22 9-6 6M16 9l6 6"/></svg>
+  <span id="music-label">موسیقی روشن</span>
+  <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
+</button>
 
 <main class="page" lang="fa" dir="rtl">
   <h1 class="title">
@@ -228,9 +441,9 @@ body {
   </h1>
 
   <ul class="apps" aria-label="برنامه‌ها">
-    <li class="app app--top"><img src="assets/gym.png" alt="باشگاه قهرمانان" width="512" height="512"></li>
-    <li class="app app--right"><img src="assets/taxi.png" alt="تاکسی" width="512" height="512"></li>
-    <li class="app app--left"><img src="assets/castle.png" alt="قلعه" width="192" height="192"></li>
+    <li class="app app--top"><button class="app-btn" type="button" aria-label="باشگاه قهرمانان، باز کردن صفحهٔ AMIR ABC"><img src="assets/gym.png" alt="" width="512" height="512"></button></li>
+    <li class="app app--right"><button class="app-btn" type="button" aria-label="تاکسی، باز کردن صفحهٔ AMIR ABC"><img src="assets/taxi.png" alt="" width="512" height="512"></button></li>
+    <li class="app app--left"><button class="app-btn" type="button" aria-label="قلعه، باز کردن صفحهٔ AMIR ABC"><img src="assets/castle.png" alt="" width="192" height="192"></button></li>
   </ul>
 
   <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -241,7 +454,21 @@ body {
   </p>
 </main>
 
+<section class="profile" id="profile" role="dialog" aria-modal="true" aria-labelledby="profile-title" lang="fa" dir="rtl" hidden>
+  <button class="close" id="profile-close" type="button" aria-label="بستن">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <div class="profile-inner">
+    <h2 class="profile-title" id="profile-title" lang="en"><span class="brand">AMIR ABC</span><span class="more" aria-hidden="true"><i></i><i></i><i></i></span></h2>
+    <a class="insta-btn" id="insta-link" href="https://www.instagram.com/amir_khan_2020b?evlk=cHBpemQ1am9rZDA5" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor"/></svg>
+      <span>رفتن به پیج اینستاگرام AMIR ABC</span>
+    </a>
+  </div>
+</section>
+
 <script>
+/* ---------- Stars ---------- */
 (() => {
   const canvas = document.getElementById("stars");
   if (!canvas || !canvas.getContext) return;
@@ -277,6 +504,204 @@ body {
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(draw);
   });
+})();
+
+/* ---------- AMIR ABC screen ---------- */
+(() => {
+  const profile = document.getElementById("profile");
+  const closeBtn = document.getElementById("profile-close");
+  const link = document.getElementById("insta-link");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let opener = null;
+  let hideTimer = 0;
+
+  function open(fromBtn) {
+    opener = fromBtn || null;
+    clearTimeout(hideTimer);
+    profile.hidden = false;
+    document.body.classList.add("is-locked");
+    requestAnimationFrame(() => requestAnimationFrame(() => profile.classList.add("is-open")));
+    setTimeout(() => link.focus({ preventScroll: true }), reduce ? 0 : 120);
+  }
+
+  function close() {
+    if (profile.hidden) return false;
+    profile.classList.remove("is-open");
+    document.body.classList.remove("is-locked");
+    hideTimer = setTimeout(() => { profile.hidden = true; }, reduce ? 0 : 300);
+    if (opener) opener.focus({ preventScroll: true });
+    return true;
+  }
+
+  document.querySelectorAll(".app-btn").forEach((btn) => {
+    btn.addEventListener("click", () => open(btn));
+  });
+  closeBtn.addEventListener("click", close);
+  profile.addEventListener("click", (e) => { if (e.target === profile) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+  // The Android app calls this for its back button: true means the screen was closed.
+  window.appBack = () => close();
+})();
+
+/* ---------- Music ---------- */
+(() => {
+  const MUSIC_URL = "assets/music.mp3";
+  const LOOP_SECONDS = 76.8; // 32 bars at 100 BPM
+  const VOLUME = 0.6;
+  const KEY = "amirabc-music";
+  const btn = document.getElementById("music-toggle");
+  const label = document.getElementById("music-label");
+
+  let wanted = true;
+  try { wanted = localStorage.getItem(KEY) !== "off"; } catch (e) {}
+
+  let ctx = null, gain = null, source = null, buffer = null, loading = null;
+  let fallback = null; // <audio> element when Web Audio cannot load the file
+  let playing = false;
+
+  function render() {
+    btn.setAttribute("aria-pressed", String(wanted));
+    btn.classList.toggle("is-playing", playing);
+    label.textContent = wanted ? "موسیقی روشن" : "موسیقی خاموش";
+    btn.title = wanted ? "خاموش کردن موسیقی" : "روشن کردن موسیقی";
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, wanted ? "on" : "off"); } catch (e) {}
+  }
+
+  function bytesFromBase64(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out.buffer;
+  }
+
+  function load() {
+    if (loading) return loading;
+    loading = (async () => {
+      const data = window.__MUSIC_B64__
+        ? bytesFromBase64(window.__MUSIC_B64__)
+        : await (await fetch(MUSIC_URL)).arrayBuffer();
+      const decoded = await new Promise((res, rej) => ctx.decodeAudioData(data, res, rej));
+      return decoded;
+    })();
+    return loading;
+  }
+
+  // Some MP3 decoders keep the encoder's lead-in silence; skip it so the loop is seamless.
+  function loopStart(buf) {
+    const ch = buf.getChannelData(0);
+    const limit = Math.min(ch.length, Math.round(buf.sampleRate * 0.1));
+    for (let i = 0; i < limit; i++) if (Math.abs(ch[i]) > 1e-4) return i / buf.sampleRate;
+    return 0;
+  }
+
+  function useFallback() {
+    if (!fallback) {
+      fallback = new Audio(window.__MUSIC_B64__ ? "data:audio/mpeg;base64," + window.__MUSIC_B64__ : MUSIC_URL);
+      fallback.loop = true;
+      fallback.volume = VOLUME;
+    }
+    return fallback.play().then(() => { playing = true; render(); });
+  }
+
+  function ensureContext() {
+    if (ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error("no web audio");
+    ctx = new AC();
+    gain = ctx.createGain();
+    gain.gain.value = 0;
+    gain.connect(ctx.destination);
+    ctx.onstatechange = () => { if (ctx.state === "running" && wanted) begin(); };
+  }
+
+  async function begin() {
+    try {
+      if (!buffer) buffer = await load();
+    } catch (err) {
+      useFallback().catch(() => {});
+      return;
+    }
+    if (!wanted || ctx.state !== "running") return;
+    if (!source) {
+      source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const s = loopStart(buffer);
+      source.loopStart = s;
+      source.loopEnd = Math.min(buffer.duration, s + LOOP_SECONDS);
+      source.connect(gain);
+      source.start(0, s);
+    }
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(VOLUME, now + 1.2);
+    playing = true;
+    render();
+  }
+
+  function start() {
+    if (!wanted) return;
+    if (fallback) { useFallback().catch(() => {}); return; }
+    try { ensureContext(); } catch (err) { useFallback().catch(() => {}); return; }
+    // resume() only succeeds once the browser allows sound; onstatechange then calls begin().
+    if (ctx.state === "running") begin(); else ctx.resume().catch(() => {});
+  }
+
+  function stop() {
+    playing = false;
+    render();
+    if (fallback) fallback.pause();
+    if (!ctx || !gain) return;
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.35);
+    setTimeout(() => { if (!playing && ctx.state === "running") ctx.suspend(); }, 400);
+  }
+
+  btn.addEventListener("click", () => {
+    if (wanted && playing) {
+      wanted = false;
+      stop();
+    } else {
+      wanted = true;
+      start();
+    }
+    save();
+    render();
+  });
+
+  // Browsers only allow sound after the first tap: start then if music is on.
+  function unlock(e) {
+    if (btn.contains(e.target)) return;
+    if (wanted && !playing) start();
+  }
+  ["pointerdown", "touchend", "click", "keydown"].forEach((type) =>
+    document.addEventListener(type, unlock, true));
+
+  // Pause while the page or the app is in the background.
+  function pauseForBackground() {
+    if (fallback) fallback.pause();
+    if (ctx && ctx.state === "running") ctx.suspend();
+  }
+  function resumeFromBackground() {
+    if (!wanted || !playing) return;
+    if (fallback) fallback.play().catch(() => {});
+    if (ctx) ctx.resume();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) pauseForBackground(); else resumeFromBackground();
+  });
+  window.addEventListener("app-pause", pauseForBackground);
+  window.addEventListener("app-resume", resumeFromBackground);
+
+  render();
+  start();
 })();
 </script>
 </body>
