@@ -43,6 +43,7 @@ import { Soccer } from './soccer.js';
 import { PhotoHunt } from './photohunt.js';
 import { ZombieNight } from './zombie.js';
 import { Phone } from './phone.js';
+import { Grass } from './grass.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -188,6 +189,7 @@ class Game {
     this.ambient = new Ambient(this);
     this.carLights = new CarLights(this);
     this.nature = new Nature(this);
+    this.grass = new Grass(this, q0 === 'low' ? 0 : q0 === 'medium' ? 1400 : 2800);
     this.roadLife = new RoadLife(this);
     this.career = new Career(this);
     this.phone = new Phone(this);
@@ -1152,6 +1154,9 @@ class Game {
     }
     this.updateEnv(dt);
     this.weather.update(dt);
+    // the wind that bends trees and grass follows the weather
+    const W = this.weather;
+    this.world.windTarget = 0.28 + W.cloud * 0.22 + W.rain * 0.45 + (W.sand || 0) * 0.5 + (this.tornado.active ? 0.7 : 0);
     this.world.update(dt, this.env, this.time);
     const inp = this.ui.input();
     // cruise control holds the speed until you brake (or press gas yourself)
@@ -1211,6 +1216,7 @@ class Game {
     this.updateFx(dt);
     this.carLights.update(dt);
     this.nature.update(dt);
+    this.grass.update(dt);
     this.fireworks.update(dt);
     const p = this.player;
     this.audio.setEngine(p.rpm, p.throttle, p.health > 0 && p.fuelTotal() > 0);

@@ -12,6 +12,29 @@ export const LANE = 3;
 const XN = ['شریعتی', 'سعدی', 'حافظ', 'فردوسی', 'ولیعصر', 'مولوی', 'نیما', 'سهروردی', 'پاسداران'];
 const ZN = ['آزادی', 'انقلاب', 'جمهوری', 'بهار', 'کریمخان', 'نوروز', 'گلستان', 'لاله', 'یاس'];
 
+/** Wind sway for instanced plants: the higher a vertex sits, the more it bends (roots stay put). */
+export function addSway(mat, timeU, windU, amount) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uSwayT = timeU;
+    sh.uniforms.uWind = windU;
+    sh.vertexShader = 'uniform float uSwayT;\nuniform float uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      {
+        #ifdef USE_INSTANCING
+        vec2 ip = vec2(instanceMatrix[3][0], instanceMatrix[3][2]);
+        #else
+        vec2 ip = vec2(0.0);
+        #endif
+        float h = max(transformed.y, 0.0);
+        float ph = ip.x * 0.13 + ip.y * 0.071;
+        float gust = 0.65 + 0.35 * sin(uSwayT * 0.37 + ip.x * 0.004 + ip.y * 0.003);
+        float k = h * h * ${amount.toFixed(4)} * uWind * gust;
+        transformed.x += (sin(uSwayT * 1.6 + ph) * 0.7 + sin(uSwayT * 3.7 + ph * 2.3) * 0.3) * k;
+        transformed.z += cos(uSwayT * 1.25 + ph * 1.4) * k * 0.55;
+      }`);
+  };
+  mat.customProgramCacheKey = () => 'sway' + amount;
+}
+
 export const REGION_NAMES = { city: 'شهر', forest: 'جنگل', desert: 'کویر', lake: 'کوهستان و دریاچه', farm: 'روستا و مزرعه' };
 export function regionAt(x, z) {
   if (Math.abs(x) < 470 && Math.abs(z) < 470) return 'city';
@@ -396,6 +419,12 @@ export class World {
     this.scatter = new Map();
     this.veg = vegGeos();
     this.vegMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 });
+    // rocks, hay bales and cacti stay still; everything leafy sways with the wind
+    this.rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 });
+    this.vegTime = { value: 0 };
+    this.vegWind = { value: 0.3 };
+    this.windTarget = 0.3;
+    addSway(this.vegMat, this.vegTime, this.vegWind, 0.0042);
 
     this.buildRoads();
     this.buildRoadDistance();
@@ -1277,7 +1306,8 @@ export class World {
         byTile.get(k).push(it);
       }
       for (const items of byTile.values()) {
-        const im = new THREE.InstancedMesh(this.veg[type], this.vegMat, items.length);
+        const still = type === 'rock' || type === 'hay' || type === 'cactus';
+        const im = new THREE.InstancedMesh(this.veg[type], still ? this.rockMat : this.vegMat, items.length);
         items.forEach((it, i) => {
           e.set(type === 'rock' ? it.r * 0.3 : 0, it.r, 0);
           q.setFromEuler(e);
@@ -1751,6 +1781,8 @@ export class World {
 
   /* ---------- per-frame ---------- */
   update(dt, env, time) {
+    this.vegTime.value = time;
+    this.vegWind.value += (this.windTarget - this.vegWind.value) * Math.min(1, dt * 0.5);
     for (const nm of this.nightMats) nm.mat.emissiveIntensity = (nm.min || 0) + env.night * (nm.max - (nm.min || 0));
     this.glowMat.opacity = env.night * 0.9;
     this.poolMat.opacity = env.night * 0.75;
