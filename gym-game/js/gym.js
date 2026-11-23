@@ -230,9 +230,10 @@ class GymWorld extends WorldBase {
       }
       ctx.direction = 'rtl';
       ctx.textAlign = 'center';
-      ctx.font = `150px ${DISPLAY_FONT}`;
+      // sized to sit inside the ring (150px ran into it)
+      ctx.font = `124px ${DISPLAY_FONT}`;
       ctx.fillStyle = 'rgba(29,43,79,0.9)';
-      ctx.fillText('باشگاه قهرمانان', 0, -190);
+      ctx.fillText('باشگاه قهرمانان', 0, -185);
       ctx.font = `90px ${DISPLAY_FONT}`;
       ctx.fillText('زور • اراده • کشتی', 0, 300);
     });
