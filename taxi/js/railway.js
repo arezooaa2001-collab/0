@@ -752,10 +752,10 @@ export class Railway {
       }
     }
     if (g.onfoot.active) {
-      const f = g.onfoot;
-      if (f.pos && Math.abs(f.pos.x - R.x) < 2.2 && f.pos.z > zA && f.pos.z < zB && this.v > 1) {
+      const wp = g.onfoot.walker && g.onfoot.walker.pos;
+      if (wp && Math.abs(wp.x - R.x) < 2.2 && wp.z > zA && wp.z < zB && this.v > 1) {
         // a walker is shoved off the line, never hurt badly
-        f.pos.x = R.x + (f.pos.x >= R.x ? 3 : -3);
+        wp.x = R.x + (wp.x >= R.x ? 3 : -3);
         g.ui.toast('😱 مواظب قطار باش!', 'bad');
       }
       return;
