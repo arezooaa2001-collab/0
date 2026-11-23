@@ -45,6 +45,7 @@ import { ZombieNight } from './zombie.js';
 import { Phone } from './phone.js';
 import { Grass } from './grass.js';
 import { Railway } from './railway.js';
+import { Pet } from './pet.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -186,6 +187,7 @@ class Game {
     this.tornado = new Tornado(this);
     this.soccer = new Soccer(this);
     this.railway = new Railway(this);
+    this.pet = new Pet(this);
     this.hunt = new PhotoHunt(this);
     this.zombie = new ZombieNight(this);
     this.ambient = new Ambient(this);
@@ -930,6 +932,7 @@ class Game {
     this.ui.toast(`${msg} — ${faMoney(amount)} تومان`, 'bad');
   }
   honk() {
+    this.pet.honk();
     // people nearby look / step away
     if (this.rides.ride && this.rides.state === 'toPickup') {
       const w = this.rides.ride.walker;
@@ -1198,6 +1201,7 @@ class Game {
     this.soccer.update(dt);
     this.zombie.update(dt);
     this.railway.update(dt);
+    this.pet.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);

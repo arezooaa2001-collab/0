@@ -853,7 +853,7 @@ export class UI {
   say(name, text, o = {}) {
     $('talkName').textContent = name;
     $('talkText').textContent = text;
-    $('talkFace').textContent = o.mood === 'grumpy' ? '😠' : o.female ? '👩' : o.mood && MOODS[o.mood] ? (o.mood === 'normal' ? '👨' : MOODS[o.mood].icon) : '👨';
+    $('talkFace').textContent = o.face ? o.face : o.mood === 'grumpy' ? '😠' : o.female ? '👩' : o.mood && MOODS[o.mood] ? (o.mood === 'normal' ? '👨' : MOODS[o.mood].icon) : '👨';
     $('talkGuide').classList.toggle('hidden', !o.guide);
     $('talk').classList.remove('hidden');
     this.talkT = o.guide ? 11 : 7;
@@ -1092,6 +1092,7 @@ export class UI {
             <div class="tunerow"><b>🪽 بال عقب</b><button data-a2="spoiler" class="${p.spoiler ? 'cur' : ''}">${(p.modsOwned || []).includes('spoiler') ? (p.spoiler ? 'برداشتن' : 'نصب') : 'خرید • ' + faMoney(200000)}</button>
               <b>💨 اگزوز اسپرت</b><button data-a2="exhaust" class="${p.sportExhaust ? 'cur' : ''}">${(p.modsOwned || []).includes('exhaust') ? (p.sportExhaust ? 'خاموش' : 'روشن') : 'خرید • ' + faMoney(400000)}</button></div>
           </div>
+          ${g.pet.shopHtml()}
           <div class="card horns"><h3>📯 بوق ماشین</h3><div class="hornrow">${HORNS.map(([id, icon, name, price]) => `<button data-horn="${id}" class="${p.horn === id ? 'cur' : ''}">${icon} ${name}<small>${p.horns.includes(id) ? (p.horn === id ? '✓ فعال' : 'انتخاب') : faMoney(price)}</small></button>`).join('')}</div></div>
           <div class="card nos"><h3>🔥 شارژ نیترو</h3><div class="hb"><i style="width:${p.nitro}%"></i></div><p>نیترو: ${fa(Math.round(p.nitro))}٪ (خودش آروم شارژ میشه)</p>
             <button data-a="nos" ${p.nitro >= 99 ? 'disabled' : ''}>پر کردن • ${faMoney(NOS_COST)}</button></div>
@@ -1147,6 +1148,7 @@ export class UI {
           g.save();
           render();
         };
+        g.pet.bindShop(el, buy, done);
         el.querySelectorAll('[data-perf]').forEach((b) => {
           b.onclick = () => {
             const part = PERF.find((x) => x[0] === b.dataset.perf);

@@ -796,3 +796,11 @@ body.photomode #zblack, body.replaymode #zblack, body.photomode #zfrost, body.re
 .zsend input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: #fff; padding: 8px 10px; font: inherit; font-size: 13px; }
 .zsend button { border-radius: 12px; padding: 8px 12px; font-weight: 800; background: #1e88e5; color: #fff; }
 @media (max-height: 480px) { body.znight #zinfo { left: calc(50vw - 90px); max-width: calc(100vw - 446px); white-space: normal; text-align: center; } }
+
+/* pets (garage) */
+.card.pets { grid-column: 1 / -1; }
+.petrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.petrow > div { display: flex; flex-direction: column; gap: 3px; background: rgba(0,0,0,.2); border-radius: 12px; padding: 7px; }
+.petrow > div.cur { border: 1px solid var(--yellow); background: rgba(255,210,26,.12); }
+.petrow small { font-size: 11px; opacity: .8; line-height: 1.5; flex: 1; }
+@media (max-width: 560px) { .petrow { grid-template-columns: 1fr; } }

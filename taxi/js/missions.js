@@ -252,6 +252,11 @@ export class Rides {
         this.say(pick(['ببخشیدا، ولی ماشینتون چقدر کثیفه! 😒', 'اوه، این صندلی‌ها چرا گلیه؟ 🤢', 'یه کارواش هم بد نیست بری‌ها!']));
       }
       r.chatT -= dt;
+      // what the passenger thinks of the pet in the front seat
+      if (!r.petSaid && r.t > 5 && g.pet) {
+        const line = g.pet.greet(r);
+        if (line) this.say(line);
+      }
       // favourite radio station
       if (r.o.likes && !r.likeSaid && r.t > 6) {
         r.likeSaid = true;
@@ -462,6 +467,7 @@ export class Rides {
   }
   say(text, guide = false) {
     const r = this.ride;
+    if (this.game.pet) this.game.pet.heard(text);
     this.game.ui.say(r.o.name, text, { mood: r.o.mood, female: r.o.female, guide });
     this.game.audio.speak(text);
   }
@@ -515,6 +521,7 @@ export class Rides {
       setTimeout(() => g.ui.toast('🎶 مسافر عاشق آهنگای رادیو شد و انعام بیشتری داد!', 'good'), 1200);
     }
     if (r.errandTip) tip += r.errandTip;
+    if (r.petLove) tip += Math.round((r.o.fare * 0.08) / 1000) * 1000;
     const total = Math.round(fare / 1000) * 1000 + tip;
     g.money += total;
     g.stats.trips++;
