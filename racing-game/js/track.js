@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mulberry32, makeNoise2D, clamp, lerp, smoothstep, mergeGeos, TAU, optimizeStatic, fillAttr } from './utils.js';
 import * as T from './textures.js';
 import { createCrowd, buildHuman, patternMaterial } from './human.js';
+import { windify, WIND } from './cityfx.js';
 
 export const DS = 2; // فاصله نمونه‌ها (متر)
 export const TEAM_COLORS = ['fire', '#1e6bff', '#19c25a', '#8e3bff', '#00c2c7', '#ff3fa4', '#eef2f6'];
@@ -941,6 +942,7 @@ export class Track {
     }
     // تنه و شاخ و برگ در یک هندسه با رنگ رأسی؛ هر ناحیه یک InstancedMesh (حذف خارج از دید)
     const treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+    windify(treeMat, 0.18, 6);
     const shadows = this.opts.quality === 'ultra';
     const trunkC = new THREE.Color(0x4a3423);
     types.forEach((ty, k) => {
@@ -1021,6 +1023,7 @@ export class Track {
 
   // به‌روزرسانی تماشاگران و پرچم‌ها
   update(time, cars, camPos, playerCar) {
+    WIND.uTime.value = time;
     for (const c of this.crowds) {
       // نزدیک‌ترین ماشین به این جایگاه
       if (camPos.distanceToSquared(c.center) > 450 * 450) { c.update(time, 0, c.center, camPos); continue; }

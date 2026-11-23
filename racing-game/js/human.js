@@ -282,6 +282,14 @@ export function applyPose(j, pose, p = {}) {
       j.pelvis.position.y = p.seatY ?? 0.46; j.hipL.rotation.x = j.hipR.rotation.x = -Math.PI / 2 - Math.sin(t * 2.2) * 0.4; j.kneeL.rotation.x = j.kneeR.rotation.x = Math.PI / 2 + Math.sin(t * 2.2) * 0.5;
       arms(-2.7, 0.15, 0, -2.7, -0.15, 0); j.spine.rotation.x = -Math.sin(t * 2.2) * 0.2; break;
     }
+    case 'dance': { // رقص شاد با حرکت لگن، شانه و دست‌ها
+      const b = Math.sin(t * 6.2), s2 = Math.sin(t * 3.1);
+      j.pelvis.position.y = J.pelvis[1] - 0.05 + Math.abs(b) * 0.05; j.pelvis.rotation.y = s2 * 0.28;
+      j.spine.rotation.z = Math.sin(t * 3.1 + 1) * 0.14; j.spine.rotation.y = -s2 * 0.22; j.spine.rotation.x = 0.05;
+      j.hipL.rotation.x = -Math.max(0, b) * 0.55; j.kneeL.rotation.x = Math.max(0, b) * 0.95; j.hipR.rotation.x = -Math.max(0, -b) * 0.55; j.kneeR.rotation.x = Math.max(0, -b) * 0.95;
+      arms(-1.5 + b * 0.6, 0.55 + s2 * 0.35, -1.1 + Math.abs(s2) * 0.5, -1.5 - b * 0.6, -0.55 - s2 * 0.35, -1.1 + Math.abs(s2) * 0.5);
+      j.head.rotation.z = b * 0.12; j.head.rotation.y = s2 * 0.2; break;
+    }
     case 'ridePark': { // سوار وسیله شهربازی: نشسته با دست‌های بالا از هیجان
       j.pelvis.position.y = p.seatY ?? 0.46; j.hipL.rotation.x = j.hipR.rotation.x = -Math.PI / 2; j.kneeL.rotation.x = j.kneeR.rotation.x = Math.PI / 2;
       const up = p.excite ?? 0.5; arms(-0.6 - up * 2.1, 0.15 + up * 0.2, -0.8 + up * 0.5, -0.6 - up * 2.1, -0.15 - up * 0.2, -0.8 + up * 0.5); break;
@@ -393,6 +401,13 @@ export function buildHuman(opts = {}) {
       j.shoulderL.rotation.z = 0.35 + Math.sin(t * 5) * 0.2; j.shoulderR.rotation.z = -0.35 - Math.sin(t * 5 + 1) * 0.2;
       j.elbowL.rotation.x = j.elbowR.rotation.x = -0.3;
       j.pelvis.position.y = J.pelvis[1] + Math.abs(Math.sin(t * 4)) * 0.06;
+    },
+    // نرم کردن تغییر حالت‌ها (بدون پرش ناگهانی بین ایستادن، راه رفتن، دویدن و ...)
+    blend(dt, rate = 13) {
+      const k = 1 - Math.exp(-rate * dt);
+      if (!this._bp) { this._bp = {}; for (const n in j) { const r = j[n].rotation; this._bp[n] = [r.x, r.y, r.z]; } this._bpy = j.pelvis.position.y; return; }
+      for (const n in j) { const r = j[n].rotation; const p = this._bp[n]; p[0] += (r.x - p[0]) * k; p[1] += (r.y - p[1]) * k; p[2] += (r.z - p[2]) * k; r.set(p[0], p[1], p[2]); }
+      this._bpy += (j.pelvis.position.y - this._bpy) * k; j.pelvis.position.y = this._bpy;
     },
     lookAtWorld(target, maxYaw = 1.1) {
       const hp = new THREE.Vector3(); j.neck.getWorldPosition(hp);

@@ -489,3 +489,17 @@ export function painting(seed = 1) {
 export function stripes(a = '#e3141c', b = '#ffffff', n = 12) {
   return cached('stripes' + a + b + n, () => { const c = cv(512, 64); const ctx = c.getContext('2d'); for (let i = 0; i < n; i++) { ctx.fillStyle = i % 2 ? b : a; ctx.fillRect(i * 512 / n, 0, 512 / n + 1, 64); } return toTex(c); });
 }
+
+// نقشه زبری/فلزی نما: شیشه‌ها براق و بازتابنده، دیوار مات
+export function facadeMR() {
+  return cached('facadeMR', () => {
+    const W = 256, H = 512; const c = cv(W, H); const ctx = c.getContext('2d');
+    ctx.fillStyle = 'rgb(0,220,25)'; ctx.fillRect(0, 0, W, H);
+    for (let r = 0; r < 8; r++) for (let k = 0; k < 4; k++) { ctx.fillStyle = 'rgb(0,20,230)'; ctx.fillRect(k * 64 + 10, r * 64 + 12, 44, 42); }
+    return toTex(c, { srgb: false });
+  });
+}
+// نقشه نرمال آب برای موج‌های ریز متحرک
+export function waterNormal() {
+  return cached('waterN', () => { const S = 256; const h = periodicNoise(S, 8, mulberry32(91), 4); return normalFromHeight(h, S, 4); });
+}

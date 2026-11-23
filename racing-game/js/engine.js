@@ -124,6 +124,8 @@ export class Engine {
     this.dynScale = 1;
     const r = this.renderer;
     r.shadowMap.enabled = this.q.shadowOn && (this.light?.shadows !== false);
+    r.shadowMap.type = q === 'ultra' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; // سایه نرم در فوق‌العاده
+    this.shadowSkip = 1;
     if (this.q.post) this.buildComposer();
     else { if (this.composer) { this.composer.dispose?.(); this.composer = null; } this.finalPass = { uniforms: this.directUniforms }; }
     this.resize();
@@ -164,6 +166,8 @@ export class Engine {
     const sorted = this.frameTimes.slice().sort((a, b) => a - b); this.frameTimes.length = 0;
     const fps = 1 / sorted[Math.floor(sorted.length * 0.6)];
     if (fps < 46 && this.dynScale > 0.5) { this.dynScale = Math.max(0.5, this.dynScale - (fps < 30 ? 0.15 : 0.08)); this.resize(); }
+    else if (fps < 42 && this.shadowSkip < 4) this.shadowSkip++; // اگر هنوز کند است، سایه‌ها کمتر به‌روز می‌شوند
+    else if (fps > 57 && this.shadowSkip > 1) this.shadowSkip--;
     else if (fps > 57 && this.dynScale < 1) { this.dynScale = Math.min(1, this.dynScale + 0.05); this.resize(); }
   }
 
@@ -172,7 +176,7 @@ export class Engine {
     if (Math.abs(camera.aspect - this.aspect) > 1e-3) { camera.aspect = this.aspect; camera.updateProjectionMatrix(); }
     this.frame++;
     const r = this.renderer;
-    if (r.shadowMap.enabled) { const every = this.q.shadowEvery || 1; if (this.frame % every === 0) r.shadowMap.needsUpdate = true; }
+    if (r.shadowMap.enabled) { const every = (this.q.shadowEvery || 1) * (this.shadowSkip || 1); if (this.frame % every === 0) r.shadowMap.needsUpdate = true; }
     if (this.composer) { this.renderPass.scene = scene; this.renderPass.camera = camera; this.composer.render(dt); }
     else r.render(scene, camera);
   }

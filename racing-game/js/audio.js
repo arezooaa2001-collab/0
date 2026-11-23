@@ -112,9 +112,18 @@ export class AudioSys {
       case 'scream': this.tone(900, 0.9, 0.05, 'sawtooth', 0, 300); break;
       case 'extinguish': this.burst({ type: 'highpass', freq: 1800, vol: 0.18, dur: 1.0, decay: 0.3 }); break;
       case 'jump': this.burst({ type: 'lowpass', freq: 400, vol: 0.15, dur: 0.08 }); break;
+      case 'step': this.burst({ type: 'lowpass', freq: 380 + Math.random() * 120, vol: 0.05, dur: 0.05, decay: 0.02 }); break;
+      case 'stepRun': this.burst({ type: 'lowpass', freq: 520 + Math.random() * 160, vol: 0.08, dur: 0.05, decay: 0.02 }); break;
       case 'horn': this.tone(420, 0.45, 0.12, 'square'); this.tone(520, 0.45, 0.08, 'square'); break;
     }
   }
+  // صدای باران (پیوسته)
+  setRain(a) {
+    if (!this.ctx) return; const c = this.ctx;
+    if (!this.rain) { const s = c.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1200; const g = c.createGain(); g.gain.value = 0; s.connect(f).connect(g).connect(this.bus); s.start(); this.rain = { g }; }
+    this.rain.g.gain.setTargetAtTime(Math.min(0.12, a * 0.12), c.currentTime, 0.4);
+  }
+  thunder() { if (!this.ctx) return; this.burst({ type: 'lowpass', freq: 120, vol: 0.5, dur: 2.2, at: 0.6 + Math.random() * 1.2, decay: 0.7 }); this.burst({ type: 'lowpass', freq: 300, vol: 0.25, dur: 0.6, at: 0.5, decay: 0.2 }); }
   // صدای ترق‌تروق آتش (پیوسته)
   setFire(a) {
     if (!this.ctx) return; const c = this.ctx;
@@ -125,7 +134,7 @@ export class AudioSys {
     this.fire.g.gain.setTargetAtTime(Math.min(0.2, a * 0.2), c.currentTime, 0.2);
     if (a > 0.05 && Math.random() < a * 0.25) this.burst({ freq: 1800 + Math.random() * 2500, q: 4, vol: 0.05 + a * 0.08, dur: 0.03, decay: 0.01 });
   }
-  silence() { if (!this.ctx) return; this.setFire?.(0); this.setEngine({ on: false }); this.setSkid(0); this.setCrowd(0); this.setOthers(999, 0); }
+  silence() { if (!this.ctx) return; this.setFire?.(0); this.setRain?.(0); this.setEngine({ on: false }); this.setSkid(0); this.setCrowd(0); this.setOthers(999, 0); }
   suspend() { this.ctx?.suspend?.(); }
   resume() { this.ctx?.resume?.(); }
 }

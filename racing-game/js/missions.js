@@ -75,7 +75,12 @@ function realBin(color = 0x2e7d32, label = 'زباله') {
   const bm = new THREE.Mesh(sides, new THREE.MeshStandardMaterial({ color, roughness: 0.55, side: THREE.DoubleSide })); bm.castShadow = true; g.add(bm);
   const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.04, 0.55), body); bottom.position.y = 0.08; g.add(bottom);
   for (let k = 0; k < 4; k++) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.85, 0.05), body); rib.position.set(-0.25 + k * 0.166, 0.55, 0.405); rib.rotation.x = -0.05; g.add(rib); }
-  const rim = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.06, 0.8), body); rim.position.y = 1.03; g.add(rim);
+  // لبه بالایی به شکل قاب (نه صفحه پر) تا داخل سطل دیده شود
+  for (const z of [-0.39, 0.39]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.05), body); r.position.set(0, 1.04, z); g.add(r); }
+  for (const x of [-0.34, 0.34]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.82), body); r.position.set(x, 1.04, 0); g.add(r); }
+  const liner = new THREE.CylinderGeometry(0.4, 0.31, 0.92, 4, 1, true); liner.rotateY(Math.PI / 4); liner.scale(1, 1, 1.18); liner.translate(0, 0.58, 0);
+  g.add(new THREE.Mesh(liner, new THREE.MeshStandardMaterial({ color: 0x4d4d4d, roughness: 0.85, side: THREE.DoubleSide })));
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.03, 0.54), new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.9 })); floor.position.y = 0.12; g.add(floor);
   for (const x of [-0.28, 0.28]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 18), dark); w.rotation.z = Math.PI / 2; w.position.set(x, 0.1, -0.36); g.add(w); const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.065, 10), new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.6, roughness: 0.4 })); hub.rotation.z = Math.PI / 2; hub.position.copy(w.position); g.add(hub); }
   const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.6, 8), dark); axle.rotation.z = Math.PI / 2; axle.position.set(0, 0.1, -0.36); g.add(axle);
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.58, 10), dark); handle.rotation.z = Math.PI / 2; handle.position.set(0, 1.02, -0.47); g.add(handle);
@@ -214,6 +219,7 @@ class ChokeMission {
       v.anim('wave', this.t); const a = Math.atan2(g.p.pos.x - this.vpos.x, g.p.pos.z - this.vpos.z); v.root.rotation.y += wrapAngle(a - v.root.rotation.y) * Math.min(1, dt * 4);
       if (this.t > 2.8 && !this.done) { this.done = true; this.M.complete(); }
     }
+    if (this.state !== 'heimlich') v.blend(dt, 10);
   }
   cleanup() {
     const g = this.g; g.scene.remove(this.v.root); g.scene.remove(this.food); g.say('');
@@ -317,6 +323,7 @@ class FireMission {
         else if (v.t < 7) { v.h.anim('cough', v.t); if (Math.random() < dt * 1.6) g.sfx('cough'); }
         else { v.state = 'ok'; g.say('ممنونم قهرمان! زندگی‌ام را مدیون تو هستم 🙏', v.h.j.head); }
       } else if (v.state === 'ok') v.h.anim('wave', v.t);
+      if (v.state !== 'saved' || v.up) v.h.blend(dt, 10);
     }
   }
   faint() {

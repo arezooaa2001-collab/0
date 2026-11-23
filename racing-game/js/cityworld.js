@@ -6,6 +6,7 @@ import * as T from './textures.js';
 import { F, mat } from './furniture.js';
 import { buildPark } from './park.js';
 import { buildHuman } from './human.js';
+import { windify } from './cityfx.js';
 
 export const CITY = { N: 6, BLOCK: 100, ROAD: 16, WALK: 4 };
 const STEP = CITY.BLOCK + CITY.ROAD;
@@ -184,8 +185,9 @@ export class CityWorld {
 
   buildRoads() {
     const N = CITY.N, R = CITY.ROAD;
-    const roadMat = new THREE.MeshStandardMaterial({ map: T.cityRoad(), roughness: 0.92 });
-    const interMat = new THREE.MeshStandardMaterial({ map: T.asphalt().map, roughness: 0.92 });
+    const asp = T.asphalt(); const nrm = asp.normal.clone(), rgh = asp.rough.clone(); nrm.needsUpdate = rgh.needsUpdate = true; nrm.repeat.set(1, 1); rgh.repeat.set(1, 1);
+    const roadMat = new THREE.MeshStandardMaterial({ map: T.cityRoad(), normalMap: nrm, normalScale: new THREE.Vector2(0.32, 0.32), roughnessMap: rgh, roughness: 1 });
+    const interMat = new THREE.MeshStandardMaterial({ map: asp.map, normalMap: nrm, normalScale: new THREE.Vector2(0.32, 0.32), roughnessMap: rgh, roughness: 1 });
     const segs = [], inters = [], cross = [];
     const inPark = (i, j) => i === 4 && j === 4;
     for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
@@ -199,6 +201,7 @@ export class CityWorld {
       if (i < N && !(j === 4 && (i === 3 || i === 4))) { const L = STEP - R; const g = new THREE.PlaneGeometry(R, L); g.rotateX(-Math.PI / 2); g.rotateY(Math.PI / 2); g.translate(x + R / 2 + L / 2, 0.02, z); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k), u.getY(k) * L / 16); segs.push(g); }
       if (j < N && !(i === 4 && (j === 3 || j === 4))) { const L = STEP - R; const g = new THREE.PlaneGeometry(R, L); g.rotateX(-Math.PI / 2); g.translate(x, 0.02, z + R / 2 + L / 2); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k), u.getY(k) * L / 16); segs.push(g); }
     }
+    this.roadMats = [roadMat, interMat];
     const rm = new THREE.Mesh(mergeGeos(segs), roadMat); rm.receiveShadow = true; this.group.add(rm);
     const im = new THREE.Mesh(mergeGeos(inters), interMat); im.receiveShadow = true; this.group.add(im);
     const cm = new THREE.Mesh(mergeGeos(cross), new THREE.MeshStandardMaterial({ map: T.crosswalk(), transparent: true, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2 })); cm.userData.keep = true; this.group.add(cm);
@@ -240,9 +243,9 @@ export class CityWorld {
   buildPool(x, z) {
     const w = 8, d = 4.5;
     const border = new THREE.Mesh(new THREE.BoxGeometry(w + 1, 0.25, d + 1), mat(0xeae6dc, 0.7)); border.position.set(x, 0.15, z); this.group.add(border);
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ color: 0x2aa7d9, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.85 }));
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(w, d), this.waterMat || (this.waterMat = (() => { const n = T.waterNormal().clone(); n.needsUpdate = true; n.repeat.set(2, 1); const m = new THREE.MeshStandardMaterial({ color: 0x2aa7d9, roughness: 0.04, metalness: 0.25, transparent: true, opacity: 0.86, normalMap: n, normalScale: new THREE.Vector2(0.45, 0.45) }); this.updaters.push((dt, t) => { n.offset.set(t * 0.03, t * 0.02); }); return m; })()));
     water.rotation.x = -Math.PI / 2; water.position.set(x, 0.3, z); water.userData.keep = true; this.group.add(water);
-    this.updaters.push((dt, t) => { water.material.color.setHSL(0.55, 0.7, 0.45 + Math.sin(t * 1.5) * 0.02); });
+
     this.colliders.box(x - w / 2 - 0.5, z - d / 2 - 0.5, x + w / 2 + 0.5, z + d / 2 + 0.5, 2);
     this.inter.add({ pos: new THREE.Vector3(x, 0.4, z + d / 2 + 0.3), r: 2.5, label: 'پریدن در استخر 🏊', act: (g) => g.act('jump', 1.2, { text: 'شالاپ! آب استخر خیلی خنک بود 💦', splash: new THREE.Vector3(x, 0.3, z) }) });
   }
@@ -422,7 +425,7 @@ export class CityWorld {
       const w = n === 1 ? 46 : 34, d = n === 1 ? 46 : 60, h = 22 + Math.floor(rng() * 6) * 8;
       const x = n === 1 ? cx : cx + (k ? 22 : -22), z = cz;
       const col = cols[Math.floor(rng() * cols.length)];
-      const fm = (this._facades = this._facades || {})[col] || (this._facades[col] = (() => { const day = T.facade(col).clone(); const night = T.facade(col, true).clone(); day.wrapS = day.wrapT = night.wrapS = night.wrapT = THREE.RepeatWrapping; const m = new THREE.MeshStandardMaterial({ map: day, emissiveMap: night, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.4, metalness: 0.3 }); this.windowMats.push(m); return m; })());
+      const fm = (this._facades = this._facades || {})[col] || (this._facades[col] = (() => { const day = T.facade(col).clone(); const night = T.facade(col, true).clone(); const mr = T.facadeMR().clone(); day.wrapS = day.wrapT = night.wrapS = night.wrapT = mr.wrapS = mr.wrapT = THREE.RepeatWrapping; const m = new THREE.MeshStandardMaterial({ map: day, emissiveMap: night, emissive: 0xffffff, emissiveIntensity: 0, roughness: 1, metalness: 1, roughnessMap: mr, metalnessMap: mr }); this.windowMats.push(m); return m; })());
       const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv, p = g.attributes.position, nrm = g.attributes.normal;
       for (let i = 0; i < uv.count; i++) { const ny = Math.abs(nrm.getY(i)); const horiz = Math.abs(nrm.getX(i)) > 0.5 ? p.getZ(i) : p.getX(i); uv.setXY(i, ny > 0.5 ? 0 : (horiz + w) / 16, ny > 0.5 ? 0 : (p.getY(i) + h / 2 - 5) / 16); }
       const me = new THREE.Mesh(g, fm); me.position.set(x, h / 2 + 0.15, z); me.castShadow = true; me.receiveShadow = true; this.group.add(me);
@@ -440,6 +443,14 @@ export class CityWorld {
         this.inter.add({ pos: new THREE.Vector3(x, 1.4, fzz + sd * 0.9), r: 2.2, label: 'خرید از ' + shop[0], act: (gm) => gm.act(shop[2], 2.4, { text: shop[1] }) });
       }
       this.colliders.box(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 3);
+      // تابلوی تبلیغاتی بزرگ متحرک روی برج (چند برج اول)
+      if ((this.screens = this.screens || []).length < 3 && h > 28) {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 288; const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+        const sm = new THREE.MeshBasicMaterial({ map: tx, toneMapped: false });
+        const scr = new THREE.Mesh(new THREE.PlaneGeometry(16, 9), sm); scr.position.set(x + w / 2 + 0.12, h * 0.62, z); scr.rotation.y = Math.PI / 2; scr.userData.keep = true; this.group.add(scr);
+        const fr = new THREE.Mesh(new THREE.BoxGeometry(0.3, 9.8, 16.8), mat(0x15181d, 0.4, 0.6)); fr.position.set(x + w / 2 + 0.05, h * 0.62, z); this.group.add(fr);
+        this.screens.push({ c, ctx: c.getContext('2d'), tx, k: this.screens.length, t: 0 });
+      }
     }
     // جای پارک کنار خیابان
     this.parkedSpots.push({ pos: new THREE.Vector3(r.x0 - 5.8, 0, cz + 20), yaw: 0 }, { pos: new THREE.Vector3(r.x1 + 5.8, 0, cz - 20), yaw: Math.PI });
@@ -452,7 +463,8 @@ export class CityWorld {
     const stone = mat(0xd9d2c3, 0.6);
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(7, 7.4, 0.7, 40, 1, true), stone); basin.position.set(cx, 0.5, cz); basin.material.side = THREE.DoubleSide; this.group.add(basin);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(7.1, 0.25, 8, 48), stone); rim.rotation.x = Math.PI / 2; rim.position.set(cx, 0.85, cz); this.group.add(rim);
-    const water = new THREE.Mesh(new THREE.CircleGeometry(7, 40), new THREE.MeshStandardMaterial({ color: 0x3fa8d8, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.85 })); water.rotation.x = -Math.PI / 2; water.position.set(cx, 0.65, cz); water.userData.keep = true; this.group.add(water);
+    const fw = (() => { const n = T.waterNormal().clone(); n.needsUpdate = true; n.repeat.set(3, 3); this.updaters.push((dt, t) => { n.offset.set(-t * 0.05, t * 0.04); }); return new THREE.MeshStandardMaterial({ color: 0x3fa8d8, roughness: 0.04, metalness: 0.3, transparent: true, opacity: 0.86, normalMap: n, normalScale: new THREE.Vector2(0.6, 0.6) }); })();
+    const water = new THREE.Mesh(new THREE.CircleGeometry(7, 40), fw); water.rotation.x = -Math.PI / 2; water.position.set(cx, 0.65, cz); water.userData.keep = true; this.group.add(water);
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.0, 3, 16), stone); col.position.set(cx, 1.6, cz); this.group.add(col);
     const bowl = new THREE.Mesh(new THREE.SphereGeometry(1.8, 24, 10, 0, TAU, Math.PI / 2, Math.PI / 2), stone); bowl.position.set(cx, 3.3, cz); bowl.material.side = THREE.DoubleSide; this.group.add(bowl);
     this.fountain = { pos: new THREE.Vector3(cx, 3.4, cz), r: 7 };
@@ -509,11 +521,20 @@ export class CityWorld {
       for (const x of [-0.75, 0.75]) { g.push(at(vc(new THREE.BoxGeometry(0.06, 0.45, 0.45), 0x26282c, 0.8, 0.4), x, 0.22, 0)); g.push(at(vc(new THREE.BoxGeometry(0.06, 0.45, 0.06), 0x26282c, 0.8, 0.4), x, 0.68, -0.27)); }
       P.bench = new Batch(this, merge(g), vp); }
     // سطل زباله چرخ‌دار واقعی (بدنه و درب جدا)
-    { const body = new THREE.CylinderGeometry(0.42, 0.34, 1.0, 4, 1); body.rotateY(Math.PI / 4); body.scale(1, 1, 1.15); const g = [at(vc(body, 0xffffff, 0, 0.55), 0, 0.56, 0)];
+    { // بدنه توخالی: دیواره بیرونی، دیواره داخلی تیره، کف و لبه؛ داخل سطل و آشغال‌ها دیده می‌شوند
+      const body = new THREE.CylinderGeometry(0.42, 0.34, 1.0, 4, 1, true); body.rotateY(Math.PI / 4); body.scale(1, 1, 1.15); const g = [at(vc(body, 0xffffff, 0, 0.55), 0, 0.56, 0)];
+      const liner = new THREE.CylinderGeometry(0.395, 0.315, 0.96, 4, 1, true); liner.rotateY(Math.PI / 4); liner.scale(1, 1, 1.15); g.push(at(vc(liner, 0x3a3a3a, 0, 0.8), 0, 0.57, 0));
+      g.push(at(vc(new THREE.BoxGeometry(0.44, 0.03, 0.52), 0x2a2a2a, 0, 0.9), 0, 0.1, 0));
+      for (const z of [-0.335, 0.335]) g.push(at(vc(new THREE.BoxGeometry(0.64, 0.05, 0.045), 0xe8e8e8, 0, 0.5), 0, 1.06, z));
+      for (const x of [-0.29, 0.29]) g.push(at(vc(new THREE.BoxGeometry(0.045, 0.05, 0.72), 0xe8e8e8, 0, 0.5), x, 1.06, 0));
       for (let k = 0; k < 3; k++) g.push(at(vc(new THREE.BoxGeometry(0.5, 0.04, 0.03), 0xdddddd, 0, 0.55), 0, 0.35 + k * 0.25, 0.43));
       for (const x of [-0.3, 0.3]) g.push(at(vc(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 14).rotateZ(Math.PI / 2), 0x111111, 0, 0.9), x, 0.1, -0.32));
       g.push(at(vc(new THREE.CylinderGeometry(0.02, 0.02, 0.62, 8).rotateZ(Math.PI / 2), 0x222222, 0.3, 0.5), 0, 1.0, -0.42));
-      P.bin = new Batch(this, merge(g), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }), { color: true });
+      P.bin = new Batch(this, merge(g), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, side: THREE.DoubleSide }), { color: true });
+      // کیسه زباله داخل سطل‌ها
+      const bag = new THREE.IcosahedronGeometry(0.24, 2); { const r = mulberry32(5); const p = bag.attributes.position; for (let i = 0; i < p.count; i++) { const k = 1 + (r() - 0.5) * 0.25; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.8, p.getZ(i) * k * 1.1); } bag.computeVertexNormals(); }
+      const knot = new THREE.ConeGeometry(0.06, 0.14, 8); knot.translate(0, 0.24, 0);
+      P.bag = new Batch(this, merge([vc(bag, 0xffffff, 0.1, 0.25), vc(knot, 0xffffff, 0.1, 0.3)]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.1 }), { color: true, cast: false });
       const lid = new THREE.BoxGeometry(0.66, 0.06, 0.84); lid.translate(0, 0.03, 0.4); const lg = merge([vc(lid, 0xffffff, 0, 0.5), at(vc(new THREE.BoxGeometry(0.4, 0.04, 0.06), 0xdddddd, 0, 0.5), 0, 0.05, 0.82)]);
       P.binLid = new Batch(this, lg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5 }), { color: true }); }
     // شیر آتش‌نشانی
@@ -564,7 +585,8 @@ export class CityWorld {
   addBin(x, z, yaw, color = 0x2e7d32, opts = {}) {
     const pos = new THREE.Vector3(x, 0.15, z);
     this.props.bin.add(pos, yaw, 1, color);
-    const lidPos = new THREE.Vector3(x - Math.sin(yaw) * 0.42, 1.08, z - Math.cos(yaw) * 0.42);
+    const lidPos = new THREE.Vector3(x - Math.sin(yaw) * 0.42, 1.23, z - Math.cos(yaw) * 0.42);
+    if (this.rng() < 0.7) this.props.bag.add(new THREE.Vector3(x + (this.rng() - 0.5) * 0.1, 0.15 + 0.3, z + (this.rng() - 0.5) * 0.1), this.rng() * 6, 0.8 + this.rng() * 0.3, [0x151515, 0x1f3b2a, 0x1c2a4a][(this.rng() * 3) | 0]);
     const li = this.props.binLid.add(lidPos, yaw, 1, color);
     this.colliders.circle(x, z, 0.45, 3);
     const bin = { pos, yaw, li, lidPos, open: 0, t: 0, count: 0, mission: !!opts.mission };
@@ -588,7 +610,7 @@ export class CityWorld {
           const x = lerp(x0, x1, s / len), z = lerp(z0, z1, s / len);
           const yaw = ang + Math.PI; // بازوی چراغ به سمت خیابان
           const li = this.props.lamp.add(new THREE.Vector3(x, 0.15, z), yaw); this.props.lampHead.add(new THREE.Vector3(x, 0.15, z), yaw, 1, 0x555555);
-          const lamp = { i: li, on: false, user: null }; this.lamps.push(lamp);
+          const lamp = { i: li, on: false, user: null, pos: new THREE.Vector3(x + Math.sin(yaw) * 1.65, 0.15, z + Math.cos(yaw) * 1.65), h: 6.8 }; this.lamps.push(lamp);
           this.colliders.circle(x, z, 0.2, 3);
           this.inter.add({ pos: new THREE.Vector3(x, 1, z), r: 1.4, label: () => (lamp.on ? 'خاموش کردن چراغ خیابان' : 'روشن کردن چراغ خیابان'), act: (g) => { lamp.user = !lamp.on; lamp.on = !lamp.on; this.props.lampHead.setColor(li, lamp.on ? 0xfff0c8 : 0x555555); g.act('press', 0.5, { text: lamp.on ? 'چراغ خیابان روشن شد 💡' : 'چراغ خیابان خاموش شد' }); } });
           // درخت بین چراغ‌ها
@@ -662,7 +684,7 @@ export class CityWorld {
     for (const s of spots) { const k = Math.floor(s[0] / 400) + ':' + Math.floor(s[1] / 400); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(s); }
     const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
     const tm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
-    tm.onBeforeCompile = vertexPBRMaterial().onBeforeCompile; tm.customProgramCacheKey = () => 'vpbr-tree';
+    tm.onBeforeCompile = vertexPBRMaterial().onBeforeCompile; tm.customProgramCacheKey = () => 'vpbr-tree'; windify(tm, 0.16, 5.5);
     for (const [, list] of cells) {
       const im = new THREE.InstancedMesh(geo, tm, list.length);
       list.forEach(([x, z, s], i) => { const y = this.groundAt(x, z); mtx.compose(new THREE.Vector3(x, y, z), q.setFromAxisAngle(up, rng() * TAU), new THREE.Vector3(s, s * (0.9 + rng() * 0.3), s)); im.setMatrixAt(i, mtx); const v = 0.85 + rng() * 0.3; im.setColorAt(i, c.setRGB(v * 0.95, v, v * 0.9)); if (Math.hypot(x, z) < SPAN / 2) this.colliders.circle(x, z, 0.35 * s, 3); });
@@ -713,8 +735,22 @@ export class CityWorld {
     ctx.fillText('شهربازی', X((pr.x0 + pr.x1) / 2), Z((pr.z0 + pr.z1) / 2));
   }
 
+  // محتوای متحرک تابلوهای تبلیغاتی (۵ بار در ثانیه)
+  drawScreens(t) {
+    const ads = [['قهرمان پیست 🏁', 'مسابقه بزرگ امشب!', '#ff5a00', '#ffd400'], ['شهربازی قهرمان 🎡', 'همه وسایل رایگان!', '#7b1fa2', '#ff70a6'], ['موتورهای جدید 🏍️', 'به زودی در گاراژ', '#0b5bd3', '#18c8ff']];
+    for (const s of this.screens || []) {
+      const ad = ads[(Math.floor(t / 6) + s.k) % ads.length]; const x = s.ctx; const W = 512, H = 288; const ph = (t % 6) / 6;
+      const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, ad[2]); g.addColorStop(1, ad[3]); x.fillStyle = g; x.fillRect(0, 0, W, H);
+      for (let i = 0; i < 6; i++) { x.fillStyle = `rgba(255,255,255,${0.08 + 0.06 * Math.sin(t * 2 + i)})`; x.beginPath(); x.arc((i * 97 + t * 60) % (W + 80) - 40, 60 + (i % 3) * 80, 30 + i * 6, 0, 7); x.fill(); }
+      x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = "900 54px 'Vazirmatn', sans-serif"; x.globalAlpha = Math.min(1, ph * 5); x.fillText(ad[0], W / 2, 130 - (1 - Math.min(1, ph * 4)) * 30);
+      x.font = "700 32px 'Vazirmatn', sans-serif"; x.globalAlpha = Math.min(1, Math.max(0, ph * 5 - 1)); x.fillText(ad[1], W / 2, 200); x.globalAlpha = 1;
+      x.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 0; y < H; y += 4) x.fillRect(0, y, W, 1);
+      s.tx.needsUpdate = true;
+    }
+  }
   update(dt, t, focus) {
     for (const u of this.updaters) u(dt, t);
+    this._scrT = (this._scrT || 0) - dt; if (this._scrT <= 0) { this._scrT = 0.2; this.drawScreens(t); }
     // درهای خانه: باز شدن خودکار وقتی بازیکن نزدیک است
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
     let built = false;
@@ -745,8 +781,11 @@ export class CityWorld {
       if (Math.abs(b.open - target) > 0.001) { b.open += (target - b.open) * Math.min(1, dt * 8); m.compose(b.lidPos, q.setFromEuler(new THREE.Euler(b.open, b.yaw, 0, 'YXZ')), one); this.props.binLid.setMatrix(b.li, m); }
     }
   }
+  // جاده خیس بعد از باران: براق و بازتابنده
+  setWet(on) { for (const m of this.roadMats || []) { m.roughness = on ? 0.6 : 1; m.normalScale.setScalar(on ? 0.16 : 0.32); m.color.setScalar(on ? 0.72 : 1); m.envMapIntensity = on ? 1.4 : 1; } if (this._walkMat) { this._walkMat.roughness = on ? 0.55 : 0.9; this._walkMat.color.setScalar(on ? 0.82 : 1); } }
   setNight(on) {
     for (const m of this.windowMats) m.emissiveIntensity = on ? 1.4 : 0;
+    if (this._glass) { this._glass.emissive.setHex(0xffb35c); this._glass.emissiveIntensity = on ? 0.85 : 0; this._glass.opacity = on ? 0.75 : 0.32; }
     for (const l of this.lamps) { if (l.user !== null) continue; l.on = on; this.props.lampHead.setColor(l.i, on ? 0xfff0c8 : 0x555555); }
   }
 }

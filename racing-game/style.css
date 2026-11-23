@@ -302,7 +302,7 @@ h1, h2, h3 { margin: 0; font-weight: 900; text-wrap: balance; }
 .c-touch { position: absolute; inset: auto 0 0 0; pointer-events: none; display: none; }
 .city.touchmode .c-touch { display: block; }
 .city.touchmode #cMap { bottom: auto; top: calc(var(--gutT) + 56px); left: var(--gutL); width: clamp(84px, 13vw, 124px); }
-.city.touchmode .c-speed { bottom: calc(var(--gutB) + 170px); }
+.city.touchmode .c-speed { bottom: auto; top: calc(var(--gutT) + 64px + clamp(84px, 13vw, 124px)); }
 .joy { position: absolute; bottom: calc(var(--gutB) + 6px); left: var(--gutL); width: 140px; height: 140px; border-radius: 50%; background: rgba(15, 18, 26, .35); border: 2px solid rgba(255, 255, 255, .22); pointer-events: auto; touch-action: none; }
 .joy i { position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%; background: rgba(255, 255, 255, .28); border: 2px solid rgba(255, 255, 255, .5); }
 .c-tbs { position: absolute; bottom: calc(var(--gutB) + 4px); right: calc(var(--gutR) + 104px); display: flex; gap: 8px; align-items: flex-end; pointer-events: auto; }
@@ -340,3 +340,24 @@ h1, h2, h3 { margin: 0; font-weight: 900; text-wrap: balance; }
   .cm-obj { font-size: .78rem; }
 }
 @media (max-height: 520px) { .city .c-left { max-width: min(300px, 44vw); } .c-offer p { font-size: .82rem; line-height: 1.55; } .c-offer { padding: 12px 14px; gap: 6px; } }
+
+/* کنترل رانندگی: جوی‌استیک یا دکمه‌ها */
+.djoy { position: relative; width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.08), rgba(15,18,26,.45)); border: 2px solid rgba(255,255,255,.22); pointer-events: auto; touch-action: none; display: none; order: 2; flex: none; }
+.djoy i { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.6), rgba(255,255,255,.2)); border: 2px solid rgba(255,255,255,.55); box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+.djoy.on { border-color: var(--fire3); }
+.djoy .jl, .djoy .jb { position: absolute; left: 50%; transform: translateX(-50%); font-size: .62rem; font-weight: 800; color: rgba(255,255,255,.7); pointer-events: none; }
+.djoy .jl { top: 6px; } .djoy .jb { bottom: 6px; }
+.tbtn.drift { background: rgba(255, 122, 0, 0.42); }
+.tbtn.rev { background: rgba(255, 77, 94, 0.32); }
+.touch.joymode .steer-btns, .touch.joymode .btn-only { display: none; }
+.touch.joymode .djoy { display: block; }
+.c-drive { position: absolute; inset: auto 0 0 0; padding: 0 calc(var(--gutR) + 104px) calc(var(--gutB) + 4px) var(--gutL); display: none; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+.c-drive > div { display: flex; gap: 8px; align-items: flex-end; pointer-events: auto; }
+.c-drive .cd-steer { order: 2; }
+.c-jdrift { position: absolute; bottom: calc(var(--gutB) + 6px); right: calc(var(--gutR) + 104px); display: none; pointer-events: auto; }
+.city.driving.btnmode .c-drive { display: flex; }
+.city.driving.btnmode .joy, .city.driving .foot-btns { display: none; }
+.city.driving.joymode .c-jdrift { display: block; }
+@media (max-height: 520px) { .djoy { width: 124px; height: 124px; } .djoy i { width: 54px; height: 54px; margin: -27px 0 0 -27px; } .c-drive { padding-right: calc(var(--gutR) + 86px); } .c-jdrift { right: calc(var(--gutR) + 86px); } }
+.c-horn { position: absolute; right: calc(var(--gutR) + 14px); bottom: calc(var(--gutB) + 150px); pointer-events: auto; }
+@media (max-height: 520px) { .c-horn { bottom: calc(var(--gutB) + 128px); width: 50px; height: 50px; } }

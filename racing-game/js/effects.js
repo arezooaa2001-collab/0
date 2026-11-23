@@ -172,3 +172,32 @@ export class Effects {
   }
   clear() { for (const p of [this.smoke, this.dust, this.sparks, this.flames, this.confetti, this.fireworks]) p.clear(); this.skids.clear(); }
 }
+
+// باران: قطره‌های کشیده دور دوربین، شتک روی زمین و رعد و برق (یک draw call)
+export class Rain {
+  constructor(scene, n = 1600) {
+    this.n = n; this.pos = new Float32Array(n * 6); this.d = new Float32Array(n * 4);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+    this.lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xd6e4f2, transparent: true, opacity: 0.5, depthWrite: false }));
+    this.lines.frustumCulled = false; scene.add(this.lines);
+    this.splash = new Particles(scene, 260, { tex: T.softDot(), gravity: 5, drag: 1.5, grow: 0.6 });
+    this.init = false; this.wind = 1.6; this.flashT = 8 + Math.random() * 10; this._c = new THREE.Color(0.75, 0.82, 0.9); this._v = new THREE.Vector3(); this._u = new THREE.Vector3();
+  }
+  spawn(i, cam, top) { const d = this.d; d[i * 4] = cam.x + (Math.random() - 0.5) * 50; d[i * 4 + 1] = cam.y + (top ? 8 + Math.random() * 16 : -4 + Math.random() * 28); d[i * 4 + 2] = cam.z + (Math.random() - 0.5) * 50; d[i * 4 + 3] = 17 + Math.random() * 6; }
+  update(dt, cam, ground = null, onFlash = null) {
+    const d = this.d, p = this.pos; if (!this.init) { for (let i = 0; i < this.n; i++) this.spawn(i, cam, false); this.init = true; }
+    for (let i = 0; i < this.n; i++) {
+      const o = i * 4; d[o + 1] -= d[o + 3] * dt; d[o] += this.wind * dt;
+      const gy = ground ? ground(d[o], d[o + 2]) : cam.y - 6;
+      if (d[o + 1] < gy || Math.abs(d[o] - cam.x) > 28 || Math.abs(d[o + 2] - cam.z) > 28) {
+        if (d[o + 1] < gy && i % 6 === 0) this.splash.emit(this._v.set(d[o], gy + 0.03, d[o + 2]), this._u.set((Math.random() - 0.5) * 0.8, 1.2, (Math.random() - 0.5) * 0.8), this._c, 0.08, 0.25, 0.55);
+        this.spawn(i, cam, true);
+      }
+      const q = i * 6; p[q] = d[o]; p[q + 1] = d[o + 1]; p[q + 2] = d[o + 2]; p[q + 3] = d[o] - this.wind * 0.045; p[q + 4] = d[o + 1] + 0.85; p[q + 5] = d[o + 2];
+    }
+    this.lines.geometry.attributes.position.needsUpdate = true;
+    this.splash.update(dt);
+    this.flashT -= dt; if (this.flashT <= 0) { this.flashT = 12 + Math.random() * 18; onFlash?.(); }
+  }
+  dispose() { this.lines.parent?.remove(this.lines); this.lines.geometry.dispose(); }
+}

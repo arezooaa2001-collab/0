@@ -24,7 +24,7 @@ cp "$HTML" "$B/assets/index.html"
 "$BT/aapt2" compile --dir "$HERE/res" -o "$B/compiled/res.zip"
 "$BT/aapt2" link -o "$B/base.apk" -I "$AJAR" --manifest "$HERE/AndroidManifest.xml" \
   -A "$B/assets" --java "$B/gen" --min-sdk-version 24 --target-sdk-version 35 \
-  --version-code "${VERSION_CODE:-3}" --version-name "${VERSION_NAME:-1.2}" "$B/compiled/res.zip"
+  --version-code "${VERSION_CODE:-4}" --version-name "${VERSION_NAME:-1.3}" "$B/compiled/res.zip"
 
 # ۲) کامپایل جاوا و تبدیل به DEX
 javac --release 11 -encoding UTF-8 -classpath "$AJAR" -d "$B/classes" \

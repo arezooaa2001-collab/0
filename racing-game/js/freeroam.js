@@ -8,6 +8,7 @@ import { buildBike, bikeById, bikeStats } from './bikes.js';
 import { Effects, Particles } from './effects.js';
 import { FireSystem } from './fire.js';
 import { Missions } from './missions.js';
+import { CityFX, Weather } from './cityfx.js';
 import * as T from './textures.js';
 import { clamp, lerp, damp, wrapAngle, mulberry32, TAU, toFa, fmtNum, isTouch } from './utils.js';
 
@@ -21,7 +22,7 @@ const ONE_SHOT = new Set(['pickup', 'throw', 'press', 'reach', 'drink', 'kick'])
 export class FreeRoam {
   constructor(app) {
     this.app = app; this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(62, 16 / 9, 0.08, 6000);
+    this.camera = new THREE.PerspectiveCamera(62, 16 / 9, 0.08, 3400);
     this.t = 0; this.paused = false; this.state = 'foot';
     const cm = app.save.data.settings.camera || 'chase';
     this.camMode = cm; this.camYaw = 0; this.camPitch = 0.18; this.dragT = 0;
@@ -63,7 +64,10 @@ export class FreeRoam {
     this.buildWalkers(qn === 'low' ? 50 : qn === 'medium' ? 80 : qn === 'high' ? 120 : 160);
     this.indoorLight = new THREE.PointLight(0xfff0d8, 0, 13, 1.4); this.scene.add(this.indoorLight); this.roomLightOn = true;
     this.buildBeacon();
+    this.cfx = new CityFX(this);
+    this.weather = new Weather(app, this.scene, this.outdoor, S.light.weather || 'clear'); if (this.weather.on) this.world.setWet(true);
     this.missions = new Missions(this);
+    this.lookYaw = 0; this.lookPitch = 0; this.stepPh = 0; this.driftScore = 0; this.driftT = 0; this.emoteI = 0;
     if (this.night && Q.headlight) { this.spot = new THREE.SpotLight(0xfff1d0, 90, 90, 0.55, 0.5, 1.4); this.scene.add(this.spot, this.spot.target); }
     progress(1, 'آماده'); await tick();
     this.updateCamera(0.016, true);
@@ -74,6 +78,7 @@ export class FreeRoam {
     this.time = time; this.outdoor.apply(time, this.app.save.data.light);
     this.night = time === 'night'; this.world.night = this.night; this.world.setNight(this.night);
     const f = this.scene.fog; f.near = this.night ? 60 : 140; f.far = this.night ? 520 : 1100;
+    this.weather?.applyLook();
   }
 
   // ---------------- بازیکن ----------------
@@ -147,13 +152,15 @@ export class FreeRoam {
 
   stepVehicle(v, dt, inp) {
     const st = v.stats; const driven = v === this.veh;
-    if (!driven) { inp = { steer: 0, throttle: 0, brake: 0, handbrake: false, nitro: false }; }
-    const nitroOn = driven && inp.nitro && v.nitro > 0 && inp.throttle > 0; v.nitroOn = nitroOn;
+    if (!driven) { inp = { steer: 0, throttle: 0, brake: 0, reverse: 0, brakeRev: 0, drift: false, nitro: false }; }
+    const autoN = this.app.touchDrive && inp.throttle > 0.9 && Math.abs(inp.steer) < 0.25 && Math.abs(v.vf) > st.vmax * 0.45;
+    const nitroOn = driven && (inp.nitro || autoN) && v.nitro > 0 && inp.throttle > 0; v.nitroOn = nitroOn;
     if (nitroOn) v.nitro = Math.max(0, v.nitro - dt); else if (st.nitro > 0) v.nitro = Math.min(st.nitro, v.nitro + dt * 0.08);
     v.steer = damp(v.steer, inp.steer, Math.abs(inp.steer) > Math.abs(v.steer) ? 5.5 : 9, dt);
-    v.throttle = damp(v.throttle, inp.throttle, 10, dt); v.brake = damp(v.brake, inp.brake, 12, dt); v.hand = inp.handbrake;
     let fx = Math.sin(v.heading), fz = Math.cos(v.heading);
     let vf = v.vel.x * fx + v.vel.z * fz; const speed = Math.abs(vf);
+    const wantBack = Math.max(inp.reverse || 0, inp.brakeRev || 0);
+    v.throttle = damp(v.throttle, inp.throttle, 10, dt); v.brake = damp(v.brake, Math.max(inp.brake || 0, vf > 0.6 ? wantBack : 0), 12, dt); v.rev = damp(v.rev || 0, vf <= 0.6 ? wantBack : 0, 10, dt); v.hand = !!inp.drift;
     const g0 = this.world.groundAt(v.pos.x, v.pos.z);
     const grass = g0 > 0.1 && g0 < 0.2 && !this.onRoad(v.pos);
     const surfGrip = v.air ? 0.05 : grass ? 0.8 : 1;
@@ -173,16 +180,18 @@ export class FreeRoam {
     if (v.shiftT > 0) v.shiftT -= dt;
     if (!v.air) {
       if (v.throttle > 0.02 && vf > -0.5) { const curve = Math.max(0, 1 - Math.pow(Math.max(0, vf) / vmax, 2.3)); acc += st.acc * (1.15 - 0.15 * (vf / vmax)) * curve * v.throttle * (nitroOn ? 1.6 : 1) * (v.shiftT > 0 ? 0.35 : 1); }
-      if (v.brake > 0.02) { if (vf > 0.6) acc -= st.brake * v.brake; else acc -= st.acc * 0.55 * v.brake * (vf > -8 ? 1 : 0); }
-      if (v.hand) acc -= Math.sign(vf) * 4;
+      if (v.brake > 0.02) { if (vf > 0.6) acc -= st.brake * v.brake; else if (vf < -0.6) acc += st.brake * v.brake * 0.8; }
+      if (v.rev > 0.02 && vf > -8) acc -= st.acc * 0.55 * v.rev;
+      if (v.hand && speed > 3) acc -= Math.sign(vf) * 1.1;
       acc -= vf * (0.01 + (grass ? 0.25 : 0));
       if (!driven) acc -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, 3.5);
-      const latGrip = st.grip * 9.81 * surfGrip * (v.hand ? 0.32 : 1) * 1.05;
+      const latGrip = st.grip * 9.81 * surfGrip * (v.hand ? 0.5 : 1) * 1.05;
       vl -= Math.sign(vl) * Math.min(Math.abs(vl), latGrip * dt);
     }
     const vfOld = vf; vf += acc * dt;
-    if (vfOld > 0 && vf < 0 && v.brake > 0 && Math.abs(vfOld) > 0.7) vf = 0;
-    if (Math.abs(vf) < 0.05 && v.throttle < 0.05 && v.brake < 0.05) vf = 0;
+    if (vfOld > 0 && vf < 0 && v.rev < 0.05) vf = 0;
+    if (vfOld < 0 && vf > 0 && v.throttle < 0.05) vf = 0;
+    if (Math.abs(vf) < 0.05 && v.throttle < 0.05 && v.rev < 0.05) vf = 0;
     v.slip = Math.abs(vl) + (v.brake > 0.85 && speed > 18 ? 3 : 0);
     v.latAcc = vf * v.yawRate; v.longAcc = acc;
     v.vel.set(fx * vf + lx * vl, 0, fz * vf + lz * vl); v.vf = vf; v.vl = vl;
@@ -450,9 +459,20 @@ export class FreeRoam {
       this.timers.push({ t: 0.42, fn: () => {
         const from = new THREE.Vector3(); item.mesh.getWorldPosition(from); this.scene.attach(item.mesh);
         const to = bin.pos.clone().add(_v1.set(0, 1.05, 0));
-        this.projectiles.push({ mesh: item.mesh, p0: from, p1: to, h: 0.7, t: 0, dur: 0.55, spin: 9, onEnd: () => { item.mesh.parent?.remove(item.mesh); this.sfx('trash'); this.missions.onBinned(item, bin); } });
+        this.projectiles.push({ mesh: item.mesh, p0: from, p1: to, h: 0.7, t: 0, dur: 0.55, spin: 9, onEnd: () => { this.placeInBin(item.mesh, bin); this.sfx('trash'); this.missions.onBinned(item, bin); } });
       } });
     } else { bin.t = 2.2; this.sfx('lid'); this.act('reach', 0.7, { text: 'درب سطل زباله را باز کردی 🗑️' }); }
+  }
+  // آشغال داخل سطل می‌ماند و روی هم جمع می‌شود (وقتی درب باز است دیده می‌شود)
+  placeInBin(mesh, bin) {
+    bin.count = (bin.count || 0) + 1; const n = bin.count;
+    const a = Math.random() * TAU, r = Math.random() * 0.13; const y = 0.2 + Math.min(n, 11) * 0.065 + (bin.own ? 0 : 0.15);
+    if (bin.own) { bin.own.group.add(mesh); mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r); }
+    else { this.scene.add(mesh); mesh.position.set(bin.pos.x + Math.cos(a) * r, bin.pos.y + y + 0.05, bin.pos.z + Math.sin(a) * r); }
+    mesh.rotation.set(Math.random() * 3, Math.random() * 6, Math.random() * 3);
+    (bin.inside = bin.inside || []).push(mesh);
+    if (bin.inside.length > 12) { const old = bin.inside.shift(); old.parent?.remove(old); }
+    bin.t = Math.max(bin.t, 1.2);
   }
   dropHolding() { const it = this.holding; if (!it) return; this.scene.attach(it.mesh); it.mesh.position.set(this.p.pos.x + Math.sin(this.p.yaw) * 0.5, this.world.groundAt(this.p.pos.x, this.p.pos.z) + (it.rest || 0.04), this.p.pos.z + Math.cos(this.p.yaw) * 0.5); it.mesh.rotation.set(it.rx || 0, Math.random() * 6, it.rz || 0); this.holding = null; this.missions.onDropped?.(it); }
   throwProp(kind, to, onEnd) {
@@ -470,6 +490,43 @@ export class FreeRoam {
   burstSparkle(p) { const c = new THREE.Color(2.5, 2, 0.6); for (let k = 0; k < 20; k++) this.fx.sparkle.emit(p, _v1.set((Math.random() - 0.5) * 2, 1 + Math.random() * 2, (Math.random() - 0.5) * 2), c, 0.12, 1.2, 1); }
   greetWalker(i) { const w = this.peds[i]; w.wave = 2.5; w.greet = true; this.walkers.style(i, 4); this.act('wave', 1.8, { text: ['سلام! روز بخیر 👋', 'رهگذر گفت: «سلام قهرمان!» 😄', 'رهگذر برایت دست تکان داد 👋'][(Math.random() * 3) | 0] }); }
 
+  // سر قهرمان به سمت وسیله‌ای که می‌شود با آن تعامل کرد می‌چرخد
+  headLook(dt) {
+    const pr = this.prompt; const H = this.human; let ty = 0, tp = 0;
+    if (pr && pr.pos && this.state === 'foot') {
+      const dx = pr.pos.x - this.p.pos.x, dz = pr.pos.z - this.p.pos.z; const a = wrapAngle(Math.atan2(dx, dz) - this.p.yaw);
+      if (Math.abs(a) < 1.6) { ty = clamp(a, -1.0, 1.0); tp = clamp(-Math.atan2(pr.pos.y - (this.p.pos.y + 1.6), Math.hypot(dx, dz)), -0.5, 0.6) * 0.6; }
+    }
+    this.lookYaw = damp(this.lookYaw, ty, 5, dt); this.lookPitch = damp(this.lookPitch, tp, 5, dt);
+    H.j.head.rotation.y += this.lookYaw * 0.7; H.j.neck.rotation.y += this.lookYaw * 0.3; H.j.head.rotation.x += this.lookPitch;
+  }
+  addCoins(n, text) {
+    const S = this.app.save.data; S.coins += n; this.app.save.save(); this.sfx('coin'); if (text) this.toast(text);
+  }
+  honk() {
+    const v = this.veh; this.sfx('horn'); if (!v) return;
+    this.cfx.scare(v.pos, 16);
+    for (let i = 0; i < this.peds.length; i++) { const w = this.peds[i]; if (w.pos.distanceTo(v.pos) < 14) { w.wave = 1.6; w.greet = false; this.walkers.style(i, Math.random() < 0.5 ? 7 : 4); w.dodge = (w.off > 0 ? 1 : -1) * 2; } }
+  }
+  emote() {
+    if (this.state !== 'foot') return;
+    const list = [['dance', 5, 'رقصیدی! 💃 رهگذرها برایت دست می‌زنند'], ['clap', 2.4, 'دست زدی 👏'], ['wave', 2, 'برای همه دست تکان دادی 👋'], ['jump', 0.9, 'یوهو! 🙌']];
+    const [a, d, txt] = list[this.emoteI++ % list.length];
+    this.act(a, d, { text: txt });
+    if (a === 'dance') for (let i = 0; i < this.peds.length; i++) { const w = this.peds[i]; if (w.pos.distanceTo(this.p.pos) < 12) { w.wave = 4.5; w.greet = true; this.walkers.style(i, 6); } }
+  }
+  // پرش با رمپ و دریفت جایزه سکه دارد
+  stuntScore(v, dt) {
+    if (v.air) { if (!v.airT) { v.airT = 0; v.air0 = v.pos.clone(); } v.airT += dt; }
+    else if (v.airT) {
+      const t = v.airT; const d = Math.hypot(v.pos.x - v.air0.x, v.pos.z - v.air0.z); v.airT = 0;
+      if (t > 0.55) { const c = Math.round(t * 8 + d * 0.35); this.addCoins(c, `پرش ${toFa(Math.round(d))} متری! ${toFa(t.toFixed(1))} ثانیه در هوا 🚀 +${toFa(c)} سکه`); this.shake = Math.min(1, (this.shake || 0) + 0.4); }
+    }
+    const sliding = !v.air && Math.abs(v.vf) > 9 && Math.abs(v.vl) > 2.2;
+    if (sliding) { this.driftScore += Math.abs(v.vl) * Math.abs(v.vf) * dt * 0.6; this.driftT = 0; }
+    else if (this.driftScore > 0) { this.driftT += dt; if (this.driftT > 0.7) { const sc = Math.round(this.driftScore); this.driftScore = 0; if (sc >= 40) { const c = Math.min(60, Math.floor(sc / 40)); this.addCoins(c, `دریفت عالی! امتیاز ${toFa(sc)} 🔥 +${toFa(c)} سکه`); } } }
+  }
+
   // ---------------- پیدا کردن تعامل نزدیک ----------------
   findInteraction() {
     if (this.state === 'drive') return { label: this.veh.isBike ? 'پیاده شدن از موتور' : 'پیاده شدن از ماشین', act: () => this.exitVehicle() };
@@ -482,7 +539,7 @@ export class FreeRoam {
     const o = this.world.inter.nearest(p, dir, this);
     let bestW = -1, bd = 2.0;
     for (let i = 0; i < this.peds.length; i++) { const d = this.peds[i].pos.distanceTo(p); if (d < bd) { bd = d; bestW = i; } }
-    if (bestW >= 0 && (!o || bd < o.pos.distanceTo(p) - 0.3)) return { label: 'سلام کردن به رهگذر 👋', act: () => this.greetWalker(bestW) };
+    if (bestW >= 0 && (!o || bd < o.pos.distanceTo(p) - 0.3)) return { label: 'سلام کردن به رهگذر 👋', pos: this.peds[bestW].pos, act: () => this.greetWalker(bestW) };
     if (o) return o;
     if (this.holding) return { label: 'زمین گذاشتن آشغال', act: () => this.dropHolding() };
     return null;
@@ -496,16 +553,18 @@ export class FreeRoam {
   // ---------------- حلقه اصلی ----------------
   begin() { this.app.audio.init(); this.missions.start(); this.toast('به شهر آزاد خوش آمدی! 🏙️ با دکمه تعامل از همه چیز استفاده کن'); }
   update(dt) {
-    dt = Math.min(dt, 0.05); const app = this.app; const input = app.input.update();
+    dt = Math.min(dt, 0.05); const app = this.app; const joyDrive = (this.state === 'drive' && app.save.data.settings.drive === 'joystick') || this.state === 'ride';
+    const input = app.input.update(joyDrive ? this.joy : null);
     if (app.input.consume('Escape') || app.input.consume('KeyP')) app.toggleCityPause?.();
     if (this.paused) { app.engine.render(this.scene, this.camera, dt); return; }
     this.t += dt;
     if (app.input.consume('KeyF') || app.input.consume('KeyE') || app.input.consume('Enter') || this.btn.interact) { this.btn.interact = false; this.interact(); }
     if (app.input.consume('KeyC')) this.cycleCamera();
+    if (app.input.consume('KeyG')) this.emote();
     if (app.input.consume('KeyY')) this.missions.accept(); if (app.input.consume('KeyN')) this.missions.decline();
     // ورودی ترکیبی کیبورد و جوی‌استیک
-    const j = this.joy;
-    const inp = { steer: clamp(input.steer - j.x * 1.15, -1, 1), throttle: Math.max(input.throttle, clamp(-j.y * 1.3, 0, 1)), brake: Math.max(input.brake, clamp(j.y * 1.3, 0, 1)), handbrake: input.handbrake || this.btn.hand, nitro: input.nitro || this.btn.run };
+    const inp = input;
+    if (this.state === 'drive' && (app.input.consume('KeyH') || this.btn.horn)) { this.btn.horn = false; this.honk(); }
     for (let k = this.timers.length - 1; k >= 0; k--) { const tm = this.timers[k]; tm.t -= dt; if (tm.t <= 0) { this.timers.splice(k, 1); tm.fn(); } }
     const st = this.state;
     if (st === 'foot') this.stepFoot(dt, input);
@@ -514,6 +573,7 @@ export class FreeRoam {
     else if (st === 'ride') this.stepRide(dt, inp);
     else if (st === 'path') this.stepPath(dt);
     else if (st === 'mission') this.missions.stepPlayer(dt, input);
+    if (st !== 'drive') { this.human.blend(dt, st === 'ride' ? 9 : st === 'mission' ? 18 : 13); this.headLook(dt); }
     // وسایل نقلیه
     const steps = Math.ceil(dt / (1 / 90)); const h = dt / steps;
     for (const v of this.vehicles) {
@@ -528,12 +588,15 @@ export class FreeRoam {
     const focus = this.playerWorldPos(_v1).clone();
     this.world.focus = focus; this.world.canBuild = this.state !== 'drive' || Math.abs(this.veh.vf) < 9;
     this.world.update(dt, this.t, focus);
+    this.cfx.update(dt, this.t);
     this.missions.update(dt);
+    if (this.veh) this.stuntScore(this.veh, dt);
     this.updateFx(dt);
     this.updateIndoor(dt, focus);
     this.updateCamera(dt);
     this.outdoor.update(dt, focus, this.camera);
     this.fire.update(dt, this.t, this.camera.position);
+    this.weather.update(dt, this.camera, (x, z) => this.world.groundAt(x, z));
     if (this.spot) { const v = this.veh; if (v) { this.spot.position.copy(v.pos).add(_v2.set(0, 1, 0)).addScaledVector(fwd(v.heading, _v3), 1.5); this.spot.target.position.copy(v.pos).addScaledVector(fwd(v.heading, _v3), 25); this.spot.intensity = 90; } else this.spot.intensity = 0; this.spot.target.updateMatrixWorld(); }
     // صدا
     const v = this.veh;
@@ -550,7 +613,7 @@ export class FreeRoam {
 
   stepFoot(dt, input) {
     const p = this.p; const j = this.joy; const W = this.world;
-    let f = input.throttle - input.brake - j.y, s = -input.steer + j.x;
+    let f = input.throttle - input.brakeRev - j.y, s = -input.steer + j.x;
     const mag = Math.min(1, Math.hypot(f, s));
     const run = (input.nitro || this.btn.run || Math.hypot(j.x, j.y) > 0.92) && !this.carrying;
     const maxSp = this.carrying ? 2.4 : run ? 5.8 : 2.1;
@@ -578,7 +641,10 @@ export class FreeRoam {
     const sp = Math.hypot(p.vel.x, p.vel.z); p.speed = sp;
     const H = this.human; H.root.position.copy(p.pos); H.root.rotation.set(0, p.yaw, 0);
     if (!p.onGround) H.anim('jump', this.t);
-    else if (sp > 0.25) { p.walkT += dt * sp * (sp > 3.5 ? 1.75 : 2.9); H.anim(sp > 3.5 ? 'run' : 'walk', p.walkT); }
+    else if (sp > 0.25) {
+      p.walkT += dt * sp * (sp > 3.5 ? 1.75 : 2.9); H.anim(sp > 3.5 ? 'run' : 'walk', p.walkT);
+      const ph = Math.floor(p.walkT / Math.PI); if (ph !== this.stepPh) { this.stepPh = ph; this.sfx(sp > 3.5 ? 'stepRun' : 'step'); if (sp > 3.5 && Math.random() < 0.7) this.fx.dust.emit(_v3.set(p.pos.x, p.pos.y + 0.05, p.pos.z), _v2.set((Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4), new THREE.Color(0.8, 0.76, 0.68), 0.25, 0.7, 0.22); if (sp > 3.5) this.cfx.scare(p.pos, 3.2); }
+    }
     else H.anim('idle', this.t);
     this.armOverlay();
   }
@@ -601,14 +667,14 @@ export class FreeRoam {
     const S = this.sitS; S.t += dt; const H = this.human;
     if (this.state === 'sit') H.anim('sit', this.t, { seatY: 0.42 });
     else { H.anim('lie', this.t, { seatY: 0.1 }); const b = Math.sin(this.t * 1.6) * 0.012; H.j.spine.rotation.x = b; }
-    if (S.t > 0.6 && (input.throttle || input.brake || Math.abs(input.steer) > 0 || Math.hypot(this.joy.x, this.joy.y) > 0.5)) this.standUp();
+    if (S.t > 0.6 && (input.throttle || input.brakeRev || Math.abs(input.steer) > 0 || Math.hypot(this.joy.x, this.joy.y) > 0.5)) this.standUp();
   }
   stepRide(dt, inp) {
     const R = this.rideS; R.t += dt; const H = this.human; const r = R.r;
     const ex = r.excite ? r.excite(this) : 0.4;
     if (r.pose === 'drive') H.pose('drive', { seatY: 0, steer: inp.steer });
     else H.anim(r.pose || 'ridePark', this.t, { seatY: r.seatY, excite: ex });
-    if (r.control) r.control({ throttle: inp.throttle - inp.brake, steer: inp.steer }, dt);
+    if (r.control) r.control({ throttle: inp.throttle - Math.max(inp.brake, inp.brakeRev, inp.reverse), steer: inp.steer }, dt);
     if (ex > 0.85 && Math.random() < dt * 0.6) this.sfx('scream');
     const done = r.done ? r.done(R.lap0) : R.t > r.dur;
     if (done || (r.done && R.t > r.dur * 1.6)) this.endRide();
@@ -638,6 +704,9 @@ export class FreeRoam {
     }
   }
   carEffects(v, dt) {
+    const fx0 = Math.sin(v.heading), fz0 = Math.cos(v.heading);
+    if (!v.air && Math.abs(v.vf) > 4 && this.world.groundAt(v.pos.x, v.pos.z) > 0.1 && !this.onRoad(v.pos) && Math.random() < 0.5) this.effects.dirt(_v1.set(v.pos.x - fx0 * v.model.shape.wb / 2, v.y + 0.1, v.pos.z - fz0 * v.model.shape.wb / 2), v.vel, false);
+    if (v.model.exhaust.length && v.throttle > 0.15 && Math.abs(v.vf) < 10 && Math.random() < dt * 14) { _v1.copy(v.model.exhaust[0]); _v1.z -= 0.15; v.model.root.localToWorld(_v1); this.effects.smoke.emit(_v1, _v2.set(-fx0 * 0.8 + (Math.random() - 0.5) * 0.3, 0.35, -fz0 * 0.8), this._gray || (this._gray = new THREE.Color(0.55, 0.55, 0.58)), 0.35, 1.1, 0.18); }
     if (v.slip > 2.6 && !v.air && Math.random() < 0.6) {
       const fx = Math.sin(v.heading), fz = Math.cos(v.heading);
       const wp = _v1.set(v.pos.x - fx * v.model.shape.wb / 2, v.y + 0.12, v.pos.z - fz * v.model.shape.wb / 2);
@@ -770,7 +839,7 @@ export class FreeRoam {
   }
 
   dispose() {
-    this.missions?.cleanup();
+    this.missions?.cleanup(); this.weather?.dispose();
     this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose?.(); });
     this.outdoor.envRT?.dispose();
     this.app.audio.silence();
@@ -787,7 +856,10 @@ export function bindCityUI(app) {
   const end = (e) => { if (e.pointerId !== jid) return; jid = null; if (city()) { city().joy.x = 0; city().joy.y = 0; city().joy.active = false; } knob.style.transform = ''; };
   joy.addEventListener('pointermove', move); joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
   const hold = (id, key) => { const el = $(id); const on = (e) => { e.preventDefault(); if (city()) city().btn[key] = true; el.classList.add('on'); }; const off = (e) => { e.preventDefault(); if (city() && key !== 'jump') city().btn[key] = false; el.classList.remove('on'); }; el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); };
-  hold('cJump', 'jump'); hold('cBrake', 'hand'); hold('cRun', 'run');
+  hold('cJump', 'jump'); hold('cRun', 'run');
+  app.input.bindTouch($('cTouch'));
+  $('cHorn').addEventListener('pointerdown', (e) => { e.preventDefault(); if (city()) city().btn.horn = true; });
+  $('cEmote').addEventListener('click', () => city()?.emote());
   $('cInteract').addEventListener('pointerdown', (e) => { e.preventDefault(); if (city()) city().btn.interact = true; });
   $('cCam').addEventListener('click', () => city()?.cycleCamera());
   $('cPause').addEventListener('click', () => app.toggleCityPause());
@@ -830,7 +902,9 @@ export function bindCityUI(app) {
       if (m) { $('cmTitle').textContent = m.title; $('cmObj').textContent = m.objective(); $('cmProg').textContent = m.progress(); $('cmLeft').textContent = '⏱ ' + toFa(Math.max(0, Math.ceil(m.timeLeft))); $('cmTime').style.width = clamp(m.timeLeft / m.limit, 0, 1) * 100 + '%'; mp.classList.toggle('urgent', m.timeLeft < 20); }
       const hp = $('cHealth'); hp.hidden = !(m && m.usesHealth); if (!hp.hidden) hp.firstElementChild.style.width = clamp(c.health, 0, 100) + '%';
       const v = c.veh; $('cSpeed').hidden = !v; if (v) $('cSpeedV').textContent = toFa(Math.round(Math.abs(v.vf) * 3.6));
-      $('cJump').hidden = !!v; $('cRun').querySelector('small').textContent = v ? 'نیترو' : 'دویدن'; $('cBrake').hidden = !v;
+      const cityEl = $('city'); const joyMode = app.save.data.settings.drive === 'joystick';
+      cityEl.classList.toggle('driving', !!v); cityEl.classList.toggle('joymode', joyMode); cityEl.classList.toggle('btnmode', !joyMode);
+      $('cHorn').hidden = !v;
       // فلش جهت هدف
       const tgt = m && m.target ? m.target() : null; const arrow = $('cArrow');
       const pp = c.playerWorldPos(new THREE.Vector3());

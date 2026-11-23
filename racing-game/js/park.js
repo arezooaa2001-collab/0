@@ -416,7 +416,7 @@ export function buildPark(world, rect) {
     if (k % 2 === 0) world.addBench(cx + Math.cos(a) * r1, cz + Math.sin(a) * r1, -a + Math.PI / 2 + Math.PI);
     else world.addBench(cx + Math.cos(a) * r2, cz + Math.sin(a) * r2, -a + Math.PI / 2);
     if (k % 3 === 1) world.addBin(cx + Math.cos(a + 0.06) * r1, cz + Math.sin(a + 0.06) * r1, -a - Math.PI / 2, 0x2e7d32);
-    if (k % 2 === 1) { const x = cx + Math.cos(a + 0.12) * 65, z = cz + Math.sin(a + 0.12) * 65; const yaw = -a - Math.PI / 2 + Math.PI; const li = world.props.lamp.add(V(x, 0.03, z), yaw); world.props.lampHead.add(V(x, 0.03, z), yaw, 1, 0x555555); const lamp = { i: li, on: false, user: null }; world.lamps.push(lamp); C.circle(x, z, 0.2, 3); I.add({ pos: V(x, 1, z), r: 1.4, label: () => (lamp.on ? 'خاموش کردن چراغ' : 'روشن کردن چراغ'), act: (g) => { lamp.user = !lamp.on; lamp.on = !lamp.on; world.props.lampHead.setColor(li, lamp.on ? 0xfff0c8 : 0x555555); g.act('press', 0.5, {}); } }); }
+    if (k % 2 === 1) { const x = cx + Math.cos(a + 0.12) * 65, z = cz + Math.sin(a + 0.12) * 65; const yaw = -a - Math.PI / 2 + Math.PI; const li = world.props.lamp.add(V(x, 0.03, z), yaw); world.props.lampHead.add(V(x, 0.03, z), yaw, 1, 0x555555); const lamp = { i: li, on: false, user: null, pos: V(x + Math.sin(yaw) * 1.65, 0.03, z + Math.cos(yaw) * 1.65), h: 6.7 }; world.lamps.push(lamp); C.circle(x, z, 0.2, 3); I.add({ pos: V(x, 1, z), r: 1.4, label: () => (lamp.on ? 'خاموش کردن چراغ' : 'روشن کردن چراغ'), act: (g) => { lamp.user = !lamp.on; lamp.on = !lamp.on; world.props.lampHead.setColor(li, lamp.on ? 0xfff0c8 : 0x555555); g.act('press', 0.5, {}); } }); }
   }
   for (let k = 0; k < 40; k++) { const a = rng() * TAU, r = 72 + rng() * 30; const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (Math.abs(x - cx) > W / 2 - 3 || Math.abs(z - cz) > W / 2 - 3) continue; if (Math.abs(x - cx) < 6 || Math.abs(z - cz) < 6) continue; if (C.inside(x, z, 3)) continue; (world.treeSpots = world.treeSpots || []).push([x, z, 0.9 + rng() * 0.4]); }
   // باغچه مرکزی و تابلو
@@ -429,7 +429,7 @@ export function buildPark(world, rect) {
 
   park.paths.push(Array.from({ length: 24 }, (_, k) => { const a = k / 24 * TAU; return [cx + Math.cos(a) * 61, cz + Math.sin(a) * 61]; }));
   park.paths.push([[cx - 2, cz - 56], [cx - 2, cz - 12], [cx + 2, cz - 12], [cx + 2, cz - 56]]);
-  park.update = (dt, t) => { for (const u of park.updaters) u(dt, t); const k = 1.3 + Math.sin(t * 4) * 0.35; for (const b of park.bulbs) b.emissiveIntensity = (world.night ? 2.6 : 1.0) * k; };
+  park.update = (dt, t) => { for (const u of park.updaters) u(dt, t); const k = 1.3 + Math.sin(t * 4) * 0.35; park.bulbs.forEach((b, i) => { b.emissiveIntensity = (world.night ? 2.6 : 1.0) * k; if (world.night) b.emissive.setHSL((t * 0.12 + i * 0.21) % 1, 0.9, 0.6); else b.emissive.setHex(0xffd27a); }); };
   world.updaters.push((dt, t) => park.update(dt, t));
   return park;
 }

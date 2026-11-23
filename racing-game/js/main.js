@@ -29,7 +29,7 @@ class App {
     this.loadProgress(0.2, 'راه‌اندازی موتور گرافیکی');
     this.engine = new Engine($('gl'), S.settings);
     this.audio = new AudioSys(); this.audio.volume = S.settings.volume;
-    this.input = new Input(); this.input.bindTouch($('touch'));
+    this.input = new Input(); this.input.bindTouch($('touch')); this.input.bindJoystick($('rJoy'), $('rKnob'));
     this.hud = new HUD(this);
     this.ui = {
       onPhase: (p, r) => this.hud.onPhase(p, r), countdown: (n) => this.hud.countdown(n), toast: (t) => this.hud.toast(t),
@@ -170,6 +170,7 @@ class App {
     const S = this.save.data.settings;
     const touchOn = S.touch === 'on' || (S.touch === 'auto' && isTouch());
     $('touch').classList.toggle('show', touchOn); $('hud').classList.toggle('touchmode', touchOn);
+    $('touch').classList.toggle('joymode', S.drive === 'joystick'); this.touchDrive = touchOn;
     $('hBoard').innerHTML = ''; $('hCount').textContent = '';
     this.show('hud');
     this.mode = 'race';
@@ -325,7 +326,7 @@ class App {
     try { await city.build((f, t) => this.loadProgress(f, t)); } catch (e) { console.error(e); this.loadProgress(1, 'خطا در ساخت شهر: ' + e.message); return; }
     this.city = city;
     const S = this.save.data.settings; const touchOn = S.touch === 'on' || (S.touch === 'auto' && isTouch());
-    $('city').classList.toggle('touchmode', touchOn); $('touch').classList.remove('show');
+    $('city').classList.toggle('touchmode', touchOn); $('touch').classList.remove('show'); this.touchDrive = touchOn;
     $('cOffer').hidden = true; $('cMission').hidden = true;
     this.show('city'); this.mode = 'city'; city.begin();
   }
@@ -416,6 +417,7 @@ class App {
     this.seg($('sMode'), [['race', '🏁 مسابقه‌ای'], ['city', '🏙️ شهر آزاد']], S.mode || 'race', (v) => { S.mode = v; this.save.save(); this.hud.toast(v === 'city' ? 'حالت شهر آزاد فعال شد؛ «شروع بازی» را بزن' : 'حالت مسابقه فعال شد'); });
     this.seg($('sMis'), [['1', 'روشن'], ['0', 'خاموش']], S.missions === false ? '0' : '1', (v) => { S.missions = v === '1'; this.save.save(); });
     this.seg($('sMisT'), [['5', 'هر ۵ دقیقه'], ['10', 'هر ۱۰ دقیقه'], ['15', 'هر ربع']], String(S.missionEvery || 10), (v) => { S.missionEvery = +v; this.save.save(); });
+    this.seg($('sDrive'), [['buttons', '🎮 دکمه‌ها (گاز، ترمز، دنده عقب، دریفت)'], ['joystick', '🕹️ جوی‌استیک']], S.drive || 'buttons', (v) => { S.drive = v; this.save.save(); this.hud.toast(v === 'joystick' ? 'جوی‌استیک: بکش جلو = جلو، عقب = عقب، چپ و راست = فرمان' : 'دکمه‌ها: گاز، ترمز، دنده عقب و دریفت'); });
     this.seg($('sCam'), [['chase', 'سوم شخص'], ['cockpit', 'اول شخص'], ['top', 'از بالا']], S.camera, (v) => { S.camera = v; this.save.save(); });
     this.seg($('sTouch'), [['auto', 'خودکار'], ['on', 'روشن'], ['off', 'خاموش']], S.touch, (v) => { S.touch = v; this.save.save(); });
     this.seg($('sFps'), [['1', 'روشن'], ['0', 'خاموش']], S.fps ? '1' : '0', (v) => { S.fps = v === '1'; this.save.save(); });
@@ -440,6 +442,12 @@ class App {
       for (const c of CARS) { if (!S.owned.includes(c.id)) S.owned.push(c.id); S.custom[c.id] = S.custom[c.id] || defaultCustom(c); S.upgrades[c.id] = S.upgrades[c.id] || defaultUpgrades(); }
       S.viewAll = true;
       msg.textContent = 'همه ماشین‌ها باز و خریداری شدند! 🎉'; msg.className = 'code-msg ok';
+    } else if (code === '500') {
+      S.maxStage = Math.max(S.maxStage, 500); S.stage = 500;
+      msg.textContent = 'رفتی مرحله ۵۰۰! 🚀 مسابقه شروع می‌شود...'; msg.className = 'code-msg ok';
+      this.save.save(); this.refreshMenu();
+      setTimeout(() => { $('secret').classList.remove('show'); this.startStage(500); }, 1300);
+      return;
     } else if (code === '157127') {
       S.bikesCode = true; msg.textContent = 'همه موتورها برایت باز شدند! 🏍️🔥'; msg.className = 'code-msg ok';
     } else if (code === '100200') {
@@ -459,6 +467,7 @@ class App {
     const L = this.save.data.light;
     this.seg($('lTime'), [['auto', 'خودکار'], ['morning', 'صبح'], ['noon', 'ظهر'], ['sunset', 'غروب'], ['night', 'شب']], L.time, (v) => { L.time = v; this.save.save(); this.applyLight(); });
     this.seg($('lShadow'), [['1', 'روشن'], ['0', 'خاموش']], L.shadows ? '1' : '0', (v) => { L.shadows = v === '1'; this.save.save(); this.applyLight(); });
+    this.seg($('lWeather'), [['clear', '☀️ صاف'], ['rain', '🌧️ بارانی'], ['storm', '⛈️ طوفانی']], L.weather || 'clear', (v) => { L.weather = v; this.save.save(); this.hud.toast(v === 'clear' ? 'هوا صاف شد' : 'در مسابقه و شهر آزاد باران می‌بارد'); });
     for (const [id, key, out] of [['lExp', 'exposure', 'oExp'], ['lSun', 'sun', 'oSun'], ['lAmb', 'ambient', 'oAmb'], ['lBloom', 'bloom', 'oBloom'], ['lFog', 'fog', 'oFog'], ['lCloud', 'clouds', 'oCloud']]) { $(id).value = L[key]; $(out).textContent = toFa(Math.round(L[key] * 100)) + '٪'; }
   }
 }

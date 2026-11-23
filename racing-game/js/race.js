@@ -8,6 +8,7 @@ import { Effects } from './effects.js';
 import { clamp, lerp, damp, wrapAngle, mulberry32, toFa, fmtTime, TAU } from './utils.js';
 
 import { buildBike, bikeById, bikeStats, bikeLooks } from './bikes.js';
+import { skyBirds, Weather } from './cityfx.js';
 export const COINS = [150, 100, 50, 20, 10, 5, 2];
 const RIVAL_NAMES = ['آرش', 'کاوه', 'سارا', 'نیما', 'رها', 'بهرام', 'مانی', 'تینا', 'سهراب', 'یاسمن', 'داریوش', 'پریا'];
 const TIER_KNOTS = [[1, 0], [20, 1], [40, 3.6], [60, 4.6], [80, 5.6], [100, 6.6], [150, 7.6], [200, 8.6], [250, 9.6], [300, 10.6], [400, 11.6], [500, 12.6], [600, 13.6], [700, 14.6], [800, 15.6], [900, 16.6], [950, 17.6], [1000, 18.6]];
@@ -123,6 +124,8 @@ export class Race {
     if (this.info.bossTeam >= 0 && this.track.reservedSeat) this.buildBoss();
     this.buildMinimap();
     this.tvSpots = this.makeTvSpots();
+    this.weather = new Weather(app, this.scene, this.outdoor, app.save.data.light.weather || 'clear');
+    if (!this.night && !this.weather.on) this.birds = skyBirds(this.scene, app.engine.qualityName === 'low' ? 10 : 26, this.track.pointAt(0, 0), 700);
     progress(1, 'آماده'); await tick();
     // کامپایل پیش از شروع برای روانی
     try { app.engine.renderer.compile(this.scene, this.camera); } catch (e) { /* نادیده */ }
@@ -300,7 +303,7 @@ export class Race {
     const steps = Math.ceil(dt / (1 / 120)); const h = dt / steps;
     for (let s = 0; s < steps; s++) {
       for (const r of this.racers) {
-        if (r.isPlayer && !r.finished) this.stepPlayer(r, h, racing ? input : { steer: 0, throttle: input.throttle, brake: 1, handbrake: true, nitro: false }, racing);
+        if (r.isPlayer && !r.finished) this.stepPlayer(r, h, racing ? input : { steer: 0, throttle: input.throttle, brake: 1, reverse: 0, brakeRev: 0, drift: false, nitro: false }, racing);
         else this.stepAI(r, h, racing);
       }
       if (racing) this.collide(h);
@@ -325,6 +328,8 @@ export class Race {
     if (!this._carsInfo) this._carsInfo = this.racers.map((r) => ({ pos: r.pos, team: r.team, place: 0, finished: false }));
     this.racers.forEach((r, k) => { const c = this._carsInfo[k]; c.place = r.place; c.finished = r.finished; c.pos = r.pos; });
     this.track.update(this.t, this._carsInfo, this.camera.position, this.player);
+    this.birds?.update(this.t, dt);
+    this.weather?.update(dt, this.camera, null);
     this.effects.update(dt, app.engine.renderer.domElement.height);
     // صداها
     const p = this.player;
@@ -345,14 +350,22 @@ export class Race {
   // ---------------- فیزیک بازیکن ----------------
   stepPlayer(r, dt, inp, racing) {
     const st = r.stats; const tr = this.track;
-    const nitroOn = racing && inp.nitro && r.nitro > 0 && inp.throttle > 0;
+    // نیترو: با Shift، و در کنترل لمسی به صورت خودکار در مسیر مستقیم با گاز کامل
+    const spd0 = Math.abs(r.vel.x * Math.sin(r.heading) + r.vel.z * Math.cos(r.heading));
+    const autoN = this.app.touchDrive && inp.throttle > 0.9 && Math.abs(inp.steer) < 0.25 && spd0 > st.vmax * 0.45;
+    const nitroOn = racing && (inp.nitro || autoN) && r.nitro > 0 && inp.throttle > 0;
     r.nitroOn = nitroOn;
     if (nitroOn) r.nitro = Math.max(0, r.nitro - dt); else if (st.nitro > 0) r.nitro = Math.min(st.nitro, r.nitro + dt * 0.08);
     const steerRate = Math.abs(inp.steer) > Math.abs(r.steer) ? 5.5 : 9;
     r.steer = damp(r.steer, inp.steer, steerRate, dt);
-    r.throttle = damp(r.throttle, inp.throttle, 10, dt); r.brake = damp(r.brake, inp.brake, 12, dt); r.hand = inp.handbrake;
     let fx = Math.sin(r.heading), fz = Math.cos(r.heading);
     let vf = r.vel.x * fx + r.vel.z * fz;
+    // ترمز فقط ترمز می‌گیرد؛ دنده عقب (یا کشیدن به عقب) اول ترمز و بعد عقب می‌رود
+    const wantBack = Math.max(inp.reverse || 0, inp.brakeRev || 0);
+    const brakeIn = Math.max(inp.brake || 0, vf > 0.6 ? wantBack : 0);
+    const revIn = vf <= 0.6 ? wantBack : 0;
+    r.throttle = damp(r.throttle, inp.throttle, 10, dt); r.brake = damp(r.brake, brakeIn, 12, dt); r.rev = damp(r.rev || 0, revIn, 10, dt);
+    r.hand = !!(inp.drift || inp.handbrake); // دریفت کنترل‌شده (بدون ترمز دستی)
     const speed = Math.abs(vf);
     // سطح زیر چرخ
     const surfGrip = r.surface === 0 ? 1 : r.surface === 1 ? 0.95 : r.surface === 2 ? 0.62 : r.surface === 3 ? 0.48 : 0.9;
@@ -361,10 +374,10 @@ export class Race {
     const wb = r.model.shape.wb;
     let yawT = (vf / wb) * Math.tan(sa);
     const gripLat = st.grip * 9.81 * surfGrip;
-    const yawMax = (gripLat / Math.max(speed, 3)) * (r.hand ? 1.6 : 1.12);
+    const yawMax = (gripLat / Math.max(speed, 3)) * (r.hand ? 1.5 : 1.12);
     yawT = clamp(yawT, -yawMax, yawMax);
-    if (r.hand && speed > 8) yawT *= 1.35;
-    r.yawRate = damp(r.yawRate, yawT, r.hand ? 6 : 9, dt);
+    if (r.hand && speed > 8) yawT *= 1.28;
+    r.yawRate = damp(r.yawRate, yawT, r.hand ? 7 : 9, dt);
     r.heading += r.yawRate * dt;
     fx = Math.sin(r.heading); fz = Math.cos(r.heading);
     const lx = fz, lz = -fx;
@@ -379,16 +392,18 @@ export class Race {
     }
     if (r.brake > 0.02) {
       if (vf > 0.6) acc -= st.brake * r.brake * (0.6 + 0.4 * surfGrip);
-      else if (racing) acc -= st.acc * 0.55 * r.brake * (vf > -9 ? 1 : 0);
+      else if (vf < -0.6) acc += st.brake * r.brake * 0.8;
     }
-    if (r.hand) acc -= Math.sign(vf) * 3.5;
+    if (racing && r.rev > 0.02 && vf > -9) acc -= st.acc * 0.55 * r.rev;
+    if (r.hand && speed > 3) acc -= Math.sign(vf) * 1.1;
     acc -= vf * (0.005 + (r.surface === 2 ? 0.45 : r.surface === 3 ? 0.85 : r.surface === 4 ? 0.12 : 0));
     if (!racing && Math.abs(vf) < 0.3) { vf = 0; acc = 0; }
     const vfOld = vf;
     vf += acc * dt;
-    if (vfOld > 0 && vf < 0 && r.brake > 0 && !(racing && r.brake > 0.5 && Math.abs(vfOld) < 0.7)) vf = Math.max(vf, 0);
+    if (vfOld > 0 && vf < 0 && r.rev < 0.05) vf = 0;
+    if (vfOld < 0 && vf > 0 && r.throttle < 0.05) vf = 0;
     // نیروی جانبی (کشش لاستیک)
-    const latGrip = gripLat * (r.hand ? 0.32 : 1) * 1.05;
+    const latGrip = gripLat * (r.hand ? 0.5 : 1) * 1.05;
     const dvl = Math.min(Math.abs(vl), latGrip * dt);
     vl -= Math.sign(vl) * dvl;
     r.slip = Math.abs(vl) + (r.brake > 0.85 && speed > 18 ? 3 : 0) + (r.throttle > 0.9 && speed < 10 && st.acc > 5 ? 3 : 0);
@@ -450,7 +465,7 @@ export class Race {
       const i = tr.idx(Math.floor((s + x) / DS)); const k = Math.abs(tr.ks[i]) + Math.abs(tr.kappa[i]) * 0.25;
       const vc = Math.sqrt((st.grip * 9.81 * 0.97) / Math.max(k, 1e-4)); vt = Math.min(vt, Math.sqrt(vc * vc + 2 * brake * x));
     }
-    return { steer: clamp(err * 3.2, -1, 1), throttle: v < vt ? 1 : 0, brake: v > vt + 1.5 ? 1 : 0, handbrake: false, nitro: true };
+    return { steer: clamp(err * 3.2, -1, 1), throttle: v < vt ? 1 : 0, brake: v > vt + 1.5 ? 1 : 0, reverse: 0, brakeRev: 0, drift: false, nitro: true };
   }
 
   gearbox(r, vf, st) {
@@ -919,6 +934,7 @@ export class Race {
   }
 
   dispose() {
+    this.weather?.dispose();
     this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose?.(); });
     this.outdoor.envRT?.dispose();
     this.app.audio.silence();

@@ -93,15 +93,16 @@
     </div>
     <div class="skip" id="hSkip">برای رد کردن بزن ⏭</div>
     <div class="touch" id="touch">
-      <div class="tl">
+      <div class="tl steer-btns">
         <button data-touch="left" class="tbtn">◀</button>
         <button data-touch="right" class="tbtn">▶</button>
       </div>
+      <div class="djoy" id="rJoy"><i id="rKnob"></i><span class="jl">گاز</span><span class="jb">عقب</span></div>
       <div class="tr">
-        <button data-touch="hand" class="tbtn small">ترمزدستی</button>
-        <button data-touch="nitro" class="tbtn small nitro">نیترو</button>
-        <button data-touch="brake" class="tbtn">ترمز</button>
-        <button data-touch="gas" class="tbtn gas">گاز</button>
+        <button data-touch="drift" class="tbtn small drift">دریفت</button>
+        <button data-touch="rev" class="tbtn small rev btn-only">دنده عقب</button>
+        <button data-touch="brake" class="tbtn btn-only">ترمز</button>
+        <button data-touch="gas" class="tbtn gas btn-only">گاز</button>
       </div>
     </div>
     <div class="fps" id="hFps"></div>
@@ -130,11 +131,17 @@
     <button class="c-interact" id="cInteract"><span class="ic">🖐</span><span id="cInteractL">تعامل</span></button>
     <div class="c-touch" id="cTouch">
       <div class="joy" id="cJoy"><i id="cKnob"></i></div>
-      <div class="c-tbs">
+      <div class="c-tbs foot-btns">
         <button id="cJump" class="c-tb">⤒<small>پرش</small></button>
         <button id="cRun" class="c-tb">🏃<small>دویدن</small></button>
-        <button id="cBrake" class="c-tb" hidden>⛔<small>ترمزدستی</small></button>
+        <button id="cEmote" class="c-tb">💃<small>رقص</small></button>
       </div>
+      <div class="c-drive" id="cDrive">
+        <div class="cd-steer"><button data-touch="left" class="tbtn">◀</button><button data-touch="right" class="tbtn">▶</button></div>
+        <div class="cd-pedals"><button data-touch="drift" class="tbtn small drift">دریفت</button><button data-touch="rev" class="tbtn small rev">دنده عقب</button><button data-touch="brake" class="tbtn">ترمز</button><button data-touch="gas" class="tbtn gas">گاز</button></div>
+      </div>
+      <button class="tbtn small drift c-jdrift" data-touch="drift" id="cJDrift">دریفت</button>
+      <button id="cHorn" class="c-tb c-horn" hidden>📯<small>بوق</small></button>
     </div>
     <div class="c-offer" id="cOffer" hidden>
       <div class="co-head">📱 ماموریت جدید</div>
@@ -157,8 +164,8 @@
       <button class="mbtn" id="pCam">تغییر دید</button>
       <button class="mbtn" id="pRestart">شروع دوباره</button>
       <button class="mbtn" id="pExit">منوی اصلی</button>
-      <p class="hint keys city-keys">شهر آزاد: W A S D حرکت • Shift دویدن/نیترو • فاصله پرش/ترمزدستی • F یا E تعامل • C دوربین • کشیدن صفحه = چرخاندن دوربین</p>
-      <p class="hint keys race-keys">کلیدها: ↑ گاز • ↓ ترمز • ← → فرمان • فاصله ترمزدستی • Shift نیترو • C دوربین • R برگشت • Q/E نگاه به اطراف</p>
+      <p class="hint keys city-keys">شهر آزاد: W A S D حرکت • Shift دویدن/نیترو • فاصله پرش/دریفت • F یا E تعامل • C دوربین • کشیدن صفحه = چرخاندن دوربین</p>
+      <p class="hint keys race-keys">کلیدها: ↑ گاز • ↓ ترمز و دنده عقب • ← → فرمان • فاصله دریفت • Shift نیترو • C دوربین • R برگشت • Q/E نگاه به اطراف</p>
     </div>
   </section>
 
@@ -272,11 +279,12 @@
         <div class="set-row"><label>حالت بازی</label><div class="seg" id="sMode"></div></div>
         <div class="set-row"><label>ماموریت‌ها در شهر آزاد</label><div class="seg" id="sMis"></div></div>
         <div class="set-row"><label>فاصله ماموریت‌ها</label><div class="seg" id="sMisT"></div></div>
+        <div class="set-row"><label>کنترل لمسی رانندگی (مسابقه و شهر آزاد)</label><div class="seg" id="sDrive"></div></div>
         <div class="set-row"><label>دید پیش‌فرض دوربین</label><div class="seg" id="sCam"></div></div>
         <div class="set-row"><label>دکمه‌های لمسی</label><div class="seg" id="sTouch"></div></div>
         <div class="set-row"><label>نمایش FPS</label><div class="seg" id="sFps"></div></div>
         <div class="set-row"><label>پاک کردن پیشرفت بازی</label><button class="mbtn danger" id="sReset">پاک کردن</button></div>
-        <p class="hint dark">راهنما: با فلش‌ها یا W A S D رانندگی کن. فاصله = ترمزدستی برای دریفت، Shift = نیترو، C = تغییر دید.</p>
+        <p class="hint dark">راهنما: با فلش‌ها یا W A S D رانندگی کن. فلش پایین = ترمز و دنده عقب، فاصله = دریفت، Shift = نیترو، C = تغییر دید. روی گوشی می‌توانی بین جوی‌استیک و دکمه‌های گاز، ترمز، دنده عقب و دریفت انتخاب کنی.</p>
       </div>
     </div>
     <button id="secretDot" class="secret-dot" aria-label="نقطه"></button>
@@ -305,6 +313,7 @@
       <div class="set-row col"><label for="lBloom">درخشش چراغ‌ها <output id="oBloom"></output></label><input type="range" id="lBloom" min="0" max="1.5" step="0.05"></div>
       <div class="set-row col"><label for="lFog">مه <output id="oFog"></output></label><input type="range" id="lFog" min="0.3" max="3" step="0.05"></div>
       <div class="set-row col"><label for="lCloud">ابر <output id="oCloud"></output></label><input type="range" id="lCloud" min="0" max="2" step="0.05"></div>
+      <div class="set-row col"><label>آب و هوا</label><div class="seg wrap" id="lWeather"></div></div>
       <div class="set-row"><label>سایه‌ها</label><div class="seg" id="lShadow"></div></div>
       <button class="mbtn" id="lReset">بازگشت به حالت پیش‌فرض</button>
     </aside>
