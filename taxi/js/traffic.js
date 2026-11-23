@@ -193,6 +193,19 @@ export class TrafficCar {
       const gap = f - 4.8;
       target = Math.min(target, Math.max(0, gap - 1.5) * 0.85);
     }
+    // a closed level crossing: wait at the stop line before the gate (never stop past the track)
+    const rw = mgr.game.railway;
+    if (rw && rw.closed) {
+      const c = rw.centre;
+      const cf = (c.x - this.pos.x) * fx + (c.z - this.pos.z) * fz;
+      for (const sp of rw.stopPoints()) {
+        const rx = sp.x - this.pos.x, rz = sp.z - this.pos.z;
+        const f = rx * fx + rz * fz;
+        if (f <= -0.5 || f > 50 || f > cf) continue;
+        if (Math.abs(rx * fz - rz * fx) > 7.5) continue;
+        target = Math.min(target, Math.max(0, (f - 1) * 0.55));
+      }
+    }
     const acc = target > this.speed ? 2.8 : 8;
     this.speed = damp(this.speed, Math.max(0, target), acc * 0.5, dt);
     if (target <= 0.05 && this.speed < 0.5) this.speed = Math.max(0, this.speed - 4 * dt);

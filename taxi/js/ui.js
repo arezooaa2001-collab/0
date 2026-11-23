@@ -688,6 +688,7 @@ export class UI {
       if (bi) icon(bi.x, bi.z, bi.col, 12, bi.txt);
       const ti = g.tornado.mapIcon();
       if (ti) icon(ti.x, ti.z, ti.col, 12, ti.txt);
+      for (const ic of g.railway.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
       for (const ic of g.hunt.mapIcons()) icon(ic.x, ic.z, ic.col, 9, ic.txt);
     }
     else {
@@ -804,6 +805,7 @@ export class UI {
     if (bi) dot(bi.x, bi.z, bi.col, bi.txt);
     const ti = g.tornado.mapIcon();
     if (ti) dot(ti.x, ti.z, ti.col, ti.txt);
+    for (const ic of g.railway.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     for (const ic of g.hunt.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     {
       const sp = w.stuntPark;

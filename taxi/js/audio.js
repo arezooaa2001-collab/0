@@ -200,6 +200,7 @@ export class AudioSys {
     this.tone(70, 0.12, 0.22 * k, 'sine');
   }
   horn(on) {
+    this.hornOn = !!on;
     if (!this.ctx) return;
     const type = this.hornType || 'classic';
     if (type === 'classic') {

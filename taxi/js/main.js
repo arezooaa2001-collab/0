@@ -44,6 +44,7 @@ import { PhotoHunt } from './photohunt.js';
 import { ZombieNight } from './zombie.js';
 import { Phone } from './phone.js';
 import { Grass } from './grass.js';
+import { Railway } from './railway.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -184,6 +185,7 @@ class Game {
     this.extras = new Extras(this);
     this.tornado = new Tornado(this);
     this.soccer = new Soccer(this);
+    this.railway = new Railway(this);
     this.hunt = new PhotoHunt(this);
     this.zombie = new ZombieNight(this);
     this.ambient = new Ambient(this);
@@ -1195,6 +1197,7 @@ class Game {
     this.tornado.update(dt);
     this.soccer.update(dt);
     this.zombie.update(dt);
+    this.railway.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);

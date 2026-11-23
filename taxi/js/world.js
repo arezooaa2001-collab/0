@@ -431,6 +431,7 @@ export class World {
     this.places = PLACES.map((p) => this.makePlace(p));
     this.setupStations();
     this.setupRamps();
+    this.setupRail();
     this.buildHeights();
     this.buildTerrain();
     this.buildRoadMeshes();
@@ -569,6 +570,18 @@ export class World {
     if (this.roadDist(x, z) < 8) h = Math.max(h, 0.02);
     if (this.rampsReady) h = Math.max(h, this.rampHeight(x, z));
     return h;
+  }
+  /* ---------- railway corridor (the train itself lives in railway.js) ---------- */
+  setupRail() {
+    // a straight line through the farmland west of the city, a tunnel mound at each end
+    this.rail = { x: -1000, z0: -760, z1: 760, mound: 34 };
+    for (let z = this.rail.z0 - 40; z <= this.rail.z1 + 40; z += 16) this.flats.push({ x: this.rail.x, z, r: 9 });
+  }
+  onRail(x, z, pad = 0) {
+    const R = this.rail;
+    if (!R) return false;
+    if (Math.abs(x - R.x) < 4 + pad && z > R.z0 - 20 - pad && z < R.z1 + 20 + pad) return true;
+    return Math.hypot(x - R.x, z - (R.z1 + R.mound * 0.8)) < R.mound + pad || Math.hypot(x - R.x, z - (R.z0 - R.mound * 0.8)) < R.mound + pad;
   }
   /* ---------- stunt ramps ---------- */
   setupRamps() {
@@ -1288,6 +1301,7 @@ export class World {
 
   /* ---------- regions decor ---------- */
   addVeg(type, x, z, s = 1, color) {
+    if (this.onRail(x, z, 3)) return;
     if (!this.scatter.has(type)) this.scatter.set(type, []);
     const y = this.heightAt(x, z);
     this.scatter.get(type).push({ x, y, z, s, r: rand() * Math.PI * 2, color });
@@ -1334,6 +1348,7 @@ export class World {
     if (this.lot && Math.abs(x - this.lot.x) < this.lot.w / 2 + 12 && Math.abs(z - this.lot.z) < this.lot.d / 2 + 12) return false;
     if (this.onDrag(x, z, 24)) return false;
     if (this.onPitch(x, z, 22)) return false;
+    if (this.onRail(x, z, 14)) return false;
     if (this.ramps) for (const r of this.ramps) if (!r.park && Math.hypot(x - r.x - (Math.sin(r.rot) * r.len) / 2, z - r.z - (Math.cos(r.rot) * r.len) / 2) < r.len / 2 + 6) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
@@ -1468,7 +1483,7 @@ export class World {
           for (let tries2 = 0; tries2 < 10; tries2++) {
             const a = rand() * Math.PI * 2, r = rr(r0, r1);
             const x = bx + Math.cos(a) * r, z = bz + Math.sin(a) * r;
-            if (this.roadDist(x, z) < 15) continue;
+            if (this.roadDist(x, z) < 15 || this.onRail(x, z, 14)) continue;
             house(style, x, z, rot + Math.round(rand() * 3) * (Math.PI / 2));
             break;
           }
@@ -1928,6 +1943,24 @@ export class World {
       g.fillRect((D.x - D.hw + HALF) * k, (D.z0 - 50 + HALF) * k, D.hw * 2 * k, (D.z1 - D.z0 + 50) * k);
       g.fillStyle = '#fff';
       g.fillRect((D.x - D.hw + HALF) * k, (D.z0 + D.len + HALF) * k - 1, D.hw * 2 * k, 2);
+    }
+    if (this.rail) {
+      // the railway: a dark line with white ties
+      const R = this.rail;
+      g.strokeStyle = '#2b2622';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo((R.x + HALF) * k, (R.z0 + HALF) * k);
+      g.lineTo((R.x + HALF) * k, (R.z1 + HALF) * k);
+      g.stroke();
+      g.strokeStyle = '#e9e2d0';
+      g.lineWidth = 1;
+      for (let z = R.z0; z <= R.z1; z += 18) {
+        g.beginPath();
+        g.moveTo((R.x - 4 + HALF) * k, (z + HALF) * k);
+        g.lineTo((R.x + 4 + HALF) * k, (z + HALF) * k);
+        g.stroke();
+      }
     }
     for (const pass of [0, 1]) {
       for (const r of this.roads) {
