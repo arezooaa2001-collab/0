@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCar, buildCarCover } from './cars.js';
+import { buildBike } from './bikes.js';
 import { PATTERN_UNIFORMS } from './human.js';
 import * as T from './textures.js';
 import { clamp, damp, lerp } from './utils.js';
@@ -118,6 +119,18 @@ export class Garage {
     }
     this.lock.visible = covered;
     if (this.inside && !this.model) this.inside = false;
+  }
+
+  // نمایش موتورسیکلت روی سکوی گردان (قفل‌ها با قفل طلایی بالای سرشان)
+  setBike(def, { locked = true } = {}) {
+    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); c.traverse((o) => o.geometry?.dispose?.()); }
+    this.covered = false; this.inside = false;
+    const m = buildBike(def, { isPlayer: true, rider: false });
+    m.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    m.root.scale.setScalar(1.25);
+    this.carHolder.add(m.root); this.model = null; this.bike = m;
+    m.setVisualState({ steer: 0.3, spin: 0, latAcc: 0 });
+    this.lock.visible = locked;
   }
 
   toggleInside() { if (!this.model) return false; this.inside = !this.inside; this.lookYaw = 0; this.lookPitch = 0; return this.inside; }

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Outdoor } from './engine.js';
 import { buildCar } from './cars.js';
+import { buildBike } from './bikes.js';
 import { PATTERN_UNIFORMS, createCrowd } from './human.js';
 import * as T from './textures.js';
 import { mulberry32, optimizeStatic } from './utils.js';
@@ -60,6 +61,12 @@ export class Showcase {
     m.root.rotation.y = Math.PI * 0.08; m.setVisualState({ steer: -0.3 });
     this.carHolder.add(m.root); this.model = m;
     if (this.beam) this.beam = null;
+  }
+  setBike(def) {
+    while (this.carHolder.children.length) this.carHolder.remove(this.carHolder.children[0]);
+    const m = buildBike(def, { isPlayer: true, rider: true });
+    m.root.rotation.y = Math.PI * 0.08; m.root.scale.setScalar(1.15); m.setVisualState({ steer: -0.3, latAcc: 0 });
+    this.carHolder.add(m.root); this.model = m;
   }
   applyLight(timeKey, light) {
     this.outdoor.apply(timeKey, light);

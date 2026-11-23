@@ -385,3 +385,107 @@ export function makeCanvasTexture(w, h) {
 }
 
 export { FONT };
+
+// ---------------- تکسچرهای شهر آزاد ----------------
+export function cityRoad() {
+  return cached('cityRoad', () => {
+    const W = 512, H = 512; const c = cv(W, H); const ctx = c.getContext('2d');
+    const base = asphalt().map.image; ctx.drawImage(base, 0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(0, 0, W, H);
+    const px = (m) => (m / 16) * W;
+    ctx.fillStyle = '#ecebe4'; ctx.fillRect(px(0.4), 0, px(0.18), H); ctx.fillRect(px(15.42), 0, px(0.18), H);
+    ctx.fillStyle = '#f2c230'; ctx.fillRect(px(7.82), 0, px(0.14), H); ctx.fillRect(px(8.04), 0, px(0.14), H);
+    ctx.fillStyle = '#ecebe4'; for (const x of [4, 12]) for (let y = 0; y < H; y += H / 4) ctx.fillRect(px(x - 0.08), y, px(0.16), H / 8);
+    const t = toTex(c); return t;
+  });
+}
+export function crosswalk() {
+  return cached('crosswalk', () => { const c = cv(256, 64); const ctx = c.getContext('2d'); ctx.clearRect(0, 0, 256, 64); ctx.fillStyle = '#f1f0ea'; for (let i = 0; i < 8; i++) ctx.fillRect(i * 32 + 6, 0, 20, 64); return toTex(c); });
+}
+export function sidewalk() {
+  return cached('sidewalk', () => {
+    const S = 256, rng = mulberry32(21); const c = cv(S); const ctx = c.getContext('2d');
+    ctx.drawImage(concrete().image, 0, 0, S, S);
+    ctx.strokeStyle = 'rgba(60,60,60,0.45)'; ctx.lineWidth = 2;
+    for (let i = 0; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(i * S / 4, 0); ctx.lineTo(i * S / 4, S); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * S / 4); ctx.lineTo(S, i * S / 4); ctx.stroke(); }
+    for (let i = 0; i < 60; i++) { ctx.fillStyle = `rgba(0,0,0,${rng() * 0.08})`; ctx.beginPath(); ctx.arc(rng() * S, rng() * S, rng() * 6, 0, 7); ctx.fill(); }
+    return toTex(c);
+  });
+}
+export function brick(color = '#a4492f') {
+  return cached('brick' + color, () => {
+    const S = 256, rng = mulberry32(31); const c = cv(S); const ctx = c.getContext('2d');
+    ctx.fillStyle = '#c9c1b5'; ctx.fillRect(0, 0, S, S);
+    const bh = S / 8, bw = S / 4; const base = new THREE.Color(color);
+    for (let r = 0; r < 8; r++) for (let k = -1; k < 5; k++) {
+      const x = k * bw + (r % 2 ? bw / 2 : 0); const v = 0.85 + rng() * 0.3; const cc = base.clone().multiplyScalar(v);
+      ctx.fillStyle = '#' + cc.getHexString(); ctx.fillRect(x + 2, r * bh + 2, bw - 4, bh - 4);
+    }
+    return toTex(c);
+  });
+}
+export function plaster() {
+  return cached('plaster', () => {
+    const S = 256, rng = mulberry32(41); const n = periodicNoise(S, 6, rng, 5); const c = cv(S); const ctx = c.getContext('2d'); const img = ctx.createImageData(S, S);
+    for (let i = 0; i < S * S; i++) { const v = 225 + (n[i] - 0.5) * 40 + (rng() - 0.5) * 10; img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255; }
+    ctx.putImageData(img, 0, 0); return toTex(c);
+  });
+}
+export function roofTiles(color = '#9c3b22') {
+  return cached('roof' + color, () => {
+    const S = 256, rng = mulberry32(51); const c = cv(S); const ctx = c.getContext('2d'); const base = new THREE.Color(color);
+    ctx.fillStyle = '#' + base.clone().multiplyScalar(0.5).getHexString(); ctx.fillRect(0, 0, S, S);
+    for (let r = 0; r < 10; r++) for (let k = -1; k < 9; k++) {
+      const x = k * 32 + (r % 2 ? 16 : 0), y = r * 26; const v = 0.8 + rng() * 0.35;
+      const g = ctx.createLinearGradient(0, y, 0, y + 26); g.addColorStop(0, '#' + base.clone().multiplyScalar(v * 1.15).getHexString()); g.addColorStop(1, '#' + base.clone().multiplyScalar(v * 0.7).getHexString());
+      ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x + 1, y, 30, 28, [0, 0, 12, 12]); ctx.fill();
+    }
+    return toTex(c);
+  });
+}
+export function woodFloor() {
+  return cached('wood', () => {
+    const S = 512, rng = mulberry32(61); const c = cv(S); const ctx = c.getContext('2d');
+    for (let r = 0; r < 8; r++) for (let k = -1; k < 4; k++) {
+      const x = k * 170 + (r % 2 ? 85 : 0), y = r * 64; const v = 0.75 + rng() * 0.35;
+      ctx.fillStyle = `rgb(${150 * v | 0},${98 * v | 0},${58 * v | 0})`; ctx.fillRect(x, y, 168, 62);
+      for (let l = 0; l < 14; l++) { ctx.strokeStyle = `rgba(60,30,10,${0.08 + rng() * 0.12})`; ctx.lineWidth = 1; ctx.beginPath(); const yy = y + rng() * 62; ctx.moveTo(x, yy); ctx.bezierCurveTo(x + 50, yy + rng() * 6 - 3, x + 110, yy + rng() * 6 - 3, x + 168, yy); ctx.stroke(); }
+    }
+    return toTex(c);
+  });
+}
+export function tiles(color = '#e8e4dc', size = 8) {
+  return cached('tiles' + color + size, () => {
+    const S = 256; const c = cv(S); const ctx = c.getContext('2d');
+    ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, S, S);
+    const t = S / size; const base = new THREE.Color(color); const rng = mulberry32(71);
+    for (let i = 0; i < size; i++) for (let j = 0; j < size; j++) { ctx.fillStyle = '#' + base.clone().multiplyScalar(0.94 + rng() * 0.08).getHexString(); ctx.fillRect(i * t + 1.5, j * t + 1.5, t - 3, t - 3); }
+    return toTex(c);
+  });
+}
+export function facade(color = '#8aa0b8', night = false) {
+  return cached('facade' + color + night, () => {
+    const W = 256, H = 512, rng = mulberry32(81); const c = cv(W, H); const ctx = c.getContext('2d');
+    ctx.fillStyle = night ? '#000' : color; ctx.fillRect(0, 0, W, H);
+    for (let r = 0; r < 8; r++) for (let k = 0; k < 4; k++) {
+      const x = k * 64 + 10, y = r * 64 + 12; const lit = rng() < 0.45;
+      if (night) { ctx.fillStyle = lit ? `rgba(255,${200 + rng() * 40 | 0},${120 + rng() * 60 | 0},1)` : '#000'; }
+      else { const g = ctx.createLinearGradient(x, y, x + 44, y + 44); g.addColorStop(0, '#9fc3dd'); g.addColorStop(1, '#2d4a63'); ctx.fillStyle = g; }
+      ctx.fillRect(x, y, 44, 42);
+      if (!night) { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(x, y, 44, 4); }
+    }
+    return toTex(c);
+  });
+}
+export function painting(seed = 1) {
+  return cached('paint' + seed, () => {
+    const c = cv(256, 192); const ctx = c.getContext('2d'); const rng = mulberry32(seed * 13 + 5);
+    const g = ctx.createLinearGradient(0, 0, 0, 192); g.addColorStop(0, `hsl(${rng() * 360},60%,70%)`); g.addColorStop(1, `hsl(${rng() * 360},55%,40%)`); ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 192);
+    for (let i = 0; i < 9; i++) { ctx.fillStyle = `hsla(${rng() * 360},70%,${40 + rng() * 40}%,0.85)`; ctx.beginPath(); ctx.arc(rng() * 256, rng() * 192, 10 + rng() * 50, 0, 7); ctx.fill(); }
+    ctx.fillStyle = 'rgba(30,60,30,0.8)'; ctx.beginPath(); ctx.moveTo(0, 150); for (let x = 0; x <= 256; x += 16) ctx.lineTo(x, 130 + Math.sin(x * 0.05 + seed) * 18); ctx.lineTo(256, 192); ctx.lineTo(0, 192); ctx.fill();
+    return toTex(c, { repeat: false });
+  });
+}
+export function stripes(a = '#e3141c', b = '#ffffff', n = 12) {
+  return cached('stripes' + a + b + n, () => { const c = cv(512, 64); const ctx = c.getContext('2d'); for (let i = 0; i < n; i++) { ctx.fillStyle = i % 2 ? b : a; ctx.fillRect(i * 512 / n, 0, 512 / n + 1, 64); } return toTex(c); });
+}

@@ -11,9 +11,11 @@ import { Race, stageInfo, rivalProfiles, COINS } from './race.js';
 import { Track, TEAM_NAMES } from './track.js';
 import { CARS, CUSTOM, PAINTS, UPGRADES, MAX_UP, upgradeCost, carStats, defaultCustom, defaultUpgrades, looksScore, carById, carIndex } from './cars.js';
 import { toFa, fromFa, fmtNum, isTouch, clamp } from './utils.js';
+import { BIKES, bikeById, bikeStats } from './bikes.js';
+import { FreeRoam, bindCityUI } from './freeroam.js';
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'stage', 'hud', 'pause', 'judge', 'results', 'replay', 'shop', 'custom', 'settings', 'secret', 'light'];
+const SCREENS = ['loading', 'menu', 'stage', 'hud', 'pause', 'judge', 'results', 'replay', 'shop', 'bikes', 'custom', 'settings', 'secret', 'light', 'city'];
 
 class App {
   constructor() { this.mode = 'none'; this.last = performance.now(); this.stageSel = 1; this.gi = 0; this.cTab = 'look'; }
@@ -40,12 +42,12 @@ class App {
     this.updateShowcaseCar();
     this.applyLight();
     this.loadProgress(0.8, 'آماده‌سازی منوها');
-    this.bindMenus(); this.bindStage(); this.bindRaceUI(); this.bindShop(); this.bindCustom(); this.bindSettings(); this.bindSecret(); this.bindLight();
+    this.bindMenus(); this.bindStage(); this.bindRaceUI(); this.bindShop(); this.bindBikes(); this.bindCustom(); this.bindSettings(); this.bindSecret(); this.bindLight(); bindCityUI(this);
     this.refreshMenu();
     this.loadProgress(1, 'آماده!');
     requestAnimationFrame((t) => this.loop(t));
     await tick(); this.go('menu'); this.booted = true;
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.race && this.mode === 'race' && !this.race.paused && this.race.phase !== 'results' && this.race.phase !== 'replay') this.togglePause(true); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && this.city && this.mode === 'city' && !this.city.paused) this.toggleCityPause(true); if (document.hidden && this.race && this.mode === 'race' && !this.race.paused && this.race.phase !== 'results' && this.race.phase !== 'replay') this.togglePause(true); });
     const unlockAudio = () => { this.audio.init(); window.removeEventListener('pointerdown', unlockAudio); };
     window.addEventListener('pointerdown', unlockAudio);
   }
@@ -57,6 +59,8 @@ class App {
   go(name) {
     if (this.booted) this.audio.init();
     if (name === 'menu') { this.mode = 'showcase'; this.applyLight(); this.show('menu'); this.refreshMenu(); this.garage && (this.garage.active = false); }
+    else if (name === 'stage' && this.save.data.settings.mode === 'city') { this.startCity(); }
+    else if (name === 'bikes') { this.ensureGarage(); this.mode = 'garage'; this.garage.active = true; this.garage.inside = false; this.bi = Math.max(0, BIKES.findIndex((b) => b.id === this.save.data.bike)); this.renderBikes(); this.show('bikes'); }
     else if (name === 'stage') { this.mode = 'showcase'; this.stageSel = this.save.data.stage || this.save.data.maxStage; this.renderStage(); this.show('stage'); }
     else if (name === 'shop') { this.ensureGarage(); this.mode = 'garage'; this.garage.active = true; this.garage.inside = false; this.gi = carIndex(this.save.data.selected); this.renderShop(); this.show('shop'); }
     else if (name === 'custom') { this.ensureGarage(); this.mode = 'garage'; this.garage.active = true; this.garage.inside = false; this.renderCustom(true); this.show('custom'); }
@@ -69,12 +73,15 @@ class App {
   // وقتی برنامه اندروید به پس‌زمینه می‌رود
   onAndroidPause() {
     if (this.race && this.mode === 'race' && !this.race.paused && this.race.phase !== 'results' && this.race.phase !== 'replay') this.togglePause(true);
+    if (this.city && this.mode === 'city' && !this.city.paused) this.toggleCityPause(true);
     this.audio.silence();
   }
 
   // دکمه برگشت گوشی (نسخه اندروید): true یعنی بازی آن را مدیریت کرد
   handleBack() {
     if ($('secret').classList.contains('show')) { $('secret').classList.remove('show'); return true; }
+    if (!$('bSoon').hidden) { $('bSoon').hidden = true; return true; }
+    if (this.mode === 'city' && this.city) { this.toggleCityPause(); return true; }
     if (this.mode === 'race' && this.race) {
       if (this.race.phase === 'replay') { $('rpExit').click(); return true; }
       if (this.race.phase === 'results') { this.exitRace(); return true; }
@@ -89,6 +96,7 @@ class App {
     const n = Math.max(1, Math.round(sec / step));
     for (let k = 0; k < n; k++) {
       if (this.race && this.mode === 'race') { this.race.skipDraw = k < n - 1; this.race.update(step); this.race.skipDraw = false; }
+      else if (this.city && this.mode === 'city') { this.city.skipDraw = k < n - 1; this.city.update(step); this.city.skipDraw = false; }
       else if (this.mode === 'garage' && this.garage) { if (k === n - 1) this.garage.update(step); }
       else if (this.mode === 'showcase' && k === n - 1) this.showcase.update(step);
       this.input.clearPressed();
@@ -99,6 +107,7 @@ class App {
     if (this.manual) { requestAnimationFrame((tt) => this.loop(tt)); return; }
     try {
       if (this.mode === 'race' && this.race) this.race.update(dt);
+      else if (this.mode === 'city' && this.city) this.city.update(dt);
       else if (this.mode === 'garage' && this.garage) this.garage.update(dt);
       else if (this.mode === 'showcase') this.showcase.update(dt);
       if (this.mode !== 'none') this.engine.trackPerf(dt);
@@ -113,10 +122,10 @@ class App {
   }
   refreshMenu() {
     const S = this.save.data;
-    $('mCoins').textContent = fmtNum(S.coins); $('mLevel').textContent = toFa(S.maxStage); $('mCar').textContent = carById(S.selected).name;
+    $('mCoins').textContent = fmtNum(S.coins); $('mLevel').textContent = toFa(S.maxStage); $('mCar').textContent = this.usingBike() ? bikeById(S.bike).name : carById(S.selected).name;
     document.querySelectorAll('.coins-v').forEach((e) => { e.textContent = fmtNum(S.coins); });
   }
-  updateShowcaseCar() { const S = this.save.data; const def = carById(S.selected); this.showcase.setCar(def, S.custom[def.id] || defaultCustom(def)); this.applyLight(); }
+  updateShowcaseCar() { const S = this.save.data; if (this.usingBike()) this.showcase.setBike(bikeById(S.bike)); else { const def = carById(S.selected); this.showcase.setCar(def, S.custom[def.id] || defaultCustom(def)); } this.applyLight(); }
   lightTimeFor(level) { const L = this.save.data.light; return L.time === 'auto' ? stageInfo(level || this.save.data.maxStage, 'auto').time : L.time; }
   applyLight() { this.showcase.applyLight(this.lightTimeFor(), this.save.data.light); }
 
@@ -144,13 +153,14 @@ class App {
       <div class="it"><small>تعداد پیچ</small><b>${toFa(tr.corners.length)}</b></div>
       <div class="it"><small>سرعت رقبا</small><b>حدود ${toFa(strength)} کیلومتر</b></div>
       <div class="it" style="grid-column:1/-1"><small>ماشین رقبا</small><b>${rc}</b></div>
-      <div class="it" style="grid-column:1/-1"><small>ماشین تو</small><b>${carById(this.save.data.selected).name} • حداکثر ${toFa(Math.round(carStats(carById(this.save.data.selected), this.save.data.upgrades[this.save.data.selected]).vmax * 3.6))} کیلومتر</b></div>
+      <div class="it" style="grid-column:1/-1"><small>${this.usingBike() ? 'موتور تو' : 'ماشین تو'}</small><b>${this.usingBike() ? bikeById(this.save.data.bike).name + ' • حداکثر ' + toFa(bikeById(this.save.data.bike).top) + ' کیلومتر' : carById(this.save.data.selected).name + ' • حداکثر ' + toFa(Math.round(carStats(carById(this.save.data.selected), this.save.data.upgrades[this.save.data.selected]).vmax * 3.6)) + ' کیلومتر'}</b></div>
       ${boss}`;
   }
 
   async startStage(level) {
     this.audio.init();
     if (this.race) { this.race.dispose(); this.race = null; }
+    if (this.city) { this.city.dispose(); this.city = null; }
     this.mode = 'none'; this.show('loading'); this.loadProgress(0, 'ساخت مرحله ' + toFa(level));
     this.save.data.stage = level; this.save.save();
     await tick();
@@ -172,10 +182,10 @@ class App {
     $('hReset').addEventListener('click', () => this.race?.phase === 'race' && this.race.resetPlayer());
     $('hPause').addEventListener('click', () => this.togglePause());
     $('hSkip').addEventListener('click', () => { if (this.race) this.race.skipFlag = true; });
-    $('pResume').addEventListener('click', () => this.togglePause(false));
-    $('pCam').addEventListener('click', () => this.race?.cycleCamera());
+    $('pResume').addEventListener('click', () => (this.mode === 'city' ? this.toggleCityPause(false) : this.togglePause(false)));
+    $('pCam').addEventListener('click', () => (this.mode === 'city' ? this.city?.cycleCamera() : this.race?.cycleCamera()));
     $('pRestart').addEventListener('click', () => { const lv = this.race.cfg.level; this.togglePause(false); this.startStage(lv); });
-    $('pExit').addEventListener('click', () => { this.togglePause(false); this.exitRace(); });
+    $('pExit').addEventListener('click', () => { if (this.mode === 'city') { this.toggleCityPause(false); this.exitCity(); return; } this.togglePause(false); this.exitRace(); });
     $('rReplay').addEventListener('click', () => { if (this.race?.startReplay()) { this.show('replay'); } });
     $('rNext').addEventListener('click', () => this.startStage(Math.min(1000, this.race.cfg.level + 1)));
     $('rRetry').addEventListener('click', () => this.startStage(this.race.cfg.level));
@@ -200,6 +210,8 @@ class App {
     window.addEventListener('keydown', (e) => { if (e.code === 'Enter' && this.race && (this.race.phase === 'boss' || this.race.phase === 'intro')) this.race.skipFlag = true; });
   }
   togglePause(force) {
+    if (this.mode === 'city') return this.toggleCityPause(force);
+    $('pause').classList.remove('citymode');
     const r = this.race; if (!r || r.phase === 'results' || r.phase === 'replay') return;
     r.paused = force !== undefined ? force : !r.paused;
     $('pause').classList.toggle('show', r.paused);
@@ -220,6 +232,7 @@ class App {
     this.save.save(); this.refreshMenu();
     this.lastResultInfo = { coins, advanced, total: S.coins };
     const newCars = advanced ? CARS.filter((c) => c.unlock === S.maxStage) : [];
+    if (advanced && S.maxStage === 101 && !S.bikesCode) setTimeout(() => this.hud.toast('تبریک! ۱۰۰ مرحله را رد کردی و همه موتورها باز شدند 🏍️'), 4200);
     setTimeout(() => {
       if (this.race !== race) return;
       this.hud.showResults(result, race, this.lastResultInfo);
@@ -255,19 +268,77 @@ class App {
     $('gInside').style.display = st.visible ? '' : 'none';
     const s = $('gStatus'); const a = $('gAction'); a.disabled = false;
     s.className = 'g-status';
-    if (st.owned) { s.textContent = st.selected ? 'این ماشین الان ماشین توست ✓' : 'این ماشین را داری'; s.classList.add('own'); a.textContent = st.selected ? 'انتخاب شده' : 'انتخاب این ماشین'; a.disabled = st.selected; }
+    if (st.owned) { const sel = st.selected && !this.usingBike(); s.textContent = sel ? 'این ماشین الان ماشین توست ✓' : 'این ماشین را داری'; s.classList.add('own'); a.textContent = sel ? 'انتخاب شده' : 'انتخاب این ماشین'; a.disabled = sel; }
     else if (st.unlocked) { s.textContent = 'قابل خرید است • قیمت: ' + fmtNum(c.price) + ' سکه'; a.textContent = S.coins >= c.price ? 'خرید با ' + fmtNum(c.price) + ' سکه' : 'سکه کافی نداری (' + fmtNum(c.price) + ')'; a.disabled = S.coins < c.price; }
     else { s.textContent = '🔒 قفل است • در سطح ' + toFa(c.unlock) + ' قابل خرید می‌شود (با پول باز نمی‌شود)'; s.classList.add('lock'); a.textContent = 'قفل'; a.disabled = true; }
   }
   shopAction() {
     const c = CARS[this.gi]; const st = this.carState(c); const S = this.save.data;
-    if (st.owned) { S.selected = c.id; }
+    if (st.owned) { S.selected = c.id; S.vehicle = 'car'; }
     else if (st.unlocked && S.coins >= c.price) {
-      S.coins -= c.price; S.owned.push(c.id); S.selected = c.id;
+      S.coins -= c.price; S.owned.push(c.id); S.selected = c.id; S.vehicle = 'car';
       S.custom[c.id] = S.custom[c.id] || defaultCustom(c); S.upgrades[c.id] = S.upgrades[c.id] || defaultUpgrades();
       this.hud.toast('تبریک! ' + c.name + ' مال تو شد');
     } else return;
     this.save.save(); this.refreshMenu(); this.renderShop(); this.updateShowcaseCar();
+  }
+
+  // ---------------- گاراژ موتورها ----------------
+  bikesOpen() { const S = this.save.data; return !!S.bikesCode || S.maxStage > 100; }
+  usingBike() { return this.save.data.vehicle === 'bike' && this.bikesOpen(); }
+  bindBikes() {
+    this.bi = 0;
+    $('bPrev').addEventListener('click', () => { this.bi = (this.bi - 1 + BIKES.length) % BIKES.length; this.renderBikes(); });
+    $('bNext').addEventListener('click', () => { this.bi = (this.bi + 1) % BIKES.length; this.renderBikes(); });
+    $('bAction').addEventListener('click', () => this.bikeAction());
+    $('bSoon').addEventListener('click', () => { $('bSoon').hidden = true; });
+  }
+  renderBikes() {
+    const b = BIKES[this.bi]; const S = this.save.data; const open = this.bikesOpen();
+    this.garage.setBike(b, { locked: !open });
+    $('bIdx').textContent = toFa(this.bi + 1) + ' از ' + toFa(BIKES.length);
+    $('bName').textContent = b.name; $('bClass').textContent = 'کلاس ' + b.class;
+    const st = bikeStats(b);
+    const rows = [['سرعت', st.vmax * 3.6 / 480, toFa(b.top) + ' km'], ['شتاب', st.acc / 14, toFa(st.acc.toFixed(1))], ['فرمان‌پذیری', st.grip / 2.1, toFa(st.grip.toFixed(2))], ['ترمز', st.brake / 17, toFa(st.brake.toFixed(1))]];
+    $('bStats').innerHTML = rows.map(([n, f, v]) => `<div class="stat"><span>${n}</span><div class="sb"><i style="width:${Math.round(clamp(f, 0.03, 1) * 100)}%"></i></div><span>${v}</span></div>`).join('');
+    const s = $('bStatus'); const a = $('bAction'); s.className = 'g-status'; a.disabled = false;
+    const using = this.usingBike() && S.bike === b.id;
+    if (!open) { s.textContent = '🔒 قفل است'; s.classList.add('lock'); a.textContent = 'استفاده از این موتور'; }
+    else if (using) { s.textContent = 'الان با این موتور بازی می‌کنی ✓'; s.classList.add('own'); a.textContent = 'در حال استفاده'; a.disabled = true; }
+    else { s.textContent = 'باز است و می‌توانی از آن استفاده کنی'; s.classList.add('own'); a.textContent = 'استفاده از این موتور'; }
+  }
+  bikeAction() {
+    const b = BIKES[this.bi]; const S = this.save.data;
+    if (!this.bikesOpen()) { const el = $('bSoon'); el.hidden = false; clearTimeout(this._soonT); this._soonT = setTimeout(() => { el.hidden = true; }, 2600); return; }
+    S.vehicle = 'bike'; S.bike = b.id; this.save.save(); this.refreshMenu(); this.renderBikes(); this.updateShowcaseCar();
+    this.hud.toast(b.name + ' انتخاب شد؛ در مسابقه و شهر آزاد سوارش می‌شوی 🏍️');
+  }
+
+  // ---------------- شهر آزاد ----------------
+  async startCity() {
+    this.audio.init();
+    if (this.race) { this.race.dispose(); this.race = null; }
+    if (this.city) { this.city.dispose(); this.city = null; }
+    this.mode = 'none'; this.show('loading'); this.loadProgress(0, 'ساخت شهر آزاد');
+    await tick();
+    const city = new FreeRoam(this);
+    try { await city.build((f, t) => this.loadProgress(f, t)); } catch (e) { console.error(e); this.loadProgress(1, 'خطا در ساخت شهر: ' + e.message); return; }
+    this.city = city;
+    const S = this.save.data.settings; const touchOn = S.touch === 'on' || (S.touch === 'auto' && isTouch());
+    $('city').classList.toggle('touchmode', touchOn); $('touch').classList.remove('show');
+    $('cOffer').hidden = true; $('cMission').hidden = true;
+    this.show('city'); this.mode = 'city'; city.begin();
+  }
+  toggleCityPause(force) {
+    const c = this.city; if (!c) return;
+    c.paused = force !== undefined ? force : !c.paused;
+    $('pause').classList.toggle('citymode', true); $('pause').classList.toggle('show', c.paused);
+    if (c.paused) this.audio.silence();
+  }
+  exitCity() {
+    if (this.city) { this.city.dispose(); this.city = null; }
+    $('pause').classList.remove('citymode');
+    this.audio.silence(); this.go('menu');
   }
 
   // ---------------- شخصی‌سازی ----------------
@@ -342,6 +413,9 @@ class App {
       S.quality = v; this.save.save(); this.engine.applyQuality(v); this.showcase.outdoor.setShadowSize(this.engine.q.shadow); this.applyLight(); this.garage = null;
     });
     $('sVol').value = S.volume;
+    this.seg($('sMode'), [['race', '🏁 مسابقه‌ای'], ['city', '🏙️ شهر آزاد']], S.mode || 'race', (v) => { S.mode = v; this.save.save(); this.hud.toast(v === 'city' ? 'حالت شهر آزاد فعال شد؛ «شروع بازی» را بزن' : 'حالت مسابقه فعال شد'); });
+    this.seg($('sMis'), [['1', 'روشن'], ['0', 'خاموش']], S.missions === false ? '0' : '1', (v) => { S.missions = v === '1'; this.save.save(); });
+    this.seg($('sMisT'), [['5', 'هر ۵ دقیقه'], ['10', 'هر ۱۰ دقیقه'], ['15', 'هر ربع']], String(S.missionEvery || 10), (v) => { S.missionEvery = +v; this.save.save(); });
     this.seg($('sCam'), [['chase', 'سوم شخص'], ['cockpit', 'اول شخص'], ['top', 'از بالا']], S.camera, (v) => { S.camera = v; this.save.save(); });
     this.seg($('sTouch'), [['auto', 'خودکار'], ['on', 'روشن'], ['off', 'خاموش']], S.touch, (v) => { S.touch = v; this.save.save(); });
     this.seg($('sFps'), [['1', 'روشن'], ['0', 'خاموش']], S.fps ? '1' : '0', (v) => { S.fps = v === '1'; this.save.save(); });
@@ -366,10 +440,12 @@ class App {
       for (const c of CARS) { if (!S.owned.includes(c.id)) S.owned.push(c.id); S.custom[c.id] = S.custom[c.id] || defaultCustom(c); S.upgrades[c.id] = S.upgrades[c.id] || defaultUpgrades(); }
       S.viewAll = true;
       msg.textContent = 'همه ماشین‌ها باز و خریداری شدند! 🎉'; msg.className = 'code-msg ok';
+    } else if (code === '157127') {
+      S.bikesCode = true; msg.textContent = 'همه موتورها برایت باز شدند! 🏍️🔥'; msg.className = 'code-msg ok';
     } else if (code === '100200') {
       S.viewAll = true; msg.textContent = 'حالا همه ماشین‌ها و اسمشان را می‌توانی ببینی، حتی قفل‌ها 👀'; msg.className = 'code-msg ok';
     } else { msg.textContent = 'کد اشتباه است'; msg.className = 'code-msg bad'; return; }
-    this.save.save(); this.refreshMenu();
+    this.save.save(); this.refreshMenu(); this.updateShowcaseCar();
   }
 
   // ---------------- تنظیم نور ----------------

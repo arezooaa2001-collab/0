@@ -5,11 +5,11 @@ import { isTouch } from './utils.js';
 const KEY = 'ghahreman-pist-save-v1';
 export function defaultSave() {
   return {
-    v: 1, t: 0, coins: 0, stage: 1, maxStage: 1, owned: ['c1'], selected: 'c1', viewAll: false,
+    v: 1, t: 0, coins: 0, stage: 1, maxStage: 1, owned: ['c1'], selected: 'c1', viewAll: false, vehicle: 'car', bike: 'b1', bikesCode: false,
     custom: { c1: defaultCustom(CARS[0]) }, upgrades: { c1: defaultUpgrades() },
-    settings: { quality: isTouch() ? 'medium' : 'high', volume: 0.8, camera: 'chase', touch: 'auto', fps: false, units: 'kmh' },
+    settings: { quality: isTouch() ? 'medium' : 'high', volume: 0.8, camera: 'chase', touch: 'auto', fps: false, units: 'kmh', mode: 'race', missions: true, missionEvery: 10 },
     light: { time: 'auto', exposure: 1, sun: 1, ambient: 1, bloom: 0.5, shadows: true, fog: 1, clouds: 1 },
-    stats: { races: 0, wins: 0, podiums: 0, best: {} }
+    stats: { races: 0, wins: 0, podiums: 0, missions: 0, best: {} }
   };
 }
 

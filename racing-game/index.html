@@ -39,7 +39,7 @@
       <header class="topstats">
         <div class="chip coin"><b class="coin-ico"></b><span id="mCoins">۰</span></div>
         <div class="chip"><small>سطح</small><span id="mLevel">۱</span></div>
-        <div class="chip car"><small>ماشین</small><span id="mCar">ستاره ۵۸</span></div>
+        <div class="chip car"><small>وسیله</small><span id="mCar">ستاره ۵۸</span></div>
       </header>
       <div class="title">
         <h1><span class="t1">قهرمان</span> <span class="t2">پیست</span></h1>
@@ -48,6 +48,7 @@
       <nav class="menu-btns">
         <button class="mbtn primary" data-go="stage"><span class="ic">▶</span><span>شروع بازی</span></button>
         <button class="mbtn" data-go="shop"><span class="ic">🚗</span><span>خرید و دیدن ماشین</span></button>
+        <button class="mbtn" data-go="bikes"><span class="ic">🏍️</span><span>موتورها</span></button>
         <button class="mbtn" data-go="custom"><span class="ic">🎨</span><span>شخصی‌سازی ماشین</span></button>
         <button class="mbtn" data-go="settings"><span class="ic">⚙</span><span>تنظیمات</span></button>
         <button class="mbtn" data-go="light"><span class="ic">☀</span><span>تنظیم نور بازی</span></button>
@@ -107,6 +108,47 @@
     <div class="toast" id="toast"></div>
   </section>
 
+  <!-- شهر آزاد -->
+  <section id="city" class="screen hud city">
+    <div class="c-top">
+      <div class="c-left">
+        <div class="chip coin"><b class="coin-ico"></b><span id="cCoinsV">۰</span></div>
+        <div class="c-mission" id="cMission" hidden>
+          <div class="cm-title" id="cmTitle"></div>
+          <div class="cm-obj" id="cmObj"></div>
+          <div class="cm-bar"><i id="cmTime"></i></div>
+          <div class="cm-meta"><span id="cmProg"></span><span id="cmLeft"></span></div>
+        </div>
+        <div class="c-health" id="cHealth" hidden><i></i><span>سلامتی</span></div>
+      </div>
+      <div class="c-btns"><button id="cCam" title="تغییر دید (C)">🎥</button><button id="cPause" title="توقف (Esc)">❚❚</button></div>
+    </div>
+    <canvas id="cMap" width="300" height="300"></canvas>
+    <div class="c-arrow" id="cArrow" hidden><span>➤</span><small id="cDist"></small></div>
+    <div class="c-speed" id="cSpeed" hidden><b id="cSpeedV">۰</b><small>کیلومتر</small></div>
+    <div class="c-prompt" id="cPrompt" hidden></div>
+    <button class="c-interact" id="cInteract"><span class="ic">🖐</span><span id="cInteractL">تعامل</span></button>
+    <div class="c-touch" id="cTouch">
+      <div class="joy" id="cJoy"><i id="cKnob"></i></div>
+      <div class="c-tbs">
+        <button id="cJump" class="c-tb">⤒<small>پرش</small></button>
+        <button id="cRun" class="c-tb">🏃<small>دویدن</small></button>
+        <button id="cBrake" class="c-tb" hidden>⛔<small>ترمزدستی</small></button>
+      </div>
+    </div>
+    <div class="c-offer" id="cOffer" hidden>
+      <div class="co-head">📱 ماموریت جدید</div>
+      <h3 id="coTitle"></h3>
+      <p id="coDesc"></p>
+      <div class="co-meta"><span id="coStars"></span><span id="coReward"></span><span id="coTime"></span></div>
+      <div class="row-btns"><button class="mbtn primary" id="cAccept">قبول (Y)</button><button class="mbtn" id="cDecline">بعداً (N)</button></div>
+    </div>
+    <div class="c-bubble" id="cBubble" hidden></div>
+    <div class="toast c-toast" id="cToast"></div>
+    <div class="c-big" id="cBig"></div>
+    <div class="c-fade" id="cFade"></div>
+  </section>
+
   <!-- توقف -->
   <section id="pause" class="screen overlay">
     <div class="panel small">
@@ -115,7 +157,8 @@
       <button class="mbtn" id="pCam">تغییر دید</button>
       <button class="mbtn" id="pRestart">شروع دوباره</button>
       <button class="mbtn" id="pExit">منوی اصلی</button>
-      <p class="hint keys">کلیدها: ↑ گاز • ↓ ترمز • ← → فرمان • فاصله ترمزدستی • Shift نیترو • C دوربین • R برگشت • Q/E نگاه به اطراف</p>
+      <p class="hint keys city-keys">شهر آزاد: W A S D حرکت • Shift دویدن/نیترو • فاصله پرش/ترمزدستی • F یا E تعامل • C دوربین • کشیدن صفحه = چرخاندن دوربین</p>
+      <p class="hint keys race-keys">کلیدها: ↑ گاز • ↓ ترمز • ← → فرمان • فاصله ترمزدستی • Shift نیترو • C دوربین • R برگشت • Q/E نگاه به اطراف</p>
     </div>
   </section>
 
@@ -178,6 +221,28 @@
     </div>
   </section>
 
+  <!-- گاراژ موتورها -->
+  <section id="bikes" class="screen garage-ui">
+    <header class="g-head">
+      <button class="back" data-go="menu">→ برگشت</button>
+      <h2>گاراژ موتورها</h2>
+      <div class="chip coin"><b class="coin-ico"></b><span class="coins-v">۰</span></div>
+    </header>
+    <button class="g-arrow right" id="bPrev">›</button>
+    <button class="g-arrow left" id="bNext">‹</button>
+    <div class="g-card">
+      <div class="g-idx" id="bIdx"></div>
+      <h3 id="bName"></h3>
+      <div class="g-class" id="bClass"></div>
+      <div class="g-stats" id="bStats"></div>
+      <div class="g-status" id="bStatus"></div>
+      <div class="row-btns">
+        <button class="mbtn primary" id="bAction"></button>
+      </div>
+    </div>
+    <div class="soon" id="bSoon" hidden><div><b>به زودی اضافه خواهد شد...</b><small>این موتور هنوز قفل است</small></div></div>
+  </section>
+
   <!-- شخصی‌سازی -->
   <section id="custom" class="screen garage-ui">
     <header class="g-head">
@@ -204,6 +269,9 @@
         <h2>تنظیمات</h2>
         <div class="set-row"><label>کیفیت گرافیک</label><div class="seg" id="sQuality"></div></div>
         <div class="set-row"><label for="sVol">بلندی صدا</label><input type="range" id="sVol" min="0" max="1" step="0.05"></div>
+        <div class="set-row"><label>حالت بازی</label><div class="seg" id="sMode"></div></div>
+        <div class="set-row"><label>ماموریت‌ها در شهر آزاد</label><div class="seg" id="sMis"></div></div>
+        <div class="set-row"><label>فاصله ماموریت‌ها</label><div class="seg" id="sMisT"></div></div>
         <div class="set-row"><label>دید پیش‌فرض دوربین</label><div class="seg" id="sCam"></div></div>
         <div class="set-row"><label>دکمه‌های لمسی</label><div class="seg" id="sTouch"></div></div>
         <div class="set-row"><label>نمایش FPS</label><div class="seg" id="sFps"></div></div>

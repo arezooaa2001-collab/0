@@ -78,7 +78,54 @@ export class AudioSys {
     g.gain.setTargetAtTime(0.22, c.currentTime, 0.2); g.gain.setTargetAtTime(0, c.currentTime + dur, 0.5);
     s.connect(f).connect(g).connect(this.bus); s.start(); s.stop(c.currentTime + dur + 2.5);
   }
-  silence() { if (!this.ctx) return; this.setEngine({ on: false }); this.setSkid(0); this.setCrowd(0); this.setOthers(999, 0); }
+
+  // صداهای شهر آزاد
+  burst({ type = 'bandpass', freq = 800, q = 1, vol = 0.3, dur = 0.2, at = 0, decay = 0.06 } = {}) {
+    if (!this.ctx) return; const c = this.ctx; const t0 = c.currentTime + at; const s = c.createBufferSource(); s.buffer = this.noiseBuf;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = c.createGain(); g.gain.value = 0;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.01); g.gain.setTargetAtTime(0, t0 + dur * 0.6, decay);
+    s.connect(f).connect(g).connect(this.bus); s.start(t0, Math.random()); s.stop(t0 + dur + 0.6);
+  }
+  tone(freq, dur = 0.3, vol = 0.2, type = 'sine', at = 0, slide = 0) {
+    if (!this.ctx) return; const c = this.ctx; const t0 = c.currentTime + at; const o = c.createOscillator(); const g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t0 + dur);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.01); g.gain.setTargetAtTime(0, t0 + dur * 0.5, dur * 0.25);
+    o.connect(g).connect(this.bus); o.start(t0); o.stop(t0 + dur + 0.5);
+  }
+  sfx(name) {
+    if (!this.ctx) return;
+    switch (name) {
+      case 'cough': for (let k = 0; k < 2; k++) { this.burst({ freq: 420 + Math.random() * 160, q: 1.6, vol: 0.32, dur: 0.16, at: k * 0.22, decay: 0.05 }); this.burst({ type: 'lowpass', freq: 260, vol: 0.2, dur: 0.12, at: k * 0.22 }); } break;
+      case 'gasp': this.burst({ freq: 1500, q: 0.8, vol: 0.12, dur: 0.5, decay: 0.12 }); break;
+      case 'door': this.burst({ type: 'lowpass', freq: 300, vol: 0.25, dur: 0.12 }); this.tone(140, 0.25, 0.08, 'triangle', 0.02, -40); break;
+      case 'bell': this.tone(880, 0.6, 0.16, 'sine'); this.tone(660, 0.8, 0.16, 'sine', 0.35); break;
+      case 'splash': this.burst({ type: 'lowpass', freq: 1400, vol: 0.4, dur: 0.6, decay: 0.2 }); break;
+      case 'water': this.burst({ freq: 2400, q: 0.5, vol: 0.1, dur: 1.2, decay: 0.3 }); break;
+      case 'trash': this.burst({ type: 'lowpass', freq: 500, vol: 0.32, dur: 0.12 }); this.burst({ freq: 2600, q: 2, vol: 0.08, dur: 0.2, at: 0.03 }); break;
+      case 'lid': this.burst({ type: 'lowpass', freq: 220, vol: 0.4, dur: 0.1 }); break;
+      case 'pickup': this.burst({ freq: 3200, q: 1.5, vol: 0.07, dur: 0.15 }); break;
+      case 'coin': this.tone(1320, 0.12, 0.14, 'square'); this.tone(1760, 0.3, 0.14, 'square', 0.09); break;
+      case 'mission': this.tone(523, 0.18, 0.16, 'triangle'); this.tone(659, 0.18, 0.16, 'triangle', 0.15); this.tone(784, 0.4, 0.16, 'triangle', 0.3); break;
+      case 'fail': this.tone(400, 0.4, 0.16, 'triangle', 0, -200); break;
+      case 'click': this.burst({ freq: 3000, q: 3, vol: 0.12, dur: 0.04, decay: 0.01 }); break;
+      case 'whoosh': this.burst({ freq: 900, q: 0.6, vol: 0.18, dur: 0.6, decay: 0.15 }); break;
+      case 'scream': this.tone(900, 0.9, 0.05, 'sawtooth', 0, 300); break;
+      case 'extinguish': this.burst({ type: 'highpass', freq: 1800, vol: 0.18, dur: 1.0, decay: 0.3 }); break;
+      case 'jump': this.burst({ type: 'lowpass', freq: 400, vol: 0.15, dur: 0.08 }); break;
+      case 'horn': this.tone(420, 0.45, 0.12, 'square'); this.tone(520, 0.45, 0.08, 'square'); break;
+    }
+  }
+  // صدای ترق‌تروق آتش (پیوسته)
+  setFire(a) {
+    if (!this.ctx) return; const c = this.ctx;
+    if (!this.fire) {
+      const s = c.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 700;
+      const g = c.createGain(); g.gain.value = 0; s.connect(f).connect(g).connect(this.bus); s.start(); this.fire = { g, t: 0 };
+    }
+    this.fire.g.gain.setTargetAtTime(Math.min(0.2, a * 0.2), c.currentTime, 0.2);
+    if (a > 0.05 && Math.random() < a * 0.25) this.burst({ freq: 1800 + Math.random() * 2500, q: 4, vol: 0.05 + a * 0.08, dur: 0.03, decay: 0.01 });
+  }
+  silence() { if (!this.ctx) return; this.setFire?.(0); this.setEngine({ on: false }); this.setSkid(0); this.setCrowd(0); this.setOthers(999, 0); }
   suspend() { this.ctx?.suspend?.(); }
   resume() { this.ctx?.resume?.(); }
 }

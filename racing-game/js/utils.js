@@ -151,7 +151,7 @@ export function pbrEligible(m) {
 
 // ادغام همه قطعات ثابت یک گروه: متریال‌های ساده در یک متریال مشترک و بقیه بر اساس متریال،
 // با تقسیم‌بندی مکانی (cell) تا حذف خارج از دید دوربین همچنان کار کند
-export function optimizeStatic(root, { cell = 0, skip = () => false } = {}) {
+export function optimizeStatic(root, { cell = 0, mapCell, skip = () => false } = {}) {
   root.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const buckets = new Map();
@@ -166,10 +166,11 @@ export function optimizeStatic(root, { cell = 0, skip = () => false } = {}) {
     const m = o.material; if (Array.isArray(m) || !o.visible) return;
     const pbr = pbrEligible(m);
     let ck = '';
-    if (cell) {
+    const cs = (m.map && mapCell !== undefined) ? mapCell : cell;
+    if (cs) {
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
       box.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); box.getCenter(ctr);
-      ck = Math.floor(ctr.x / cell) + ':' + Math.floor(ctr.z / cell) + ':';
+      ck = Math.floor(ctr.x / cs) + ':' + Math.floor(ctr.z / cs) + ':';
     }
     const key = ck + (pbr ? 'pbr' + m.side : m.uuid);
     const src = o.geometry;

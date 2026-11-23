@@ -7,6 +7,7 @@ import { Outdoor, TIME_ORDER } from './engine.js';
 import { Effects } from './effects.js';
 import { clamp, lerp, damp, wrapAngle, mulberry32, toFa, fmtTime, TAU } from './utils.js';
 
+import { buildBike, bikeById, bikeStats, bikeLooks } from './bikes.js';
 export const COINS = [150, 100, 50, 20, 10, 5, 2];
 const RIVAL_NAMES = ['آرش', 'کاوه', 'سارا', 'نیما', 'رها', 'بهرام', 'مانی', 'تینا', 'سهراب', 'یاسمن', 'داریوش', 'پریا'];
 const TIER_KNOTS = [[1, 0], [20, 1], [40, 3.6], [60, 4.6], [80, 5.6], [100, 6.6], [150, 7.6], [200, 8.6], [250, 9.6], [300, 10.6], [400, 11.6], [500, 12.6], [600, 13.6], [700, 14.6], [800, 15.6], [900, 16.6], [950, 17.6], [1000, 18.6]];
@@ -30,20 +31,42 @@ function tierAt(level) {
   return { t: 18.6, within: 1 };
 }
 
+// قدرت رقبا: هر دو مرحله یک پله قوی‌تر می‌شوند (سرعت نهایی بر حسب کیلومتر بر ساعت)
+const RIVAL_TOP_KNOTS = [[1, 128], [19, 176], [20, 179], [40, 206], [60, 223], [80, 239], [100, 256], [150, 273], [200, 290], [250, 305], [300, 319], [400, 334], [500, 347], [600, 361], [700, 375], [800, 389], [900, 404], [950, 419], [1000, 440]];
+// ماشین ظاهری رقبا: در مراحل اول هم مدل‌ها زود به زود عوض می‌شوند
+const RIVAL_LOOK_KNOTS = [[1, 0], [6, 0.8], [12, 1.6], [20, 2.4], [30, 3.2], [40, 3.8], [60, 4.6], [80, 5.6], [100, 6.6], [150, 7.6], [200, 8.6], [250, 9.6], [300, 10.6], [400, 11.6], [500, 12.6], [600, 13.6], [700, 14.6], [800, 15.6], [900, 16.6], [950, 17.6], [1000, 18.8]];
+function knot(list, x) {
+  for (let k = 0; k < list.length - 1; k++) { const [x0, y0] = list[k], [x1, y1] = list[k + 1]; if (x <= x1) return lerp(y0, y1, clamp((x - x0) / (x1 - x0), 0, 1)); }
+  return list[list.length - 1][1];
+}
+export function rivalTopSpeed(level) { return knot(RIVAL_TOP_KNOTS, 1 + 2 * Math.floor((level - 1) / 2)); }
+function tierOfTop(top) {
+  if (top <= CARS[0].top) return -1 + top / CARS[0].top;
+  for (let i = 0; i < CARS.length - 1; i++) if (top <= CARS[i + 1].top) return i + (top - CARS[i].top) / (CARS[i + 1].top - CARS[i].top);
+  return CARS.length - 1;
+}
 export function rivalProfiles(level) {
-  const rng = mulberry32(level * 101 + 7);
-  const { t, within } = tierAt(level);
+  const step = Math.floor((level - 1) / 2);
+  const rng = mulberry32(step * 101 + 7);
+  const top = rivalTopSpeed(level);
+  const lookT = knot(RIVAL_LOOK_KNOTS, level);
+  const spread = [-0.04, -0.025, -0.012, 0.0, 0.014, 0.03];
+  for (let k = spread.length - 1; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [spread[k], spread[j]] = [spread[j], spread[k]]; }
   const out = [];
   for (let k = 0; k < 6; k++) {
-    const tt = clamp(t - 0.3 + (k - 2.5) * 0.12 + (rng() - 0.5) * 0.2, 0, CARS.length - 1);
-    const i0 = Math.floor(tt), i1 = Math.min(CARS.length - 1, i0 + 1), f = tt - i0;
-    const a = CARS[i0], b = CARS[i1];
-    const skill = 0.8 + 0.12 * within + 0.035 * rng() + (level / 1000) * 0.06;
-    const look = clamp(Math.round(tt + (rng() - 0.5) * 1.2), 0, Math.min(CARS.length - 1, Math.ceil(t)));
+    const f = 1 + spread[k];
+    const t = tierOfTop(top * f);
+    let acc, grip, brake;
+    if (t < 0) { const r = (top * f) / CARS[0].top; acc = CARS[0].acc * r; grip = CARS[0].grip * (0.72 + 0.28 * r); brake = CARS[0].brake * (0.85 + 0.15 * r); }
+    else { const i0 = Math.floor(t), i1 = Math.min(CARS.length - 1, i0 + 1), fr = t - i0; acc = lerp(CARS[i0].acc, CARS[i1].acc, fr); grip = lerp(CARS[i0].grip, CARS[i1].grip, fr); brake = lerp(CARS[i0].brake, CARS[i1].brake, fr); }
+    const look = clamp(Math.round(lookT + (k - 2.5) * 0.42 + (rng() - 0.5) * 0.9), 0, Math.min(CARS.length - 1, Math.ceil(lookT) + 1));
+    // ارتقای ظاهری رقبا با پیشرفت مراحل
+    const lv = clamp(level / 300, 0, 1);
+    const visual = { spoiler: rng() < 0.15 + lv * 0.7 ? 1 + Math.floor(rng() * 3) : 0, neon: rng() < lv * 0.5 ? 1 + Math.floor(rng() * 5) : 0, finish: rng() < 0.2 + lv * 0.5 ? 1 + Math.floor(rng() * 3) : 0, rimColor: Math.floor(rng() * 5), tint: rng() < 0.3 + lv * 0.4 ? 1 + Math.floor(rng() * 2) : 0 };
     out.push({
-      team: k + 1, name: RIVAL_NAMES[(level * 3 + k * 5) % RIVAL_NAMES.length], carDef: CARS[look],
-      stats: { vmax: lerp(a.top, b.top, f) / 3.6 * skill, acc: lerp(a.acc, b.acc, f) * (0.9 + 0.1 * skill), grip: lerp(a.grip, b.grip, f) * (0.88 + 0.12 * skill), brake: lerp(a.brake, b.brake, f), nitro: 0 },
-      looks: Math.round(rng() * 10 + tt), skill
+      team: k + 1, name: RIVAL_NAMES[(step * 3 + k * 5) % RIVAL_NAMES.length], carDef: CARS[look], visual,
+      stats: { vmax: (top * f) / 3.6, acc: acc * (0.97 + spread[k]), grip: grip * (0.96 + spread[k] * 0.5), brake, nitro: 0 },
+      looks: Math.round(4 + lv * 14 + rng() * 6 + look * 0.4), skill: f
     });
   }
   return out;
@@ -109,6 +132,7 @@ export class Race {
     const save = this.app.save.data; const sel = save.selected; const def = CARS.find((c) => c.id === sel) || CARS[0];
     const custom = save.custom[sel] || defaultCustom(def); const up = save.upgrades[sel] || {};
     const rivals = rivalProfiles(this.cfg.level);
+    const useBike = save.vehicle === 'bike' && (save.bikesCode || save.maxStage > 100); const bdef = useBike ? bikeById(save.bike) : null;
     const slots = this.track.gridSlots;
     const order = [...rivals.map((r, k) => ({ ...r, k })), { player: true }];
     order.forEach((r, gi) => {
@@ -116,15 +140,15 @@ export class Race {
       const isP = !!r.player;
       const team = isP ? 0 : r.team;
       const color = isP ? 0xff5a00 : new THREE.Color(TEAM_COLORS[team]).getHex();
-      const carDef = isP ? def : r.carDef;
-      const cust = isP ? custom : { ...defaultCustom(carDef), paint: TEAM_COLORS[team] === '#eef2f6' ? '#e9edf2' : TEAM_COLORS[team], stripes: (r.k % 3) + 1, stripeColor: '#ffffff', rims: carDef.style === 'classic' || carDef.style === 'roadster' ? (r.k % 2) : 2 + (r.k % 3) };
-      const model = buildCar(carDef, cust, { isPlayer: isP, team: color, number: isP ? (custom.number || 7) : [3, 11, 22, 44, 5, 88][r.k], lowDetail: !isP && this.app.engine.qualityName === 'low' });
+      const carDef = isP ? (useBike ? bdef : def) : r.carDef;
+      const cust = isP ? custom : { ...defaultCustom(carDef), ...(r.visual || {}), paint: TEAM_COLORS[team] === '#eef2f6' ? '#e9edf2' : TEAM_COLORS[team], stripes: (r.k % 3) + 1, stripeColor: '#ffffff', rims: carDef.style === 'classic' || carDef.style === 'roadster' ? (r.k % 2) : 2 + (r.k % 3) };
+      const model = isP && useBike ? buildBike(bdef, { isPlayer: true, rider: true }) : buildCar(carDef, cust, { isPlayer: isP, team: color, number: isP ? (custom.number || 7) : [3, 11, 22, 44, 5, 88][r.k], lowDetail: !isP && this.app.engine.qualityName === 'low' });
       this.scene.add(model.root);
-      const stats = isP ? carStats(def, up) : r.stats;
+      const stats = isP ? (useBike ? bikeStats(bdef) : carStats(def, up)) : r.stats;
       const p = this.track.pointAt(slot.s, slot.d);
       const racer = {
         id: isP ? 'player' : 'ai' + r.k, isPlayer: isP, team, name: isP ? 'تو' : r.name, teamName: TEAM_NAMES[team], model, def: carDef, stats, custom: cust,
-        looks: isP ? looksScore(custom) : r.looks,
+        looks: isP ? (useBike ? bikeLooks(bdef) + looksScore(custom) * 0.25 : looksScore(custom)) : r.looks,
         pos: p.clone(), heading: this.track.headingAt(slot.s), vel: new THREE.Vector3(), yawRate: 0, vf: 0, vl: 0, steer: 0, throttle: 0, brake: 0, hand: false,
         P: slot.s, d: slot.d, v: 0, dv: 0, hint: this.track.idx(Math.round(slot.s / DS)), gear: 1, rpm: 900, shiftT: 0, nitro: stats.nitro, nitroOn: false,
         roll: 0, pitch: 0, bounce: 0, spin: 0, slip: 0, surface: 0, latAcc: 0, longAcc: 0, finished: false, finishTime: 0, place: gi + 1, lap: 0,
@@ -304,7 +328,7 @@ export class Race {
     this.effects.update(dt, app.engine.renderer.domElement.height);
     // صداها
     const p = this.player;
-    app.audio.setEngine({ rpm: p.rpm, throttle: p.throttle, speed: Math.abs(p.vf) * 3.6, cyl: p.def.style === 'muscle' ? 8 : p.def.style === 'classic' ? 6 : 10, on: this.phase !== 'boss' });
+    app.audio.setEngine({ rpm: p.rpm, throttle: p.throttle, speed: Math.abs(p.vf) * 3.6, cyl: p.model.isBike ? 4 : p.def.style === 'muscle' ? 8 : p.def.style === 'classic' ? 6 : 10, on: this.phase !== 'boss' });
     app.audio.setSkid(this.phase === 'replay' ? 0 : clamp((p.slip - 2) / 6, 0, 1));
     let nd = 999, nrpm = 0; for (const r of this.racers) if (!r.isPlayer) { const d = r.pos.distanceTo(p.pos); if (d < nd) { nd = d; nrpm = r.rpm; } }
     app.audio.setOthers(nd, nrpm);
@@ -605,7 +629,7 @@ export class Race {
     r.roll = damp(r.roll, roll, 6, dt || 0.016); r.bodyPitch = damp(r.bodyPitch || 0, pitchB, 6, dt || 0.016);
     const kerbShake = r.surface === 1 ? (Math.random() - 0.5) * 0.02 : r.surface >= 2 ? (Math.random() - 0.5) * 0.015 * Math.min(1, Math.abs(r.vf) / 20) : 0;
     r.spin += (r.vf / m.shape.wr) * (dt || 0);
-    m.setVisualState({ steer: r.steer, spin: r.spin, gear: r.gear, throttle: r.throttle, brake: r.brake, speedKmh: Math.abs(r.vf) * 3.6, rpm: r.rpm, roll: r.roll, pitch: r.bodyPitch, bounce: kerbShake });
+    m.setVisualState({ steer: r.steer, spin: r.spin, gear: r.gear, throttle: r.throttle, brake: r.brake, speedKmh: Math.abs(r.vf) * 3.6, rpm: r.rpm, roll: m.isBike ? 0 : r.roll, pitch: r.bodyPitch, bounce: kerbShake, latAcc: r.latAcc });
     if (dt) this.carEffects(r, dt);
   }
 

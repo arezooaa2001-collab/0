@@ -198,6 +198,118 @@ export function applyPose(j, pose, p = {}) {
     j.shoulderL.rotation.z = 0.06; j.shoulderR.rotation.z = -0.06;
     j.elbowL.rotation.x = j.elbowR.rotation.x = -0.12;
   }
+  const t = p.t || 0, k = p.k ?? 1;
+  const arms = (fl, zl, el, fr, zr, er) => { j.shoulderL.rotation.x = fl; j.shoulderL.rotation.z = zl; j.elbowL.rotation.x = el; j.shoulderR.rotation.x = fr; j.shoulderR.rotation.z = zr; j.elbowR.rotation.x = er; };
+  const crouch = (a) => { // خم شدن روی زانو با پاهای روی زمین
+    j.hipL.rotation.x = j.hipR.rotation.x = -a * 1.1; j.kneeL.rotation.x = j.kneeR.rotation.x = a * 1.9; j.ankleL.rotation.x = j.ankleR.rotation.x = -a * 0.8;
+    j.pelvis.position.y = J.pelvis[1] - a * 0.32; j.spine.rotation.x = a * 0.35;
+  };
+  switch (pose) {
+    case 'idle': { // ایستادن با نفس کشیدن
+      const b = Math.sin(t * 1.8);
+      arms(0.04 * b, 0.07, -0.15, -0.04 * b, -0.07, -0.15); j.spine.rotation.x = 0.02 * b; j.head.rotation.y = Math.sin(t * 0.4) * 0.25; break;
+    }
+    case 'walk': case 'run': {
+      const run = pose === 'run'; const ph = t; const sw = Math.sin(ph);
+      const amp = run ? 0.75 : 0.45;
+      j.hipL.rotation.x = -sw * amp; j.hipR.rotation.x = sw * amp;
+      j.kneeL.rotation.x = Math.max(0, Math.cos(ph)) * (run ? 1.3 : 0.7); j.kneeR.rotation.x = Math.max(0, -Math.cos(ph)) * (run ? 1.3 : 0.7);
+      arms(sw * (run ? 0.8 : 0.4), 0.08, run ? -1.4 : -0.35, -sw * (run ? 0.8 : 0.4), -0.08, run ? -1.4 : -0.35);
+      j.spine.rotation.x = run ? 0.22 : 0.04; j.spine.rotation.y = sw * (run ? 0.12 : 0.05);
+      j.pelvis.position.y = J.pelvis[1] - 0.02 + Math.abs(Math.cos(ph)) * (run ? 0.06 : 0.03); break;
+    }
+    case 'jump': arms(-2.2, 0.4, -0.4, -2.2, -0.4, -0.4); j.hipL.rotation.x = j.hipR.rotation.x = -0.5; j.kneeL.rotation.x = j.kneeR.rotation.x = 0.9; break;
+    case 'ride': { // موتورسواری: خم به جلو
+      const lean = p.lean ?? 0.5;
+      j.pelvis.position.y = p.seatY ?? 0;
+      j.spine.rotation.x = lean; j.neck.rotation.x = -lean * 0.6; j.head.rotation.x = -lean * 0.35;
+      j.hipL.rotation.x = j.hipR.rotation.x = -1.25; j.hipL.rotation.z = 0.22; j.hipR.rotation.z = -0.22;
+      j.kneeL.rotation.x = j.kneeR.rotation.x = 1.55; j.ankleL.rotation.x = j.ankleR.rotation.x = -0.3;
+      arms(-1.1 - lean * 0.6, -0.12, -0.6, -1.1 - lean * 0.6, 0.12, -0.6); break;
+    }
+    case 'pickup': { // خم شدن و برداشتن از زمین
+      crouch(k * 0.85); j.spine.rotation.x = k * 0.75;
+      arms(-0.35, 0.05, -0.2, -0.35 - k * 0.6, -0.15, -0.25 * (1 - k)); j.head.rotation.x = k * 0.3; break;
+    }
+    case 'hold': arms(-0.25, 0.07, -0.25, -0.75, -0.12, -1.15); j.wristR.rotation.y = 0.4; break;
+    case 'throw': { // پرتاب: دست عقب و بعد جلو
+      const a = k < 0.45 ? k / 0.45 : 1 - (k - 0.45) / 0.55;
+      const fr = k < 0.45 ? -0.6 - a * 2.0 : -2.6 + (1 - a) * 2.0; const er = k < 0.45 ? -1.2 - a * 0.6 : -0.3;
+      arms(-0.4, 0.15, -0.4, fr, -0.25, er); j.spine.rotation.y = k < 0.45 ? a * 0.35 : -0.25 * (1 - a); j.spine.rotation.x = k > 0.45 ? 0.15 : 0; break;
+    }
+    case 'heimlich': { // مانور هایملیخ: دست‌ها دور شکم مصدوم و فشار به بالا
+      const th = Math.max(0, Math.sin(t * 7)) ** 3;
+      arms(-1.15 - th * 0.25, -0.62, -1.35 + th * 0.2, -1.15 - th * 0.25, 0.62, -1.35 + th * 0.2);
+      j.spine.rotation.x = 0.18 + th * 0.12; crouch(0.12); break;
+    }
+    case 'choke': { // در حال خفگی: دست‌ها روی گلو، تقلا
+      const sp = Math.sin(t * 11) * 0.5 + Math.sin(t * 5.3) * 0.5;
+      arms(-1.35, -0.62, -2.15, -1.35, 0.62, -2.15);
+      j.spine.rotation.x = 0.35 + sp * 0.12; j.neck.rotation.x = 0.25 + sp * 0.1; j.head.rotation.x = -0.15 + Math.sin(t * 9) * 0.12; j.head.rotation.z = Math.sin(t * 3) * 0.15;
+      crouch(0.12 + Math.abs(sp) * 0.06); break;
+    }
+    case 'cough': { // سرفه واقعی: خم شدن ناگهانی با هر سرفه، دست جلوی دهان
+      const c = Math.max(0, Math.sin(t * 8)) ** 4 * (0.6 + 0.4 * Math.sin(t * 1.7));
+      arms(-0.3, 0.1, -0.3, -1.6 - c * 0.2, 0.35, -2.25);
+      j.spine.rotation.x = 0.25 + c * 0.45; j.neck.rotation.x = 0.1 + c * 0.25; j.head.rotation.x = c * 0.2;
+      crouch(0.08 + c * 0.1); break;
+    }
+    case 'carry': { // حمل مصدوم روی شانه
+      arms(-2.1, -0.15, -1.4, -0.9, 0.0, -1.0); j.spine.rotation.x = 0.12; break;
+    }
+    case 'carried': { // حمل روی شانه (آتش‌نشانی): بالاتنه از پشت و پاها از جلو آویزان
+      const sw = Math.sin(t * 3.2) * 0.08;
+      j.spine.rotation.x = 1.15 + sw * 0.5; j.neck.rotation.x = 0.25; j.head.rotation.x = 0.3 + sw;
+      j.hipL.rotation.x = -1.25 + sw; j.hipR.rotation.x = -1.35 - sw; j.kneeL.rotation.x = 0.35; j.kneeR.rotation.x = 0.45;
+      arms(-2.7 + Math.sin(t * 3) * 0.15, 0.12, -0.15, -2.6 + Math.sin(t * 3 + 1) * 0.15, -0.12, -0.2); break;
+    }
+    case 'wave': arms(-0.1, 0.08, -0.2, -2.7, -0.3, -0.5 - Math.sin(t * 10) * 0.45); break;
+    case 'help': { // درخواست کمک با تکان دادن دست‌ها
+      arms(-2.6 + Math.sin(t * 8) * 0.25, 0.5 + Math.sin(t * 7) * 0.3, -0.3, -2.6 + Math.sin(t * 8 + 2) * 0.25, -0.5 - Math.sin(t * 7 + 1) * 0.3, -0.3); j.head.rotation.y = Math.sin(t * 2) * 0.4; break;
+    }
+    case 'reach': arms(-1.35 * k, 0.05, -0.25, -1.35 * k, -0.05, -0.25); j.spine.rotation.x = 0.1 * k; break;
+    case 'press': arms(-0.2, 0.06, -0.2, -1.5 * k, -0.1, -0.15); break;
+    case 'drink': arms(-0.15, 0.06, -0.2, -0.9, 0.35, -2.25 * k); j.head.rotation.x = -0.25 * k; break;
+    case 'eat': arms(-0.15, 0.06, -0.2, -0.8, 0.3, -2.1 * (0.85 + 0.15 * Math.sin(t * 6))); break;
+    case 'read': arms(-0.85, -0.3, -1.4, -0.85, 0.3, -1.4); j.head.rotation.x = 0.35; break;
+    case 'phone': arms(-0.15, 0.06, -0.2, -0.4, 0.45, -2.5); j.head.rotation.z = -0.12; break;
+    case 'water': arms(-0.2, 0.06, -0.2, -1.2, -0.1, -0.4 + Math.sin(t * 2) * 0.1); j.wristR.rotation.z = -0.6; j.spine.rotation.x = 0.15; break;
+    case 'shake': arms(-1.7, 0.1, -0.2 + Math.sin(t * 20) * 0.2, -1.7, -0.1, -0.2 + Math.sin(t * 20) * 0.2); break;
+    case 'clap': { const c = Math.sin(t * 14); arms(-1.1, -0.35 - c * 0.12, -0.8, -1.1, 0.35 + c * 0.12, -0.8); break; }
+    case 'kick': j.hipR.rotation.x = -1.2 * Math.sin(k * Math.PI); j.kneeR.rotation.x = 0.4 * (1 - Math.sin(k * Math.PI)); arms(0.3, 0.2, -0.3, -0.5, -0.2, -0.3); break;
+    case 'lie': j.pelvis.position.y = p.seatY ?? 0.1; arms(-0.15, 0.15, -0.1, -0.15, -0.15, -0.1); break;
+    case 'swing': {
+      j.pelvis.position.y = p.seatY ?? 0.46; j.hipL.rotation.x = j.hipR.rotation.x = -Math.PI / 2 - Math.sin(t * 2.2) * 0.4; j.kneeL.rotation.x = j.kneeR.rotation.x = Math.PI / 2 + Math.sin(t * 2.2) * 0.5;
+      arms(-2.7, 0.15, 0, -2.7, -0.15, 0); j.spine.rotation.x = -Math.sin(t * 2.2) * 0.2; break;
+    }
+    case 'ridePark': { // سوار وسیله شهربازی: نشسته با دست‌های بالا از هیجان
+      j.pelvis.position.y = p.seatY ?? 0.46; j.hipL.rotation.x = j.hipR.rotation.x = -Math.PI / 2; j.kneeL.rotation.x = j.kneeR.rotation.x = Math.PI / 2;
+      const up = p.excite ?? 0.5; arms(-0.6 - up * 2.1, 0.15 + up * 0.2, -0.8 + up * 0.5, -0.6 - up * 2.1, -0.15 - up * 0.2, -0.8 + up * 0.5); break;
+    }
+  }
+}
+
+// حل معکوس حرکت دست یا پا (برای رسیدن دقیق دست به فرمان موتور، پا به رکاب و ...)
+export function reachIK(j, side, target, { limb = 'arm', offset = null, iters = 160 } = {}) {
+  const up = limb === 'arm' ? j['shoulder' + side] : j['hip' + side];
+  const mid = limb === 'arm' ? j['elbow' + side] : j['knee' + side];
+  const end = limb === 'arm' ? j['wrist' + side] : j['ankle' + side];
+  const off = offset || new THREE.Vector3(0, limb === 'arm' ? -0.07 : -0.03, limb === 'arm' ? 0 : 0.12);
+  const v = new THREE.Vector3();
+  const err = () => { up.updateMatrixWorld(true); return end.localToWorld(v.copy(off)).distanceTo(target); };
+  const params = [[up.rotation, 'x'], [up.rotation, 'z'], [mid.rotation, 'x']];
+  let step = 0.3, best = err();
+  for (let it = 0; it < iters && best > 0.004; it++) {
+    let improved = false;
+    for (const [rot, ax] of params) for (const d of [step, -step]) {
+      rot[ax] += d; const e = err();
+      if (e < best) { best = e; improved = true; } else rot[ax] -= d;
+    }
+    if (!improved) step *= 0.6;
+    if (step < 1e-3) break;
+  }
+  up.updateMatrixWorld(true);
+  return best;
 }
 
 const matCache = new Map();
@@ -264,6 +376,7 @@ export function buildHuman(opts = {}) {
   const human = {
     root, j, opts: o, walkT: 0,
     pose(name, p) { applyPose(j, name, p); },
+    anim(name, t, p = {}) { applyPose(j, name, { ...p, t }); },
     walk(dt, speed = 1.4) {
       this.walkT += dt * speed * 2.6;
       const t = this.walkT; const s = Math.sin(t);
@@ -304,7 +417,10 @@ export function fanGeometry(detail = 'mid', pose = 'sit') {
   applyPose(j, pose === 'sit' ? 'sitArmsDown' : 'stand');
   // بازوها صاف به پایین برای چرخش در شیدر
   for (const s of ['L', 'R']) { j['shoulder' + s].rotation.set(0, 0, 0); j['elbow' + s].rotation.set(0, 0, 0); }
+  if (pose === 'walk') for (const s of ['L', 'R']) { j['hip' + s].rotation.set(0, 0, 0); j['knee' + s].rotation.set(0, 0, 0); }
   root.updateMatrixWorld(true);
+  // برای عابرها: ران و ساق هر پا قطعه جداگانه برای راه رفتن در شیدر
+  const legPart = pose === 'walk' ? { hipL: 8, kneeL: 9, ankleL: 9, hipR: 10, kneeR: 11, ankleR: 11 } : {};
   const geos = [];
   for (const p of bodyParts(o)) {
     const g = p.geo.clone();
@@ -312,7 +428,7 @@ export function fanGeometry(detail = 'mid', pose = 'sit') {
     const keep = new THREE.BufferGeometry();
     keep.setAttribute('position', g.attributes.position); keep.setAttribute('normal', g.attributes.normal);
     if (g.index) keep.setIndex(g.index);
-    fillAttr(keep, 'aPart', [p.part]);
+    fillAttr(keep, 'aPart', [legPart[p.joint] ?? p.part]);
     fillAttr(keep, 'aMat', [p.mat]);
     const c = new THREE.Color(p.color ?? 0xffffff).convertSRGBToLinear();
     fillAttr(keep, 'color', [c.r, c.g, c.b]);
@@ -320,7 +436,7 @@ export function fanGeometry(detail = 'mid', pose = 'sit') {
   }
   const merged = mergeGeos(geos, ['position', 'normal', 'aPart', 'aMat', 'color']);
   const w = (n) => { const v = new THREE.Vector3(); j[n].getWorldPosition(v); return v; };
-  merged.userData.pivots = { sL: w('shoulderL'), sR: w('shoulderR'), eL: w('elbowL'), eR: w('elbowR'), neck: w('head'), hip: w('pelvis') };
+  merged.userData.pivots = { sL: w('shoulderL'), sR: w('shoulderR'), eL: w('elbowL'), eR: w('elbowR'), neck: w('head'), hip: w('pelvis'), hL: w('hipL'), hR: w('hipR'), kL: w('kneeL'), kR: w('kneeR') };
   fanGeoCache.set(key, merged);
   return merged;
 }
@@ -470,5 +586,113 @@ export function createCrowd(placements, { shirtFn, patternFn, rng = mulberry32(1
       const u = mat.userData.uniforms;
       u.uTime.value = time; u.uExcite.value = excite; u.uFocus.value.copy(focus);
     }
+  };
+}
+
+
+// ---------------- عابران پیاده شهر (Instanced با راه رفتن در شیدر) ----------------
+// سبک‌ها: ۳ راه رفتن، ۴ دست تکان دادن، ۵ ایستاده، ۶ تشویق، ۷ دویدن
+export function walkerMaterial(pv) {
+  const uniforms = {
+    uTime: { value: 0 }, uFocus: { value: new THREE.Vector3() },
+    uSL: { value: pv.sL }, uSR: { value: pv.sR }, uEL: { value: pv.eL }, uER: { value: pv.eR }, uNeck: { value: pv.neck }, uHip: { value: pv.hip },
+    uHL: { value: pv.hL }, uHR: { value: pv.hR }, uKL: { value: pv.kL }, uKR: { value: pv.kR }
+  };
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72 });
+  mat.userData.uniforms = uniforms;
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, uniforms);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
+      attribute float aPart; attribute float aMat;
+      attribute vec3 iSkin; attribute vec3 iShirt; attribute vec3 iPants; attribute vec3 iHair; attribute vec4 iAnim;
+      uniform float uTime; uniform vec3 uFocus;
+      uniform vec3 uSL; uniform vec3 uSR; uniform vec3 uEL; uniform vec3 uER; uniform vec3 uNeck; uniform vec3 uHip;
+      uniform vec3 uHL; uniform vec3 uHR; uniform vec3 uKL; uniform vec3 uKR;
+      varying vec3 vFanP; varying float vFanPat; varying float vFanShirt;
+      mat3 wRX(float a){ float c=cos(a), s=sin(a); return mat3(1.,0.,0., 0.,c,s, 0.,-s,c); }
+      mat3 wRY(float a){ float c=cos(a), s=sin(a); return mat3(c,0.,-s, 0.,1.,0., s,0.,c); }
+      mat3 wRZ(float a){ float c=cos(a), s=sin(a); return mat3(c,s,0., -s,c,0., 0.,0.,1.); }
+    `).replace('#include <beginnormal_vertex>', `
+      vec3 objectNormal = vec3(normal);
+      vec3 animPos = position;
+      {
+        float st = iAnim.z; float spd = iAnim.y;
+        float walk = (st > 2.5 && st < 3.5) ? 1.0 : 0.0; float run = st > 6.5 ? 1.0 : 0.0; float mv = max(walk, run);
+        float ph = iAnim.x * 37.0 + uTime * (run > 0.5 ? 10.0 : 6.0 + 2.0 * spd);
+        float sw = sin(ph) * mv;
+        float amp = run > 0.5 ? 0.8 : 0.48;
+        float hL = sw * amp, hR = -sw * amp;
+        float kL = max(0.0, -cos(ph)) * (run > 0.5 ? 1.3 : 0.75) * mv + 0.04, kR = max(0.0, cos(ph)) * (run > 0.5 ? 1.3 : 0.75) * mv + 0.04;
+        float fL = -hL * 0.8, fR = -hR * 0.8, eL = run > 0.5 ? -1.4 : -0.3, eR = eL, zL = 0.08, zR = -0.08;
+        if (st > 3.5 && st < 4.5) { fR = -2.6; eR = -0.4 - 0.45 * sin(uTime * 10.0); zR = -0.32; }
+        if (st > 4.5 && st < 5.5) { fL = 0.03 * sin(uTime * 1.7 + iAnim.x * 9.0); fR = -fL; eL = eR = -0.15; }
+        if (st > 5.5 && st < 6.5) { fL = fR = -2.7 + 0.15 * sin(uTime * 6.0); zL = 0.35; zR = -0.35; eL = eR = -0.25; }
+        mat3 R = mat3(1.0);
+        float part = aPart;
+        if (part > 6.5 && part < 7.5) { part = 2.0; if (floor(iAnim.w / 10.0 + 0.01) < 0.5) animPos = uNeck; }
+        if (part > 7.5) {
+          bool left = part < 9.5; vec3 hp = left ? uHL : uHR; vec3 kp = left ? uKL : uKR;
+          mat3 Rt = wRX(-(left ? hL : hR));
+          if (part > 8.5 && part < 9.5 || part > 10.5) { mat3 Rk = wRX(left ? kL : kR); animPos = hp + Rt * (Rk * (animPos - kp) + (kp - hp)); R = Rt * Rk; }
+          else { animPos = hp + Rt * (animPos - hp); R = Rt; }
+        } else if (part > 2.5 && part < 4.5) {
+          mat3 Rs = wRZ(zL) * wRX(fL); vec3 rel = animPos - uSL;
+          if (part > 3.5) { mat3 Re = wRX(eL); rel = Re * (animPos - uEL) + (uEL - uSL); R = Rs * Re; } else R = Rs;
+          animPos = uSL + Rs * rel;
+        } else if (part > 4.5 && part < 6.5) {
+          mat3 Rs = wRZ(zR) * wRX(fR); vec3 rel = animPos - uSR;
+          if (part > 5.5) { mat3 Re = wRX(eR); rel = Re * (animPos - uER) + (uER - uSR); R = Rs * Re; } else R = Rs;
+          animPos = uSR + Rs * rel;
+        } else if (part > 1.5 && part < 2.5) {
+          mat4 im = modelMatrix * instanceMatrix; vec3 wp = (im * vec4(uNeck, 1.0)).xyz;
+          vec3 dl = transpose(mat3(im)) * (uFocus - wp);
+          float near = 1.0 - smoothstep(8.0, 14.0, length(dl));
+          float yaw = clamp(atan(dl.x, dl.z), -1.0, 1.0) * near;
+          mat3 Rh = wRY(yaw); animPos = uNeck + Rh * (animPos - uNeck); R = Rh;
+        }
+        animPos.y += mv * abs(cos(ph)) * (run > 0.5 ? 0.06 : 0.03);
+        objectNormal = R * objectNormal;
+      }
+    `).replace('#include <begin_vertex>', 'vec3 transformed = animPos;')
+      .replace('#include <color_vertex>', `
+        vColor = color;
+        if (aMat < 0.5) vColor = iSkin; else if (aMat < 1.5) vColor = iShirt; else if (aMat < 2.5) vColor = iPants; else if (aMat < 3.5) vColor = iHair;
+        vFanP = position; vFanPat = mod(iAnim.w, 10.0); vFanShirt = (aMat > 0.5 && aMat < 1.5) ? 1.0 : 0.0;
+      `);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFanP; varying float vFanPat; varying float vFanShirt;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        if (vFanShirt > 0.5 && vFanPat > 1.5) { float b = step(0.55, fract(vFanP.y * 5.0)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85), b * 0.85); }`);
+  };
+  mat.customProgramCacheKey = () => 'walker-v1';
+  return mat;
+}
+
+const SHIRTS = ['#e63946', '#1d6fd8', '#2a9d8f', '#f4a261', '#8338ec', '#ffbe0b', '#fb5607', '#ffffff', '#3a86ff', '#06d6a0', '#ef476f', '#264653', '#e9c46a', '#9b5de5'];
+export function createWalkers(n, { rng = mulberry32(7) } = {}) {
+  const geo0 = fanGeometry('mid', 'walk');
+  const mat = walkerMaterial(geo0.userData.pivots);
+  const g = geo0.clone();
+  const iSkin = new Float32Array(n * 3), iShirt = new Float32Array(n * 3), iPants = new Float32Array(n * 3), iHair = new Float32Array(n * 3), iAnim = new Float32Array(n * 4);
+  const c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    c.setHex(SKINS[(rng() * SKINS.length) | 0]).convertSRGBToLinear(); iSkin.set([c.r, c.g, c.b], i * 3);
+    c.set(SHIRTS[(rng() * SHIRTS.length) | 0]).convertSRGBToLinear(); iShirt.set([c.r, c.g, c.b], i * 3);
+    c.setHex(PANTS[(rng() * PANTS.length) | 0]).convertSRGBToLinear(); iPants.set([c.r, c.g, c.b], i * 3);
+    c.setHex(HAIRS[(rng() * HAIRS.length) | 0]).convertSRGBToLinear(); iHair.set([c.r, c.g, c.b], i * 3);
+    iAnim.set([rng(), rng(), 3, (rng() < 0.2 ? 2 : 0) + (rng() < 0.4 ? 10 : 0)], i * 4);
+  }
+  const attrs = { iSkin: new THREE.InstancedBufferAttribute(iSkin, 3), iShirt: new THREE.InstancedBufferAttribute(iShirt, 3), iPants: new THREE.InstancedBufferAttribute(iPants, 3), iHair: new THREE.InstancedBufferAttribute(iHair, 3), iAnim: new THREE.InstancedBufferAttribute(iAnim, 4) };
+  for (const k in attrs) g.setAttribute(k, attrs[k]);
+  const mesh = new THREE.InstancedMesh(g, mat, n);
+  mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
+  const scales = new Float32Array(n).map(() => 0.92 + rng() * 0.16);
+  return {
+    mesh, mat, n, attrs,
+    set(i, pos, yaw) { q.setFromAxisAngle(up, yaw); const s = scales[i]; sc.set(s, s, s); m4.compose(pos, q, sc); mesh.setMatrixAt(i, m4); },
+    style(i, st) { if (iAnim[i * 4 + 2] !== st) { iAnim[i * 4 + 2] = st; attrs.iAnim.needsUpdate = true; } },
+    getStyle(i) { return iAnim[i * 4 + 2]; },
+    update(time, focus) { const u = mat.userData.uniforms; u.uTime.value = time; u.uFocus.value.copy(focus); mesh.instanceMatrix.needsUpdate = true; }
   };
 }
