@@ -941,6 +941,7 @@ export class PlayerCar {
     }
     if (worst > 1.2) {
       this.events.push({ type: 'crash', impact: worst, other: worstObj });
+      this.bump(-Math.min(1.2, worst * 0.04), Math.min(1.5, worst * 0.07) * Math.sign(this.speed || 1), (Math.random() - 0.5) * Math.min(1.4, worst * 0.08));
       // ramming a fugitive is the job, so the taxi takes much less from it
       const dmg = Math.max(0, worst - 2.5) * 2.3 * (worstObj && worstObj.isPolice ? 0.5 : worstObj && (worstObj.isFugitive || worstObj.isKeeper) ? 0.3 : 1);
       this.health = Math.max(0, this.health - dmg);
@@ -1012,6 +1013,8 @@ export class PlayerCar {
           this.game.audio.crash(8);
         }
         this.game.shake = Math.max(this.game.shake || 0, Math.min(1, imp / 18));
+        // the springs take the landing: squash, then bounce back (nose-first landings pitch more)
+        this.bump(-Math.min(3.2, imp * 0.11), clamp(this.pitch * 3, -1.2, 1.2), (Math.random() - 0.5) * 0.4);
         if (imp > 16) {
           this.health = Math.max(0, this.health - (imp - 16) * 1.5);
           this.game.audio.crash(imp - 8);
@@ -1040,26 +1043,58 @@ export class PlayerCar {
       this.pitch += (-Math.atan2(hf - hb, 2.8) - this.pitch) * k;
       this.roll += (Math.atan2(hl - hr, 1.6) - this.roll) * k;
     }
-    if (dt > 0) {
-      const lat = this.speed * this.yawRate;
-      const stiff = this.hasPerf('susp') ? 0.55 : 1;
-      this.bodyRoll = damp(this.bodyRoll, clamp(lat * 0.011 * stiff, -0.07, 0.07), 5, dt);
-      this.bodyPitch = damp(this.bodyPitch, clamp(-this.lastAccel * 0.006 * stiff, -0.05, 0.05), 5, dt);
-    }
-    let shake = 0;
-    if (this.offroad) shake = Math.sin(performance.now() * 0.05) * Math.min(1, Math.abs(this.speed) / 20) * 0.012;
+    if (dt > 0) this.springs(dt);
     this.syncX = p.x;
     this.syncZ = p.z;
-    this.group.position.set(p.x, this.y + shake, p.z);
+    // the sprung body rides on the springs; animate() keeps the wheels planted on the road
+    this.group.position.set(p.x, this.y + (this.suspY || 0), p.z);
     this.group.rotation.set(this.pitch + this.bodyPitch, this.heading + (this.airSpin || 0), this.roll + this.bodyRoll);
     this.p = p;
   }
 
+  /** Suspension: three damped springs (heave, pitch, roll). Braking dives the nose, throttle squats
+   *  the tail, corners lean the body, landings and crashes bounce it, dirt roads jiggle it. */
+  springs(dt) {
+    const S = this.susp || (this.susp = { y: 0, vy: 0, p: 0, vp: 0, r: 0, vr: 0 });
+    const sport = this.hasPerf('susp');
+    const stiff = sport ? 0.55 : 1, K = sport ? 260 : 150, D = sport ? 19 : 11;
+    const lat = this.speed * (this.yawRate || 0);
+    const tr = this.air ? 0 : clamp(lat * 0.011 * stiff, -0.07, 0.07);
+    const tp = this.air ? 0 : clamp(-(this.lastAccel || 0) * 0.006 * stiff, -0.05, 0.05);
+    const t = this.game.time || 0;
+    const rough = this.offroad && !this.air ? Math.min(1, Math.abs(this.speed) / 18) : 0;
+    const ty = rough * (Math.sin(t * 23) + Math.sin(t * 37.3 + 1.3)) * 0.014;
+    const trr = tr + rough * Math.sin(t * 17.7 + 0.4) * 0.012;
+    const h = Math.min(dt, 1 / 30);
+    S.vy += (-K * (S.y - ty) - D * S.vy) * h;
+    S.vp += (-K * (S.p - tp) - D * S.vp) * h;
+    S.vr += (-K * (S.r - trr) - D * S.vr) * h;
+    S.y = clamp(S.y + S.vy * h, -0.16, 0.1);
+    S.p = clamp(S.p + S.vp * h, -0.09, 0.09);
+    S.r = clamp(S.r + S.vr * h, -0.11, 0.11);
+    for (const k of ['y', 'vy', 'p', 'vp', 'r', 'vr']) if (!Number.isFinite(S[k])) S[k] = 0;
+    this.suspY = S.y;
+    this.bodyPitch = S.p;
+    this.bodyRoll = S.r;
+  }
+  /** a kick to the springs: heave (m/s, negative = squash), pitch and roll rates */
+  bump(vy, vp = 0, vr = 0) {
+    const S = this.susp || (this.susp = { y: 0, vy: 0, p: 0, vp: 0, r: 0, vr: 0 });
+    if (Number.isFinite(vy)) S.vy += vy;
+    if (Number.isFinite(vp)) S.vp += vp;
+    if (Number.isFinite(vr)) S.vr += vr;
+  }
+
   animate(dt, inp) {
     const c = this.car;
+    // wheels stay on the road while the body moves on its springs
+    const sy = this.suspY || 0, sp = this.bodyPitch || 0, sr = this.bodyRoll || 0;
     for (const w of c.wheels) {
       w.spin.rotation.x += (this.speed / 0.33) * dt;
       if (w.front) w.steer.rotation.y = -this.steer;
+      if (w.y0 === undefined) w.y0 = w.steer.position.y;
+      const sp0 = w.steer.position;
+      sp0.y = w.y0 + clamp(-sy - sp0.x * sr + sp0.z * sp, -0.17, 0.17);
     }
     if (Math.abs(this.health - (this.damageShown ?? 100)) > 2.5) this.applyDamage();
     // the air freshener swings like a pendulum when you brake, accelerate and corner
