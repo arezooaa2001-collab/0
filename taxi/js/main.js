@@ -371,6 +371,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV13) {
+        this.stats.seenV13 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: 🚂 قطار و ایستگاه راه‌آهن، 🐈🐕🦜 حیوون خونگی توی ماشین (تعمیرگاه)، ☄️ بارون شهاب‌سنگ، 🌌 شفق قطبی، 🌾 علف و گل و پروانه، 🕊️ کفترهای شهر و 🛞 فنربندی واقعی!', 'info'), 50000);
+      }
       if (!this.stats.seenV12) {
         this.stats.seenV12 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 🌙❄️ حالت «شب یخ‌زده» با زامبی‌های بامزه! از توی گوشی (🧟) واردش شو؛ درها رو قفل نگه دار و به هیچکی اعتماد نکن 🔒', 'info'), 45000);
@@ -419,6 +423,7 @@ class Game {
     this.stats.seenV10 = true;
     this.stats.seenV11 = true;
     this.stats.seenV12 = true;
+    this.stats.seenV13 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
