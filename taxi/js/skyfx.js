@@ -178,13 +178,27 @@ export class SkyFx {
     this.rocks.push({ x: p.x, z: p.z, rock, glow, crater, smokeT: 25, ph: Math.random() * 6 });
     if (d < 500) g.ui.toast(`☄️ یه شهاب‌سنگ ${fa(Math.round(d))} متر اون‌طرف‌تر افتاد! روی نقشه 🪨`, 'warn');
   }
-  collect(R, i) {
-    const g = this.g;
+  remove(R, i) {
     for (const o of [R.rock, R.glow, R.crater]) o.removeFromParent();
     R.glow.material.dispose();
     R.crater.geometry.dispose();
     R.crater.children[0].geometry.dispose();
     this.rocks.splice(i, 1);
+  }
+  /** forget everything on the ground (a loaded or new game) */
+  clear() {
+    for (let i = this.rocks.length - 1; i >= 0; i--) this.remove(this.rocks[i], i);
+    for (const M of this.falling) {
+      M.sp.removeFromParent();
+      M.sp.material.dispose();
+    }
+    this.falling.length = 0;
+    this.shower = 0;
+    this.toDrop = 0;
+  }
+  collect(R, i) {
+    const g = this.g;
+    this.remove(R, i);
     g.coins += 25;
     g.addXp(80);
     g.stats.meteors = (g.stats.meteors || 0) + 1;
@@ -207,18 +221,17 @@ export class SkyFx {
     if (g.hour > 20.5 && this.nightKey !== g.day && !zombie) {
       this.nightKey = g.day;
       this.auroraNight = Math.random() < 0.5;
-      this.showerAt = Math.random() < 0.3 ? 21.5 + Math.random() * 4 : -1;
+      this.showerAt = Math.random() < 0.3 ? 21.5 + Math.random() * 2.3 : -1;
       this.auroraSaid = false;
     }
-    if (this.showerAt > 0 && g.hour > this.showerAt && g.hour < 23.9 && !this.shower && g.state === 'play') {
+    if (this.showerAt > 0 && g.hour > this.showerAt && g.hour < 23.9 && this.shower <= 0 && g.state === 'play' && !zombie) {
       this.showerAt = -1;
       this.startShower();
     }
     // the frozen night has its own snowy sky: no aurora, no shower
     if (zombie) {
       this.auroraK = 0;
-      this.shower = 0;
-      this.toDrop = 0;
+      if (this.shower || this.rocks.length || this.falling.length) this.clear();
     }
     /* ---- aurora ---- */
     const clear = W.cloud < 0.45 && W.rain < 0.15 && !zombie;
@@ -231,7 +244,7 @@ export class SkyFx {
         m.uniforms.uT.value = g.time;
         m.uniforms.uK.value = this.auroraK * clamp((night - 0.55) / 0.3, 0, 1);
       }
-      if (this.auroraK > 0.6 && !this.auroraSaid && g.state === 'play') {
+      if (this.auroraMats[0].uniforms.uK.value > 0.6 && !this.auroraSaid && g.state === 'play') {
         this.auroraSaid = true;
         g.ui.toast('🌌 شفق قطبی! یه نگاه به آسمون شمال بنداز ✨', 'info');
         g.stats.auroras = (g.stats.auroras || 0) + 1;
@@ -239,7 +252,7 @@ export class SkyFx {
     }
     /* ---- meteor shower ---- */
     if (this.shower > 0) {
-      this.shower -= dt;
+      this.shower = Math.max(0, this.shower - dt);
       // lots of streaks across the sky
       if (Math.random() < dt * 3) {
         const S = this.streaks.find((o) => !o.s.visible);
@@ -285,6 +298,11 @@ export class SkyFx {
     for (let i = this.rocks.length - 1; i >= 0; i--) {
       const R = this.rocks[i];
       R.ph += dt;
+      // the morning sun takes them: uncollected rocks crumble away after dawn
+      if (night < 0.15 && R.ph > 60) {
+        this.remove(R, i);
+        continue;
+      }
       R.glow.material.opacity = 0.55 + Math.sin(R.ph * 2.4) * 0.25;
       R.rock.rotation.y += dt * 0.4;
       if (R.smokeT > 0) {

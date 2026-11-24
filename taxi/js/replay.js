@@ -12,7 +12,7 @@ export class Replay {
   constructor(game) {
     this.g = game;
     this.buf = [];
-    for (let i = 0; i < N; i++) this.buf.push({ p: new Float32Array(9), n: 0, refs: new Array(MAXC), c: new Float32Array(MAXC * 6), dt: 1 / 60 });
+    for (let i = 0; i < N; i++) this.buf.push({ p: new Float32Array(15), n: 0, refs: new Array(MAXC), c: new Float32Array(MAXC * 6), dt: 1 / 60 });
     this.head = 0;
     this.count = 0;
     this.cam = 0;
@@ -58,6 +58,14 @@ export class Replay {
     p[6] = w[0].steer.rotation.y;
     p[7] = w[0].spin.rotation.x;
     p[8] = g.player.nitroOn ? 1 : 0;
+    // springs (so the wheels stay on the road in the replay) and the train
+    p[9] = g.player.suspY || 0;
+    p[10] = g.player.bodyPitch || 0;
+    p[11] = g.player.bodyRoll || 0;
+    const rw = g.railway;
+    p[12] = rw && rw.state !== 'tunnel' ? rw.s : NaN;
+    p[13] = rw ? rw.dir : 1;
+    p[14] = rw ? rw.wheelA % 1000 : 0;
     let n = 0;
     for (const o of g.traffic.obstacles) {
       if (n >= MAXC) break;
@@ -127,7 +135,7 @@ export class Replay {
     this.chipT = 0;
     // remember where everything really is
     const P = g.player.group;
-    this.saved = { pos: P.position.clone(), rot: P.rotation.clone(), cars: [], camFov: g.camera.fov };
+    this.saved = { pos: P.position.clone(), rot: P.rotation.clone(), cars: [], camFov: g.camera.fov, rail: g.railway && g.railway.snapshot() };
     const seen = new Set();
     for (let i = 0; i < this.frames; i++) {
       const f = this.frameAt(i);
@@ -160,6 +168,9 @@ export class Replay {
       s.o.group.rotation.copy(s.rot);
       s.o.group.visible = s.vis;
     }
+    if (g.railway) g.railway.restore(S.rail);
+    // the live springs put the wheels back on the next frame; start from rest
+    for (const w of g.player.car.wheels) if (w.y0 !== undefined) w.steer.position.y = w.y0;
     g.camera.fov = S.camFov;
     g.camera.updateProjectionMatrix();
     g.camInit = true;
@@ -195,7 +206,12 @@ export class Replay {
     for (const w of g.player.car.wheels) {
       w.spin.rotation.x = p[7];
       if (w.front) w.steer.rotation.y = p[6];
+      if (w.y0 !== undefined) {
+        const sp = w.steer.position;
+        sp.y = w.y0 + clamp(-p[9] - sp.x * p[11] + sp.z * p[10], -0.17, 0.17);
+      }
     }
+    if (g.railway) g.railway.showAt(p[12], p[13], p[14]);
     for (const s of this.saved.cars) s.o.group.visible = false;
     for (let k = 0; k < f.n; k++) {
       const o = f.refs[k];

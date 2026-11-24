@@ -249,7 +249,9 @@ export class Railway {
     const hr = box(8.2, 0.5, 15.4, roof, 11.2, 4.85, 0, g);
     hr.rotation.z = 0.04;
     box(1.6, 2.6, 0.12, wood, 7.66, 1.3, -2.5, g).rotation.y = Math.PI / 2;
-    for (const zz of [-5, 2, 5]) box(0.1, 1.4, 1.6, mat(0x2b3a48, { emissive: 0xffc070, emissiveIntensity: 0 }), 7.66, 2.4, zz, g);
+    const winM = mat(0x2b3a48, { emissive: 0xffc070, emissiveIntensity: 0 });
+    w.nightMats.push({ mat: winM, max: 1.4 });
+    for (const zz of [-5, 2, 5]) box(0.1, 1.4, 1.6, winM, 7.66, 2.4, zz, g);
     const name = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.4), new THREE.MeshStandardMaterial({ map: signBoard('ایستگاه راه‌آهن', 'روستای گندم‌زار') }));
     name.position.set(7.62, 3.7, 0);
     name.rotation.y = -Math.PI / 2;
@@ -261,7 +263,7 @@ export class Railway {
     g.add(name2);
     box(0.12, 2.6, 1.8, wood, 14.72, 1.3, 0, g);
     box(0.4, 0.15, 2.6, roof, 15.0, 2.75, 0, g);
-    for (const zz of [-4.6, 4.6]) box(0.1, 1.4, 1.8, mat(0x2b3a48, { emissive: 0xffc070, emissiveIntensity: 0 }), 14.74, 2.3, zz, g);
+    for (const zz of [-4.6, 4.6]) box(0.1, 1.4, 1.8, winM, 14.74, 2.3, zz, g);
     // platform benches and lamps
     for (const zz of [-24, -8, 8, 24]) {
       box(0.6, 0.1, 2.2, wood, 5.2, 1.45, zz, g);
@@ -409,7 +411,9 @@ export class Railway {
     // cab
     box(2.9, 2.5, 3.3, red, 0, 2.6, -3.9, g);
     box(3.2, 0.2, 3.9, black, 0, 3.95, -3.9, g);
-    for (const sx of [-1.46, 1.46]) box(0.04, 0.9, 1.1, mat(0x1a2a36, { emissive: 0xffb050, emissiveIntensity: 0 }), sx, 3.0, -3.4, g);
+    const cabWin = mat(0x1a2a36, { emissive: 0xffb050, emissiveIntensity: 0 });
+    for (const sx of [-1.46, 1.46]) box(0.04, 0.9, 1.1, cabWin, sx, 3.0, -3.4, g);
+    this.cabMat = cabWin;
     // cow catcher
     const cc = box(2.6, 0.7, 0.9, red, 0, 0.55, 6.1, g);
     cc.rotation.x = -0.5;
@@ -425,7 +429,6 @@ export class Railway {
     lamp.position.set(0, 3.45, 5.75);
     box(0.7, 0.6, 0.5, black, 0, 3.45, 5.5, g);
     this.locoLamp = lampMat;
-    this.cabMat = g.children.find((o) => o.material && o.material.emissive && o.material.emissive.getHex() === 0xffb050)?.material;
     const wheels = [];
     for (const z of [-1.7, 0.2, 2.1]) for (const x of [-1.45, 1.45]) wheels.push({ x, z, r: 0.78, big: true });
     for (const z of [4.3, 5.3]) for (const x of [-1.3, 1.3]) wheels.push({ x, z, r: 0.42 });
@@ -525,6 +528,29 @@ export class Railway {
   }
   tailS() {
     return this.s - this.dir * this.trainLen;
+  }
+  /* ---------------- replay ---------------- */
+  snapshot() {
+    return { s: this.s, dir: this.dir, wheelA: this.wheelA, state: this.state };
+  }
+  restore(S) {
+    if (!S) return;
+    Object.assign(this, S);
+    for (const c of this.cars) c.group.visible = this.state !== 'tunnel';
+    this.place(0);
+  }
+  /** pose the train as it was in a recorded frame (s is NaN while it was in the tunnel) */
+  showAt(s, dir, wheelA) {
+    const vis = Number.isFinite(s), st = this.state;
+    if (vis) {
+      this.s = s;
+      this.dir = dir || this.dir;
+      this.wheelA = wheelA;
+    }
+    this.state = vis ? 'run' : 'tunnel';
+    for (const c of this.cars) c.group.visible = vis;
+    this.place(0);
+    this.state = st;
   }
   /** is the barrier closed (or closing) now */
   stopPoints() {
@@ -751,15 +777,16 @@ export class Railway {
         if (Math.hypot(cp.x - p.pos.x, cp.z - p.pos.z) < 80) g.audio.crash(10);
       }
     }
-    if (g.onfoot.active) {
+    const walking = g.onfoot.active;
+    if (walking) {
       const wp = g.onfoot.walker && g.onfoot.walker.pos;
       if (wp && Math.abs(wp.x - R.x) < 2.2 && wp.z > zA && wp.z < zB && this.v > 1) {
         // a walker is shoved off the line, never hurt badly
         wp.x = R.x + (wp.x >= R.x ? 3 : -3);
         g.ui.toast('😱 مواظب قطار باش!', 'bad');
       }
-      return;
     }
+    // the taxi itself (also when you left it parked on the rails)
     const dx = p.pos.x - R.x;
     if (Math.abs(dx) > 3) this.lastSide = Math.sign(dx);
     const onTrack = Math.abs(dx) < 2.6 && p.pos.z > zA && p.pos.z < zB;
@@ -768,6 +795,15 @@ export class Railway {
       if (this.v > 1.5 && this.hitCd <= 0) {
         this.hitCd = 3;
         p.health = Math.max(0, p.health - 28);
+        if (walking) {
+          // nobody at the wheel: the parked taxi is simply shoved off the line
+          p.placeAt(R.x + sd * 4.6, p.pos.z + this.dir * 3, p.heading + sd * 0.9);
+          g.crashFx({ impact: 18 });
+          g.stats.trainHits = (g.stats.trainHits || 0) + 1;
+          g.ui.toast('🚂💥 قطار به تاکسیت که روی ریل پارک بود زد!', 'bad');
+          this.horn(1.2);
+          return;
+        }
         p.ext.set(sd * 15, this.dir * this.v * 0.7);
         p.speed *= 0.2;
         p.air = true;
@@ -786,6 +822,7 @@ export class Railway {
         p.speed *= 0.5;
       }
     }
+    if (walking) return;
     // beating the train across: on the crossing when the train is close
     const onX = Math.abs(dx) < 2.6 && Math.abs(p.pos.z - this.cz) < 7;
     const head = (this.cz - this.s) * this.dir;

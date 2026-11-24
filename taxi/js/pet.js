@@ -268,7 +268,15 @@ export class Pet {
     const g = this.g, p = g.player, k = this.active();
     for (const [kind, m] of Object.entries(this.models)) if (kind !== k && m.root.parent) m.root.removeFromParent();
     if (this.btn) this.btn.classList.toggle('hidden', !k || g.onfoot.active);
-    if (!k) return;
+    if (!k) {
+      for (const H of this.hearts) {
+        H.s.removeFromParent();
+        H.s.material.map.dispose();
+        H.s.material.dispose();
+      }
+      this.hearts.length = 0;
+      return;
+    }
     const m = this.model(k);
     // ride along on the front passenger seat of whatever car we drive
     if (m.root.parent !== p.group) p.group.add(m.root);
@@ -298,7 +306,7 @@ export class Pet {
     const outWin = k === 'dog' && sp > 13 && !asleep ? 1 : 0;
     this.win = (this.win || 0) + (outWin - (this.win || 0)) * Math.min(1, dt * 2);
     m.root.position.x += -this.win * 0.14;
-    m.root.rotation.set(L.x, 0, L.z - this.win * 0.25);
+    m.root.rotation.set(L.x, 0, L.z + this.win * 0.25);
     const S = k === 'parrot' ? 1.25 : 1.3;
     m.root.scale.set(S, S * (1 + breathe), S);
     // head: dozing, being petted, or watching the road / the driver
@@ -306,7 +314,7 @@ export class Pet {
     else if (this.joy > 0) m.head.rotation.set(-0.25 + Math.sin(this.t * 9) * 0.08, Math.sin(this.t * 4) * 0.3, Math.sin(this.t * 6) * 0.2);
     else {
       let look = Math.sin(this.t * 0.4) > 0.75 ? 0.9 : Math.sin(this.t * 0.23) * 0.4 - p.steer * 0.8;
-      if (this.win > 0.5) look = 1.2 + Math.sin(this.t * 2) * 0.15;
+      if (this.win > 0.5) look = -1.2 + Math.sin(this.t * 2) * 0.15;
       m.head.rotation.set(Math.sin(this.t * 1.3) * 0.05 - (p.air ? 0.3 : 0), m.head.rotation.y + (look - m.head.rotation.y) * Math.min(1, dt * 3), 0);
     }
     if (k === 'parrot') {

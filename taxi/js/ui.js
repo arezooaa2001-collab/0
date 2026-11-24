@@ -234,6 +234,7 @@ export class UI {
         }
       }
       if (e.code === 'KeyV') g.onfoot.toggle();
+      if ((e.code === 'Digit9' || e.code === 'Numpad9') && g.state === 'play') g.pet.pet();
       if (e.code === 'KeyK') this.cycleRadio();
       if (e.code === 'KeyX') g.state === 'photo' ? g.photo.close() : g.state === 'play' && !this.panelOpen && g.photo.open();
       if (e.code === 'KeyU' && g.state === 'play') g.setCruise(!g.cruise);
