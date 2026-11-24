@@ -214,6 +214,12 @@ export class SkyFx {
       this.showerAt = -1;
       this.startShower();
     }
+    // the frozen night has its own snowy sky: no aurora, no shower
+    if (zombie) {
+      this.auroraK = 0;
+      this.shower = 0;
+      this.toDrop = 0;
+    }
     /* ---- aurora ---- */
     const clear = W.cloud < 0.45 && W.rain < 0.15 && !zombie;
     const want = this.auroraNight && clear && night > 0.55 ? 1 : 0;
