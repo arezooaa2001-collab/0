@@ -23,9 +23,12 @@ export class Colliders {
   box(minX, minZ, maxX, maxZ, mask = 3, maxY = 99) { return this._ins({ t: 0, minX, minZ, maxX, maxZ, mask, maxY }, minX, minZ, maxX, maxZ); }
   circle(x, z, r, mask = 3, maxY = 99) { return this._ins({ t: 1, x, z, r, mask, maxY }, x - r, z - r, x + r, z + r); }
   // جعبه چرخیده (برای وسایل داخل خانه)
-  obox(cx, cz, hw, hd, yaw, mask = 3) {
-    const c = Math.cos(yaw), s = Math.sin(yaw); const ex = Math.abs(c) * hw + Math.abs(s) * hd, ez = Math.abs(s) * hw + Math.abs(c) * hd;
-    return this.box(cx - ex, cz - ez, cx + ex, cz + ez, mask);
+  obox(cx, cz, hw, hd, yaw, mask = 3, maxY = 99) {
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    if (Math.abs(s) < 1e-3 || Math.abs(c) < 1e-3) { const ex = Math.abs(c) * hw + Math.abs(s) * hd, ez = Math.abs(s) * hw + Math.abs(c) * hd; return this.box(cx - ex, cz - ez, cx + ex, cz + ez, mask, maxY); }
+    const ex = Math.abs(c) * hw + Math.abs(s) * hd, ez = Math.abs(s) * hw + Math.abs(c) * hd;
+    // جعبه واقعاً چرخیده (نه مربع دربرگیرنده) تا دیوار نامرئی نسازد
+    return this._ins({ t: 2, x: cx, z: cz, hw, hd, c, s, mask, maxY }, cx - ex, cz - ez, cx + ex, cz + ez);
   }
   remove(o) { if (!o || !o.cells) return; for (const k of o.cells) { const l = this.grid.get(k); if (l) { const i = l.indexOf(o); if (i >= 0) l.splice(i, 1); } } o.cells = null; }
   // راندن یک دایره (بازیکن یا ماشین) به بیرون از موانع؛ برمی‌گرداند نرمال برخورد
@@ -44,14 +47,24 @@ export class Colliders {
             if (m === dl) { nx = -1; nz = 0; d = -dl; } else if (m === dr) { nx = 1; nz = 0; d = -dr; } else if (m === db) { nx = 0; nz = -1; d = -db; } else { nx = 0; nz = 1; d = -df; }
             p.x += nx * (r - d); p.z += nz * (r - d); hit = hit || { nx, nz }; continue;
           }
+        } else if (o.t === 2) {
+          // مختصات محلی جعبه چرخیده (چرخش حول y با زاویه yaw)
+          const dx = p.x - o.x, dz = p.z - o.z; const lx = dx * o.c - dz * o.s, lz = dx * o.s + dz * o.c;
+          const qx = clamp(lx, -o.hw, o.hw), qz = clamp(lz, -o.hd, o.hd); let ex = lx - qx, ez = lz - qz; let dd = Math.hypot(ex, ez);
+          if (dd === 0) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { ex = Math.sign(lx) || 1; ez = 0; dd = -px; } else { ex = 0; ez = Math.sign(lz) || 1; dd = -pz; } }
+          else { ex /= dd; ez /= dd; }
+          if (dd < r) { const wx = ex * o.c + ez * o.s, wz = -ex * o.s + ez * o.c; p.x += wx * (r - dd); p.z += wz * (r - dd); hit = hit || { nx: wx, nz: wz }; }
+          continue;
         } else { nx = p.x - o.x; nz = p.z - o.z; d = Math.hypot(nx, nz) - o.r; const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L; if (d < r) { p.x += nx * (r - d); p.z += nz * (r - d); hit = hit || { nx, nz }; } continue; }
         if (d < r) { nx /= d; nz /= d; p.x += nx * (r - d); p.z += nz * (r - d); hit = hit || { nx, nz }; }
       }
     }
     return hit;
   }
-  inside(x, z, mask = 1) { const l = this.grid.get(Math.floor(x / this.cell) + ',' + Math.floor(z / this.cell)); if (!l) return false; for (const o of l) { if (!(o.mask & mask)) continue; if (o.t === 0 ? (x > o.minX && x < o.maxX && z > o.minZ && z < o.maxZ) : Math.hypot(x - o.x, z - o.z) < o.r) return true; } return false; }
+  inside(x, z, mask = 1) { const l = this.grid.get(Math.floor(x / this.cell) + ',' + Math.floor(z / this.cell)); if (!l) return false; for (const o of l) { if (!(o.mask & mask)) continue; if (o.t === 0 ? (x > o.minX && x < o.maxX && z > o.minZ && z < o.maxZ) : o.t === 2 ? (() => { const dx = x - o.x, dz = z - o.z; return Math.abs(dx * o.c - dz * o.s) < o.hw && Math.abs(dx * o.s + dz * o.c) < o.hd; })() : Math.hypot(x - o.x, z - o.z) < o.r) return true; } return false; }
 }
+
+const _uM = new THREE.Matrix4(), _uQ = new THREE.Quaternion(), _uUp = new THREE.Vector3(0, 1, 0), _uOne = new THREE.Vector3(1, 1, 1), _uE = new THREE.Euler();
 
 // ---------------- تعامل ----------------
 export class Interactions {
@@ -65,6 +78,7 @@ export class Interactions {
       const l = this.grid.get(gx + ',' + gz); if (!l) continue;
       for (const o of l) {
         if (o.cond && !o.cond(game)) continue;
+        if (o.indoor && game?.world && game.world.insideHouse !== o.indoor) continue; // وسایل داخل خانه فقط از داخل همان خانه
         const dx = o.pos.x - p.x, dz = o.pos.z - p.z, dy = Math.abs(o.pos.y - p.y - 0.9);
         const d = Math.hypot(dx, dz); if (d > o.r || dy > (o.ry || 2.2)) continue;
         const facing = d > 0.01 ? (dx * dir.x + dz * dir.z) / d : 1;
@@ -143,6 +157,15 @@ export class CityWorld {
     this.buildWalkerLoops();
     for (const b of Object.values(this.props)) b.build(this.group);
     optimizeStatic(this.group, { cell: 150, mapCell: 0, skip: (o) => o.userData.keep });
+    // حذف قطعه‌های دور (پشت مه) برای روانی بیشتر در همه کیفیت‌ها
+    this.cullDist = { low: 330, medium: 450, high: 600, ultra: 780 }[this.q] || 600;
+    this.cullList = [];
+    for (const o of this.group.children) {
+      if (!o.isMesh || o.isInstancedMesh || o.userData.keep || !o.geometry) continue;
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const bs = o.geometry.boundingSphere; if (!bs || bs.radius > 230) continue;
+      this.cullList.push({ o, c: bs.center.clone().applyMatrix4(o.matrixWorld), r: bs.radius });
+    }
     this.buildMinimap();
     this.spawn = { pos: new THREE.Vector3(blockRect(1, 1).x1 - 2.2, 0, (blockRect(1, 1).z0 + blockRect(1, 1).z1) / 2), yaw: Math.PI / 2 };
     this.vehicleSpawn = { pos: new THREE.Vector3(roadCenter(2) - 6.2, 0, this.spawn.pos.z + 5), yaw: 0 };
@@ -269,7 +292,7 @@ export class CityWorld {
     add(new THREE.BoxGeometry(hw * 2 + 0.4, base, hd * 2 + 0.4), mat(0x9a948a, 0.9), 0, base / 2, 0);
     // دیوارها با سوراخ در و پنجره
     const win = (x0, x1) => ({ x0, x1, y0: 0.9, y1: 2.2 });
-    const front = [{ x0: -3.05, x1: -1.95, y0: 0, y1: 2.2 }, win(0.8, 2.2), win(3.4, 4.8)];
+    const front = [{ x0: -3.05, x1: -1.95, y0: 0, y1: 2.2 }, win(1.4, 2.6), win(3.4, 4.8)];
     const back = [win(-4.6, -3.2), win(-1.2, 0.2), win(2.4, 3.6), win(4.2, 5.2)];
     const side = [win(-3.6, -2.2), win(1.6, 3.0)];
     add(wallGeo(hw * 2, H, front, th), wallMat, 0, base, hd - th / 2);
@@ -287,7 +310,7 @@ export class CityWorld {
       const gl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassM); gl.position.set(cxw, base + (o.y0 + o.y1) / 2, z); grp.add(gl);
     };
     for (const o of front.slice(1)) winGeo(o, hd - th / 2, 0);
-    for (const o of back) winGeo(o, hd - th / 2, Math.PI);
+    for (const o of back) winGeo({ ...o, x0: -o.x1, x1: -o.x0 }, hd - th / 2, Math.PI); // قاب‌ها دقیقاً روی سوراخ دیوار پشتی
     for (const o of side) { winGeo(o, hw - th / 2, Math.PI / 2); winGeo(o, hw - th / 2, -Math.PI / 2); }
     // سقف شیروانی
     const roofMat = this._roofMat || (this._roofMat = (() => { const m = new THREE.MeshStandardMaterial({ map: T.roofTiles('#d9d9d9').clone(), vertexColors: true, roughness: 0.75 }); m.map.repeat.set(3, 2); m.map.needsUpdate = true; return m; })());
@@ -318,7 +341,7 @@ export class CityWorld {
     { const a = W(-3.05, 0, hd - 0.12), b = W(-1.95, 0, hd + 0.02); house.doorBox = [Math.min(a.x, b.x), Math.min(a.z, b.z), Math.max(a.x, b.x), Math.max(a.z, b.z)]; }
     this.houses.push(house);
     this.inter.add({ pos: W(2.5, 0.8, fz - 0.4), r: 1.6, label: 'تکیه دادن به نرده و تماشای خیابان', act: (gm) => gm.act('idle', 2.5, { text: 'چه محله آرام و قشنگی! 🏡' }) });
-    this.inter.add({ pos: W(1.5, 1.2, hd + 0.5), r: 1.4, label: 'نگاه کردن از پنجره به داخل خانه', act: (gm) => gm.act('reach', 1.4, { text: ['داخل خانه خیلی مرتب است 🛋️', 'یک گربه پشت پنجره خوابیده 🐈', 'چراغ‌های خانه روشن است 💡'][Math.floor(Math.random() * 3)] }) });
+    this.inter.add({ pos: W(2.0, 1.2, hd + 0.5), r: 1.4, label: 'نگاه کردن از پنجره به داخل خانه', act: (gm) => gm.act('reach', 1.4, { text: ['داخل خانه خیلی مرتب است 🛋️', 'یک گربه پشت پنجره خوابیده 🐈', 'چراغ‌های خانه روشن است 💡'][Math.floor(Math.random() * 3)] }) });
     this.inter.add({ pos: W(4.8, 0.8, hd + 1.0), r: 1.3, label: 'آب دادن به بوته‌های حیاط', act: (gm) => gm.act('water', 2.2, { text: 'بوته‌ها آب خوردند 🌿' }) });
     // برخورد: دیوارها برای بازیکن (با فاصله در)، کل خانه برای ماشین
     const c = this.colliders; const wb = (x0, z0, x1, z1) => { const a = W(x0, 0, z0), b = W(x1, 0, z1); c.box(Math.min(a.x, b.x), Math.min(a.z, b.z), Math.max(a.x, b.x), Math.max(a.z, b.z), 1); };
@@ -358,7 +381,7 @@ export class CityWorld {
     part(4.8, [], 1, -2.4, Math.PI / 2);
     const W = (x, z) => new THREE.Vector3(x, 0, z).applyMatrix4(g.matrixWorld);
     const cbox = (x0, z0, x1, z1) => { const a = W(x0, z0), b = W(x1, z1); it.colliders.push(this.colliders.box(Math.min(a.x, b.x), Math.min(a.z, b.z), Math.max(a.x, b.x), Math.max(a.z, b.z), 1)); };
-    cbox(-5.8, -0.06, -2.6, 0.06); cbox(-1.6, -0.06, 3.5, 0.06); cbox(4.5, -0.06, 5.8, 0.06); cbox(0.94, 0, 1.06, 1.9); cbox(0.94, 2.9, 1.06, 4.8); cbox(0.94, -4.8, 1.06, 0);
+    cbox(-5.8, -0.06, -2.6, 0.06); cbox(-1.6, -0.06, 3.5, 0.06); cbox(4.5, -0.06, 5.8, 0.06); cbox(0.94, 0, 1.06, 1.8); cbox(0.94, 2.8, 1.06, 4.8); cbox(0.94, -4.8, 1.06, 0);
     // وسایل
     const rng = mulberry32(house.id * 17 + 3);
     const sofaC = [0x6b7c93, 0x8c4a3a, 0x3d5a40, 0x4a4e69][Math.floor(rng() * 4)];
@@ -370,18 +393,18 @@ export class CityWorld {
       }
       for (const iv of o.inter || []) {
         const p = new THREE.Vector3(...iv.at).applyMatrix4(o.group.matrixWorld);
-        it.inter.push(this.inter.add({ pos: p, r: 1.7, ry: 2.5, label: iv.label, act: (gm) => iv.act(gm, o), indoor: true }));
+        it.inter.push(this.inter.add({ pos: p, r: 1.7, ry: 2.5, label: iv.label, act: (gm) => iv.act(gm, o), indoor: house }));
       }
       if (o.update) it.updates.push(o.update);
       it.pieces.push(o);
       return o;
     };
     // اتاق نشیمن
-    place(F.rug(), -3.8, 2.0); place(F.sofa(sofaC), -3.8, 0.6, 0); place(F.coffeeTable(), -3.8, 2.0);
+    place(F.rug(), -3.8, 2.0, 0, 0.028); place(F.sofa(sofaC), -3.8, 0.6, 0); place(F.coffeeTable(), -3.8, 2.0);
     place(F.tv(), -3.8, 4.45, Math.PI); place(F.armchair(sofaC + 0x101010), -1.1, 1.5, -Math.PI * 0.7); place(F.floorLamp(), -5.4, 0.45);
-    place(F.bookshelf(), -5.6, 3.1, Math.PI / 2); place(F.plant(), 0.4, 4.4);
+    place(F.bookshelf(), -5.6, 3.9, Math.PI / 2); place(F.plant(), 0.4, 4.4);
     const pt = place(F.painting(house.id % 7 + 1), -3.8, 0.08, 0, 1.9);
-    place(F.curtain(1.4), -5.75, -2.9 + 5.8, Math.PI / 2, 0.9);
+    place(F.curtain(1.4), -5.72, 2.3, Math.PI / 2, 0.9);
     // آشپزخانه
     place(F.fridge(), 5.4, 0.5, -Math.PI / 2); place(F.counter(1.6), 5.45, 1.85, -Math.PI / 2); place(F.sink(false), 5.45, 3.05, -Math.PI / 2); place(F.stove(), 5.42, 4.2, -Math.PI / 2);
     place(F.microwave(), 5.5, 1.5, -Math.PI / 2, 0.91); place(F.kettle(), 5.5, 2.2, -Math.PI / 2, 0.91);
@@ -390,29 +413,33 @@ export class CityWorld {
     // اتاق خواب
     place(F.bed(), -3.5, -3.75); place(F.nightstand(), -4.75, -4.5); place(F.nightstand(), -2.25, -4.5);
     place(F.wardrobe(), -5.45, -1.4, Math.PI / 2); place(F.desk(), 0.5, -3.2, -Math.PI / 2); place(F.chair(0x2b2b30), -0.2, -3.2, Math.PI / 2);
-    place(F.mirror(), -1.0, -0.08, Math.PI, 1.6); place(F.rug(0x2a4d69), -3.5, -1.6);
+    place(F.mirror(), -1.0, -0.08, Math.PI, 1.6); place(F.rug(0x2a4d69), -3.5, -1.6, 0, 0.028);
     // حمام
     place(F.bathtub(), 4.7, -4.2); place(F.toilet(), 1.7, -4.4, 0); place(F.sink(true), 5.5, -1.6, -Math.PI / 2); place(F.mirror(), 5.75, -1.6, -Math.PI / 2, 1.6);
     place(F.washer(), 1.5, -1.6, Math.PI / 2); place(F.towel(), 3.2, -4.75, 0, 1.3);
     for (const [x, z] of [[-2.4, 2.4], [3.4, 2.4], [-2.4, -2.4], [3.4, -2.4]]) { const l = F.ceilingLamp(); l.group.position.set(x, base + H - 0.03, z); g.add(l.group); }
     const sw = mat(0xf5f5f5, 0.4);
-    for (const [x, z, ry] of [[-2.9, 4.75, Math.PI], [0.85, 1.6, -Math.PI / 2], [-2.95, -0.1, Math.PI], [1.15, -0.3, Math.PI / 2]]) {
+    for (const [x, z, ry] of [[-1.7, 4.79, Math.PI], [0.93, 1.6, -Math.PI / 2], [-2.95, -0.07, Math.PI], [1.07, -0.3, Math.PI / 2]]) {
       const plate = add(new THREE.BoxGeometry(0.08, 0.12, 0.02), sw, x, base + 1.25, z, ry); plate.castShadow = false;
       const p = new THREE.Vector3(x, base + 1.25, z).applyMatrix4(g.matrixWorld);
-      it.inter.push(this.inter.add({ pos: p.setY(p.y - 0.3), r: 1.5, ry: 2.5, label: (gm) => (gm.roomLightOn ? 'خاموش کردن چراغ اتاق 💡' : 'روشن کردن چراغ اتاق 💡'), act: (gm) => { gm.roomLight(!gm.roomLightOn); gm.act('press', 0.5, { text: gm.roomLightOn ? 'چراغ روشن شد' : 'چراغ خاموش شد' }); gm.sfx('click'); } }));
+      it.inter.push(this.inter.add({ pos: p.setY(p.y - 0.3), r: 1.5, ry: 2.5, indoor: house, label: (gm) => (gm.roomLightOn ? 'خاموش کردن چراغ اتاق 💡' : 'روشن کردن چراغ اتاق 💡'), act: (gm) => { gm.roomLight(!gm.roomLightOn); gm.act('press', 0.5, { text: gm.roomLightOn ? 'چراغ روشن شد' : 'چراغ خاموش شد' }); gm.sfx('click'); } }));
     }
     // ادغام قطعات ثابت داخل خانه برای سرعت
     optimizeStatic(g, { skip: (o) => o.userData.dynamic });
     // نور خورشید به داخل خانه نمی‌رسد: وسایل داخل سایه نمی‌اندازند (سبک‌تر)
     g.traverse((o) => { if (o.isMesh) o.castShadow = false; });
     house.interior = it;
+    this.lru = (this.lru || []).filter((x) => x !== house); this.lru.push(house);
     return it;
   }
   disposeInterior(house) {
     const it = house.interior; if (!it) return;
     for (const c of it.colliders) this.colliders.remove(c);
     for (const i of it.inter) this.inter.remove(i);
-    this.group.remove(it.g); it.g.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    this.group.remove(it.g);
+    // هندسه‌ها و متریال‌های اختصاصی (نه مشترک) آزاد شوند تا حافظه گرافیک پر نشود
+    const seen = new Set();
+    it.g.traverse((o) => { if (o.geometry) o.geometry.dispose(); for (const m of [].concat(o.material || [])) { if (seen.has(m) || m.userData.shared || m === this._woodMat || m === this._tileMat) continue; seen.add(m); if (m.map && !m.map.userData.shared) m.map.dispose(); m.dispose(); } });
     house.interior = null;
   }
 
@@ -675,7 +702,8 @@ export class CityWorld {
     const spots = this.treeSpots || [];
     // درخت‌های حیاط پشتی و اطراف شهر
     const rng = this.rng;
-    for (let k = 0; k < 220; k++) { const a = rng() * TAU, d = SPAN / 2 + 70 + rng() * 300; spots.push([Math.cos(a) * d, Math.sin(a) * d, 0.9 + rng() * 0.8]); }
+    // درخت‌های بیرون شهر فقط در حلقه مربعی بیرون از محدوده شهر (نه روی خیابان‌های گوشه شهر)
+    for (let k = 0, n = 0; k < 900 && n < 220; k++) { const a = rng() * TAU, d = SPAN / 2 + 70 + rng() * 300; const x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.max(Math.abs(x), Math.abs(z)) < SPAN / 2 + 66) continue; spots.push([x, z, 0.9 + rng() * 0.8]); n++; }
     for (let bx = 0; bx < CITY.N; bx++) for (let bz = 0; bz < CITY.N; bz++) if (this.types[bx + ',' + bz] === 'res') { const r = blockRect(bx, bz); for (let k = 0; k < 4; k++) spots.push([lerp(r.x0 + 12, r.x1 - 12, rng()), lerp(r.z0 + 30, r.z1 - 30, rng()), 0.9 + rng() * 0.5]); }
     const trunk = new THREE.CylinderGeometry(0.16, 0.26, 3.2, 6, 1, true); trunk.translate(0, 1.6, 0);
     const fol = []; const det = this.q === 'low' ? 0 : 1; for (const [x, y, z, r] of [[0, 4.4, 0, 2.0], [1.0, 3.9, 0.4, 1.4], [-1.0, 4.0, -0.3, 1.5], [0.2, 5.3, 0.4, 1.3], [-0.3, 4.1, 1.0, 1.3]]) { const s = new THREE.IcosahedronGeometry(r, det); s.translate(x, y, z); fol.push(s); }
@@ -687,11 +715,10 @@ export class CityWorld {
     tm.onBeforeCompile = vertexPBRMaterial().onBeforeCompile; tm.customProgramCacheKey = () => 'vpbr-tree'; windify(tm, 0.16, 5.5);
     for (const [, list] of cells) {
       const im = new THREE.InstancedMesh(geo, tm, list.length);
-      list.forEach(([x, z, s], i) => { const y = this.groundAt(x, z); mtx.compose(new THREE.Vector3(x, y, z), q.setFromAxisAngle(up, rng() * TAU), new THREE.Vector3(s, s * (0.9 + rng() * 0.3), s)); im.setMatrixAt(i, mtx); const v = 0.85 + rng() * 0.3; im.setColorAt(i, c.setRGB(v * 0.95, v, v * 0.9)); if (Math.hypot(x, z) < SPAN / 2) this.colliders.circle(x, z, 0.35 * s, 3); });
+      list.forEach(([x, z, s], i) => { const y = this.groundAt(x, z); mtx.compose(new THREE.Vector3(x, y, z), q.setFromAxisAngle(up, rng() * TAU), new THREE.Vector3(s, s * (0.9 + rng() * 0.3), s)); im.setMatrixAt(i, mtx); const v = 0.85 + rng() * 0.3; im.setColorAt(i, c.setRGB(v * 0.95, v, v * 0.9)); if (Math.max(Math.abs(x), Math.abs(z)) < SPAN / 2 + 2) this.colliders.circle(x, z, 0.35 * s, 3); });
       im.castShadow = true; im.computeBoundingSphere(); this.group.add(im);
-      this.inter.add({ pos: new THREE.Vector3(list[0][0], 1, list[0][1]), r: 1.6, label: 'تکان دادن درخت 🌳', act: (g) => g.act('shake', 1.6, { text: 'چند برگ از درخت افتاد 🍃', leaves: new THREE.Vector3(list[0][0], 4, list[0][1]) }) });
     }
-    for (const [x, z] of spots) if (Math.hypot(x, z) < SPAN / 2) this.inter.add({ pos: new THREE.Vector3(x, 1, z), r: 1.5, label: 'تکان دادن درخت 🌳', act: (g) => g.act('shake', 1.6, { text: 'چند برگ از درخت افتاد 🍃', leaves: new THREE.Vector3(x, 4, z) }) });
+    for (const [x, z] of spots) if (Math.max(Math.abs(x), Math.abs(z)) < SPAN / 2 + 2) this.inter.add({ pos: new THREE.Vector3(x, 1, z), r: 1.5, label: 'تکان دادن درخت 🌳', act: (g) => g.act('shake', 1.6, { text: 'چند برگ از درخت افتاد 🍃', leaves: new THREE.Vector3(x, 4, z) }) });
   }
 
   // ---------------- مسیر ماشین‌ها و عابرها ----------------
@@ -749,10 +776,12 @@ export class CityWorld {
     }
   }
   update(dt, t, focus) {
+    this._cullT = (this._cullT || 0) - dt;
+    if (this._cullT <= 0 && this.cullList) { this._cullT = 0.3; const D = this.cullDist; for (const it of this.cullList) { const v = it.c.distanceTo(focus) - it.r < D; if (it.o.visible !== v) it.o.visible = v; } }
     for (const u of this.updaters) u(dt, t);
     this._scrT = (this._scrT || 0) - dt; if (this._scrT <= 0) { this._scrT = 0.2; this.drawScreens(t); }
     // درهای خانه: باز شدن خودکار وقتی بازیکن نزدیک است
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+    const m = _uM, q = _uQ, up = _uUp, one = _uOne;
     let built = false;
     for (const h of this.houses) {
       const d = h.front.distanceTo(focus);
@@ -768,7 +797,7 @@ export class CityWorld {
       if (closed && !h.doorCol) h.doorCol = this.colliders.box(...h.doorBox, 1); else if (!closed && h.doorCol) { this.colliders.remove(h.doorCol); h.doorCol = null; }
       // فضای داخلی فقط برای خانه‌های نزدیک (ساخت تدریجی و نگه‌داری چند خانه آخر)
       const dc = Math.hypot(h.cx - focus.x, h.cz - focus.z);
-      if (dc < 34 && !h.interior && this.canBuild !== false && !built) { this.buildInterior(h); built = true; this.lru = (this.lru || []).filter((x) => x !== h); this.lru.push(h); }
+      if (dc < 34 && !h.interior && this.canBuild !== false && !built) { this.buildInterior(h); built = true; }
       if (h.interior) {
         const vis = (dc < 30 && !(this.insideHouse && this.insideHouse !== h)) || h.lockInterior; if (h.interior.g.visible !== vis) h.interior.g.visible = vis;
         if (vis) for (const u of h.interior.updates) u(dt, t);
@@ -778,7 +807,7 @@ export class CityWorld {
     for (const b of this.bins) {
       if (b.t > 0) b.t -= dt;
       const target = b.t > 0 ? -1.9 : 0;
-      if (Math.abs(b.open - target) > 0.001) { b.open += (target - b.open) * Math.min(1, dt * 8); m.compose(b.lidPos, q.setFromEuler(new THREE.Euler(b.open, b.yaw, 0, 'YXZ')), one); this.props.binLid.setMatrix(b.li, m); }
+      if (Math.abs(b.open - target) > 0.001) { b.open += (target - b.open) * Math.min(1, dt * 8); m.compose(b.lidPos, q.setFromEuler(_uE.set(b.open, b.yaw, 0, 'YXZ')), one); this.props.binLid.setMatrix(b.li, m); }
     }
   }
   // جاده خیس بعد از باران: براق و بازتابنده

@@ -9,6 +9,10 @@ import { clamp, lerp, damp, wrapAngle, mulberry32, toFa, fmtTime, TAU } from './
 
 import { buildBike, bikeById, bikeStats, bikeLooks } from './bikes.js';
 import { skyBirds, Weather } from './cityfx.js';
+import { pedals, pedalAcc, settle } from './drive.js';
+const ONE_SIDE = [1], BOTH_SIDES = [1, -1];
+const IDLE_IN = { steer: 0, throttle: 0, brake: 1, reverse: 0, brakeRev: 0, drift: false, nitro: false };
+const _prevPos = new THREE.Vector3();
 export const COINS = [150, 100, 50, 20, 10, 5, 2];
 const RIVAL_NAMES = ['آرش', 'کاوه', 'سارا', 'نیما', 'رها', 'بهرام', 'مانی', 'تینا', 'سهراب', 'یاسمن', 'داریوش', 'پریا'];
 const TIER_KNOTS = [[1, 0], [20, 1], [40, 3.6], [60, 4.6], [80, 5.6], [100, 6.6], [150, 7.6], [200, 8.6], [250, 9.6], [300, 10.6], [400, 11.6], [500, 12.6], [600, 13.6], [700, 14.6], [800, 15.6], [900, 16.6], [950, 17.6], [1000, 18.6]];
@@ -276,13 +280,12 @@ export class Race {
 
   update(dt) {
     dt = Math.min(dt, 0.05);
-    this.t += dt; this.phaseT += dt;
-    PATTERN_UNIFORMS.uTime.value += dt;
     let input = this.app.input.update();
     if (this.app.autoDrive && this.player && !this.player.finished) input = this.autopilot(this.player);
     if (this.phase === 'replay') { this.updateReplay(dt); return; }
     if (this.app.input.consume('Escape') || this.app.input.consume('KeyP')) this.app.ui.togglePause?.();
-    if (this.paused) { this.app.engine.render(this.scene, this.camera, dt); return; }
+    if (this.paused) { const fp = this.app.engine.finalPass.uniforms; fp.uFlash.value = damp(fp.uFlash.value, 0, 6, dt); this.updateCamera(0.0001); this.app.engine.render(this.scene, this.camera, dt); return; }
+    this.t += dt; this.phaseT += dt; PATTERN_UNIFORMS.uTime.value += dt; // زمان فقط وقتی بازی متوقف نیست جلو می‌رود
     const ph = this.phase;
     if (ph === 'boss') {
       this.updateBossIntro(dt);
@@ -303,7 +306,7 @@ export class Race {
     const steps = Math.ceil(dt / (1 / 120)); const h = dt / steps;
     for (let s = 0; s < steps; s++) {
       for (const r of this.racers) {
-        if (r.isPlayer && !r.finished) this.stepPlayer(r, h, racing ? input : { steer: 0, throttle: input.throttle, brake: 1, reverse: 0, brakeRev: 0, drift: false, nitro: false }, racing);
+        if (r.isPlayer && !r.finished) { IDLE_IN.throttle = input.throttle; this.stepPlayer(r, h, racing ? input : IDLE_IN, racing); }
         else this.stepAI(r, h, racing);
       }
       if (racing) this.collide(h);
@@ -361,10 +364,7 @@ export class Race {
     let fx = Math.sin(r.heading), fz = Math.cos(r.heading);
     let vf = r.vel.x * fx + r.vel.z * fz;
     // ترمز فقط ترمز می‌گیرد؛ دنده عقب (یا کشیدن به عقب) اول ترمز و بعد عقب می‌رود
-    const wantBack = Math.max(inp.reverse || 0, inp.brakeRev || 0);
-    const brakeIn = Math.max(inp.brake || 0, vf > 0.6 ? wantBack : 0);
-    const revIn = vf <= 0.6 ? wantBack : 0;
-    r.throttle = damp(r.throttle, inp.throttle, 10, dt); r.brake = damp(r.brake, brakeIn, 12, dt); r.rev = damp(r.rev || 0, revIn, 10, dt);
+    pedals(r, racing ? inp : { throttle: inp.throttle, brake: 1 }, vf, dt);
     r.hand = !!(inp.drift || inp.handbrake); // دریفت کنترل‌شده (بدون ترمز دستی)
     const speed = Math.abs(vf);
     // سطح زیر چرخ
@@ -390,18 +390,13 @@ export class Race {
       const curve = Math.max(0, 1 - Math.pow(Math.max(0, vf) / vmax, 2.3));
       acc += st.acc * (1.15 - 0.15 * (vf / vmax)) * curve * r.throttle * (nitroOn ? 1.6 : 1) * (r.shiftT > 0 ? 0.35 : 1) * (0.55 + 0.45 * surfGrip);
     }
-    if (r.brake > 0.02) {
-      if (vf > 0.6) acc -= st.brake * r.brake * (0.6 + 0.4 * surfGrip);
-      else if (vf < -0.6) acc += st.brake * r.brake * 0.8;
-    }
-    if (racing && r.rev > 0.02 && vf > -9) acc -= st.acc * 0.55 * r.rev;
+    acc += pedalAcc(r, st, vf, dt, surfGrip);
     if (r.hand && speed > 3) acc -= Math.sign(vf) * 1.1;
     acc -= vf * (0.005 + (r.surface === 2 ? 0.45 : r.surface === 3 ? 0.85 : r.surface === 4 ? 0.12 : 0));
     if (!racing && Math.abs(vf) < 0.3) { vf = 0; acc = 0; }
     const vfOld = vf;
     vf += acc * dt;
-    if (vfOld > 0 && vf < 0 && r.rev < 0.05) vf = 0;
-    if (vfOld < 0 && vf > 0 && r.throttle < 0.05) vf = 0;
+    vf = settle(r, vfOld, vf);
     // نیروی جانبی (کشش لاستیک)
     const latGrip = gripLat * (r.hand ? 0.5 : 1) * 1.05;
     const dvl = Math.min(Math.abs(vl), latGrip * dt);
@@ -536,7 +531,7 @@ export class Race {
     r.d = clamp(r.d, -lim, lim);
     r.v = v; r.P += v * dt;
     const p = tr.pointAt(r.P, r.d, _v1);
-    const prev = r.pos.clone();
+    const prev = _prevPos.copy(r.pos);
     r.pos.copy(p);
     const lat = dd / Math.max(dt, 1e-4);
     const kk = tr.ks[iNow];
@@ -605,11 +600,12 @@ export class Race {
   }
 
   finishRacer(r) {
+    if (r.finished || (r.isPlayer && this.result)) return;
     r.finished = true; r.finishTime = this.raceTime;
     if (r.isPlayer) {
       this.playerFinishTime = this.raceTime;
-      r.ai = { lane: 0, skill: 1, auto: true };
-      r.v = Math.max(8, r.vf);
+      r.ai = { lane: 0, skill: 1, auto: true, init: true };
+      r.v = Math.max(8, r.vf); r.d = r.d || 0; r.dv = 0;
       this.setPhase('finish');
       this.app.audio.cheer(4);
       const place = this.racers.filter((o) => o.finished).length;
@@ -644,7 +640,8 @@ export class Race {
     r.roll = damp(r.roll, roll, 6, dt || 0.016); r.bodyPitch = damp(r.bodyPitch || 0, pitchB, 6, dt || 0.016);
     const kerbShake = r.surface === 1 ? (Math.random() - 0.5) * 0.02 : r.surface >= 2 ? (Math.random() - 0.5) * 0.015 * Math.min(1, Math.abs(r.vf) / 20) : 0;
     r.spin += (r.vf / m.shape.wr) * (dt || 0);
-    m.setVisualState({ steer: r.steer, spin: r.spin, gear: r.gear, throttle: r.throttle, brake: r.brake, speedKmh: Math.abs(r.vf) * 3.6, rpm: r.rpm, roll: m.isBike ? 0 : r.roll, pitch: r.bodyPitch, bounce: kerbShake, latAcc: r.latAcc });
+    const vs = this._vs || (this._vs = {}); vs.steer = r.steer; vs.spin = r.spin; vs.gear = r.gear; vs.throttle = r.throttle; vs.brake = r.brake; vs.speedKmh = Math.abs(r.vf) * 3.6; vs.rpm = r.rpm; vs.roll = m.isBike ? 0 : r.roll; vs.pitch = r.bodyPitch; vs.bounce = kerbShake; vs.latAcc = r.latAcc;
+    m.setVisualState(vs);
     if (dt) this.carEffects(r, dt);
   }
 
@@ -656,8 +653,8 @@ export class Race {
     const rearZ = -m.shape.wb / 2, wx = m.shape.W / 2 - 0.25;
     const smokeCol = this._smokeCol || (this._smokeCol = new THREE.Color());
     const sliding = r.slip > 2.4 && r.surface <= 1;
-    for (const sx of [1, -1]) {
-      const wp = _v3.set(r.pos.x + fx * rearZ + lx * wx * sx, r.pos.y + 0.12, r.pos.z + fz * rearZ + lz * wx * sx);
+    for (const sx of (m.isBike ? ONE_SIDE : BOTH_SIDES)) {
+      const wp = _v3.set(r.pos.x + fx * rearZ + lx * wx * sx * (m.isBike ? 0 : 1), r.pos.y + 0.12, r.pos.z + fz * rearZ + lz * wx * sx);
       const key = r.id + sx;
       if (sliding) {
         smokeCol.set(r.isPlayer ? CUSTOM.smoke.hex[r.custom.smoke || 0] : '#eeeeee');
@@ -665,6 +662,7 @@ export class Race {
         _v2.set(lx, 0, lz); this.effects.skids.add(key, _v1.copy(wp).setY(r.pos.y + 0.06), _v2, clamp((r.slip - 2) / 5, 0.15, 0.55));
       } else this.effects.skids.break(key);
       if (r.surface >= 2 && sp > 4 && Math.random() < 0.6) this.effects.dirt(wp, r.vel, r.surface === 3);
+      if (this.weather?.on && sp > 12 && camD < 90 && Math.random() < 0.45) this.effects.tireSmoke(wp, r.vel, this._spray || (this._spray = new THREE.Color(0.78, 0.82, 0.86)), 0.35); // پاشش آب در باران
     }
     // شعله اگزوز
     if ((r.isPlayer && (r.nitroOn || this.popFlame > 0)) && m.exhaust.length) {
@@ -715,7 +713,7 @@ export class Race {
   }
 
   showResults() {
-    if (this.phase === 'results') return;
+    if (this.phase === 'results' || this.result) return;
     // تخمین زمان کسانی که هنوز نرسیده‌اند
     const L = this.track.length * this.info.laps;
     const res = this.racers.map((r) => ({ r, time: r.finished ? r.finishTime : this.raceTime + Math.max(0, L - r.P) / Math.max(15, r.isPlayer ? Math.abs(r.vf) : r.v) }));
@@ -741,7 +739,7 @@ export class Race {
   updateCamera(dt) {
     const cam = this.camera; const ph = this.phase;
     const p = this.player;
-    if (this.player.model.driver) this.player.model.driver.j.head.visible = !(this.camMode === 'cockpit' && (ph === 'race' || ph === 'countdown' || ph === 'finish'));
+    if (this.player.model.driver) this.player.model.driver.j.head.visible = !(this.camMode === 'cockpit' && (ph === 'race' || ph === 'countdown' || (ph === 'finish' && this.phaseT <= 0.6)));
     this.shake = damp(this.shake || 0, 0, 4, dt);
     if (ph === 'boss' && this.boss) {
       const b = this.boss; const yaw = b.yaw;
@@ -851,12 +849,17 @@ export class Race {
     if (this.replayWatched || !this.record.frames.length) return false;
     this.replayWatched = true;
     this.prevPhase = this.phase; this.phase = 'replay';
+    this.preReplay = this.racers.map((r) => ({ r, finished: r.finished, finishTime: r.finishTime, place: r.place, pos: r.pos.clone(), heading: r.heading, P: r.P, vf: r.vf }));
     this.rp = { t: 0, speed: 1, playing: true, cam: 'auto', target: 0, dirT: 0, dirMode: 'tv', spot: null };
     this.effects.clear();
     if (this.boss) this.sitBoss();
     return true;
   }
-  endReplay() { this.phase = 'results'; this.app.ui.onReplayEnd?.(); }
+  endReplay() {
+    // وضعیت واقعی پایان مسابقه برمی‌گردد (پخش ویدیو آن را عوض کرده بود)
+    for (const s0 of this.preReplay || []) { const r = s0.r; r.finished = s0.finished; r.finishTime = s0.finishTime; r.place = s0.place; r.pos.copy(s0.pos); r.heading = s0.heading; r.P = s0.P; r.vf = s0.vf; }
+    this.phase = 'results'; this.app.engine.finalPass.uniforms.uFlash.value = 0; this.app.ui.onReplayEnd?.();
+  }
 
   updateReplay(dt) {
     const rp = this.rp; const fr = this.record.frames; const F = fr.length;
@@ -899,7 +902,10 @@ export class Race {
     this.track.update(this.t, this._carsInfo, this.camera.position, target);
     this.effects.update(dt * rp.speed, this.app.engine.renderer.domElement.height);
     const p = target;
-    this.app.audio.setEngine({ rpm: 1500 + Math.abs(p.vf) * 60, throttle: 0.6, speed: Math.abs(p.vf) * 3.6, cyl: 8, on: rp.playing });
+    this.app.audio.setEngine({ rpm: 1500 + Math.abs(p.vf) * 60, throttle: 0.6, speed: Math.abs(p.vf) * 3.6, cyl: p.model.isBike ? 4 : 8, on: rp.playing });
+    this.app.audio.setOthers(999, 0);
+    this.weather?.update(dt * rp.speed, this.camera, null);
+    { const fp = this.app.engine.finalPass.uniforms; fp.uFlash.value = damp(fp.uFlash.value, 0, 6, dt); }
     let crowd = 0; for (const c of this.track.crowds) { const d = c.center.distanceTo(this.camera.position); crowd = Math.max(crowd, (c.excite || 0) * clamp(1 - d / 160, 0, 1)); }
     this.app.audio.setCrowd(crowd); this.app.audio.setSkid(0);
     this.app.engine.finalPass.uniforms.uSpeed.value = 0;
@@ -909,6 +915,7 @@ export class Race {
 
   replayCam(r, mode, dt) {
     const cam = this.camera;
+    for (const o of this.racers) if (o.model.driver) o.model.driver.j.head.visible = !(mode === 'cockpit' && o === r);
     if (mode === 'chase' || mode === 'cockpit' || mode === 'top') { this.followCam(r, mode, dt); return; }
     cam.near = 0.1;
     if (mode === 'tv') {
@@ -935,8 +942,11 @@ export class Race {
 
   dispose() {
     this.weather?.dispose();
-    this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose?.(); });
+    const mats = new Set();
+    this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose?.(); if (o.isInstancedMesh) o.dispose?.(); if (o.isLight && o.shadow?.map) { o.shadow.map.dispose(); o.shadow.map = null; } const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => mats.add(x)); });
+    for (const m of mats) { for (const k of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap']) { const t = m[k]; if (t && !t.userData?.shared) t.dispose(); } m.dispose?.(); }
     this.outdoor.envRT?.dispose();
+    const fp = this.app.engine.finalPass.uniforms; fp.uSpeed.value = 0; fp.uFlash.value = 0;
     this.app.audio.silence();
   }
 }

@@ -7,7 +7,7 @@ import * as T from './textures.js';
 const mats = new Map();
 export function mat(hex, rough = 0.6, metal = 0) {
   const k = hex + '_' + rough + '_' + metal;
-  if (!mats.has(k)) mats.set(k, new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal }));
+  if (!mats.has(k)) { const m = new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal }); m.userData.shared = true; mats.set(k, m); }
   return mats.get(k);
 }
 const rb = (w, h, d, r = 0.03, seg = 2) => new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3));
@@ -19,7 +19,7 @@ let tvTex = null;
 export function tvTexture() {
   if (tvTex) return tvTex;
   const c = document.createElement('canvas'); c.width = 256; c.height = 144; const ctx = c.getContext('2d');
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.userData.shared = true;
   tvTex = { tex, ctx, t: 0, channel: 0 };
   tvTex.draw = (t, ch) => {
     const g = ctx.createLinearGradient(0, 0, 256, 144);

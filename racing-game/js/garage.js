@@ -6,6 +6,8 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCar, buildCarCover } from './cars.js';
 import { buildBike } from './bikes.js';
+// آزاد کردن حافظه یک مدل (هندسه، متریال و تکسچرهای غیرمشترک)
+export function freeModel(root) { root.traverse((o) => { o.geometry?.dispose?.(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) { if (m.userData?.vpbr) continue; for (const k of ['map', 'emissiveMap']) if (m[k] && !m[k].userData?.shared && m[k].isCanvasTexture) m[k].dispose(); } }); }
 import { PATTERN_UNIFORMS } from './human.js';
 import * as T from './textures.js';
 import { clamp, damp, lerp } from './utils.js';
@@ -90,8 +92,10 @@ export class Garage {
     const el = this.app.engine.renderer.domElement;
     let down = false, lx = 0, ly = 0; const pts = new Map(); let pinch = 0;
     el.addEventListener('pointerdown', (e) => { if (!this.active) return; down = true; lx = e.clientX; ly = e.clientY; pts.set(e.pointerId, e); this.orbit.idle = 0; });
-    window.addEventListener('pointerup', (e) => { down = false; pts.delete(e.pointerId); pinch = 0; });
-    window.addEventListener('pointermove', (e) => {
+    const up = (e) => { pts.delete(e.pointerId); if (!pts.size) down = false; pinch = 0; };
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    this._unbind = () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); window.removeEventListener('pointermove', mv); };
+    const mv = (e) => {
       if (!this.active || !down) return;
       pts.set(e.pointerId, e);
       if (pts.size === 2) {
@@ -102,12 +106,13 @@ export class Garage {
       if (this.inside) { this.lookYaw = (this.lookYaw || 0) - dx * 0.005; this.lookPitch = clamp((this.lookPitch || 0) - dy * 0.004, -0.8, 0.6); }
       else { this.orbit.thT -= dx * 0.008; this.orbit.phT = clamp(this.orbit.phT + dy * 0.005, 0.05, 1.2); }
       this.orbit.idle = 0;
-    });
+    };
+    window.addEventListener('pointermove', mv);
     el.addEventListener('wheel', (e) => { if (!this.active) return; this.orbit.rT = clamp(this.orbit.rT * (1 + Math.sign(e.deltaY) * 0.08), 4.2, 14); }, { passive: true });
   }
 
   setCar(def, custom, { covered = false, player = true } = {}) {
-    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); c.traverse((o) => o.geometry?.dispose?.()); }
+    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); freeModel(c); }
     this.covered = covered;
     if (covered) {
       const cv = buildCarCover(def); this.carHolder.add(cv); this.model = null;
@@ -123,7 +128,7 @@ export class Garage {
 
   // نمایش موتورسیکلت روی سکوی گردان (قفل‌ها با قفل طلایی بالای سرشان)
   setBike(def, { locked = true } = {}) {
-    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); c.traverse((o) => o.geometry?.dispose?.()); }
+    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); freeModel(c); }
     this.covered = false; this.inside = false;
     const m = buildBike(def, { isPlayer: true, rider: false });
     m.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
@@ -133,6 +138,12 @@ export class Garage {
     this.lock.visible = locked;
   }
 
+  dispose() {
+    this._unbind?.(); this.active = false;
+    const mats = new Set(); this.scene.traverse((o) => { o.geometry?.dispose?.(); if (o.isLight && o.shadow?.map) { o.shadow.map.dispose(); o.shadow.map = null; } if (o.material) mats.add(o.material); o.renderTarget?.dispose?.(); o.getRenderTarget?.()?.dispose?.(); });
+    for (const m of mats) { if (Array.isArray(m)) continue; for (const k of ['map', 'emissiveMap', 'normalMap']) if (m[k] && !m[k].userData?.shared) m[k].dispose(); m.dispose?.(); }
+    this.envRT?.dispose?.();
+  }
   toggleInside() { if (!this.model) return false; this.inside = !this.inside; this.lookYaw = 0; this.lookPitch = 0; return this.inside; }
 
   update(dt) {
@@ -163,7 +174,7 @@ export class Garage {
     this.camera.updateProjectionMatrix();
     this.lock.position.y = 2.5 + Math.sin(performance.now() / 600) * 0.12;
     this.lock.material.rotation = Math.sin(performance.now() / 900) * 0.15;
-    this.app.engine.finalPass.uniforms.uSpeed.value = 0;
+    this.app.engine.finalPass.uniforms.uSpeed.value = 0; this.app.engine.finalPass.uniforms.uFlash.value = 0;
     this.app.engine.render(this.scene, this.camera, dt);
   }
 }

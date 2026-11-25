@@ -103,7 +103,7 @@ export function buildPark(world, rect) {
     park.updaters.push((dt) => { if (!near(wp, 300) && !park.active) return; ang += dt * 0.09; rotor.rotation.z = ang; place(); });
     C.obox(P.x, P.z, 9.6, 4.6, Math.PI / 4, 3);
     const entry = V(0, 0, 6.6).applyAxisAngle(V(0, 1, 0), Math.PI / 4).add(P);
-    addRide({ name: 'wheel', at: entry.clone().setY(1), label: 'سوار شدن چرخ و فلک بزرگ 🎡', dur: 45, exit: entry.clone(), text: 'از بالای چرخ و فلک کل شهر پیداست!',
+    addRide({ name: 'wheel', at: entry.clone().setY(1), label: 'سوار شدن چرخ و فلک بزرگ 🎡', dur: TAU / 0.09 + 2, exit: entry.clone(), text: 'از بالای چرخ و فلک کل شهر پیداست!',
       pick: () => { let best = 0, by = 1e9; for (let k = 0; k < N; k++) { const y = Math.sin(k / N * TAU + ang); if (y < by) { by = y; best = k; } } return seats[best]; }, yawOff: Math.PI / 2, excite: () => 0.2 });
   }
 
@@ -283,7 +283,7 @@ export function buildPark(world, rect) {
     bcs.material.onBeforeCompile = vertexPBRMaterial().onBeforeCompile; bcs.material.customProgramCacheKey = () => 'vpbr-bc';
     const bcols = [0xe63946, 0x3a86ff, 0x06d6a0, 0xffd166, 0x8338ec, 0xff70a6, 0xfb5607, 0x118ab2];
     for (let k = 0; k < NB; k++) bcs.setColorAt(k, new THREE.Color(bcols[k]));
-    bcs.castShadow = true; bcs.userData.keep = true; base.add(bcs);
+    bcs.castShadow = true; bcs.userData.keep = true; bcs.frustumCulled = false; base.add(bcs);
     const cars = []; for (let k = 0; k < NB; k++) { const s = seatObj(base); cars.push({ x: (rng() - 0.5) * (aw - 4), z: (rng() - 0.5) * (ad - 4), yaw: rng() * TAU, v: 2, steer: 0, t: rng() * 3, seat: s }); }
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = V(1, 1, 1), tp = V();
     const sparks = { t: 0 };

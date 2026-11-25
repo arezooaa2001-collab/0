@@ -77,6 +77,7 @@ export class AudioSys {
     const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 0.5; const g = c.createGain(); g.gain.value = 0;
     g.gain.setTargetAtTime(0.22, c.currentTime, 0.2); g.gain.setTargetAtTime(0, c.currentTime + dur, 0.5);
     s.connect(f).connect(g).connect(this.bus); s.start(); s.stop(c.currentTime + dur + 2.5);
+    (this.cheers = this.cheers || new Set()).add(g); s.onended = () => this.cheers.delete(g);
   }
 
   // صداهای شهر آزاد
@@ -114,6 +115,9 @@ export class AudioSys {
       case 'jump': this.burst({ type: 'lowpass', freq: 400, vol: 0.15, dur: 0.08 }); break;
       case 'step': this.burst({ type: 'lowpass', freq: 380 + Math.random() * 120, vol: 0.05, dur: 0.05, decay: 0.02 }); break;
       case 'stepRun': this.burst({ type: 'lowpass', freq: 520 + Math.random() * 160, vol: 0.08, dur: 0.05, decay: 0.02 }); break;
+      case 'siren': this.tone(760, 0.55, 0.07, 'sawtooth', 0, 380); this.tone(1140, 0.55, 0.07, 'sawtooth', 0.55, -380); break;
+      case 'bark': this.burst({ freq: 620, q: 2.5, vol: 0.22, dur: 0.09, decay: 0.03 }); this.burst({ freq: 540, q: 2.5, vol: 0.2, dur: 0.09, at: 0.16, decay: 0.03 }); break;
+      case 'thumpBall': this.burst({ type: 'lowpass', freq: 260, vol: 0.32, dur: 0.06, decay: 0.03 }); break;
       case 'horn': this.tone(420, 0.45, 0.12, 'square'); this.tone(520, 0.45, 0.08, 'square'); break;
     }
   }
@@ -134,7 +138,7 @@ export class AudioSys {
     this.fire.g.gain.setTargetAtTime(Math.min(0.2, a * 0.2), c.currentTime, 0.2);
     if (a > 0.05 && Math.random() < a * 0.25) this.burst({ freq: 1800 + Math.random() * 2500, q: 4, vol: 0.05 + a * 0.08, dur: 0.03, decay: 0.01 });
   }
-  silence() { if (!this.ctx) return; this.setFire?.(0); this.setRain?.(0); this.setEngine({ on: false }); this.setSkid(0); this.setCrowd(0); this.setOthers(999, 0); }
+  silence() { if (!this.ctx) return; for (const g of this.cheers || []) g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); this.setFire?.(0); this.setRain?.(0); this.setEngine({ on: false }); this.setSkid(0); this.setCrowd(0); this.setOthers(999, 0); }
   suspend() { this.ctx?.suspend?.(); }
   resume() { this.ctx?.resume?.(); }
 }

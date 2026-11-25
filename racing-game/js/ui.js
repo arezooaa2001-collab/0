@@ -23,7 +23,7 @@ export class HUD {
   }
   setText(id, v) { this._txt = this._txt || {}; if (this._txt[id] !== v) { this._txt[id] = v; $(id).textContent = v; } }
   message(text, dur = 2) { const m = $('hMsg'); m.textContent = text; m.style.opacity = 1; this.msgT = dur; }
-  toast(text) { const t = $('toast'); t.textContent = text; t.classList.add('show'); this.toastT = 1.8; }
+  toast(text) { const t = $('toast'); t.textContent = text; t.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('show'), 2000); }
   countdown(n) {
     const c = $('hCount'); c.classList.remove('pop', 'go'); void c.offsetWidth;
     c.textContent = n > 0 ? toFa(n) : 'برو!'; if (n === 0) c.classList.add('go'); c.classList.add('pop');

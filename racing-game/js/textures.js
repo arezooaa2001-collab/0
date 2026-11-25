@@ -17,7 +17,9 @@ function toTex(c, { srgb = true, repeat = true } = {}) {
   t.needsUpdate = true;
   return t;
 }
-function cached(key, fn) { if (!cache.has(key)) cache.set(key, fn()); return cache.get(key); }
+// تکسچرهای مشترک علامت می‌خورند تا هنگام پاک‌سازی یک صحنه آزاد نشوند
+function markShared(v) { if (!v) return; if (v.isTexture) v.userData.shared = true; else if (typeof v === 'object') for (const k in v) if (v[k] && v[k].isTexture) v[k].userData.shared = true; }
+function cached(key, fn) { if (!cache.has(key)) { const v = fn(); markShared(v); cache.set(key, v); } return cache.get(key); }
 
 // نویز مقداری تکرارشونده (بدون درز)
 function periodicNoise(size, cells, rng, octaves = 4) {

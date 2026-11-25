@@ -9,6 +9,11 @@ import { Effects, Particles } from './effects.js';
 import { FireSystem } from './fire.js';
 import { Missions } from './missions.js';
 import { CityFX, Weather } from './cityfx.js';
+import { pedals, pedalAcc, settle } from './drive.js';
+import { ChatSystem } from './chat.js';
+import { Balloons, Helicopter, Soccer, Dog, Performer, Grass, makePuddles, BoostPads, makePolice } from './cityextras.js';
+import { unlockAch } from './achievements.js';
+import { StreetRace } from './missions.js';
 import * as T from './textures.js';
 import { clamp, lerp, damp, wrapAngle, mulberry32, TAU, toFa, fmtNum, isTouch } from './utils.js';
 
@@ -18,6 +23,14 @@ const $ = (id) => document.getElementById(id);
 const fwd = (yaw, out = new THREE.Vector3()) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
 const rightOf = (yaw, out = new THREE.Vector3()) => out.set(-Math.cos(yaw), 0, Math.sin(yaw));
 const ONE_SHOT = new Set(['pickup', 'throw', 'press', 'reach', 'drink', 'kick']);
+const NO_INPUT = Object.freeze({ steer: 0, throttle: 0, brake: 0, reverse: 0, brakeRev: 0, drift: false, nitro: false });
+const SIGNS = [1, -1], SIGNS3 = [1, 0, -1];
+const ZERO_M = new THREE.Matrix4().makeScale(0, 0, 0);
+const C_WATER = new THREE.Color(0.8, 0.9, 1), C_DUST = new THREE.Color(0.85, 0.8, 0.7), C_DUST2 = new THREE.Color(0.8, 0.76, 0.68), C_WHITE = new THREE.Color(1, 1, 1);
+// برخورد دو ماشین با دو دایره در امتداد بدنه هر کدام (جلو و عقب) تا ماشین‌ها در هم فرو نروند
+const _ca = [new THREE.Vector3(), new THREE.Vector3()], _cb = [new THREE.Vector3(), new THREE.Vector3()];
+function carCircles(pos, heading, sh, out) { const r = sh.W / 2 + 0.05; const off = Math.max(0, sh.L / 2 - r); const fx = Math.sin(heading), fz = Math.cos(heading); out[0].set(pos.x + fx * off, r, pos.z + fz * off); out[1].set(pos.x - fx * off, r, pos.z - fz * off); return r; }
+function carVsCar(posA, headA, shA, B) { if (!B) return null; const ra = carCircles(posA, headA, shA, _ca); const rb = carCircles(B.pos, B.heading, B.model.shape, _cb); let best = null; for (const a of _ca) for (const b of _cb) { const dx = b.x - a.x, dz = b.z - a.z; const d = Math.hypot(dx, dz); const R = ra + rb; if (d < R && d > 1e-3 && (!best || R - d > best.d)) best = { nx: dx / d, nz: dz / d, d: R - d }; } return best; }
 
 export class FreeRoam {
   constructor(app) {
@@ -67,8 +80,17 @@ export class FreeRoam {
     this.cfx = new CityFX(this);
     this.weather = new Weather(app, this.scene, this.outdoor, S.light.weather || 'clear'); if (this.weather.on) this.world.setWet(true);
     this.missions = new Missions(this);
+    this.chat = new ChatSystem(this);
+    // قابلیت‌های تازه شهر
+    this.ach = { unlock: (id) => unlockAch(app, id) }; this.extras = []; this.ridesDone = new Set();
+    this.balloons = new Balloons(this, qn === 'low' ? 2 : 4); this.heli = new Helicopter(this);
+    this.soccer = new Soccer(this); this.dog = new Dog(this); this.performer = new Performer(this);
+    this.grass = qn === 'high' || qn === 'ultra' ? new Grass(this, qn === 'ultra' ? 2200 : 1300) : null;
+    if (this.weather.on) makePuddles(this, qn === 'low' ? 30 : 70);
+    this.boost = new BoostPads(this); this.police = this.traffic.length > 2 ? makePolice(this, this.traffic[1]) : null;
+    this.buildRaceStart();
     this.lookYaw = 0; this.lookPitch = 0; this.stepPh = 0; this.driftScore = 0; this.driftT = 0; this.emoteI = 0;
-    if (this.night && Q.headlight) { this.spot = new THREE.SpotLight(0xfff1d0, 90, 90, 0.55, 0.5, 1.4); this.scene.add(this.spot, this.spot.target); }
+    if (Q.headlight) { this.spot = new THREE.SpotLight(0xfff1d0, 0, 90, 0.55, 0.5, 1.4); this.scene.add(this.spot, this.spot.target); }
     progress(1, 'آماده'); await tick();
     this.updateCamera(0.016, true);
     try { app.engine.renderer.compile(this.scene, this.camera); } catch (e) { /* نادیده */ }
@@ -77,7 +99,7 @@ export class FreeRoam {
   setTime(time) {
     this.time = time; this.outdoor.apply(time, this.app.save.data.light);
     this.night = time === 'night'; this.world.night = this.night; this.world.setNight(this.night);
-    const f = this.scene.fog; f.near = this.night ? 60 : 140; f.far = this.night ? 520 : 1100;
+    const f = this.scene.fog; const cd = this.world.cullDist || 600; f.near = this.night ? 60 : Math.min(140, cd * 0.3); f.far = Math.min(this.night ? 520 : 1100, cd * 1.05);
     this.weather?.applyLook();
   }
 
@@ -90,7 +112,7 @@ export class FreeRoam {
     this.camYaw = sp.yaw;
     this.scene.add(this.human.root);
   }
-  playerWorldPos(out = new THREE.Vector3()) { if (this.state === 'drive') return out.copy(this.veh.pos); if (this.human.root.parent !== this.scene) return this.human.root.getWorldPosition(out); return out.copy(this.p.pos); }
+  playerWorldPos(out = new THREE.Vector3()) { if (this.state === 'drive') return out.copy(this.veh.pos); if (this.state === 'foot') return out.copy(this.p.pos); return this.human.root.getWorldPosition(out); }
 
   // ---------------- ماشین‌ها و موتور ----------------
   makeVehicle(model, def, stats, opts = {}) {
@@ -135,32 +157,31 @@ export class FreeRoam {
   enterVehicle(v) {
     this.veh = v; this.state = 'drive'; this.human.root.visible = false;
     if (v.model.driver) v.model.driver.root.visible = true;
-    v.hand = false; this.camInit = false; this.app.audio.sfx('door');
+    v.hand = false; this.camInit = false; this.dragYaw = 0; v.airT = 0; this.driftScore = 0; this.app.audio.sfx('door');
     this.toast(v.isBike ? 'سوار موتور شدی 🏍️' : 'سوار ماشین شدی 🚗');
   }
   exitVehicle() {
     const v = this.veh; if (!v) return;
-    if (Math.abs(v.vf) > 6) { this.toast('اول سرعتت را کم کن'); return; }
+    if (Math.abs(v.vf) > 6 || v.air) { this.toast(v.air ? 'وسط پرواز نمی‌شود پیاده شد!' : 'اول سرعتت را کم کن'); return; }
     const sides = [rightOf(v.heading, _v1).clone().multiplyScalar(-1), rightOf(v.heading, _v2).clone()];
     let out = null;
     for (const s of sides) { const p = v.pos.clone().addScaledVector(s, v.model.shape.W / 2 + 0.7); const test = p.clone(); const hit = this.world.colliders.resolve(test, 0.3, 1, p.y); if (!hit) { out = p; break; } if (!out) out = test; }
     this.p.pos.copy(out); this.p.pos.y = this.world.groundAt(out.x, out.z); this.p.vy = 0; this.p.yaw = v.heading; this.p.vel.set(0, 0, 0);
     this.human.root.visible = true; if (v.model.driver) v.model.driver.root.visible = false;
-    this.state = 'foot'; this.veh = null; this.camYaw = v.heading; this.app.audio.setEngine({ on: false }); this.app.audio.sfx('door');
+    this.state = 'foot'; this.veh = null; this.camYaw = v.heading; this.camInit = false; this.camPos = null; this.dragYaw = 0; v.airT = 0; this.driftScore = 0; this.app.audio.setEngine({ on: false }); this.app.audio.sfx('door');
     this.world.inter.move(v.inter, v.pos.clone().setY(v.y + 1));
   }
 
   stepVehicle(v, dt, inp) {
     const st = v.stats; const driven = v === this.veh;
-    if (!driven) { inp = { steer: 0, throttle: 0, brake: 0, reverse: 0, brakeRev: 0, drift: false, nitro: false }; }
+    if (!driven) inp = NO_INPUT;
     const autoN = this.app.touchDrive && inp.throttle > 0.9 && Math.abs(inp.steer) < 0.25 && Math.abs(v.vf) > st.vmax * 0.45;
     const nitroOn = driven && (inp.nitro || autoN) && v.nitro > 0 && inp.throttle > 0; v.nitroOn = nitroOn;
     if (nitroOn) v.nitro = Math.max(0, v.nitro - dt); else if (st.nitro > 0) v.nitro = Math.min(st.nitro, v.nitro + dt * 0.08);
     v.steer = damp(v.steer, inp.steer, Math.abs(inp.steer) > Math.abs(v.steer) ? 5.5 : 9, dt);
     let fx = Math.sin(v.heading), fz = Math.cos(v.heading);
     let vf = v.vel.x * fx + v.vel.z * fz; const speed = Math.abs(vf);
-    const wantBack = Math.max(inp.reverse || 0, inp.brakeRev || 0);
-    v.throttle = damp(v.throttle, inp.throttle, 10, dt); v.brake = damp(v.brake, Math.max(inp.brake || 0, vf > 0.6 ? wantBack : 0), 12, dt); v.rev = damp(v.rev || 0, vf <= 0.6 ? wantBack : 0, 10, dt); v.hand = !!inp.drift;
+    pedals(v, inp, vf, dt); v.hand = !!inp.drift;
     const g0 = this.world.groundAt(v.pos.x, v.pos.z);
     const grass = g0 > 0.1 && g0 < 0.2 && !this.onRoad(v.pos);
     const surfGrip = v.air ? 0.05 : grass ? 0.8 : 1;
@@ -180,8 +201,7 @@ export class FreeRoam {
     if (v.shiftT > 0) v.shiftT -= dt;
     if (!v.air) {
       if (v.throttle > 0.02 && vf > -0.5) { const curve = Math.max(0, 1 - Math.pow(Math.max(0, vf) / vmax, 2.3)); acc += st.acc * (1.15 - 0.15 * (vf / vmax)) * curve * v.throttle * (nitroOn ? 1.6 : 1) * (v.shiftT > 0 ? 0.35 : 1); }
-      if (v.brake > 0.02) { if (vf > 0.6) acc -= st.brake * v.brake; else if (vf < -0.6) acc += st.brake * v.brake * 0.8; }
-      if (v.rev > 0.02 && vf > -8) acc -= st.acc * 0.55 * v.rev;
+      acc += pedalAcc(v, st, vf, dt, surfGrip);
       if (v.hand && speed > 3) acc -= Math.sign(vf) * 1.1;
       acc -= vf * (0.01 + (grass ? 0.25 : 0));
       if (!driven) acc -= Math.sign(vf) * Math.min(Math.abs(vf) / dt, 3.5);
@@ -189,16 +209,14 @@ export class FreeRoam {
       vl -= Math.sign(vl) * Math.min(Math.abs(vl), latGrip * dt);
     }
     const vfOld = vf; vf += acc * dt;
-    if (vfOld > 0 && vf < 0 && v.rev < 0.05) vf = 0;
-    if (vfOld < 0 && vf > 0 && v.throttle < 0.05) vf = 0;
-    if (Math.abs(vf) < 0.05 && v.throttle < 0.05 && v.rev < 0.05) vf = 0;
+    vf = settle(v, vfOld, vf);
     v.slip = Math.abs(vl) + (v.brake > 0.85 && speed > 18 ? 3 : 0);
     v.latAcc = vf * v.yawRate; v.longAcc = acc;
     v.vel.set(fx * vf + lx * vl, 0, fz * vf + lz * vl); v.vf = vf; v.vl = vl;
     v.pos.x += v.vel.x * dt; v.pos.z += v.vel.z * dt;
     // برخورد با ساختمان‌ها، درخت‌ها و وسایل خیابانی (دو دایره جلو و عقب)
     const s = v.model.shape; const r = s.W / 2 + 0.05; const off = Math.max(0, s.L / 2 - r);
-    for (const sgn of [1, -1]) {
+    for (const sgn of SIGNS) {
       const c = _v1.set(v.pos.x + fx * off * sgn, 0, v.pos.z + fz * off * sgn); const ox = c.x, oz = c.z;
       const hit = this.world.colliders.resolve(c, r, 2, v.y);
       if (hit) this.vehicleHit(v, c.x - ox, c.z - oz, hit.nx, hit.nz);
@@ -261,7 +279,7 @@ export class FreeRoam {
     for (const c of this.traffic) for (const w of c.model.wheels) {
       const mesh = w.spin.children.find((x) => x.isMesh); if (!mesh) continue;
       const key = mesh.geometry.uuid; if (!groups.has(key)) groups.set(key, { geo: mesh.geometry, mat: mesh.material, list: [] });
-      w.spin.remove(mesh); const proxy = new THREE.Object3D(); w.spin.add(proxy); groups.get(key).list.push(proxy);
+      w.spin.remove(mesh); const proxy = new THREE.Object3D(); proxy.userData.car = c; w.spin.add(proxy); groups.get(key).list.push(proxy);
     }
     this.wheelBatches = [...groups.values()].map((g) => { const im = new THREE.InstancedMesh(g.geo, g.mat, g.list.length); im.frustumCulled = false; im.castShadow = true; this.scene.add(im); return { im, list: g.list }; });
   }
@@ -281,7 +299,9 @@ export class FreeRoam {
         const x = u * u * tr.p0.x + 2 * u * t * tr.p1.x + t * t * tr.p2.x, z = u * u * tr.p0.z + 2 * u * t * tr.p1.z + t * t * tr.p2.z;
         const dx = 2 * u * (tr.p1.x - tr.p0.x) + 2 * t * (tr.p2.x - tr.p1.x), dz = 2 * u * (tr.p1.z - tr.p0.z) + 2 * t * (tr.p2.z - tr.p1.z);
         const nh = Math.atan2(dx, dz); c.steer = clamp(wrapAngle(nh - c.heading) * 8, -1, 1); c.heading = nh; c.pos.set(x, 0, z);
-        c.v = damp(c.v, tr.straight ? c.vmax : 6.5, 2, dt);
+        let tv = tr.straight ? c.vmax : 6.5; if (c.wait > 0) { c.wait -= dt; tv = 0; }
+        { const dx = pl.x - c.pos.x, dz = pl.z - c.pos.z; const fx = Math.sin(c.heading), fz = Math.cos(c.heading); const ahead = dx * fx + dz * fz; if (ahead > 0 && ahead < 9 && Math.abs(dx * fz - dz * fx) < 2.2) tv = 0; }
+        c.v = tv < c.v ? Math.max(tv, c.v - 9 * dt) : damp(c.v, tv, 2, dt);
         if (t >= 1) { c.edge = tr.next; c.s = 9.5; c.turn = null; }
       } else {
         const e = c.edge; const len = this.edgeLen(e); const toEnd = len - c.s;
@@ -293,6 +313,8 @@ export class FreeRoam {
           const stopAt = toEnd - 11.5;
           if (ph >= 2 || (ph === 1 && stopAt > 6)) target = Math.min(target, Math.max(0, stopAt * 0.9));
         }
+        // ماشین‌های پارک‌شده یا رهاشده جلوی ماشین
+        for (const o of this.vehicles) { if (o === plVeh) continue; const dx = o.pos.x - c.pos.x, dz = o.pos.z - c.pos.z; const ahead = dx * c.dir.x + dz * c.dir.z; const lat = Math.abs(dx * c.dir.z - dz * c.dir.x); if (ahead > 0 && ahead < 16 && lat < 2.3) target = Math.min(target, Math.max(0, (ahead - 6.5) * 1.1)); }
         // ماشین جلویی
         for (const o of this.traffic) { if (o === c) continue; const dx = o.pos.x - c.pos.x, dz = o.pos.z - c.pos.z; const ahead = dx * c.dir.x + dz * c.dir.z; const lat = Math.abs(dx * c.dir.z - dz * c.dir.x); if (ahead > 0 && ahead < 16 && lat < 2.2) target = Math.min(target, Math.max(0, (ahead - 6.5) * 1.1)); }
         // بازیکن جلوی ماشین
@@ -313,10 +335,10 @@ export class FreeRoam {
         }
       }
       // برخورد با ماشین بازیکن
-      if (plVeh) {
-        const dx = plVeh.pos.x - c.pos.x, dz = plVeh.pos.z - c.pos.z; const d = Math.hypot(dx, dz); const R = 2.3 + (plVeh.isBike ? -0.6 : 0);
-        if (d < R && d > 0.01) { const nx = dx / d, nz = dz / d; this.vehicleHit(plVeh, nx * (R - d), nz * (R - d), nx, nz); c.v = 0; c.wait = 2; }
-      } else if (this.state === 'foot') {
+      const hitC = carVsCar(c.pos, c.heading, c.model.shape, plVeh || null);
+      if (plVeh && hitC) { this.vehicleHit(plVeh, hitC.nx * hitC.d, hitC.nz * hitC.d, hitC.nx, hitC.nz); c.v = 0; c.wait = 2; }
+      for (const o of this.vehicles) { if (o === plVeh) continue; const h2 = carVsCar(c.pos, c.heading, c.model.shape, o); if (h2) { o.pos.x += h2.nx * h2.d; o.pos.z += h2.nz * h2.d; c.v = 0; c.wait = 1.5; } }
+      if (!plVeh && this.state === 'foot') {
         const dx = this.p.pos.x - c.pos.x, dz = this.p.pos.z - c.pos.z; const d = Math.hypot(dx, dz);
         if (d < 1.5 && d > 0.01) { this.p.pos.x += dx / d * (1.5 - d); this.p.pos.z += dz / d * (1.5 - d); c.v = Math.min(c.v, 1); }
       }
@@ -326,7 +348,7 @@ export class FreeRoam {
       if (vis) { c.spin += c.v / m.shape.wr * dt; m.setLOD(Math.sqrt(cd)); m.setVisualState({ steer: c.steer, spin: c.spin, brake: c.v < 2 ? 1 : 0 }); }
     }
     for (const b of this.wheelBatches) {
-      for (let i = 0; i < b.list.length; i++) { const p = b.list[i]; p.updateWorldMatrix(true, false); b.im.setMatrixAt(i, p.matrixWorld); }
+      for (let i = 0; i < b.list.length; i++) { const p = b.list[i]; if (p.userData.car && !p.userData.car.model.root.visible) { b.im.setMatrixAt(i, ZERO_M); continue; } p.updateWorldMatrix(true, false); b.im.setMatrixAt(i, p.matrixWorld); }
       b.im.instanceMatrix.needsUpdate = true;
     }
     // صدای نزدیک‌ترین ماشین
@@ -351,7 +373,7 @@ export class FreeRoam {
     const pl = this.playerWorldPos(_v3); const veh = this.state === 'drive' ? this.veh : null;
     for (let i = 0; i < this.peds.length; i++) {
       const w = this.peds[i]; const loop = this.walkLoops[w.lp];
-      if (w.wave > 0) { w.wave -= dt; if (w.wave <= 0) this.walkers.style(i, 3); }
+      if (w.wave > 0) { w.wave -= dt; if (w.wave <= 0) { this.walkers.style(i, 3); w.greet = false; } }
       else if (w.idle > 0) { w.idle -= dt; if (w.idle <= 0) this.walkers.style(i, 3); else if (this.walkers.getStyle(i) !== 5) this.walkers.style(i, 5); }
       else { w.s = (w.s + w.dir * w.sp * dt + loop.L) % loop.L; if (this.rng() < dt * 0.01) { w.idle = 2 + this.rng() * 5; } }
       let seg = loop.segs[0]; for (const sg of loop.segs) if (w.s >= sg.s0 && w.s < sg.s0 + sg.l) { seg = sg; break; }
@@ -385,6 +407,7 @@ export class FreeRoam {
   act(anim, dur, opts = {}) {
     if (this.state === 'drive') return;
     if (this.state !== 'foot' && this.state !== 'act') this.standUp(true);
+    if (!this.p.onGround) { this.p.pos.y = this.world.groundAt(this.p.pos.x, this.p.pos.z); this.p.vy = 0; this.p.onGround = true; }
     this.state = 'act'; this.actS = { anim, dur, t: 0, opts, released: false };
     if (opts.text) this.toast(opts.text);
     if (opts.flash) { this.app.engine.finalPass.uniforms.uFlash.value = 0.9; this.sfx('click'); }
@@ -397,6 +420,8 @@ export class FreeRoam {
   }
   sit({ local, yaw = 0, from, world, text }) {
     if (this.state === 'drive') return;
+    if (this.carrying) { this.toast('اول مصدوم را به جای امن ببر'); return; }
+    if (this.state === 'foot') this.p.pos.y = this.world.groundAt(this.p.pos.x, this.p.pos.z);
     this.standUp(true);
     let pos, wy;
     if (from) { from.updateMatrixWorld(true); pos = new THREE.Vector3(...local).applyMatrix4(from.matrixWorld); from.getWorldQuaternion(_q); _e.setFromQuaternion(_q, 'YXZ'); wy = _e.y + yaw; }
@@ -407,6 +432,9 @@ export class FreeRoam {
     if (text) this.toast(text); else this.toast('نشستی؛ برای بلند شدن دکمه تعامل را بزن');
   }
   lie({ local, yaw = 0, from, sleep }) {
+    if (this.state === 'drive') return;
+    if (this.carrying) { this.toast('اول مصدوم را به جای امن ببر'); return; }
+    if (sleep && this.missions.active?.usesHealth) { this.toast('الان وقت خواب نیست! خانه‌ای آتش گرفته 🔥'); return; }
     this.standUp(true);
     from.updateMatrixWorld(true); const pos = new THREE.Vector3(...local).applyMatrix4(from.matrixWorld); from.getWorldQuaternion(_q); _e.setFromQuaternion(_q, 'YXZ');
     const wy = _e.y + yaw; this.seatBack = this.p.pos.clone();
@@ -432,22 +460,24 @@ export class FreeRoam {
     if (this.state !== 'foot' || this.carrying) { if (this.carrying) this.toast('اول مصدوم را به جای امن ببر'); return; }
     if (this.holding) this.dropHolding();
     const seat = r.pick ? r.pick() : r.seat;
-    this.state = 'ride'; this.rideS = { r, seat, t: 0, lap0: r.until ? r.until() : 0 };
+    this.state = 'ride'; this.rideS = { r, seat, t: 0, lap0: r.until ? r.until() : 0 }; this.dragYaw = 0;
     this.world.park && (this.world.park.active = true);
     seat.add(this.human.root);
     this.human.root.position.set(0, r.pose === 'drive' ? 0.05 : 0.08 - r.seatY, 0); this.human.root.rotation.set(0, r.yawOff || 0, 0);
     r.onStart?.(this); if (r.text) this.toast(r.text);
+    this.ridesDone.add(r.name); if (r.name === 'coaster') this.ach.unlock('coaster'); if (this.ridesDone.size >= 5) this.ach.unlock('rides5');
     this.camInit = false; this.sfx('whoosh');
   }
   endRide() {
     const R = this.rideS; if (!R) return;
     R.r.onEnd?.(this); this.scene.add(this.human.root);
-    this.p.pos.copy(R.r.exit); this.p.pos.y = this.world.groundAt(this.p.pos.x, this.p.pos.z); this.p.vy = 0;
+    this.p.pos.copy(R.r.exit); this.p.pos.y = this.world.groundAt(this.p.pos.x, this.p.pos.z); this.p.vy = 0; this.human.root.position.copy(this.p.pos); this.dragYaw = 0;
     this.human.root.rotation.set(0, 0, 0); this.state = 'foot'; this.rideS = null; this.world.park && (this.world.park.active = false);
     this.toast('از وسیله پیاده شدی'); this.camInit = false;
   }
   path({ pts, dur, climb = 0, pose, text }) {
     if (this.state !== 'foot') return;
+    if (this.carrying) { this.toast('اول مصدوم را به جای امن ببر'); return; }
     this.state = 'path'; this.pathS = { curve: new THREE.CatmullRomCurve3(pts), dur, t: 0, climb: climb / Math.max(1, pts.length - 1), pose };
     if (text) this.toast(text);
   }
@@ -500,11 +530,29 @@ export class FreeRoam {
     this.lookYaw = damp(this.lookYaw, ty, 5, dt); this.lookPitch = damp(this.lookPitch, tp, 5, dt);
     H.j.head.rotation.y += this.lookYaw * 0.7; H.j.neck.rotation.y += this.lookYaw * 0.3; H.j.head.rotation.x += this.lookPitch;
   }
+  // دروازه شروع مسابقه خیابانی کنار زمین پرش
+  buildRaceStart() {
+    const L = this.world.lane; const node = L.nodes.get('5,1') || [...L.nodes.values()][0];
+    const p = new THREE.Vector3(node.x, 0, node.z + 14); const g = new THREE.Group(); g.position.copy(p); this.scene.add(g);
+    const pole = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.6 });
+    for (const x of [-7.5, 7.5]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 6.5, 10), pole); m.position.set(x, 3.25, 0); g.add(m); }
+    const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d'); for (let i = 0; i < 32; i++) for (let j = 0; j < 6; j++) { x.fillStyle = (i + j) % 2 ? '#111' : '#fff'; x.fillRect(i * 16, j * 16, 16, 16); } x.fillStyle = 'rgba(255,122,0,0.92)'; x.fillRect(80, 14, 352, 68); x.fillStyle = '#fff'; x.font = "900 44px 'Vazirmatn', sans-serif"; x.textAlign = 'center'; x.fillText('مسابقه خیابانی 🏁', 256, 64);
+    const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+    for (const ry of [0, Math.PI]) { const ban = new THREE.Mesh(new THREE.PlaneGeometry(15, 2.8), new THREE.MeshBasicMaterial({ map: tx })); ban.position.set(0, 6, ry ? -0.02 : 0.02); ban.rotation.y = ry; g.add(ban); }
+    this.world.colliders.circle(p.x - 7.5, p.z, 0.2, 3); this.world.colliders.circle(p.x + 7.5, p.z, 0.2, 3);
+    this.raceStart = { node, pos: p, cool: 0 };
+  }
+  updateRaceStart(dt) {
+    const R = this.raceStart; if (!R) return; R.cool -= dt;
+    if (R.cool > 0 || this.state !== 'drive' || this.missions.active || this.missions.offerData) return;
+    if (Math.hypot(this.veh.pos.x - R.pos.x, this.veh.pos.z - R.pos.z) < 6) { R.cool = 8; this.missions.startActivity(new StreetRace(this.missions, R.node)); }
+  }
+  onCoinPicked() { const S = this.app.save.data; S.stats.coinsPicked = (S.stats.coinsPicked || 0) + 1; this.ach.unlock('coin1'); if (S.stats.coinsPicked >= 20) this.ach.unlock('coins20'); }
   addCoins(n, text) {
     const S = this.app.save.data; S.coins += n; this.app.save.save(); this.sfx('coin'); if (text) this.toast(text);
   }
   honk() {
-    const v = this.veh; this.sfx('horn'); if (!v) return;
+    const v = this.veh; this.sfx('horn'); this.ach.unlock('honk'); if (!v) return;
     this.cfx.scare(v.pos, 16);
     for (let i = 0; i < this.peds.length; i++) { const w = this.peds[i]; if (w.pos.distanceTo(v.pos) < 14) { w.wave = 1.6; w.greet = false; this.walkers.style(i, Math.random() < 0.5 ? 7 : 4); w.dodge = (w.off > 0 ? 1 : -1) * 2; } }
   }
@@ -513,6 +561,7 @@ export class FreeRoam {
     const list = [['dance', 5, 'رقصیدی! 💃 رهگذرها برایت دست می‌زنند'], ['clap', 2.4, 'دست زدی 👏'], ['wave', 2, 'برای همه دست تکان دادی 👋'], ['jump', 0.9, 'یوهو! 🙌']];
     const [a, d, txt] = list[this.emoteI++ % list.length];
     this.act(a, d, { text: txt });
+    if (a === 'dance') this.ach.unlock('dance');
     if (a === 'dance') for (let i = 0; i < this.peds.length; i++) { const w = this.peds[i]; if (w.pos.distanceTo(this.p.pos) < 12) { w.wave = 4.5; w.greet = true; this.walkers.style(i, 6); } }
   }
   // پرش با رمپ و دریفت جایزه سکه دارد
@@ -520,11 +569,12 @@ export class FreeRoam {
     if (v.air) { if (!v.airT) { v.airT = 0; v.air0 = v.pos.clone(); } v.airT += dt; }
     else if (v.airT) {
       const t = v.airT; const d = Math.hypot(v.pos.x - v.air0.x, v.pos.z - v.air0.z); v.airT = 0;
-      if (t > 0.55) { const c = Math.round(t * 8 + d * 0.35); this.addCoins(c, `پرش ${toFa(Math.round(d))} متری! ${toFa(t.toFixed(1))} ثانیه در هوا 🚀 +${toFa(c)} سکه`); this.shake = Math.min(1, (this.shake || 0) + 0.4); }
+      if (t > 0.55) { this.ach.unlock('jump'); if (d > 30) this.ach.unlock('jump30'); const c = Math.round(t * 8 + d * 0.35); this.addCoins(c, `پرش ${toFa(Math.round(d))} متری! ${toFa(t.toFixed(1))} ثانیه در هوا 🚀 +${toFa(c)} سکه`); this.shake = Math.min(1, (this.shake || 0) + 0.4); }
     }
+    if (Math.abs(v.vf) * 3.6 >= 150) this.ach.unlock('speed');
     const sliding = !v.air && Math.abs(v.vf) > 9 && Math.abs(v.vl) > 2.2;
     if (sliding) { this.driftScore += Math.abs(v.vl) * Math.abs(v.vf) * dt * 0.6; this.driftT = 0; }
-    else if (this.driftScore > 0) { this.driftT += dt; if (this.driftT > 0.7) { const sc = Math.round(this.driftScore); this.driftScore = 0; if (sc >= 40) { const c = Math.min(60, Math.floor(sc / 40)); this.addCoins(c, `دریفت عالی! امتیاز ${toFa(sc)} 🔥 +${toFa(c)} سکه`); } } }
+    else if (this.driftScore > 0) { this.driftT += dt; if (this.driftT > 0.7) { const sc = Math.round(this.driftScore); this.driftScore = 0; if (sc >= 40) { this.ach.unlock('drift'); const c = Math.min(60, Math.floor(sc / 40)); this.addCoins(c, `دریفت عالی! امتیاز ${toFa(sc)} 🔥 +${toFa(c)} سکه`); } } }
   }
 
   // ---------------- پیدا کردن تعامل نزدیک ----------------
@@ -532,6 +582,8 @@ export class FreeRoam {
     if (this.state === 'drive') return { label: this.veh.isBike ? 'پیاده شدن از موتور' : 'پیاده شدن از ماشین', act: () => this.exitVehicle() };
     if (this.state === 'sit' || this.state === 'lie') return { label: 'بلند شدن', act: () => this.standUp() };
     if (this.state === 'ride') return { label: 'پیاده شدن از وسیله', act: () => this.endRide() };
+    if (this.state === 'chat') return { label: 'بستن چت', act: () => this.chat.close() };
+    const cp = this.chat.prompt(); if (cp) return cp;
     const mp = this.missions.prompt(); if (mp) return mp;
     if (this.state !== 'foot') return null;
     const p = this.p.pos; const dir = fwd(this.p.yaw, _v2);
@@ -555,13 +607,13 @@ export class FreeRoam {
   update(dt) {
     dt = Math.min(dt, 0.05); const app = this.app; const joyDrive = (this.state === 'drive' && app.save.data.settings.drive === 'joystick') || this.state === 'ride';
     const input = app.input.update(joyDrive ? this.joy : null);
-    if (app.input.consume('Escape') || app.input.consume('KeyP')) app.toggleCityPause?.();
-    if (this.paused) { app.engine.render(this.scene, this.camera, dt); return; }
+    if (app.input.consume('Escape') || app.input.consume('KeyP')) { if (this.state === 'chat') this.chat.close(); else app.toggleCityPause?.(); }
+    if (this.paused) { this.btn.interact = false; this.btn.horn = false; this.btn.jump = false; app.engine.render(this.scene, this.camera, dt); return; }
     this.t += dt;
     if (app.input.consume('KeyF') || app.input.consume('KeyE') || app.input.consume('Enter') || this.btn.interact) { this.btn.interact = false; this.interact(); }
     if (app.input.consume('KeyC')) this.cycleCamera();
     if (app.input.consume('KeyG')) this.emote();
-    if (app.input.consume('KeyY')) this.missions.accept(); if (app.input.consume('KeyN')) this.missions.decline();
+    if (app.input.consume('KeyY')) this.missions.accept(); if (app.input.consume('KeyX')) this.missions.decline();
     // ورودی ترکیبی کیبورد و جوی‌استیک
     const inp = input;
     if (this.state === 'drive' && (app.input.consume('KeyH') || this.btn.horn)) { this.btn.horn = false; this.honk(); }
@@ -580,6 +632,7 @@ export class FreeRoam {
       if (v === this.veh || Math.abs(v.vf) > 0.01 || Math.abs(v.vl) > 0.01 || v.air) for (let s = 0; s < steps; s++) this.stepVehicle(v, h, v === this.veh ? inp : null);
     }
     this.collideVehicles();
+    for (const v of this.vehicles) if (v !== this.veh && v.inter) { _v1.set(v.pos.x, v.y + 1, v.pos.z); if (v.inter.pos.distanceToSquared(_v1) > 0.04) this.world.inter.move(v.inter, _v1); }
     for (const v of this.vehicles) this.placeVehicle(v, dt);
     if (this.veh) this.carEffects(this.veh, dt);
     this.updateTraffic(dt);
@@ -589,15 +642,20 @@ export class FreeRoam {
     this.world.focus = focus; this.world.canBuild = this.state !== 'drive' || Math.abs(this.veh.vf) < 9;
     this.world.update(dt, this.t, focus);
     this.cfx.update(dt, this.t);
+    this.balloons.update(dt, this.t); this.heli.update(dt, this.t); this.soccer.update(dt); this.dog.update(dt); this.performer.update(dt);
+    this.grass?.update(); this.boost.update(dt); this.police?.update(dt);
+    for (let k = this.extras.length - 1; k >= 0; k--) if (!this.extras[k].update(dt)) { this.extras[k].dispose(); this.extras.splice(k, 1); }
+    this.updateRaceStart(dt);
     this.missions.update(dt);
+    this.chat.update(dt);
     if (this.veh) this.stuntScore(this.veh, dt);
     this.updateFx(dt);
     this.updateIndoor(dt, focus);
     this.updateCamera(dt);
     this.outdoor.update(dt, focus, this.camera);
     this.fire.update(dt, this.t, this.camera.position);
-    this.weather.update(dt, this.camera, (x, z) => this.world.groundAt(x, z));
-    if (this.spot) { const v = this.veh; if (v) { this.spot.position.copy(v.pos).add(_v2.set(0, 1, 0)).addScaledVector(fwd(v.heading, _v3), 1.5); this.spot.target.position.copy(v.pos).addScaledVector(fwd(v.heading, _v3), 25); this.spot.intensity = 90; } else this.spot.intensity = 0; this.spot.target.updateMatrixWorld(); }
+    this.weather.update(dt, this.camera, this._groundFn || (this._groundFn = (x, z) => this.world.groundAt(x, z)), !!this.inside);
+    if (this.spot) { const v = this.veh; if (v) { this.spot.position.copy(v.pos).add(_v2.set(0, 1, 0)).addScaledVector(fwd(v.heading, _v3), 1.5); this.spot.target.position.copy(v.pos).addScaledVector(fwd(v.heading, _v3), 25); this.spot.intensity = this.night ? 90 : 0; } else this.spot.intensity = 0; this.spot.target.updateMatrixWorld(); }
     // صدا
     const v = this.veh;
     if (v) { app.audio.setEngine({ rpm: v.rpm, throttle: v.throttle, speed: Math.abs(v.vf) * 3.6, cyl: v.isBike ? 4 : v.def.style === 'muscle' ? 8 : v.def.style === 'classic' ? 6 : 10, on: true }); app.audio.setSkid(clamp((v.slip - 2.4) / 6, 0, 1)); }
@@ -630,7 +688,7 @@ export class FreeRoam {
     this.btn.jump = false;
     // برخورد
     W.colliders.resolve(p.pos, 0.3, 1, p.pos.y);
-    for (const v of this.vehicles) { const sh = v.model.shape; const fx = Math.sin(v.heading), fz = Math.cos(v.heading); const off = Math.max(0, sh.L / 2 - sh.W / 2); for (const sg of [1, 0, -1]) { const cx = v.pos.x + fx * off * sg, cz = v.pos.z + fz * off * sg; const ddx = p.pos.x - cx, ddz = p.pos.z - cz; const d = Math.hypot(ddx, ddz); const R = sh.W / 2 + 0.3; if (d < R && d > 0.001) { p.pos.x += ddx / d * (R - d); p.pos.z += ddz / d * (R - d); } } }
+    for (const v of this.vehicles) { const sh = v.model.shape; const fx = Math.sin(v.heading), fz = Math.cos(v.heading); const off = Math.max(0, sh.L / 2 - sh.W / 2); for (const sg of SIGNS3) { const cx = v.pos.x + fx * off * sg, cz = v.pos.z + fz * off * sg; const ddx = p.pos.x - cx, ddz = p.pos.z - cz; const d = Math.hypot(ddx, ddz); const R = sh.W / 2 + 0.3; if (d < R && d > 0.001) { p.pos.x += ddx / d * (R - d); p.pos.z += ddz / d * (R - d); } } }
     // ارتفاع
     const g = W.groundAt(p.pos.x, p.pos.z);
     if (g - p.pos.y > 0.42 && p.onGround) { p.pos.x = ox; p.pos.z = oz; }
@@ -643,7 +701,7 @@ export class FreeRoam {
     if (!p.onGround) H.anim('jump', this.t);
     else if (sp > 0.25) {
       p.walkT += dt * sp * (sp > 3.5 ? 1.75 : 2.9); H.anim(sp > 3.5 ? 'run' : 'walk', p.walkT);
-      const ph = Math.floor(p.walkT / Math.PI); if (ph !== this.stepPh) { this.stepPh = ph; this.sfx(sp > 3.5 ? 'stepRun' : 'step'); if (sp > 3.5 && Math.random() < 0.7) this.fx.dust.emit(_v3.set(p.pos.x, p.pos.y + 0.05, p.pos.z), _v2.set((Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4), new THREE.Color(0.8, 0.76, 0.68), 0.25, 0.7, 0.22); if (sp > 3.5) this.cfx.scare(p.pos, 3.2); }
+      const ph = Math.floor(p.walkT / Math.PI); if (ph !== this.stepPh) { this.stepPh = ph; this.sfx(sp > 3.5 ? 'stepRun' : 'step'); if (sp > 3.5 && Math.random() < 0.7) this.fx.dust.emit(_v3.set(p.pos.x, p.pos.y + 0.05, p.pos.z), _v2.set((Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4), C_DUST2, 0.25, 0.7, 0.22); if (sp > 3.5) this.cfx.scare(p.pos, 3.2); }
     }
     else H.anim('idle', this.t);
     this.armOverlay();
@@ -682,7 +740,7 @@ export class FreeRoam {
   stepPath(dt) {
     const P = this.pathS; P.t += dt; const u = clamp(P.t / P.dur, 0, 1); const H = this.human;
     const pos = P.curve.getPointAt(u); const tg = P.curve.getTangentAt(Math.min(0.999, u));
-    H.root.position.copy(pos); const yaw = Math.atan2(tg.x, tg.z); if (Math.hypot(tg.x, tg.z) > 0.2) this.p.yaw = yaw; H.root.rotation.set(0, this.p.yaw, 0);
+    H.root.position.copy(pos); this.p.pos.x = pos.x; this.p.pos.z = pos.z; const yaw = Math.atan2(tg.x, tg.z); if (Math.hypot(tg.x, tg.z) > 0.2) this.p.yaw = yaw; H.root.rotation.set(0, this.p.yaw, 0);
     if (P.pose === 'climb') { H.anim('walk', this.t * 5); H.j.shoulderL.rotation.x = -2.4 + Math.sin(this.t * 6) * 0.4; H.j.shoulderR.rotation.x = -2.4 - Math.sin(this.t * 6) * 0.4; }
     else if (u < P.climb) { H.anim('walk', this.t * 6); H.j.shoulderL.rotation.x = H.j.shoulderR.rotation.x = -1.8; }
     else H.anim('ridePark', this.t, { seatY: 0.25, excite: 1 });
@@ -692,10 +750,10 @@ export class FreeRoam {
   collideVehicles() {
     const vs = this.vehicles;
     for (let a = 0; a < vs.length; a++) for (let b = a + 1; b < vs.length; b++) {
-      const A = vs[a], B = vs[b]; const dx = B.pos.x - A.pos.x, dz = B.pos.z - A.pos.z; const d = Math.hypot(dx, dz);
-      const R = (A.model.shape.W + B.model.shape.W) / 2 + 0.9;
-      if (d < R && d > 0.001) {
-        const nx = dx / d, nz = dz / d; const push = (R - d) / 2;
+      const A = vs[a], B = vs[b]; if (Math.abs(B.pos.x - A.pos.x) > 8 || Math.abs(B.pos.z - A.pos.z) > 8) continue;
+      const hit = carVsCar(A.pos, A.heading, A.model.shape, B);
+      if (hit) {
+        const nx = hit.nx, nz = hit.nz; const push = hit.d / 2;
         A.pos.x -= nx * push; A.pos.z -= nz * push; B.pos.x += nx * push; B.pos.z += nz * push;
         const rv = (B.vel.x - A.vel.x) * nx + (B.vel.z - A.vel.z) * nz;
         if (rv < 0) { const imp = -rv * 0.6; A.vel.x -= nx * imp; A.vel.z -= nz * imp; B.vel.x += nx * imp; B.vel.z += nz * imp; if (imp > 1.5 && (A === this.veh || B === this.veh)) { this.app.audio.thump(clamp(imp / 10, 0.2, 0.8)); this.shake = Math.min(1, (this.shake || 0) + imp / 12); } }
@@ -718,10 +776,10 @@ export class FreeRoam {
   updateFx(dt) {
     for (let k = this.emitters.length - 1; k >= 0; k--) {
       const e = this.emitters[k]; e.t -= dt;
-      if (e.kind === 'hydrant') { const c = new THREE.Color(0.8, 0.9, 1); for (let i = 0; i < 6; i++) this.fx.water.emit(e.pos, _v1.set((Math.random() - 0.5) * 1.2, 5 + Math.random() * 2, (Math.random() - 0.5) * 1.2), c, 0.16, 1.4, 0.65); }
+      if (e.kind === 'hydrant') { const c = C_WATER; for (let i = 0; i < 6; i++) this.fx.water.emit(e.pos, _v1.set((Math.random() - 0.5) * 1.2, 5 + Math.random() * 2, (Math.random() - 0.5) * 1.2), c, 0.16, 1.4, 0.65); }
       else if (e.kind === 'leaves') { if (Math.random() < 0.5) { const c = new THREE.Color().setHSL(0.18 + Math.random() * 0.12, 0.7, 0.35); this.fx.leaves.emit(_v2.copy(e.pos).add(_v1.set((Math.random() - 0.5) * 3, Math.random(), (Math.random() - 0.5) * 3)), _v1.set((Math.random() - 0.5), -0.3, (Math.random() - 0.5)), c, 0.12, 3.5, 0.95); } }
-      else if (e.kind === 'dust') { if (Math.random() < 0.6) this.fx.dust.emit(_v2.copy(e.pos).add(_v1.set((Math.random() - 0.5) * 0.8, 0.2, (Math.random() - 0.5) * 0.8)), _v1.set((Math.random() - 0.5) * 0.6, 0.5, (Math.random() - 0.5) * 0.6), new THREE.Color(0.85, 0.8, 0.7), 0.4, 1.2, 0.35); }
-      else if (e.kind === 'steam') { if (Math.random() < 0.7) this.fx.steam.emit(e.pos, _v1.set((Math.random() - 0.5) * 0.15, 0.6, (Math.random() - 0.5) * 0.15), new THREE.Color(1, 1, 1), 0.15, 1.5, 0.35); }
+      else if (e.kind === 'dust') { if (Math.random() < 0.6) this.fx.dust.emit(_v2.copy(e.pos).add(_v1.set((Math.random() - 0.5) * 0.8, 0.2, (Math.random() - 0.5) * 0.8)), _v1.set((Math.random() - 0.5) * 0.6, 0.5, (Math.random() - 0.5) * 0.6), C_DUST, 0.4, 1.2, 0.35); }
+      else if (e.kind === 'steam') { if (Math.random() < 0.7) this.fx.steam.emit(e.pos, _v1.set((Math.random() - 0.5) * 0.15, 0.6, (Math.random() - 0.5) * 0.15), C_WHITE, 0.15, 1.5, 0.35); }
       else if (e.kind === 'spray') { const from = new THREE.Vector3(); this.human.j.wristR.getWorldPosition(from); const d = e.pos.clone().sub(from); for (let i = 0; i < 3; i++) this.fx.water.emit(from, _v1.copy(d).multiplyScalar(1.6).add(_v3.set((Math.random() - 0.5) * 0.3, 1.2, (Math.random() - 0.5) * 0.3)), new THREE.Color(0.75, 0.88, 1), 0.05, 0.6, 0.7); }
       else if (e.kind === 'balloon') { e.v = Math.min(2.2, e.v + dt * 1.2); e.obj.position.y += e.v * dt; e.obj.position.x += Math.sin(this.t * 0.7) * dt * 0.5; e.obj.rotation.z = Math.sin(this.t * 1.3) * 0.1; if (e.t <= 0) { this.scene.remove(e.obj); e.obj.traverse((o) => o.geometry?.dispose()); } }
       if (e.t <= 0) this.emitters.splice(k, 1);
@@ -753,6 +811,15 @@ export class FreeRoam {
     if (ins) { const rx = ins.lx < 1 ? -2.4 : 3.4, rz = ins.lz > 0 ? 2.4 : -2.4; const wp = ins.h.toWorld(rx, 2.9, rz); this.indoorLight.position.lerp(wp, this.indoorLight.intensity < 0.5 ? 1 : Math.min(1, dt * 6)); }
   }
 
+  // حالت عکاسی: رابط کاربری پنهان و دوربین سینمایی دور قهرمان
+  setPhoto(on) {
+    this.photo = on; const el = $('city'); el.classList.toggle('photo', on);
+    let hint = document.getElementById('photoHint');
+    if (on) { if (!hint) { hint = document.createElement('div'); hint.id = 'photoHint'; hint.className = 'photo-hint'; document.getElementById('app').appendChild(hint); } hint.textContent = 'حالت عکاسی 📸 — برای برگشت روی صفحه بزن'; hint.hidden = false; hint.style.animation = 'none'; void hint.offsetWidth; hint.style.animation = '';
+      const off = () => { this.setPhoto(false); window.removeEventListener('pointerdown', off, true); window.removeEventListener('keydown', off, true); };
+      setTimeout(() => { window.addEventListener('pointerdown', off, true); window.addEventListener('keydown', off, true); }, 300);
+    } else if (hint) hint.hidden = true;
+  }
   // ---------------- دوربین ----------------
   cycleCamera() {
     const modes = ['chase', 'cockpit', 'top'];
@@ -761,6 +828,7 @@ export class FreeRoam {
   }
   updateCamera(dt, snap = false) {
     const cam = this.camera; const W = this.world;
+    if (this.photo) { const f = this.playerWorldPos(_v3).clone(); this.photoA = (this.photoA || 0) + dt * 0.18; const d = 7 + Math.sin(this.photoA * 0.7) * 2; cam.position.set(f.x + Math.sin(this.photoA) * d, f.y + 2.2 + Math.sin(this.photoA * 0.5) * 1.2, f.z + Math.cos(this.photoA) * d); cam.lookAt(f.x, f.y + 1.1, f.z); cam.fov = 45; cam.updateProjectionMatrix(); this.human.j.head.visible = true; return; }
     this.shake = damp(this.shake || 0, 0, 4, dt);
     const sh = (this.shake || 0) * 0.08; const sx = (Math.random() - 0.5) * sh, sy = (Math.random() - 0.5) * sh;
     this.dragT -= dt;
@@ -839,8 +907,12 @@ export class FreeRoam {
   }
 
   dispose() {
-    this.missions?.cleanup(); this.weather?.dispose();
-    this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose?.(); });
+    this.missions?.cleanup(); this.weather?.dispose(); this.chat?.dispose();
+    this.app.cityHud?.fade(0, 0); this.app.cityHud?.bubble(''); this.setPhoto?.(false);
+    const fp = this.app.engine.finalPass.uniforms; fp.uSpeed.value = 0; fp.uFlash.value = 0;
+    // آزاد کردن کامل حافظه گرافیکی (هندسه، متریال و تکسچر)
+    const mats = new Set(); this.scene.traverse((o) => { if (o.geometry) o.geometry.dispose?.(); const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => mats.add(x)); });
+    for (const m of mats) { for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'alphaMap']) if (m[k] && m[k].isCanvasTexture) m[k].dispose(); m.dispose?.(); }
     this.outdoor.envRT?.dispose();
     this.app.audio.silence();
   }
@@ -872,11 +944,13 @@ export function bindCityUI(app) {
   window.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id || !city()) return; const c = city();
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
-    if (c.state === 'drive' || c.camMode === 'cockpit' && c.state === 'ride') c.dragYaw = clamp((c.dragYaw || 0) - dx * 0.005, -2.6, 2.6);
+    if (c.state === 'drive' || (c.state === 'ride' && (c.camMode === 'cockpit' || c.rideS?.r.cam === 'seat'))) c.dragYaw = clamp((c.dragYaw || 0) - dx * 0.005, -2.6, 2.6);
     else c.camYaw -= dx * 0.006;
     c.camPitch = clamp(c.camPitch + dy * 0.004, -0.35, 0.7); c.dragT = 2.5;
   });
-  window.addEventListener('pointerup', () => { const c = city(); if (c && c.state === 'drive') c.dragYaw = 0; });
+  window.addEventListener('pointerup', () => { const c = city(); if (c) c.dragYaw = 0; });
+  // از دست رفتن تمرکز (اعلان، تغییر برنامه): همه کنترل‌های لمسی رها می‌شوند
+  window.addEventListener('blur', () => { const c = city(); if (c) { c.joy.x = c.joy.y = 0; c.joy.active = false; c.btn.run = c.btn.jump = c.btn.horn = c.btn.interact = false; } knob.style.transform = ''; document.querySelectorAll('#cTouch .on, #touch .on').forEach((e) => e.classList.remove('on')); });
   // HUD
   const mapC = $('cMap'), mctx = mapC.getContext('2d');
   let toastT = null; let bubbleObj = null;

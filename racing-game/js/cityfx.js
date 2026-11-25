@@ -200,7 +200,7 @@ export class CityFX {
     this.coins.forEach((c, i) => {
       if (!c.on) { c.t -= dt; if (c.t <= 0) c.on = true; this._m.makeScale(0, 0, 0); cm.setMatrixAt(i, this._m); return; }
       const d = Math.hypot(c.p.x - pl.x, c.p.z - pl.z), dy = Math.abs(c.p.y - (pl.y + 1));
-      if (d < (g.state === 'drive' ? 2.6 : 1.4) && dy < 2.2) { c.on = false; c.t = 120; g.addCoins(c.val, c.val > 5 ? `سکه طلایی ویژه! +${toFa(c.val)} سکه 🌟` : `+${toFa(c.val)} سکه 🪙`); g.burstSparkle(c.p); }
+      if (d < (g.state === 'drive' ? 2.6 : 1.4) && dy < 2.2) { c.on = false; c.t = 120; g.addCoins(c.val, c.val > 5 ? `سکه طلایی ویژه! +${toFa(c.val)} سکه 🌟` : `+${toFa(c.val)} سکه 🪙`); g.burstSparkle(c.p); g.onCoinPicked?.(); }
       this._q.setFromAxisAngle(this._v.set(0, 1, 0), t * 2.4 + i); this._m.compose(this._v.set(c.p.x, c.p.y + Math.sin(t * 2 + i) * 0.15, c.p.z), this._q, this._s.set(c.val > 5 ? 1.6 : 1, c.val > 5 ? 1.6 : 1, c.val > 5 ? 1.6 : 1)); cm.setMatrixAt(i, this._m);
     });
     cm.instanceMatrix.needsUpdate = true;
@@ -213,7 +213,7 @@ export class CityFX {
     }
     // نور جلوی ماشین‌ها
     this.beams.visible = night;
-    if (night) { let k = 0; for (const c of g.traffic) { if (!c.model.root.visible) { this._m.makeScale(0, 0, 0); } else { c.model.root.updateMatrix(); this._m.copy(c.model.root.matrix); } this.beams.setMatrixAt(k++, this._m); } for (const v of g.vehicles) { if (k >= this.beams.count) break; if (v === g.veh && !v.isBike) { v.model.root.updateMatrix(); this._m.copy(v.model.root.matrix); } else this._m.makeScale(0, 0, 0); this.beams.setMatrixAt(k++, this._m); } while (k < this.beams.count) { this._m.makeScale(0, 0, 0); this.beams.setMatrixAt(k++, this._m); } this.beams.instanceMatrix.needsUpdate = true; }
+    if (night) { let k = 0; for (const c of g.traffic) { if (!c.model.root.visible) { this._m.makeScale(0, 0, 0); } else { c.model.root.updateMatrix(); this._m.copy(c.model.root.matrix); } this.beams.setMatrixAt(k++, this._m); } { const v = g.veh; if (v && !v.isBike) { v.model.root.updateMatrix(); this._m.copy(v.model.root.matrix); } else this._m.makeScale(0, 0, 0); this.beams.setMatrixAt(k++, this._m); } while (k < this.beams.count) { this._m.makeScale(0, 0, 0); this.beams.setMatrixAt(k++, this._m); } this.beams.instanceMatrix.needsUpdate = true; }
     // راهنما: سمت پیچ با چشمک نارنجی
     { const on = Math.sin(t * 9) > 0; let k = 0;
       for (const c of g.traffic) {
@@ -278,14 +278,26 @@ export class Weather {
     const f = this.scene.fog; f.color.lerp(new THREE.Color(0x8d969e), 0.5); f.near *= 0.5; f.far *= 0.45;
     this.app.engine.renderer.toneMappingExposure *= 0.88;
   }
-  update(dt, cam, ground) {
+  update(dt, cam, ground, indoor = false) {
     if (!this.on) return;
-    this.rain.update(dt, cam.position, ground, () => { this.flash = 1; this.app.audio.thunder(); if (this.kind === 'storm') this.rain.flashT *= 0.5; });
+    // داخل خانه باران دیده نمی‌شود (سقف داریم)؛ صدای باران هم آرام‌تر
+    if (this.rain.lines.visible === indoor) this.rain.lines.visible = !indoor;
+    if (indoor) ground = null;
+    this.rain.update(dt, cam.position, ground, () => { this.flash = 1; this.app.audio.thunder(); if (this.kind === 'storm') this.rain.flashT *= 0.5; this.bolt(cam); });
+    if (this.boltLine) { this.boltT -= dt; this.boltLine.material.opacity = Math.max(0, this.boltT * 4) * (Math.random() < 0.7 ? 1 : 0.3); if (this.boltT <= 0) { this.scene.remove(this.boltLine); this.boltLine.geometry.dispose(); this.boltLine = null; } }
     this.flash = Math.max(0, this.flash - dt * 3.5);
     const fl = this.flash > 0.6 || (this.flash > 0.2 && this.flash < 0.35) ? this.flash : 0;
     this.outdoor.hemi.intensity = this.hemiBase + fl * 3;
     this.app.engine.finalPass.uniforms.uFlash.value = Math.max(this.app.engine.finalPass.uniforms.uFlash.value, fl * 0.45);
-    this.app.audio.setRain(this.kind === 'storm' ? 1 : 0.7);
+    this.app.audio.setRain((this.kind === 'storm' ? 1 : 0.7) * (indoor ? 0.4 : 1));
   }
-  dispose() { this.rain?.dispose(); this.app.audio.setRain(0); }
+  // صاعقه: خط زیگزاگی روشن در آسمان
+  bolt(cam) {
+    if (this.boltLine) { this.scene.remove(this.boltLine); this.boltLine.geometry.dispose(); }
+    const a = Math.random() * Math.PI * 2, d = 380 + Math.random() * 300; let x = cam.position.x + Math.cos(a) * d, z = cam.position.z + Math.sin(a) * d, y = 260; const pts = [];
+    while (y > 15) { const nx = x + (Math.random() - 0.5) * 30, ny = y - 12 - Math.random() * 22, nz = z + (Math.random() - 0.5) * 30; pts.push(new THREE.Vector3(x, y, z), new THREE.Vector3(nx, ny, nz)); if (Math.random() < 0.25) pts.push(new THREE.Vector3(nx, ny, nz), new THREE.Vector3(nx + (Math.random() - 0.5) * 40, ny - 25, nz + (Math.random() - 0.5) * 40)); x = nx; y = ny; z = nz; }
+    this.boltLine = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xe8f0ff, transparent: true, opacity: 1, fog: false, toneMapped: false }));
+    this.boltLine.frustumCulled = false; this.scene.add(this.boltLine); this.boltT = 0.3;
+  }
+  dispose() { this.rain?.dispose(); this.app.audio.setRain(0); if (this.boltLine) this.scene.remove(this.boltLine); }
 }

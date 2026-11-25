@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Outdoor } from './engine.js';
 import { buildCar } from './cars.js';
 import { buildBike } from './bikes.js';
+import { freeModel } from './garage.js';
 import { PATTERN_UNIFORMS, createCrowd } from './human.js';
 import * as T from './textures.js';
 import { mulberry32, optimizeStatic } from './utils.js';
@@ -56,14 +57,14 @@ export class Showcase {
     this.t = 0;
   }
   setCar(def, custom) {
-    while (this.carHolder.children.length) this.carHolder.remove(this.carHolder.children[0]);
+    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); freeModel(c); }
     const m = buildCar(def, custom, { isPlayer: true, team: 0xff5a00, number: custom.number || 7 });
     m.root.rotation.y = Math.PI * 0.08; m.setVisualState({ steer: -0.3 });
     this.carHolder.add(m.root); this.model = m;
     if (this.beam) this.beam = null;
   }
   setBike(def) {
-    while (this.carHolder.children.length) this.carHolder.remove(this.carHolder.children[0]);
+    while (this.carHolder.children.length) { const c = this.carHolder.children[0]; this.carHolder.remove(c); freeModel(c); }
     const m = buildBike(def, { isPlayer: true, rider: true });
     m.root.rotation.y = Math.PI * 0.08; m.root.scale.setScalar(1.15); m.setVisualState({ steer: -0.3, latAcc: 0 });
     this.carHolder.add(m.root); this.model = m;
@@ -88,7 +89,7 @@ export class Showcase {
     this.outdoor.update(dt, new THREE.Vector3(0, 0, 0), this.camera);
     this.crowd.update(this.t, 0.4 + 0.4 * Math.sin(this.t * 0.5), this.carHolder.position, this.camera.position);
     if (this.model) this.model.setVisualState({ steer: -0.3, spin: 0, rpm: 900 + Math.sin(this.t * 3) * 100 });
-    this.app.engine.finalPass.uniforms.uSpeed.value = 0;
+    this.app.engine.finalPass.uniforms.uSpeed.value = 0; this.app.engine.finalPass.uniforms.uFlash.value = 0;
     this.app.engine.render(this.scene, this.camera, dt);
   }
 }

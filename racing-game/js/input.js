@@ -19,7 +19,7 @@ export class Input {
   bindTouch(root) {
     root.querySelectorAll('[data-touch]').forEach((el) => {
       const k = el.dataset.touch;
-      const on = (e) => { e.preventDefault(); this.touch[k] = true; el.classList.add('on'); navigator.vibrate?.(8); };
+      const on = (e) => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ } this.touch[k] = true; el.classList.add('on'); navigator.vibrate?.(8); };
       const off = (e) => { e.preventDefault(); this.touch[k] = false; el.classList.remove('on'); };
       el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
     });

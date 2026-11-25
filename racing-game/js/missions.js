@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildHuman } from './human.js';
+import { FireTruck } from './cityextras.js';
 import { clamp, lerp, damp, mulberry32, TAU, toFa, fmtNum, wrapAngle } from './utils.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -125,15 +126,19 @@ export class Missions {
     this.g.toast('ماموریت شروع شد! دنبال نشانگر زرد برو');
   }
   decline() { if (!this.offerData) return; this.offerData = null; this.g.app.cityHud?.offer(null); this.timer = this.every; this.g.toast('ماموریت رد شد؛ ماموریت بعدی بعداً می‌آید'); }
+  // فعالیت‌های اختیاری (مثل مسابقه خیابانی) از همین سیستم استفاده می‌کنند
+  startActivity(act) { if (this.active || this.offerData) return false; this.active = act; if (!act.start()) { this.active = null; return false; } return true; }
   complete() {
     const m = this.active; const S = this.g.app.save.data;
-    S.coins += m.reward; S.stats.missions = (S.stats.missions || 0) + 1; this.g.app.save.save(); this.g.app.refreshMenu();
+    S.coins += m.reward; if (!m.activity) S.stats.missions = (S.stats.missions || 0) + 1; this.g.app.save.save(); this.g.app.refreshMenu();
+    if (!m.activity) { this.g.ach?.unlock('mission1'); if (S.stats.missions >= 5) this.g.ach?.unlock('mission5'); this.g.ach?.unlock(m instanceof ChokeMission ? 'choke' : m instanceof FireMission ? 'fire' : 'clean'); }
+    this.g.effects?.confettiBurst(this.g.playerWorldPos(new THREE.Vector3()), 260);
     this.g.app.cityHud?.big('ماموریت انجام شد! 🎉', '+' + fmtNum(m.reward) + ' سکه'); this.g.sfx('coin'); this.g.sfx('mission');
-    m.cleanup(); this.active = null; this.timer = this.every;
+    m.cleanup(); this.active = null; if (!m.activity) this.timer = this.every;
   }
   fail(reason) {
     const m = this.active; this.g.app.cityHud?.big('ماموریت ناموفق شد', reason || 'زمان تمام شد'); this.g.sfx('fail');
-    m.cleanup(); this.active = null; this.timer = this.every;
+    m.cleanup(); this.active = null; if (!m.activity) this.timer = this.every;
   }
   cleanup() { this.active?.cleanup(); this.active = null; this.g.app.cityHud?.offer(null); }
   update(dt) {
@@ -154,6 +159,9 @@ export class Missions {
   }
 }
 
+function freeHuman(h) { h.root.parent?.remove(h.root); h.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material && !o.material.userData?.vpbr) o.material.dispose?.(); }); }
+// کارهای زمان‌دار یک ماموریت فقط وقتی اجرا می‌شوند که همان ماموریت هنوز فعال باشد
+function alive(m) { return m.M.active === m && !m.ended; }
 function makeVictim(rng, detail = 'hi') {
   const h = buildHuman({ detail, skin: SKINS[(rng() * SKINS.length) | 0], shirt: SHIRTS[(rng() * SHIRTS.length) | 0], pants: [0x223344, 0x4a3b2a, 0x1a1a1a, 0x5a6b7a][(rng() * 4) | 0], hair: [0x2a1a10, 0x111111, 0x6b4a2a, 0x9a9a9a][(rng() * 4) | 0], hairStyle: rng() < 0.4 ? 'long' : 'short' });
   return h;
@@ -188,7 +196,7 @@ class ChokeMission {
     g.p.pos.copy(this.vpos).addScaledVector(f, -0.32); g.p.yaw = this.vyaw; g.p.vel.set(0, 0, 0);
     g.say('کمک...! نمی‌تونم نفس بکشم!', this.v.j.head); g.toast('دست‌هایت را دور شکمش حلقه کردی؛ حالا محکم فشار بده!');
   }
-  thrust() { if (this.pulse < 0.3) return; this.pulse = 0; this.thrusts++; this.g.sfx('gasp'); if (this.thrusts >= this.need) this.g.timers.push({ t: 0.25, fn: () => this.expel() }); }
+  thrust() { if (this.state !== 'heimlich' || this.expelQ || this.pulse < 0.3) return; this.pulse = 0; this.thrusts++; this.g.sfx('gasp'); if (this.thrusts >= this.need) { this.expelQ = true; this.g.timers.push({ t: 0.25, fn: () => { if (alive(this)) this.expel(); } }); } }
   expel() {
     const g = this.g; this.state = 'cough'; this.t = 0; this.finishing = true;
     const mouth = new THREE.Vector3(); this.v.j.head.localToWorld(mouth.set(0, 0.05, 0.12));
@@ -217,12 +225,14 @@ class ChokeMission {
       if (this.t > 5) { this.state = 'thanks'; this.t = 0; g.say('خیلی ممنونم! جانم را نجات دادی 🙏', v.j.head); }
     } else if (this.state === 'thanks') {
       v.anim('wave', this.t); const a = Math.atan2(g.p.pos.x - this.vpos.x, g.p.pos.z - this.vpos.z); v.root.rotation.y += wrapAngle(a - v.root.rotation.y) * Math.min(1, dt * 4);
-      if (this.t > 2.8 && !this.done) { this.done = true; this.M.complete(); }
+      if (this.t > 2.8 && !this.done) { this.done = true; this.handed = true; g.chat?.addFriend(v, { kind: 'choke', pos: this.vpos, yaw: v.root.rotation.y }); this.M.complete(); }
     }
     if (this.state !== 'heimlich') v.blend(dt, 10);
   }
   cleanup() {
-    const g = this.g; g.scene.remove(this.v.root); g.scene.remove(this.food); g.say('');
+    const g = this.g; this.ended = true; if (!this.handed) freeHuman(this.v); g.scene.remove(this.food); this.food.geometry.dispose(); g.say('');
+    if (g.state === 'act' && g.actS) { g.actS.opts.mid = null; g.actS.opts.after = null; }
+    if (!g.world.lru?.includes(this.house)) (g.world.lru = g.world.lru || []).push(this.house);
     this.house.busy = false; this.house.lockInterior = false; if (g.state === 'mission') g.state = 'foot';
   }
 }
@@ -237,7 +247,7 @@ class FireMission {
     const F = g.fire; const W = (x, y, z) => h.toWorld(x, y, z);
     const add = (p, w, hh, k = 1, inner = false) => { const id = F.add(p, w, hh, k); this.flames.push(id); if (inner) this.inner.push({ id, pos: p.clone(), r: w * 0.55 }); return id; };
     // شعله از پنجره‌ها و در
-    for (const [x, z] of [[1.5, 5.12], [4.1, 5.12], [3.9, -5.12], [0.5, -5.12], [-3.0, -5.12], [-4.7, -5.12]]) add(W(x, 1.25, z), 1.3, 2.4, 0.9);
+    for (const [x, z] of [[2.0, 5.12], [4.1, 5.12], [-3.9, -5.12], [-0.5, -5.12], [3.0, -5.12], [4.7, -5.12]]) add(W(x, 1.25, z), 1.3, 2.4, 0.9);
     for (const [x, z] of [[-6.12, -2.9], [-6.12, 2.3], [6.12, 2.9], [6.12, -2.3]]) add(W(x, 1.25, z), 1.2, 2.2, 0.85);
     // شعله روی سقف
     for (const x of [-4.2, -1.4, 1.4, 4.2]) add(W(x, 4.3, 0), 2.6, 3.6 + Math.random(), 1);
@@ -277,7 +287,7 @@ class FireMission {
   }
   pick(v) {
     const g = this.g; v.state = 'lifting';
-    g.act('pickup', 1.0, { mid: () => { v.state = 'carried'; g.carrying = v; g.human.root.add(v.h.root); v.h.root.position.set(-0.16, 1.6, 0.92); v.h.root.quaternion.setFromAxisAngle(V(1, 0, 0), -Math.PI / 2).multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI)); g.toast('مصدوم را روی شانه‌ات گذاشتی؛ سریع بیرون برو!'); } });
+    g.act('pickup', 1.0, { mid: () => { if (!alive(this) || v.state !== 'lifting') return; v.state = 'carried'; g.carrying = v; g.human.root.add(v.h.root); v.h.root.position.set(-0.16, 1.6, 0.92); v.h.root.quaternion.setFromAxisAngle(V(1, 0, 0), -Math.PI / 2).multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI)); g.toast('مصدوم را روی شانه‌ات گذاشتی؛ سریع بیرون برو!'); } });
     g.say('');
   }
   drop(v) {
@@ -286,12 +296,12 @@ class FireMission {
     v.pos.copy(p); v.state = 'saved'; v.t = 0; v.h.root.position.copy(p).add(V(0, 0.14, 0));
     v.h.root.quaternion.setFromAxisAngle(V(0, 1, 0), this.house.rot).multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -Math.PI / 2));
     g.toast('آفرین! مصدوم را به جای امن رساندی 💪'); g.sfx('mission');
-    if (!this.victims.some((x) => x.state === 'trapped' || x.state === 'carried' || x.state === 'lifting')) { this.ending = 0; this.finishing = true; g.toast('همه نجات پیدا کردند! آتش‌نشانی رسید و آتش را خاموش می‌کند 🚒'); }
+    if (!this.victims.some((x) => x.state === 'trapped' || x.state === 'carried' || x.state === 'lifting')) { this.ending = 0; this.finishing = true; g.toast('همه نجات پیدا کردند! ماشین آتش‌نشانی دارد می‌رسد 🚒'); g.extras.push(new FireTruck(g, this.house)); }
   }
   update(dt) {
     const g = this.g; this.t += dt;
     // شدت آتش: آرام بیشتر می‌شود و در پایان خاموش می‌شود
-    if (this.ending !== undefined) { this.ending += dt; this.k = Math.max(0, 1 - this.ending / 6); if (this.ending > 7 && !this.done) { this.done = true; this.M.complete(); return; } }
+    if (this.ending !== undefined) { this.ending += dt; this.k = Math.max(0, 1 - Math.max(0, this.ending - 4) / 6); if (this.ending > 10.5 && !this.done) { this.done = true; for (const v of this.victims) if (v.state === 'saved' || v.state === 'ok') { v.handed = true; g.chat?.addFriend(v.h, { kind: 'fire', pos: v.pos.clone().setY(g.world.groundAt(v.pos.x, v.pos.z)), yaw: this.house.rot }); } this.M.complete(); return; } }
     else this.k = Math.min(1.15, 0.55 + this.t * 0.012);
     g.fire.setGroupIntensity(this.flames, this.k * (0.9 + Math.sin(this.t * 3) * 0.05));
     // صدای آتش
@@ -330,13 +340,16 @@ class FireMission {
     const g = this.g; g.health = 60; g.app.cityHud?.fade(1, 0.4); g.toast('از گرما و دود بیهوش شدی! 😵 کمی از وقتت کم شد');
     this.timeLeft -= 15;
     const c = g.carrying; if (c) { g.carrying = null; g.scene.attach(c.h.root); c.h.root.quaternion.identity(); c.pos.copy(c.home); c.h.root.position.copy(c.home); c.h.root.rotation.y = c.yaw; c.state = 'trapped'; }
+    for (const v of this.victims) if (v.state === 'lifting') { v.state = 'trapped'; v.h.root.position.copy(v.home); }
     if (g.state !== 'foot') g.standUp(true);
-    g.timers.push({ t: 0.6, fn: () => { g.p.pos.copy(this.house.safe).add(V(0, 0, 0)); g.p.pos.y = g.world.groundAt(g.p.pos.x, g.p.pos.z); g.p.vy = 0; g.camInit = false; g.app.cityHud?.fade(0, 0.8); } });
+    g.timers.push({ t: 0.6, fn: () => { if (!alive(this)) { g.app.cityHud?.fade(0, 0.4); return; } g.p.pos.copy(this.house.safe).add(V(0, 0, 0)); g.p.pos.y = g.world.groundAt(g.p.pos.x, g.p.pos.z); g.p.vy = 0; g.camInit = false; g.app.cityHud?.fade(0, 0.8); } });
   }
   cleanup() {
-    const g = this.g; g.fire.clear(); g.app.audio.setFire(0); g.say('');
+    const g = this.g; this.ended = true; g.fire.clear(); g.app.audio.setFire(0); g.say('');
+    if (g.state === 'act' && g.actS) { g.actS.opts.mid = null; g.actS.opts.after = null; }
     if (g.carrying) { g.carrying = null; }
-    for (const v of this.victims) { v.h.root.parent?.remove(v.h.root); }
+    for (const v of this.victims) { if (!v.handed) freeHuman(v.h); }
+    if (!g.world.lru?.includes(this.house)) (g.world.lru = g.world.lru || []).push(this.house);
     this.house.busy = false; this.house.lockInterior = false; g.health = 100;
   }
 }
@@ -360,6 +373,7 @@ class TrashMission {
       it.mesh.position.set(x, W.groundAt(x, z) + it.rest * 1.35, z); it.mesh.rotation.set(0, rng() * TAU, 0); it.rx = 0; it.rz = 0;
       g.scene.add(it.mesh); this.items.push(it);
     }
+    if (!this.items.length) return false;
     // لکه‌های کثیفی روی زمین
     const sm = new THREE.MeshStandardMaterial({ color: 0x3b2f22, transparent: true, opacity: 0.35, roughness: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
     for (let k = 0; k < 6; k++) { const s = new THREE.Mesh(new THREE.CircleGeometry(0.4 + rng() * 0.7, 16), sm); s.rotation.x = -Math.PI / 2; const a = rng() * TAU, r = rng() * R; s.position.set(this.center.x + Math.cos(a) * r, W.groundAt(this.center.x + Math.cos(a) * r, this.center.z + Math.sin(a) * r) + 0.012, this.center.z + Math.sin(a) * r); s.scale.set(1, 0.6 + rng() * 0.6, 1); g.scene.add(s); this.stains.push(s); }
@@ -393,10 +407,11 @@ class TrashMission {
   pick(it) {
     const g = this.g; it.held = true;
     const a = Math.atan2(it.mesh.position.x - g.p.pos.x, it.mesh.position.z - g.p.pos.z); g.p.yaw = a;
-    g.act('pickup', 1.1, { mid: () => { g.human.j.wristR.add(it.mesh); it.mesh.position.set(0, -0.12, 0.03); it.mesh.rotation.set(0.3, 0, 0.2); g.holding = it; g.sfx('pickup'); } });
+    g.act('pickup', 1.1, { mid: () => { if (!alive(this)) return; g.human.j.wristR.add(it.mesh); it.mesh.position.set(0, -0.12, 0.03); it.mesh.rotation.set(0.3, 0, 0.2); g.holding = it; g.sfx('pickup'); } });
   }
   onDropped(it) { it.held = false; }
   onBinned(it, bin) {
+    if (!this.items.includes(it)) return;
     this.count++; const i = this.items.indexOf(it); if (i >= 0) this.items.splice(i, 1);
     this.g.toast(this.count < this.total ? `آفرین! ${toFa(this.count)} از ${toFa(this.total)} آشغال داخل سطل رفت 🗑️` : 'همه آشغال‌ها جمع شد! محله تمیز شد ✨');
     if (this.count >= this.total && !this.done) { this.done = true; this.finishing = true; this.g.burstSparkle(this.center.clone().setY(1)); this.g.timers.push({ t: 1.2, fn: () => this.M.complete() }); }
@@ -413,10 +428,48 @@ class TrashMission {
     for (const it of this.items) if (!it.held && it.kind === 'plastic') { it.mesh.rotation.y += Math.sin(this.g.t * 0.8 + it.mesh.position.x) * dt * 0.3; }
   }
   cleanup() {
-    const g = this.g;
+    const g = this.g; this.ended = true;
+    if (g.state === 'act' && g.actS) { g.actS.opts.mid = null; g.actS.opts.after = null; }
     for (const it of this.items) it.mesh.parent?.remove(it.mesh);
     if (g.holding) { g.holding.mesh.parent?.remove(g.holding.mesh); g.holding = null; }
     for (const s of this.stains) { g.scene.remove(s); s.geometry.dispose(); }
-    for (const b of this.bins) { g.scene.remove(b.own.group); g.world.colliders.remove(b.col); g.world.inter.remove(b.inter); }
+    if (this.stains[0]) this.stains[0].material.dispose();
+    for (const b of this.bins) { g.scene.remove(b.own.group); g.world.colliders.remove(b.col); g.world.inter.remove(b.inter); b.own.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) { o.material.map?.dispose(); o.material.dispose(); } }); }
   }
+}
+
+// ---------- مسابقه خیابانی: عبور از حلقه‌های آتشین در خیابان‌های شهر ----------
+export class StreetRace {
+  constructor(M, startNode) { this.M = M; this.g = M.g; this.activity = true; this.start0 = startNode; this.i = 0; this.rings = []; this.t = 0; }
+  start() {
+    const g = this.g; const L = g.world.lane; const rng = this.M.rng;
+    let n = this.start0, prev = null; const pts = [];
+    for (let k = 0; k < 9; k++) { const outs = n.out.filter((e) => e.b !== prev && !pts.includes(e.b)); const e = outs.length ? outs[(rng() * outs.length) | 0] : n.out[0]; prev = n; n = e.b; pts.push(n); }
+    const geo = new THREE.TorusGeometry(5.2, 0.32, 10, 40);
+    pts.forEach((p, k) => {
+      const nx = k + 1 < pts.length ? pts[k + 1] : p; const from = k ? pts[k - 1] : this.start0;
+      const yaw = Math.atan2(p.x - from.x, p.z - from.z);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: k === pts.length - 1 ? 0x2fd27a : 0xff8a00, toneMapped: false, transparent: true, opacity: 0.85 }));
+      m.position.set(p.x, 5.4, p.z); m.rotation.y = yaw; g.scene.add(m); this.rings.push({ m, p: new THREE.Vector3(p.x, 0, p.z) });
+      void nx;
+    });
+    this.title = '🏁 مسابقه خیابانی'; this.limit = 25 + pts.length * 11; this.timeLeft = this.limit; this.reward = 0; this.diff = 3;
+    g.toast('۳... ۲... ۱... برو! از حلقه‌ها عبور کن 🏁'); g.sfx('mission');
+    return true;
+  }
+  objective() { return this.g.state === 'drive' ? 'با ماشین از وسط حلقه‌های نارنجی رد شو!' : 'سوار ماشین شو و از حلقه‌ها رد شو'; }
+  progress() { return `حلقه ${toFa(this.i)} از ${toFa(this.rings.length)}`; }
+  target() { const r = this.rings[this.i]; return r ? r.p : null; }
+  get usesHealth() { return false; }
+  update(dt) {
+    const g = this.g; this.t += dt;
+    this.rings.forEach((r, k) => { r.m.visible = k >= this.i && k < this.i + 3; r.m.material.opacity = k === this.i ? 0.95 : 0.35; r.m.scale.setScalar(k === this.i ? 1 + Math.sin(this.t * 6) * 0.04 : 0.9); });
+    const r = this.rings[this.i]; const v = g.veh;
+    if (r && v && Math.hypot(v.pos.x - r.p.x, v.pos.z - r.p.z) < 6.5) {
+      this.i++; g.sfx('coin'); g.burstSparkle(r.p.clone().setY(3));
+      if (this.i >= this.rings.length && !this.done) { this.done = true; this.finishing = true; const bonus = Math.round(this.timeLeft * 1.5); this.reward = 40 + bonus; const S = g.app.save.data; const tm = this.limit - this.timeLeft; const best = S.stats.streetBest; if (!best || tm < best) { S.stats.streetBest = tm; g.toast(`رکورد جدید! ${toFa(tm.toFixed(1))} ثانیه 🏆`); } g.ach?.unlock('street'); this.M.complete(); }
+      else g.toast(`حلقه ${toFa(this.i)} از ${toFa(this.rings.length)} ✓`);
+    }
+  }
+  cleanup() { for (const r of this.rings) { this.g.scene.remove(r.m); } }
 }

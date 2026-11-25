@@ -224,7 +224,9 @@ export class Outdoor {
     this.engine.setBloom((light.bloom ?? 0.5) * (timeKey === 'night' ? 1.4 : 0.8));
     const shadowsOn = (light.shadows ?? true) && this.engine.q.shadowOn;
     this.sun.castShadow = shadowsOn; this.engine.renderer.shadowMap.enabled = shadowsOn;
-    this.updateEnv();
+    // نقشه محیطی فقط وقتی زمان روز یا ابرها عوض شود دوباره ساخته می‌شود (تنظیم نور روان می‌ماند)
+    const envKey = timeKey + ':' + (light.clouds ?? 1);
+    if (envKey !== this._envKey || !this.envRT) { this._envKey = envKey; this.updateEnv(); }
   }
   updateEnv() {
     const envScene = new THREE.Scene();

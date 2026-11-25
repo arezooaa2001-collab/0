@@ -63,7 +63,7 @@ export class FireSystem {
     this.embers = new Particles(scene, 300, { additive: true, tex: T.softDot(), gravity: -1.8, drag: 0.6, grow: -0.4 });
     this.light = new THREE.PointLight(0xff7a20, 0, 26, 1.6); scene.add(this.light);
     this.sources = [];
-    this._v = new THREE.Vector3(); this._c = new THREE.Color();
+    this._v = new THREE.Vector3(); this._vel = new THREE.Vector3(); this._c = new THREE.Color();
   }
   // افزودن شعله؛ خروجی شناسه برای تغییر شدت
   add(pos, w = 1.2, h = 2.2, intensity = 1) {
@@ -71,6 +71,8 @@ export class FireSystem {
     this.iPos.set([pos.x, pos.y, pos.z], i * 3); this.iSize.set([w, h], i * 2); this.iSeed[i] = Math.random() * 10; this.iInt[i] = intensity;
     this.geo.instanceCount = this.count; this.mesh.visible = true;
     for (const n of ['iPos', 'iSize', 'iSeed', 'iInt']) this.geo.attributes[n].needsUpdate = true;
+    // اگر جای خالی نبود و یک شعله قدیمی جایگزین شد، منبع قبلی هم حذف شود
+    for (let k = this.sources.length - 1; k >= 0; k--) if (this.sources[k].i === i) this.sources.splice(k, 1);
     this.sources.push({ i, pos: pos.clone(), w, h, base: intensity });
     return i;
   }
@@ -91,9 +93,9 @@ export class FireSystem {
       if (s.pos.distanceToSquared(camPos) > 220 * 220) continue;
       if (Math.random() < dt * 11 * k) {
         const g = 0.05 + Math.random() * 0.1; this._c.setRGB(g, g * 0.97, g * 0.95);
-        this.smoke.emit(this._v.set(s.pos.x + (Math.random() - 0.5) * s.w, s.pos.y + s.h * 0.75, s.pos.z + (Math.random() - 0.5) * s.w), new THREE.Vector3((Math.random() - 0.5) * 0.7 + 0.35, 2.4 + Math.random() * 1.6, (Math.random() - 0.5) * 0.7), this._c, 2.0 + s.w * 1.2, 5 + Math.random() * 3, 0.8);
+        this.smoke.emit(this._v.set(s.pos.x + (Math.random() - 0.5) * s.w, s.pos.y + s.h * 0.75, s.pos.z + (Math.random() - 0.5) * s.w), this._vel.set((Math.random() - 0.5) * 0.7 + 0.35, 2.4 + Math.random() * 1.6, (Math.random() - 0.5) * 0.7), this._c, 2.0 + s.w * 1.2, 5 + Math.random() * 3, 0.8);
       }
-      if (Math.random() < dt * 10 * k) this.embers.emit(this._v.set(s.pos.x + (Math.random() - 0.5) * s.w, s.pos.y + s.h * 0.3, s.pos.z + (Math.random() - 0.5) * s.w), new THREE.Vector3((Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 1.2), this._c.setRGB(2.5, 1.0, 0.2), 0.12, 1.4 + Math.random(), 1);
+      if (Math.random() < dt * 10 * k) this.embers.emit(this._v.set(s.pos.x + (Math.random() - 0.5) * s.w, s.pos.y + s.h * 0.3, s.pos.z + (Math.random() - 0.5) * s.w), this._vel.set((Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 1.2), this._c.setRGB(2.5, 1.0, 0.2), 0.12, 1.4 + Math.random(), 1);
     }
     this.smoke.update(dt); this.embers.update(dt);
   }

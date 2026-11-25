@@ -110,8 +110,8 @@ export class Skidmarks {
     this.alphaA.set([al, al, al, al], i * 4);
     prev.p.copy(p); prev.side.copy(side);
     const pa = this.mesh.geometry.attributes.position, aa = this.mesh.geometry.attributes.aA;
-    pa.clearUpdateRanges(); pa.addUpdateRange(i * 12, 12); pa.needsUpdate = true;
-    aa.clearUpdateRanges(); aa.addUpdateRange(i * 4, 4); aa.needsUpdate = true;
+    pa.addUpdateRange(i * 12, 12); pa.needsUpdate = true; // چند علامت در یک فریم: همه بازه‌ها آپلود شوند
+    aa.addUpdateRange(i * 4, 4); aa.needsUpdate = true;
     this.mesh.visible = true;
   }
   break(key) { this.last.delete(key); }

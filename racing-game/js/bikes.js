@@ -130,7 +130,7 @@ export function buildBike(def, { isPlayer = true, team = 0xff5a00, number = 7, r
   const ff = new THREE.CylinderGeometry(s.wrF + 0.04, s.wrF + 0.04, s.twF + 0.05, 20, 1, true, s.style === 'dirt' ? Math.PI * 0.2 : Math.PI * 0.12, s.style === 'dirt' ? Math.PI * 0.45 : Math.PI * 0.62); ff.rotateZ(Math.PI / 2); ff.translate(0, s.style === 'dirt' ? 0.1 : 0, 0);
   const ffm = new THREE.Mesh(ff, paint); ffm.position.copy(toF(axle)); ffm.material.side = THREE.DoubleSide; front.add(ffm);
   // چرخ جلو
-  const fwRoot = new THREE.Group(); fwRoot.position.copy(toF(axle)); front.add(fwRoot);
+  const fwRoot = new THREE.Group(); fwRoot.position.copy(toF(axle)); fwRoot.userData.dynamic = true; front.add(fwRoot); // چرخ جلو نباید با دوشاخ ادغام شود
   const fwSpin = new THREE.Group(); fwRoot.add(fwSpin);
   fwSpin.add(new THREE.Mesh(bikeWheel(s.wrF, s.twF, s.spoked, s.knobby, s.style === 'gp' || s.style === 'sport' ? 2 : 1), vertexPBRMaterial(THREE.DoubleSide)));
   // تنه، موتور، باک، زین
