@@ -383,6 +383,10 @@ class Game {
         this.stats.seenV3 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: مسابقه خیابونی 🏁، پارک پرش 🚀، دریفت 🌀، نمایشگاه ماشین 🏎️ و حالت عکاسی 📸!', 'info'), 3500);
       }
+      if (!this.stats.seenV14) {
+        this.stats.seenV14 = true;
+        setTimeout(() => this.ui.toast('🆕 جدید: ✈️ فرودگاه کویر با هواپیما، 🌋 آتشفشان، 🎢 حلقه مرگ و 💣 توپ پرتاب توی پارک پرش، 🦘 هیدرولیک (تعمیرگاه)، 🦌 آهو و خرگوش و 🏴‍☠️ گنج‌یابی!', 'info'), 55000);
+      }
       if (!this.stats.seenV13) {
         this.stats.seenV13 = true;
         setTimeout(() => this.ui.toast('🆕 جدید: 🚂 قطار و ایستگاه راه‌آهن، 🐈🐕🦜 حیوون خونگی توی ماشین (تعمیرگاه)، ☄️ بارون شهاب‌سنگ، 🌌 شفق قطبی، 🌾 علف و گل و پروانه، 🕊️ کفترهای شهر و 🛞 فنربندی واقعی!', 'info'), 50000);
@@ -436,6 +440,7 @@ class Game {
     this.stats.seenV11 = true;
     this.stats.seenV12 = true;
     this.stats.seenV13 = true;
+    this.stats.seenV14 = true;
     const tips = [
       ['به تاکسی‌ران شهر خوش اومدی! 🚕', 0],
       [this.ui.coarse ? 'با دکمه‌های ◀ ▶ فرمون بده، پدال گاز و ترمز سمت راسته' : 'با W/A/S/D یا کلیدهای جهت رانندگی کن', 3.5],
