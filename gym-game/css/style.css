@@ -1221,3 +1221,5 @@ body.polish .vignette { opacity: 1; }
 .hud:has(#galleryPanel:not([hidden])) .toasts, .hud:has(#truckPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 200px); }
 @media (max-width: 720px) { .hud:has(#galleryPanel:not([hidden])) .toasts, .hud:has(#truckPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 300px); } }
 @media (max-height: 480px) and (orientation: landscape) { .gallery-panel .spin-info { display: none; } .truck-pull { height: 44px; } .hud:has(#galleryPanel:not([hidden])) .toasts, .hud:has(#truckPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 150px); } }
+/* portrait phones: toasts go below whatever game panel is showing */
+@media (max-width: 720px) { .hud:has(.spin-panel:not([hidden])) .toasts { top: calc(var(--safe-t) + 300px); } }

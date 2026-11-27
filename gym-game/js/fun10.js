@@ -219,7 +219,8 @@ Object.assign(Game, {
         for (const w of M.wings) w.rotation.z = (w.position.x > 0 ? -1 : 1) * (0.4 + 0.6 * Math.abs(Math.sin(this.clock * 18)));
         if (Math.random() < dt * 6) this.world.fx.emit(M.g.position.x, M.g.position.y + 0.2, M.g.position.z, rand(-0.6, 0.6), rand(0.2, 0.8), rand(-0.6, 0.6), FEATHER, 0.7, 2);
         // into the coop: hop down onto the straw
-        if (Math.hypot(pp.x - COOP.x, pp.z - COOP.z) < 2.2) {
+        // dropped in through the open front (or from inside), not over a side fence
+        if (Math.abs(pp.x - COOP.x) < COOP.w / 2 && pp.z > COOP.z - COOP.d / 2 - 0.9 && pp.z < COOP.z + COOP.d / 2) {
           K.state = 'home';
           K.x = COOP.x + rand(-1, 1); K.z = COOP.z + rand(-0.6, 0.6);
           C.carry = null;
@@ -314,6 +315,7 @@ Object.assign(Game, {
     if (this.mode !== 'play' || this.modals.size || this.race || this.arm || this.photo || this.build) return;
     if (!this.powerUnlocked(pw)) { Sfx.play('error'); this.toast(`🔒 قدرت «${pw.name}» در سطح ${fa(pw.level)} باز می‌شه.`, 'warn'); return; }
     if (this.powerCd.portal > 0 || this.portals || this.cannon || this.meter || this.lockMove) return;
+    if (this.world.allowTurbo) { Sfx.play('error'); this.toast('🌀 روی پیست یک‌میلیونی دروازه باز نمی‌شه!', 'warn'); return; }
     const P = this.player;
     if (P.anchor || !P.ch.grounded) return;
     const w = this.world;
@@ -393,7 +395,9 @@ Object.assign(Game, {
       if (T.cool.has(who)) return;
       for (const [from, to] of [[T.A, T.B], [T.B, T.A]]) {
         if (Math.hypot(pos.x - from.x, pos.z - from.z) < 0.7) {
-          const x = to.x + Math.sin(to.face) * 1.3, z = to.z + Math.cos(to.face) * 1.3;
+          const ex = this.portalExit(to);
+          if (!ex) return false;
+          const x = ex.x, z = ex.z;
           onMove(x, z, to.face);
           T.cool.set(who, 1.2);
           this.world.fx.burst({ x: from.x, y: 1.1, z: from.z }, { count: 30, colors: [from.color, '#ffffff'], speed: 3, up: 1.5, life: 0.6 });
@@ -404,7 +408,8 @@ Object.assign(Game, {
       return false;
     };
     const P = this.player;
-    if (!P.anchor && !this.miniBusy() && !this.cannon) {
+    // no short cuts round the race lap or down the long track
+    if (!P.anchor && !this.miniBusy() && !this.cannon && !this.race && !this.world.allowTurbo) {
       tryPass('player', P.ch.root.position, (x, z, face) => {
         P.ch.root.position.set(x, P.ch.root.position.y, z);
         P.ch.root.rotation.y = face;
@@ -418,9 +423,32 @@ Object.assign(Game, {
     }
     for (const n of this.world.npcs) {
       if (n.anchored || !['idle', 'walk', 'jog', 'fan', 'flung'].includes(n.state)) continue;
-      tryPass(n, n.ch.root.position, (x, z, face) => { n.ch.root.position.set(x, 0, z); n.ch.root.rotation.y = face; if (n.state === 'walk') n.target = this.world.freeSpot(); });
+      tryPass(n, n.ch.root.position, (x, z, face) => { n.ch.root.position.set(x, 0, z); n.ch.root.rotation.y = face; if (n.state === 'walk') { this.world.leaveStation(n); n.target = this.world.freeSpot(); } });
     }
     if (T.t <= 0) this.endPortals();
+  },
+
+  /** Where you come out of a ring: in front of it, on open floor, clear of the ring itself. */
+  portalExit(Q) {
+    const w = this.world;
+    for (let r = 1.3; r < 4; r += 0.4) {
+      for (const da of [0, 0.5, -0.5, 1, -1, 1.6, -1.6]) {
+        const x = Q.x + Math.sin(Q.face + da) * r, z = Q.z + Math.cos(Q.face + da) * r;
+        if (w.inBounds(x, z, 0.8) && w.spotFree(x, z, 0.45)) return { x, z };
+      }
+    }
+    return null;
+  },
+
+  /** The chicken on your head follows the head as it is after this frame's move. */
+  placeChicken() {
+    const C = this.chick;
+    if (!C || !C.carry || !this.player) return;
+    const ch = this.player.ch;
+    ch.root.updateMatrixWorld(true);
+    ch.B.head.getWorldPosition(_chickV);
+    C.carry.M.g.position.set(_chickV.x, _chickV.y + 0.17 * ch.root.scale.y, _chickV.z);
+    C.carry.M.g.rotation.y = ch.root.rotation.y;
   },
 
   endPortals() {
@@ -510,7 +538,12 @@ WorldBase.prototype.onCharEvent = function (e, ch, isPlayer) {
         if (q.ch === ch || NO_GRAB.includes(q.state) || q.anchored) continue;
         const dx = q.ch.root.position.x - p.x, dz = q.ch.root.position.z - p.z;
         const along = dx * Math.sin(yaw) + dz * Math.cos(yaw), side = Math.abs(dx * Math.cos(yaw) - dz * Math.sin(yaw));
-        if (along > 0.3 && along < 9 && side < 1.2) this.knockNpc(q, p.x, p.z);
+        if (along > 0.3 && along < 9 && side < 1.2) {
+          // the blast stops at walls
+          let clear = true;
+          for (let k = 1; k < 4 && clear; k++) { const u = (along * k) / 4; if (!this.spotFree(p.x + Math.sin(yaw) * u, p.z + Math.cos(yaw) * u, 0.05)) clear = false; }
+          if (clear) this.knockNpc(q, p.x, p.z);
+        }
       }
       if (isPlayer && typeof Game !== 'undefined') {
         const st = Game.save.stats;
@@ -530,3 +563,16 @@ Object.defineProperty(Game, 'chestOwed', {
   set(v) { if (this.save) this.save.chestOwed = Math.max(0, v | 0); },
   configurable: true,
 });
+
+/* nothing else starts in the middle of a chicken chase */
+for (const name of ['startDodge', 'startHunt', 'startDanceOff', 'toggleBuild', 'startLava', 'startRace']) {
+  const orig = Game[name];
+  if (typeof orig !== 'function') continue;
+  Game[name] = function (...args) {
+    if (this.chick && name !== 'startLava') { this.closeModal && this.closeModal('menuModal'); this.toast('🐔 اول مرغ‌ها رو جمع کن!', 'warn'); return undefined; }
+    if (this.chick) return undefined;
+    // a race begins: open portals close (no short cuts round the lap)
+    if (name === 'startRace' && this.portals) this.endPortals();
+    return orig.apply(this, args);
+  };
+}

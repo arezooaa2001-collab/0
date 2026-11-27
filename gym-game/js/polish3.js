@@ -75,10 +75,11 @@ class Cape {
     const h = Math.min(dt, 1 / 30);
     const g = -9.8 * h * h;
     const t = Game.clock;
-    // move: gravity, a soft flutter, a little damping (verlet)
+    // move: gravity, a soft flutter, a little damping (verlet), the same at any frame rate
+    const kd = Math.pow(0.97, h * 60);
     for (let i = cols; i < this.n; i++) {
       const o = i * 3;
-      const vx = (p[o] - q[o]) * 0.97, vy = (p[o + 1] - q[o + 1]) * 0.97, vz = (p[o + 2] - q[o + 2]) * 0.97;
+      const vx = (p[o] - q[o]) * kd, vy = (p[o + 1] - q[o + 1]) * kd, vz = (p[o + 2] - q[o + 2]) * kd;
       q[o] = p[o]; q[o + 1] = p[o + 1]; q[o + 2] = p[o + 2];
       const row = Math.floor(i / cols);
       const fl = Math.sin(t * 7 + row * 0.8 + (i % cols)) * 0.0006 * row;

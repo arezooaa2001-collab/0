@@ -1371,7 +1371,6 @@ const Game = {
       this.tickFun11(dt);
       this.tickPolish(dt);
       this.tickPolish2(dt);
-      this.tickCape(dt);
       if (this.arm && !this.modals.size) this.tickArm(dt);
       const metersBefore = this.world.metersRun || 0;
       const gained = this.world.update(dt, this.input(), this.camera, this.stats());
@@ -1382,6 +1381,9 @@ const Game = {
       const ran = (this.world.metersRun || 0) - metersBefore;
       if (ran > 0 && this.mode === 'play') this.noteRun(ran);
       if (this.pet) this.pet.update(dt, this.player, this.clock);
+      // things worn on the body follow it after this frame's move
+      this.tickCape(dt);
+      this.placeChicken();
       this.tickAura(dt);
       this.tickTrail(dt);
       this.tickPickups(dt);
