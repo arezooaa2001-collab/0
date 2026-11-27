@@ -6422,7 +6422,7 @@ function hsWallRestoreAll(){
   const opened=HS.liftedWalls;if(!opened||!opened.size)return;
   for(const f of opened.values()){
     if(!f||!f.g)continue;
-    f.g.position.y=0;f._noBatch=false;
+    f.g.position.y=(f.state&&f.state.y)||0;f._noBatch=false;
     for(const p of f.phys||[])p.ref.on=!!(p.base.on&&f.state?.visible!==false);
   }
   opened.clear();
@@ -6505,7 +6505,7 @@ function hsWallSearchCtl(dt,o){
   }
   if(F.st==='wallLift'){
     const t=Math.max(0,G.t-F.wallStarted),e=Math.min(1,t/1.4);
-    f.g.position.y=(F.wallH||3.4)*(e*e*(3-2*e));
+    f.g.position.y=((f.state&&f.state.y)||0)+(F.wallH||3.4)*(e*e*(3-2*e));
     o.face=[HS.AX+f.state.x,HS.AZ+f.state.z];
     if(t>=1.4){
       // Collision is removed only when the visual wall is physically lifted.
@@ -6625,7 +6625,7 @@ function hsExploreTarget(skip){
   if(!HS.seen||HS.seen.length!==N)HS.seen=new Uint8Array(N);
   const key=(HS.searchEpoch||0)+'|'+(HS.round||0)+'|'+HS.spots.length+'|'+(HS.colVer||0)+'|'+N;
   if(HS._spotMapKey!==key){const m=new Map();
-    for(const sp of HS.spots){if(sp.elev>.05)continue;const c=hsNearFree(...hsCell(sp.ent[0],sp.ent[1]));if(!c)continue;const n=c[1]*gw+c[0];if(!m.has(n))m.set(n,[]);m.get(n).push(sp);}
+    for(const sp of HS.spots){const c=hsNearFree(...hsCell(sp.ent[0],sp.ent[1]));if(!c)continue;const n=c[1]*gw+c[0];if(!m.has(n))m.set(n,[]);m.get(n).push(sp);}
     HS._spotMap=m;HS._spotMapKey=key;}
   const st=hsNearFree(...hsCell(FR.x,FR.z));if(!st)return null;
   if(!HS._bfsD||HS._bfsD.length!==N){HS._bfsD=new Int32Array(N);HS._bfsQ=new Int32Array(N);}
@@ -7689,10 +7689,10 @@ function hsEditorGetLayout(){
   HS_EDITOR.layout=d;HS.editorExtraLength=d.hallExtra||0;HS.editorExtraWidth=d.hallWidth||0;HS.editorExtraHeight=d.hallHeight||0;return d;
 }
 function hsEditorLoadTheme(){return HS.stageTheme||HS_THEMES[((Math.max(1,HS.round+1)-1)%HS_THEMES.length)];}
-function hsEditorDefault(f){return {x:f.original.x,z:f.original.z,yaw:f.original.yaw,sx:1,sy:1,sz:1,visible:true,tint:'#ffffff'};}
+function hsEditorDefault(f){return {x:f.original.x,z:f.original.z,y:0,yaw:f.original.yaw,sx:1,sy:1,sz:1,visible:true,tint:'#ffffff'};}
 function hsEditorSanitize(f,s){s=s||{};const d=hsEditorDefault(f),v=(q,a,b,k)=>Math.min(b,Math.max(a,Number.isFinite(+s[k])?+s[k]:q));
   const tint=typeof s.tint==='string'&&/^#[0-9a-fA-F]{6}$/.test(s.tint)?s.tint:'#ffffff';
-  return {x:v(d.x,-HS_BASE_W+0.2,HSX.W-.2,'x'),z:v(d.z,-HSX.D+.2,HSX.D-.2,'z'),
+  return {x:v(d.x,-HS_BASE_W+0.2,HSX.W-.2,'x'),z:v(d.z,-HSX.D+.2,HSX.D-.2,'z'),y:v(0,0,40,'y'),
     yaw:v(d.yaw,-1e6,1e6,'yaw'),sx:v(1,.05,28,'sx'),sy:v(1,.05,24,'sy'),sz:v(1,.05,28,'sz'),visible:s.visible!==false,tint};
 }
 /* Captures each piece's real collision primitives when its model builder ends. */
@@ -7735,7 +7735,7 @@ function hsEditorLocalPoint(f,x,z){const dx=x-HS.AX-f.original.x,dz=z-HS.AZ-f.or
 function hsEditorApplyFrame(f,next){
   if(!f||!f.done)return;HS.colVer=(HS.colVer||0)+1;
   const v=hsEditorSanitize(f,next);f.state=v;f.px=v.x;f.pz=v.z;f.yawR=v.yaw;
-  f.g.position.set(v.x,0,v.z);f.g.rotation.y=v.yaw;f.g.scale.set(v.sx,v.sy,v.sz);f.g.visible=v.visible;
+  f.g.position.set(v.x,v.y,v.z);f.g.rotation.y=v.yaw;f.g.scale.set(v.sx,v.sy,v.sz);f.g.visible=v.visible;
   for(const q of f.phys){const p=q.ref,b=q.base;
     if(q.type==='box'){
       let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
@@ -7746,8 +7746,8 @@ function hsEditorApplyFrame(f,next){
       p.x0=minX;p.x1=maxX;p.z0=minZ;p.z1=maxZ;
       // Internal walls stretch from the same ORIGINAL coordinates as their
       // mesh. Physics must still match after height changes and editor moves.
-      p.y0=(f.isArchitecture?hsHallHeightY(b.y0,HSX.H):b.y0)*v.sy;
-      p.y1=(f.isArchitecture?hsHallHeightY(b.y1,HSX.H):b.y1)*v.sy;
+      p.y0=(f.isArchitecture?hsHallHeightY(b.y0,HSX.H):b.y0)*v.sy+v.y;
+      p.y1=(f.isArchitecture?hsHallHeightY(b.y1,HSX.H):b.y1)*v.sy+v.y;
       if(b.obb){
         // Preserve independently rotated physical panels under translation, spin and scaling.
         const local=hsEditorLocalPoint(f,b.obb.cx,b.obb.cz),center=hsEditorTransformPoint(f,...local,v);
@@ -7771,7 +7771,7 @@ function hsEditorApplyFrame(f,next){
       }
     }else{
       const l=hsEditorLocalPoint(f,b.x,b.z),w=hsEditorTransformPoint(f,l[0],l[1],v);
-      p.x=w[0];p.z=w[1];p.r=v.visible?b.r*Math.max(v.sx,v.sz):0;p.y0=b.y0*v.sy;p.y1=b.y1*v.sy;
+      p.x=w[0];p.z=w[1];p.r=v.visible?b.r*Math.max(v.sx,v.sz):0;p.y0=b.y0*v.sy+v.y;p.y1=b.y1*v.sy+v.y;
       p._ellipse=v.visible&&Math.abs(v.sx-v.sz)>.001?{rx:b.r*v.sx,rz:b.r*v.sz,yaw:v.yaw}:null;
     }
     p.on=b.on&&v.visible;
@@ -7780,10 +7780,10 @@ function hsEditorApplyFrame(f,next){
     sp.px=v.x;sp.pz=v.z;sp.yawR=v.yaw;
     const local=(a)=>hsEditorTransformPoint(f,a[0],a[1],v);
     sp.ent=local(sp.entL);sp.c=local(sp.inL);
-    const cw=local([sp.camL[0],sp.camL[2]]);sp.cam=[cw[0],sp.camL[1]*v.sy,cw[1]];
+    const cw=local([sp.camL[0],sp.camL[2]]);sp.cam=[cw[0],sp.camL[1]*v.sy+v.y,cw[1]];sp.elev=v.y;
     const d=hsDirW(v.yaw,...(sp.camD||[0,1]));sp.camYaw=Math.atan2(-d[0],-d[1]);
     if(sp.body){const w=local(sp.body.l),dir=hsDirW(v.yaw,...sp.body.d);
-      sp.bodyW={x:w[0],z:w[1],y:(sp.body.y||0)*v.sy,p:sp.body.p,yaw:sp.body.p==='lie'?Math.atan2(-dir[0],-dir[1]):Math.atan2(dir[0],dir[1])};}
+      sp.bodyW={x:w[0],z:w[1],y:(sp.body.y||0)*v.sy+v.y,p:sp.body.p,yaw:sp.body.p==='lie'?Math.atan2(-dir[0],-dir[1]):Math.atan2(dir[0],dir[1])};}
     if(sp.feetL)sp.feet=local(sp.feetL);
     const fe=hsDirW(v.yaw,0,-1);sp.entFace=Math.atan2(-fe[0],-fe[1]);
     const ix=HS.spots.indexOf(sp);
@@ -7960,6 +7960,7 @@ function hsEditorRestoreCustom(){
     const st=q.state||{};const f=hsEditorBuildProp(q.type,Number(st.x)||0,Number(st.z)||0,Number(st.yaw)||0,q.id,q.label||'');
     if(f)hsEditorApplyFrame(f,st);
   }
+  try{hsEditorSettle();}catch(e){}
   hsGrid();
 }
 function hsEditorCapture(){
@@ -7986,7 +7987,7 @@ function hsEditorRestoreSnapshot(d){
   if(HS_EDITOR.selection&&!HS_EDITOR.selection.state.visible)HS_EDITOR.selection=null;
   hsGrid();hsEditorUpdateHandles();hsEditorUpdateControls();
 }
-function hsEditorCheckpoint(){arashSaveSoon();
+function hsEditorCheckpoint(){arashSaveSoon();hsEditorSettle();
   const snap=hsEditorCapture(),json=JSON.stringify(snap),old=HS_EDITOR.history[HS_EDITOR.historyIndex];
   if(old===json)return;
   HS_EDITOR.history=HS_EDITOR.history.slice(0,HS_EDITOR.historyIndex+1);HS_EDITOR.history.push(json);
@@ -8232,10 +8233,34 @@ function hsCircleBoxSolid(q,b,margin=.005){
   const x=Math.abs(dx*c-dz*s)-o.hw,z=Math.abs(dx*s+dz*c)-o.hl;
   return Math.hypot(Math.max(0,x),Math.max(0,z))<q.r-margin;
 }
+/* ===== STACKING: things rest on top of each other ===== */
+function hsEditorFootprint(f){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9,any=false;
+  for(const q of f.phys){const p=q.ref;if(q.type==='box'){x0=Math.min(x0,p.x0);x1=Math.max(x1,p.x1);z0=Math.min(z0,p.z0);z1=Math.max(z1,p.z1);any=true;}
+    else if(p.r>0){x0=Math.min(x0,p.x-p.r);x1=Math.max(x1,p.x+p.r);z0=Math.min(z0,p.z-p.r);z1=Math.max(z1,p.z+p.r);any=true;}}
+  return any?{x0,x1,z0,z1}:null;}
+function hsEditorSupport(f,mode){ // the highest top under f ('below': only things not higher than f now)
+  const A=hsEditorFootprint(f);if(!A)return {y:0,on:null};const area=Math.max(1e-4,(A.x1-A.x0)*(A.z1-A.z0));
+  const above=new Set();const mark=u=>{for(const g of HS.editFrames||[])if(g.on===u&&!above.has(g)){above.add(g);mark(g.uid);}};mark(f.uid);
+  let best=0,on=null;
+  for(const g of hsEditorActiveFrames()){if(g===f||above.has(g)||g.isArchitecture||!g.state||!g.state.visible)continue;
+    for(const q of g.phys){const p=q.ref;if(p.on===false)continue;let bx0,bx1,bz0,bz1;
+      if(q.type==='box'){bx0=p.x0;bx1=p.x1;bz0=p.z0;bz1=p.z1;}else{if(!(p.r>0))continue;bx0=p.x-p.r;bx1=p.x+p.r;bz0=p.z-p.r;bz1=p.z+p.r;}
+      const ox=Math.min(A.x1,bx1)-Math.max(A.x0,bx0),oz=Math.min(A.z1,bz1)-Math.max(A.z0,bz0);if(ox<=0||oz<=0||ox*oz<area*.2)continue;
+      const top=p.y1;if(top>8||top<=.05)continue;if(mode==='below'&&top>(f.state.y||0)+.05)continue;
+      if(top>best){best=top;on=g.uid;}}}
+  return {y:+best.toFixed(3),on};}
+function hsEditorSettle(){ // something underneath moved or was removed: let things drop
+  for(let it=0;it<6;it++){let moved=false;
+    const list=hsEditorActiveFrames().filter(g=>g.state&&g.state.y>.01).sort((a,b)=>a.state.y-b.state.y);
+    for(const g of list){const sup=hsEditorSupport(g,'below');g.on=sup.on;if(sup.y<g.state.y-.01){hsEditorApplyFrame(g,{...g.state,y:sup.y});moved=true;}}
+    if(!moved)break;}}
 function hsEditorAccept(f,s){
   if(HS.on&&((HS.mySpot&&f.sp.includes(HS.mySpot))||(FR.hsIn&&f.sp.includes(FR.hsIn)))&&
      (s.visible===false||Math.abs(s.x-f.state.x)+Math.abs(s.z-f.state.z)+Math.abs(s.sx-f.state.sx)+Math.abs(s.sz-f.state.sz)+Math.abs(s.sy-f.state.sy)>0.001))return false;
-  const prev={...f.state};hsEditorApplyFrame(f,s);
+  const prev={...f.state};
+  if(!f.isArchitecture&&s.visible!==false){ // rest on top of whatever is under it
+    hsEditorApplyFrame(f,{...s,y:0});const sup=hsEditorSupport(f,'any');s={...s,y:sup.y};f.on=sup.on;}
+  hsEditorApplyFrame(f,s);
   // Physical bounding boxes may touch architecture but cannot be dragged deeply
   // into other solid furniture, and all pieces stay within the playable hall.
   const a=f.phys.filter(q=>q.type==='box').map(q=>q.ref),circs=f.phys.filter(q=>q.type==='circ').map(q=>q.ref);
@@ -8285,7 +8310,7 @@ function hsEditorAddAt(kind,x,z,label){
   const f=hsEditorBuildProp(kind,x-HS.AX,z-HS.AZ,0,id,label);
   if(!f){hsEditorMsg('این مدل ساخته نشد.');return null;}
   if(!hsEditorAccept(f,{...f.state,x:f.px,z:f.pz})){hsEditorApplyFrame(f,{...f.state,visible:false});hsEditorMsg('این نقطه فضای کافی نداره؛ جای دیگه رو انتخاب کن.');return null;}
-  hsEditorSelect(f);hsEditorCheckpoint();arashSaveSoon();hsEditorMsg('✅ وسیله روی تالار قرار گرفت. می‌تونی مستقیم روی مدل بکشیش.');SFX.place&&SFX.place();return f;
+  hsEditorSelect(f);hsEditorCheckpoint();arashSaveSoon();if(f.state.y>.05){hsEditorMsg('📦 گذاشته شد روی وسیلهٔ زیری! هر چند تا بخوای روی هم بچین.');SFX.place&&SFX.place();return f;}hsEditorMsg('✅ وسیله روی تالار قرار گرفت. می‌تونی مستقیم روی مدل بکشیش.');SFX.place&&SFX.place();return f;
 }
 /* All editing input is performed through gestures on the live rendered scene.
   One finger: select/drag a prop, edge-drag to extend x/z walls, empty-floor drag to orbit.
