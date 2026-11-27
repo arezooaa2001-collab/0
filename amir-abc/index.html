@@ -37,13 +37,16 @@
 
 /* Layout: one centred column on a night sky. Bilingual title (English, Persian under it),
    then three app logos stepping down 1cm at a time (top centre, lower right, lowest left),
-   three dots, and a bilingual "coming soon" line. Tapping a logo opens the AMIR ABC screen
-   with the Instagram button. A music switch floats in the top-left corner. */
+   three dots, a bilingual "coming soon" line and the AMIR ABC Instagram button.
+   Tapping a logo opens a black "this game is coming soon" screen with a white question
+   mark. A music switch floats in the top-left corner. */
 :root {
   --night: #090c24;
   --night-hi: #19215c;
   --dusk: #1c1245;
-  --veil: rgba(7, 9, 28, 0.9);
+  --black: #000000;
+  --white: #ffffff;
+  --white-glow: rgba(255, 255, 255, 0.35);
   --star: #e8ecff;
   --sky: #5ec1f5;
   --sky-edge: #2f67f0;
@@ -309,8 +312,8 @@ body.is-locked { overflow: hidden; }
   50%      { height: 100%; }
 }
 
-/* ---------- AMIR ABC screen ---------- */
-.profile {
+/* ---------- "Coming soon" game screen ---------- */
+.teaser {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -321,53 +324,37 @@ body.is-locked { overflow: hidden; }
   padding-block: calc(env(safe-area-inset-top, 0px) + 72px) calc(env(safe-area-inset-bottom, 0px) + 40px);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background: var(--veil);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  background: var(--black);
   opacity: 0;
   transition: opacity 0.28s ease;
 }
-.profile.is-open { opacity: 1; }
-.profile-inner {
+.teaser.is-open { opacity: 1; }
+.teaser-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(32px, 7vh, 56px);
+  gap: clamp(16px, 4vh, 32px);
   text-align: center;
-  transform: translateY(18px) scale(0.98);
+  transform: translateY(14px) scale(0.98);
   transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.profile.is-open .profile-inner { transform: none; }
-
-.profile-title {
-  margin: 0;
+.teaser.is-open .teaser-inner { transform: none; }
+.mystery {
   font-family: var(--font-en);
-  font-weight: 400;
-  font-size: clamp(2.4rem, 12vw, 5.2rem);
+  font-size: clamp(8rem, 44vw, 14rem);
   line-height: 1;
-  direction: ltr;
-  white-space: nowrap;
+  color: var(--white);
+  text-shadow: 0 0 0.12em var(--white-glow);
+  animation: breathe 3.2s ease-in-out infinite;
 }
-.profile-title .more {
-  display: inline-flex;
-  gap: 0.09em;
-  margin-left: 0.1em;
+@keyframes breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.9; }
+  50%      { transform: scale(1.05); opacity: 1; }
 }
-.profile-title .more i {
-  display: inline-block;
-  width: 0.15em;
-  height: 0.15em;
-  border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 0.12em var(--gold-glow), 0 0 0.3em var(--gold-glow-soft);
-  animation: type 1.5s steps(1) infinite;
-}
-.profile-title .more i:nth-child(2) { animation-delay: 0.25s; }
-.profile-title .more i:nth-child(3) { animation-delay: 0.5s; }
-@keyframes type {
-  0%   { opacity: 0.25; }
-  30%  { opacity: 1; }
-  100% { opacity: 1; }
+.teaser-text {
+  margin: 0;
+  color: var(--white);
+  font: 700 clamp(1.2rem, 5.4vw, 1.9rem)/1.6 var(--font-fa);
 }
 
 .insta-btn {
@@ -387,6 +374,7 @@ body.is-locked { overflow: hidden; }
   box-shadow: 0 10px 30px var(--insta-glow);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
+.page .insta-btn { margin-top: clamp(8px, 3vh, 32px); }
 .insta-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 36px var(--insta-glow); }
 .insta-btn:active { transform: scale(0.97); }
 .insta-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
@@ -412,9 +400,9 @@ body.is-locked { overflow: hidden; }
 .close svg { width: 18px; height: 18px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-btn img, .dots i, .music .bars i, 
+  .app-btn img, .dots i, .music .bars i, .mystery { animation: none !important; }
   .dots i { opacity: 0.9; }
-  .profile, .profile-inner, .app-btn { transition: none; }
+  .teaser, .teaser-inner, .app-btn { transition: none; }
 }
 </style>
 </head>
@@ -441,9 +429,9 @@ body.is-locked { overflow: hidden; }
   </h1>
 
   <ul class="apps" aria-label="برنامه‌ها">
-    <li class="app app--top"><button class="app-btn" type="button" aria-label="باشگاه قهرمانان، باز کردن صفحهٔ AMIR ABC"><img src="assets/gym.png" alt="" width="512" height="512"></button></li>
-    <li class="app app--right"><button class="app-btn" type="button" aria-label="تاکسی، باز کردن صفحهٔ AMIR ABC"><img src="assets/taxi.png" alt="" width="512" height="512"></button></li>
-    <li class="app app--left"><button class="app-btn" type="button" aria-label="قلعه، باز کردن صفحهٔ AMIR ABC"><img src="assets/castle.png" alt="" width="192" height="192"></button></li>
+    <li class="app app--top"><button class="app-btn" type="button" aria-label="باشگاه قهرمانان، به زودی"><img src="assets/gym.png" alt="" width="512" height="512"></button></li>
+    <li class="app app--right"><button class="app-btn" type="button" aria-label="تاکسی، به زودی"><img src="assets/taxi.png" alt="" width="512" height="512"></button></li>
+    <li class="app app--left"><button class="app-btn" type="button" aria-label="قلعه، به زودی"><img src="assets/castle.png" alt="" width="192" height="192"></button></li>
   </ul>
 
   <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -452,18 +440,20 @@ body.is-locked { overflow: hidden; }
     <span class="en" lang="en" dir="ltr">Coming Soon</span>
     <span class="fa glow" lang="fa" dir="rtl">به زودی خواهند آمد</span>
   </p>
+
+  <a class="insta-btn" href="https://www.instagram.com/amir_khan_2020b?dmpr=cHBpemQ1am9rZDA5" target="_blank" rel="noopener noreferrer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor"/></svg>
+    <span>رفتن به پیج AMIR ABC</span>
+  </a>
 </main>
 
-<section class="profile" id="profile" role="dialog" aria-modal="true" aria-labelledby="profile-title" lang="fa" dir="rtl" hidden>
-  <button class="close" id="profile-close" type="button" aria-label="بستن">
+<section class="teaser" id="teaser" role="dialog" aria-modal="true" aria-labelledby="teaser-text" lang="fa" dir="rtl" hidden>
+  <button class="close" id="teaser-close" type="button" aria-label="بستن">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
-  <div class="profile-inner">
-    <h2 class="profile-title" id="profile-title" lang="en"><span class="brand">AMIR ABC</span><span class="more" aria-hidden="true"><i></i><i></i><i></i></span></h2>
-    <a class="insta-btn" id="insta-link" href="https://www.instagram.com/amir_khan_2020b?evlk=cHBpemQ1am9rZDA5" target="_blank" rel="noopener noreferrer">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="0.6" fill="currentColor"/></svg>
-      <span>رفتن به پیج اینستاگرام AMIR ABC</span>
-    </a>
+  <div class="teaser-inner">
+    <div class="mystery" aria-hidden="true">?</div>
+    <p class="teaser-text" id="teaser-text">این بازی به زودی خواهد آمد...</p>
   </div>
 </section>
 
@@ -506,11 +496,10 @@ body.is-locked { overflow: hidden; }
   });
 })();
 
-/* ---------- AMIR ABC screen ---------- */
+/* ---------- "Coming soon" game screen ---------- */
 (() => {
-  const profile = document.getElementById("profile");
-  const closeBtn = document.getElementById("profile-close");
-  const link = document.getElementById("insta-link");
+  const screen = document.getElementById("teaser");
+  const closeBtn = document.getElementById("teaser-close");
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let opener = null;
   let hideTimer = 0;
@@ -518,17 +507,17 @@ body.is-locked { overflow: hidden; }
   function open(fromBtn) {
     opener = fromBtn || null;
     clearTimeout(hideTimer);
-    profile.hidden = false;
+    screen.hidden = false;
     document.body.classList.add("is-locked");
-    requestAnimationFrame(() => requestAnimationFrame(() => profile.classList.add("is-open")));
-    setTimeout(() => link.focus({ preventScroll: true }), reduce ? 0 : 120);
+    requestAnimationFrame(() => requestAnimationFrame(() => screen.classList.add("is-open")));
+    setTimeout(() => closeBtn.focus({ preventScroll: true }), reduce ? 0 : 120);
   }
 
   function close() {
-    if (profile.hidden) return false;
-    profile.classList.remove("is-open");
+    if (screen.hidden) return false;
+    screen.classList.remove("is-open");
     document.body.classList.remove("is-locked");
-    hideTimer = setTimeout(() => { profile.hidden = true; }, reduce ? 0 : 300);
+    hideTimer = setTimeout(() => { screen.hidden = true; }, reduce ? 0 : 300);
     if (opener) opener.focus({ preventScroll: true });
     return true;
   }
@@ -537,7 +526,7 @@ body.is-locked { overflow: hidden; }
     btn.addEventListener("click", () => open(btn));
   });
   closeBtn.addEventListener("click", close);
-  profile.addEventListener("click", (e) => { if (e.target === profile) close(); });
+  screen.addEventListener("click", (e) => { if (e.target === screen) close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
 
   // The Android app calls this for its back button: true means the screen was closed.
