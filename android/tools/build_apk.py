@@ -124,6 +124,7 @@ def manifest(version_code, version_name):
     root = ('manifest', [A('versionCode', T_DEC, version_code), A('versionName', T_STR, version_name), ('package', T_STR, PKG)],
             [('uses-sdk', [A('minSdkVersion', T_DEC, MIN_SDK), A('targetSdkVersion', T_DEC, TARGET_SDK)], []),
              ('uses-permission', [A('name', T_STR, 'android.permission.VIBRATE')], []),
+             ('uses-permission', [A('name', T_STR, 'android.permission.INTERNET')], []),  # only for the AI, with the player's own API key
              app])
     return AXML(root).build()
 

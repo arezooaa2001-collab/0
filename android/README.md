@@ -10,10 +10,23 @@ inside the APK (the game page, three.js, the Vazirmatn and Lalezar fonts), so it
 - The page is served from `https://appassets.androidplatform.net/assets/` (intercepted from the APK's
   assets; Android reserves this host for app content). On `file://` WebView may block or drop
   localStorage, which is why 1.0–1.2 lost progress; on an https origin it persists like a browser.
-- Saving: the game's localStorage is mirrored into the app's own files (`files/save/`, one file per key,
-  written atomically on a background thread). The game autosaves every 15 s and the app asks it to save
-  before going to the background, so progress survives the app being closed or killed, and values larger
-  than WebView's storage quota are kept.
+- Saving: every save goes to the app's own files (`files/save/`, one file per key, written atomically on a
+  background thread) and to IndexedDB; small values also to localStorage. Each key carries a timestamp and
+  the newest copy wins on start. The game saves about a second after any change, autosaves every 8 s, and
+  the app asks it to save before going to the background, so progress survives the app being closed or
+  killed, and values larger than WebView's storage quota are kept.
+
+- Permissions: `VIBRATE`, and `INTERNET`, which is used only by the AI features (building items from
+  words or a photo, free chat with Arash) after the player enters their own API key in Settings
+  (Anthropic, Gemini, OpenAI, DeepSeek, Groq, OpenRouter, xAI, Mistral or any OpenAI-compatible URL).
+  Without a key the app makes no network requests and the AI buttons are not shown.
+
+## Inside Claude
+
+`python3 tools/build_artifact.py out.html` writes the version of the page published as a Claude
+artifact (the viewer adds its own document wrapper). Publish it with the capabilities
+`{sample: {images: true}, downloads: true}`: inside Claude the AI runs on the player's own Claude
+account, with no key, and backups and photos are saved through the viewer.
 
 ## Build
 

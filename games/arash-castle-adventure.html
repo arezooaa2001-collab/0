@@ -15,6 +15,8 @@
  var ls=null;try{ls=window.localStorage;if(ls)ls.getItem('x');}catch(e){ls=null;}
  var META='__arash_meta',SMALL=120000;
  var mem={},meta={},dirty={},timer=0,db=null,lsMeta={};
+ // Where the browser refuses localStorage itself (a blocked or private frame), the game still gets one, served from here and saved to IndexedDB.
+ var face=ls;if(!ls){try{face=Object.create(P);Object.defineProperty(window,'localStorage',{configurable:true,get:function(){return face;}});}catch(e){face=null;}}
  var S={ls:!!ls,lsFull:false,idb:false,idbErr:'',app:false,appCount:-1,last:0,loaded:false,bytes:0,errors:0};
  window.__arashStore=S;
  var A=null;try{if(window.AndroidStore&&window.AndroidStore.loadAll)A=window.AndroidStore;}catch(e){}
@@ -75,7 +77,7 @@
  document.addEventListener('visibilitychange',function(){if(document.hidden)window.__appSave();});
  addEventListener('pagehide',function(){window.__appSave();});
  // ---- the game keeps using localStorage; it is served from the store ----
- function own(o){return ls&&o===ls;}
+ function own(o){return face&&o===face;}
  P.getItem=function(k){if(!own(this))return get.call(this,k);k=String(k);return Object.prototype.hasOwnProperty.call(mem,k)?mem[k]:null;};
  P.setItem=function(k,v){if(!own(this))return set.call(this,k,v);k=String(k);v=String(v);if(mem[k]===v&&meta[k]&&!meta[k][1])return;mem[k]=v;meta[k]=[now(),0];dirty[k]=1;flushSoon();};
  P.removeItem=function(k){if(!own(this))return rem.call(this,k);k=String(k);if(!Object.prototype.hasOwnProperty.call(mem,k))return;delete mem[k];meta[k]=[now(),1];dirty[k]=1;flushSoon();};
@@ -175,7 +177,34 @@ html,body{height:100%;margin:0;background:var(--deep);color:var(--ink);overflow:
 #crList .rows li{grid-template-columns:1fr auto auto}#crClear{margin-top:.5rem}
 #crForm{display:flex;gap:.4rem;align-items:center;padding:.55rem;border-top:1px solid rgba(232,184,92,.18)}#crIn{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:999px;color:var(--ink);padding:.5rem .8rem;font:inherit;font-size:16px;direction:rtl}
 #crIn:focus{outline:2px solid var(--gold);outline-offset:1px}.crpic{cursor:pointer;font-size:1.25rem;width:38px;height:38px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line);flex:none}
-#crPrev{width:38px;height:38px;object-fit:cover;border-radius:8px;flex:none}#crImgX{background:none;border:0;color:var(--muted);cursor:pointer;flex:none}
+#crPrev{width:38px;height:38px;object-fit:cover;border-radius:8px;flex:none}
+#chatSug{display:flex;gap:6px;overflow-x:auto;padding:.45rem .55rem;border-top:1px solid rgba(232,184,92,.18);scrollbar-width:thin;flex:none}
+#chatSug button{flex:none;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:.32rem .7rem;font:inherit;font-size:.8rem;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+#chatSug button:active{background:rgba(232,184,92,.3)}#chatForm[hidden]{display:none}
+#aiBox{position:fixed;inset:0;z-index:125;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(6,4,2,.55);direction:rtl}
+#aiBox[hidden]{display:none}
+#aiBox .aicard{width:min(460px,100%);max-height:min(86vh,680px);display:flex;flex-direction:column;background:rgba(24,16,10,.96);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.55);overflow:hidden;color:var(--ink)}
+#aiBox .chead{display:flex;align-items:center;gap:.6rem;padding:.6rem .85rem;border-bottom:1px solid rgba(232,184,92,.18)}#aiBox .chead b{color:var(--gold);font-family:var(--display);font-weight:400;font-size:1.12rem}
+#aiSrc{color:var(--muted);font-size:.76rem;flex:1}#aiClose{background:none;border:0;color:var(--ink);font-size:1rem;cursor:pointer;width:34px;height:34px}
+#aiBox .aibody{flex:1;overflow:auto;padding:.6rem .85rem}
+#aiStatus{min-height:1.4em;font-size:.86rem;color:#9fe8ff;margin:.35rem 0}#aiStatus.busy::before{content:'';display:inline-block;width:.8em;height:.8em;margin-inline-end:.45em;border:2px solid #9fe8ff;border-top-color:transparent;border-radius:50%;animation:aiSpin .8s linear infinite;vertical-align:-.1em}
+@keyframes aiSpin{to{transform:rotate(360deg)}}
+#aiOut{display:flex;gap:.7rem;align-items:center;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:.55rem;margin:.4rem 0}#aiOut[hidden]{display:none}
+#aiPrevImg{width:112px;height:112px;object-fit:contain;border-radius:10px;background:radial-gradient(circle at 50% 40%,rgba(255,236,200,.16),rgba(0,0,0,.25));flex:none}
+#aiOut b{display:block;color:var(--gold);font-size:1rem}#aiOut small{display:block;color:var(--muted);font-size:.78rem;line-height:1.6;margin:.2rem 0 .45rem}
+#aiList .ailh{display:block;font-size:.82rem;color:var(--muted);margin:.6rem 0 .3rem}
+#aiList .airow{display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-top:1px solid rgba(255,255,255,.06)}#aiList .airow img{width:44px;height:44px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,.05);flex:none}
+#aiList .airow span{flex:1;font-size:.84rem;min-width:0}#aiList .airow .rb{padding:.3rem .6rem;font-size:.78rem}
+#aiForm{display:flex;gap:.4rem;align-items:center;padding:.55rem;border-top:1px solid rgba(232,184,92,.18)}#aiForm label[hidden]{display:none}
+#aiIn{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:999px;color:var(--ink);padding:.55rem .85rem;font:inherit;font-size:16px;direction:rtl}#aiIn:focus{outline:2px solid var(--gold);outline-offset:1px}
+#aiImgPrev{width:38px;height:38px;object-fit:cover;border-radius:8px;flex:none}#aiImgX{background:none;border:0;color:var(--muted);cursor:pointer;flex:none}
+.aikey{display:flex;gap:6px;margin-top:.55rem}.aikey input,.aiadv input{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:.5rem .7rem;font:inherit;font-size:16px;direction:ltr;text-align:left}
+.aiadv{margin-top:.45rem;font-size:.8rem;color:var(--muted)}.aiadv summary{cursor:pointer}.aiadv input{display:block;width:100%;box-sizing:border-box;margin-top:.4rem}
+.aikeymsg{font-size:.8rem;color:#9fe8ff;margin-top:.35rem;min-height:1em}
+#hsEdAiBtn[hidden],#aiBtn[hidden]{display:none!important}
+#askBox{position:fixed;inset:0;z-index:240;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,4,2,.6);direction:rtl}#askBox[hidden]{display:none}
+#askBox .askc{width:min(380px,100%);background:rgba(24,16,10,.97);border:1px solid var(--line);border-radius:16px;padding:1rem 1.1rem;color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.55)}
+#askBox p{margin:0 0 .9rem;line-height:1.9}#askBox .askb{display:flex;gap:8px;justify-content:flex-start}#crImgX{background:none;border:0;color:var(--muted);cursor:pointer;flex:none}
 .rb.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line)}
 .big.ghost2{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);margin-bottom:.6rem}
 .qseg{margin-top:8px}.qseg button{padding:.3rem .62rem}
@@ -472,7 +501,7 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
   <div id="hsEdWheel" hidden aria-hidden="true"></div>
   <div id="hsEdInfo" aria-hidden="true"></div>
   <div id="hsEdTools" hidden>
-    <form id="hsEdSearchRow" autocomplete="off"><input id="hsEdSearch" type="search" maxlength="110" placeholder="🔎 هر وسیله‌ای... مثلاً دیوار، قلعه فضایی، اژدهای آبی" aria-label="جستجو یا توصیف وسیله"><button type="submit">بساز و بگذار</button></form>
+    <form id="hsEdSearchRow" autocomplete="off"><input id="hsEdSearch" type="search" maxlength="110" placeholder="🔎 هر وسیله‌ای... مثلاً دیوار، قلعه فضایی، اژدهای آبی" aria-label="جستجو یا توصیف وسیله"><button type="submit">بساز و بگذار</button><button type="button" id="hsEdAiBtn" hidden>🤖 ساخت با هوش مصنوعی</button></form>
     <div id="hsEdPreset" aria-label="انتخاب وسیله برای گذاشتن در تالار"></div>
     <div id="hsEdFunctions"><button type="button" data-ed-action="delete">🗑 حذف انتخابی</button><button type="button" data-ed-action="copy">⧉ کپی</button><button type="button" data-ed-action="wall">🧱 دیوار</button><button type="button" data-ed-action="widen">↔ گسترش عرض</button><button type="button" id="hsEdSizeBottom">🏗️ طول، عرض و ارتفاع</button><button type="button" data-ed-action="lengthen">↕ گسترش طول</button><button type="button" data-ed-action="fit">👁 نمای کل تالار</button><button type="button" data-ed-action="done">✅ ذخیره و برگشت</button></div>
   </div>
@@ -506,7 +535,7 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
 
 <div id="hud" class="ui" hidden>
   <div class="chip"><b id="lvl">مرحلهٔ ۱</b><span class="tod" id="tod">بامداد</span></div>
-  <div class="hl"><button class="chip vbtn" id="viewBtn" aria-label="تغییر زاویهٔ دید">👁 سوم‌شخص</button><div class="chip"><span class="t" id="timer">۰:۰۰</span></div><button class="chip vbtn" id="bagBtn" aria-label="کوله">🎒</button><button class="chip vbtn" id="setBtn" aria-label="تنظیمات">⚙</button><button class="chip vbtn" id="crBtn" aria-label="سازنده: هر چیزی بخواهی بساز">✨</button><button class="chip vbtn" id="photoBtn" aria-label="حالت عکاسی">📸</button><button class="chip vbtn" id="chatBtn" aria-label="گفت‌وگو با آرش">💬<i id="chatUnread" hidden></i></button></div>
+  <div class="hl"><button class="chip vbtn" id="viewBtn" aria-label="تغییر زاویهٔ دید">👁 سوم‌شخص</button><div class="chip"><span class="t" id="timer">۰:۰۰</span></div><button class="chip vbtn" id="bagBtn" aria-label="کوله">🎒</button><button class="chip vbtn" id="setBtn" aria-label="تنظیمات">⚙</button><button class="chip vbtn" id="crBtn" aria-label="سازنده: هر چیزی بخواهی بساز">✨</button><button class="chip vbtn" id="aiBtn" aria-label="ساخت هر وسیله با هوش مصنوعی" hidden>🤖</button><button class="chip vbtn" id="photoBtn" aria-label="حالت عکاسی">📸</button><button class="chip vbtn" id="chatBtn" aria-label="گفت‌وگو با آرش">💬<i id="chatUnread" hidden></i></button></div>
 </div>
 <div id="fade"></div>
 <div id="altChip" class="chip ui" hidden></div>
@@ -536,9 +565,18 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
 <div class="crex"><button type="button" data-crex="سه تا درخت کاج">سه تا درخت کاج</button><button type="button" data-crex="یه ماشین قرمز">یه ماشین قرمز</button><button type="button" data-crex="یه آدم برفی بزرگ">آدم برفی بزرگ</button><button type="button" data-crex="یه تابلو که روش بنویسه «خانهٔ من»">تابلو با نوشته</button><button type="button" data-crex="یه رنگین کمان">رنگین‌کمان</button><button type="button" data-crex="یه قلعهٔ سنگی">قلعه</button></div>
 <div id="crList"></div><button type="button" class="rb ghost" id="crClear">پاک کردن همه</button></div>
 <form id="crForm" autocomplete="off"><label class="crpic" aria-label="فرستادن عکس">📷<input type="file" accept="image/*" id="crImg" hidden></label><img id="crPrev" alt="" hidden><button type="button" id="crImgX" hidden aria-label="برداشتن عکس">✕</button><input id="crIn" type="text" maxlength="300" placeholder="مثلاً: یه خونهٔ آبی و دو تا گربه" aria-label="چه چیزی بسازم"><button type="submit" class="rb">بساز</button></form></div>
+<div id="aiBox" hidden role="dialog" aria-label="ساخت وسیله با هوش مصنوعی"><div class="aicard">
+<div class="chead"><b>🤖 ساخت هر وسیله</b><span id="aiSrc"></span><button type="button" id="aiClose" aria-label="بستن">✕</button></div>
+<div class="aibody"><p class="note" style="margin:.1rem 0 .5rem">بنویس چی بسازم یا عکسش رو بفرست. با همون گرافیک بازی ساخته می‌شه، ذخیره می‌شه و می‌ره تو بخش وسیله‌های قایم‌موشک. اگه بشه، درش هم باز می‌شه تا توش قایم بشی.</p>
+<div class="crex"><button type="button" data-ai-ex="یه یخچال قدیمی که بشه توش قایم شد">یخچال قدیمی</button><button type="button" data-ai-ex="یه ماشین آتش‌نشانی قرمز">ماشین آتش‌نشانی</button><button type="button" data-ai-ex="یه اژدهای سبز بزرگ">اژدهای سبز</button><button type="button" data-ai-ex="یه کیک تولد سه طبقه">کیک تولد</button><button type="button" data-ai-ex="یه موشک فضایی که بشه رفت توش">موشک فضایی</button><button type="button" data-ai-ex="یه تنهٔ درخت توخالی">درخت توخالی</button><button type="button" data-ai-ex="یه دستگاه بازی سکه‌ای">دستگاه بازی</button><button type="button" data-ai-ex="یه صندوق دزدان دریایی پر از طلا">صندوق دزدان دریایی</button></div>
+<div id="aiOut" hidden><img id="aiPrevImg" alt="پیش‌نمایش وسیلهٔ ساخته‌شده"><div><b id="aiOutName"></b><small id="aiOutInfo"></small><button type="button" class="rb" id="aiPlace">🎨 بذارش تو تالار قایم‌موشک</button></div></div>
+<div id="aiStatus" aria-live="polite"></div><div id="aiList"></div></div>
+<form id="aiForm" autocomplete="off"><label class="crpic" id="aiPic" aria-label="فرستادن عکس">📷<input type="file" accept="image/*" id="aiImg" hidden></label><img id="aiImgPrev" alt="" hidden><button type="button" id="aiImgX" hidden aria-label="برداشتن عکس">✕</button><input id="aiIn" type="text" maxlength="400" placeholder="مثلاً: یه کمد جادویی بنفش" aria-label="چه وسیله‌ای بسازم"><button type="submit" class="rb" id="aiGo">بساز</button></form>
+</div></div>
 <div id="chatBox" hidden><div class="chead"><b>آرش</b><span id="chatTyping" hidden>دارد می‌نویسد…</span><button id="chatClose" aria-label="بستن گفت‌وگو">✕</button></div>
 <div id="chatLog" aria-live="polite"></div>
-<form id="chatForm" autocomplete="off"><input id="chatIn" type="text" maxlength="650" placeholder="با آرش حرف بزن، چند کار پشت سر هم بگو یا یه عبارت تازه یادش بده…" aria-label="پیام به آرش"><button type="submit" class="rb">بفرست</button></form></div>
+<div id="chatSug" aria-label="پیام‌های آماده"></div>
+<form id="chatForm" autocomplete="off" hidden><input id="chatIn" type="text" maxlength="650" placeholder="با آرش حرف بزن، چند کار پشت سر هم بگو یا یه عبارت تازه یادش بده…" aria-label="پیام به آرش"><button type="submit" class="rb">بفرست</button></form></div>
 <div id="homeChip" class="chip ui" hidden><span id="homeArrow">⬆</span><span>تالار</span><span id="homeDist"></span></div>
 <div id="driveBtns" class="ui" hidden>
   <div class="chip" id="speedo">۰ کیلومتر</div>
@@ -3823,6 +3861,7 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
   <div class="setrow"><div><b>🐱 پیشی همراه</b><small>یه گربهٔ نارنجی که همه‌جا دنبالت میاد. کنارش وایسا و دکمهٔ «نوازش» رو بزن تا خرخر کنه.</small></div><button class="rb" id="catToggle">${CAT.on?'خاموش کن':'روشن کن'}</button></div>
   <div class="setrow"><div><b>🏥 بیمارستان آرش</b><small>${ARASH.phase==='care'?'آرش نیاز به مراقبت داره. با ورود به بیمارستان، ۱۸ ثانیه منتظر بمون تا کمکش کنن.':HOSP.on?'الان داخل بیمارستانی.':'بخش بیمارستان جداگانه برای مراقبت و آشتی؛ صدای بازی و تالار اصلی باقی می‌مونن.'}</small></div><button class="rb" id="hospitalBtn">${HOSP.on?'بازگشت به بازی':'ورود به بیمارستان'}</button></div>
   <div class="setrow"><div><b>🔥 هزارتوی مشعل‌ها (فقط اول‌شخص)</b><small>${MAZE.on?'الان داخل هزارتو هستی. راه خروج را پیدا کن.':'یک تالار ۴۰×۴۰ متریِ ستون‌دار با هزارتوی مرحله‌ای، مشعل‌های روشن، برخورد واقعی دیوارها و ذخیرهٔ مرحله.'}</small></div><button class="rb" id="mazeBtn">${MAZE.on?'بازگشت به تالار':'ورود به هزارتو'}</button></div>
+  ${aiSettingsHTML()}
   <div class="setrow"><div style="width:100%"><b>💾 وضعیت ذخیره</b><small id="saveStatus">${saveStatusText()}</small></div><button class="rb" id="saveNowBtn">ذخیره الان</button></div>
   <div class="setrow"><div><b>💾 پشتیبان کل بازی</b><small>وسایل شهر و قایم‌موشک، مرحله‌های هزارتو، تنظیمات و پیشرفت بازی ذخیره می‌شن. می‌تونی فایل پشتیبان را در فضای ابری خودت نگه داری و در نسخه‌های جدید بازیابی کنی. ذخیره روی تبلت به‌تنهایی همگام‌سازی ابری نیست.</small></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="rb" id="arashBackupDownload">📤 ذخیرهٔ همه</button><button class="rb" id="arashBackupRestore">📥 بازیابی</button></div></div>
   <div class="setrow"><div style="width:100%"><b>🎮 بازی‌های ماجراجویی در دو محیط جدید</b><small>باغ شفق و رصدخانهٔ آسمان؛ جمع‌آوری گنج، شکار نورها و مسابقهٔ نشانه‌ها با کنترل سه‌بعدی و ذخیرهٔ رکورد.</small><div class="wdseg" style="margin-top:.45rem;display:flex;gap:6px;flex-wrap:wrap">${Object.entries(MINI_AREAS).flatMap(([a,n])=>Object.entries(MINI_NAMES).map(([m,label])=>`<button type="button" data-mini="${a}:${m}">${n} · ${label}</button>`)).join('')}</div></div></div>
@@ -3832,6 +3871,7 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
   <div class="setrow"><div><b>دنیای من</b><small>وقت روز، آسمان، فصل، ساختمان‌ها، شلوغی شهر، لباس‌ها و دوستت</small></div><button class="rb" id="openWD">تغییر</button></div>
   <div class="setrow"><div><b>بازگشت به تالار</b><small>اگر در شهر گم شدی</small></div><button class="rb" id="goHome">برو</button></div>`);}
 function panelClick(e){const t=e.target.closest('button');if(!t)return;
+  if(t.id==='aiKeySave'||t.id==='aiKeyDel'||t.id==='aiKeyTest'){aiSettingsClick(t);return;}
   if(t.dataset.place){const id=t.dataset.place;closePanel();if(G.mode==='drive')return;placeFromBag(id);}
   else if(t.dataset.buy){if(buyItem(t.dataset.buy,false))openShop();}
   else if(t.dataset.q){setQualMode(t.dataset.q);openSettings();}
@@ -3875,6 +3915,16 @@ function arashVaultFlush(){
     if(typeof EXTRA!=='undefined'&&EXTRA.on)miniSaveProgress();
   }catch(e){console.warn('ذخیرهٔ بازی:',e);}
 }
+/* Inside Claude a page cannot download by itself: files go through the viewer's "downloads" capability. */
+const CL_DL={ns:null};
+try{if(window.claude&&typeof window.claude.use==='function')window.claude.use('downloads').then(d=>{CL_DL.ns=d||null;},()=>{});}catch(e){}
+function clSaveFile(filename,blob){ // true when Claude took the file (saved, or the viewer said no)
+  if(!CL_DL.ns)return false;
+  CL_DL.ns.save({filename,data:blob}).then(()=>toast('💾 فایل ذخیره شد.',1800),e=>{const c=e&&e.code;if(c==='declined')return;
+    if(c==='unavailable'||c==='not_granted'||c==='capability_disabled'||c==='capability_removed')CL_DL.ns=null;
+    toast(c==='host_unavailable'?'این برنامه نمی‌تونه فایل ذخیره کنه؛ بازی رو تو مرورگر یا کامپیوتر باز کن.':'ذخیرهٔ فایل اینجا نشد؛ دوباره امتحان کن.',3800);});
+  return true;
+}
 function arashVaultExport(){
   try{
     arashVaultFlush();const keys={};
@@ -3882,12 +3932,23 @@ function arashVaultExport(){
       const key=localStorage.key(i);if(key&&/^needle-/.test(key)){const val=localStorage.getItem(key);if(typeof val==='string'&&val.length<3e6)keys[key]=val;}
     }
     const pack={arashGameSave:2,created:new Date().toISOString(),keys};
-    const blob=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    const blob0=new Blob([JSON.stringify(pack)],{type:'application/json;charset=utf-8'});
+    if(clSaveFile('Arash_All_Game_Progress.json',blob0))return;
+    const blob=blob0,url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='Arash_All_Game_Progress.json';document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),12000);
     toast('💾 پشتیبان همهٔ مرحله‌ها، وسایل، تالارها و بازی‌ها ساخته شد.',3500);
   }catch(e){console.error(e);toast('ذخیرهٔ پشتیبان ناموفق بود؛ فضای دانلود مرورگر را بررسی کن.',4000);}
 }
+/* An in-game yes/no box: browser confirm() dialogs are blocked inside Claude and some WebViews. */
+function askYesNo(text,yes){return new Promise(res=>{
+  let box=document.getElementById('askBox');
+  if(!box){box=document.createElement('div');box.id='askBox';box.setAttribute('role','dialog');box.innerHTML='<div class="askc"><p id="askT"></p><div class="askb"><button type="button" class="rb" id="askY"></button><button type="button" class="rb ghost" id="askN">نه</button></div></div>';document.body.appendChild(box);
+    for(const ev of ['pointerdown','pointerup','touchstart'])box.addEventListener(ev,e=>e.stopPropagation(),{passive:true});}
+  box.querySelector('#askT').textContent=text;box.querySelector('#askY').textContent=yes||'بله';box.hidden=false;
+  const done=v=>{box.hidden=true;box.onclick=null;res(v);};
+  box.onclick=e=>{const t=e.target.closest('button');if(t)done(t.id==='askY');else if(e.target===box)done(false);};
+  setTimeout(()=>{try{box.querySelector('#askY').focus();}catch(e){}},30);});}
 function arashVaultImport(input){
   const file=input.files&&input.files[0];input.value='';if(!file)return;
   if(file.size>12e6){toast('این فایل برای پشتیبان بازی خیلی بزرگه.',3000);return;}
@@ -3896,11 +3957,11 @@ function arashVaultImport(input){
       if(!obj||obj.arashGameSave!==2||!obj.keys||typeof obj.keys!=='object')throw Error('format');
       const pairs=Object.entries(obj.keys).filter(([k,v])=>/^needle-[a-z0-9-]+$/i.test(k)&&typeof v==='string'&&v.length<3e6);
       if(pairs.length<1)throw Error('empty');
-      if(!confirm('پیشرفت فعلی با اطلاعات پشتیبان جایگزین بشه؟ بهتره اول از پیشرفت فعلی خودت پشتیبان بگیری.'))return;
-      // Transaction-like validate before setting; preserve unrelated browser state.
-      for(const [k,v] of pairs)localStorage.setItem(k,v);
-      toast('✅ پشتیبان بازیابی شد. بازی دوباره باز می‌شود.',2500);
-      (window.__arashFlush?window.__arashFlush():Promise.resolve()).then(()=>setTimeout(()=>location.reload(),250));
+      askYesNo('پیشرفت فعلی با اطلاعات پشتیبان جایگزین بشه؟ بهتره اول از پیشرفت فعلی خودت پشتیبان بگیری.','بله، بازیابی کن').then(ok=>{if(!ok)return;
+        // Transaction-like validate before setting; preserve unrelated browser state.
+        for(const [k,v] of pairs)localStorage.setItem(k,v);
+        toast('✅ پشتیبان بازیابی شد. بازی دوباره باز می‌شود.',2500);
+        (window.__arashFlush?window.__arashFlush():Promise.resolve()).then(()=>setTimeout(()=>location.reload(),250));});
     }catch(e){console.warn(e);toast('این فایل پشتیبان معتبر بازی آرش نیست یا ذخیره‌سازی بسته است.',3700);}
   };reader.onerror=()=>toast('فایل پشتیبان خوانده نشد.',2400);reader.readAsText(file,'utf-8');
 }
@@ -4090,7 +4151,9 @@ function photoShoot(){
     x.fillText(label,W-fs*.8+2,H-fs*.8+2);x.fillStyle='rgba(255,241,210,.95)';x.fillText(label,W-fs*.8,H-fs*.8);
     PH.data=c.toDataURL('image/jpeg',.92);$('#photoImg').src=PH.data;$('#photoPrev').hidden=false;};img.src=src;
 }
-function photoSave(){if(!PH.data)return;const a=document.createElement('a');a.href=PH.data;a.download='Arash_Photo_'+Date.now()+'.jpg';document.body.appendChild(a);a.click();a.remove();toast('💾 عکس ذخیره شد!',1800);}
+function photoSave(){if(!PH.data)return;
+  if(CL_DL.ns){try{const b64=PH.data.split(',')[1],bin=atob(b64),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);if(clSaveFile('Arash_Photo_'+Date.now()+'.jpg',new Blob([arr],{type:'image/jpeg'})))return;}catch(e){}}
+  const a=document.createElement('a');a.href=PH.data;a.download='Arash_Photo_'+Date.now()+'.jpg';document.body.appendChild(a);a.click();a.remove();toast('💾 عکس ذخیره شد!',1800);}
 {const on=(id,fn)=>{const b=document.getElementById(id);if(b)b.addEventListener('click',e=>{e.stopPropagation();fn(e);});};
  on('photoBtn',()=>PH.on?photoClose():photoOpen());on('photoClose',photoClose);on('photoShoot',photoShoot);on('photoSave',photoSave);
  on('photoAgain',()=>{$('#photoPrev').hidden=true;});on('photoDone',photoClose);
@@ -4612,10 +4675,11 @@ function frGameState(){const pl=playerPlace();return {جای_تو:{hall:'داخ�
   حالت_آرش:FR.mode==='follow'?'دنبالت می‌آید':'منتظر ایستاده',مرحله:G.level,وقت_روز:TODS[TODi].name,بی_جاذبه:G.zeroG,در_تالار:DOOR.target>.5?'باز':'بسته',
   پول_تو_تومان:G.money,کوله:Object.keys(G.inv||{}).map(k=>ITEMS[k]?ITEMS[k].n+'×'+G.inv[k]:k).join('، ')||'خالی',
   ارتفاع_متر:Math.round(G.feet+(G.spaceX||0)),سوزن:(PILE.needle&&!G.found)?needleHint():'این مرحله پیدا شده'};}
-function chatSend(text){
+function chatSend(text,preset){
   text=String(text||'').trim();if(!text)return;
   chatAdd('me',text);
   FR.hist.push({role:'user',content:text});if(FR.hist.length>20)FR.hist.splice(0,FR.hist.length-20);
+  if(!preset&&typeof aiOn==='function'&&aiOn()){aiChatReply();return;}
   let r;
   try{r=frLocal(text);}catch(err){console.warn('گفت‌وگوی آفلاین آرش:',err);
     r={say:'گوشم با توئه. دربارهٔ «'+text.slice(0,55)+'» بیشتر بگو تا بهتر با هم حرف بزنیم.',do:[]};}
@@ -5265,7 +5329,7 @@ function initCreator(){
   document.getElementById('crForm').addEventListener('submit',e=>{e.preventDefault();const i=document.getElementById('crIn');const v=i.value.trim();if(!v&&!CR_IMG){crLog('بنویس چه بسازم، یا یک عکس بفرست.');return;}
     const n=creatorRequest(v,CR_IMG,{});if(n){i.value='';CR_IMG=null;document.getElementById('crPrev').hidden=true;document.getElementById('crImgX').hidden=true;}});
   document.getElementById('crBox').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.crdel)crDelete(+t.dataset.crdel);if(t.dataset.crex){document.getElementById('crIn').value=t.dataset.crex;}
-    if(t.id==='crClear'&&CREATIONS.length&&confirm('همهٔ چیزهایی که ساختی پاک شوند؟')){while(CREATIONS.length)crDelete(CREATIONS[0].id);}});
+    if(t.id==='crClear'&&CREATIONS.length)askYesNo('همهٔ چیزهایی که ساختی پاک شوند؟','بله، پاک کن').then(ok=>{if(ok)while(CREATIONS.length)crDelete(CREATIONS[0].id);});});
   document.getElementById('panelBody').addEventListener('click',worldDesignerClick);
   document.getElementById('panelBody').addEventListener('change',e=>{if(e.target.id==='wdImg'){const fs=[...e.target.files];e.target.value='';wdImages(fs);}});
   CITY.builtH=WORLD.height;CITY.builtT=WORLD.traffic;crLoad();}
@@ -7885,6 +7949,454 @@ for(const a of HS_LIB_LIST)HS_EDIT_ASSETS.push([a[0],a[1],a[2],a[3]]);
 {const old=HS_EXTRA_TYPES.splice(0),neu=HS_LIB_LIST.filter(a=>(a[4]==='cab'||a[4]==='lid')&&Math.max(a[5],a[6])<=1.6).map(a=>({id:a[0],r:Math.hypot(a[5]/2,a[6])/2+.45,make:(x,z,y)=>hsBuildLibProp(a[0],x,z,y)}));
  for(let i=0;i<Math.max(old.length,neu.length);i++){if(i<old.length)HS_EXTRA_TYPES.push(old[i]);if(i<neu.length)HS_EXTRA_TYPES.push(neu[i]);}}
 
+/* ===================== AI: build any item from words or a photo, and talk freely with Arash =====================
+   Runs inside Claude (the artifact "sample" capability, on the player's own Claude account) or, anywhere
+   else, with an API key the player enters: Anthropic Claude, Google Gemini, OpenAI ChatGPT, DeepSeek, Groq,
+   OpenRouter, xAI Grok, Mistral, or any OpenAI-compatible address. With neither, none of the AI buttons
+   exist on screen and Arash's chat offers ready-made messages only.
+   AI items are stored as a list of simple shapes and built with the same helpers, vertex colours and
+   material as the 138 library items, so they look like the rest of the game and are saved like them. */
+const AI={src:'',sample:null,imgOK:false,cfg:null,busy:false,ctl:null,chatBusy:false,denied:false,img:null,last:null};
+const AI_KEY_STORE='arash-ai-key-v1'; // deliberately not "needle-…": the key never goes into backup files
+const AI_ITEMS_KEY='needle-ai-items-v1',AI_CAT='🤖 هوش مصنوعی';
+let AI_ITEMS=[];
+const AI_NAMES={anthropic:'Claude (Anthropic)',gemini:'Google Gemini',openai:'ChatGPT (OpenAI)',deepseek:'DeepSeek',groq:'Groq',openrouter:'OpenRouter',xai:'xAI Grok',mistral:'Mistral',together:'Together AI',perplexity:'Perplexity',compat:'سرویس سازگار با OpenAI'};
+const AI_BASES={openai:'https://api.openai.com/v1',deepseek:'https://api.deepseek.com',groq:'https://api.groq.com/openai/v1',openrouter:'https://openrouter.ai/api/v1',xai:'https://api.x.ai/v1',mistral:'https://api.mistral.ai/v1',together:'https://api.together.xyz/v1',perplexity:'https://api.perplexity.ai'};
+function aiOn(){return !!(AI.src==='claude'?AI.sample:AI.cfg);}
+
+/* ---- where the AI comes from ---- */
+function aiLoadCfg(){try{const c=JSON.parse(localStorage.getItem(AI_KEY_STORE)||'null');if(c&&typeof c.key==='string'&&c.key.length>8&&c.p)return c;}catch(e){}return null;}
+async function aiInit(){
+  AI.cfg=aiLoadCfg();if(AI.cfg&&!AI.src)AI.src='key';aiRefreshUI();
+  try{
+    if(window.claude&&typeof window.claude.use==='function'){
+      const s=await window.claude.use('sample');
+      if(s&&!AI.denied){AI.sample=s;AI.src='claude';
+        try{const lim=await s.limits();AI.imgOK=!!(lim&&lim.images);}catch(e){AI.imgOK=false;}}
+    }
+  }catch(e){}
+  if(AI.src!=='claude')AI.src=AI.cfg?'key':'';
+  aiRefreshUI();
+}
+function aiClaudeGone(){AI.denied=true;AI.sample=null;AI.src=AI.cfg?'key':'';aiRefreshUI();}
+function aiGuess(key,base){
+  key=String(key||'').trim();base=String(base||'').trim().replace(/\/+$/,'');
+  if(base)return [{p:'compat',base,name:'compat'}];
+  if(/^sk-ant-/.test(key))return [{p:'anthropic'}];
+  if(/^AIza/.test(key))return [{p:'gemini'}];
+  if(/^sk-or-/.test(key))return [{p:'compat',name:'openrouter'}];
+  if(/^gsk_/.test(key))return [{p:'compat',name:'groq'}];
+  if(/^xai-/.test(key))return [{p:'compat',name:'xai'}];
+  if(/^pplx-/.test(key))return [{p:'compat',name:'perplexity'}];
+  if(/^sk-/.test(key))return [{p:'compat',name:'openai'},{p:'compat',name:'deepseek'}];
+  return [{p:'compat',name:'mistral'},{p:'compat',name:'together'},{p:'compat',name:'openai'},{p:'compat',name:'deepseek'},{p:'gemini'},{p:'anthropic'}];
+}
+function aiAnthropicHeaders(key,beta){const h={'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};if(beta)h['anthropic-beta']=beta;return h;}
+function aiPick(ids,prefs){
+  ids=ids.filter(Boolean);const cmp=(a,b)=>b.localeCompare(a,undefined,{numeric:true});
+  for(const re of prefs){const m=ids.filter(id=>re.test(id)).sort(cmp);if(m.length)return m[0];}
+  return ids[0]||'';
+}
+async function aiFetchJSON(url,opt,ms){
+  const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),ms||20000);
+  if(opt&&opt.signal){if(opt.signal.aborted)ctl.abort();else opt.signal.addEventListener('abort',()=>ctl.abort(),{once:true});}
+  try{
+    const r=await fetch(url,Object.assign({},opt,{signal:ctl.signal}));let data=null;try{data=await r.json();}catch(e){}
+    return {ok:r.ok,status:r.status,data};
+  }catch(e){if(opt&&opt.signal&&opt.signal.aborted)throw {code:'cancelled'};throw {code:'network'};}
+  finally{clearTimeout(tm);}
+}
+/* Finds out which company the key belongs to and a good model it can use. */
+async function aiConnect(key,model,base){
+  key=String(key||'').trim();model=String(model||'').trim();let lastErr={code:'bad_key'};
+  for(const g of aiGuess(key,base)){
+    try{
+      if(g.p==='anthropic'){
+        const r=await aiFetchJSON('https://api.anthropic.com/v1/models?limit=100',{headers:aiAnthropicHeaders(key)});
+        if(r.status===401||r.status===403){lastErr={code:'bad_key'};continue;}
+        const ids=r.ok&&r.data&&Array.isArray(r.data.data)?r.data.data.map(m=>m.id):[];
+        const pick=model||(ids.includes('claude-opus-5-5')||!ids.length?'claude-opus-5-5':aiPick(ids,[/^claude-opus/,/^claude-sonnet/,/^claude/]));
+        return {p:'anthropic',key,model:pick,name:AI_NAMES.anthropic};
+      }
+      if(g.p==='gemini'){
+        const r=await aiFetchJSON('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(key),{});
+        if(!r.ok){lastErr={code:r.status===400||r.status===401||r.status===403?'bad_key':'http',status:r.status};continue;}
+        const ids=(r.data&&r.data.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>String(m.name||'').replace(/^models\//,''));
+        const pick=model||aiPick(ids.filter(id=>!/tts|image|embedding|audio|live|thinking-exp|vision$/i.test(id)),[/^gemini-[\d.]+-flash$/,/^gemini-[\d.]+-pro$/,/^gemini-[\d.]+-flash-(latest|\d+)$/,/^gemini-.*flash/,/^gemini/])||'gemini-2.5-flash';
+        return {p:'gemini',key,model:pick,name:AI_NAMES.gemini};
+      }
+      const name=g.name||'compat',baseUrl=g.base||AI_BASES[name];
+      const r=await aiFetchJSON(baseUrl+'/models',{headers:{authorization:'Bearer '+key}});
+      if(r.status===401||r.status===403){lastErr={code:'bad_key'};continue;}
+      if(!r.ok&&r.status!==404){lastErr={code:'http',status:r.status};continue;}
+      const ids=(r.data&&(r.data.data||r.data.models)||[]).map(m=>typeof m==='string'?m:m.id).filter(Boolean);
+      const prefs={openai:[/^gpt-5(\.\d+)?$/,/^gpt-4\.1$/,/^gpt-4o$/,/^gpt-5(\.\d+)?-mini$/,/^gpt-4o-mini$/,/^gpt-/],deepseek:[/^deepseek-chat$/,/^deepseek/],
+        groq:[/llama-4-maverick/,/llama-3\.3-70b/,/gpt-oss-120b/,/qwen/,/llama/],openrouter:[/^openrouter\/auto$/],xai:[/^grok-\d+(\.\d+)?$/,/^grok-\d/,/^grok/],
+        mistral:[/^mistral-large-latest$/,/^mistral-medium-latest$/,/^pixtral-large-latest$/,/^mistral/],together:[/Llama-4-Maverick/,/Llama-3\.3-70B/,/Qwen/,/Llama/],perplexity:[/^sonar-pro$/,/^sonar$/]};
+      const fallback={openai:'gpt-4o',deepseek:'deepseek-chat',groq:'llama-3.3-70b-versatile',openrouter:'openrouter/auto',xai:'grok-3',mistral:'mistral-large-latest',together:'meta-llama/Llama-3.3-70B-Instruct-Turbo',perplexity:'sonar-pro'}[name]||'';
+      const pick=model||(ids.length?aiPick(ids,prefs[name]||[/./]):fallback);
+      if(!pick){lastErr={code:'no_model'};continue;}
+      return {p:'compat',key,base:baseUrl,model:pick,name:AI_NAMES[name]||name};
+    }catch(e){if(e&&e.code==='cancelled')throw e;lastErr=e&&e.code?e:{code:'network'};}
+  }
+  throw lastErr;
+}
+
+/* ---- one request, whatever the provider ---- */
+function aiJSONFrom(text){
+  const t=String(text||'').trim();if(!t)return null;
+  try{return JSON.parse(t);}catch(e){}
+  const f=t.match(/```(?:json)?\s*([\s\S]*?)```/i);if(f){try{return JSON.parse(f[1]);}catch(e){}}
+  const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a){try{return JSON.parse(t.slice(a,b+1));}catch(e){}}
+  return null;
+}
+async function aiCall(o){ // {system, turns:[{role,content}] ending on user, images:[{blob,b64,mime}], json, kind:'chat'|'build', signal}
+  const turns=o.turns.filter(t=>t&&t.content&&String(t.content).trim());const imgs=o.images||[];
+  if(AI.src==='claude'&&AI.sample){
+    const input=[{role:'user',content:o.system},...turns];
+    const opt={cache:false,modelTier:o.kind==='chat'?'quick':'default'};if(o.signal)opt.signal=o.signal;
+    if(imgs.length&&AI.imgOK)opt.images=imgs.map(i=>i.blob);
+    try{
+      if(o.json)return await AI.sample.json(input,opt);
+      return (await AI.sample(input,opt)).text;
+    }catch(e){
+      const code=e&&e.code||'upstream_error';
+      if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code))aiClaudeGone();
+      throw {code,claude:true,reason:e&&e.reason};
+    }
+  }
+  const c=AI.cfg;if(!c)throw {code:'no_ai'};
+  let text='';
+  if(c.p==='anthropic'){
+    const msgs=turns.map((t,i)=>({role:t.role,content:i===turns.length-1&&imgs.length?[...imgs.map(im=>({type:'image',source:{type:'base64',media_type:im.mime,data:im.b64}})),{type:'text',text:t.content}]:t.content}));
+    const body={model:c.model||'claude-opus-5-5',max_tokens:o.kind==='chat'?4000:16000,system:o.system,messages:msgs,output_config:{effort:o.kind==='chat'?'low':'medium'},fallbacks:'default'};
+    let r=await aiFetchJSON('https://api.anthropic.com/v1/messages',{method:'POST',headers:aiAnthropicHeaders(c.key,'server-side-fallback-2026-07-01'),body:JSON.stringify(body),signal:o.signal},o.kind==='chat'?90000:300000);
+    if(r.status===400){ // an older model or account that does not take the newer request fields: ask plainly
+      delete body.fallbacks;delete body.output_config;
+      r=await aiFetchJSON('https://api.anthropic.com/v1/messages',{method:'POST',headers:aiAnthropicHeaders(c.key),body:JSON.stringify(body),signal:o.signal},o.kind==='chat'?90000:300000);}
+    if(!r.ok)throw {code:r.status===401||r.status===403?'bad_key':r.status===429||r.status===529?'rate_limited':'http',status:r.status,msg:r.data&&r.data.error&&r.data.error.message};
+    if(r.data.stop_reason==='refusal')throw {code:'refused'};
+    text=(r.data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  }else if(c.p==='gemini'){
+    const contents=turns.map((t,i)=>({role:t.role==='assistant'?'model':'user',parts:[{text:t.content},...(i===turns.length-1?imgs.map(im=>({inlineData:{mimeType:im.mime,data:im.b64}})):[])]}));
+    const body={systemInstruction:{parts:[{text:o.system}]},contents,generationConfig:o.json?{responseMimeType:'application/json'}:{}};
+    const r=await aiFetchJSON('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(c.model)+':generateContent?key='+encodeURIComponent(c.key),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:o.signal},o.kind==='chat'?90000:300000);
+    if(!r.ok)throw {code:r.status===401||r.status===403?'bad_key':r.status===429?'rate_limited':'http',status:r.status,msg:r.data&&r.data.error&&r.data.error.message};
+    const cand=r.data&&r.data.candidates&&r.data.candidates[0];
+    if(!cand){throw {code:r.data&&r.data.promptFeedback&&r.data.promptFeedback.blockReason?'refused':'empty'};}
+    text=((cand.content&&cand.content.parts)||[]).map(p=>p.text||'').join('');
+  }else{
+    const msgs=[{role:'system',content:o.system},...turns.map((t,i)=>({role:t.role,content:i===turns.length-1&&imgs.length?[{type:'text',text:t.content},...imgs.map(im=>({type:'image_url',image_url:{url:'data:'+im.mime+';base64,'+im.b64}}))]:t.content}))];
+    const body={model:c.model,messages:msgs};if(o.json)body.response_format={type:'json_object'};
+    const url=c.base+'/chat/completions',head={'content-type':'application/json',authorization:'Bearer '+c.key};
+    let r=await aiFetchJSON(url,{method:'POST',headers:head,body:JSON.stringify(body),signal:o.signal},o.kind==='chat'?90000:300000);
+    if(r.status===400&&body.response_format){delete body.response_format;r=await aiFetchJSON(url,{method:'POST',headers:head,body:JSON.stringify(body),signal:o.signal},o.kind==='chat'?90000:300000);}
+    if(!r.ok)throw {code:r.status===401||r.status===403?'bad_key':r.status===429?'rate_limited':'http',status:r.status,msg:r.data&&r.data.error&&r.data.error.message};
+    const ch=r.data&&r.data.choices&&r.data.choices[0];
+    if(ch&&ch.finish_reason==='content_filter')throw {code:'refused'};
+    const m=ch&&ch.message;text=m?(Array.isArray(m.content)?m.content.map(p=>p.text||'').join(''):String(m.content||'')):'';
+  }
+  if(!o.json)return text;
+  const v=aiJSONFrom(text);if(v===null)throw {code:'invalid_json'};return v;
+}
+function aiErrText(e){const c=e&&e.code||'';
+  return {rate_limited:e&&e.reason==='usage_limit'?'سهمیهٔ استفاده‌ات از هوش مصنوعی فعلاً تموم شده؛ بعداً دوباره امتحان کن.':'الان سرش شلوغه؛ چند لحظه بعد دوباره بزن.',
+    not_granted:'اجازهٔ استفاده از Claude داده نشد.',sampling_disabled:'Claude برای این حساب فعال نیست.',session_expired:'باید دوباره وارد حساب Claude بشی.',
+    refused:'این یکی رو نساخت؛ یه چیز دیگه بخواه یا جور دیگه‌ای بگو.',invalid_json:'جوابش ناقص بود؛ یه بار دیگه بزن.',empty_completion:'جوابی نداد؛ ساده‌تر بگو.',empty:'جوابی نداد؛ ساده‌تر بگو.',
+    image_rejected:'این عکس قبول نشد؛ یه عکس دیگه بفرست.',images_unavailable:'اینجا نمی‌شه عکس فرستاد؛ با نوشتن بگو.',bad_key:'کلید API قبول نشد. درستش رو وارد کن.',
+    network:'به اینترنت یا سرور هوش مصنوعی وصل نشد.',cancelled:'متوقف شد.',no_ai:'هوش مصنوعی وصل نیست.',bad_item:'از جوابش وسیلهٔ درستی درنیومد؛ دوباره بزن.',
+    http:'سرور هوش مصنوعی خطا داد'+(e&&e.status?' ('+e.status+')':'')+(e&&e.msg?': '+String(e.msg).slice(0,140):'')+'.'}[c]||'یه مشکلی پیش اومد؛ دوباره امتحان کن.';}
+
+/* ---- photos: shrunk to a small JPEG for every provider ---- */
+function aiPrepImage(file){return new Promise((res,rej)=>{
+  if(!file||!/^image\//.test(file.type||'image/')){rej({code:'image_rejected'});return;}
+  const url=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{try{const s=Math.min(1,1024/Math.max(im.naturalWidth,im.naturalHeight));const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(im.naturalWidth*s));cv.height=Math.max(1,Math.round(im.naturalHeight*s));
+      const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(url);
+      const du=cv.toDataURL('image/jpeg',.86),b64=du.split(',')[1],bin=atob(b64),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      res({blob:new Blob([arr],{type:'image/jpeg'}),b64,mime:'image/jpeg',url:du});}catch(e){rej({code:'image_rejected'});}};
+  im.onerror=()=>{URL.revokeObjectURL(url);rej({code:'image_rejected'});};im.src=url;});}
+
+/* ---- the item format the AI writes, and its builder ---- */
+function aiItemPrompt(text,hasImg){
+  return `You design ONE 3D object for a cosy, detailed low-poly 3D game (three.js, flat vertex colours, soft light and shadows). You build it only from simple solid shapes, so it must look recognisable, detailed and charming, like a well-made toy model.
+
+The player (Persian-speaking) asked for: «${String(text||'').slice(0,400)||'the object in the photo'}»
+${hasImg?'A photo is attached: build the main object shown in it, matching its shape, proportions, parts and colours as closely as simple shapes allow.\n':''}
+Coordinates are metres. y is up and the object stands on the floor at y=0. x is left/right, centred on x=0. The FRONT of the object faces +z and the whole object lies between z = -depth and z = 0 (z values are 0 or negative). Use real-world sizes (a chair is about 0.5 wide and 0.9 tall, a car about 1.8 wide, 4 long and 1.4 tall, a person 1.75 tall). Every dimension at most 6.
+
+Shapes ("parts"); numbers in metres, colours as "#rrggbb":
+- {"s":"box","c":"#hex","x":[x0,x1],"y":[y0,y1],"z":[z0,z1]}
+- {"s":"cyl","c":"#hex","p":[x,y,z],"r":0.2,"r2":0.2,"h":1,"axis":"y"}  cylinder: r = bottom radius, r2 = top radius (r2 = 0 makes a cone). With axis "y" (upright) p is the centre of its bottom; with axis "x" or "z" it lies along that axis, p is its centre and h its length.
+- {"s":"sph","c":"#hex","p":[x,y,z],"r":[rx,ry,rz]}  sphere or ellipsoid
+- {"s":"torus","c":"#hex","p":[x,y,z],"R":0.3,"t":0.05,"axis":"y"}  ring: axis "y" lies flat, "z" faces the front, "x" faces sideways
+Any part may add "rot":[rx,ry,rz] (degrees, about the part's own centre) to tilt it.
+
+"hide" says how the player can hide in it in hide-and-seek:
+- "cab": a cabinet-like thing to stand inside (wardrobe, fridge, phone box, rocket, hollow tree, toilet cubicle...). Build it hollow: back, two sides, top and floor, with an empty inside at least 0.75 wide, 0.6 deep and 1.8 tall. The front door is one or more parts with "role":"door" that close the whole front opening, at z between -0.06 and 0.
+- "lid": something to crouch inside (chest, barrel, basket, crate, bathtub...): hollow, inside at least 0.7 by 0.7 and 0.6 high; the top lid parts have "role":"lid".
+- "behind": a big solid thing to hide behind (at least 1.2 wide and 1.5 tall).
+- null: decoration only.
+Pick what suits the object; prefer a hiding type when it is natural for it.
+
+Quality: use 20 to 90 parts. Add the details that make it recognisable (handles, wheels, windows, eyes, trims, legs, buttons, stripes for labels...). Parts may overlap; nothing floats unless the object really floats. Pleasant, varied colours.
+
+Reply with only JSON: {"name":"short Persian name","emoji":"one emoji","hide":"cab"|"lid"|"behind"|null,"parts":[...]}`;
+}
+const aiN=(v,d,lo,hi)=>{v=+v;if(!Number.isFinite(v))v=d;return Math.min(hi,Math.max(lo,v));};
+const aiR3=v=>Math.round(v*1000)/1000;
+function aiCol(c){
+  if(typeof c==='number'&&Number.isFinite(c))return '#'+(c&0xffffff).toString(16).padStart(6,'0');
+  let s=String(c||'').trim().toLowerCase();
+  let m=s.match(/^#?([0-9a-f]{6})$/);if(m)return '#'+m[1];
+  m=s.match(/^#?([0-9a-f])([0-9a-f])([0-9a-f])$/);if(m)return '#'+m[1]+m[1]+m[2]+m[2]+m[3]+m[3];
+  const named=THREE.Color.NAMES&&THREE.Color.NAMES[s.replace(/\s+/g,'')];if(named!==undefined)return '#'+named.toString(16).padStart(6,'0');
+  return '#9a9a9a';
+}
+function aiCleanPart(q){ // keeps only known fields, so a stored item is small and safe to rebuild
+  if(!q||typeof q!=='object')return null;
+  const s0=String(q.s||q.shape||q.type||'box').toLowerCase(),s={box:'box',cube:'box',cuboid:'box',cyl:'cyl',cylinder:'cyl',cone:'cone',sph:'sph',sphere:'sph',ball:'sph',ellipsoid:'sph',torus:'torus',ring:'torus'}[s0];
+  if(!s)return null;
+  const out={s,c:aiCol(q.c!==undefined?q.c:q.color)};
+  const P=a=>Array.isArray(a)?[0,1,2].map(i=>aiR3(aiN(a[i],0,-8,8))):[0,0,0];
+  const rng=(a,d)=>{let lo=aiN(a&&a[0],-d,-8,8),hi=aiN(a&&a[1],d,-8,8);if(hi<lo)[lo,hi]=[hi,lo];if(hi-lo<.004)hi=lo+.004;return [aiR3(lo),aiR3(hi)];};
+  if(s==='box'){
+    if(Array.isArray(q.x)||Array.isArray(q.y)||Array.isArray(q.z)){out.x=rng(q.x,.25);out.y=rng(q.y,.25);out.z=rng(q.z,.25);}
+    else{const p=P(q.p||[q.x,q.y,q.z]),sz=Array.isArray(q.size)?q.size:[q.w,q.h,q.d];const w=aiN(sz[0],.3,.004,12),h=aiN(sz[1],.3,.004,12),d=aiN(sz[2],.3,.004,12);
+      out.x=[aiR3(p[0]-w/2),aiR3(p[0]+w/2)];out.y=[aiR3(p[1]-h/2),aiR3(p[1]+h/2)];out.z=[aiR3(p[2]-d/2),aiR3(p[2]+d/2)];}
+  }else if(s==='cyl'||s==='cone'){out.s='cyl';out.p=P(q.p);out.r=aiR3(aiN(q.r,.1,.002,4));out.r2=aiR3(s==='cone'?aiN(q.r2,0,0,4):aiN(q.r2!==undefined?q.r2:q.r,out.r,0,4));out.h=aiR3(aiN(q.h,.2,.004,12));out.axis=['x','y','z'].includes(q.axis)?q.axis:'y';}
+  else if(s==='sph'){out.p=P(q.p);const r=Array.isArray(q.r)?q.r:[q.r,q.r,q.r];const rx=aiN(r[0],.1,.003,5);out.r=[aiR3(rx),aiR3(aiN(r[1]!==undefined?r[1]:rx,rx,.003,5)),aiR3(aiN(r[2]!==undefined?r[2]:rx,rx,.003,5))];}
+  else if(s==='torus'){out.p=P(q.p);out.R=aiR3(aiN(q.R!==undefined?q.R:q.r,.2,.005,4));out.t=aiR3(aiN(q.t,.03,.002,out.R));out.axis=['x','y','z'].includes(q.axis)?q.axis:'y';}
+  if(Array.isArray(q.rot)&&q.rot.some(v=>+v))out.rot=[0,1,2].map(i=>aiR3(aiN(q.rot[i],0,-720,720)));
+  if(q.role==='door'||q.door)out.role='door';else if(q.role==='lid'||q.lid)out.role='lid';
+  return out;
+}
+function aiPartGeo(q){
+  let g=null;
+  if(q.s==='box')g=gBox(q.x[0],q.x[1],q.y[0],q.y[1],q.z[0],q.z[1]);
+  else if(q.s==='cyl'){const n=Math.max(q.r,q.r2)>.6?28:18;g=new THREE.CylinderGeometry(q.r2,q.r,q.h,n);
+    if(q.axis==='x'){g.rotateZ(-Math.PI/2);g.translate(q.p[0],q.p[1],q.p[2]);}else if(q.axis==='z'){g.rotateX(Math.PI/2);g.translate(q.p[0],q.p[1],q.p[2]);}else g.translate(q.p[0],q.p[1]+q.h/2,q.p[2]);}
+  else if(q.s==='sph'){const n=Math.max(...q.r)>.5?24:16;g=new THREE.SphereGeometry(1,n,Math.max(8,n*3>>2)).scale(q.r[0],q.r[1],q.r[2]).translate(q.p[0],q.p[1],q.p[2]);}
+  else if(q.s==='torus'){g=new THREE.TorusGeometry(q.R,q.t,10,Math.max(16,Math.min(40,Math.round(q.R*70))));if(q.axis==='y')g.rotateX(Math.PI/2);else if(q.axis==='x')g.rotateY(Math.PI/2);g.translate(q.p[0],q.p[1],q.p[2]);}
+  if(!g)return null;
+  if(q.rot){g.computeBoundingBox();const ctr=g.boundingBox.getCenter(new THREE.Vector3()),d=Math.PI/180;g.translate(-ctr.x,-ctr.y,-ctr.z);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(q.rot[0]*d,q.rot[1]*d,q.rot[2]*d)));g.translate(ctr.x,ctr.y,ctr.z);}
+  const o={g,c:new THREE.Color(q.c).getHex()};if(q.role==='door')o.door=1;else if(q.role==='lid')o.lid=1;return o;
+}
+/* Fresh geometry every time (the builder merges and keeps it); centred on x, standing on y=0, front at z=0. */
+function aiItemParts(it){
+  const out=[];for(const q of it.parts||[]){try{const p=aiPartGeo(q);if(p)out.push(p);}catch(e){}}
+  if(!out.length)return out;
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
+  for(const q of out){q.g.computeBoundingBox();const b=q.g.boundingBox;x0=Math.min(x0,b.min.x);x1=Math.max(x1,b.max.x);y0=Math.min(y0,b.min.y);y1=Math.max(y1,b.max.y);z0=Math.min(z0,b.min.z);z1=Math.max(z1,b.max.z);}
+  const big=Math.max(x1-x0,y1-y0,z1-z0),s=big>6?6/big:1,cx=(x0+x1)/2;
+  for(const q of out){q.g.translate(-cx,-y0,-z1);if(s!==1)q.g.scale(s,s,s);q.g.computeBoundingBox();}
+  return out;
+}
+function aiItemFromReply(v,text,hadImg){
+  if(v&&typeof v==='object'&&!Array.isArray(v)&&!Array.isArray(v.parts)){const inner=v.item||v.object||v.model||Object.values(v).find(x=>x&&typeof x==='object'&&Array.isArray(x.parts));if(inner)v=inner;}
+  if(Array.isArray(v))v={parts:v};
+  if(!v||!Array.isArray(v.parts))throw {code:'bad_item'};
+  const parts=v.parts.slice(0,180).map(aiCleanPart).filter(Boolean);
+  if(!parts.length)throw {code:'bad_item'};
+  let name=String(v.name||v.title||'').replace(/[<>]/g,'').trim().slice(0,40);
+  if(!name)name=String(text||'وسیلهٔ عکس').trim().slice(0,40)||'وسیلهٔ تازه';
+  let emoji=String(v.emoji||'').trim();if(!emoji||emoji.length>8||/[A-Za-z0-9<>]/.test(emoji))emoji='🤖';
+  let hide=['cab','lid','behind'].includes(v.hide)?v.hide:null;
+  const it={id:'ai_'+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36),name,emoji,hide,parts,src:String(text||'').slice(0,200),photo:!!hadImg,t:Date.now()};
+  const geo=aiItemParts(it);if(!geo.length)throw {code:'bad_item'};
+  let x0=1e9,x1=-1e9,y1=0,z0=1e9;for(const q of geo){const b=q.g.boundingBox;x0=Math.min(x0,b.min.x);x1=Math.max(x1,b.max.x);y1=Math.max(y1,b.max.y);z0=Math.min(z0,b.min.z);}
+  const w=x1-x0,d=-z0,h=y1,doors=geo.filter(q=>q.door).length,lids=geo.filter(q=>q.lid).length;
+  // a hiding type the shape cannot really give falls back to one it can
+  if(hide==='cab'&&(!doors||h<1.45||w<.65||d<.5))hide=(lids&&h>=.5&&w>=.6)?'lid':(w>=1.1&&h>=1.35?'behind':null);
+  if(hide==='lid'&&(!lids||w<.55||d<.5||h<.4))hide=(w>=1.1&&h>=1.35?'behind':null);
+  if(hide==='behind'&&(w<.9||h<1.2))hide=null;
+  it.hide=hide;it.dims=[aiR3(w),aiR3(d),aiR3(h)];
+  for(const q of geo)q.g.dispose();
+  return it;
+}
+function aiItemRegister(it){
+  const id=it.id,dims=it.dims||[1,1,1],e=it.emoji||'🤖',n=it.name||'وسیلهٔ هوش مصنوعی';
+  const entry=[id,e,n,AI_CAT,it.hide||null,dims[0],dims[1],dims[2],()=>aiItemParts(it)];
+  const i=HS_LIB_LIST.findIndex(a=>a[0]===id);if(i>=0)HS_LIB_LIST[i]=entry;else HS_LIB_LIST.push(entry);
+  HS_LIB[id]={id,e,n,cat:AI_CAT,hide:entry[4],w:dims[0],d:dims[1],h:dims[2],p:entry[8]};
+  const j=HS_EDIT_ASSETS.findIndex(a=>a[0]===id);
+  if(it.hidden){if(j>=0)HS_EDIT_ASSETS.splice(j,1);}
+  else if(j<0)HS_EDIT_ASSETS.push([id,e,n,AI_CAT]);else HS_EDIT_ASSETS[j]=[id,e,n,AI_CAT];
+}
+function aiItemsLoad(){
+  try{const a=JSON.parse(localStorage.getItem(AI_ITEMS_KEY)||'[]');
+    AI_ITEMS=Array.isArray(a)?a.filter(x=>x&&typeof x.id==='string'&&/^ai_[a-z0-9]{3,24}$/.test(x.id)&&Array.isArray(x.parts)&&x.parts.length):[];}catch(e){AI_ITEMS=[];}
+  for(const it of AI_ITEMS){try{it.parts=it.parts.map(aiCleanPart).filter(Boolean);aiItemRegister(it);}catch(e){console.warn('AI item',it&&it.id,e);}}
+}
+function aiItemsSave(){try{localStorage.setItem(AI_ITEMS_KEY,JSON.stringify(AI_ITEMS));}catch(e){console.warn('ذخیرهٔ وسایل هوش مصنوعی:',e);}try{arashSaveSoon();}catch(e){}}
+aiItemsLoad();
+
+/* A picture of the item drawn with the game's own material, for the builder window and the item list. */
+function aiThumb(it,size){
+  size=size||160;let rt=null,geo=null,mat=null;
+  try{
+    const parts=aiItemParts(it);if(!parts.length)return '';
+    geo=mergeAttr(parts.map(q=>cgeo(q.g,q.c)));mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.6});
+    const sc=new THREE.Scene();sc.add(new THREE.Mesh(geo,mat));
+    sc.add(new THREE.HemisphereLight(0xfff3dc,0x4a3a2c,1.15));const dl=new THREE.DirectionalLight(0xffffff,1.7);dl.position.set(2.5,5,4);sc.add(dl);const fl=new THREE.DirectionalLight(0xbcd4ff,.45);fl.position.set(-4,2,-2);sc.add(fl);
+    const [w,d,h]=it.dims||[1,1,1],ctr=new THREE.Vector3(0,h/2,-d/2),R=Math.max(.3,Math.hypot(w,d,h)/2);
+    const cam=new THREE.PerspectiveCamera(32,1,.02,200);cam.position.copy(ctr).add(new THREE.Vector3(.62,.45,1).normalize().multiplyScalar(R/Math.sin(16*Math.PI/180)));cam.lookAt(ctr);
+    const S=size*2;rt=new THREE.WebGLRenderTarget(S,S);
+    const prevRT=renderer.getRenderTarget(),prevC=renderer.getClearColor(new THREE.Color()),prevA=renderer.getClearAlpha(),prevSh=renderer.shadowMap.autoUpdate;
+    renderer.shadowMap.autoUpdate=false;renderer.setRenderTarget(rt);renderer.setClearColor(0x000000,0);renderer.clear(true,true,true);renderer.render(sc,cam);
+    const px=new Uint8Array(S*S*4);renderer.readRenderTargetPixels(rt,0,0,S,S,px);
+    renderer.setRenderTarget(prevRT);renderer.setClearColor(prevC,prevA);renderer.shadowMap.autoUpdate=prevSh;
+    const big=document.createElement('canvas');big.width=big.height=S;const bx=big.getContext('2d'),img=bx.createImageData(S,S);
+    const lut=new Uint8Array(256);for(let i=0;i<256;i++)lut[i]=Math.round(255*Math.pow(Math.min(1,i/255*1.08),1/2.2));
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){const a=((S-1-y)*S+x)*4,b=(y*S+x)*4;img.data[b]=lut[px[a]];img.data[b+1]=lut[px[a+1]];img.data[b+2]=lut[px[a+2]];img.data[b+3]=px[a+3];}
+    bx.putImageData(img,0,0);const cv=document.createElement('canvas');cv.width=cv.height=size;const cx=cv.getContext('2d');cx.imageSmoothingQuality='high';cx.drawImage(big,0,0,size,size);
+    return cv.toDataURL('image/png');
+  }catch(e){console.warn('AI thumb',e);return '';}
+  finally{try{rt&&rt.dispose();geo&&geo.dispose();mat&&mat.dispose();}catch(e){}}
+}
+
+/* ---- the builder window ---- */
+function aiOpen(){
+  if(!aiOn()){toast('هوش مصنوعی وصل نیست.',2000);return;}
+  const b=document.getElementById('aiBox');b.hidden=false;G.keys={};G.chat=true;aiList();aiStatus('');
+  document.getElementById('aiPic').hidden=AI.src==='claude'&&!AI.imgOK;
+  document.getElementById('aiSrc').textContent=AI.src==='claude'?'با Claude':(AI.cfg?AI.cfg.name:'');
+  setTimeout(()=>{try{document.getElementById('aiIn').focus();}catch(e){}},40);
+}
+function aiClose(){document.getElementById('aiBox').hidden=true;G.chat=!!(document.getElementById('chatBox')&&!document.getElementById('chatBox').hidden);try{document.getElementById('aiIn').blur();}catch(e){}}
+function aiStatus(t,busy){const s=document.getElementById('aiStatus');if(s){s.textContent=t||'';s.classList.toggle('busy',!!busy);}}
+function aiSetImg(img){AI.img=img;const p=document.getElementById('aiImgPrev'),x=document.getElementById('aiImgX');if(img){p.src=img.url;p.hidden=false;x.hidden=false;}else{p.hidden=true;p.removeAttribute('src');x.hidden=true;}}
+function aiList(){
+  const box=document.getElementById('aiList');if(!box)return;const list=AI_ITEMS.filter(i=>!i.hidden).slice().reverse();
+  box.innerHTML=list.length?'<b class="ailh">وسایلی که ساختی ('+fa(list.length)+')</b>':'';
+  for(const it of list){const row=document.createElement('div');row.className='airow';
+    const im=document.createElement('img');im.alt='';if(it.thumb)im.src=it.thumb;else im.hidden=true;row.appendChild(im);
+    const nm=document.createElement('span');nm.textContent=(it.emoji||'🤖')+' '+it.name+(it.hide?' · '+{cab:'می‌شه رفت توش',lid:'می‌شه توش قایم شد',behind:'می‌شه پشتش قایم شد'}[it.hide]:'');row.appendChild(nm);
+    const pl=document.createElement('button');pl.type='button';pl.className='rb';pl.dataset.aiPlace=it.id;pl.textContent='بذار';row.appendChild(pl);
+    const del=document.createElement('button');del.type='button';del.className='rb ghost';del.dataset.aiDel=it.id;del.textContent='🗑';del.setAttribute('aria-label','حذف از فهرست');row.appendChild(del);
+    box.appendChild(row);}
+}
+function aiPlace(id){
+  const it=AI_ITEMS.find(i=>i.id===id);if(!it)return;aiClose();
+  if(!HS_EDITOR.active){try{hsEditorOpen();}catch(e){console.warn(e);}}
+  setTimeout(()=>{if(HS_EDITOR.active){HS_EDITOR.cat=AI_CAT;hsEditorNewObject(id,it.name);}else toast('نمایشگر زندهٔ قایم‌موشک باز نشد.',2200);},HS_EDITOR.active?0:700);
+}
+async function aiBuild(){
+  if(AI.busy){if(AI.ctl)AI.ctl.abort();return;}
+  const inp=document.getElementById('aiIn'),text=inp.value.trim(),img=AI.img;
+  if(!text&&!img){aiStatus('بنویس چی بسازم، یا یه عکس بفرست.');return;}
+  if(!aiOn()){aiStatus(aiErrText({code:'no_ai'}));return;}
+  AI.busy=true;AI.ctl=new AbortController();const go=document.getElementById('aiGo');go.textContent='توقف';
+  const t0=performance.now();aiStatus('دارم فکر می‌کنم و می‌سازم…',true);
+  const tick=setInterval(()=>aiStatus('دارم فکر می‌کنم و می‌سازم… '+fa(Math.round((performance.now()-t0)/1000))+' ثانیه',true),1000);
+  try{
+    const v=await aiCall({system:aiItemPrompt(text,!!img),turns:[{role:'user',content:img?'Build the object'+(text?' «'+text+'»':'')+' from the attached photo. Reply with only the JSON.':'Build: «'+text+'». Reply with only the JSON.'}],images:img?[img]:[],json:true,kind:'build',signal:AI.ctl.signal});
+    const it=aiItemFromReply(v,text,!!img);
+    it.thumb=aiThumb(it,120);
+    AI_ITEMS.push(it);aiItemRegister(it);aiItemsSave();
+    inp.value='';aiSetImg(null);AI.last=it.id;
+    const out=document.getElementById('aiOut');out.hidden=false;
+    const big=aiThumb(it,220);const pi=document.getElementById('aiPrevImg');if(big){pi.src=big;pi.hidden=false;}else pi.hidden=true;
+    document.getElementById('aiOutName').textContent=it.emoji+' '+it.name;
+    document.getElementById('aiOutInfo').textContent=fa(it.parts.length)+' تکه · '+({cab:'می‌شه درش رو باز کرد و رفت توش',lid:'می‌شه درش رو باز کرد و توش قایم شد',behind:'می‌شه پشتش قایم شد'}[it.hide]||'وسیلهٔ تزئینی')+' · ذخیره شد و رفت تو بخش وسیله‌ها («'+AI_CAT+'»)';
+    document.getElementById('aiPlace').dataset.aiPlace=it.id;
+    aiStatus('✅ ساخته شد!');aiList();
+    if(HS_EDITOR.active)try{hsEditorPaletteRefresh(document.getElementById('hsEdSearch').value);}catch(e){}
+  }catch(e){aiStatus(e&&e.code==='cancelled'?'متوقف شد.':'⚠️ '+aiErrText(e));}
+  finally{clearInterval(tick);AI.busy=false;AI.ctl=null;go.textContent='بساز';}
+}
+
+/* ---- free chat with Arash ---- */
+function aiChatRules(){
+  return `You are ${FR.name}, the player's close friend and companion inside a cosy 3D Persian adventure game: a castle hall with a haystack where a needle is hidden, a city with shops, houses and cars, a hide-and-seek hall, a torch-lit maze and small adventure games. You are a character IN the game, never say you are an AI, a model or a program. Talk in warm, playful, everyday spoken Persian (Tehran colloquial), like a real friend of the player. Keep replies short: one to three sentences, unless the player asks for a story, a joke or an explanation. An emoji now and then is fine.
+
+You can act in the game. Put the actions to carry out, in order, in "do", using only these names:
+${Object.entries(FR_ACTS).map(([k,v])=>k+': '+v).join('\n')}
+Act only when the player asks or it clearly fits; otherwise "do" is []. Never say you are doing something you did not put in "do". When the player asks where the needle is, use the needle hint in the game state.
+
+Each player message comes with the current game state. Reply with only JSON: {"say":"your reply in Persian","do":["action", ...]}`;
+}
+async function aiChatReply(){
+  if(AI.chatBusy)return;AI.chatBusy=true;
+  const ty=document.getElementById('chatTyping'),btn=document.querySelector('#chatForm button');if(ty)ty.hidden=false;if(btn)btn.disabled=true;
+  try{
+    let turns=FR.hist.slice(-16).map(t=>({role:t.role==='assistant'?'assistant':'user',content:String(t.content||'')})).filter(t=>t.content.trim());
+    while(turns.length&&turns[0].role!=='user')turns.shift();
+    if(!turns.length||turns[turns.length-1].role!=='user')return;
+    let st={};try{st=frGameState();}catch(e){}
+    turns[turns.length-1]={role:'user',content:turns[turns.length-1].content+'\n\n(وضعیت بازی همین الان: '+JSON.stringify(st)+')'};
+    const v=await aiCall({system:aiChatRules(),turns,json:true,kind:'chat'});
+    let say=v&&typeof v==='object'?String(v.say||v.reply||v.text||''):String(v||'');say=say.trim().slice(0,700);
+    const acts=v&&Array.isArray(v.do)?v.do.filter(a=>typeof a==='string'&&FR_ACTS[a]).slice(0,8):[];
+    if(!say)say='هوم… یه بار دیگه بگو؟';
+    FR.hist.push({role:'assistant',content:say});if(FR.hist.length>20)FR.hist.splice(0,FR.hist.length-20);
+    try{frDo(acts);}catch(err){console.warn('حرکت آرش:',err);}
+    frSay(say);
+  }catch(e){
+    // the AI did not answer this time: Arash still replies, from his own words
+    let r=null;try{r=frLocal(FR.hist[FR.hist.length-1].content);}catch(err){}
+    if(r&&String(r.say||'').trim()){FR.hist.push({role:'assistant',content:String(r.say)});try{frDo(Array.isArray(r.do)?r.do:[]);}catch(err){}frSay(String(r.say));}
+    toast('🤖 '+aiErrText(e),3200);
+  }finally{AI.chatBusy=false;if(ty)ty.hidden=true;if(btn)btn.disabled=false;}
+}
+const AI_CHAT_PRESETS=['سلام آرش! خوبی؟','دنبالم بیا','همین‌جا وایسا','بیا پیشم','بیا قایم‌موشک بازی کنیم','سوزن کجاست؟','برو دنبال سوزن بگرد','درو باز کن','درو ببند','بریم شهر','برگرد تو تالار','برقص','بپر','بشین','دراز بکش','بلند شو','دست تکون بده','دور خودت بچرخ','یه جوک بگو','جاذبه رو خاموش کن','جاذبه رو روشن کن','هوا رو عوض کن','چه کارهایی بلدی؟','حوصله‌م سر رفته','مرسی رفیق','خداحافظ'];
+
+/* ---- showing or hiding everything AI ---- */
+function aiRefreshUI(){
+  const on=aiOn();
+  for(const id of ['aiBtn','hsEdAiBtn']){const b=document.getElementById(id);if(b)b.hidden=!on;}
+  const f=document.getElementById('chatForm');if(f)f.hidden=!on;
+  const ci=document.getElementById('chatIn');if(ci)ci.placeholder=on?'هر چی دوست داری به '+(FR.name||'آرش')+' بگو…':'';
+  const sug=document.getElementById('chatSug');
+  if(sug&&!sug.dataset.ready){sug.dataset.ready='1';sug.innerHTML='';for(const t of AI_CHAT_PRESETS){const b=document.createElement('button');b.type='button';b.dataset.say=t;b.textContent=t;sug.appendChild(b);}}
+  if(!on){const ab=document.getElementById('aiBox');if(ab&&!ab.hidden)aiClose();}
+  const st=document.getElementById('aiSetRow');if(st&&document.getElementById('panel')&&!document.getElementById('panel').hidden)st.outerHTML=aiSettingsHTML();
+}
+function aiSettingsHTML(){
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  if(AI.src==='claude')return `<div class="setrow" id="aiSetRow"><div style="width:100%"><b>🤖 هوش مصنوعی</b><small>بازی داخل Claude باز شده؛ ساخت هر وسیله با نوشتن${AI.imgOK?' یا عکس':''} و گفت‌وگوی آزاد با ${esc(FR.name)} روشنه. هر بار که ازش استفاده کنی از سهمیهٔ حساب Claude خودت کم می‌شه.</small></div></div>`;
+  if(AI.cfg)return `<div class="setrow" id="aiSetRow"><div style="width:100%"><b>🤖 هوش مصنوعی: وصل به ${esc(AI.cfg.name)}</b><small>مدل: ${esc(AI.cfg.model)}. ساخت وسیله با متن یا عکس (دکمهٔ 🤖) و گفت‌وگوی آزاد با ${esc(FR.name)} روشنه. کلید فقط روی همین دستگاه می‌مونه و تو فایل پشتیبان نمی‌ره.</small><div id="aiKeyMsg" class="aikeymsg"></div></div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="rb" id="aiKeyTest">آزمایش</button><button class="rb ghost" id="aiKeyDel">حذف کلید</button></div></div>`;
+  return `<div class="setrow" id="aiSetRow"><div style="width:100%"><b>🔑 کلید API هوش مصنوعی</b><small>ساخت هر وسیله با نوشتن یا عکس و گفت‌وگوی آزاد با ${esc(FR.name)} فقط داخل Claude یا با کلید API کار می‌کنه. کلید هر شرکتی قبوله: Claude، Gemini، ChatGPT، DeepSeek، Groq، OpenRouter، Grok، Mistral… شرکتش خودکار شناخته می‌شه.</small>
+    <div class="aikey"><input id="aiKeyIn" type="password" autocomplete="off" spellcheck="false" placeholder="کلید API رو اینجا بذار" aria-label="کلید API"><button class="rb" id="aiKeySave">ثبت کلید</button></div>
+    <details class="aiadv"><summary>پیشرفته (اختیاری)</summary><input id="aiModelIn" type="text" autocomplete="off" spellcheck="false" placeholder="اسم مدل؛ خالی = بهترین مدل خودکار" aria-label="اسم مدل"><input id="aiBaseIn" type="url" autocomplete="off" spellcheck="false" placeholder="آدرس سرویس سازگار با OpenAI، مثلاً https://…/v1" aria-label="آدرس سرویس"></details>
+    <div id="aiKeyMsg" class="aikeymsg"></div></div></div>`;
+}
+async function aiSettingsClick(t){
+  const msg=t2=>{const m=document.getElementById('aiKeyMsg');if(m)m.textContent=t2;};
+  if(t.id==='aiKeySave'){
+    const key=(document.getElementById('aiKeyIn')||{}).value||'',model=(document.getElementById('aiModelIn')||{}).value||'',base=(document.getElementById('aiBaseIn')||{}).value||'';
+    if(key.trim().length<10){msg('کلید کوتاهه؛ کامل کپی‌اش کن.');return;}
+    if(base&&!/^https:\/\//i.test(base.trim())){msg('آدرس سرویس باید با https:// شروع بشه.');return;}
+    t.disabled=true;msg('دارم کلید رو امتحان می‌کنم…');
+    try{const cfg=await aiConnect(key,model,base);localStorage.setItem(AI_KEY_STORE,JSON.stringify(cfg));AI.cfg=cfg;if(AI.src!=='claude')AI.src='key';
+      aiRefreshUI();toast('✅ هوش مصنوعی وصل شد: '+cfg.name,2600);openSettings();}
+    catch(e){msg('⚠️ '+aiErrText(e));t.disabled=false;}
+  }else if(t.id==='aiKeyDel'){
+    try{localStorage.removeItem(AI_KEY_STORE);}catch(e){}AI.cfg=null;if(AI.src==='key')AI.src='';aiRefreshUI();toast('کلید پاک شد.',1800);openSettings();
+  }else if(t.id==='aiKeyTest'){
+    t.disabled=true;msg('دارم امتحان می‌کنم…');
+    try{const v=await aiCall({system:'Reply with only JSON: {"ok":true,"say":"<a short friendly Persian greeting>"}',turns:[{role:'user',content:'سلام'}],json:true,kind:'chat'});msg('✅ کار می‌کنه: '+String(v&&v.say||'').slice(0,80));}
+    catch(e){msg('⚠️ '+aiErrText(e));}finally{t.disabled=false;}
+  }
+}
+function aiUIInit(){
+  const box=document.getElementById('aiBox');if(!box||box.dataset.ready)return;box.dataset.ready='1';
+  for(const ev of ['pointerdown','pointermove','pointerup','wheel','touchstart','touchmove'])box.addEventListener(ev,e=>e.stopPropagation(),{passive:true});
+  box.addEventListener('click',e=>{const t=e.target.closest('button');if(!t){if(e.target===box)aiClose();return;}
+    if(t.id==='aiClose')aiClose();else if(t.dataset.aiPlace)aiPlace(t.dataset.aiPlace);
+    else if(t.dataset.aiDel){const it=AI_ITEMS.find(i=>i.id===t.dataset.aiDel);if(it){it.hidden=true;aiItemRegister(it);aiItemsSave();aiList();if(HS_EDITOR.active)try{hsEditorPaletteRefresh(document.getElementById('hsEdSearch').value);}catch(err){}toast('از فهرست وسایل برداشته شد؛ نمونه‌هایی که تو تالار گذاشتی سر جاشون می‌مونن.',3200);}}
+    else if(t.dataset.aiEx){document.getElementById('aiIn').value=t.dataset.aiEx;}
+    else if(t.id==='aiImgX')aiSetImg(null);});
+  document.getElementById('aiForm').addEventListener('submit',e=>{e.preventDefault();aiBuild();});
+  document.getElementById('aiImg').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+    try{aiSetImg(await aiPrepImage(f));aiStatus('عکس آماده‌ست. اگه خواستی یه توضیح هم بنویس، بعد «بساز» رو بزن.');}catch(err){aiStatus('⚠️ '+aiErrText(err));}});
+  const ab=document.getElementById('aiBtn');if(ab)ab.addEventListener('click',e=>{e.stopPropagation();const b=document.getElementById('aiBox');if(b.hidden)aiOpen();else aiClose();});
+  const eb=document.getElementById('hsEdAiBtn');if(eb)eb.addEventListener('click',e=>{e.stopPropagation();aiOpen();});
+  const sug=document.getElementById('chatSug');if(sug)sug.addEventListener('click',e=>{const b=e.target.closest('button[data-say]');if(!b)return;e.stopPropagation();chatSend(b.dataset.say,true);});
+  aiRefreshUI();aiInit();
+}
+
 const HS_EDIT_KEY='needle-hs-live-layout-v1';
 HS_EDITOR.inGame=false;HS_EDITOR.pendingType=null;HS_EDITOR.pendingLabel='';HS_EDITOR.lastFloor=null;HS_EDITOR.lockedCamera=true;
 HS_EDITOR.camView='fp';HS_EDITOR.camYaw=0;HS_EDITOR.camPitch=-.14;
@@ -8168,7 +8680,7 @@ function hsEditorRestoreCustom(){
   HS_EDITOR.customRestored=true;
   const d=hsEditorGetLayout();
   for(const q of d.custom){
-    if(!q||!HS_EDIT_ASSETS.some(a=>a[0]===q.type)||typeof q.id!=='string'||!/^custom_\d+$/.test(q.id))continue;
+    if(!q||!(HS_EDIT_ASSETS.some(a=>a[0]===q.type)||HS_LIB[q.type])||typeof q.id!=='string'||!/^custom_\d+$/.test(q.id))continue;
     if(hsEditorById(q.id))continue;
     const st=q.state||{};const f=hsEditorBuildProp(q.type,Number(st.x)||0,Number(st.z)||0,Number(st.yaw)||0,q.id,q.label||'');
     if(f)hsEditorApplyFrame(f,st);
@@ -8715,12 +9227,13 @@ function hsEditorTouchUp(e){
 }
 function hsEditorPaletteRefresh(filter){
  const box=document.getElementById('hsEdPreset');if(!box)return;
- const cats=['همه','کلاسیک',...new Set(HS_LIB_LIST.map(a=>a[3]))],cur=HS_EDITOR.cat||'همه';
+ const libCats=[...new Set(HS_EDIT_ASSETS.filter(a=>a[3]).map(a=>a[3]))],cats=['همه',...(libCats.includes(AI_CAT)?[AI_CAT]:[]),'کلاسیک',...libCats.filter(c=>c!==AI_CAT)];
+ if(HS_EDITOR.cat&&!cats.includes(HS_EDITOR.cat))HS_EDITOR.cat='همه';const cur=HS_EDITOR.cat||'همه';
  let bar=document.getElementById('hsEdCats');if(!bar){bar=document.createElement('div');bar.id='hsEdCats';box.parentNode.insertBefore(bar,box);
    bar.addEventListener('click',e=>{const b=e.target.closest('[data-ed-cat]');if(!b)return;e.stopPropagation();HS_EDITOR.cat=b.dataset.edCat;hsEditorPaletteRefresh(document.getElementById('hsEdSearch').value);});}
  bar.innerHTML=cats.map(c=>`<button type="button" data-ed-cat="${c}" class="${c===cur?'active':''}">${c}</button>`).join('');
  const text=String(filter||'').trim().toLowerCase(),inCat=a=>cur==='همه'||(cur==='کلاسیک'?!a[3]:a[3]===cur);
- const arr=HS_EDIT_ASSETS.filter(a=>inCat(a)&&(!text||a[2].includes(text)||a[0].includes(text)));
+ const arr=HS_EDIT_ASSETS.filter(a=>inCat(a)&&(!text||a[2].includes(text)||a[0].includes(text))).sort((a,b)=>(b[3]===AI_CAT)-(a[3]===AI_CAT));
  box.innerHTML='';for(const a of (arr.length?arr:HS_EDIT_ASSETS.filter(inCat))){
    if(a[0]==='room')continue;
    const btn=document.createElement('button');btn.type='button';btn.dataset.edType=a[0];btn.textContent=a[1]+' '+a[2];
@@ -9506,6 +10019,7 @@ $('#handBtn').addEventListener('click',()=>doAct());
 $('#chatBtn').addEventListener('click',e=>{e.stopPropagation();SFX.resume();const b=$('#chatBox');if(b.hidden)openChat();else closeChat();});
 $('#chatClose').addEventListener('click',()=>closeChat());
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatIn');const v=i.value;i.value='';chatSend(v);});
+try{aiUIInit();}catch(e){console.warn('AI:',e);}
 $('#chatBox').addEventListener('pointerdown',e=>e.stopPropagation());
 $('#bagBtn').addEventListener('click',e=>{e.stopPropagation();SFX.resume();openBag();});
 $('#setBtn').addEventListener('click',e=>{e.stopPropagation();SFX.resume();openSettings();});
