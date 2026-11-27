@@ -1207,3 +1207,17 @@ body.polish .vignette { opacity: 1; }
 .kart-row .kart-lights { flex: 1; }
 .kart-drift { min-width: 112px; height: 52px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #7fe0ff, #2f9bff); color: #0b1530; font: 400 18px/1 var(--display); touch-action: none; user-select: none; -webkit-user-select: none; }
 @media (pointer: fine) and (min-width: 721px) { .kart-drift { display: none; } }
+
+/* round 17: the shooting gallery and the truck pull */
+.gallery-panel { border-color: rgba(255, 77, 166, 0.8); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(255, 77, 166, 0.4); }
+.gallery-panel .spin-head, .truck-panel .spin-head { color: #ffe09a; font-size: 17px; }
+.truck-panel { border-color: rgba(255, 211, 77, 0.8); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), 0 0 18px rgba(255, 211, 77, 0.35); }
+.truck-bar { height: 14px; border-radius: 7px; background: rgba(255, 255, 255, 0.12); overflow: hidden; direction: ltr; }
+.truck-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2ecc71, #ffd34d, #e63946); transition: width 0.08s; }
+.truck-pull { height: 56px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #ffc23d, #ff8a00); color: #2b1d00; font: 400 24px/1 var(--display); touch-action: none; user-select: none; -webkit-user-select: none; }
+.truck-pull:active { transform: translateY(2px) scale(0.98); }
+.hud:has(#galleryPanel:not([hidden])) .panel, .hud:has(#galleryPanel:not([hidden])) .powers, .hud:has(#galleryPanel:not([hidden])) .joy, .hud:has(#galleryPanel:not([hidden])) .ctx-btn,
+.hud:has(#truckPanel:not([hidden])) .panel, .hud:has(#truckPanel:not([hidden])) .powers { display: none !important; }
+.hud:has(#galleryPanel:not([hidden])) .toasts, .hud:has(#truckPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 200px); }
+@media (max-width: 720px) { .hud:has(#galleryPanel:not([hidden])) .toasts, .hud:has(#truckPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 300px); } }
+@media (max-height: 480px) and (orientation: landscape) { .gallery-panel .spin-info { display: none; } .truck-pull { height: 44px; } .hud:has(#galleryPanel:not([hidden])) .toasts, .hud:has(#truckPanel:not([hidden])) .toasts { top: calc(var(--safe-t) + 150px); } }

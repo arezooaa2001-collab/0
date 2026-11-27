@@ -98,6 +98,25 @@ const Game = {
     if (!Array.isArray(v.stats.visited)) v.stats.visited = [];
     v.boost = Object.assign({ used: false, until: 0 }, obj(v.boost));
     v.drinkUntil = Math.max(0, Number(v.drinkUntil) || 0);
+    // numbers in the stats stay numbers (a string would turn +1 into "11")
+    for (const k of Object.keys(v.stats)) {
+      const x = v.stats[k];
+      if (typeof x === 'string' && x.trim() !== '' && Number.isFinite(Number(x))) v.stats[k] = Number(x);
+      else if (typeof x === 'number' && !Number.isFinite(x)) v.stats[k] = 0;
+    }
+    if (v.chestHundred != null) { const h = Math.floor(Number(v.chestHundred)); if (Number.isFinite(h) && h >= 0) v.chestHundred = h; else delete v.chestHundred; }
+    v.chestOwed = clamp(Math.floor(Number(v.chestOwed) || 0), 0, 50);
+    // the light preset builds the places with fewer polygons
+    UnitGeo.lowPoly = v.settings.quality === 'go';
+    // the look keeps only colours and styles the editor offers
+    const look = obj(v.look), lookOk = {};
+    for (const k of Object.keys(look)) {
+      if (typeof LOOK_COLORS !== 'undefined' && LOOK_COLORS[k] && LOOK_COLORS[k].includes(look[k])) lookOk[k] = look[k];
+      if (k === 'hairStyle' && typeof HAIR_STYLES !== 'undefined' && HAIR_STYLES.some((h) => h[0] === look[k])) lookOk[k] = look[k];
+    }
+    v.look = lookOk;
+    // gold dumbbells: real ids only, each once
+    if (Array.isArray(v.goldFound) && typeof GOLD_SPOTS !== 'undefined') v.goldFound = [...new Set(v.goldFound.filter((id) => GOLD_SPOTS.some((g) => g.id === id)))];
     if (!Array.isArray(v.achievements)) v.achievements = [];
     if (!Array.isArray(v.missions)) v.missions = [];
   },
@@ -1213,6 +1232,7 @@ const Game = {
       if (e.code === 'Equal' || e.code === 'NumpadAdd') this.usePower('clone');
       if (e.code === 'BracketRight' || e.code === 'NumpadMultiply') this.usePower('storm');
       if (e.code === 'BracketLeft' || e.code === 'NumpadDivide') this.usePower('portal');
+      if (e.code === 'Backslash' || e.code === 'NumpadDecimal') this.usePower('magnet');
       if (e.code === 'KeyQ' && this.snowyHere()) this.throwSnowball();
       if (e.code === 'KeyC') this.cycleCamera();
       if (e.code === 'Space' && !this.inFootball()) this.pendingJump = true;
@@ -1348,6 +1368,7 @@ const Game = {
       this.tickFun8(dt);
       this.tickFun9(dt);
       this.tickFun10(dt);
+      this.tickFun11(dt);
       this.tickPolish(dt);
       this.tickPolish2(dt);
       this.tickCape(dt);

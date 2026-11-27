@@ -59,9 +59,11 @@ const UnitGeo = {
     return g;
   },
   box() { return this.get('box', () => new THREE.BoxGeometry(1, 1, 1)); },
-  cyl(seg = 16) { return this.get('cyl' + seg, () => new THREE.CylinderGeometry(1, 1, 1, seg)); },
+  /** lowPoly (the Go preset): round things are built with fewer sides. */
+  lowPoly: false,
+  cyl(seg = this.lowPoly ? 10 : 16) { return this.get('cyl' + seg, () => new THREE.CylinderGeometry(1, 1, 1, seg)); },
   cone(seg = 16) { return this.get('cone' + seg, () => new THREE.CylinderGeometry(0, 1, 1, seg)); },
-  sphere(w = 16, h = 12) { return this.get('sph' + w + '_' + h, () => new THREE.SphereGeometry(1, w, h)); },
+  sphere(w = this.lowPoly ? 10 : 16, h = this.lowPoly ? 7 : 12) { return this.get('sph' + w + '_' + h, () => new THREE.SphereGeometry(1, w, h)); },
   capsule(r, l, cs = 4, rs = 10) { return this.get(`cap${r}_${l}_${cs}_${rs}`, () => new THREE.CapsuleGeometry(r, l, cs, rs)); },
   torus(r, t, rs = 8, ts = 24) { return this.get(`tor${r}_${t}_${rs}_${ts}`, () => new THREE.TorusGeometry(r, t, rs, ts)); },
 };

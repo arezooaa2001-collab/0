@@ -327,7 +327,10 @@ Object.assign(Game, {
       if (T.sq > 0) { T.sq = Math.max(0, T.sq - dt * 3); T.mat.position.y = TRAMPS.top + 0.004 - 0.12 * Math.sin(T.sq * Math.PI); }
       // the player bounces higher and higher, with flips from the second bounce
       const d = Math.hypot(p.x - T.x, p.z - T.z);
-      if (this.mode === 'play' && d < TRAMPS.r - 0.2 && ch.grounded && p.y > TRAMPS.top - 0.08 && !P.anchor && !ch.busy && !this.loop) {
+      // standing still on it doesn't bounce for ever: it takes a jump or a step to go again after a few
+      const moving = P.vel.length() > 0.3 || this.pendingJump || this.keys.has('Space') || this.jumpHeld;
+      if (this.mode === 'play' && d < TRAMPS.r - 0.2 && ch.grounded && p.y > TRAMPS.top - 0.08 && !P.anchor && !ch.busy && !this.loop && (moving || (P.trampIdle || 0) < 3)) {
+        P.trampIdle = moving ? 0 : (P.trampIdle || 0) + 1;
         // bouncing again right after landing from the last bounce keeps the combo going
         const n = Math.abs(this.clock - (P.trampT ?? -9)) < 0.6 ? Math.min(4, (P.trampN || 1) + 1) : 1;
         P.trampN = n;
@@ -474,6 +477,8 @@ Object.assign(Game, {
   startDisco(byHand) {
     if (byHand) this.closeModal('menuModal');
     const w = this.world;
+    // a party you throw yourself needs a few minutes' rest before the next one
+    if (byHand && !this.disco && this.clock < (this.discoHandT || 0)) { this.toast(`🪩 هنوز همه خسته‌ان! ${fa(Math.ceil((this.discoHandT - this.clock) / 60))} دقیقه‌ی دیگه یه مهمونی تازه بگیر.`, 'warn'); return; }
     if (this.disco || this.mode !== 'play' || this.race || this.arm || this.build || this.dodge || this.inFootball() || w.allowTurbo || (w === this.gym && this.gym.boss)) {
       if (byHand) this.toast(this.disco ? 'مهمونی همین الان داره برگزار می‌شه! 🪩' : 'الان نمی‌شه مهمونی گرفت؛ اول کاری که می‌کنی رو تموم کن.', 'warn');
       return;
@@ -542,6 +547,7 @@ Object.assign(Game, {
     const D = this.disco;
     if (!D) return;
     this.disco = null;
+    this.discoHandT = this.clock + 240;
     D.grp.removeFromParent();
     D.grp.traverse((o) => { if (o.isMesh) { if (o.geometry !== D.beamGeo) o.geometry.dispose(); o.material.dispose(); } });
     D.beamGeo.dispose();

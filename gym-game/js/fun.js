@@ -245,7 +245,7 @@ Object.assign(Game, {
     if (!w.pickups) w.pickups = new Pickups(w);
     // nothing spawns on the million-metre track (it would land millions of metres away)
     const auto = this.mode === 'play' && !this.arm && !(w instanceof RunWorld);
-    const got = w.pickups.update(dt, this.player, auto, w === this.gym ? 12 : 9, this.starActive() ? 6 : 0);
+    const got = w.pickups.update(dt, this.player, auto, w === this.gym ? 12 : 9, this.magnetT > 0 ? 32 : this.starActive() ? 6 : 0);
     for (const it of got) this.onPickup(it);
     if (!auto || this.race) return;
     this.chestT -= dt;

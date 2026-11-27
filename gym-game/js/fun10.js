@@ -523,3 +523,10 @@ WorldBase.prototype.onCharEvent = function (e, ch, isPlayer) {
   }
   return _onCharEvent10.call(this, e, ch, isPlayer);
 };
+
+/* level chests still owed are kept in the save (a reload doesn't lose them) */
+Object.defineProperty(Game, 'chestOwed', {
+  get() { return (this.save && this.save.chestOwed) || 0; },
+  set(v) { if (this.save) this.save.chestOwed = Math.max(0, v | 0); },
+  configurable: true,
+});

@@ -105,7 +105,7 @@ const PIN_ROWS = (() => {
   for (let i = 0; i < 4; i++) for (let j = 0; j <= i; j++) out.push([i * 0.264, (j - i / 2) * 0.305]);
   return out;
 })();
-const NO_GRAB = ['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'frozen', 'dcoach', 'twister', 'flung'];
+const NO_GRAB = ['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'frozen', 'dcoach', 'twister', 'flung', 'party'];
 GYM_SPOTS.push(['🎳', 'بولینگ، کمان و زیپ‌لاین', 92, 22]);
 
 function zipY(x) { return ZIP.y0 + (ZIP.y1 - ZIP.y0) * clamp((x - ZIP.x0) / (ZIP.x1 - ZIP.x0), 0, 1); }

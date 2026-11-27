@@ -79,6 +79,8 @@ Object.assign(Game, {
     this.closeModal('chalModal');
     if (!c || this.chal || this.race || this.arm || this.mode !== 'play') return;
     if (this.miniBusy && this.miniBusy()) { this.toast('اول کاری که می‌کنی رو تموم کن.', 'warn'); return; }
+    // the hoverboard would make the sprint a walk in the park
+    if (this.player && this.player.board && this.endBoard) this.endBoard();
     Sfx.init();
     Sfx.play('whistle');
     const ch = { c, t: c.dur || 0, score: 0, count: 3, run: 0, startT: 0, rings: [], ring: 0, round: 0, target: null, roundT: 0 };
@@ -188,6 +190,7 @@ Object.assign(Game, {
         this.world.fx.ring({ x: ch.ringPos.x, y: 1.3, z: ch.ringPos.z }, { count: 40, color: '#ffd34d', radius: 0.6, speed: 4, life: 0.6 });
         this.world.scene.remove(ring);
         ring.geometry.dispose();
+        if (ring.material) ring.material.dispose();
         ch.ringPos = null;
         if (ch.score >= 8) { this.endChallenge(); return; }
         this.spawnRing();
@@ -217,7 +220,7 @@ Object.assign(Game, {
   clearChallenge() {
     const ch = this.chal;
     if (!ch) return;
-    for (const r of ch.rings) { this.world.scene.remove(r); r.geometry.dispose(); }
+    for (const r of ch.rings) { this.world.scene.remove(r); r.geometry.dispose(); if (r.material) r.material.dispose(); }
     if (this.player.guide) this.player.guide = null;
     this.chal = null;
     $('chalHud').hidden = true;

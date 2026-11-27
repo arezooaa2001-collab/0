@@ -521,13 +521,9 @@ Object.assign(Game, {
     const h = Math.floor(realLv(s) / 100);
     if (s.chestHundred == null) { s.chestHundred = h; return; }
     if (h <= s.chestHundred) return;
+    // one chest for every hundred crossed (a big jump can cross several); they come one at a time
+    this.chestOwed = (this.chestOwed || 0) + (h - s.chestHundred);
     s.chestHundred = h;
-    const w = this.world;
-    setTimeout(() => {
-      const pk = this.world === w && w.pickups;
-      if (!pk || this.mode !== 'play') { this.chestOwed = (this.chestOwed || 0) + 1; return; }
-      this.spawnLevelChest(h * 100);
-    }, 1500);
   },
 
   /** A chest right next to you (an older chest elsewhere is moved over). */
@@ -543,7 +539,9 @@ Object.assign(Game, {
       if (w.inBounds(x, z, 0.8) && w.spotFree(x, z, 0.6)) spot = { x, z };
     }
     if (!spot) return false;
-    const c = pk.chest && !pk.chest.opening ? pk.chest : pk.spawnChestAt ? pk.spawnChestAt(spot.x, spot.z) : pk.spawnChest();
+    // a chest already lying about is not this one: wait until it's opened
+    if (pk.chest) return false;
+    const c = pk.spawnChestAt ? pk.spawnChestAt(spot.x, spot.z) : pk.spawnChest();
     if (!c) return false;
     c.x = spot.x; c.z = spot.z; c.g.position.set(spot.x, 0, spot.z);
     w.fx.burst({ x: c.x, y: 1, z: c.z }, { count: 60, colors: ['#ffd34d', '#ffffff'], speed: 3, up: 4, life: 1 });

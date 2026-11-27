@@ -526,16 +526,20 @@ BONE_DEFS.forEach(([name, parent, x, y, z], i) => {
 });
 
 const HAIR_GEO = new THREE.SphereGeometry(1, 16, 8, 0, TAU, 0, Math.PI * 0.55);
+const HAIR_GEO_LO = new THREE.SphereGeometry(1, 8, 4, 0, TAU, 0, Math.PI * 0.55);
 
-function buildCharGeometry(o, m) {
+/** lod: a lighter body for people far from the camera (fewer segments, no tiny face details). */
+function buildCharGeometry(o, m, lod = false) {
   const parts = [];
   const add = (bone, geo, x, y, z, color, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
+    if (!geo) return;
     const bi = BONE_INDEX[bone];
     const mat = composeMatrix(x, y, z, rx, ry, rz, sx, sy, sz).premultiply(REST_WORLD[bi]);
     parts.push({ geo, matrix: mat, color: new THREE.Color(color), bone: bi });
   };
-  const sph = UnitGeo.sphere(14, 10);
-  const cyl = UnitGeo.cyl(14);
+  const sph = lod ? UnitGeo.sphere(7, 5) : UnitGeo.sphere(12, 8);
+  const cyl = lod ? UnitGeo.cyl(7) : UnitGeo.cyl(12);
+  const cap = (r, l, s, rs) => UnitGeo.capsule(r, l, lod ? 1 : Math.min(s, 2), lod ? 6 : Math.min(rs, 9));
   const box = UnitGeo.box();
   const ma = 1 + 0.5 * m; // upper arm
   const mb = 1 + 0.9 * m; // biceps
@@ -551,7 +555,7 @@ function buildCharGeometry(o, m) {
   add('body', sph, 0, -0.12, 0, o.shorts, 0, 0, 0, 0.165 * tw, 0.09, 0.125 * tw);
   add('body', cyl, 0, 0.085, 0, o.accent, 0, 0, 0, 0.17 * tw, 0.035, 0.13 * tw);
   // torso
-  add('spine', UnitGeo.capsule(0.17, 0.26, 4, 12), 0, 0.3, 0, o.shirt, 0, 0, 0, 1.06 * tw, 1, 0.8);
+  add('spine', cap(0.17, 0.26, 4, 12), 0, 0.3, 0, o.shirt, 0, 0, 0, 1.06 * tw, 1, 0.8);
   add('spine', sph, 0, 0.47, -0.01, o.shirt, 0, 0, 0, 0.245 * tw * (1 + 0.12 * m), 0.11, 0.14);
   add('spine', sph, 0.085, 0.4, 0.07, o.shirt, 0, 0, 0, 0.095 * mc, 0.075 * mc, 0.07 * mc);
   add('spine', sph, -0.085, 0.4, 0.07, o.shirt, 0, 0, 0, 0.095 * mc, 0.075 * mc, 0.07 * mc);
@@ -567,7 +571,7 @@ function buildCharGeometry(o, m) {
   add('head', sph, 0, 0.17, 0.01, o.skin, 0, 0, 0, 0.118, 0.135, 0.125);
   // hair: a few styles so a crowd doesn't look like one person
   const hs = o.hairStyle || 'crop';
-  if (hs !== 'bald' && hs !== 'mohawk' && hs !== 'afro') add('head', HAIR_GEO, 0, 0.18, -0.008, o.hair, -0.35, 0, 0, 0.128, 0.13, 0.135);
+  if (hs !== 'bald' && hs !== 'mohawk' && hs !== 'afro') add('head', lod ? HAIR_GEO_LO : HAIR_GEO, 0, 0.18, -0.008, o.hair, -0.35, 0, 0, 0.128, 0.13, 0.135);
   if (hs === 'spiky') {
     for (const [x, y, z, rx, rz] of [[0, 0.3, 0.03, -0.2, 0], [0.05, 0.29, 0.0, -0.3, -0.4], [-0.05, 0.29, 0.0, -0.3, 0.4], [0, 0.29, -0.05, -0.8, 0], [0.06, 0.26, -0.06, -0.9, -0.5], [-0.06, 0.26, -0.06, -0.9, 0.5], [0.08, 0.27, 0.04, -0.1, -0.8], [-0.08, 0.27, 0.04, -0.1, 0.8]]) {
       add('head', UnitGeo.cone(6), x, y, z, o.hair, rx, 0, rz, 0.032, 0.09, 0.032);
@@ -575,14 +579,14 @@ function buildCharGeometry(o, m) {
   } else if (hs === 'bun') {
     add('head', sph, 0, 0.3, -0.07, o.hair, 0, 0, 0, 0.062, 0.058, 0.062);
   } else if (hs === 'pony') {
-    add('head', UnitGeo.capsule(0.04, 0.16, 3, 8), 0, 0.15, -0.15, o.hair, 0.35, 0, 0, 1, 1, 1);
+    add('head', cap(0.04, 0.16, 3, 8), 0, 0.15, -0.15, o.hair, 0.35, 0, 0, 1, 1, 1);
     add('head', cyl, 0, 0.245, -0.12, o.band || '#e63946', 0.9, 0, 0, 0.03, 0.025, 0.03);
   } else if (hs === 'afro') {
     add('head', sph, 0, 0.23, -0.025, o.hair, 0, 0, 0, 0.175, 0.15, 0.17);
   } else if (hs === 'mohawk') {
     for (let i = 0; i < 6; i++) add('head', box, 0, 0.3 - Math.abs(i - 2.2) * 0.012, 0.07 - i * 0.035, o.hair, -0.25 * (i / 5), 0, 0, 0.026, 0.07, 0.036);
   }
-  const sphS = UnitGeo.sphere(8, 6);
+  const sphS = lod ? null : UnitGeo.sphere(8, 6);
   // eyes: whites, dark pupils with a glint (the lids that blink are separate, see polish.js)
   for (const ex of [0.043, -0.043]) {
     add('head', sphS, ex, 0.186, 0.112, '#f6f6f2', 0, 0, 0, 0.027, 0.026, 0.016);
@@ -600,7 +604,7 @@ function buildCharGeometry(o, m) {
   add('head', sph, 0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   add('head', sph, -0.117, 0.17, 0, o.skin, 0, 0, 0, 0.018, 0.032, 0.026);
   // a headband sits on the hair: wider round an afro
-  if (o.band) { const br = hs === 'afro' ? 0.172 : 0.124; add('head', UnitGeo.torus(1, 0.13, 6, 24), 0, hs === 'afro' ? 0.2 : 0.225, -0.01, o.band, Math.PI / 2, 0, 0, br, br, br); }
+  if (o.band) { const br = hs === 'afro' ? 0.172 : 0.124; add('head', UnitGeo.torus(1, 0.13, lod ? 4 : 6, lod ? 10 : 24), 0, hs === 'afro' ? 0.2 : 0.225, -0.01, o.band, Math.PI / 2, 0, 0, br, br, br); }
   if (o.belt) {
     // championship belt: leather strap with a big metal buckle
     const metal = o.belt === 'gold' ? '#ffcf3d' : '#d5dce6';
@@ -612,22 +616,22 @@ function buildCharGeometry(o, m) {
   // arms
   for (const side of ['L', 'R']) {
     add('sh' + side, sph, 0, -0.02, 0, armTop, 0, 0, 0, 0.083 * ma, 0.085 * ma, 0.08 * ma);
-    add('sh' + side, UnitGeo.capsule(0.06, 0.16, 3, 10), 0, -0.15, 0, o.skin, 0, 0, 0, ma, 1, ma);
+    add('sh' + side, cap(0.06, 0.16, 3, 10), 0, -0.15, 0, o.skin, 0, 0, 0, ma, 1, ma);
     add('sh' + side, sph, 0, -0.15, 0.03, o.skin, 0, 0, 0, 0.05 * mb, 0.075 * mb, 0.045 * mb);
     if (tee) add('sh' + side, cyl, 0, -0.07, 0, o.sleeve || o.shirt, 0, 0, 0, 0.083 * ma, 0.13, 0.083 * ma);
     if (tee && o.stripe) add('sh' + side, cyl, 0, -0.125, 0, o.stripe, 0, 0, 0, 0.085 * ma, 0.025, 0.085 * ma);
-    add('el' + side, UnitGeo.capsule(0.05, 0.16, 3, 10), 0, -0.12, 0, o.skin, 0, 0, 0, mf, 1, mf);
+    add('el' + side, cap(0.05, 0.16, 3, 10), 0, -0.12, 0, o.skin, 0, 0, 0, mf, 1, mf);
     if (o.wrist) add('el' + side, cyl, 0, -0.215, 0, side === 'L' ? o.wrist : (o.wrist2 || o.wrist), 0, 0, 0, 0.056 * mf, 0.05, 0.056 * mf);
     add('ha' + side, sph, 0, -0.045, 0, o.skin, 0, 0, 0, 0.042, 0.06, 0.052);
   }
   // legs
   for (const side of ['L', 'R']) {
-    add('hp' + side, UnitGeo.capsule(0.085, 0.26, 3, 10), 0, -0.21, 0, o.skin, 0, 0, 0, ml, 1, ml);
+    add('hp' + side, cap(0.085, 0.26, 3, 10), 0, -0.21, 0, o.skin, 0, 0, 0, ml, 1, ml);
     if (o.longPants) add('hp' + side, cyl, 0, -0.2, 0, o.shorts, 0, 0, 0, 0.1 * ml, 0.46, 0.1 * ml);
     else add('hp' + side, cyl, 0, -0.08, 0, o.shorts, 0, 0, 0, 0.1 * ml, 0.24, 0.1 * ml);
     if (o.longPants) add('kn' + side, cyl, 0, -0.18, 0, o.shorts, 0, 0, 0, 0.078 * ml, 0.38, 0.078 * ml);
     else {
-      add('kn' + side, UnitGeo.capsule(0.064, 0.24, 3, 10), 0, -0.18, 0, o.skin, 0, 0, 0, ml, 1, ml);
+      add('kn' + side, cap(0.064, 0.24, 3, 10), 0, -0.18, 0, o.skin, 0, 0, 0, ml, 1, ml);
       add('kn' + side, sph, 0, -0.12, -0.025, o.skin, 0, 0, 0, 0.06 * ml, 0.09, 0.06 * ml);
     }
     if (o.highShoes) add('kn' + side, cyl, 0, -0.3, 0, o.shoes, 0, 0, 0, 0.074, 0.16, 0.074);

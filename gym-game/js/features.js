@@ -534,6 +534,8 @@ Object.assign(Game, {
     else if (a === 'fun8') this.goFun8();
     else if (a === 'kart') this.goKart();
     else if (a === 'chickens') this.goChickens();
+    else if (a === 'gallery') this.goGallery();
+    else if (a === 'truck') this.goTruck();
     else if (a === 'look') this.openLook();
     else if (a === 'stats') this.openStats();
     else if (a === 'fireworks') { this.closeModal('menuModal'); this.fireworks(12); }

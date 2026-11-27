@@ -160,7 +160,7 @@ Object.assign(Game, {
     const list = this.frozen || (this.frozen = []);
     let n = 0;
     for (const q of w.npcs) {
-      if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'frozen', 'dcoach', 'twister', 'flung'].includes(q.state)) continue;
+      if (['knocked', 'class', 'race', 'boss', 'buddy', 'leave', 'dodge', 'frozen', 'dcoach', 'twister', 'flung', 'party'].includes(q.state)) continue;
       const qp = q.ch.root.position;
       if (Math.hypot(qp.x - p.x, qp.z - p.z) > 14) continue;
       this.freezeNpc(q, w);
@@ -705,6 +705,8 @@ Object.assign(Game, {
     if (!P) return;
     // the hoverboard's own tick decides about manual while you ride; nothing else does
     if (!P.board) P.ch.manual = false;
+    // somewhere else now (map travel mid-flight): stand on the floor there
+    if (this.world !== this.gym) { P.ch.airY = 0; P.ch.vy = 0; P.ch.grounded = true; }
     if (!P.ch.grounded && P.ch.airY > 0 && this.world === this.gym) {
       // still sitting in the barrel: climb out to the side
       const p = P.ch.root.position;
@@ -949,6 +951,8 @@ Object.assign(Game, {
   danceStep(m) {
     const D = this.danceOff;
     if (!D || D.state !== 'copy' || this.world !== D.w) return;
+    // the coach is down: wait for them to get up before counting moves
+    if (D.coach.state !== 'dcoach') return;
     if (m.id !== D.seq[D.i]) {
       this.say(D.coach, `نه! «${MOVE_BY_ID[D.seq[D.i]].name}» بود.`);
       this.endDanceOff(false);
@@ -990,7 +994,7 @@ Object.assign(Game, {
       this.addCoins(200);
       this.confetti();
       this.victoryDance(300);
-      if (n.ch.grounded) { n.ch.stopAction(); n.ch.play('e_victory'); }
+      if (n.ch.grounded && n.state === 'idle') { n.ch.stopAction(); n.ch.play('e_victory'); }
       this.showBanner('هر ۵ دور رو بردی! 🪙 ۲۰۰ جایزه', '🕺 رقصنده‌ی حرفه‌ای!');
     } else {
       Sfx.play('fail');
