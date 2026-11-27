@@ -9358,13 +9358,14 @@ function hsEditorUpdateHandles(){
   f.g.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(f.g);
   if(box.isEmpty())return;
   const center=box.getCenter(new V3()),max=box.max,min=box.min,sx=Math.max(.35,max.x-min.x),sz=Math.max(.35,max.z-min.z);
+  const liftY=Math.max(min.y+.62,center.y),hx=Math.max((max.x-min.x)/2+.3,.75),hz=Math.max((max.z-min.z)/2+.3,.75); // small items: keep the balls apart
   const sites=[
     [center.x,Math.max(.24,min.y+.15),center.z],
-    [max.x+.3,Math.max(.5,center.y),center.z],
-    [center.x,Math.max(.5,center.y),max.z+.3],
-    [center.x,max.y+.45,center.z],
-    [min.x-.45,Math.max(.4,min.y+.25),min.z-.45],
-    [center.x,Math.max(min.y+.62,center.y),center.z] // lift: the middle (kept clear of the move ball on short items)
+    [center.x+hx,Math.max(.5,center.y),center.z],
+    [center.x,Math.max(.5,center.y),center.z+hz],
+    [center.x,Math.max(max.y+.45,liftY+.75),center.z],
+    [center.x-hx-.15,Math.max(.4,min.y+.25),center.z-hz-.15],
+    [center.x,liftY,center.z] // lift: the middle
   ];
   HS_EDITOR.handles.forEach((g,i)=>{g.position.set(...sites[i]);g.scale.setScalar(i===0?.92:1);});
   if(HS_EDITOR.outline)HS_EDITOR.outline.update();
@@ -9375,7 +9376,7 @@ function hsEditorUpdateControls(){
   if(!f){info.textContent='تالار: '+(HS_BASE_W+HSX.W).toFixed(1)+' × '+(HSX.D*2).toFixed(1)+' × ارتفاع '+HSX.H.toFixed(1)+' متر';return;}
   const title=f.editorLabel||(HS_EDIT_ASSETS.find(x=>x[0]===f.editorType)||[])[2]||f.sp[0]?.name||'وسیله';
   const d=hsEditorFrameSize(f),v=f.state;
-  info.textContent=title+' | عرض '+(d.x*v.sx).toFixed(2)+' | ارتفاع '+(d.y*v.sy).toFixed(2)+' | طول '+(d.z*v.sz).toFixed(2)+' متر'+(v.y>.01?' | '+(v.fly?'🎈 روی هوا، ':'روی وسیلهٔ زیری، ')+fa(v.y.toFixed(2))+' متر بالاتر از کف':'')+' · 🔵 گوی آبیِ وسط رو بکش بالا تا بره رو هوا';
+  info.textContent=title+' | عرض '+(d.x*v.sx).toFixed(2)+' | ارتفاع '+(d.y*v.sy).toFixed(2)+' | طول '+(d.z*v.sz).toFixed(2)+' متر'+(v.y>.01?' | '+(v.fly?'🎈 روی هوا، ':'روی وسیلهٔ زیری، ')+fa(v.y.toFixed(2))+' متر بالاتر از کف':'')+' · ⚪ گوی سفیدِ وسط (با فلش) رو بکش بالا تا بره رو هوا';
 }
 function hsEditorPick(x,y){
   const ray=HS_EDITOR.ray;hsEditorCamera();ray.setFromCamera(hsEditorPointerToNDC(x,y),HS_EDITOR.cam);
@@ -9394,7 +9395,13 @@ function hsEditorPick(x,y){
   test('z+',HS.AZ+HSX.D,HS.AX-HS_BASE_W,HS.AX+HSX.W);
   test('z-',HS.AZ-HSX.D,HS.AX-HS_BASE_W,HS.AX+HSX.W);
   const wp=hsEditorFloor(x,y),lim=.95;
-  if(HS_EDITOR.selection){const h=ray.intersectObjects(HS_EDITOR.handles.filter(o=>o.visible),false)[0];if(h)return {type:'handle',mode:h.object.userData.edMode};}
+  if(HS_EDITOR.selection){ // the ball drawn under the finger wins (they are drawn on top of everything, so the nearest along the ray is not what you see)
+    const cam=HS_EDITOR.cam,R=new V3().setFromMatrixColumn(cam.matrixWorld,0);let best=null,bd=1e9;
+    for(const o of HS_EDITOR.handles){if(!o.visible)continue;const c=o.position.clone().project(cam);if(c.z>1)continue;
+      const e=o.position.clone().addScaledVector(R,o.geometry.parameters.radius*o.scale.x).project(cam);
+      const sx=(c.x*.5+.5)*innerWidth,sy=(-c.y*.5+.5)*innerHeight,rad=Math.hypot((e.x-c.x)*.5*innerWidth,(e.y-c.y)*.5*innerHeight)+10,d=Math.hypot(sx-x,sy-y);
+      if(d<rad&&d<bd){bd=d;best=o;}}
+    if(best)return {type:'handle',mode:best.userData.edMode};}
   const roots=hsEditorActiveFrames().filter(f=>f.g.visible).map(f=>f.g);
   const hits=ray.intersectObjects(roots,true);
   const wallNear=hitPlanes.length?Math.min(...hitPlanes.map(h=>h.t)):Infinity;
@@ -9473,7 +9480,12 @@ function hsEditorAccept(f,s,fresh){ // fresh: a new item, which gets no leeway f
     if(s.fly&&s.y>.01){ // up in the air: it stays at its height; lowered onto something, it lands on it
       hsEditorApplyFrame(f,{...s,y:0});const sup=hsEditorSupport(f,'below',Math.max(s.y,prev.y||0)); // what it is coming down onto
       if(s.y<=sup.y+.01){s={...s,y:sup.y,fly:false};f.on=sup.on;}else f.on=null;}
-    else{hsEditorApplyFrame(f,{...s,y:0});const sup=hsEditorSupport(f,'any');s={...s,y:sup.y,fly:false};f.on=sup.on;}} // rest on top of whatever is under it
+    else{hsEditorApplyFrame(f,{...s,y:0});const sup=hsEditorSupport(f,'any');
+      // Dragging may step up only a little (a rug, a low platform). Before, one quick drag step that
+      // overlapped a wall enough put the item on top of it, so items hopped onto walls and over them.
+      // New items can still be placed straight onto anything, and a lifted item lands on what it is lowered onto.
+      if(!fresh&&sup.y>(prev.y||0)+.4){hsEditorApplyFrame(f,prev);return false;}
+      s={...s,y:sup.y,fly:false};f.on=sup.on;}} // rest on top of whatever is under it
   hsEditorApplyFrame(f,s);
   // Physical bounding boxes may touch architecture but cannot be dragged deeply
   // into other solid furniture, and all pieces stay within the playable hall.
@@ -9869,12 +9881,12 @@ function hsEditorInit(){
   screen.addEventListener('pointercancel',hsEditorTouchUp);
   screen.addEventListener('wheel',e=>{if(HS_EDITOR.active)e.preventDefault();},{passive:false});
   // The only visible scene gizmos are draggable 3-D handles, never buttons.
-  const colors=[0xeaba64,0xf44336,0x40adf5,0x6bc98d,0xbb70eb,0x6fe6ff];
+  const colors=[0xeaba64,0xf44336,0x40adf5,0x6bc98d,0xbb70eb,0xffffff];
   HS_EDITOR.handles=['move','width','depth','height','rotate','lift'].map((mode,i)=>{
     const m=new THREE.Mesh(new THREE.SphereGeometry(i===0?.18:i===5?.21:.26,14,10),new THREE.MeshBasicMaterial({color:colors[i],depthTest:false}));
     m.renderOrder=900;m.userData.edMode=mode;m.visible=false;scene.add(m);
     if(mode==='lift'){ // a light-blue ball in the middle with an up/down arrow: drag it to lift the item into the air
-      const am=new THREE.MeshBasicMaterial({color:0xffffff,depthTest:false});
+      const am=new THREE.MeshBasicMaterial({color:0x1f8fe0,depthTest:false});
       for(const sgn of [1,-1]){const c=new THREE.Mesh(new THREE.ConeGeometry(.085,.15,10),am);c.position.y=sgn*.3;if(sgn<0)c.rotation.x=Math.PI;c.renderOrder=901;m.add(c);}
       const st=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.42,8),am);st.renderOrder=901;m.add(st);}
     return m;});
