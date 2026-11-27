@@ -205,6 +205,13 @@ html,body{height:100%;margin:0;background:var(--deep);color:var(--ink);overflow:
 #hsZ{font-variant-numeric:tabular-nums;padding:.1rem .55rem;border-radius:999px;background:rgba(80,140,70,.25);border:1px solid rgba(140,220,120,.35);white-space:nowrap}
 #hsZ.soon{background:rgba(201,104,43,.35);border-color:#e8b85c;animation:zbPulse 1s ease-in-out infinite}#hsZ.on{background:rgba(150,20,20,.45);border-color:#ff6b5a}
 @keyframes zbPulse{50%{opacity:.55}}@media (prefers-reduced-motion:reduce){#hsZ.soon{animation:none}}
+#fvBtn{position:fixed;z-index:7;top:calc(env(safe-area-inset-top,0px) + 108px);left:50%;transform:translateX(-50%);border:1px solid #7fe9ff;background:rgba(14,30,38,.88);color:#dffaff;border-radius:999px;padding:.55rem 1.05rem;font:800 .95rem var(--body);box-shadow:0 6px 20px rgba(0,0,0,.45),0 0 0 3px rgba(127,233,255,.15);touch-action:manipulation}
+#fvBtn[hidden],#fvUI[hidden]{display:none}
+#fvUI{position:fixed;z-index:7;top:calc(env(safe-area-inset-top,0px) + 104px);left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 24px));display:flex;flex-direction:column;align-items:center;gap:.45rem;direction:rtl;pointer-events:auto}
+#fvInfo{background:rgba(14,30,38,.88);border:1px solid #7fe9ff;color:#e6fbff;border-radius:14px;padding:.4rem .8rem;font-size:.86rem;text-align:center;line-height:1.7}
+#fvUI.danger #fvInfo{border-color:#ff7b5a;background:rgba(60,14,10,.9);color:#ffe3d8}
+#fvUI .fvb{display:flex;gap:.45rem}#fvUI button{border:1px solid #7fe9ff;background:rgba(14,30,38,.88);color:#e6fbff;border-radius:999px;padding:.45rem .8rem;font:700 .9rem var(--body);touch-action:none;user-select:none;-webkit-user-select:none}
+#fvUI #fvUp,#fvUI #fvDown{min-width:52px;font-size:1.05rem}
 #zbHurt{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(120,0,0,0) 45%,rgba(170,0,0,.55) 100%)}
 #hsLock{position:fixed;inset:0;z-index:230;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,4,2,.72);direction:rtl}#hsLock[hidden]{display:none}
 #hsLock .lockc{width:min(420px,100%);display:flex;flex-direction:column;gap:.8rem;align-items:stretch;background:rgba(24,16,10,.97);border:1px solid #c9682b;border-radius:18px;padding:1.1rem 1.2rem;color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.6);text-align:center}
@@ -628,6 +635,8 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
 
 <div id="toast" class="ui"></div>
 <div id="zbHurt" aria-hidden="true"></div>
+<button type="button" id="fvBtn" class="ui" hidden aria-label="دید آزاد: از مخفیگاه دور و برت رو ببین">👁 دید آزاد</button>
+<div id="fvUI" class="ui" hidden><span id="fvInfo" aria-live="polite"></span><div class="fvb"><button type="button" id="fvUp" aria-label="بالا">⬆️</button><button type="button" id="fvDown" aria-label="پایین">⬇️</button><button type="button" id="fvBack">↩️ برگرد تو مخفیگاه</button></div></div>
 
 <div id="start" class="panel">
   <div class="card">
@@ -3383,7 +3392,7 @@ function updateWorld(dt,t){
   const cam=camera.position,camHall=inHallBox(cam.x,cam.z)&&cam.y<13.5,camIn=camHall||HS.on||insideInterior(cam.x,cam.z,cam.y),plIn=inHallBox(G.pos.x,G.pos.z);
   G.out=!plIn;
   const tz=camIn?0:1;G.zf+=(tz-G.zf)*(1-Math.exp(-dt*(tz>G.zf?1.8:2.6)));const zf=G.zf,T=TODS[TODi];
-  const cityVis=!HS.on;CITY.root.visible=cityVis;hsUpdate(ZB.active?0:dt);try{zbUpdate(dt);}catch(e){if(!G.zbErr){G.zbErr=1;console.warn('zombies',e);}}
+  const cityVis=!HS.on;CITY.root.visible=cityVis;hsUpdate(ZB.active?0:dt);try{zbUpdate(dt);}catch(e){if(!G.zbErr){G.zbErr=1;console.warn('zombies',e);}}try{fvTick(dt);}catch(e){if(!G.fvErr){G.fvErr=1;console.warn('free view',e);}}
   /* the hall's lamps and the shop lamps only light their rooms: away from them they are switched off so every pixel outside is cheaper */
   {const on=Math.hypot(cam.x,cam.z+3)<46||!!INT.cur||HS.on;if(on!==LIGHTS.ptOn){LIGHTS.ptOn=on;for(const l of [...LIGHTS.pool,LIGHTS.bounce,LIGHTS.lamp])if(l)l.visible=on;}}
   if(G.mode!=='start'&&G.mode!=='loading'&&!HS.on)updateChunks(false);
@@ -6804,11 +6813,92 @@ function hsPeek(sp){sp.pulse=1.2;SFX.doorSwing&&SFX.doorSwing(1);hsHearSound(G.p
 function hsPose(dt){const k=G.keys;
   if(G.pose==='eyes'){const c=HS.eyeAt;G.pos.set(c[0],0,c[1]);G.feet=0;PL.g.visible=false;camera.position.set(c[0],1.62,c[1]);G.yaw=-Math.PI/2;G.pitch=0;walkCamQuat(camera.quaternion);return true;}
   const sp=HS.mySpot;if(!sp){G.pose='stand';return false;}
+  if(HS.fv&&HS.fv.on){fvPose(dt,sp);return true;}
   const mv=(k.KeyW||k.KeyA||k.KeyS||k.KeyD||k.ArrowUp||k.ArrowDown||k.ArrowLeft||k.ArrowRight)||(G.joy.id>=0&&Math.hypot(G.joy.x,G.joy.y)>.45)||G.jumpBuf>0;
   if(HS.breath){G.jumpBuf=0;}else if(mv){G.jumpBuf=0;hsLeave();return false;}
   PL.g.visible=false;G.pos.set(sp.c[0],0,sp.c[1]);G.feet=0;
   const d=((G.yaw-sp.camYaw+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;G.yaw=sp.camYaw+clamp(d,-1.15,1.15);G.pitch=clamp(G.pitch,-.55,.45);
   camera.position.set(sp.cam[0],sp.cam[1],sp.cam[2]);walkCamQuat(camera.quaternion);return true;}
+/* ===== FREE VIEW WHILE HIDING =====
+   Hidden somewhere and curious what is going on? Turn on the free view: the camera flies anywhere in
+   the hall (joystick / WASD, drag to look, ⬆️⬇️ or Space / C for up and down) while your body stays in
+   the hiding place, so Arash still finds you exactly there. You see yourself glowing through the item,
+   an orange marker over Arash, and how far away he is and whether he is coming closer. */
+HS.fv={layoutN:0,on:false,pos:new V3(),upHold:false,downHold:false,ghosts:null,mark:null,d:0,dPrev:0,trend:0,tT:0,yaw:0,pitch:0,ui:''};
+function fvCan(){return HS.on&&G.mode==='walk'&&G.pose==='hide'&&!!HS.mySpot&&!HS_EDITOR.active&&!(typeof ZB!=='undefined'&&ZB.active);}
+function fvGhosts(on){const F=HS.fv;if(!PL.g)return;
+  if(!F.ghosts){F.ghosts=[];const mat=new THREE.MeshBasicMaterial({color:0x7fe9ff,transparent:true,opacity:.42,depthTest:false,depthWrite:false});
+    const list=[];PL.g.traverse(o=>{if(o.isMesh&&!o.userData.fvGhost)list.push(o);});
+    for(const o of list){const g=new THREE.Mesh(o.geometry,mat);g.userData.fvGhost=true;g.renderOrder=950;g.raycast=()=>{};g.castShadow=g.receiveShadow=false;o.add(g);F.ghosts.push(g);}}
+  for(const g of F.ghosts)g.visible=on;}
+function fvMarker(){const F=HS.fv;if(F.mark)return F.mark;
+  const m=new THREE.MeshBasicMaterial({color:0xffa53a,depthTest:false,transparent:true,opacity:.95});
+  const g=new THREE.Group(),c=new THREE.Mesh(new THREE.ConeGeometry(.18,.38,14),m);c.rotation.x=Math.PI;c.renderOrder=951;g.add(c);
+  const r=new THREE.Mesh(new THREE.TorusGeometry(.22,.035,8,24),m);r.rotation.x=Math.PI/2;r.position.y=.32;r.renderOrder=951;g.add(r);
+  g.visible=false;scene.add(g);F.mark=g;return g;}
+function fvOn(){
+  if(!fvCan()){toast('دید آزاد فقط وقتی قایم شدی کار می‌کنه.',2200);return;}
+  const F=HS.fv,sp=HS.mySpot;F.on=true;F.yaw=G.yaw;F.pitch=G.pitch;F.upHold=F.downHold=false;
+  // start just outside the hiding place, a little up, looking back at it
+  let ox=sp.ent[0]-sp.c[0],oz=sp.ent[1]-sp.c[1];const m=Math.hypot(ox,oz)||1;ox/=m;oz/=m;
+  F.pos.set(sp.ent[0]+ox*1.8,Math.min(2.4,HSX.H-.5),sp.ent[1]+oz*1.8);fvClamp();
+  G.yaw=Math.atan2(-(sp.c[0]-F.pos.x),-(sp.c[1]-F.pos.z));G.pitch=-.32;G.jumpBuf=0;
+  fvGhosts(true);fvMarker();F.dPrev=F.d=Math.hypot(FR.x-sp.c[0],FR.z-sp.c[1]);F.trend=0;F.tT=0;F.ui='';fvUI(true);
+  toast(G.touch||matchMedia('(pointer:coarse)').matches?'👁 دید آزاد: با جوی‌استیک حرکت کن، صفحه رو بکش تا نگاه کنی، ⬆️⬇️ بالا و پایین. خودت هنوز تو مخفیگاهی.':'👁 دید آزاد: WASD حرکت، موس نگاه، Space بالا، C پایین، L برگشت. خودت هنوز تو مخفیگاهی.',4200);
+}
+function fvOff(){const F=HS.fv;if(!F.on)return;F.on=false;F.upHold=F.downHold=false;fvGhosts(false);if(F.mark)F.mark.visible=false;
+  if(PL.g)PL.g.visible=false;G.yaw=F.yaw;G.pitch=F.pitch;fvUI(true);}
+function fvClamp(){const P=HS.fv.pos;P.x=clamp(P.x,HS.AX-HS_BASE_W+.3,HS.AX+HSX.W-.3);P.z=clamp(P.z,HS.AZ-HSX.D+.3,HS.AZ+HSX.D-.3);P.y=clamp(P.y,.3,HSX.H-.4);}
+function fvPose(dt,sp){
+  const F=HS.fv,k=G.keys;
+  let fx=(k.KeyD||k.ArrowRight?1:0)-(k.KeyA||k.ArrowLeft?1:0),fz=(k.KeyW||k.ArrowUp?1:0)-(k.KeyS||k.ArrowDown?1:0);
+  if(G.joy.id>=0){fx+=G.joy.x;fz-=G.joy.y;}
+  const up=(k.Space||k.KeyE||F.upHold?1:0)-(k.KeyC||k.ShiftLeft||k.ShiftRight||F.downHold?1:0);
+  if(G.jumpBuf>0){F.pos.y+=.6;G.jumpBuf=0;} // the jump button nudges the camera up
+  const v=4.4,s=Math.sin(G.yaw),c=Math.cos(G.yaw);
+  F.pos.x+=(fx*c-fz*s)*v*dt;F.pos.z+=(-fx*s-fz*c)*v*dt;F.pos.y+=up*v*.75*dt;fvClamp();
+  G.pitch=clamp(G.pitch,-1.45,1.45);camera.position.copy(F.pos);walkCamQuat(camera.quaternion);
+  // your body stays in the hiding place (this is where Arash looks for you); you see it glowing through the item
+  G.pos.set(sp.c[0],0,sp.c[1]);G.feet=0;
+  const b=sp.bodyW,low=sp.camL&&sp.camL[1]<1.1,lie=b&&b.p==='lie';
+  PL.g.visible=true;PL.yaw=b?b.yaw:sp.camYaw+Math.PI;
+  PL.g.position.set(b?b.x:sp.c[0],(b?b.y:sp.elev||0)+(lie?.12:0),b?b.z:sp.c[1]);PL.g.rotation.set(lie?-Math.PI/2:0,PL.yaw,0,'YXZ');
+  poseBody(PL,0,PL.phase,G.t,lie?{lie:true,k:1}:low?{ground:true,k:1}:{k:1});
+}
+/* every frame: the button, Arash's marker and the live status line */
+function fvTick(dt){
+  const F=HS.fv;
+  if(F.on&&!fvCan()){fvOff();if(HS.on&&!HS.mySpot&&HS.phase==='end')toast('👀 پیدات کرد!',1800);}
+  if(F.on){
+    const sp=HS.mySpot,mk=fvMarker();
+    if(FR.rig&&FR.rig.g.visible){mk.visible=true;mk.position.set(FR.x,(FR.feet||0)+2.25+Math.sin(G.t*4)*.08,FR.z);mk.rotation.y=G.t*1.5;}else mk.visible=false;
+    F.tT-=dt;if(F.tT<=0&&sp){F.tT=.25;const d=Math.hypot(FR.x-sp.c[0],FR.z-sp.c[1]);F.trend=F.trend*.6+(d-F.d)/.25*.4;F.d=d;}
+  }
+  fvUI(false);
+}
+function fvUI(force){
+  const F=HS.fv,btn=document.getElementById('fvBtn'),box=document.getElementById('fvUI');if(!btn||!box)return;
+  const can=fvCan(),showBtn=can&&!F.on;
+  if(btn.hidden===showBtn)btn.hidden=!showBtn;
+  if(box.hidden===F.on)box.hidden=!F.on;
+  if((showBtn||F.on)&&(force||--F.layoutN<=0)){F.layoutN=15; // sit just below the hide-and-seek bar, however many lines it wraps to
+    const bar=document.getElementById('hsBar'),r=bar&&!bar.hidden?bar.getBoundingClientRect():null,top=Math.round((r&&r.height?r.bottom:62)+8)+'px';
+    if(btn.style.top!==top){btn.style.top=top;box.style.top=top;}}
+  if(!F.on)return;
+  const d=F.d,near=d<2.6?'🚨 کنار مخفیگاهته!':d<6?'⚠️ نزدیکه':'🙂 دوره',mv=F.trend<-.25?'داره میاد سمتت':F.trend>.25?'داره دور میشه':'داره دور و بر رو می‌گرده';
+  const t=FR.hsIn?'👀 آرش قایم شده':'🧑 آرش: '+fa(d.toFixed(1))+' متر · '+near+' · '+mv;
+  if(t!==F.ui||force){F.ui=t;const el=document.getElementById('fvInfo');el.textContent=t;box.classList.toggle('danger',d<2.6);}
+}
+function fvInit(){
+  const btn=document.getElementById('fvBtn'),box=document.getElementById('fvUI');if(!btn||btn.dataset.ready)return;btn.dataset.ready='1';
+  const stop=e=>e.stopPropagation();
+  for(const el of [btn,box])for(const ev of ['pointerdown','pointermove','pointerup','touchstart','touchmove','touchend'])el.addEventListener(ev,stop,{passive:true});
+  btn.addEventListener('click',e=>{e.stopPropagation();fvOn();});
+  document.getElementById('fvBack').addEventListener('click',e=>{e.stopPropagation();fvOff();});
+  for(const [id,key] of [['fvUp','upHold'],['fvDown','downHold']]){const b=document.getElementById(id);
+    b.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();HS.fv[key]=true;try{b.setPointerCapture(e.pointerId);}catch(err){}});
+    for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>{HS.fv[key]=false;});}
+}
 function hsScan(cand){if(!HS.on||(HS.phase!=='prep'&&HS.phase!=='play'))return;
   for(const sp of HS.spots){const d=Math.min(Math.hypot(sp.ent[0]-G.pos.x,sp.ent[1]-G.pos.z),Math.hypot(sp.c[0]-G.pos.x,sp.c[1]-G.pos.z)+.25);if(d>1.45)continue;
     if(HS.role==='hide')cand('hshide',d*.5,sp,'🙈 '+sp.hideL);else if(HS.phase==='play')cand('hspeek',d*.5,sp,'🔍 '+sp.peekL);}}
@@ -7550,7 +7640,7 @@ function hsDisgEnd(caught){
   if(!caught&&HS.on&&HS.phase==='play'&&G.t>=D.until-.05){hsAch('prop');toast('✨ دوباره خودت شدی!',1500);}
 }
 {const db=document.getElementById('hsDisguise');if(db)db.addEventListener('click',e=>{e.stopPropagation();HS.disg?hsDisgEnd(false):hsDisgStart();});
- addEventListener('keydown',e=>{if(e.code==='KeyQ'&&!e.repeat&&HS.on&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName)))HS.disg?hsDisgEnd(false):hsDisgStart();});}
+ addEventListener('keydown',e=>{if(e.code==='KeyQ'&&!e.repeat&&HS.on&&!(HS.fv&&HS.fv.on)&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName)))HS.disg?hsDisgEnd(false):hsDisgStart();});}
 /* --- 🏅 achievements --- */
 const HS_ACH={hider:['🙈','استاد قایم شدن','یه دور کامل پیدات نکرد'],finder:['🔎','کارآگاه','آرش رو پیدا کردی'],eagle:['🦅','چشم عقاب','آرش رو زیر ۲۰ ثانیه پیدا کردی'],
   hard:['😈','شکست‌ناپذیر','در حالت سخت قایم موندی'],streak:['🔥','سه‌تایی آتشین','سه برد پشت‌سرهم'],banana:['🍌','موز طلایی','آرش روی پوست موز لیز خورد'],
@@ -7951,7 +8041,7 @@ function hsUI(force){if(!HS.on)return;const bar=$('#hsBar'),eyes=$('#hsEyes'),pe
   whistle.hidden=!(show&&HS.role==='hide'&&HS.phase==='play'&&!HS.concern);
   whistle.disabled=G.t-(HS.whistleCooldown||-20)<3.8;
   const eOn=show&&G.pose==='eyes';eyes.hidden=!eOn;if(eOn)eyes.firstChild.textContent='🙈 چشم‌هات بسته‌ست… '+N+' داره قایم می‌شه — '+fa(Math.max(0,Math.ceil(HSX.PREP_SEEK-HS.t)));
-  const sp=HS.mySpot;const pk=show&&G.pose==='hide'&&sp?sp.peek||'soft':'';if(peek.dataset.k!==pk){peek.dataset.k=pk;peek.className=pk;peek.hidden=!pk;}}
+  const sp=HS.mySpot;const pk=show&&G.pose==='hide'&&sp&&!HS.fv.on?sp.peek||'soft':'';if(peek.dataset.k!==pk){peek.dataset.k=pk;peek.className=pk;peek.hidden=!pk;}}
 
 /* ================= TORCH MAZE: 40x40 columned hall, first-person only, saved stage ================= */
 const MAZE_SAVE_KEY='needle-maze-stage';
@@ -10414,6 +10504,7 @@ $('#chatBtn').addEventListener('click',e=>{e.stopPropagation();SFX.resume();cons
 $('#chatClose').addEventListener('click',()=>closeChat());
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatIn');const v=i.value;i.value='';chatSend(v);});
 try{aiUIInit();}catch(e){console.warn('AI:',e);}
+try{fvInit();}catch(e){console.warn('free view:',e);}
 $('#chatBox').addEventListener('pointerdown',e=>e.stopPropagation());
 $('#bagBtn').addEventListener('click',e=>{e.stopPropagation();SFX.resume();openBag();});
 $('#setBtn').addEventListener('click',e=>{e.stopPropagation();SFX.resume();openSettings();});
@@ -10441,6 +10532,8 @@ addEventListener('keydown',e=>{if(e.target&&(e.target.tagName==='INPUT'||e.targe
   if(e.code==='KeyN'&&!G.panel&&(G.mode==='walk'||G.mode==='drive')){e.preventDefault();openCreator();return;}
   if((e.code==='Enter'||e.code==='KeyT')&&!G.panel&&(G.mode==='walk'||G.mode==='drive'||G.mode==='search')){e.preventDefault();openChat();return;}
   if(G.panel){if(e.code==='Escape'||e.code==='KeyB'||e.code==='KeyI')closePanel();return;}G.keys[e.code]=true;
+  if(HS.fv&&HS.fv.on){if((e.code==='KeyL'||e.code==='Escape')&&!e.repeat)fvOff();if(e.code==='Space')e.preventDefault();return;}
+  if(e.code==='KeyL'&&!e.repeat&&typeof fvCan==='function'&&fvCan()){fvOn();return;}
   if(e.code==='KeyE'&&(G.mode==='walk'||G.mode==='drive')&&!e.repeat)doAct();
   else if(e.code==='KeyC'&&G.mode==='walk'&&!e.repeat)sitDown();
   else if(e.code==='KeyX'&&G.mode==='walk'&&!e.repeat)lieDown();
