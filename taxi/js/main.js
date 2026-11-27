@@ -51,6 +51,7 @@ import { Pigeons } from './pigeons.js';
 import { Hydro } from './hydro.js';
 import { StuntRides } from './stuntpark.js';
 import { Airport } from './airport.js';
+import { Volcano } from './volcano.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -193,6 +194,7 @@ class Game {
     this.soccer = new Soccer(this);
     this.railway = new Railway(this);
     this.airport = new Airport(this);
+    this.volcano = new Volcano(this);
     this.pet = new Pet(this);
     this.skyfx = new SkyFx(this);
     this.pigeons = new Pigeons(this);
@@ -1217,6 +1219,7 @@ class Game {
     this.zombie.update(dt);
     this.railway.update(dt);
     this.airport.update(dt);
+    this.volcano.update(dt);
     this.pet.update(dt);
     this.skyfx.update(dt);
     this.pigeons.update(dt);

@@ -691,6 +691,7 @@ export class UI {
       if (ti) icon(ti.x, ti.z, ti.col, 12, ti.txt);
       for (const ic of g.railway.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
       for (const ic of g.airport.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
+      for (const ic of g.volcano.mapIcons()) icon(ic.x, ic.z, ic.col, 12, ic.txt);
       for (const ic of g.skyfx.mapIcons()) icon(ic.x, ic.z, ic.col, 11, ic.txt);
       for (const ic of g.stuntRides.mapIcons()) icon(ic.x, ic.z, ic.col, 10, ic.txt);
       for (const ic of g.hunt.mapIcons()) icon(ic.x, ic.z, ic.col, 9, ic.txt);
@@ -811,6 +812,7 @@ export class UI {
     if (ti) dot(ti.x, ti.z, ti.col, ti.txt);
     for (const ic of g.railway.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     for (const ic of g.airport.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
+    for (const ic of g.volcano.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     for (const ic of g.skyfx.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     for (const ic of g.stuntRides.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);
     for (const ic of g.hunt.mapIcons()) dot(ic.x, ic.z, ic.col, ic.txt);

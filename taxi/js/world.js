@@ -435,6 +435,8 @@ export class World {
     this.setupRamps();
     this.setupRail();
     this.setupAirport();
+    // a volcano in the mountains east of the lake (the fire and smoke live in volcano.js)
+    this.volcano = { x: 1520, z: -300, r: 290, h: 175, cr: 40 };
     this.buildHeights();
     this.buildTerrain();
     this.buildRoadMeshes();
@@ -540,7 +542,19 @@ export class World {
     if (ld < 320) h = lerp(h, -7, 1 - smoothstep(170, 300, ld));
     const pd = Math.hypot(x - 1160, z - 1525);
     if (pd < 60) h = lerp(h, -2.5, 1 - smoothstep(16, 42, pd));
+    h += this.volcanoHeight(x, z);
     return h;
+  }
+  /** the volcano cone: concave flanks, a rim and a crater dropping inside it */
+  volcanoHeight(x, z) {
+    const V = this.volcano;
+    if (!V) return 0;
+    const d = Math.hypot(x - V.x, z - V.z);
+    if (d >= V.r) return 0;
+    const cone = (dd) => V.h * Math.pow(1 - dd / V.r, 1.6);
+    if (d > V.cr) return cone(d);
+    const rim = cone(V.cr);
+    return rim - Math.pow(1 - d / V.cr, 0.7) * 34;
   }
   buildHeights() {
     const N = (this.hN = 256);
@@ -815,7 +829,12 @@ export class World {
         const hz = this.heights[Math.min(N, j + 1) * W + i] - this.heights[Math.max(0, j - 1) * W + i];
         const slope = Math.hypot(hx, hz) / (2 * C);
         c.lerp(rock, smoothstep(0.35, 0.8, slope));
-        if (h > 70) c.lerp(snow, smoothstep(70, 120, h + n * 25) * 0.85);
+        const V = this.volcano, vd = V ? Math.hypot(x - V.x, z - V.z) : 1e9;
+        if (vd < V.r * 1.05) {
+          // dark basalt, scorched red-brown towards the crater
+          c.lerp(new THREE.Color('#3a3330'), (1 - smoothstep(V.r * 0.55, V.r * 1.05, vd)) * 0.9);
+          c.lerp(new THREE.Color('#5a2a1c'), (1 - smoothstep(V.cr * 0.8, V.cr * 1.8, vd)) * 0.8);
+        } else if (h > 70) c.lerp(snow, smoothstep(70, 120, h + n * 25) * 0.85);
         if (h < -0.6) c.lerp(new THREE.Color('#9a8a62'), 0.8);
         col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
       }
@@ -1323,6 +1342,7 @@ export class World {
   /* ---------- regions decor ---------- */
   addVeg(type, x, z, s = 1, color) {
     if (this.onRail(x, z, 3) || this.onAirport(x, z, 4)) return;
+    if (this.volcano && Math.hypot(x - this.volcano.x, z - this.volcano.z) < this.volcano.r * 0.85) return;
     if (!this.scatter.has(type)) this.scatter.set(type, []);
     const y = this.heightAt(x, z);
     this.scatter.get(type).push({ x, y, z, s, r: rand() * Math.PI * 2, color });
@@ -1371,6 +1391,7 @@ export class World {
     if (this.onPitch(x, z, 22)) return false;
     if (this.onRail(x, z, 14)) return false;
     if (this.onAirport(x, z, 10)) return false;
+    if (this.volcano && Math.hypot(x - this.volcano.x, z - this.volcano.z) < this.volcano.r * 0.9) return false;
     if (this.ramps) for (const r of this.ramps) if (!r.park && Math.hypot(x - r.x - (Math.sin(r.rot) * r.len) / 2, z - r.z - (Math.cos(r.rot) * r.len) / 2) < r.len / 2 + 6) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
@@ -1965,6 +1986,18 @@ export class World {
       g.fillRect((D.x - D.hw + HALF) * k, (D.z0 - 50 + HALF) * k, D.hw * 2 * k, (D.z1 - D.z0 + 50) * k);
       g.fillStyle = '#fff';
       g.fillRect((D.x - D.hw + HALF) * k, (D.z0 + D.len + HALF) * k - 1, D.hw * 2 * k, 2);
+    }
+    if (this.volcano) {
+      const V = this.volcano;
+      const gr = g.createRadialGradient((V.x + HALF) * k, (V.z + HALF) * k, 0, (V.x + HALF) * k, (V.z + HALF) * k, V.r * k);
+      gr.addColorStop(0, '#ff6a1a');
+      gr.addColorStop(0.14, '#5a2a1c');
+      gr.addColorStop(0.6, 'rgba(58,51,48,0.9)');
+      gr.addColorStop(1, 'rgba(58,51,48,0)');
+      g.fillStyle = gr;
+      g.beginPath();
+      g.arc((V.x + HALF) * k, (V.z + HALF) * k, V.r * k, 0, Math.PI * 2);
+      g.fill();
     }
     if (this.airport) {
       // runway, taxiway and apron
