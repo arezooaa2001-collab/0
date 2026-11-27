@@ -820,3 +820,7 @@ body.photomode #zblack, body.replaymode #zblack, body.photomode #zfrost, body.re
 #loading .logoimg { width: 120px; height: 120px; animation: logoPop 1.6s ease-in-out infinite; }
 @keyframes logoPop { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.03); } }
 @media (max-height: 420px) { .mcard .logoimg { width: 64px; height: 64px; border-radius: 15px; margin-bottom: 2px; } }
+
+/* hydraulics button: fills up while you charge a jump */
+#buttons button#btnHydro { position: relative; overflow: hidden; }
+#buttons button#btnHydro::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--k, 0) * 100%); background: rgba(255,210,26,.45); pointer-events: none; }

@@ -65,7 +65,11 @@ export class RoadLife {
     S.prev = along;
     if (prev === null || Math.sign(prev) === Math.sign(along) || lat > 6.6) return;
     // jumped clean over it
-    if (p.air) return;
+    if (p.air) {
+      g.stats.spikeJumps = (g.stats.spikeJumps || 0) + 1;
+      g.ui.toast('🦘 از روی میخ‌ها پریدی! 😎', 'good');
+      return;
+    }
     if (!p.flat) {
       p.flat = true;
       g.stats.flats = (g.stats.flats || 0) + 1;

@@ -162,6 +162,7 @@ export const PERF = [
   ['tires', '🛞', 'لاستیک اسپرت', 'چسبندگی و فرمون‌پذیری بیشتر، استارت درگ راحت‌تر', 500000],
   ['brakes', '🛑', 'ترمز مسابقه‌ای', 'ترمزگیری ۳۵٪ قوی‌تر', 350000],
   ['susp', '🔩', 'کمک‌فنر اسپرت', 'ماشین پایین‌تر و کمتر کج میشه، فرمون دقیق‌تر', 450000],
+  ['hydro', '🦘', 'هیدرولیک', 'دکمه 🦘 (یا ۸) رو نگه دار و ول کن تا ماشین بپره؛ وایستاده می‌رقصه!', 650000],
 ];
 
 export class PlayerCar {
@@ -1063,7 +1064,7 @@ export class PlayerCar {
     const tp = this.air ? 0 : clamp(-(this.lastAccel || 0) * 0.006 * stiff, -0.05, 0.05);
     const t = this.game.time || 0;
     const rough = this.offroad && !this.air ? Math.min(1, Math.abs(this.speed) / 18) : 0;
-    const ty = rough * (Math.sin(t * 23) + Math.sin(t * 37.3 + 1.3)) * 0.014;
+    const ty = rough * (Math.sin(t * 23) + Math.sin(t * 37.3 + 1.3)) * 0.014 - (this.hydroSquat || 0) * 0.14;
     const trr = tr + rough * Math.sin(t * 17.7 + 0.4) * 0.012;
     const h = Math.min(dt, 1 / 30);
     S.vy += (-K * (S.y - ty) - D * S.vy) * h;

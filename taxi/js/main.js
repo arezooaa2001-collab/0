@@ -48,6 +48,7 @@ import { Railway } from './railway.js';
 import { Pet } from './pet.js';
 import { SkyFx } from './skyfx.js';
 import { Pigeons } from './pigeons.js';
+import { Hydro } from './hydro.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -192,6 +193,7 @@ class Game {
     this.pet = new Pet(this);
     this.skyfx = new SkyFx(this);
     this.pigeons = new Pigeons(this);
+    this.hydro = new Hydro(this);
     this.hunt = new PhotoHunt(this);
     this.zombie = new ZombieNight(this);
     this.ambient = new Ambient(this);
@@ -1213,6 +1215,7 @@ class Game {
     this.pet.update(dt);
     this.skyfx.update(dt);
     this.pigeons.update(dt);
+    this.hydro.update(dt);
     this.fleet.update(dt);
     this.ambient.update(dt);
     this.updateRushHour(dt);
