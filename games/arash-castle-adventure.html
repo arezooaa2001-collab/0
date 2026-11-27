@@ -223,6 +223,8 @@ html,body{height:100%;margin:0;background:var(--deep);color:var(--ink);overflow:
 .wdl{display:flex;align-items:center;gap:.5rem;margin-top:.4rem;color:var(--muted);font-size:.85rem}.wdl input,.wd textarea{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:.45rem .65rem;font:inherit;font-size:16px;direction:rtl}
 .wd textarea{width:100%;box-sizing:border-box;resize:vertical}.wdimg{display:flex;align-items:center;gap:.6rem;margin-top:.5rem}.wdimg span{color:var(--muted);font-size:.85rem}.wdgo{display:flex;gap:.6rem;margin-top:1rem}
 @media (max-width:480px){#hud .chip.vbtn{padding:.38rem .42rem}#timer{font-size:.85rem}}
+/* narrow phones: the button row wraps onto a second line instead of running off the screen */
+@media (max-width:460px){#hud{gap:6px}#hud .hl{flex-wrap:wrap;row-gap:6px;min-width:0;justify-content:flex-start}#hud .chip.vbtn{padding:.36rem .4rem}}
 #altChip{top:calc(env(safe-area-inset-top,0px) + 104px);left:12px;font-size:.8rem;pointer-events:none;font-variant-numeric:tabular-nums;max-width:calc(100vw - 24px)}
 #homeChip{top:calc(env(safe-area-inset-top,0px) + 62px);left:12px;font-size:.8rem;pointer-events:none;gap:.4rem}
 #homeArrow{display:inline-block;color:var(--gold);font-size:1rem;line-height:1}
