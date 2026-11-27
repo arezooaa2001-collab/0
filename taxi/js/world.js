@@ -674,7 +674,6 @@ export class World {
     // a big sign at the stunt park
     const P = this.stuntPark;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), new THREE.MeshBasicMaterial({
-      side: THREE.DoubleSide,
       map: canvasTexture(512, 128, (g, w, h) => {
         g.fillStyle = '#111';
         g.fillRect(0, 0, w, h);
@@ -686,6 +685,11 @@ export class World {
     }));
     sign.position.set(P.x, this.heightAt(P.x, P.z - 75) + 6, P.z - 75);
     this.group.add(sign);
+    // the same face on the back, so the text never reads mirrored
+    const back = sign.clone();
+    back.rotation.y = Math.PI;
+    back.position.z -= 0.02;
+    this.group.add(back);
     for (const dx of [-5.5, 5.5]) {
       const pole = cyl(0.2, 0.2, 6, side, 8, this.group);
       pole.position.set(P.x + dx, this.heightAt(P.x, P.z - 75) + 3, P.z - 75);

@@ -38,7 +38,7 @@ export class Hydro {
   }
   ready() {
     const g = this.g, p = g.player;
-    return this.owned && g.state === 'play' && !g.onfoot.active && !g.onfoot.busy && p.health > 0;
+    return this.owned && g.state === 'play' && !g.onfoot.active && !g.onfoot.busy && p.health > 0 && !p.script;
   }
   press() {
     if (!this.ready() || this.holding) return;

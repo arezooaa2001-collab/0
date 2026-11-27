@@ -76,7 +76,7 @@ export class Stunts {
     const driving = g.state === 'play' && !g.onfoot.active;
     // ---------- jumps ----------
     let slowTarget = 1;
-    if (driving && p.air) {
+    if (driving && p.air && !p.script) {
       if (p.airT > 0.35) {
         this.show(`✈️ ${fa(p.airT.toFixed(1)).replace('.', '٫')} ثانیه پرواز!`, 'air');
         if (p.y - g.world.heightAt(p.pos.x, p.pos.z) > 2.5) slowTarget = 0.45;

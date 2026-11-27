@@ -568,6 +568,7 @@ export class PlayerCar {
     return GEAR_MAX[TOP_GEAR] * this.speedMul();
   }
   placeAt(x, z, heading) {
+    this.script = null;
     if (this.game.cruise) this.game.setCruise(false);
     if (this.game.replay) this.game.replay.reset();
     this.airSpin = 0;
@@ -700,6 +701,16 @@ export class PlayerCar {
   /* ---------------- simulation ---------------- */
   update(dt, inp, world, dynamics, controllable = true) {
     this.events.length = 0;
+    // a scripted ride (the loop, the cannon) moves the car itself until it returns false
+    if (this.script) {
+      if (this.script(dt, this) !== false) {
+        this.syncX = this.pos.x;
+        this.syncZ = this.pos.z;
+        this.animate(dt, inp);
+        return;
+      }
+      this.script = null;
+    }
     const alive = this.health > 0 && this.fuelTotal() > 0 && !this.burning;
     if (!controllable) {
       inp = { steer: 0, gas: 0, brake: 1, handbrake: true };
