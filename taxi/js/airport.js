@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, damp, canvasTexture, mergeByMaterial, boxCol, circleCol } from './util.js';
+import { clamp, damp, dampAngle, canvasTexture, mergeByMaterial, boxCol, circleCol } from './util.js';
 import { box, cyl } from './models.js';
 
 const _m = new THREE.Matrix4();
@@ -417,6 +417,7 @@ export class Airport {
     if (!dt) return;
     this.hitCd -= dt;
     this.overCd -= dt;
+    if (this.passengerT > 0) this.passengerT -= dt;
     const night = g.env ? g.env.night : 0;
     const zombie = g.zombie && g.zombie.active;
     switch (this.state) {
@@ -474,7 +475,7 @@ export class Airport {
         this.v = 0;
         this.wait -= dt;
         // swing round to face the terminal
-        this.h = damp(this.h, Math.PI / 2, 1.5, dt);
+        this.h = dampAngle(this.h, Math.PI / 2, 1.5, dt);
         if (this.wait <= 0 && !zombie) {
           this.state = 'pushback';
           this.path = { pts: [[this.gate.x - 22, this.gate.z]], i: 0 };
@@ -496,7 +497,7 @@ export class Airport {
         }
         break;
       case 'lineup':
-        this.h = damp(this.h, Math.PI, 3, dt);
+        this.h = dampAngle(this.h, Math.PI, 3, dt);
         this.wait -= dt;
         if (this.wait <= 0) {
           this.state = 'takeoff';

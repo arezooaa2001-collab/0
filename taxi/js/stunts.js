@@ -89,7 +89,7 @@ export class Stunts {
       p.geyserLaunch = false;
       if (driving && L.wipe) {
         setTimeout(() => g.ui.toast('💥 کج فرود اومدی! قبل از فرود فرمون رو صاف کن', 'bad'), 300);
-      } else if (driving && L.turns) {
+      } else if (driving && L.turns && !free) {
         // 360 / 720 / 1080 spins
         const deg = L.turns * 360, bonus = 40000 * L.turns * L.turns;
         g.money += bonus;

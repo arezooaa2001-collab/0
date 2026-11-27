@@ -277,9 +277,14 @@ export class StuntRides {
     p.syncTransform(0);
     g.stats.loops = (g.stats.loops || 0) + 1;
     const first = g.stats.loops === 1;
-    g.coins += first ? 30 : 8;
-    g.addXp(first ? 120 : 40);
-    g.ui.toast(first ? '🎢 حلقه مرگ رو کامل رفتی!! +۳۰ سکه' : `🎢 یه دور دیگه! (${fa(g.stats.loops)} دور) +۸ سکه`, 'good');
+    // coins for the first loop, then at most every two minutes (XP every time)
+    const paid = first || g.time - (this.loopPaid ?? -1e9) > 120;
+    if (paid) {
+      this.loopPaid = g.time;
+      g.coins += first ? 30 : 8;
+    }
+    g.addXp(first ? 120 : 20);
+    g.ui.toast(first ? '🎢 حلقه مرگ رو کامل رفتی!! +۳۰ سکه' : `🎢 یه دور دیگه! (${fa(g.stats.loops)} دور)${paid ? ' +۸ سکه' : ''}`, 'good');
     g.audio.cash();
     if (g.replay) g.replay.offer();
     if (g.rides.ride && g.rides.state === 'toDest') g.rides.say('واااای!!! سرم گیج رفت!!! 😵‍💫');
@@ -299,7 +304,7 @@ export class StuntRides {
     p.airT = 0;
     p.airMax = 0;
     p.airSpin = 0;
-    p.geyserLaunch = false;
+    p.geyserLaunch = true; // a fall off the loop is no stunt jump
     p.ext.set(0, 0);
     g.ui.toast('😵 سرعتت کم بود! از حلقه افتادی پایین. با سرعت بیشتر بیا', 'warn');
     g.stats.loopFails = (g.stats.loopFails || 0) + 1;
@@ -409,10 +414,14 @@ export class StuntRides {
     p.syncTransform(0);
     p.bump(-1.6, 0, 0);
     g.camInit = true;
-    g.coins += 15;
-    g.addXp(60);
+    const paid = g.time - (this.cannonPaid ?? -1e9) > 180;
+    if (paid) {
+      this.cannonPaid = g.time;
+      g.coins += 15;
+    }
+    g.addXp(paid ? 60 : 20);
     const d = Math.hypot(land.x - this.cannon.x, land.z - this.cannon.z);
-    g.ui.toast(`🪂 فرود نرم! ${fa(Math.round(d))} متر پرواز کردی • +۱۵ سکه`, 'good');
+    g.ui.toast(`🪂 فرود نرم! ${fa(Math.round(d))} متر پرواز کردی${paid ? ' • +۱۵ سکه' : ''}`, 'good');
     g.audio.cash();
     this.cool = 8;
   }

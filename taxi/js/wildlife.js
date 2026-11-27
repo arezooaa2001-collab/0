@@ -190,6 +190,8 @@ export class Wildlife {
       // the car and the deer
       const d = Math.hypot(p.pos.x - cx, p.pos.z - cz);
       if (d < 60) C.seen = true;
+      // how slow you went while they were close: the bonus is for braking
+      if (d < 45) C.minV = Math.min(C.minV ?? 99, Math.abs(p.speed));
       if (d < 2.4 && Math.abs(p.speed) > 3 && !D.bumped) {
         D.bumped = true;
         D.daze = 3;
@@ -209,7 +211,7 @@ export class Wildlife {
     }
     if (!alive) {
       // everyone made it across: a good driver braked for them
-      if (C.seen && !C.hit) {
+      if (C.seen && !C.hit && (C.minV ?? 99) < 6) {
         g.coins += 5;
         g.stats.deerSaved = (g.stats.deerSaved || 0) + 1;
         g.ui.toast(pick(['🦌 آهوها سالم رد شدن! ترمز به موقع 👏 +۵ سکه', '🦌 چه راننده مهربونی! +۵ سکه']), 'good');
@@ -245,7 +247,8 @@ export class Wildlife {
         for (let k = 0; k < 6; k++) {
           const a = Math.random() * Math.PI * 2, d = 25 + Math.random() * 40;
           const x = f.pos.x + Math.cos(a) * d, z = f.pos.z + Math.sin(a) * d;
-          if (w.roadDist(x, z) > 9 && w.surfaceAt(x, z) === 'grass' && w.heightAt(x, z) < 40) {
+          const hz = w.heightAt(x, z);
+          if (w.roadDist(x, z) > 9 && w.surfaceAt(x, z) === 'grass' && hz > 0.3 && hz < 40) {
             R.x = x;
             R.z = z;
             R.tx = x;

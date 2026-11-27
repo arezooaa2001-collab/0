@@ -34,7 +34,8 @@ export async function boot(w = 800, h = 450, opts = {}) {
   }, quality);
   await page.goto(url);
   await page.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 240000 });
-  if (!opts.menu) await page.click('#menuStart');
+  // a direct click: at high quality the emulated GPU is too slow for Playwright's "stable" checks
+  if (!opts.menu) await page.evaluate(() => document.getElementById('menuStart').click());
   await page.evaluate(() => {
     const g = window.game;
     g.renderer.setAnimationLoop(null);

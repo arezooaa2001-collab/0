@@ -122,18 +122,24 @@ export class Treasure {
     const regs = [...REGIONS].sort(() => Math.random() - 0.5).slice(0, 3);
     D.pieces = regs.map((r) => this.spot(r)).filter(Boolean).map((p) => ({ ...p, got: false, hx: p.x + Math.round((Math.random() - 0.5) * 70), hz: p.z + Math.round((Math.random() - 0.5) * 70) }));
     D.x = null;
-    if (D.pieces.length < 3) return false;
+    if (D.pieces.length < 3) {
+      D.pieces = [];
+      D.next = 30;
+      return false;
+    }
     this.g.ui.toast('🏴‍☠️ یه نقشه گنج پاره شده! ۳ تیکه‌اش یه جایی توی جنگل و کویر و کوهستان افتاده؛ دنبال ستون‌های نور بگرد 📜', 'info');
     return true;
   }
   /** on foot near the X: the zone button digs */
   digZone() {
     const D = this.data, g = this.g;
-    if (!D.x || !g.onfoot.active || this.digT > 0 || this.open > 0) return false;
+    if (!D.x || !g.onfoot.active || this.digT > 0 || this.open > 0 || (g.zombie && g.zombie.active)) return false;
     return Math.hypot(g.onfoot.walker.pos.x - D.x.x, g.onfoot.walker.pos.z - D.x.z) < 3.5;
   }
   dig() {
     if (!this.digZone()) return;
+    // the dig and the chest work from their own copy of the spot (the saved X goes at the payout)
+    this.at = { x: this.data.x.x, z: this.data.x.z };
     this.digT = 3;
     this.g.ui.toast('⛏️ داری می‌کنی...', 'info');
   }
@@ -191,28 +197,29 @@ export class Treasure {
       }
     }
     // digging: dirt flies, then the chest rises and opens
+    const X = this.at;
     if (this.digT > 0) {
       this.digT -= dt;
       const wk = g.onfoot.walker;
-      if (Math.random() < dt * 12) g.fx.dust.emit(D.x.x + (Math.random() - 0.5), w.heightAt(D.x.x, D.x.z) + 0.3, D.x.z + (Math.random() - 0.5), (Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.5) * 3, 1, 0.5, 1.5, 0.8, 0.9);
+      if (Math.random() < dt * 12) g.fx.dust.emit(X.x + (Math.random() - 0.5), w.heightAt(X.x, X.z) + 0.3, X.z + (Math.random() - 0.5), (Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.5) * 3, 1, 0.5, 1.5, 0.8, 0.9);
       if (Math.random() < dt * 3) g.audio.burst(0.12, 900, 'lowpass', 0.3);
-      if (wk) wk.heading = Math.atan2(D.x.x - wk.pos.x, D.x.z - wk.pos.z);
+      if (wk) wk.heading = Math.atan2(X.x - wk.pos.x, X.z - wk.pos.z);
       if (this.digT <= 0) {
         this.open = 0.01;
         this.chest.root.visible = true;
-        this.chest.root.position.set(D.x.x, w.heightAt(D.x.x, D.x.z) - 0.8, D.x.z);
+        this.chest.root.position.set(X.x, w.heightAt(X.x, X.z) - 0.8, X.z);
         this.chest.root.rotation.y = Math.random() * 6;
         g.audio.tone(392, 0.3, 0.1, 'triangle');
       }
     }
     if (this.open > 0) {
       this.open += dt;
-      const C = this.chest, gy = w.heightAt(D.x.x, D.x.z);
+      const C = this.chest, gy = w.heightAt(X.x, X.z);
       C.root.position.y = gy - 0.8 + Math.min(1, this.open / 1.2) * 0.8;
       C.lid.rotation.x = -Math.min(1, Math.max(0, (this.open - 1.3) / 0.6)) * 1.9;
       if (this.open > 1.9 && !this.paid) {
         this.paid = true;
-        for (let i = 0; i < 40; i++) g.fx.spark.emit(D.x.x, gy + 0.8, D.x.z, (Math.random() - 0.5) * 5, 4 + Math.random() * 5, (Math.random() - 0.5) * 5, 1.2, 0.14, 0, 1, 0.9);
+        for (let i = 0; i < 40; i++) g.fx.spark.emit(X.x, gy + 0.8, X.z, (Math.random() - 0.5) * 5, 4 + Math.random() * 5, (Math.random() - 0.5) * 5, 1.2, 0.14, 0, 1, 0.9);
         const coins = 120 + Math.floor(Math.random() * 61);
         g.coins += coins;
         g.addXp(300);
@@ -222,6 +229,10 @@ export class Treasure {
         for (const [fq, dl] of [[523, 0], [659, 0.15], [784, 0.3], [1047, 0.45]]) g.audio.tone(fq, 0.35, 0.1, 'triangle', dl);
         g.ui.toast(`🏴‍☠️💰 گنج! ${fa(coins)} سکه طلا پیدا کردی!`, 'good');
         g.shake = Math.max(g.shake || 0, 0.3);
+        // used up right now, so a save in the next seconds can't bring the X back
+        D.x = null;
+        D.next = 300;
+        g.save();
       }
       if (this.open > 9) {
         // the chest sinks back and the next hunt is on its way
@@ -229,9 +240,6 @@ export class Treasure {
         this.paid = false;
         this.carSaid = false;
         C.root.visible = false;
-        D.x = null;
-        D.next = 300;
-        g.save();
       }
     }
   }

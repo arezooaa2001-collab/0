@@ -28,19 +28,22 @@ export class Volcano {
     this.g = game;
     const w = game.world, V = (this.V = w.volcano);
     this.top = w.heightAt(V.x, V.z);
-    this.rimY = w.heightAt(V.x + V.cr, V.z);
+    // the coarse terrain grid makes the crater floor and the rim uneven: sample rings
+    const ring = (r) => Array.from({ length: 24 }, (_, i) => w.heightAt(V.x + Math.cos((i / 24) * Math.PI * 2) * r, V.z + Math.sin((i / 24) * Math.PI * 2) * r));
+    this.rimY = Math.min(...ring(V.cr));
+    this.floorY = Math.max(this.top, ...ring(V.cr * 0.62), ...ring(V.cr * 0.3));
     this.tex = lavaTexture();
     this.lavaMat = new THREE.MeshStandardMaterial({ color: 0x220800, emissive: 0xffffff, emissiveMap: this.tex, map: this.tex, emissiveIntensity: 1.6, roughness: 0.9 });
     // the lava lake
     const lake = new THREE.Mesh(new THREE.CircleGeometry(V.cr * 0.62, 32), this.lavaMat);
     lake.rotation.x = -Math.PI / 2;
-    lake.position.set(V.x, this.top + 2.5, V.z);
+    lake.position.set(V.x, this.floorY + 0.6, V.z);
     game.scene.add(lake);
-    this.lakeY = this.top + 2.5;
+    this.lakeY = this.floorY + 0.6;
     // lava rivers down three flanks
     this.flowTex = lavaTexture();
     this.flowTex.repeat.set(1, 6);
-    this.flowMat = new THREE.MeshStandardMaterial({ color: 0x220800, emissive: 0xffffff, emissiveMap: this.flowTex, map: this.flowTex, emissiveIntensity: 1.3, roughness: 0.9 });
+    this.flowMat = new THREE.MeshStandardMaterial({ color: 0x220800, emissive: 0xffffff, emissiveMap: this.flowTex, map: this.flowTex, emissiveIntensity: 1.3, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 });
     for (const a0 of [0.6, 2.5, 4.4]) game.scene.add(this.flow(a0));
     // smoke and sparks
     this.smoke = new Particles(game.scene, { max: 220, color: 0x6a625c });
@@ -79,14 +82,18 @@ export class Volcano {
       const x = V.x + Math.cos(a) * d, z = V.z + Math.sin(a) * d;
       const wid = 3.2 + (i / N) * 4 + Math.sin(i * 1.3) * 0.8;
       const nx = -Math.sin(a), nz = Math.cos(a);
-      for (const s of [-1, 1]) {
+      // five vertices across so the ribbon follows the slope instead of cutting through it
+      for (let c = 0; c < 5; c++) {
+        const s = c / 2 - 1;
         const px = x + nx * wid * s, pz = z + nz * wid * s;
-        pos.push(px, w.heightAt(px, pz) + 0.25, pz);
-        uv.push(s > 0 ? 1 : 0, i / N);
+        pos.push(px, w.heightAt(px, pz) + 0.6, pz);
+        uv.push(c / 4, i / N);
       }
       if (i < N) {
-        const k = i * 2;
-        idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+        for (let c = 0; c < 4; c++) {
+          const k = i * 5 + c;
+          idx.push(k, k + 5, k + 1, k + 1, k + 5, k + 6);
+        }
       }
     }
     const geo = new THREE.BufferGeometry();

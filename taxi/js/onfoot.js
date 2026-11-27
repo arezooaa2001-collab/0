@@ -41,6 +41,10 @@ export class OnFoot {
   exit() {
     const g = this.g, p = g.player;
     if (this.active || this.busy || g.state !== 'play') return;
+    if (p.script || p.air) {
+      g.ui.toast('✋ وسط هوا که نمیشه پیاده شد! اول فرود بیا', 'warn');
+      return;
+    }
     if ((p.groundSpeed ?? Math.abs(p.speed)) > 1.5) {
       g.ui.toast('اول ماشین رو کامل نگه دار، بعد پیاده شو ✋', 'warn');
       return;
