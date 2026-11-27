@@ -1,6 +1,90 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
+<script>
+/* ===== ARASH SAVE STORE =====
+   Why: browser/WebView localStorage holds only ~5 MB. Photos in the builder and big hall designs
+   filled it, and from then on EVERY save failed silently: placed items, moved items, progress.
+   Now every save goes to IndexedDB (hundreds of MB), to the Android app's own files when running
+   in the app, and (only small values) to localStorage. Each key carries a timestamp, so on start
+   the newest copy wins even if one storage failed. The game starts after the saves are loaded. */
+(function(){
+ 'use strict';
+ var P=Storage.prototype,set=P.setItem,get=P.getItem,rem=P.removeItem,clr=P.clear,key=P.key,lenD=Object.getOwnPropertyDescriptor(P,'length');
+ var lsLen=function(o){return lenD&&lenD.get?lenD.get.call(o):0;};
+ var ls=null;try{ls=window.localStorage;if(ls)ls.getItem('x');}catch(e){ls=null;}
+ var META='__arash_meta',SMALL=120000;
+ var mem={},meta={},dirty={},timer=0,db=null,lsMeta={};
+ var S={ls:!!ls,lsFull:false,idb:false,idbErr:'',app:false,appCount:-1,last:0,loaded:false,bytes:0,errors:0};
+ window.__arashStore=S;
+ var A=null;try{if(window.AndroidStore&&window.AndroidStore.loadAll)A=window.AndroidStore;}catch(e){}
+ function now(){return Date.now();}
+ function take(data,m){ // keep the newest copy of every key; m = {key:[time,deleted]}
+   m=m||{};var k;
+   for(k in m){var t=m[k]&&m[k][0]||0,del=m[k]&&m[k][1];if(!meta[k]||t>meta[k][0]){meta[k]=[t,del?1:0];if(del)delete mem[k];else if(Object.prototype.hasOwnProperty.call(data,k))mem[k]=data[k];}}
+   for(k in data){if(k===META)continue;if(!meta[k]){meta[k]=[0,0];mem[k]=data[k];}else if(!Object.prototype.hasOwnProperty.call(mem,k)&&!meta[k][1]&&(m[k]||[0])[0]>=meta[k][0])mem[k]=data[k];}
+ }
+ // 1) localStorage (synchronous)
+ if(ls){try{var d={},n=lsLen(ls);for(var i=0;i<n;i++){var k=key.call(ls,i);if(k!==null&&k!==META)d[k]=get.call(ls,k);}
+   try{lsMeta=JSON.parse(get.call(ls,META)||'{}')||{};}catch(e){lsMeta={};}take(d,lsMeta);}catch(e){}}
+ // 2) the Android app's files (synchronous)
+ if(A){try{var ad=JSON.parse(A.loadAll()||'{}'),am={};try{am=JSON.parse(ad[META]||'{}')||{};}catch(e){}delete ad[META];take(ad,am);S.app=true;}catch(e){S.app=false;}}
+ // 3) IndexedDB (asynchronous): the game waits for it
+ var ready=new Promise(function(res){
+   var done=false,fin=function(){if(!done){done=true;S.loaded=true;res();}};setTimeout(fin,4000);
+   try{var rq=indexedDB.open('arash-castle-save',1);
+     rq.onupgradeneeded=function(){rq.result.createObjectStore('kv');};
+     rq.onerror=function(){S.idbErr=String(rq.error&&rq.error.name||'error');fin();};
+     rq.onsuccess=function(){db=rq.result;S.idb=true;
+       try{var tx=db.transaction('kv','readonly'),st=tx.objectStore('kv'),out={},cur=st.openCursor();
+         cur.onsuccess=function(){var c=cur.result;if(c){out[c.key]=c.value;c.continue();return;}
+           var m={};try{m=JSON.parse(out[META]||'{}')||{};}catch(e){}delete out[META];take(out,m);fin();
+           if(navigator.storage&&navigator.storage.persist)try{navigator.storage.persist();}catch(e){}
+           flushSoon(); /* copy anything that only lived in localStorage / the app into IndexedDB */
+           for(var k in mem)if(!Object.prototype.hasOwnProperty.call(out,k))dirty[k]=1;};
+         cur.onerror=function(){fin();};}catch(e){S.idbErr=String(e&&e.name||e);fin();}};
+   }catch(e){S.idbErr=String(e&&e.name||e);fin();}
+ });
+ window.__arashStoreReady=ready;
+ // ---- writing ----
+ function flushSoon(){if(!timer)timer=setTimeout(flush,450);}
+ function flush(){
+   if(timer){clearTimeout(timer);timer=0;}
+   var keys=Object.keys(dirty);if(!keys.length)return Promise.resolve();dirty={};
+   var mj=JSON.stringify(meta),bytes=0;for(var kk in mem)bytes+=mem[kk].length;S.bytes=bytes;
+   // the Android app's files
+   if(A){try{for(var i=0;i<keys.length;i++){var k=keys[i];if(meta[k]&&meta[k][1])A.removeItem(k);else if(Object.prototype.hasOwnProperty.call(mem,k))A.setItem(k,mem[k]);}A.setItem(META,mj);S.app=true;}catch(e){S.app=false;S.errors++;}}
+   // localStorage: small values only, so it can never fill up again
+   if(ls){for(var j=0;j<keys.length;j++){var q=keys[j],v=mem[q];try{if(meta[q]&&meta[q][1]||v===undefined||(db&&v.length>SMALL))rem.call(ls,q);else set.call(ls,q,v);}catch(e){S.lsFull=true;try{rem.call(ls,q);}catch(e2){}}}
+     try{set.call(ls,META,mj);}catch(e){S.lsFull=true;}}
+   // IndexedDB: everything
+   var p=Promise.resolve();
+   if(db){p=new Promise(function(res){try{var tx=db.transaction('kv','readwrite'),st=tx.objectStore('kv');
+       for(var i=0;i<keys.length;i++){var k=keys[i];if(meta[k]&&meta[k][1]||!Object.prototype.hasOwnProperty.call(mem,k))st.delete(k);else st.put(mem[k],k);}
+       st.put(mj,META);tx.oncomplete=function(){S.last=now();
+         // big old values in localStorage are now safe in IndexedDB: free the small storage
+         if(ls){try{var n=lsLen(ls),big=[];for(var i=0;i<n;i++){var kk=key.call(ls,i);if(kk&&kk!==META){var vv=get.call(ls,kk);if(vv&&vv.length>SMALL)big.push(kk);}}big.forEach(function(b){rem.call(ls,b);});}catch(e){}}
+         res();};
+       tx.onerror=tx.onabort=function(){S.errors++;S.idbErr=String(tx.error&&tx.error.name||'write');res();};}catch(e){S.errors++;res();}});}
+   else if(!A&&!ls)S.errors++;
+   if(!db)S.last=now();
+   return p;
+ }
+ window.__arashFlush=function(){return flush();};
+ window.__appSave=function(){try{if(window.__gameFlush)window.__gameFlush();}catch(e){}flush();return 'saved';};
+ document.addEventListener('visibilitychange',function(){if(document.hidden)window.__appSave();});
+ addEventListener('pagehide',function(){window.__appSave();});
+ // ---- the game keeps using localStorage; it is served from the store ----
+ function own(o){return ls&&o===ls;}
+ P.getItem=function(k){if(!own(this))return get.call(this,k);k=String(k);return Object.prototype.hasOwnProperty.call(mem,k)?mem[k]:null;};
+ P.setItem=function(k,v){if(!own(this))return set.call(this,k,v);k=String(k);v=String(v);if(mem[k]===v&&meta[k]&&!meta[k][1])return;mem[k]=v;meta[k]=[now(),0];dirty[k]=1;flushSoon();};
+ P.removeItem=function(k){if(!own(this))return rem.call(this,k);k=String(k);if(!Object.prototype.hasOwnProperty.call(mem,k))return;delete mem[k];meta[k]=[now(),1];dirty[k]=1;flushSoon();};
+ P.clear=function(){if(!own(this))return clr.call(this);for(var k in mem){meta[k]=[now(),1];dirty[k]=1;}mem={};flushSoon();};
+ P.key=function(i){if(!own(this))return key.call(this,i);var a=Object.keys(mem);return i>=0&&i<a.length?a[i]:null;};
+ try{Object.defineProperty(P,'length',{configurable:true,get:function(){return own(this)?Object.keys(mem).length:lsLen(this);}});}catch(e){}
+})();
+</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>سوزن در کپهٔ گندم</title>
@@ -591,6 +675,7 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
 <script>/* if the first CDN is blocked or offline, try a second one before the game starts */
 if(!window.THREE)document.write('<script src="https://unpkg.com/three@0.149.0/build/three.min.js"><\/script>');</script>
 <script>
+window.__arashMain=function(){
 (()=>{
 'use strict';
 // Cache persistent UI elements; repeated DOM selector searches caused avoidable work every frame.
@@ -3814,7 +3899,7 @@ function arashVaultImport(input){
       // Transaction-like validate before setting; preserve unrelated browser state.
       for(const [k,v] of pairs)localStorage.setItem(k,v);
       toast('✅ پشتیبان بازیابی شد. بازی دوباره باز می‌شود.',2500);
-      setTimeout(()=>location.reload(),250);
+      (window.__arashFlush?window.__arashFlush():Promise.resolve()).then(()=>setTimeout(()=>location.reload(),250));
     }catch(e){console.warn(e);toast('این فایل پشتیبان معتبر بازی آرش نیست یا ذخیره‌سازی بسته است.',3700);}
   };reader.onerror=()=>toast('فایل پشتیبان خوانده نشد.',2400);reader.readAsText(file,'utf-8');
 }
@@ -3849,12 +3934,15 @@ function resumeApply(){ // right after the start button
 }
 /* What the settings show about saving, so it can be checked on the device itself. */
 function saveStatusText(){
-  let ok=false;try{const v=String(Date.now());localStorage.setItem('needle-save-test',v);ok=localStorage.getItem('needle-save-test')===v;localStorage.removeItem('needle-save-test');}catch(e){}
-  let n=0;try{for(let i=0;i<localStorage.length;i++)if(/^needle-/.test(localStorage.key(i)||''))n++;}catch(e){}
-  let t=(ok?'✅ ذخیره‌سازی کار می‌کنه':'❌ ذخیره‌سازی این مرورگر بسته‌ست')+' · '+fa(n)+' بخش ذخیره‌شده';
-  const S=window.AndroidStore;
-  if(S){let c=-1;try{c=S.count();}catch(e){}t+=c>=0?' · 📱 فایل‌های برنامه: ✅ '+fa(c)+' فایل':' · 📱 فایل‌های برنامه: ❌ وصل نیست';}
-  if(window.__lastSave)t+=' · آخرین ذخیرهٔ خودکار: '+fa(Math.max(0,Math.round((Date.now()-window.__lastSave)/1000)))+' ثانیه پیش';
+  const S=window.__arashStore||{};let n=0,bytes=0;
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||'';if(/^needle-/.test(k)){n++;bytes+=(localStorage.getItem(k)||'').length;}}}catch(e){}
+  const mb=v=>fa((v*2/1048576).toFixed(v>500000?1:2));
+  let t=(S.idb?'✅ ذخیره در پایگاه‌دادهٔ بزرگ (IndexedDB)':'⚠️ پایگاه‌دادهٔ بزرگ در دسترس نیست'+(S.idbErr?' ('+S.idbErr+')':''));
+  if(window.AndroidStore)t+=' · 📱 فایل‌های برنامه: '+(S.app?'✅':'❌');
+  t+=' · 🌐 حافظهٔ کوچک مرورگر: '+(S.ls?(S.lsFull?'پر شده بود؛ دیگه لازم نیست':'✅'):'بسته');
+  t+=' · '+fa(n)+' بخش، حدود '+mb(bytes)+' مگابایت';
+  if(S.last)t+=' · آخرین ذخیره: '+fa(Math.max(0,Math.round((Date.now()-S.last)/1000)))+' ثانیه پیش';
+  if(!S.idb&&!S.app&&(!S.ls||S.lsFull))t+=' · ❌ ذخیره‌سازی ممکن نیست! از «📤 ذخیرهٔ همه» پشتیبان بگیر.';
   return t;
 }
 /* ===================== WEATHER: rain, thunderstorm, snow ===================== */
@@ -7538,7 +7626,7 @@ function hsEditorGetLayout(){
   let d={base:{},stages:{},custom:[],arch:{},nextId:0,hallExtra:0,hallWidth:0,hallHeight:0};
   try{const r=JSON.parse(localStorage.getItem(HS_EDIT_KEY)||'null');
     if(r&&typeof r==='object'){d={base:r.base&&typeof r.base==='object'?r.base:{},stages:r.stages&&typeof r.stages==='object'?r.stages:{},
-      custom:Array.isArray(r.custom)?r.custom.slice(0,180):[],arch:r.arch&&typeof r.arch==='object'?r.arch:{},nextId:Number(r.nextId)||0,hallExtra:Math.max(0,Number(r.hallExtra)||0),hallWidth:Math.max(0,Number(r.hallWidth)||0),hallHeight:Math.max(0,Number(r.hallHeight)||0)};}}
+      custom:Array.isArray(r.custom)?r.custom:[],arch:r.arch&&typeof r.arch==='object'?r.arch:{},nextId:Number(r.nextId)||0,hallExtra:Math.max(0,Number(r.hallExtra)||0),hallWidth:Math.max(0,Number(r.hallWidth)||0),hallHeight:Math.max(0,Number(r.hallHeight)||0)};}}
   catch(e){console.warn('طراحی ذخیره‌شده قابل خواندن نبود:',e);}
   HS_EDITOR.layout=d;HS.editorExtraLength=d.hallExtra||0;HS.editorExtraWidth=d.hallWidth||0;HS.editorExtraHeight=d.hallHeight||0;return d;
 }
@@ -9479,6 +9567,8 @@ const go0=()=>{if(hot&&hot.ready){try{hot.ready(boot);return;}catch(e){}}boot((h
 const go=()=>{let done=false;const run=()=>{if(done)return;done=true;go0();};try{Promise.all([document.fonts.load('800 70px Vazirmatn'),document.fonts.load('400 30px Vazirmatn')]).then(run,run);}catch(e){run();}setTimeout(run,2500);};
 requestAnimationFrame(()=>setTimeout(go,30));
 })();
+};
+(window.__arashStoreReady||Promise.resolve()).then(window.__arashMain,window.__arashMain);
 </script>
 </body>
 </html>
