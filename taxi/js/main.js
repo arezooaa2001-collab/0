@@ -53,6 +53,7 @@ import { StuntRides } from './stuntpark.js';
 import { Airport } from './airport.js';
 import { Volcano } from './volcano.js';
 import { Wildlife } from './wildlife.js';
+import { Treasure } from './treasure.js';
 import { clamp, damp, dampAngle, wrapAngle, faMoney, fa, lerp, levelFor, levelTitle } from './util.js';
 
 const SAVE_KEY = 'taxiCity.save.v1';
@@ -197,6 +198,7 @@ class Game {
     this.airport = new Airport(this);
     this.volcano = new Volcano(this);
     this.wildlife = new Wildlife(this);
+    this.treasure = new Treasure(this);
     this.pet = new Pet(this);
     this.skyfx = new SkyFx(this);
     this.pigeons = new Pigeons(this);
@@ -833,6 +835,7 @@ class Game {
     const z = this.currentZone;
     if (!z || this.state !== 'play') return;
     if (z.kind === 'enter') return this.onfoot.enter();
+    if (z.kind === 'dig') return this.treasure.dig();
     if (z.kind === 'gas') this.ui.openStation(z);
     else if (z.kind === 'garage') this.ui.openGarage(z);
     else if (z.kind === 'police') this.ui.openPolice();
@@ -877,8 +880,13 @@ class Game {
     const sp = (p.groundSpeed ?? Math.abs(p.speed));
     let zone = null;
     if (this.onfoot.active || this.onfoot.busy) {
-      this.currentZone = this.onfoot.active && !this.onfoot.busy && !this.player.burning && this.onfoot.nearCar() ? { kind: 'enter' } : null;
-      this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
+      if (this.treasure.digZone()) {
+        this.currentZone = { kind: 'dig' };
+        this.ui.zone('⛏️ گنج رو بکن!');
+      } else {
+        this.currentZone = this.onfoot.active && !this.onfoot.busy && !this.player.burning && this.onfoot.nearCar() ? { kind: 'enter' } : null;
+        this.ui.zone(this.currentZone ? '🚗 سوار ماشین شو' : null);
+      }
       return;
     }
     const free = this.race.state === 'idle' && this.crazy.state === 'idle' && this.parking.state === 'idle' && this.drag.state === 'idle' && !this.events.job && this.bounty.state === 'idle' && this.soccer.state === 'idle' && !this.zombie.active;
@@ -1223,6 +1231,7 @@ class Game {
     this.airport.update(dt);
     this.volcano.update(dt);
     this.wildlife.update(dt);
+    this.treasure.update(dt);
     this.pet.update(dt);
     this.skyfx.update(dt);
     this.pigeons.update(dt);
