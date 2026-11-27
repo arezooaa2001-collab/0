@@ -6416,6 +6416,7 @@ function hsSearchReset(){
   HS.visited=[];HS.patrolSeen=new Set();HS.patrolFailed=new Map();HS.spotFailed=new Map();
   HS.spotAttempts=new Map();HS.searchEpoch=(HS.searchEpoch||0)+1;
   HS.searchTurns=0;HS.wallVisited=new Set();HS.wallFailed=new Map();
+  HS.seen=null;HS.exploreFailed=new Map();HS._spotMapKey=null;
 }
 function hsWallRestoreAll(){
   const opened=HS.liftedWalls;if(!opened||!opened.size)return;
@@ -6445,9 +6446,11 @@ function hsWallInspectChoose(){
   const F=HS.fs;if(!F)return false;
   if(!HS.wallVisited)HS.wallVisited=new Set();
   if(!HS.wallFailed)HS.wallFailed=new Map();
-  const candidates=hsWallCandidates().filter(f=>G.t-(HS.wallFailed.get(f.uid)||-100)>14)
-    .sort((a,b)=>Math.hypot(a.g.position.x+HS.AX-FR.x,a.g.position.z+HS.AZ-FR.z)-
-       Math.hypot(b.g.position.x+HS.AX-FR.x,b.g.position.z+HS.AZ-FR.z));
+  // Places he cannot walk to (sealed off by walls): lift the wall nearest to those first.
+  const shut=[];try{hsReachable(FR.x,FR.z);const M=HS.reachMask;
+    if(M)for(const sp of HS.spots){if((HS.visited||[]).includes(sp))continue;const c=hsNearFree(...hsCell(sp.ent[0],sp.ent[1]));if(c&&!M[c[1]*HS.gw+c[0]])shut.push(sp.ent);}}catch(e){}
+  const wd=f=>{const x=f.g.position.x+HS.AX,z=f.g.position.z+HS.AZ;if(!shut.length)return Math.hypot(x-FR.x,z-FR.z);let m=1e9;for(const q of shut)m=Math.min(m,Math.hypot(x-q[0],z-q[1]));return m;};
+  const candidates=hsWallCandidates().filter(f=>G.t-(HS.wallFailed.get(f.uid)||-100)>14).sort((a,b)=>wd(a)-wd(b));
   for(const f of candidates.slice(0,12)){
     const v=f.state,cx=HS.AX+v.x,cz=HS.AZ+v.z,isWall=f.editorType==='wall';
     if(!isWall||HS.lift==='none'){ // objects: use their footprint; "none": only walk round to the far side
@@ -6591,35 +6594,89 @@ function hsChoose(){
  if(!HS.spotFailed)HS.spotFailed=new Map();
  if(!HS.visited)HS.visited=[];
  HS.searchTurns=(HS.searchTurns||0)+1;
- const left=HS.spots.filter(s=>!HS.visited.includes(s)&&G.t-(HS.spotFailed.get(s)||-100)>12);
- // Constructed walls are meaningful searchable obstacles, not invisible scenery.
- if(HS.searchTurns%5===0&&hsWallInspectChoose())return;
- if((HS.searchTurns%2===0||!left.length)&&hsPatrolChoose())return;
- left.sort((a,b)=>{
-   const av=HS.spotAttempts?.get(a)||0,bv=HS.spotAttempts?.get(b)||0;
-   return av-bv||Math.hypot(a.ent[0]-FR.x,a.ent[1]-FR.z)-Math.hypot(b.ent[0]-FR.x,b.ent[1]-FR.z);
- });
- for(const sp of left.slice(0,Math.max(12,Math.min(28,left.length)))){
-   if(hsGo(sp.ent[0],sp.ent[1])){
-     F.st='walk';F.spot=sp;F.fast=true;frPathClear();
-     if(!HS.spotAttempts)HS.spotAttempts=new Map();HS.spotAttempts.set(sp,(HS.spotAttempts.get(sp)||0)+1);
-     if(Math.random()<.23)hsBubble(pick(['اینجا رو هنوز نگشتم!','باید این مخفیگاه رو هم ببینم.','دارم میام... 👀']),2);
-     return;
-   }
-   HS.spotFailed.set(sp,G.t);
- }
- if(hsWallInspectChoose()||hsPatrolChoose())return;
- // Start a new sweep only after the available areas have been visited.
- const allSpotsDone=HS.spots.every(sp=>HS.visited.includes(sp)||HS.spotFailed.has(sp));
- if(allSpotsDone&&HS.patrolSeen.size>0){
-   HS.visited=[];HS.patrolSeen.clear();HS.spotFailed.clear();HS.patrolFailed.clear();
-   HS.searchTurns=0;HS.searchEpoch=(HS.searchEpoch||0)+1;
-   hsBubble('یه دور همه اتاق‌ها رو گشتم؛ این بار از مسیرهای متفاوت بررسی می‌کنم! 🔍',3);
-   if(hsPatrolChoose())return;
- }
+ // Thorough search: always the nearest (by real walking distance) hiding place he has not
+ // opened yet or floor he has not seen yet. He clears a room, then goes through the door.
+ if(hsExploreChoose())return;
+ if(hsWallInspectChoose())return;
+ // Everything reachable is searched: start again from the beginning.
+ if(!F.sweepT||G.t-F.sweepT>3){F.sweepT=G.t;
+   HS.visited=[];HS.seen=null;HS.spotFailed.clear();HS.exploreFailed=new Map();if(HS.patrolSeen)HS.patrolSeen.clear();if(HS.wallVisited)HS.wallVisited.clear();
+   HS.searchEpoch=(HS.searchEpoch||0)+1;hsBubble('همه‌جا رو گشتم، حتی سوراخ‌سنبه‌ها رو! از اول دوباره می‌گردم 🔍',3);
+   if(hsExploreChoose())return;}
  // No navigable path is currently available. Keep trying, never sit forever.
  F.st='blocked';F.t0=G.t;F.path=null;F.spot=null;F.goal=null;FR.vx=FR.vz=0;
  frObstacleNotice('no-route');
+}
+/* ===== THOROUGH SEARCH: what Arash has really seen =====
+   HS.seen marks every walkable cell Arash has had in view (rays from his eyes, stopped by
+   walls and furniture). He keeps going to the nearest unseen cell or unopened hiding place. */
+function hsSeeMark(full){
+  if(!HS.grid||!FR||FR.hsIn)return;
+  const gw=HS.gw,gh=HS.gh,N=gw*gh;if(!HS.seen||HS.seen.length!==N)HS.seen=new Uint8Array(N);
+  const C=HS.navCell||.35,R=(HS.dark&&HS.darkK>.5)?5.5:8.5,stp=C*.7,steps=Math.ceil(R/stp),rays=full?96:46,span=full?Math.PI*2:2.5,b0=FR.yaw-span/2,seen=HS.seen,grid=HS.grid;
+  for(let r=0;r<rays;r++){const a=b0+span*(r+.5)/rays,dx=Math.sin(a)*stp,dz=Math.cos(a)*stp;
+    for(let k=0;k<=steps;k++){const c=hsCell(FR.x+dx*k,FR.z+dz*k),i=c[0],j=c[1];if(i<0||j<0||i>=gw||j>=gh)break;const n=j*gw+i;if(grid[n])break;seen[n]=1;}}
+  if(!full){const near=Math.ceil(3/stp);for(let r=0;r<40;r++){const a=r*Math.PI/20,dx=Math.sin(a)*stp,dz=Math.cos(a)*stp; // side vision, all round
+    for(let k=0;k<=near;k++){const c=hsCell(FR.x+dx*k,FR.z+dz*k),i=c[0],j=c[1];if(i<0||j<0||i>=gw||j>=gh)break;const n=j*gw+i;if(grid[n])break;seen[n]=1;}}}
+  const c=hsCell(FR.x,FR.z);for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++){const i=c[0]+di,j=c[1]+dj;if(i>=0&&j>=0&&i<gw&&j<gh)seen[j*gw+i]=1;}
+}
+function hsExploreTarget(skip){
+  const gw=HS.gw,gh=HS.gh,N=gw*gh,grid=HS.grid;if(!grid||!N)return null;
+  if(!HS.seen||HS.seen.length!==N)HS.seen=new Uint8Array(N);
+  const key=(HS.searchEpoch||0)+'|'+(HS.round||0)+'|'+HS.spots.length+'|'+(HS.colVer||0)+'|'+N;
+  if(HS._spotMapKey!==key){const m=new Map();
+    for(const sp of HS.spots){if(sp.elev>.05)continue;const c=hsNearFree(...hsCell(sp.ent[0],sp.ent[1]));if(!c)continue;const n=c[1]*gw+c[0];if(!m.has(n))m.set(n,[]);m.get(n).push(sp);}
+    HS._spotMap=m;HS._spotMapKey=key;}
+  const st=hsNearFree(...hsCell(FR.x,FR.z));if(!st)return null;
+  if(!HS._bfsD||HS._bfsD.length!==N){HS._bfsD=new Int32Array(N);HS._bfsQ=new Int32Array(N);}
+  const D=HS._bfsD,Q=HS._bfsQ,seen=HS.seen,map=HS._spotMap,failed=HS.exploreFailed||(HS.exploreFailed=new Map()),vis=new Set(HS.visited||[]);
+  D.fill(-1);let h=0,t=0;const s0=st[1]*gw+st[0];Q[t++]=s0;D[s0]=0;
+  const C=HS.navCell||.35,win=Math.round(4/C);let firstCell=-1,limit=1e9,best=-1,bestScore=-Infinity;
+  const density=n=>{const i=n%gw,j=(n-i)/gw,r=Math.round(2.5/C);let u=0;for(let y=j-r;y<=j+r;y+=2)for(let x=i-r;x<=i+r;x+=2){if(x<0||y<0||x>=gw||y>=gh)continue;const m=y*gw+x;if(!grid[m]&&!seen[m])u++;}return u;};
+  while(h<t){const n=Q[h++];
+    if(D[n]>limit)break;
+    const sps=map.get(n);if(sps)for(const sp of sps)if(!vis.has(sp)&&!skip.has(sp)&&G.t-(HS.spotFailed.get(sp)??-100)>12)return {spot:sp,d:D[n]};
+    if(!seen[n]&&!skip.has(n)&&G.t-(failed.get(n)??-100)>15){
+      if(firstCell<0){firstCell=n;limit=D[n]+win;}
+      if((h&3)===0||best<0){const sc=density(n)-D[n]*.15;if(sc>bestScore){bestScore=sc;best=n;}}}
+    const i=n%gw,j=(n-i)/gw,d=D[n]+1;
+    if(i>0&&D[n-1]<0&&!grid[n-1]){D[n-1]=d;Q[t++]=n-1;}
+    if(i<gw-1&&D[n+1]<0&&!grid[n+1]){D[n+1]=d;Q[t++]=n+1;}
+    if(j>0&&D[n-gw]<0&&!grid[n-gw]){D[n-gw]=d;Q[t++]=n-gw;}
+    if(j<gh-1&&D[n+gw]<0&&!grid[n+gw]){D[n+gw]=d;Q[t++]=n+gw;}
+  }
+  return best>=0?{cell:best,d:D[best]}:null;
+}
+function hsExploreChoose(){
+  const F=HS.fs;if(!F||!HS.grid)return false;const skip=new Set();
+  for(let tries=0;tries<10;tries++){
+    const T=hsExploreTarget(skip);if(!T)return false;
+    if(T.spot){const sp=T.spot;
+      if(hsGo(sp.ent[0],sp.ent[1])){F.st='walk';F.spot=sp;F.fast=true;F.explore=null;frPathClear();
+        if(T.d*(HS.navCell||.35)>7&&Math.random()<.5)hsBubble(pick(['این طرف رو هنوز نگشتم!','بریم اتاق بعدی… 🚪','اون مخفیگاه رو هم باید باز کنم!']),2);
+        else if(Math.random()<.15)hsBubble(pick(['اینجا رو هنوز نگشتم!','باید این مخفیگاه رو هم ببینم.','دارم میام... 👀']),2);
+        return true;}
+      HS.spotFailed.set(sp,G.t);skip.add(sp);continue;}
+    const [x,z]=hsCellW(T.cell%HS.gw,Math.floor(T.cell/HS.gw));
+    if(hsGo(x,z)){F.st='patrol';F.spot=null;F.fast=true;F.patrolIdx=undefined;F.explore=T.cell;
+      if(T.d*(HS.navCell||.35)>8&&Math.random()<.35)hsBubble(pick(['اون گوشه رو هنوز ندیدم!','پشت اون در رو هم باید بگردم 🚪','هیچ جا رو جا نمی‌ذارم! 🔎']),2);
+      return true;}
+    HS.exploreFailed.set(T.cell,G.t);skip.add(T.cell);
+  }
+  return false;
+}
+function hsLookNeed(){ // how much around here is still unseen: 2 = full turn, 1 = quick glance
+  if(!HS.seen||!HS.grid)return 0;const c=hsCell(FR.x,FR.z),gw=HS.gw,gh=HS.gh,r=Math.round(4/(HS.navCell||.35));let free=0,un=0;
+  for(let j=c[1]-r;j<=c[1]+r;j+=2)for(let i=c[0]-r;i<=c[0]+r;i+=2){if(i<0||j<0||i>=gw||j>=gh)continue;const n=j*gw+i;if(HS.grid[n])continue;free++;if(!HS.seen[n])un++;}
+  return free&&un/free>.35?2:1;}
+function hsSeeTick(dt){
+  if(!HS.on||HS.role!=='hide'||HS.phase!=='play'||FR.hsIn)return;
+  HS._seeT=(HS._seeT||0)-dt;if(HS._seeT>0)return;HS._seeT=.15;
+  const st=HS.fs&&HS.fs.st;hsSeeMark(st==='look'||st==='invScan'||st==='soundScan'||st==='hearTurn');
+  // open hiding places (under a table, behind a curtain...) count as searched once he has looked into them
+  if(!HS.visited)HS.visited=[];const fx=Math.sin(FR.yaw),fz=Math.cos(FR.yaw),ey=FR.feet+1.6;
+  for(const sp of HS.spots){if(sp.closed!==false||HS.visited.includes(sp))continue;if(Math.hypot(sp.c[0]-FR.x,sp.c[1]-FR.z)>5)continue;
+    try{if(hsSees(sp,FR.x,FR.z,fx,fz,ey))HS.visited.push(sp);}catch(e){}}
 }
 /* Investigate convincing static lookalikes. A decoy is inspected only once per round.
    It never counts as the player, and therefore can never end the round. */
@@ -6716,14 +6773,15 @@ function hsFriendCtl(dt){const F=HS.fs,o={tx:null,tz:null,face:null,v:0};const p
       const w=hsStep();if(F.st==='chase'&&G.t-F.goT>.5){F.goT=G.t;if(F.last&&!hsGo(F.last[0],F.last[1])){F.st='blocked';F.t0=G.t;frObstacleNotice('no-route');return o;}}
       if(hsArrived(F.spot?.42:Math.max(.6,(HS.navCell||.35)*.9))){if(F.spot){F.st='check';F.t0=G.t;F.spot.pulse=1.3;frStand(); // inspect while standing, so the next movement can start immediately
           if(F.spot.kind==='hay')SFX.rustle&&SFX.rustle(1.2,0,.1);else SFX.doorSwing&&SFX.doorSwing(1);}
-        else{if(F.st==='patrol'&&F.patrolIdx!==undefined){HS.patrolSeen.add(F.patrolIdx);F.patrolIdx=undefined;}F.st='look';F.t0=G.t;}return o;}
+        else{if(F.st==='patrol'&&F.patrolIdx!==undefined){HS.patrolSeen.add(F.patrolIdx);F.patrolIdx=undefined;}
+          F.look=hsLookNeed();F.st='look';F.t0=G.t;F.lookBase=FR.yaw;}return o;}
       if(G.t-F.goT>Math.max(10,Math.hypot(F.goal?.[0]-FR.x||0,F.goal?.[1]-FR.z||0)/3.5+5)&&(F.st==='walk'||F.st==='patrol')){if(F.spot)HS.spotFailed?.set(F.spot,G.t);if(F.st==='patrol'&&F.patrolIdx!==undefined)HS.patrolFailed?.set(F.patrolIdx,G.t);F.st='idle';hsChoose();return o;}
-      if(w){o.tx=w[0];o.tz=w[1];o.v=F.st==='chase'?hsDiff().chase:F.st==='patrol'?4.0:F.inv?3.2:F.fast?3.8:3.0;o.run=F.st==='chase';}return o;}
+      if(w){o.tx=w[0];o.tz=w[1];o.v=F.st==='chase'?hsDiff().chase:F.st==='patrol'?4.2:F.inv?3.2:F.fast?4.2:3.0;o.run=o.run||F.st==='patrol'||!!F.fast;o.run=F.st==='chase';}return o;}
     if(F.st==='check'){const s=F.spot;o.face=[s.c[0],s.c[1]];
       if(HS.breath){hsBreathTick(dt);return o;}
       if(G.t-F.t0>.7&&HS.mySpot===s){if(G.pose==='lie'){hsBecomeConcerned();return o;}if(hsBreathStart(s))return o;hsEnd('fr','check');return o;}
-      if(G.t-F.t0>1.15){if(FR.pose!=='stand')frStand();if(s&&!HS.visited.includes(s))HS.visited.push(s);if(Math.random()<.35)hsBubble(pick(['این‌جا نیست…','نه، خالیه.','هوم… پس کجاست؟']),1.6);hsChoose();}return o;}
-    if(F.st==='look'){const a=(G.t-F.t0)*2.2;o.face=[FR.x+Math.sin(a),FR.z+Math.cos(a)];if(G.t-F.t0>.85)hsChoose();return o;}
+      if(G.t-F.t0>.78){if(FR.pose!=='stand')frStand();if(s&&!HS.visited.includes(s))HS.visited.push(s);if(Math.random()<.35)hsBubble(pick(['این‌جا نیست…','نه، خالیه.','هوم… پس کجاست؟']),1.6);hsChoose();}return o;}
+    if(F.st==='look'){const full=F.look===2,dur=full?1.05:F.look===1?.35:.85,a=(F.lookBase||0)+(G.t-F.t0)*(full?6.1:2.6);o.face=[FR.x+Math.sin(a),FR.z+Math.cos(a)];if(G.t-F.t0>dur){F.look=0;hsChoose();}return o;}
     if(F.st==='idle')hsChoose();return o;}
   // the friend hides
   if(F.st==='tohide'){const s=F.spot;const w=hsStep();if(hsArrived(.45)||(HS.phase==='play')){FR.hsIn=s;s.pulse=.8;F.st='hidden';return o;}
@@ -7448,7 +7506,7 @@ function hsUpdate(dt){if(!HS.on)return;HS.t+=dt;hsAdventureUpdate(dt);
         if(HS.role==='seek'){if(G.pose==='eyes'){G.pose='stand';}if(!FR.hsIn){FR.hsIn=HS.fs.spot;HS.fs.st='hidden';}toast('🔍 حالا چشم‌هات رو باز کن و '+FR.name+' رو پیدا کن!',2800);}
         else toast('👀 '+FR.name+' داره میاد دنبالت!',2200);}}
     else if(HS.phase==='play'){
-      if(HS.role==='hide'){if(G.t-(HS.lastDecoyScan||0)>.32){HS.lastDecoyScan=G.t;hsDecoySpot();}hsDetect(dt);hsNoise();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_FR)hsEnd('me','time');}
+      if(HS.role==='hide'){if(G.t-(HS.lastDecoyScan||0)>.32){HS.lastDecoyScan=G.t;hsDecoySpot();}hsSeeTick(dt);hsDetect(dt);hsNoise();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_FR)hsEnd('me','time');}
       else{hsSeekCheck();if(HS.timerMode==='timed'&&HS.phase==='play'&&HS.t>=HSX.PLAY_ME)hsEnd('fr','time');}}
     else if(HS.phase==='end'){HS.endT+=dt;if(HS.endT>2.8&&!HS.panelShown&&!G.panel){HS.panelShown=true;hsResultPanel();}}}
   hsSearchWatchdog();hsAlertFx(dt);hsFeatureUI();hsExtraUpdate(dt);hsUI();}
