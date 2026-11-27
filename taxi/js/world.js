@@ -68,6 +68,7 @@ const HIGHWAYS = [
   { name: 'کمربندی جنوب غرب', pts: [[-250, 1400], [-700, 1200], [-1000, 950], [-1300, 700]] },
   { name: 'کمربندی شمال غرب', pts: [[-850, -60], [-900, -500], [-600, -900], [-80, -1100]] },
   { name: 'کمربندی جنوب شرق', pts: [[850, 80], [900, 500], [1000, 900], [700, 1350]] },
+  { name: 'جاده فرودگاه', pts: [[1000, 900], [905, 926], [822, 950]] },
 ];
 
 const PLACES = [
@@ -94,6 +95,7 @@ const PLACES = [
   { name: 'ساحل دریاچه', x: 1250, z: -550, decor: 'beach' },
   { name: 'پل سنگی', x: 1100, z: -50, decor: 'rocks' },
   { name: 'قهوه‌خانه بین‌راهی', x: 900, z: 500, decor: 'village' },
+  { name: 'فرودگاه کویر', x: 822, z: 950 },
   { name: 'کلبه کوهستان', x: 1350, z: 100, decor: 'cabins' },
   { name: 'روستای باغستان', x: -1700, z: -150, decor: 'farmVillage' },
   { name: 'باغ انار', x: -1300, z: 700, decor: 'orchard' },
@@ -432,6 +434,7 @@ export class World {
     this.setupStations();
     this.setupRamps();
     this.setupRail();
+    this.setupAirport();
     this.buildHeights();
     this.buildTerrain();
     this.buildRoadMeshes();
@@ -576,6 +579,20 @@ export class World {
     // a straight line through the farmland west of the city, a tunnel mound at each end
     this.rail = { x: -1000, z0: -760, z1: 760, mound: 34 };
     for (let z = this.rail.z0 - 40; z <= this.rail.z1 + 40; z += 16) this.flats.push({ x: this.rail.x, z, r: 9 });
+  }
+  /* ---------- the desert airport (planes and buildings live in airport.js) ---------- */
+  setupAirport() {
+    // runway along z, a parallel taxiway to the east, apron and terminal beyond it
+    this.airport = { x: 650, z0: 700, z1: 1200, hw: 15, tx: 690, ax0: 698, ax1: 792, az0: 880, az1: 1100 };
+    const A = this.airport;
+    for (let z = A.z0 - 30; z <= A.z1 + 30; z += 16) this.flats.push({ x: A.x, z, r: 26 }, { x: A.tx + 8, z, r: 22 });
+    for (let x = A.ax0; x <= A.ax1; x += 24) for (let z = A.az0; z <= A.az1; z += 24) this.flats.push({ x, z, r: 20 });
+  }
+  onAirport(x, z, pad = 0) {
+    const A = this.airport;
+    if (!A) return false;
+    if (x > A.x - A.hw - 6 - pad && x < A.tx + 12 + pad && z > A.z0 - 40 - pad && z < A.z1 + 40 + pad) return true;
+    return x > A.ax0 - pad && x < A.ax1 + 22 + pad && z > A.az0 - 30 - pad && z < A.az1 + pad;
   }
   onRail(x, z, pad = 0) {
     const R = this.rail;
@@ -1305,7 +1322,7 @@ export class World {
 
   /* ---------- regions decor ---------- */
   addVeg(type, x, z, s = 1, color) {
-    if (this.onRail(x, z, 3)) return;
+    if (this.onRail(x, z, 3) || this.onAirport(x, z, 4)) return;
     if (!this.scatter.has(type)) this.scatter.set(type, []);
     const y = this.heightAt(x, z);
     this.scatter.get(type).push({ x, y, z, s, r: rand() * Math.PI * 2, color });
@@ -1353,6 +1370,7 @@ export class World {
     if (this.onDrag(x, z, 24)) return false;
     if (this.onPitch(x, z, 22)) return false;
     if (this.onRail(x, z, 14)) return false;
+    if (this.onAirport(x, z, 10)) return false;
     if (this.ramps) for (const r of this.ramps) if (!r.park && Math.hypot(x - r.x - (Math.sin(r.rot) * r.len) / 2, z - r.z - (Math.cos(r.rot) * r.len) / 2) < r.len / 2 + 6) return false;
     const h = this.heightAt(x, z);
     if (h > 45 || h < -0.5) return false;
@@ -1487,7 +1505,7 @@ export class World {
           for (let tries2 = 0; tries2 < 10; tries2++) {
             const a = rand() * Math.PI * 2, r = rr(r0, r1);
             const x = bx + Math.cos(a) * r, z = bz + Math.sin(a) * r;
-            if (this.roadDist(x, z) < 15 || this.onRail(x, z, 14)) continue;
+            if (this.roadDist(x, z) < 15 || this.onRail(x, z, 14) || this.onAirport(x, z, 10)) continue;
             house(style, x, z, rot + Math.round(rand() * 3) * (Math.PI / 2));
             break;
           }
@@ -1947,6 +1965,23 @@ export class World {
       g.fillRect((D.x - D.hw + HALF) * k, (D.z0 - 50 + HALF) * k, D.hw * 2 * k, (D.z1 - D.z0 + 50) * k);
       g.fillStyle = '#fff';
       g.fillRect((D.x - D.hw + HALF) * k, (D.z0 + D.len + HALF) * k - 1, D.hw * 2 * k, 2);
+    }
+    if (this.airport) {
+      // runway, taxiway and apron
+      const A = this.airport;
+      g.fillStyle = '#4a4c52';
+      g.fillRect((A.x - A.hw + HALF) * k, (A.z0 + HALF) * k, A.hw * 2 * k, (A.z1 - A.z0) * k);
+      g.fillStyle = '#5d6066';
+      g.fillRect((A.tx - 8 + HALF) * k, (A.z0 + 40 + HALF) * k, 16 * k, (A.z1 - A.z0 - 80) * k);
+      g.fillRect((A.ax0 + HALF) * k, (A.az0 + HALF) * k, (A.ax1 - A.ax0) * k, (A.az1 - A.az0) * k);
+      g.strokeStyle = '#fff';
+      g.lineWidth = 1;
+      g.setLineDash([3, 3]);
+      g.beginPath();
+      g.moveTo((A.x + HALF) * k, (A.z0 + HALF) * k);
+      g.lineTo((A.x + HALF) * k, (A.z1 + HALF) * k);
+      g.stroke();
+      g.setLineDash([]);
     }
     if (this.rail) {
       // the railway: a dark line with white ties

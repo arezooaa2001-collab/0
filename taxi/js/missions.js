@@ -47,8 +47,8 @@ export class Rides {
     const p = g.player.pos;
     let pickup;
     const outerPickup = Math.random() < 0.25 || !(Math.abs(p.x) < 600 && Math.abs(p.z) < 600);
-    // a passenger just off the train at the village station
-    const fromTrain = g.railway && g.railway.trainPickup();
+    // a passenger just off the train at the village station, or off a plane at the airport
+    const fromTrain = (g.railway && g.railway.trainPickup()) || (g.airport && g.airport.pickup());
     if (fromTrain) pickup = fromTrain;
     else if (outerPickup) {
       // somewhere near the player outside the city, or an outer landmark
@@ -77,8 +77,8 @@ export class Rides {
     fare = Math.round(fare / 1000) * 1000;
     let name = (female ? pick(FEMALE) : pick(MALE)) + ' ' + pick(FAMILY);
     if (fromTrain) {
-      fare = Math.round((fare * 1.3) / 1000) * 1000;
-      name += ' 🧳';
+      fare = Math.round((fare * (fromTrain.plane ? 1.5 : 1.3)) / 1000) * 1000;
+      name += fromTrain.plane ? ' ✈️🧳' : ' 🧳';
     }
     // special jobs (never for someone fresh off the train)
     const roll = fromTrain ? 1 : Math.random();
@@ -133,7 +133,7 @@ export class Rides {
       len,
       toPick,
       fare,
-      pickupAddr: fromTrain ? '🚉 ایستگاه راه‌آهن روستای گندم‌زار (تازه از قطار پیاده شده)' : w.addressOf(pickup.roadX, pickup.roadZ),
+      pickupAddr: fromTrain ? (fromTrain.plane ? '🛫 فرودگاه کویر، جلوی ترمینال (تازه از هواپیما پیاده شده)' : '🚉 ایستگاه راه‌آهن روستای گندم‌زار (تازه از قطار پیاده شده)') : w.addressOf(pickup.roadX, pickup.roadZ),
       destAddr: `${dest.name} (${REGION_NAMES[dest.region]}) — ${dest.road}`,
       fuelNeed: Math.ceil((len + toPick) / 120),
       rating: (3.6 + Math.random() * 1.4).toFixed(1),
@@ -528,6 +528,7 @@ export class Rides {
     if (!failed) g.stats.completed = (g.stats.completed || 0) + 1;
     if (r.o.kind === 'tour') g.stats.tours = (g.stats.tours || 0) + 1;
     if (r.o.pickup && r.o.pickup.train) g.stats.trainFares = (g.stats.trainFares || 0) + 1;
+    if (r.o.pickup && r.o.pickup.plane) g.stats.planeFares = (g.stats.planeFares || 0) + 1;
     g.stats.earned += total;
     g.stats.today = (g.stats.today || 0) + total;
     if (!failed && (r.o.kind || r.o.vip)) g.stats.specialRides = (g.stats.specialRides || 0) + 1;

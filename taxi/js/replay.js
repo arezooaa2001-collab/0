@@ -12,7 +12,7 @@ export class Replay {
   constructor(game) {
     this.g = game;
     this.buf = [];
-    for (let i = 0; i < N; i++) this.buf.push({ p: new Float32Array(15), n: 0, refs: new Array(MAXC), c: new Float32Array(MAXC * 6), dt: 1 / 60 });
+    for (let i = 0; i < N; i++) this.buf.push({ p: new Float32Array(20), n: 0, refs: new Array(MAXC), c: new Float32Array(MAXC * 6), dt: 1 / 60 });
     this.head = 0;
     this.count = 0;
     this.cam = 0;
@@ -66,6 +66,12 @@ export class Replay {
     p[12] = rw && rw.state !== 'tunnel' ? rw.s : NaN;
     p[13] = rw ? rw.dir : 1;
     p[14] = rw ? rw.wheelA % 1000 : 0;
+    const ap = g.airport;
+    p[15] = ap && ap.plane.root.visible ? ap.pos.x : NaN;
+    p[16] = ap ? ap.pos.z : 0;
+    p[17] = ap ? ap.h : 0;
+    p[18] = ap ? ap.alt : 0;
+    p[19] = ap ? ap.pitch : 0;
     let n = 0;
     for (const o of g.traffic.obstacles) {
       if (n >= MAXC) break;
@@ -135,7 +141,7 @@ export class Replay {
     this.chipT = 0;
     // remember where everything really is
     const P = g.player.group;
-    this.saved = { pos: P.position.clone(), rot: P.rotation.clone(), cars: [], camFov: g.camera.fov, rail: g.railway && g.railway.snapshot() };
+    this.saved = { pos: P.position.clone(), rot: P.rotation.clone(), cars: [], camFov: g.camera.fov, rail: g.railway && g.railway.snapshot(), air: g.airport && g.airport.snapshot() };
     const seen = new Set();
     for (let i = 0; i < this.frames; i++) {
       const f = this.frameAt(i);
@@ -169,6 +175,7 @@ export class Replay {
       s.o.group.visible = s.vis;
     }
     if (g.railway) g.railway.restore(S.rail);
+    if (g.airport) g.airport.restore(S.air);
     // the live springs put the wheels back on the next frame; start from rest
     for (const w of g.player.car.wheels) if (w.y0 !== undefined) w.steer.position.y = w.y0;
     g.camera.fov = S.camFov;
@@ -212,6 +219,7 @@ export class Replay {
       }
     }
     if (g.railway) g.railway.showAt(p[12], p[13], p[14]);
+    if (g.airport) g.airport.showAt(p[15], p[16], p[17], p[18], p[19]);
     for (const s of this.saved.cars) s.o.group.visible = false;
     for (let k = 0; k < f.n; k++) {
       const o = f.refs[k];
