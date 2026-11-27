@@ -202,6 +202,10 @@ html,body{height:100%;margin:0;background:var(--deep);color:var(--ink);overflow:
 .aiadv{margin-top:.45rem;font-size:.8rem;color:var(--muted)}.aiadv summary{cursor:pointer}.aiadv input{display:block;width:100%;box-sizing:border-box;margin-top:.4rem}
 .aikeymsg{font-size:.8rem;color:#9fe8ff;margin-top:.35rem;min-height:1em}
 #hsEdAiBtn[hidden],#aiBtn[hidden]{display:none!important}
+#hsZ{font-variant-numeric:tabular-nums;padding:.1rem .55rem;border-radius:999px;background:rgba(80,140,70,.25);border:1px solid rgba(140,220,120,.35);white-space:nowrap}
+#hsZ.soon{background:rgba(201,104,43,.35);border-color:#e8b85c;animation:zbPulse 1s ease-in-out infinite}#hsZ.on{background:rgba(150,20,20,.45);border-color:#ff6b5a}
+@keyframes zbPulse{50%{opacity:.55}}@media (prefers-reduced-motion:reduce){#hsZ.soon{animation:none}}
+#zbHurt{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(120,0,0,0) 45%,rgba(170,0,0,.55) 100%)}
 #hsLock{position:fixed;inset:0;z-index:230;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,4,2,.72);direction:rtl}#hsLock[hidden]{display:none}
 #hsLock .lockc{width:min(420px,100%);display:flex;flex-direction:column;gap:.8rem;align-items:stretch;background:rgba(24,16,10,.97);border:1px solid #c9682b;border-radius:18px;padding:1.1rem 1.2rem;color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.6);text-align:center}
 #hsLock b{color:var(--gold);font-family:var(--display);font-weight:400;font-size:1.3rem}#hsLock p{margin:0;line-height:1.9;color:var(--ink)}#hsLock .big{font-size:.95rem;line-height:1.6}
@@ -547,7 +551,7 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
 <div id="fade"></div>
 <div id="altChip" class="chip ui" hidden></div>
 <div id="frBubble" hidden></div>
-<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsCompass" hidden aria-label="راهنمای گرم و سرد">🧭 گرم و سرد</button><button type="button" id="hsBanana" hidden aria-label="انداختن پوست موز">🍌 بنداز</button><button type="button" id="hsDisguise" hidden aria-label="تغییر شکل به یک وسیله (کلید Q)">📦 تغییر شکل</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
+<div id="hsBar" hidden><span id="hsTxt"></span><span id="hsZ" hidden></span><span id="hsScore"></span><span id="hsMeter" hidden title="آرش دارد تو را می‌بیند"><i></i></span><span id="hsNoise" hidden title="میزان صدای پای تو">🔇 بی‌صدا</span><button id="hsNext" hidden>▶ دور بعد</button><button type="button" id="hsWhistle" hidden aria-label="سوت زدن برای راهنمایی آرش">🎶 سوت بزن</button><button type="button" id="hsCompass" hidden aria-label="راهنمای گرم و سرد">🧭 گرم و سرد</button><button type="button" id="hsBanana" hidden aria-label="انداختن پوست موز">🍌 بنداز</button><button type="button" id="hsDisguise" hidden aria-label="تغییر شکل به یک وسیله (کلید Q)">📦 تغییر شکل</button><button type="button" id="hsKitToggle" hidden aria-expanded="false">🧰 ابزار و چالش</button><button id="hsBuilderBtn" aria-label="ساخت و تغییر تالار حین قایم موشک">🧱 ساخت‌وساز</button><button type="button" id="hsSizeDuring" aria-label="تغییر آزاد طول، عرض و ارتفاع تالار">🏗️ اندازه تالار</button><button id="hsX" aria-label="خروج از قایم‌موشک">✖</button></div>
 
 <div id="hsMission" hidden aria-live="polite"><b id="hsMissionTitle">🏆 چالش مخفیگاه</b><span id="hsMissionText">آمادهٔ شروع</span><div id="hsMissionTrack"><i id="hsMissionFill"></i></div></div>
 <div id="hsKit" hidden aria-label="ابزار قایم‌موشک و ارتقاها">
@@ -623,6 +627,7 @@ body.photo-mode .ui,body.photo-mode #hsBar,body.photo-mode #moveBtns,body.photo-
 </div>
 
 <div id="toast" class="ui"></div>
+<div id="zbHurt" aria-hidden="true"></div>
 
 <div id="start" class="panel">
   <div class="card">
@@ -1562,6 +1567,19 @@ const SFX={ctx:null,ok:false};
   SFX.alert=function(seen){if(!SFX.ok)return;const t=C.currentTime;if(seen){tone(t,880,.12,.07,'triangle',1,.3,1320);tone(t+.1,1320,.2,.06,'triangle',1,.3);}else tone(t,520,.18,.05,'sine',1,.3,700);};
   SFX.whisper=function(){if(!SFX.ok)return;const t=C.currentTime;for(let i=0;i<4;i++)burst(t+i*.03,.03,rand(1500,3000),1.5,.05,'bandpass',.6,.4);};
   // A voiced, two-note whistle with a real onset and fading breath noise.
+  // zombies: groans, the warning siren, a bite and banging on walls
+  SFX.zGroan=function(v,pan){if(!SFX.ok)return;const t=C.currentTime;v=v||.6;const f0=rand(70,115);
+    const o=C.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(f0,t);o.frequency.linearRampToValueAtTime(f0*rand(.7,.9),t+1.1);
+    const lfo=C.createOscillator();lfo.frequency.value=rand(5,9);const la=C.createGain();la.gain.value=f0*.08;lfo.connect(la);la.connect(o.frequency);
+    const fl=C.createBiquadFilter();fl.type='bandpass';fl.frequency.value=rand(420,640);fl.Q.value=2.2;const g=C.createGain();
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.16*v,t+.18);g.gain.exponentialRampToValueAtTime(.0001,t+1.25);
+    o.connect(fl);fl.connect(g);out(g,.9,.5,pan);o.start(t);lfo.start(t);o.stop(t+1.3);lfo.stop(t+1.3);burst(t+.05,1,900,1.2,.03*v,'bandpass',.6,.4,pan);};
+  SFX.zSiren=function(){if(!SFX.ok)return;const t=C.currentTime;const o=C.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(420,t);
+    for(let k=0;k<3;k++){o.frequency.linearRampToValueAtTime(880,t+k*1.2+.6);o.frequency.linearRampToValueAtTime(420,t+k*1.2+1.2);}
+    const fl=C.createBiquadFilter();fl.type='lowpass';fl.frequency.value=1800;const g=C.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.07,t+.2);g.gain.setValueAtTime(.07,t+3.3);g.gain.exponentialRampToValueAtTime(.0001,t+3.7);
+    o.connect(fl);fl.connect(g);out(g,.8,.5);o.start(t);o.stop(t+3.8);};
+  SFX.zBite=function(){if(!SFX.ok)return;const t=C.currentTime;burst(t,.12,1200,.9,.45,'bandpass',1,.2);burst(t+.03,.25,300,.7,.35,'lowpass',1,.2);tone(t,160,.25,.2,'sawtooth',1,.2,70);};
+  SFX.zBang=function(pan){if(!SFX.ok)return;const t=C.currentTime;tone(t,rand(55,75),.2,.35,'sine',1,.3,40,pan);burst(t,.1,rand(500,800),.8,.25,'lowpass',1,.3,pan);};
   SFX.whistle=function(){SFX.init();SFX.resume();if(!SFX.ok)return;
     const start=C.currentTime+.015;
     for(let k=0;k<2;k++){
@@ -3365,7 +3383,7 @@ function updateWorld(dt,t){
   const cam=camera.position,camHall=inHallBox(cam.x,cam.z)&&cam.y<13.5,camIn=camHall||HS.on||insideInterior(cam.x,cam.z,cam.y),plIn=inHallBox(G.pos.x,G.pos.z);
   G.out=!plIn;
   const tz=camIn?0:1;G.zf+=(tz-G.zf)*(1-Math.exp(-dt*(tz>G.zf?1.8:2.6)));const zf=G.zf,T=TODS[TODi];
-  const cityVis=!HS.on;CITY.root.visible=cityVis;hsUpdate(dt);
+  const cityVis=!HS.on;CITY.root.visible=cityVis;hsUpdate(ZB.active?0:dt);try{zbUpdate(dt);}catch(e){if(!G.zbErr){G.zbErr=1;console.warn('zombies',e);}}
   /* the hall's lamps and the shop lamps only light their rooms: away from them they are switched off so every pixel outside is cheaper */
   {const on=Math.hypot(cam.x,cam.z+3)<46||!!INT.cur||HS.on;if(on!==LIGHTS.ptOn){LIGHTS.ptOn=on;for(const l of [...LIGHTS.pool,LIGHTS.bounce,LIGHTS.lamp])if(l)l.visible=on;}}
   if(G.mode!=='start'&&G.mode!=='loading'&&!HS.on)updateChunks(false);
@@ -3380,6 +3398,7 @@ function updateWorld(dt,t){
   LIGHTS.hemi.color.copy(TODC.hsI).lerp(TODC.hsO,zf);LIGHTS.hemi.groundColor.copy(TODC.hgI).lerp(TODC.hgO,zf);LIGHTS.hemi.intensity=lerp(T.hiI,T.hiO,zf);
   LIGHTS.amb.intensity=lerp(.25,.03,zf);scene.fog.color.copy(TODC.fogI).lerp(TODC.fogO,zf);scene.fog.density=lerp(.026,QUAL.fog,zf);
   renderer.toneMappingExposure=lerp(T.expI,T.expO,zf);UNI.intB.value=.55;
+  if(typeof ZB!=='undefined'&&(ZB.mood>.002||ZB.poolBase))zbMood();
   if(HS.on&&HS.darkK>0)hsDarkApply();
   wxApply();
   const env=zf>.5?ENV.out:ENV.in;if(scene.environment!==env&&env)scene.environment=env;
@@ -3863,6 +3882,7 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
     <div class="wdseg" role="group" aria-label="سختی قایم‌موشک" style="margin-top:.55rem">${[['easy','😊 آسان'],['normal','🙂 معمولی'],['hard','😈 سخت']].map(([m,label])=>`<button type="button" data-hs-diff="${m}" class="${HS.diff===m?'on':''}" aria-pressed="${HS.diff===m}">${label}</button>`).join('')}</div></div></div>
   <div class="setrow"><div style="width:100%"><b>🧱 آرش و دیوارها / وسایل</b><small>آرش برای دیدن پشت دیوارها و وسایلی که ساختی بلندشون کنه، یا فقط دورشون بزنه و از کنارشون نگاه کنه؟ انتخاب ذخیره می‌شه.</small>
     <div class="wdseg" role="group" aria-label="بلند کردن دیوار و وسایل توسط آرش" style="margin-top:.55rem">${[['all','🏋️ دیوار و وسایل رو بلند کنه'],['walls','🧱 فقط دیوارها'],['none','🚫 بلند نکنه؛ دور بزنه']].map(([m,label])=>`<button type="button" data-hs-lift="${m}" class="${HS.lift===m?'on':''}" aria-pressed="${HS.lift===m}">${label}</button>`).join('')}</div></div></div>
+  ${zbSettingsHTML()}
   <div class="setrow"><div><b>🧹 پاکسازی محیط قایم‌موشک</b><small>همهٔ وسایلی که خودت به تالار قایم‌موشک اضافه کردی پاک می‌شن و وسایل خود بازی سر جای اولشون برمی‌گردن. شهر، مرحله‌ها و بقیهٔ بازی دست نمی‌خورن.</small></div><button class="rb" id="hsCleanBtn">🧹 پاکسازی</button></div>
   <div class="setrow"><div style="width:100%"><b>🌦️ آب‌وهوای شهر</b><small>الان: ${WX_NAMES[WX.kind]||'☀️ صاف'}. در حالت خودکار هر چند دقیقه هوا عوض می‌شه؛ بارون با رعدوبرق، یا برف.</small>
     <div class="wdseg" role="group" aria-label="آب‌وهوا" style="margin-top:.55rem">${[['auto','🔄 خودکار'],['clear','☀️ صاف'],['rain','🌧️ بارون'],['storm','⛈️ طوفان'],['snow','❄️ برف']].map(([m,label])=>`<button type="button" data-wx="${m}" class="${WX.mode===m?'on':''}" aria-pressed="${WX.mode===m}">${label}</button>`).join('')}</div></div></div>
@@ -3881,6 +3901,9 @@ function openSettings(){openPanel('تنظیمات',`<div class="setrow"><div><b>
 function panelClick(e){const t=e.target.closest('button');if(!t)return;
   if(t.id==='aiKeySave'||t.id==='aiKeyDel'||t.id==='aiKeyTest'){aiSettingsClick(t);return;}
   if(t.id==='hsCleanBtn'){closePanel();hsCleanupAsk();return;}
+  if(t.dataset.zbMode){zbSetMode(t.dataset.zbMode);openSettings();if(ZB.mode!=='off')toast('🧟 هر '+fa(ZB.mode)+' دقیقه که قایم‌موشک بازی کنی، زامبی‌ها حمله می‌کنن. یه پناهگاه بساز!',3600);return;}
+  if(t.dataset.zbDiff){ZB.diff=t.dataset.zbDiff;zbSave();openSettings();return;}
+  if(t.id==='zbTry'){closePanel();if(!HS.on){hsStart();setTimeout(()=>{if(HS.on)zbStart(true);},1600);}else zbStart(true);return;}
   if(t.dataset.place){const id=t.dataset.place;closePanel();if(G.mode==='drive')return;placeFromBag(id);}
   else if(t.dataset.buy){if(buyItem(t.dataset.buy,false))openShop();}
   else if(t.dataset.q){setQualMode(t.dataset.q);openSettings();}
@@ -3949,6 +3972,266 @@ function arashVaultExport(){
     toast('💾 پشتیبان همهٔ مرحله‌ها، وسایل، تالارها و بازی‌ها ساخته شد.',3500);
   }catch(e){console.error(e);toast('ذخیرهٔ پشتیبان ناموفق بود؛ فضای دانلود مرورگر را بررسی کن.',4000);}
 }
+/* ===================== ZOMBIE ATTACKS IN HIDE-AND-SEEK =====================
+   Optional (Settings): every 10 or 15 minutes of hide-and-seek a wave of zombies climbs out of the
+   floor and comes for you. Build a closed shelter out of items (walls, crates, cupboards...) or stand
+   high on a stack; they can't get through or climb. Survive the wave to win a reward.
+   Smooth on phones: all zombies share ten instanced body parts (one draw call each), and one
+   breadth-first "flow field" from the player, rebuilt about twice a second, steers the whole horde. */
+const ZB={mood:0,poolBase:null,mode:'off',diff:'normal',left:600,active:false,warned:0,wave:1,best:0,t:0,dur:60,hearts:3,maxHearts:3,list:[],field:null,fieldT:0,fieldGrid:null,
+  hurtT:0,groanT:0,bangT:0,ui:'',saveT:0,built:false,inst:null,light:null,mist:null,fr:null,safe:null,result:null};
+const ZB_KINDS={
+  walker:{n:'زامبی',speed:1.25,scale:1,dmg:1,skin:[0x8fae78,0x9cb787,0x7f9f6e,0xa3b48a],cloth:[0x8a9a6c,0x9a5f4f,0x6f86a8,0xa8966e,0xb9b2a2,0x7d6aa0],eye:0xff3b2f},
+  runner:{n:'زامبی دونده',speed:3.0,scale:.92,dmg:1,skin:[0xbac7bd,0xadc0c8],cloth:[0x5f7fa6,0xa64a46,0xd0c9b8],eye:0xffd23c},
+  brute:{n:'زامبی غول',speed:.95,scale:1.42,dmg:2,skin:[0x6f8f5a,0x7f8452],cloth:[0x7a6a52,0x8a4a3a,0x5a6a7a],eye:0xff2a6a},
+  crawler:{n:'زامبی خزنده',speed:1.55,scale:1,dmg:1,skin:[0x9fb08a,0xa9b896],cloth:[0x8f8670,0x6f7f8f],eye:0x7dff5a}};
+try{ZB.mode=localStorage.getItem('needle-zombie-mode')||'off';ZB.diff=localStorage.getItem('needle-zombie-diff')||'normal';
+  ZB.wave=Math.max(1,+localStorage.getItem('needle-zombie-wave')||1);ZB.best=+localStorage.getItem('needle-zombie-best')||0;
+  const l=+localStorage.getItem('needle-zombie-left');ZB.left=Number.isFinite(l)&&l>0?l:zbPeriod();}catch(e){}
+function zbPeriod(){return ZB.mode==='15'?900:600;}
+function zbSave(){try{localStorage.setItem('needle-zombie-mode',ZB.mode);localStorage.setItem('needle-zombie-diff',ZB.diff);localStorage.setItem('needle-zombie-wave',String(ZB.wave));
+  localStorage.setItem('needle-zombie-best',String(ZB.best));localStorage.setItem('needle-zombie-left',String(Math.round(ZB.left)));}catch(e){}}
+function zbSetMode(m){ZB.mode=m;ZB.left=zbPeriod();ZB.warned=0;if(m==='off'&&ZB.active)zbEnd('off');zbSave();}
+
+/* ---- the horde's shared body parts ---- */
+function zbBuild(){
+  if(ZB.built)return;ZB.built=true;
+  const MAX=24,cap=(r,l)=>{const g=new THREE.CapsuleGeometry(r,l,3,8);return g;};
+  const std=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.86,metalness:0,envMapIntensity:.35});
+  const glow=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});
+  const P={ // geometry, how many per zombie, material
+    pelvis:[new THREE.BoxGeometry(.32,.2,.2),1,std],torso:[(()=>{const g=cap(.16,.3);g.scale(1.18,1,.72);return g;})(),1,std],
+    head:[(()=>{const g=new THREE.SphereGeometry(.13,12,10);g.scale(.95,1.1,1);return g;})(),1,std],jaw:[new THREE.BoxGeometry(.14,.05,.1),1,std],
+    eye:[new THREE.SphereGeometry(.024,8,6),2,glow],uarm:[cap(.05,.24),2,std],farm:[cap(.042,.22),2,std],hand:[(()=>{const g=new THREE.BoxGeometry(.07,.11,.05);return g;})(),2,std],
+    thigh:[cap(.07,.3),2,std],shin:[cap(.056,.3),2,std],foot:[new THREE.BoxGeometry(.1,.07,.24),2,std],
+    rag:[(()=>{const g=new THREE.PlaneGeometry(.34,.24,4,1),a=g.attributes.position;for(let i=0;i<a.count;i++)if(a.getY(i)<0)a.setY(i,a.getY(i)-((i*7)%3)*.05);return g;})(),2,new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95,side:THREE.DoubleSide})],
+    hair:[(()=>{const g=new THREE.SphereGeometry(.14,10,6,0,Math.PI*2,0,Math.PI*.42);g.scale(1,1.05,1.05);return g;})(),1,std],
+    wound:[new THREE.CircleGeometry(.05,8),2,new THREE.MeshStandardMaterial({color:0xffffff,roughness:.4,side:THREE.DoubleSide})]};
+  ZB.inst={};
+  for(const k in P){const [g,n,m]=P[k];const im=new THREE.InstancedMesh(g,m,MAX*n);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.count=0;im.frustumCulled=false;
+    im.castShadow=k==='torso'||k==='head';im.receiveShadow=true;im.setColorAt(0,new THREE.Color(1,1,1));scene.add(im);ZB.inst[k]={im,n};}
+  // soft round shadows under their feet
+  const cv=document.createElement('canvas');cv.width=cv.height=64;const cx=cv.getContext('2d'),gr=cx.createRadialGradient(32,32,2,32,32,31);gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=gr;cx.fillRect(0,0,64,64);
+  const sm=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false});
+  const sh=new THREE.InstancedMesh(new THREE.PlaneGeometry(.9,.9).rotateX(-Math.PI/2),sm,MAX);sh.count=0;sh.frustumCulled=false;sh.renderOrder=2;scene.add(sh);ZB.inst.shadow={im:sh,n:1};
+  // green mist rising where they climb out
+  const N=220,pos=new Float32Array(N*3),mg=new THREE.BufferGeometry();mg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const pc=document.createElement('canvas');pc.width=pc.height=32;const px=pc.getContext('2d'),pg=px.createRadialGradient(16,16,1,16,16,15);pg.addColorStop(0,'rgba(170,255,150,.9)');pg.addColorStop(1,'rgba(90,160,80,0)');px.fillStyle=pg;px.fillRect(0,0,32,32);
+  const pts=new THREE.Points(mg,new THREE.PointsMaterial({size:.55,map:new THREE.CanvasTexture(pc),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.55,sizeAttenuation:true}));
+  pts.frustumCulled=false;pts.visible=false;scene.add(pts);ZB.mist={pts,pos,vel:new Float32Array(N*3),life:new Float32Array(N),n:N,next:0};
+}
+/* One zombie: a light skeleton of Object3Ds that is never drawn; its parts' world matrices feed the instanced meshes. */
+function zbMakeBody(kind){
+  const K=ZB_KINDS[kind],root=new THREE.Object3D(),o=()=>new THREE.Object3D(),part=(par,key,x,y,z,rx)=>{const p=o();p.position.set(x,y,z);if(rx)p.rotation.x=rx;par.add(p);p.userData.key=key;return p;};
+  const hips=o();hips.position.y=.95;root.add(hips);const spine=o();spine.position.y=.06;hips.add(spine);
+  const parts=[part(hips,'pelvis',0,0,0)];parts.push(part(spine,'torso',0,.3,0));parts.push(part(spine,'rag',0,.16,.126));{const r=part(spine,'rag',0,.18,-.126);r.rotation.y=Math.PI;parts.push(r);}
+  parts.push(part(spine,'wound',.07,.38,.123));{const w2=part(spine,'wound',-.09,.12,.124);w2.scale.setScalar(.7);parts.push(w2);}
+  const neck=o();neck.position.y=.55;spine.add(neck);const head=o();head.position.y=.12;neck.add(head);parts.push(part(head,'head',0,0,0));
+  const jaw=o();jaw.position.set(0,-.085,.06);head.add(jaw);parts.push(part(jaw,'jaw',0,-.02,.01));{const hr=part(head,'hair',0,.035,-.01);hr.rotation.x=-.35;parts.push(hr);}
+  for(const sd of [-1,1])parts.push(part(head,'eye',sd*.045,.02,.115));
+  const arms=[],legs=[];
+  for(const sd of [-1,1]){const sh=o();sh.position.set(sd*.24,.47,0);spine.add(sh);parts.push(part(sh,'uarm',0,-.15,0));
+    const el=o();el.position.y=-.3;sh.add(el);parts.push(part(el,'farm',0,-.14,0));parts.push(part(el,'hand',0,-.31,0));arms.push({sh,el});
+    const hp=o();hp.position.set(sd*.095,-.04,0);hips.add(hp);parts.push(part(hp,'thigh',0,-.21,0));
+    const kn=o();kn.position.y=-.43;hp.add(kn);parts.push(part(kn,'shin',0,-.2,0));const an=o();an.position.y=-.42;kn.add(an);parts.push(part(an,'foot',0,-.03,.06));legs.push({hp,kn,an});}
+  const pick=a=>a[Math.floor(Math.random()*a.length)],skin=new THREE.Color(pick(K.skin)).offsetHSL((Math.random()-.5)*.03,0,(Math.random()-.5)*.06);
+  const cloth=new THREE.Color(pick(K.cloth)).offsetHSL(0,0,(Math.random()-.5)*.08),pants=new THREE.Color(pick([0x4f4a44,0x4c5568,0x5e5142,0x3f4a3c])),eye=new THREE.Color(K.eye);
+  const color={hair:new THREE.Color(pick([0x2a2118,0x4a3a2a,0x6b6b62,0x1d1b19])),wound:new THREE.Color(0x6e1414),pelvis:pants,torso:cloth,rag:cloth.clone().multiplyScalar(.82),head:skin,jaw:skin.clone().multiplyScalar(.7),eye,uarm:Math.random()<.5?cloth:skin,farm:skin,hand:skin,thigh:pants,shin:Math.random()<.4?skin:pants,foot:new THREE.Color(0x1d1a17)};
+  root.scale.setScalar(K.scale);
+  return {kind,K,root,hips,spine,neck,head,jaw,arms,legs,parts,color,ph:Math.random()*6.28,limp:.5+Math.random()*.7,lean:(Math.random()-.5)*.25};
+}
+/* ---- grid helpers (the hide-and-seek navigation grid; 1 = blocked) ---- */
+const zbCell=(x,z)=>{const C=HS.navCell,i=Math.floor((x-HS.navMinX)/C),j=Math.floor((z-HS.navMinZ)/C);return (i<0||j<0||i>=HS.gw||j>=HS.gh)?-1:j*HS.gw+i;};
+const zbFree=(x,z)=>{const c=zbCell(x,z);return c>=0&&!HS.grid[c];};
+function zbFieldBuild(){ // distances (in cells) from the player over free floor; -1 = cannot get to the player from there
+  const g=HS.grid;if(!g)return;const n=g.length,w=HS.gw,h=HS.gh;
+  if(!ZB.field||ZB.field.length!==n){ZB.field=new Int32Array(n);ZB.q=new Int32Array(n);}
+  const d=ZB.field,q=ZB.q;d.fill(-1);let head=0,tail=0;
+  let s=zbCell(G.pos.x,G.pos.z);
+  if(s<0||g[s]){ // the player stands on or inside something: start from the free cells around
+    const C=HS.navCell;for(let r=1;r<=4&&!tail;r++)for(let dj=-r;dj<=r;dj++)for(let di=-r;di<=r;di++){const c=zbCell(G.pos.x+di*C,G.pos.z+dj*C);if(c>=0&&!g[c]&&d[c]<0){d[c]=r;q[tail++]=c;}}}
+  else{d[s]=0;q[tail++]=s;}
+  while(head<tail){const c=q[head++],i=c%w,v=d[c]+1;
+    if(i>0&&!g[c-1]&&d[c-1]<0){d[c-1]=v;q[tail++]=c-1;}if(i<w-1&&!g[c+1]&&d[c+1]<0){d[c+1]=v;q[tail++]=c+1;}
+    if(c>=w&&!g[c-w]&&d[c-w]<0){d[c-w]=v;q[tail++]=c-w;}if(c<n-w&&!g[c+w]&&d[c+w]<0){d[c+w]=v;q[tail++]=c+w;}}
+  ZB.fieldGrid=g;ZB.reached=tail;
+}
+/* Is the player shut in? True when none of the hall's open floor far away can reach them. */
+function zbShelterSafe(){
+  if(!HS.grid)return false;zbFieldBuild();const g=HS.grid,d=ZB.field;let far=0,open=0;
+  const C=HS.navCell,px=G.pos.x,pz=G.pos.z;
+  for(let c=0;c<g.length;c+=7){if(g[c])continue;const i=c%HS.gw,j=(c-i)/HS.gw,x=HS.navMinX+(i+.5)*C,z=HS.navMinZ+(j+.5)*C;if(Math.hypot(x-px,z-pz)<8)continue;far++;if(d[c]>=0)open++;}
+  return far>0&&open<far*.02;
+}
+function zbSpawnPoints(n){
+  const g=HS.grid,C=HS.navCell,out=[];if(!g)return out;
+  const cand=[];for(let c=0;c<g.length;c++){if(g[c])continue;const i=c%HS.gw,j=(c-i)/HS.gw,x=HS.navMinX+(i+.5)*C,z=HS.navMinZ+(j+.5)*C,dd=Math.hypot(x-G.pos.x,z-G.pos.z);if(dd>9)cand.push([x,z,dd]);}
+  if(!cand.length){for(let c=0;c<g.length;c+=3)if(!g[c]){const i=c%HS.gw,j=(c-i)/HS.gw;cand.push([HS.navMinX+(i+.5)*C,HS.navMinZ+(j+.5)*C,1]);}}
+  for(let k=0;k<n&&cand.length;k++){let best=null,bs=-1;for(let t=0;t<14;t++){const c=cand[(Math.random()*cand.length)|0];let m=99;for(const p of out)m=Math.min(m,Math.hypot(c[0]-p[0],c[1]-p[1]));const sc=Math.min(m,6)+Math.random();if(sc>bs){bs=sc;best=c;}}out.push(best);}
+  return out;
+}
+/* ---- waves ---- */
+function zbWaveSize(){const cap=[6,8,10,12,14,16,20,24][Math.max(0,Math.min(7,(typeof QUAL!=='undefined'?QUAL.lvl:4)|0))],f={easy:.7,normal:1,hard:1.35,nightmare:1.8}[ZB.diff]||1;
+  return Math.max(4,Math.min(cap,Math.round((4+ZB.wave*2)*f)));}
+function zbStart(practice){
+  if(!HS.on||ZB.active)return;zbBuild();
+  if(HS_EDITOR.active){try{hsEditorEscape();}catch(e){}}
+  if(HS.mySpot)try{hsLeave();}catch(e){}
+  ZB.active=true;ZB.practice=!!practice;ZB.t=0;ZB.dur=Math.min(120,50+ZB.wave*10);ZB.maxHearts={easy:5,normal:3,hard:3,nightmare:2}[ZB.diff]||3;ZB.hearts=ZB.maxHearts;ZB.result=null;
+  ZB.list=[];const n=zbWaveSize(),pts=zbSpawnPoints(n);
+  for(let i=0;i<pts.length;i++){const r=Math.random(),kind=ZB.wave>=3&&r<.14?'brute':ZB.wave>=2&&r<.36?'runner':ZB.wave>=2&&r<.5?'crawler':'walker';
+    const z=zbMakeBody(kind);z.x=pts[i][0];z.z=pts[i][1];z.yaw=Math.atan2(G.pos.x-z.x,G.pos.z-z.z);z.rise=-.4-i*.18;z.bite=0;z.bang=0;z.mv=0;z.groan=2+Math.random()*5;ZB.list.push(z);}
+  // the hall turns dark and sickly; Arash runs off to hide
+  ZB.fr=FR.off;if(!FR.off){try{frSay('وای زامبی! 😱 من میرم یه جا قایم شم، تو هم یه جای امن بساز!',4);}catch(e){}}FR.off=true;
+  ZB.inst.shadow.im.visible=true;for(const k in ZB.inst)ZB.inst[k].im.visible=true;ZB.mist.pts.visible=true;
+  zbFieldBuild();ZB.fieldT=0;ZB.safe=zbShelterSafe();
+  SFX.zSiren&&SFX.zSiren();toast('🧟 موج '+fa(ZB.wave)+': '+fa(ZB.list.length)+' زامبی! '+fa(ZB.dur)+' ثانیه دووم بیار'+(ZB.safe?' (پناهگاهت بسته‌ست 👍)':''),3800);
+}
+function zbEnd(why){
+  if(!ZB.active)return;ZB.active=false;
+  const won=why==='won';
+  if(won&&!ZB.practice){const prize=40000*ZB.wave;G.money=(G.money||0)+prize;ZB.best=Math.max(ZB.best,ZB.wave);ZB.result='🛡️ موج '+fa(ZB.wave)+' رو دووم آوردی! جایزه: '+fmtT(prize);ZB.wave++;}
+  else if(won)ZB.result='🛡️ تمرین تموم شد؛ دووم آوردی!';
+  else if(why==='caught'){ZB.result='😵 زامبی‌ها گرفتنت! یه پناهگاه بسته و محکم‌تر بساز، یا برو بالای یه برج وسیله.';try{hsPlace(HS_START.me[0],HS_START.me[1],Math.PI);}catch(e){}}
+  ZB.leaving=ZB.list;ZB.list=[];ZB.leaveT=0; // they sink back into the floor
+  FR.off=ZB.fr===null?FR.off:ZB.fr;ZB.fr=null;
+  if(why!=='off'&&why!=='exit'){if(!FR.off)try{frSay(won?'رفتن؟! آفرین، عجب پناهگاهی ساختی! 😅':'خوبی؟ دفعهٔ بعد دیوارها رو کامل ببند! 💪',4);}catch(e){}
+    toast(ZB.result,5200);if(won)SFX.buy&&SFX.buy();}
+  ZB.left=zbPeriod();ZB.warned=0;zbSave();arashSaveSoon();
+  const hz=document.getElementById('zbHurt');if(hz)hz.style.opacity=0;
+}
+/* ---- every frame ---- */
+function zbUpdate(dt){
+  if(!HS.on){if(ZB.active)zbEnd('exit');zbHideAll();return;}
+  if(ZB.mode!=='off'&&!ZB.active&&!HS.locked){
+    ZB.left-=dt;ZB.saveT-=dt;if(ZB.saveT<=0){ZB.saveT=5;zbSave();}
+    if(ZB.left<=60&&ZB.warned<1){ZB.warned=1;toast('🧟 یه دقیقهٔ دیگه زامبی‌ها حمله می‌کنن! با وسیله‌ها دورت رو کامل ببند.',4200);SFX.alert&&SFX.alert(false);}
+    if(ZB.left<=10&&ZB.warned<2){ZB.warned=2;toast('🧟 ۱۰ ثانیه! زامبی‌ها دارن میان...',3000);SFX.zSiren&&SFX.zSiren();}
+    if(ZB.left<=60){ZB.safeT=(ZB.safeT||0)-dt;if(ZB.safeT<=0){ZB.safeT=2;ZB.safe=zbShelterSafe();}} // tell the player whether the shelter is closed
+    if(ZB.left<=0)zbStart(false);
+  }
+  ZB.mood+=((ZB.active?1:0)-ZB.mood)*Math.min(1,dt*(ZB.active?.9:.6));
+  zbSink(dt);
+  if(!ZB.active){zbUI();return;}
+  ZB.t+=dt;const L=ZB.list;
+  ZB.fieldT-=dt;if(ZB.fieldT<=0||ZB.fieldGrid!==HS.grid){ZB.fieldT=.5;zbFieldBuild();}
+  const d=ZB.field,w=HS.gw,C=HS.navCell,px=G.pos.x,pz=G.pos.z,pf=G.feet||0;
+  for(const z of L){
+    if(z.rise<1){z.rise+=dt*.75;if(z.rise>0){zbMist(z.x,z.z,2);if(!z.risen&&z.rise>.05){z.risen=true;SFX.zGroan&&SFX.zGroan(.5,zbPan(z));}}}
+    const up=Math.max(0,Math.min(1,z.rise));
+    let tx=px,tz=pz,moving=false;const dist=Math.hypot(px-z.x,pz-z.z);
+    if(up>=1){
+      const c=zbCell(z.x,z.z);
+      if(c>=0&&d&&d[c]>0){ // follow the flow towards the player (diagonals only past open corners)
+        let best=d[c],bx=z.x,bz=z.z;const i=c%w;
+        for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const ni=i+di,nc=c+di+dj*w;if(ni<0||ni>=w||nc<0||nc>=d.length||d[nc]<0)continue;
+          if(di&&dj&&(HS.grid[c+di]||HS.grid[c+dj*w]))continue;const v=d[nc]+(di&&dj?.4:0);if(v<best){best=v;bx=HS.navMinX+(ni+.5)*C;bz=HS.navMinZ+((nc-ni)/w+.5)*C;}}
+        if(best<d[c]){tx=bx;tz=bz;}
+      }
+      const near=dist<(z.kind==='brute'?1.05:.85);
+      const reachable=c>=0&&d&&d[c]>=0;
+      const high=pf>(z.kind==='crawler'?.6:1.25); // standing up on a stack: out of reach
+      if(near&&!high&&(reachable||dist<.45)){z.bang=0;if(z.bite<=0){z.bite=1.4;zbBite(z);}} // never through a wall
+      else{
+        const sp=z.K.speed*(z.kind==='runner'?1:.9+.2*Math.sin(G.t*1.3+z.ph))*({easy:.8,normal:1,hard:1.15,nightmare:1.3}[ZB.diff]||1);
+        let dx=tx-z.x,dz=tz-z.z;const m=Math.hypot(dx,dz);
+        if(m>.03){dx/=m;dz/=m;let nx=z.x+dx*sp*dt,nz=z.z+dz*sp*dt;
+          if(!reachable){ // shut out: push along the barrier; slide when blocked
+            if(!zbFree(nx,nz)){if(zbFree(nx,z.z))nz=z.z;else if(zbFree(z.x,nz))nx=z.x;else{nx=z.x;nz=z.z;}}}
+          else if(!zbFree(nx,nz)&&zbFree(z.x,z.z)){if(zbFree(nx,z.z))nz=z.z;else if(zbFree(z.x,nz))nx=z.x;else{nx=z.x;nz=z.z;}}
+          moving=Math.hypot(nx-z.x,nz-z.z)>sp*dt*.3;z.x=nx;z.z=nz;
+          const want=Math.atan2(dx,dz);let dy=want-z.yaw;while(dy>Math.PI)dy-=2*Math.PI;while(dy<-Math.PI)dy+=2*Math.PI;z.yaw+=dy*Math.min(1,dt*6);}
+        // at the shelter wall or under the player's tower: claw and bang
+        z.bang=(!moving&&dist<7)||(near&&high)?Math.min(1,z.bang+dt*3):Math.max(0,z.bang-dt*3);
+        if(z.bang>.6&&ZB.bangT<=0){ZB.bangT=.35+Math.random()*.4;SFX.zBang&&SFX.zBang(zbPan(z));}
+      }
+      z.bite-=dt;z.mv=moving?Math.min(1,z.mv+dt*4):Math.max(0,z.mv-dt*3);
+    }
+    z.groan-=dt;if(z.groan<=0&&up>=1){z.groan=3+Math.random()*6;if(dist<22&&ZB.groanT<=0){ZB.groanT=.6;SFX.zGroan&&SFX.zGroan(Math.max(.15,1-dist/22),zbPan(z));}}
+    zbPose(z,dt,up);
+  }
+  // keep a little room between them
+  for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=L[i],b=L[j];let dx=b.x-a.x,dz=b.z-a.z;const dd=Math.hypot(dx,dz),r=.55*(a.K.scale+b.K.scale)/2;
+    if(dd>1e-4&&dd<r){const p=(r-dd)/2/dd;dx*=p;dz*=p;if(zbFree(a.x-dx,a.z-dz)){a.x-=dx;a.z-=dz;}if(zbFree(b.x+dx,b.z+dz)){b.x+=dx;b.z+=dz;}}}
+  ZB.groanT-=dt;ZB.bangT-=dt;ZB.hurtT=Math.max(0,ZB.hurtT-dt);
+  zbDraw(L);zbMistUpdate(dt);
+  if(ZB.t>=ZB.dur)zbEnd('won');
+  zbUI();
+}
+/* The hall's mood during an attack: dark, foggy green, flickering sickly lamps. Called after the
+   time-of-day lighting every frame (which would otherwise undo it); fades in and out. */
+const _zbFog=new THREE.Color(0x0b1a0e),_zbLamp=new THREE.Color(0xa6ff8f);
+function zbMood(){
+  const k=HS.on?ZB.mood:0;
+  if(k<.002){if(ZB.poolBase){LIGHTS.pool.forEach((l,i)=>{const p=ZB.poolBase[i];if(p){l.intensity=p.i;l.color.copy(p.c);}});ZB.poolBase=null;}return;}
+  if(!ZB.poolBase)ZB.poolBase=LIGHTS.pool.map(l=>({i:l.intensity,c:l.color.clone()}));
+  scene.fog.color.lerp(_zbFog,k*.85);scene.fog.density+=.02*k;LIGHTS.hemi.intensity*=1-.66*k;LIGHTS.amb.intensity*=1-.6*k;renderer.toneMappingExposure*=1-.2*k;
+  const fl=.72+.28*Math.sin(G.t*23)*Math.sin(G.t*7.3);
+  LIGHTS.pool.forEach((l,i)=>{const p=ZB.poolBase[i];if(p){l.intensity=p.i*(1-.42*k)*(i%2?1-(1-fl)*k:1);l.color.copy(p.c).lerp(_zbLamp,.5*k);}});
+}
+function zbPan(z){const a=Math.atan2(z.x-G.pos.x,z.z-G.pos.z)-(G.yaw||0);return Math.max(-1,Math.min(1,-Math.sin(a)));}
+function zbBite(z){
+  ZB.hearts-=z.K.dmg;ZB.hurtT=.6;vibrate(140);SFX.zBite&&SFX.zBite();
+  const dx=G.pos.x-z.x,dz=G.pos.z-z.z,m=Math.hypot(dx,dz)||1,push=.9;const nx=G.pos.x+dx/m*push,nz=G.pos.z+dz/m*push;if(zbFree(nx,nz)){G.pos.x=nx;G.pos.z=nz;}
+  const hz=document.getElementById('zbHurt');if(hz){hz.style.transition='none';hz.style.opacity=1;requestAnimationFrame(()=>{hz.style.transition='opacity .9s';hz.style.opacity=0;});}
+  if(ZB.hearts<=0)zbEnd('caught');
+}
+/* poses: shamble with arms out, sprint, heavy stomp, crawl; claw when blocked; rise out of the floor */
+function zbPose(z,dt,up){
+  const sp=z.K.speed,m=z.mv;z.ph+=dt*(z.kind==='runner'?9.5:z.kind==='brute'?3.6:z.kind==='crawler'?5:4.4)*(.35+.65*m);
+  const s=Math.sin(z.ph),c=Math.cos(z.ph),L=z.legs,A=z.arms,bang=z.bang,t=G.t;
+  z.root.position.set(z.x,-(1-up)*1.35,z.z);z.root.rotation.set(0,z.yaw,0);
+  if(z.kind==='crawler'){
+    z.hips.position.y=.3+Math.abs(c)*.03;z.hips.rotation.x=1.25;z.spine.rotation.set(.12,s*.12,0);z.neck.rotation.x=-1.05;
+    for(let i=0;i<2;i++){const sd=i?1:-1,ph=i?s:-s;A[i].sh.rotation.set(-1.35+ph*.55*m-bang*.4*Math.sin(t*14+i*3),0,sd*.25);A[i].el.rotation.x=-.4-Math.max(0,ph)*.6*m;
+      L[i].hp.rotation.set(.15+ph*.12,0,sd*.12);L[i].kn.rotation.x=.25;L[i].an.rotation.x=.4;}
+  }else{
+    const amp=(z.kind==='runner'?.85:z.kind==='brute'?.42:.5)*m,lean=z.kind==='runner'?.42:z.kind==='brute'?.2:.12+z.lean;
+    L[0].hp.rotation.set(-s*amp,0,-.04);L[1].hp.rotation.set(s*amp*z.limp,0,.04);
+    L[0].kn.rotation.x=(Math.max(0,Math.sin(z.ph+1.3))*1.1+.06)*amp;L[1].kn.rotation.x=(Math.max(0,Math.sin(z.ph+1.3+Math.PI))*1.1+.06)*amp*z.limp;
+    L[0].an.rotation.x=-L[0].kn.rotation.x*.3;L[1].an.rotation.x=-L[1].kn.rotation.x*.3+(1-z.limp)*.3;
+    z.hips.position.y=.95+Math.abs(c)*(z.kind==='brute'?.07:.04)*amp-(z.kind==='brute'?.06:.02);z.hips.rotation.set(0,-s*.12*amp,Math.sin(z.ph*.5)*.06*(1-m*.5));
+    z.spine.rotation.set(lean+bang*.18,s*.14*amp,Math.sin(t*.9+z.ph)*.05);z.neck.rotation.set(-lean*.6+Math.sin(t*1.7+z.ph)*.12,Math.sin(t*.8+z.ph)*.3,Math.sin(t*1.1+z.ph)*.25);
+    for(let i=0;i<2;i++){const sd=i?1:-1,claw=bang*Math.sin(t*(z.kind==='brute'?9:13)+i*2.6);
+      const reach=z.kind==='brute'?-.75:-1.35;A[i].sh.rotation.set(reach+Math.sin(t*2.1+i+z.ph)*.12-(1-m)*.1-claw*.65,sd*.1,sd*(.18+Math.sin(t*1.5+i)*.05));
+      A[i].el.rotation.x=-.25-Math.abs(claw)*.6-(z.kind==='runner'?.5*m:0);}
+  }
+  z.jaw.rotation.x=.25+Math.abs(Math.sin(t*(3+bang*8)+z.ph))*.35;
+  z.root.updateMatrixWorld(true);
+}
+function zbDraw(L){
+  for(const k in ZB.inst)ZB.inst[k].used=0;
+  for(const z of L){for(const p of z.parts){const I=ZB.inst[p.userData.key],i=I.used++;I.im.setMatrixAt(i,p.matrixWorld);I.im.setColorAt(i,z.color[p.userData.key]);}
+    const S=ZB.inst.shadow,i=S.used++;_m.makeScale(z.K.scale,1,z.K.scale);_m.setPosition(z.x,.012,z.z);S.im.setMatrixAt(i,_m);}
+  for(const k in ZB.inst){const I=ZB.inst[k];I.im.count=I.used;I.im.instanceMatrix.needsUpdate=true;if(I.im.instanceColor)I.im.instanceColor.needsUpdate=true;}
+}
+function zbHideAll(){if(!ZB.built||ZB.hidden)return;for(const k in ZB.inst)ZB.inst[k].im.count=0;if(ZB.mist)ZB.mist.pts.visible=false;ZB.hidden=true;}
+function zbSink(dt){ // after a wave they sink back into the floor in a puff of mist
+  if(!ZB.leaving||!ZB.leaving.length){if(!ZB.active)zbHideAll();return;}
+  ZB.hidden=false;ZB.leaveT+=dt;const k=Math.min(1,ZB.leaveT/1.6);
+  for(const z of ZB.leaving){if(Math.random()<dt*6)zbMist(z.x,z.z,1);z.bang=0;z.mv=0;zbPose(z,dt,1-k);}
+  zbDraw(ZB.leaving);zbMistUpdate(dt);if(k>=1){ZB.leaving=null;zbHideAll();}
+}
+function zbMist(x,z,n){const M=ZB.mist;if(!M)return;M.pts.visible=true;
+  for(let k=0;k<n;k++){const i=M.next;M.next=(M.next+1)%M.n;M.pos[i*3]=x+(Math.random()-.5)*.7;M.pos[i*3+1]=.05;M.pos[i*3+2]=z+(Math.random()-.5)*.7;
+    M.vel[i*3]=(Math.random()-.5)*.3;M.vel[i*3+1]=.35+Math.random()*.5;M.vel[i*3+2]=(Math.random()-.5)*.3;M.life[i]=1.4+Math.random();}}
+function zbMistUpdate(dt){const M=ZB.mist;if(!M)return;let alive=0;
+  for(let i=0;i<M.n;i++){if(M.life[i]<=0){M.pos[i*3+1]=-50;continue;}alive++;M.life[i]-=dt;M.pos[i*3]+=M.vel[i*3]*dt;M.pos[i*3+1]+=M.vel[i*3+1]*dt;M.pos[i*3+2]+=M.vel[i*3+2]*dt;M.vel[i*3+1]*=1-dt*.6;}
+  M.pts.geometry.attributes.position.needsUpdate=true;if(!alive&&!ZB.active)M.pts.visible=false;}
+function zbUI(){
+  const el=document.getElementById('hsZ');if(!el)return;
+  let t='';
+  if(ZB.active){const left=Math.max(0,Math.ceil(ZB.dur-ZB.t));t='🧟 موج '+fa(ZB.wave)+' · '+fa(Math.floor(left/60))+':'+fa(String(left%60).padStart(2,'0'))+' · '+'❤️'.repeat(Math.max(0,ZB.hearts))+'🖤'.repeat(Math.max(0,ZB.maxHearts-ZB.hearts));}
+  else if(ZB.mode!=='off'&&HS.on){const s=Math.max(0,Math.ceil(ZB.left));t='🧟 '+fa(Math.floor(s/60))+':'+fa(String(s%60).padStart(2,'0'))+(s<=60?(ZB.safe?' · 🛡️ پناهگاهت بسته‌ست':' · ⚠️ پناهگاهت راه داره'):'');}
+  if(t!==ZB.ui){ZB.ui=t;el.textContent=t;el.hidden=!t;el.classList.toggle('on',ZB.active);el.classList.toggle('soon',!ZB.active&&ZB.left<=60);}
+}
+function zbSettingsHTML(){
+  return `<div class="setrow"><div style="width:100%"><b>🧟 حملهٔ زامبی‌ها در قایم‌موشک</b><small>هر چند دقیقه یه موج زامبی از کف تالار بیرون میاد و میاد سراغت. با وسیله‌ها دورت رو کامل ببند تا یه پناهگاه امن داشته باشی، یا برو بالای یه برج وسیله؛ زامبی‌ها نه از وسیله‌ها رد می‌شن نه بالا میرن. اگه دووم بیاری جایزه می‌گیری. ${ZB.best?'بهترین رکوردت: موج '+fa(ZB.best)+'. ':''}موج بعدی: ${fa(ZB.wave)}</small>
+    <div class="wdseg" role="group" aria-label="حملهٔ زامبی‌ها" style="margin-top:.55rem">${[['off','🚫 خاموش'],['10','⏱️ هر ۱۰ دقیقه'],['15','⏱️ هر ۱۵ دقیقه']].map(([m,l])=>`<button type="button" data-zb-mode="${m}" class="${ZB.mode===m?'on':''}" aria-pressed="${ZB.mode===m}">${l}</button>`).join('')}</div>
+    <div class="wdseg" role="group" aria-label="سختی زامبی‌ها" style="margin-top:.45rem">${[['easy','😊 آسون'],['normal','🙂 معمولی'],['hard','😈 سخت'],['nightmare','💀 کابوس']].map(([m,l])=>`<button type="button" data-zb-diff="${m}" class="${ZB.diff===m?'on':''}" aria-pressed="${ZB.diff===m}">${l}</button>`).join('')}</div>
+    <div style="margin-top:.45rem"><button type="button" class="rb" id="zbTry">🧟 همین الان حمله کنن (تمرین)</button></div></div></div>`;
+}
+
 /* ===== HIDE-AND-SEEK CLEAN-UP =====
    Takes away every item the player added to the hide-and-seek hall (and statues standing in it);
    the game's own items go back to where they started. The rest of the game is not touched. */
@@ -6490,7 +6773,7 @@ function hsNextRound(){hsWallRestoreAll();HS.round++;hsGrowHall(HS.round);try{hs
     const opts=HS.spots.filter(s=>s!==HS.lastFrSpot);const sp=opts[(Math.random()*opts.length)|0];HS.lastFrSpot=sp;F.st='tohide';F.spot=sp;hsGo(sp.ent[0],sp.ent[1]);
     toast('🙈 چشم‌هات رو بستی؛ '+FR.name+' داره قایم می‌شه…',2600);}
   hsBatchAll();hsUI(true);arashSaveSoon();}
-function hsExit(){if(!HS.on)return;hsBatchClear();setTimeout(arashSaveSoon,0);hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
+function hsExit(){if(!HS.on)return;if(ZB.active)zbEnd('exit');hsBatchClear();setTimeout(arashSaveSoon,0);hsFeatureReset();hsAdventureEnd();if(G.sneak)setSneak(false);HS.alert=null;if(HS.alertSpr)HS.alertSpr.visible=false;{const al=$('#hsAlarm');if(al){al.style.opacity=0;al.dataset.k='';}const sb=$('#sneakBtn');if(sb)sb.hidden=true;}hsWallRestoreAll();if(G.pose==='hide'||G.pose==='eyes'){G.pose='stand';G.poseAt=null;}if(G.pose==='lie'||G.pose==='sit'||G.pose==='ground')standUp();HS.concern=null;HS.mySpot=null;HS.whistle=null;HS.whistleAnim=0;HS.on=false;HS.phase='off';HS.group.visible=false;
   FR.hsIn=null;FR.off=HS.frOff;FR.hsV=0;LIGHTS.pool.forEach((l,i)=>{l.position.copy(LIGHTS.poolHome[i]);l.distance=9;l.color.set(0xffa14a);l.intensity=TODS[TODi].lant;});
   G.pos.set(0,0,PILE.R+2);G.feet=0;G.vy=0;G.vel.set(0,0,0);G.grounded=true;G.eyeY=1.62;G.yaw=0;G.pitch=-.12;resetFriend();
   for(const id of ['hsBar','hsEyes','hsPeek'])$('#'+id).hidden=true;closePanel();toast('برگشتی به تالار خودت.',2000);}
@@ -9465,6 +9748,7 @@ function hsEditorOpenCore(){
   renderer.shadowMap.needsUpdate=true;
 }
 function hsEditorOpen(){
+  if(typeof ZB!=='undefined'&&ZB.active){toast('🧟 اول این موج زامبی رو رد کن، بعد بساز!',2400);return;}
   try{hsEditorOpenCore();}
   catch(err){
     console.error('خطا هنگام باز شدن نمایشگر تالار:',err);
