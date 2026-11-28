@@ -169,7 +169,6 @@ export class Game {
 
     this.player = new Player(this.outfitLook(), this.playerEvents());
     this.scene.add(this.player.char.root);
-    this.scene.add(this.player.char.scarf);
     this.applyUpgrades();
 
     this.chat.onMessage = (m) => this.ui.addMessage(m);
@@ -341,10 +340,10 @@ export class Game {
     this.scene.remove(old.root);
     if (old.scarf) this.scene.remove(old.scarf);
     old.dispose();
-    const ch = new (old.constructor)(this.outfitLook(), { scarf: true });
+    const ch = new (old.constructor)(this.outfitLook(), { scarf: false });
     ch.stepCb = old.stepCb;
     this.player.char = ch;
-    this.scene.add(ch.root, ch.scarf);
+    this.scene.add(ch.root);
     ch.root.position.copy(this.player.pos);
     this.player.char.stepCb = (sn) => this.onStep(sn);
   }
@@ -397,7 +396,7 @@ export class Game {
       this.bloom.threshold = this.world.bloom[2];
     }
     this.course = new Course(L, this.courseCtx());
-    this.bots = new BotManager(L, this.course, BOT_PERSONAS, BOT_LOOKS, { scarf: this.quality.botScarf, events: this.botEvents() });
+    this.bots = new BotManager(L, this.course, BOT_PERSONAS, BOT_LOOKS, { scarf: false, events: this.botEvents() });
     this.bots.addTo(this.scene);
     this.bots.reset();
     for (const b of this.bots.bots) this.ui.ensureTag(b.persona.id, b.persona.name, b.color);

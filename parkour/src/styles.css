@@ -136,7 +136,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 /* HUD */
 #hud { position: absolute; inset: 0; pointer-events: none; }
 #hud button { pointer-events: auto; }
-.hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
+.hud-top { position: absolute; z-index: 2; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
 .hud-left, .hud-right { display: flex; gap: 8px; align-items: center; }
 .hud-level { background: var(--glass); border: 1px solid var(--line); padding: 6px 14px; border-radius: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .hud-level small { display: block; font-size: 11px; color: var(--sky); font-weight: 700; }
@@ -160,7 +160,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .hint kbd { font-family: var(--font); background: rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 1px 7px; font-size: 12px; }
 
 /* لمسی */
-#touch { position: absolute; inset: 0; }
+#touch { position: absolute; inset: 0; pointer-events: none; }
+#touch .touch-zone, #touch .tbtn { pointer-events: auto; }
 .touch-zone { position: absolute; inset: 70px 0 0 0; touch-action: none; }
 .joy { position: absolute; width: 124px; height: 124px; border-radius: 50%; margin: -62px 0 0 -62px; background: radial-gradient(circle, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)); border: 2px solid rgba(255, 255, 255, 0.22); pointer-events: none; }
 .joy-knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.45)); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }

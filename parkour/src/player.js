@@ -9,7 +9,7 @@ const V3 = THREE.Vector3;
 
 export class Player {
   constructor(look, events) {
-    this.char = new Character(look, { scarf: true });
+    this.char = new Character(look, { scarf: false });
     this.events = events;
     this.pos = new V3();
     this.vel = new V3();

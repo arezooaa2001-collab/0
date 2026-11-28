@@ -136,8 +136,20 @@ export class Input {
     if (k.has('KeyA') || k.has('ArrowLeft')) mx -= 1;
     if (k.has('KeyD') || k.has('ArrowRight')) mx += 1;
     if (this.joy.active) {
-      mx += this.joy.x;
-      my -= this.joy.y;
+      let jx = this.joy.x, jy = -this.joy.y;
+      const jm = Math.hypot(jx, jy);
+      if (jm < 0.14) { jx = 0; jy = 0; }
+      else {
+        // اگر انگشت تقریباً مستقیم است، دقیقاً مستقیم برو (بدون کشیده شدن به چپ و راست)
+        let a = Math.atan2(jx, jy);
+        const snap = Math.PI / 2;
+        const near = Math.round(a / snap) * snap;
+        if (Math.abs(a - near) < 0.24) a = near;
+        const k = Math.min(1, (jm - 0.14) / 0.76);
+        jx = Math.sin(a) * k; jy = Math.cos(a) * k;
+      }
+      mx += jx;
+      my += jy;
     }
     let jumpHeld = k.has('Space') || this.jumpTouch;
     let slideHeld = this.slideTouch || k.has('ShiftLeft') || k.has('KeyC');

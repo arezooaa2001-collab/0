@@ -48,9 +48,9 @@ export class CameraRig {
     const hs = Math.hypot(player.vel.x, player.vel.z);
     const sn = clamp(hs / player.maxSpeed, 0, 1.4);
     // همراستا شدن خودکار پشت بازیکن
-    if (this.manualT > 0.9 && hs > 1.2 && player.knockT <= 0) {
+    if (this.manualT > 1.4 && hs > 1.2 && player.knockT <= 0) {
       const mvYaw = Math.atan2(player.vel.x, player.vel.z);
-      const rate = (player.wall ? 3.5 : 1.7) * Math.min(1, sn) * Math.min(1, (this.manualT - 0.9) * 1.5);
+      const rate = (player.wall ? 2.4 : 0.85) * Math.min(1, sn) * Math.min(1, (this.manualT - 1.4) * 1.2);
       this.yaw = dampAngle(this.yaw, mvYaw, rate, dt);
     }
     const basePitch = opts.mode === 'down' ? 0.42 : opts.mode === 'up' ? 0.22 : 0.3;
