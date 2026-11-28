@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark, no action bar, black window so there is no white flash before WebGL starts. -->
+    <style name="Base.Theme.OujParkour" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/ouj_black</item>
+        <item name="android:colorBackground">@color/ouj_black</item>
+        <item name="android:colorPrimary">@color/ouj_navy</item>
+        <item name="android:colorPrimaryDark">@color/ouj_black</item>
+        <item name="android:colorAccent">@color/ouj_orange</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@color/ouj_black</item>
+        <item name="android:navigationBarColor">@color/ouj_black</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.OujParkour" parent="Base.Theme.OujParkour" />
+</resources>

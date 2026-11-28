@@ -1,0 +1,21 @@
+{
+  "name": "ouj-parkour",
+  "version": "1.0.0",
+  "private": true,
+  "description": "پارکور اوج — بازی پارکور سه‌بعدی با ۱۰۰۰ مرحله",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch",
+    "serve": "python3 -m http.server 4180 -d dist"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.14.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "vazirmatn": "33.0.3"
+  }
+}

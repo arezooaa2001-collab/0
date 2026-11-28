@@ -1,0 +1,157 @@
+<canvas id="game" aria-label="صحنهٔ بازی"></canvas>
+<div id="ui">
+  <div id="tags"></div>
+  <section id="loading" class="screen show">
+    <div class="load-center">
+      <div class="logo-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><defs><linearGradient id="lg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ff7a3d"/><stop offset="1" stop-color="#ff3d8b"/></linearGradient></defs><path d="M4 54 L24 22 L33 34 L42 14 L60 54 Z" fill="url(#lg)"/><path d="M42 14 L47 24 L39 24 Z" fill="#fff" opacity=".9"/><circle cx="48" cy="10" r="4" fill="#3de1ff"/></svg></div>
+      <h1 class="load-title">پارکور <b>اوج</b></h1>
+      <div class="load-bar"><i id="loadFill"></i></div>
+      <p id="loadTip" class="load-tip">در حال ساخت دنیای پارکور…</p>
+    </div>
+  </section>
+
+  <section id="menu" class="screen">
+    <header class="topbar">
+      <div class="pills">
+        <span class="pill coin" title="سکه‌ها"><i class="coin-ic"></i><b id="menuCoins">۰</b></span>
+        <span class="pill"><small>بالاترین مرحله</small><b id="menuMax">۱</b></span>
+      </div>
+      <button class="icon-btn" id="btnMenuChat" title="چت" aria-label="چت">💬</button>
+    </header>
+    <div class="menu-main">
+      <div class="title-block">
+        <p class="eyebrow">۱۰۰۰ مرحله · ۳ حالت · ۶ رقیب</p>
+        <h1 class="game-title">پارکور <span>اوج</span></h1>
+        <p class="tagline">بدو، بپر، از دیوار بالا برو و قبل از همه به خط پایان برس.</p>
+      </div>
+      <nav class="menu-buttons">
+        <button id="btnPlay" class="btn primary big"><span class="play-ic">▶</span><span><b id="playLabel">شروع مرحله ۱</b><small id="playSub">رو به جلو</small></span></button>
+        <div class="menu-grid">
+          <button id="btnLevels" class="btn">🗺️ مراحل</button>
+          <button id="btnShop" class="btn">🛒 فروشگاه</button>
+          <button id="btnSettings" class="btn">⚙️ تنظیمات</button>
+        </div>
+      </nav>
+      <div class="mode-strip" id="modeStrip" role="radiogroup" aria-label="حالت پارکور"></div>
+    </div>
+  </section>
+
+  <section id="levels" class="screen panel-screen">
+    <div class="panel">
+      <header class="panel-head"><h2>انتخاب مرحله</h2><button class="icon-btn close" data-back aria-label="بازگشت">✕</button></header>
+      <div class="pager"><button class="btn small" id="lvPrev">‹ قبلی</button><span id="lvPage">۱–۵۰</span><button class="btn small" id="lvNext">بعدی ›</button></div>
+      <div class="level-grid" id="levelGrid"></div>
+    </div>
+  </section>
+
+  <section id="shop" class="screen panel-screen">
+    <div class="panel">
+      <header class="panel-head"><h2>فروشگاه</h2><span class="pill coin"><i class="coin-ic"></i><b class="coinsNow">۰</b></span><button class="icon-btn close" data-back aria-label="بازگشت">✕</button></header>
+      <div class="tabs" id="shopTabs"><button class="tab active" data-tab="up">ارتقای توانایی</button><button class="tab" data-tab="outfit">لباس دونده</button></div>
+      <div class="shop-body" id="shopBody"></div>
+    </div>
+  </section>
+
+  <section id="settings" class="screen panel-screen">
+    <div class="panel wide">
+      <header class="panel-head"><h2>تنظیمات</h2><span class="pill coin"><i class="coin-ic"></i><b class="coinsNow">۰</b></span><button class="icon-btn close" data-back aria-label="بازگشت">✕</button></header>
+      <div class="tabs scroll" id="setTabs">
+        <button class="tab active" data-tab="mode">حالت پارکور</button>
+        <button class="tab" data-tab="light">نورپردازی 💰</button>
+        <button class="tab" data-tab="color">رنگ پارکور 💰</button>
+        <button class="tab" data-tab="gfx">گرافیک</button>
+        <button class="tab" data-tab="ctrl">کنترل و صدا</button>
+        <button class="tab" data-tab="ai">چت هوشمند</button>
+      </div>
+      <div class="set-body" id="setBody"></div>
+    </div>
+  </section>
+
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="hud-level"><small id="hudMode">رو به جلو</small><b id="hudLevel">مرحله ۱</b></div>
+        <div class="hud-coins"><i class="coin-ic"></i><b id="hudCoins">۰</b></div>
+      </div>
+      <div class="hud-center">
+        <div class="race-bar" id="raceBar"><div class="race-track"></div></div>
+        <div class="hud-time" id="hudTime">۰۰:۰۰.۰۰</div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-rank"><b id="hudRank">۱</b><small id="hudRankOf">از ۷</small></div>
+        <button class="icon-btn" id="btnChat" aria-label="چت">💬<i class="badge" id="chatBadge" hidden></i></button>
+        <button class="icon-btn" id="btnPause" aria-label="توقف">⏸</button>
+      </div>
+    </div>
+    <div class="hud-fps" id="hudFps" hidden></div>
+    <div class="hint" id="hint" hidden></div>
+  </div>
+
+  <div id="touch" hidden>
+    <div class="touch-zone" id="touchZone"></div>
+    <div class="joy" id="joy" hidden><div class="joy-knob" id="joyKnob"></div></div>
+    <button class="tbtn slide" id="tSlide" aria-label="سُر خوردن">⤵<small>سُر</small></button>
+    <button class="tbtn jump" id="tJump" aria-label="پرش">⤴<small>پرش</small></button>
+  </div>
+
+  <div id="countdown" aria-live="assertive"></div>
+  <div id="flash"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <div id="pause" class="overlay" hidden>
+    <div class="card">
+      <h2>توقف</h2>
+      <button class="btn primary" id="pResume">ادامه</button>
+      <button class="btn" id="pRestart">شروع دوباره (مسیر جدید)</button>
+      <button class="btn" id="pCheckpoint">برگشت به آخرین پرچم</button>
+      <button class="btn" id="pSettings">تنظیمات</button>
+      <button class="btn ghost" id="pMenu">منوی اصلی</button>
+    </div>
+  </div>
+
+  <div id="results" class="overlay" hidden>
+    <div class="card results">
+      <p class="eyebrow" id="resLevel">مرحله ۱</p>
+      <h2 id="resTitle">اول شدی!</h2>
+      <div class="podium" id="resPodium"></div>
+      <div class="res-stats">
+        <div><small>زمان</small><b id="resTime">۰۰:۰۰</b></div>
+        <div><small>رتبه</small><b id="resRank">۱</b></div>
+        <div><small>سقوط</small><b id="resFalls">۰</b></div>
+      </div>
+      <div class="res-coins"><i class="coin-ic"></i><b id="resCoins">+۰</b><small id="resCoinsDetail"></small></div>
+      <div class="unlock" id="resUnlock" hidden></div>
+      <div class="res-buttons">
+        <button class="btn primary" id="rNext">مرحلهٔ بعد ›</button>
+        <button class="btn" id="rRetry">دوباره (مسیر جدید)</button>
+        <button class="btn ghost" id="rMenu">منو</button>
+      </div>
+    </div>
+  </div>
+
+  <aside id="chat" hidden aria-label="چت با بازیکن‌ها">
+    <header class="chat-head">
+      <div><b>چت مسابقه</b><small id="chatMode">پیام‌های آماده</small></div>
+      <button class="icon-btn" id="chatClose" aria-label="بستن چت">✕</button>
+    </header>
+    <div class="chat-log" id="chatLog"></div>
+    <div class="typing" id="chatTyping" hidden></div>
+    <div class="sugg" id="sugg" hidden>
+      <div class="sugg-cats" id="suggCats"></div>
+      <div class="sugg-list" id="suggList"></div>
+    </div>
+    <form class="chat-input" id="chatForm" autocomplete="off">
+      <button type="button" class="icon-btn" id="suggBtn" aria-label="پیام‌های پیشنهادی">💡</button>
+      <input id="chatText" maxlength="300" placeholder="هرچی می‌خوای بگو…" aria-label="متن پیام">
+      <button type="submit" class="icon-btn send" aria-label="ارسال">➤</button>
+    </form>
+  </aside>
+
+  <div id="modal" class="overlay" hidden>
+    <div class="card small">
+      <h3 id="modalTitle"></h3>
+      <p id="modalText"></p>
+      <div class="res-buttons"><button class="btn primary" id="modalOk">باشه</button><button class="btn ghost" id="modalCancel">بی‌خیال</button></div>
+    </div>
+  </div>
+</div>

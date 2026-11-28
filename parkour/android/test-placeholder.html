@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>پارکور اوج — placeholder</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; overflow: hidden;
+    font: 15px/1.5 system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center; direction: ltr; pointer-events: none; }
+  #hud > * { pointer-events: auto; }
+  .pill { background: rgba(10,16,51,.8); border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 6px 12px; }
+  button { font: inherit; color: #fff; background: linear-gradient(135deg,#ff9a1f,#e0218a); border: 0;
+    border-radius: 999px; padding: 8px 14px; }
+  #log { position: fixed; bottom: 10px; left: 12px; right: 12px; direction: ltr; font: 12px/1.4 monospace;
+    color: #9fb0ff; white-space: pre-wrap; max-height: 35vh; overflow: hidden; pointer-events: none; }
+  #menu { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6); font-size: 22px; }
+  #menu.open { display: flex; }
+  #warn { position: fixed; top: 50%; left: 0; right: 0; text-align: center; transform: translateY(-50%);
+    font-size: 18px; color: #ffd27a; pointer-events: none; text-shadow: 0 2px 6px #000; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="warn">PLACEHOLDER — the real game (parkour/dist/index.html) was not built.<br>پارکور اوج: نسخهٔ آزمایشی</div>
+<div id="hud">
+  <span class="pill" id="count">launches: ?</span>
+  <button id="tap">+1</button>
+  <button id="vib">vibrate</button>
+  <button id="menuBtn">menu</button>
+  <button id="exit">exit</button>
+  <span class="pill" id="env"></span>
+</div>
+<div id="menu">Menu open — press Back to close it</div>
+<div id="log"></div>
+<script>
+(function () {
+  'use strict';
+  var logEl = document.getElementById('log');
+  function log(msg) {
+    var line = new Date().toISOString().slice(11, 19) + ' ' + msg;
+    logEl.textContent = (line + '\n' + logEl.textContent).split('\n').slice(0, 12).join('\n');
+    console.log(msg);
+  }
+
+  // ---- localStorage counter (persists across launches if the origin is stable)
+  var KEY = 'ouj-placeholder-count';
+  function readCount() { try { return parseInt(localStorage.getItem(KEY) || '0', 10) || 0; } catch (e) { return -1; } }
+  function writeCount(n) { try { localStorage.setItem(KEY, String(n)); } catch (e) { log('localStorage error: ' + e); } }
+  var count = readCount() + 1;
+  writeCount(count);
+  var countEl = document.getElementById('count');
+  function showCount() { countEl.textContent = 'count: ' + count; }
+  showCount();
+  document.getElementById('tap').onclick = function () { count++; writeCount(count); showCount(); };
+
+  // ---- Android bridge
+  var bridge = window.AndroidBridge;
+  var isAndroid = !!(bridge && bridge.isAndroid && bridge.isAndroid());
+  document.getElementById('env').textContent = (isAndroid ? 'AndroidBridge OK' : 'browser') + ' | ' + location.origin;
+  document.getElementById('vib').onclick = function () {
+    if (isAndroid) bridge.vibrate(40); else if (navigator.vibrate) navigator.vibrate(40);
+    log('vibrate(40)');
+  };
+  document.getElementById('exit').onclick = function () { if (isAndroid) bridge.exitApp(); else log('exitApp: not on Android'); };
+
+  // ---- Back-button contract: return true when the page handled it.
+  var menu = document.getElementById('menu');
+  document.getElementById('menuBtn').onclick = function () { menu.classList.add('open'); };
+  menu.onclick = function () { menu.classList.remove('open'); };
+  window.__onAndroidBack = function () {
+    if (menu.classList.contains('open')) { menu.classList.remove('open'); log('back: closed menu'); return true; }
+    log('back: not handled -> app goes to background');
+    return false;
+  };
+  window.addEventListener('androidpause', function () { log('event: androidpause'); });
+  window.addEventListener('androidresume', function () { log('event: androidresume'); });
+
+  // ---- WebGL: spinning colored triangle
+  var canvas = document.getElementById('c');
+  var gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  if (!gl) { log('WebGL NOT available'); return; }
+  log((typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext ? 'WebGL2' : 'WebGL1') +
+      ' | ' + gl.getParameter(gl.VERSION));
+  function shader(type, src) {
+    var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, shader(gl.VERTEX_SHADER,
+    'attribute vec2 p; attribute vec3 c; uniform float t; uniform float aspect; varying vec3 v;' +
+    'void main(){ float s=sin(t), k=cos(t); vec2 r=vec2(p.x*k-p.y*s, p.x*s+p.y*k);' +
+    ' gl_Position=vec4(r.x/aspect, r.y, 0.0, 1.0); v=c; }'));
+  gl.attachShader(prog, shader(gl.FRAGMENT_SHADER,
+    'precision mediump float; varying vec3 v; void main(){ gl_FragColor=vec4(v,1.0); }'));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  var buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    0.0, 0.7,   1.0, 0.6, 0.12,
+   -0.6, -0.4,  0.88, 0.13, 0.54,
+    0.6, -0.4,  0.2, 0.3, 1.0
+  ]), gl.STATIC_DRAW);
+  var aP = gl.getAttribLocation(prog, 'p'), aC = gl.getAttribLocation(prog, 'c');
+  gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 20, 0);
+  gl.enableVertexAttribArray(aC); gl.vertexAttribPointer(aC, 3, gl.FLOAT, false, 20, 8);
+  var uT = gl.getUniformLocation(prog, 't'), uA = gl.getUniformLocation(prog, 'aspect');
+  function resize() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(innerWidth * dpr); canvas.height = Math.round(innerHeight * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  window.addEventListener('resize', resize); resize();
+  var t0 = performance.now();
+  (function frame(now) {
+    gl.clearColor(0.04, 0.06, 0.2, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(uT, (now - t0) / 1000); gl.uniform1f(uA, canvas.width / canvas.height);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    requestAnimationFrame(frame);
+  })(t0);
+})();
+</script>
+</body>
+</html>

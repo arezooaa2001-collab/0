@@ -1,0 +1,89 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signing material lives in ../keystore (gitignored). build-apk.sh creates it on
+// first run, or decodes it from CI secrets. Without it the release APK is unsigned.
+def keystorePropsFile = rootProject.file('keystore/keystore.properties')
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
+android {
+    namespace = 'com.oujparkour.game'
+    compileSdk = 35
+    buildToolsVersion = '35.0.0'
+
+    defaultConfig {
+        applicationId = 'com.oujparkour.game'
+        minSdk = 24
+        targetSdk = 35
+        // Override per release: build-apk.sh passes -PversionCode / -PversionName
+        // from PARKOUR_VERSION_CODE / PARKOUR_VERSION_NAME when they are set.
+        versionCode = (project.findProperty('versionCode') ?: '1') as int
+        versionName = (project.findProperty('versionName') ?: '1.0.0') as String
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile = rootProject.file(keystoreProps.getProperty('storeFile'))
+                storePassword = keystoreProps.getProperty('storePassword')
+                keyAlias = keystoreProps.getProperty('keyAlias')
+                keyPassword = keystoreProps.getProperty('keyPassword')
+            }
+            // v1 (JAR) + v2 (APK Signature Scheme v2): installs on Android 7.0+.
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = false
+            enableV4Signing = false
+        }
+    }
+
+    buildTypes {
+        release {
+            // Thin WebView shell: nothing worth shrinking or obfuscating.
+            minifyEnabled = false
+            shrinkResources = false
+            debuggable = false
+            vcsInfo.include = false
+            signingConfig = keystorePropsFile.exists() ? signingConfigs.release : null
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/*.version'] // androidx version stamps, unused at runtime
+        }
+    }
+
+    // Do not embed the Google-encrypted dependency report in the APK.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+}
+
+// androidx.annotation(-experimental) drag in kotlin-stdlib, but nothing in this
+// Java-only app (or in androidx.webkit/core) uses it at runtime. With minify off it
+// would add ~2 MB of dex, so keep it out of the APK (it stays on the compile classpath).
+configurations.matching { it.name.endsWith('RuntimeClasspath') }.configureEach {
+    exclude group: 'org.jetbrains.kotlin'
+    exclude group: 'org.jetbrains', module: 'annotations'
+}
+
+dependencies {
+    // WebViewAssetLoader: serves APK assets at https://appassets.androidplatform.net/assets/
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

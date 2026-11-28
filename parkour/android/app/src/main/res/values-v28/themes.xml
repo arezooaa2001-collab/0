@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OujParkour" parent="Base.Theme.OujParkour">
+        <!-- Draw under the notch / punch hole on the short edges (landscape sides). -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

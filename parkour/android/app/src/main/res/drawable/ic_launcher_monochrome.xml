@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ themed icon: same shapes, alpha only (the launcher tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M26,76L37,60L44,66L60,40L84,76Z" />
+    <path android:fillColor="#80FFFFFF" android:pathData="M60,40L66,49L63.5,47.6L60.5,51.5L57.5,48L54.5,49Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M47,27.5m-4.2,0a4.2,4.2 0,1 1,8.4 0a4.2,4.2 0,1 1,-8.4 0" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M45,33.5L39,42.5M45,33.5L51,37L55.5,33M45,33.5L39.5,32L35.5,27.5M39,42.5L47,45.5L44,52.5M39,42.5L33.5,48.5L26,47.5" />
+</vector>

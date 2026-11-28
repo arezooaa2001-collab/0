@@ -1,0 +1,18 @@
+# Gradle / Android build outputs
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+.cxx/
+captures/
+
+# Signing material: never commit it. Back it up somewhere safe instead;
+# losing it means users cannot update the installed app.
+keystore/
+*.jks
+*.keystore
+
+# The game is copied in by build-apk.sh from ../dist (or the placeholder).
+app/src/main/assets/

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OujParkour" parent="Base.Theme.OujParkour">
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <!-- Android 12+ system splash: the launcher art on the same navy as the icon. -->
+        <item name="android:windowSplashScreenBackground">@color/ouj_navy</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ouj_navy</item>
+    </style>
+</resources>

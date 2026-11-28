@@ -1,0 +1,66 @@
+name: Parkour APK
+
+on:
+  push:
+    paths:
+      - 'parkour/**'
+      - '.github/workflows/parkour-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parkour-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: parkour/package-lock.json
+
+      - name: Build game (parkour/dist/index.html)
+        working-directory: parkour
+        run: |
+          npm ci
+          npm run build
+          test -f dist/index.html
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+          cache-dependency-path: |
+            parkour/android/**/*.gradle
+            parkour/android/gradle/wrapper/gradle-wrapper.properties
+
+      # The runner already ships an Android SDK at $ANDROID_HOME; the script only
+      # installs whatever platform/build-tools are missing. Optional secrets make CI
+      # sign with your permanent key (otherwise every run uses a throwaway key and the
+      # APK cannot update an install signed with a different key):
+      #   PARKOUR_KEYSTORE_BASE64  (base64 -w0 release.jks), PARKOUR_KEYSTORE_PASSWORD,
+      #   PARKOUR_KEY_ALIAS (default oujparkour), PARKOUR_KEY_PASSWORD (default = store password)
+      - name: Build APK
+        env:
+          PARKOUR_REQUIRE_DIST: '1'
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.PARKOUR_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.PARKOUR_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.PARKOUR_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.PARKOUR_KEY_PASSWORD }}
+        run: bash parkour/android/build-apk.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OujParkour-apk
+          path: parkour/release/OujParkour.apk
+          if-no-files-found: error
+          retention-days: 30
